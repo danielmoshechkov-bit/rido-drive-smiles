@@ -5,12 +5,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { useCreateWorkshopOrder, useWorkshopClients, useWorkshopVehicles, useCreateWorkshopOrderItem } from '@/hooks/useWorkshop';
 import { WorkshopAddVehicleDialog } from './WorkshopAddVehicleDialog';
 import { WorkshopAddClientDialog } from './WorkshopAddClientDialog';
 import { Plus, ClipboardList, Loader2, Car, Users, Camera, X, MessageSquare, AlertCircle, Mail, Phone } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface Props {
   open: boolean;
@@ -18,9 +20,7 @@ interface Props {
   providerId: string;
 }
 
-interface TaskPoint {
-  text: string;
-}
+interface TaskPoint { text: string; }
 
 const PHOTO_SLOTS = [
   { key: 'front', label: 'Przód' },
@@ -33,6 +33,15 @@ const PHOTO_SLOTS = [
 
 const fuelLevels = ['Rezerwa', '1/4', '1/2', '3/4', 'Pełny'];
 
+const DEFAULT_CHECKLIST = {
+  return_parts: false,
+  registration_doc: true,
+  test_drive: false,
+  refill_fluids: true,
+  refill_lights: true,
+  wash_vehicle: false,
+};
+
 function generateOrderNumber() {
   const now = new Date();
   const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -42,10 +51,10 @@ function generateOrderNumber() {
 }
 
 export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props) {
+  const qc = useQueryClient();
   const { data: clients = [] } = useWorkshopClients(providerId);
   const { data: vehicles = [] } = useWorkshopVehicles(providerId);
   const createOrder = useCreateWorkshopOrder();
-  const createItem = useCreateWorkshopOrderItem();
 
   const [vehicleId, setVehicleId] = useState('');
   const [clientId, setClientId] = useState('');
@@ -64,12 +73,11 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
   const [showSmsConfirm, setShowSmsConfirm] = useState(false);
   const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
-
-  // Store newly created vehicle/client data directly (so label shows before query refresh)
   const [createdVehicleData, setCreatedVehicleData] = useState<any>(null);
   const [createdClientData, setCreatedClientData] = useState<any>(null);
+  const [checklist, setChecklist] = useState(DEFAULT_CHECKLIST);
 
-  // SMS/Email confirmation state
+  // SMS/Email
   const [sendMethod, setSendMethod] = useState<'sms' | 'email'>('sms');
   const [manualPhone, setManualPhone] = useState('');
   const [manualEmail, setManualEmail] = useState('');
@@ -79,46 +87,41 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
-      if (vehicleDropdownRef.current && !vehicleDropdownRef.current.contains(e.target as Node)) {
-        setShowVehicleList(false);
-      }
-      if (clientDropdownRef.current && !clientDropdownRef.current.contains(e.target as Node)) {
-        setShowClientList(false);
-      }
+      if (vehicleDropdownRef.current && !vehicleDropdownRef.current.contains(e.target as Node)) setShowVehicleList(false);
+      if (clientDropdownRef.current && !clientDropdownRef.current.contains(e.target as Node)) setShowClientList(false);
     };
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
+  const allVehicles = useMemo(() => {
+    if (createdVehicleData && !vehicles.find((v: any) => v.id === createdVehicleData.id)) {
+      return [createdVehicleData, ...vehicles];
+    }
+    return vehicles;
+  }, [vehicles, createdVehicleData]);
+
   const filteredVehicles = useMemo(() => {
-    if (!vehicleSearch) return vehicles;
+    if (!vehicleSearch) return allVehicles;
     const s = vehicleSearch.toLowerCase();
-    return vehicles.filter((v: any) =>
-      v.brand?.toLowerCase().includes(s) ||
-      v.model?.toLowerCase().includes(s) ||
-      v.plate?.toLowerCase().includes(s) ||
-      v.vin?.toLowerCase().includes(s)
+    return allVehicles.filter((v: any) =>
+      v.brand?.toLowerCase().includes(s) || v.model?.toLowerCase().includes(s) ||
+      v.plate?.toLowerCase().includes(s) || v.vin?.toLowerCase().includes(s)
     );
-  }, [vehicles, vehicleSearch]);
+  }, [allVehicles, vehicleSearch]);
 
   const filteredClients = useMemo(() => {
     if (!clientSearch) return clients;
     const s = clientSearch.toLowerCase();
     return clients.filter((c: any) =>
-      c.first_name?.toLowerCase().includes(s) ||
-      c.last_name?.toLowerCase().includes(s) ||
-      c.company_name?.toLowerCase().includes(s) ||
-      c.nip?.includes(s)
+      c.first_name?.toLowerCase().includes(s) || c.last_name?.toLowerCase().includes(s) ||
+      c.company_name?.toLowerCase().includes(s) || c.nip?.includes(s)
     );
   }, [clients, clientSearch]);
 
-  // Use createdVehicleData if vehicle was just created, otherwise find from query
-  const selectedVehicle = createdVehicleData?.id === vehicleId ? createdVehicleData : vehicles.find((v: any) => v.id === vehicleId);
+  const selectedVehicle = allVehicles.find((v: any) => v.id === vehicleId);
   const selectedClient = createdClientData?.id === clientId ? createdClientData : clients.find((c: any) => c.id === clientId);
 
-  const vehicleLabel = selectedVehicle
-    ? `${selectedVehicle.brand || ''} ${selectedVehicle.model || ''} — ${selectedVehicle.plate || 'brak nr rej.'}`.trim()
-    : '';
   const clientLabel = selectedClient
     ? selectedClient.client_type === 'company'
       ? selectedClient.company_name
@@ -130,36 +133,26 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
 
   const addTaskPoint = () => setTaskPoints([...taskPoints, { text: '' }]);
   const updateTaskPoint = (index: number, text: string) => {
-    const updated = [...taskPoints];
-    updated[index] = { text };
-    setTaskPoints(updated);
+    const updated = [...taskPoints]; updated[index] = { text }; setTaskPoints(updated);
   };
   const removeTaskPoint = (index: number) => {
     if (taskPoints.length <= 1) return;
     setTaskPoints(taskPoints.filter((_, i) => i !== index));
   };
 
-  const handlePhotoChange = (key: string, file: File | null) => {
-    setPhotos(prev => ({ ...prev, [key]: file }));
-  };
+  const handlePhotoChange = (key: string, file: File | null) => setPhotos(prev => ({ ...prev, [key]: file }));
 
   const validate = () => {
     const errs: Record<string, string> = {};
     if (!vehicleId) errs.vehicle = 'Wybierz lub dodaj pojazd';
-    const hasDescription = taskPoints.some(p => p.text.trim());
-    if (!hasDescription) errs.description = 'Dodaj przynajmniej jedno zadanie';
+    if (!taskPoints.some(p => p.text.trim())) errs.description = 'Dodaj przynajmniej jedno zadanie';
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
 
   const handleSubmit = async () => {
     if (!validate()) return;
-
-    const descriptionText = taskPoints
-      .filter(p => p.text.trim())
-      .map((p, i) => `${i + 1}. ${p.text.trim()}`)
-      .join('\n');
-
+    const descriptionText = taskPoints.filter(p => p.text.trim()).map((p, i) => `${i + 1}. ${p.text.trim()}`).join('\n');
     const order = await createOrder.mutateAsync({
       provider_id: providerId,
       order_number: generateOrderNumber(),
@@ -172,19 +165,15 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
       internal_notes: clientNotes || null,
       status_name: 'Przyjęcie do serwisu',
     });
-
     setCreatedOrderId(order.id);
     setSendMethod(clientPhone ? 'sms' : clientEmail ? 'email' : 'sms');
-    setManualPhone('');
-    setManualEmail('');
+    setManualPhone(''); setManualEmail('');
     setShowSmsConfirm(true);
   };
 
   const handleSendConfirmation = async () => {
     const phone = clientPhone || manualPhone;
     const email = clientEmail || manualEmail;
-
-    // Save contact info to client if entered manually
     if (clientId && (manualPhone || manualEmail)) {
       const updates: any = {};
       if (manualPhone && !clientPhone) updates.phone = manualPhone;
@@ -193,37 +182,25 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
         await (supabase as any).from('workshop_clients').update(updates).eq('id', clientId);
       }
     }
-
-    if (sendMethod === 'sms' && phone) {
-      toast.success(`SMS potwierdzenia wysłany na ${phone}`);
-    } else if (sendMethod === 'email' && email) {
-      toast.success(`E-mail potwierdzenia wysłany na ${email}`);
-    } else {
-      toast.info('Brak danych kontaktowych — pomijam wysyłkę');
-    }
-
-    resetForm();
-    onOpenChange(false);
+    if (sendMethod === 'sms' && phone) toast.success(`SMS potwierdzenia wysłany na ${phone}`);
+    else if (sendMethod === 'email' && email) toast.success(`E-mail potwierdzenia wysłany na ${email}`);
+    else toast.info('Brak danych kontaktowych — pomijam wysyłkę');
+    resetForm(); onOpenChange(false);
   };
 
-  const handleSkip = () => {
-    resetForm();
-    onOpenChange(false);
-  };
+  const handleSkip = () => { resetForm(); onOpenChange(false); };
 
   const resetForm = () => {
-    setVehicleId(''); setClientId('');
-    setTaskPoints([{ text: '' }]);
+    setVehicleId(''); setClientId(''); setTaskPoints([{ text: '' }]);
     setDamageDescription(''); setMileage(''); setFuelLevel(''); setClientNotes('');
     setPhotos({}); setCreatedOrderId(null); setShowSmsConfirm(false); setErrors({});
     setCreatedVehicleData(null); setCreatedClientData(null);
     setManualPhone(''); setManualEmail(''); setSendMethod('sms');
+    setChecklist(DEFAULT_CHECKLIST);
   };
 
   const resetAndClose = () => { resetForm(); onOpenChange(false); };
-
   const currentContact = sendMethod === 'sms' ? (clientPhone || manualPhone) : (clientEmail || manualEmail);
-  const hasContact = !!currentContact;
 
   return (
     <>
@@ -236,81 +213,49 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                   <ClipboardList className="h-8 w-8 text-primary" />
                 </div>
                 <h3 className="text-xl font-bold">Zlecenie utworzone!</h3>
-                <p className="text-muted-foreground">
-                  Czy chcesz wysłać potwierdzenie przyjęcia pojazdu do klienta?
-                </p>
+                <p className="text-muted-foreground">Czy chcesz wysłać potwierdzenie przyjęcia pojazdu do klienta?</p>
               </div>
-
-              {/* Method choice */}
               <div className="space-y-4">
                 <Label className="text-sm font-semibold">Sposób wysyłki</Label>
                 <div className="flex gap-2 justify-center">
-                  <Button
-                    variant={sendMethod === 'sms' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setSendMethod('sms')}
-                    className="gap-2"
-                  >
+                  <Button variant={sendMethod === 'sms' ? 'default' : 'outline'} size="sm" onClick={() => setSendMethod('sms')} className="gap-2">
                     <Phone className="h-4 w-4" /> SMS
                   </Button>
-                  <Button
-                    variant={sendMethod === 'email' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setSendMethod('email')}
-                    className="gap-2"
-                  >
+                  <Button variant={sendMethod === 'email' ? 'default' : 'outline'} size="sm" onClick={() => setSendMethod('email')} className="gap-2">
                     <Mail className="h-4 w-4" /> E-mail
                   </Button>
                 </div>
-
                 {sendMethod === 'sms' && (
                   <div className="space-y-2">
                     {clientPhone ? (
-                      <p className="text-sm text-center">
-                        Wiadomość zostanie wysłana na numer: <span className="font-semibold text-foreground">{clientPhone}</span>
-                      </p>
+                      <p className="text-sm text-center">Na numer: <span className="font-semibold text-foreground">{clientPhone}</span></p>
                     ) : (
                       <div className="space-y-1.5 max-w-sm mx-auto">
-                        <Label className="text-xs text-destructive font-medium">Brak numeru telefonu — wpisz ręcznie</Label>
+                        <Label className="text-xs text-destructive font-medium">Brak numeru — wpisz ręcznie</Label>
                         <div className="flex gap-2">
                           <span className="flex items-center px-3 border rounded-md bg-muted text-sm">+48</span>
-                          <Input
-                            value={manualPhone}
-                            onChange={e => setManualPhone(e.target.value)}
-                            placeholder="Numer telefonu"
-                          />
+                          <Input value={manualPhone} onChange={e => setManualPhone(e.target.value)} placeholder="Numer telefonu" />
                         </div>
-                        <p className="text-xs text-muted-foreground">Numer zostanie zapisany do karty klienta</p>
                       </div>
                     )}
                   </div>
                 )}
-
                 {sendMethod === 'email' && (
                   <div className="space-y-2">
                     {clientEmail ? (
-                      <p className="text-sm text-center">
-                        Wiadomość zostanie wysłana na: <span className="font-semibold text-foreground">{clientEmail}</span>
-                      </p>
+                      <p className="text-sm text-center">Na adres: <span className="font-semibold text-foreground">{clientEmail}</span></p>
                     ) : (
                       <div className="space-y-1.5 max-w-sm mx-auto">
-                        <Label className="text-xs text-destructive font-medium">Brak adresu e-mail — wpisz ręcznie</Label>
-                        <Input
-                          type="email"
-                          value={manualEmail}
-                          onChange={e => setManualEmail(e.target.value)}
-                          placeholder="Adres e-mail"
-                        />
-                        <p className="text-xs text-muted-foreground">Adres zostanie zapisany do karty klienta</p>
+                        <Label className="text-xs text-destructive font-medium">Brak e-mail — wpisz ręcznie</Label>
+                        <Input type="email" value={manualEmail} onChange={e => setManualEmail(e.target.value)} placeholder="E-mail" />
                       </div>
                     )}
                   </div>
                 )}
               </div>
-
               <div className="flex justify-center gap-3">
                 <Button variant="outline" onClick={handleSkip}>Nie, pomiń</Button>
-                <Button onClick={handleSendConfirmation} className="gap-2" disabled={!hasContact}>
+                <Button onClick={handleSendConfirmation} className="gap-2" disabled={!currentContact}>
                   {sendMethod === 'sms' ? <MessageSquare className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
                   {sendMethod === 'sms' ? 'Wyślij SMS' : 'Wyślij e-mail'}
                 </Button>
@@ -323,7 +268,6 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                   <ClipboardList className="h-5 w-5" /> Przyjęcie pojazdu
                 </DialogTitle>
               </DialogHeader>
-
               <div className="space-y-6">
                 {/* Vehicle & Client */}
                 <div className="grid grid-cols-2 gap-6">
@@ -350,11 +294,7 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                           placeholder="Pojazd (np. rejestracja, marka...)"
                           className={errors.vehicle ? 'border-destructive' : ''}
                         />
-                        {errors.vehicle && (
-                          <p className="text-xs text-destructive mt-1 flex items-center gap-1">
-                            <AlertCircle className="h-3 w-3" /> {errors.vehicle}
-                          </p>
-                        )}
+                        {errors.vehicle && <p className="text-xs text-destructive mt-1 flex items-center gap-1"><AlertCircle className="h-3 w-3" /> {errors.vehicle}</p>}
                         {showVehicleList && (
                           <div className="absolute z-50 w-full mt-1 border-2 border-border rounded-lg bg-background shadow-xl max-h-60 overflow-y-auto">
                             <button className="w-full text-left px-3 py-2.5 hover:bg-accent text-sm flex items-center gap-2 border-b font-medium" onClick={() => { setShowVehicleList(false); setShowAddVehicle(true); }}>
@@ -362,14 +302,9 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                             </button>
                             {filteredVehicles.map((v: any) => (
                               <button key={v.id} className="w-full text-left px-3 py-2.5 hover:bg-accent text-sm transition-colors" onClick={() => {
-                                setVehicleId(v.id);
-                                setCreatedVehicleData(null);
-                                setShowVehicleList(false);
-                                setVehicleSearch('');
+                                setVehicleId(v.id); setCreatedVehicleData(null); setShowVehicleList(false); setVehicleSearch('');
                                 setErrors(e => { const { vehicle, ...rest } = e; return rest; });
-                                if (v.owner_client_id && !clientId) {
-                                  setClientId(v.owner_client_id);
-                                }
+                                if (v.owner_client_id && !clientId) setClientId(v.owner_client_id);
                               }}>
                                 <div className="flex items-center gap-2">
                                   <Car className="h-3.5 w-3.5 text-muted-foreground" />
@@ -417,9 +352,7 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                                 <div className="flex items-center gap-2">
                                   <Users className="h-3.5 w-3.5 text-muted-foreground" />
                                   <div>
-                                    <div className="font-medium">
-                                      {c.client_type === 'company' ? c.company_name : `${c.first_name || ''} ${c.last_name || ''}`}
-                                    </div>
+                                    <div className="font-medium">{c.client_type === 'company' ? c.company_name : `${c.first_name || ''} ${c.last_name || ''}`}</div>
                                     {c.nip && <div className="text-xs text-muted-foreground">NIP: {c.nip}</div>}
                                   </div>
                                 </div>
@@ -438,12 +371,7 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                   <div className="space-y-1.5">
                     <Label className="text-xs font-medium">Przebieg</Label>
                     <div className="flex gap-1">
-                      <Input
-                        type="number"
-                        value={mileage}
-                        onChange={e => setMileage(e.target.value)}
-                        placeholder="km"
-                      />
+                      <Input type="number" value={mileage} onChange={e => setMileage(e.target.value)} placeholder="km" />
                       <span className="flex items-center px-2 text-xs text-muted-foreground border rounded-md bg-muted">km</span>
                     </div>
                   </div>
@@ -458,11 +386,7 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs font-medium">Uwagi klienta</Label>
-                    <Input
-                      value={clientNotes}
-                      onChange={e => setClientNotes(e.target.value)}
-                      placeholder="Dodatkowe uwagi..."
-                    />
+                    <Input value={clientNotes} onChange={e => setClientNotes(e.target.value)} placeholder="Dodatkowe uwagi..." />
                   </div>
                 </div>
 
@@ -489,44 +413,26 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                       </div>
                     ))}
                   </div>
-                  {errors.description && (
-                    <p className="text-xs text-destructive flex items-center gap-1">
-                      <AlertCircle className="h-3 w-3" /> {errors.description}
-                    </p>
-                  )}
+                  {errors.description && <p className="text-xs text-destructive flex items-center gap-1"><AlertCircle className="h-3 w-3" /> {errors.description}</p>}
                   <Button variant="outline" size="sm" onClick={addTaskPoint} className="gap-1">
                     <Plus className="h-4 w-4" /> Dodaj pozycję
                   </Button>
                 </div>
 
-                {/* Damage description + photos */}
+                {/* Damage + photos */}
                 <div className="space-y-3 border-t pt-4">
                   <Label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Uszkodzenia pojazdu</Label>
-                  <Textarea
-                    value={damageDescription}
-                    onChange={e => setDamageDescription(e.target.value)}
-                    placeholder="Ogólny opis uszkodzeń pojazdu..."
-                    rows={3}
-                  />
-
+                  <Textarea value={damageDescription} onChange={e => setDamageDescription(e.target.value)} placeholder="Ogólny opis uszkodzeń pojazdu..." rows={3} />
                   <div className="space-y-2">
                     <Label className="text-sm font-medium">Zdjęcia pojazdu przy przyjęciu</Label>
                     <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
                       {PHOTO_SLOTS.map(slot => (
                         <label key={slot.key} className="cursor-pointer group">
-                          <div className={`aspect-square rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-1 transition-all
-                            ${photos[slot.key]
-                              ? 'border-primary bg-primary/5'
-                              : 'border-border hover:border-primary/50 hover:bg-accent/30'
-                            }`}
-                          >
+                          <div className={`aspect-square rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-1 transition-all ${photos[slot.key] ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50 hover:bg-accent/30'}`}>
                             {photos[slot.key] ? (
                               <div className="relative w-full h-full">
                                 <img src={URL.createObjectURL(photos[slot.key]!)} alt={slot.label} className="w-full h-full object-cover rounded-lg" />
-                                <button
-                                  className="absolute top-0.5 right-0.5 bg-destructive text-destructive-foreground rounded-full p-0.5"
-                                  onClick={(e) => { e.preventDefault(); handlePhotoChange(slot.key, null); }}
-                                >
+                                <button className="absolute top-0.5 right-0.5 bg-destructive text-destructive-foreground rounded-full p-0.5" onClick={(e) => { e.preventDefault(); handlePhotoChange(slot.key, null); }}>
                                   <X className="h-3 w-3" />
                                 </button>
                               </div>
@@ -541,6 +447,29 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                         </label>
                       ))}
                     </div>
+                  </div>
+                </div>
+
+                {/* Checklist */}
+                <div className="space-y-3 border-t pt-4">
+                  <Label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Protokół przyjęcia</Label>
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+                    {[
+                      { key: 'return_parts', label: 'Zwrot zużytych części' },
+                      { key: 'registration_doc', label: 'Przyjęto dowód rejestracyjny' },
+                      { key: 'test_drive', label: 'Wymagana jazda próbna' },
+                      { key: 'refill_fluids', label: 'Uzupełnić płyny' },
+                      { key: 'refill_lights', label: 'Sprawdzić oświetlenie' },
+                      { key: 'wash_vehicle', label: 'Mycie po naprawie' },
+                    ].map(item => (
+                      <div key={item.key} className="flex items-center gap-2">
+                        <Switch
+                          checked={(checklist as any)[item.key]}
+                          onCheckedChange={v => setChecklist(prev => ({ ...prev, [item.key]: v }))}
+                        />
+                        <Label className="text-sm cursor-pointer">{item.label}</Label>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
@@ -566,20 +495,14 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
           setVehicleId(v.id);
           setCreatedVehicleData(v);
           setErrors(e => { const { vehicle, ...rest } = e; return rest; });
-          // Auto-link owner if vehicle has one
-          if (v.owner_client_id && !clientId) {
-            setClientId(v.owner_client_id);
-          }
+          if (v.owner_client_id && !clientId) setClientId(v.owner_client_id);
         }}
       />
       <WorkshopAddClientDialog
         open={showAddClient}
         onOpenChange={setShowAddClient}
         providerId={providerId}
-        onCreated={(c) => {
-          setClientId(c.id);
-          setCreatedClientData(c);
-        }}
+        onCreated={(c) => { setClientId(c.id); setCreatedClientData(c); }}
       />
     </>
   );

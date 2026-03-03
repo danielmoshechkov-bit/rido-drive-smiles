@@ -201,11 +201,43 @@ export function CalendarView() {
   const { data: calendar, isLoading: calendarLoading } = useDefaultCalendar();
   const calendarIds = calendar ? [calendar.id] : [];
   
-  const { data: events = [], isLoading: eventsLoading } = useCalendarEvents(
+  const { data: calendarEvents = [], isLoading: eventsLoading } = useCalendarEvents(
     calendarIds,
     view,
     currentDate
   );
+
+  // Fetch workshop orders with scheduled dates to sync with calendar
+  const { data: workshopOrders = [] } = useQuery({
+    queryKey: ['calendar-workshop-orders', providerId],
+    enabled: !!providerId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('workshop_orders')
+        .select('id, order_number, description, scheduled_start, scheduled_end, status_name, vehicle:workshop_vehicles(brand, model, plate), client:workshop_clients(first_name, last_name, company_name)')
+        .eq('provider_id', providerId)
+        .not('scheduled_start', 'is', null);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Merge calendar events with workshop orders
+  const events: CalendarEvent[] = useMemo(() => {
+    const workshopAsEvents: CalendarEvent[] = workshopOrders.map((wo: any) => {
+      const vehicleLabel = wo.vehicle ? `${wo.vehicle.brand || ''} ${wo.vehicle.model || ''} ${wo.vehicle.plate || ''}`.trim() : '';
+      return {
+        id: `ws-${wo.id}`,
+        calendar_id: calendar?.id || '',
+        title: `🔧 ${wo.order_number || 'Zlecenie'} ${vehicleLabel}`,
+        start_at: wo.scheduled_start,
+        end_at: wo.scheduled_end || new Date(new Date(wo.scheduled_start).getTime() + 3600000).toISOString(),
+        type: 'event' as const,
+        color: '#2563eb',
+      } as unknown as CalendarEvent;
+    });
+    return [...calendarEvents, ...workshopAsEvents];
+  }, [calendarEvents, workshopOrders, calendar?.id]);
 
   const navigatePrev = () => {
     switch (view) {

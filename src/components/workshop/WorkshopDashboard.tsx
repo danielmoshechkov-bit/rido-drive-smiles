@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { useWorkshopProviderId } from '@/hooks/useWorkshop';
 import { WorkshopOrdersList } from './WorkshopOrdersList';
 import { WorkshopOrderDetail } from './WorkshopOrderDetail';
@@ -48,6 +47,38 @@ const modules = [
 
 interface WorkshopDashboardProps {
   providerId?: string | null;
+}
+
+function WorkshopSidebar({ activeModule, onNavigate }: { activeModule: string; onNavigate: (key: string | null) => void }) {
+  return (
+    <div className="w-[140px] flex-shrink-0 space-y-1.5 pr-3 border-r border-border">
+      <button
+        onClick={() => onNavigate(null)}
+        className="w-full text-left px-2 py-1.5 rounded text-xs font-semibold text-primary hover:bg-primary/10 transition-colors"
+      >
+        🏠 Pulpit
+      </button>
+      <div className="grid grid-cols-2 gap-1">
+        {modules.filter(m => m.ready).map(m => (
+          <button
+            key={m.key}
+            onClick={() => onNavigate(m.key)}
+            className={`relative rounded-lg overflow-hidden h-16 transition-all group ${
+              activeModule === m.key
+                ? 'ring-2 ring-primary shadow-md'
+                : 'hover:ring-1 hover:ring-primary/40'
+            }`}
+          >
+            <img src={m.img} alt={m.label} className="w-full h-full object-cover" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+            <span className="absolute bottom-0.5 left-0.5 right-0.5 text-[9px] font-semibold text-white leading-tight text-center drop-shadow">
+              {m.label}
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashboardProps = {}) {
@@ -100,58 +131,69 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
     );
   }
 
-  const goHome = () => setActiveModule(null);
+  const goTo = (key: string | null) => setActiveModule(key);
 
-  if (activeModule === 'zlecenia') {
+  const renderModuleContent = () => {
+    switch (activeModule) {
+      case 'zlecenia':
+        return <WorkshopOrdersList providerId={providerId} onSelectOrder={setSelectedOrder} />;
+      case 'klienci':
+        return <WorkshopClientsList providerId={providerId} onBack={() => goTo(null)} />;
+      case 'pojazdy':
+        return <WorkshopVehiclesList providerId={providerId} onBack={() => goTo(null)} onSelectVehicle={setSelectedVehicle} />;
+      case 'terminarz':
+        return <WorkshopScheduler providerId={providerId} onBack={() => goTo(null)} />;
+      case 'sprzedaz':
+        return <WorkshopSales providerId={providerId} onBack={() => goTo(null)} />;
+      case 'raporty':
+        return <WorkshopReports providerId={providerId} onBack={() => goTo(null)} />;
+      case 'magazyn':
+        return <WorkshopWarehouse providerId={providerId} onBack={() => goTo(null)} />;
+      case 'przechowalnia':
+        return <WorkshopTireStorage providerId={providerId} onBack={() => goTo(null)} />;
+      case 'dane-naprawcze':
+        return <WorkshopRepairData providerId={providerId} onBack={() => goTo(null)} />;
+      case 'ustawienia':
+        return <WorkshopSettings providerId={providerId} onBack={() => goTo(null)} />;
+      default:
+        return null;
+    }
+  };
+
+  // Main dashboard tiles
+  if (!activeModule) {
     return (
-      <div className="space-y-4">
-        <div className="flex items-center gap-3">
-          <button onClick={goHome} className="text-primary hover:underline text-sm">🏠</button>
-          <span className="text-muted-foreground">/</span>
-          <h2 className="text-xl font-bold">Zlecenia</h2>
+      <div className="space-y-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {modules.map(m => (
+            <Card
+              key={m.key}
+              className={`cursor-pointer transition-all hover:shadow-lg hover:scale-[1.03] overflow-hidden group ${
+                !m.ready ? 'opacity-60 grayscale' : ''
+              }`}
+              onClick={() => m.ready && setActiveModule(m.key)}
+            >
+              <div className="relative h-32 overflow-hidden">
+                <img src={m.img} alt={m.label} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                <div className="absolute bottom-0 left-0 right-0 p-3">
+                  <span className="font-semibold text-white text-sm drop-shadow-lg">{m.label}</span>
+                  {!m.ready && <span className="block text-xs text-white/70 mt-0.5">Wkrótce</span>}
+                </div>
+              </div>
+            </Card>
+          ))}
         </div>
-        <WorkshopOrdersList providerId={providerId} onSelectOrder={setSelectedOrder} />
       </div>
     );
   }
 
-  if (activeModule === 'klienci') return <WorkshopClientsList providerId={providerId} onBack={goHome} />;
-  if (activeModule === 'pojazdy') return <WorkshopVehiclesList providerId={providerId} onBack={goHome} onSelectVehicle={setSelectedVehicle} />;
-  if (activeModule === 'terminarz') return <WorkshopScheduler providerId={providerId} onBack={goHome} />;
-  if (activeModule === 'sprzedaz') return <WorkshopSales providerId={providerId} onBack={goHome} />;
-  if (activeModule === 'raporty') return <WorkshopReports providerId={providerId} onBack={goHome} />;
-  if (activeModule === 'magazyn') return <WorkshopWarehouse providerId={providerId} onBack={goHome} />;
-  if (activeModule === 'przechowalnia') return <WorkshopTireStorage providerId={providerId} onBack={goHome} />;
-  if (activeModule === 'dane-naprawcze') return <WorkshopRepairData providerId={providerId} onBack={goHome} />;
-  if (activeModule === 'ustawienia') return <WorkshopSettings providerId={providerId} onBack={goHome} />;
-
+  // Module view with sidebar
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {modules.map(m => (
-          <Card
-            key={m.key}
-            className={`cursor-pointer transition-all hover:shadow-lg hover:scale-[1.03] overflow-hidden group ${
-              !m.ready ? 'opacity-60 grayscale' : ''
-            }`}
-            onClick={() => m.ready && setActiveModule(m.key)}
-          >
-            <div className="relative h-32 overflow-hidden">
-              <img
-                src={m.img}
-                alt={m.label}
-                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-              <div className="absolute bottom-0 left-0 right-0 p-3">
-                <span className="font-semibold text-white text-sm drop-shadow-lg">{m.label}</span>
-                {!m.ready && (
-                  <span className="block text-xs text-white/70 mt-0.5">Wkrótce</span>
-                )}
-              </div>
-            </div>
-          </Card>
-        ))}
+    <div className="flex gap-0 min-h-[calc(100vh-200px)]">
+      <WorkshopSidebar activeModule={activeModule} onNavigate={goTo} />
+      <div className="flex-1 pl-3 min-w-0">
+        {renderModuleContent()}
       </div>
     </div>
   );

@@ -26,9 +26,8 @@ export function WorkshopAddClientDialog({ open, onOpenChange, providerId, onCrea
   const [clientType, setClientType] = useState<'individual' | 'company'>('individual');
   const [form, setForm] = useState({
     company_name: '', nip: '', first_name: '', last_name: '',
-    phone: '', email: '', postal_code: '', city: '', street: '',
+    phone: '', email: '', postal_code: '', city: '', street: '', house_number: '', apartment_number: '',
     country: 'Polska', description: '', marketing_consent: true,
-    // Company contact person
     contact_first_name: '', contact_last_name: '', contact_phone: '', contact_email: '',
   });
 
@@ -42,6 +41,8 @@ export function WorkshopAddClientDialog({ open, onOpenChange, providerId, onCrea
     const displayName = clientType === 'company' ? form.company_name : `${form.first_name} ${form.last_name}`;
     if (!displayName.trim()) return;
 
+    const fullStreet = [form.street, form.house_number, form.apartment_number ? `m. ${form.apartment_number}` : ''].filter(Boolean).join(' ');
+
     const client = await create.mutateAsync({
       provider_id: providerId,
       client_type: clientType,
@@ -53,15 +54,48 @@ export function WorkshopAddClientDialog({ open, onOpenChange, providerId, onCrea
       email: clientType === 'company' ? form.contact_email || form.email || null : form.email || null,
       postal_code: form.postal_code || null,
       city: form.city || null,
-      street: form.street || null,
+      street: fullStreet || null,
       country: form.country || 'Polska',
       description: form.description || null,
       marketing_consent: form.marketing_consent,
     });
     onCreated?.(client);
-    setForm({ company_name: '', nip: '', first_name: '', last_name: '', phone: '', email: '', postal_code: '', city: '', street: '', country: 'Polska', description: '', marketing_consent: true, contact_first_name: '', contact_last_name: '', contact_phone: '', contact_email: '' });
+    setForm({ company_name: '', nip: '', first_name: '', last_name: '', phone: '', email: '', postal_code: '', city: '', street: '', house_number: '', apartment_number: '', country: 'Polska', description: '', marketing_consent: true, contact_first_name: '', contact_last_name: '', contact_phone: '', contact_email: '' });
     onOpenChange(false);
   };
+
+  const AddressFields = () => (
+    <>
+      <div className="grid grid-cols-[1fr_auto_auto] gap-3">
+        <div className="space-y-1.5">
+          <Label>Ulica</Label>
+          <Input value={form.street} onChange={e => set('street', e.target.value)} placeholder="Ulica" />
+        </div>
+        <div className="space-y-1.5 w-24">
+          <Label>Nr domu</Label>
+          <Input value={form.house_number} onChange={e => set('house_number', e.target.value)} placeholder="Nr" />
+        </div>
+        <div className="space-y-1.5 w-24">
+          <Label>Nr lokalu</Label>
+          <Input value={form.apartment_number} onChange={e => set('apartment_number', e.target.value)} placeholder="Lok." />
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-4">
+        <div className="space-y-1.5">
+          <Label>Kod pocztowy</Label>
+          <Input value={form.postal_code} onChange={e => handlePostalCode(e.target.value)} placeholder="00-000" />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Miasto</Label>
+          <Input value={form.city} onChange={e => set('city', e.target.value)} placeholder="Miasto" />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Kraj</Label>
+          <Input value={form.country} onChange={e => set('country', e.target.value)} />
+        </div>
+      </div>
+    </>
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -84,7 +118,6 @@ export function WorkshopAddClientDialog({ open, onOpenChange, providerId, onCrea
 
           {clientType === 'company' ? (
             <>
-              {/* Company details */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label>Nazwa firmy *</Label>
@@ -95,27 +128,7 @@ export function WorkshopAddClientDialog({ open, onOpenChange, providerId, onCrea
                   <Input value={form.nip} onChange={e => set('nip', e.target.value)} placeholder="NIP firmy" />
                 </div>
               </div>
-
-              {/* Address */}
-              <div className="space-y-1.5">
-                <Label>Adres</Label>
-                <Input value={form.street} onChange={e => set('street', e.target.value)} placeholder="Ulica i numer" />
-              </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-1.5">
-                  <Label>Kod pocztowy</Label>
-                  <Input value={form.postal_code} onChange={e => handlePostalCode(e.target.value)} placeholder="00-000" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Miasto</Label>
-                  <Input value={form.city} onChange={e => set('city', e.target.value)} placeholder="Miasto" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Kraj</Label>
-                  <Input value={form.country} onChange={e => set('country', e.target.value)} />
-                </div>
-              </div>
-
+              <AddressFields />
               {/* Contact person */}
               <div className="border-t pt-4">
                 <Label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3 block">Osoba kontaktowa</Label>
@@ -146,7 +159,6 @@ export function WorkshopAddClientDialog({ open, onOpenChange, providerId, onCrea
             </>
           ) : (
             <>
-              {/* Individual person */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label>Imię *</Label>
@@ -157,7 +169,6 @@ export function WorkshopAddClientDialog({ open, onOpenChange, providerId, onCrea
                   <Input value={form.last_name} onChange={e => set('last_name', e.target.value)} placeholder="Nazwisko" />
                 </div>
               </div>
-
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label>Numer telefonu</Label>
@@ -171,26 +182,7 @@ export function WorkshopAddClientDialog({ open, onOpenChange, providerId, onCrea
                   <Input type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="E-mail" />
                 </div>
               </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-1.5">
-                  <Label>Kod pocztowy</Label>
-                  <Input value={form.postal_code} onChange={e => handlePostalCode(e.target.value)} placeholder="00-000" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Miasto</Label>
-                  <Input value={form.city} onChange={e => set('city', e.target.value)} placeholder="Miasto" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Kraj</Label>
-                  <Input value={form.country} onChange={e => set('country', e.target.value)} />
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label>Ulica</Label>
-                <Input value={form.street} onChange={e => set('street', e.target.value)} placeholder="Ulica" />
-              </div>
+              <AddressFields />
             </>
           )}
 
