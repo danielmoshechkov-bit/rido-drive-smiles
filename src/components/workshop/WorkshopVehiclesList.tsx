@@ -14,7 +14,7 @@ interface Props {
 }
 
 export function WorkshopVehiclesList({ providerId, onBack, onSelectVehicle }: Props) {
-  const { data: vehicles = [], isLoading } = useWorkshopVehicles(providerId);
+  const { data: vehicles = [], isLoading, refetch } = useWorkshopVehicles(providerId);
   const [search, setSearch] = useState('');
   const [showAdd, setShowAdd] = useState(false);
 
