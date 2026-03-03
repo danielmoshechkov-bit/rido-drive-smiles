@@ -1,10 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useWorkshopOrders, useUpdateWorkshopOrder } from '@/hooks/useWorkshop';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { ChevronLeft, ChevronRight, Search, Car, Wrench, Plus, GripVertical, Undo2, X, Settings2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, Car, Wrench, Plus, GripVertical, Undo2, X, ChevronsUpDown } from 'lucide-react';
 import { format, addDays, startOfWeek, addWeeks, subWeeks, isToday, subDays } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { Input } from '@/components/ui/input';
@@ -37,6 +37,11 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
   const [newStationName, setNewStationName] = useState('');
   const [newStationCategory, setNewStationCategory] = useState('Warsztat');
   const [newCategoryName, setNewCategoryName] = useState('');
+  
+  // Resize state
+  const [resizingOrder, setResizingOrder] = useState<any>(null);
+  const [resizeTargetHour, setResizeTargetHour] = useState<number | null>(null);
+  const resizeRef = useRef<{ startY: number; startHour: number; endHour: number; orderId: string } | null>(null);
 
   const updateOrder = useUpdateWorkshopOrder();
 
@@ -57,7 +62,6 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
 
   const { data: orders = [] } = useWorkshopOrders(providerId);
 
-  // Get unique categories
   const categories = useMemo(() => {
     const cats = new Set<string>();
     workstations.forEach((ws: any) => cats.add(ws.category || 'Warsztat'));
@@ -65,14 +69,12 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
     return Array.from(cats);
   }, [workstations]);
 
-  // Set initial category
   useMemo(() => {
     if (categories.length > 0 && !categories.includes(activeCategory)) {
       setActiveCategory(categories[0]);
     }
   }, [categories]);
 
-  // Stations for active category
   const categoryStations = useMemo(() => {
     const filtered = workstations.filter((ws: any) => (ws.category || 'Warsztat') === activeCategory);
     return filtered.length > 0 ? filtered : [{ id: '__default', name: 'Stanowisko 1', category: activeCategory }];
@@ -113,13 +115,36 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
     return filtered.slice(0, 20);
   }, [orders, search]);
 
-  const getOrderForCell = (stationId: string, day: Date, hour: number) => {
+  // Calculate order span in hours
+  const getOrderSpan = useCallback((order: any): number => {
+    if (!order.scheduled_start || !order.scheduled_end) return 1;
+    const start = new Date(order.scheduled_start);
+    const end = new Date(order.scheduled_end);
+    const hours = Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60)));
+    return Math.min(hours, HOURS.length);
+  }, []);
+
+  // Get order that starts at this cell
+  const getOrderStartingAt = (stationId: string, day: Date, hour: number) => {
     const dayStr = format(day, 'yyyy-MM-dd');
     return orders.find((o: any) => {
       if (!o.scheduled_start || o.scheduled_station_id !== stationId) return false;
       const oDate = format(new Date(o.scheduled_start), 'yyyy-MM-dd');
       const oHour = new Date(o.scheduled_start).getHours();
       return oDate === dayStr && oHour === hour;
+    });
+  };
+
+  // Check if cell is occupied by a spanning order
+  const isCellOccupied = (stationId: string, day: Date, hour: number) => {
+    const dayStr = format(day, 'yyyy-MM-dd');
+    return orders.some((o: any) => {
+      if (!o.scheduled_start || o.scheduled_station_id !== stationId) return false;
+      const oDate = format(new Date(o.scheduled_start), 'yyyy-MM-dd');
+      if (oDate !== dayStr) return false;
+      const oHour = new Date(o.scheduled_start).getHours();
+      const span = getOrderSpan(o);
+      return hour >= oHour && hour < oHour + span;
     });
   };
 
@@ -135,19 +160,27 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
     : `${format(currentWeekStart, 'd', { locale: pl })} – ${format(weekEnd, 'd MMM yyyy', { locale: pl })}`;
 
   const handleCellClick = (day: Date, hour: number, stationId: string) => {
-    if (getOrderForCell(stationId, day, hour)) return;
+    if (isCellOccupied(stationId, day, hour)) return;
     setSlotData({ day, hour, stationId });
     setShowSlotDialog(true);
   };
 
   const handleDrop = async (day: Date, hour: number, stationId: string) => {
     if (!draggedOrder) return;
-    const existing = getOrderForCell(stationId, day, hour);
+    if (isCellOccupied(stationId, day, hour) && !getOrderStartingAt(stationId, day, hour)) {
+      toast.error('Slot zajęty');
+      resetDrag();
+      return;
+    }
+    const existing = getOrderStartingAt(stationId, day, hour);
     if (existing && existing.id !== draggedOrder.id) { toast.error('Slot zajęty'); resetDrag(); return; }
     const scheduledStart = new Date(day);
     scheduledStart.setHours(hour, 0, 0, 0);
+    const span = getOrderSpan(draggedOrder);
+    const scheduledEnd = new Date(scheduledStart);
+    scheduledEnd.setHours(hour + span, 0, 0, 0);
     try {
-      await updateOrder.mutateAsync({ id: draggedOrder.id, scheduled_start: scheduledStart.toISOString(), scheduled_station_id: stationId });
+      await updateOrder.mutateAsync({ id: draggedOrder.id, scheduled_start: scheduledStart.toISOString(), scheduled_end: scheduledEnd.toISOString(), scheduled_station_id: stationId });
       toast.success(`Zlecenie ${draggedOrder.order_number} → ${format(day, 'dd.MM')} ${hour}:00`);
     } catch { toast.error('Nie udało się zaplanować'); }
     resetDrag();
@@ -156,7 +189,7 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
   const handleDropToUnplanned = async () => {
     if (!draggedOrder || dragSource !== 'scheduled') return;
     try {
-      await updateOrder.mutateAsync({ id: draggedOrder.id, scheduled_start: null, scheduled_station_id: null });
+      await updateOrder.mutateAsync({ id: draggedOrder.id, scheduled_start: null, scheduled_end: null, scheduled_station_id: null });
       toast.success(`Zlecenie ${draggedOrder.order_number} cofnięte`);
     } catch { toast.error('Błąd'); }
     resetDrag();
@@ -164,6 +197,51 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
 
   const resetDrag = () => { setDraggedOrder(null); setDragSource(null); setDragOverCell(null); setDragOverUnplanned(false); };
   const cellKey = (stationId: string, day: Date, hour: number) => `${stationId}-${format(day, 'yyyy-MM-dd')}-${hour}`;
+
+  // Resize handlers
+  const handleResizeStart = (e: React.MouseEvent, order: any) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const startHour = new Date(order.scheduled_start).getHours();
+    const span = getOrderSpan(order);
+    resizeRef.current = { startY: e.clientY, startHour, endHour: startHour + span, orderId: order.id };
+    setResizingOrder(order);
+
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!resizeRef.current) return;
+      const deltaY = ev.clientY - resizeRef.current.startY;
+      const deltaHours = Math.round(deltaY / 56); // ~56px per row
+      const newEndHour = Math.max(resizeRef.current.startHour + 1, Math.min(resizeRef.current.startHour + (resizeRef.current.endHour - resizeRef.current.startHour) + deltaHours, HOURS[HOURS.length - 1] + 1));
+      setResizeTargetHour(newEndHour);
+    };
+
+    const onMouseUp = async () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      if (resizeRef.current && resizeTargetHour !== null) {
+        const order = resizingOrder;
+        if (order) {
+          const start = new Date(order.scheduled_start);
+          const end = new Date(start);
+          const finalEndHour = resizeTargetHour ?? (resizeRef.current.endHour);
+          end.setHours(finalEndHour, 0, 0, 0);
+          if (end.getTime() > start.getTime()) {
+            try {
+              await updateOrder.mutateAsync({ id: order.id, scheduled_end: end.toISOString() });
+              const hours = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60));
+              toast.success(`Czas pracy: ${hours}h`);
+            } catch { toast.error('Błąd zmiany czasu'); }
+          }
+        }
+      }
+      setResizingOrder(null);
+      setResizeTargetHour(null);
+      resizeRef.current = null;
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  };
 
   return (
     <div className="space-y-4">
@@ -210,7 +288,6 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
       {/* Category tabs + controls */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2">
-          {/* Category tabs */}
           <div className="flex items-center gap-1 border rounded-lg p-0.5 bg-muted/30">
             {categories.map(cat => (
               <Button key={cat} variant={activeCategory === cat ? 'default' : 'ghost'} size="sm" onClick={() => setActiveCategory(cat)} className="text-xs">
@@ -221,7 +298,6 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
               <Plus className="h-3 w-3" />
             </Button>
           </div>
-
           <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={() => { setNewStationCategory(activeCategory); setShowAddStation(true); }}>
             <Plus className="h-3 w-3" /> Stanowisko
           </Button>
@@ -238,7 +314,6 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
             else setCurrentWeekStart(addWeeks(currentWeekStart, 1));
           }}><ChevronRight className="h-4 w-4" /></Button>
           <h3 className="text-lg font-semibold capitalize">{headerLabel}</h3>
-
           <div className="flex items-center gap-1 border rounded-lg p-0.5 ml-4">
             {(['day', 'week'] as const).map(mode => (
               <Button key={mode} variant={viewMode === mode ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode(mode)}>
@@ -254,17 +329,12 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-xs">
             <thead>
-              {/* Station headers row */}
               <tr>
                 <th className="w-16 bg-[hsl(220,30%,95%)] dark:bg-[hsl(220,20%,20%)] border-b-2 border-r-2 border-foreground/20 p-2 text-left text-foreground font-bold sticky left-0 z-20" rowSpan={2}>
                   Godzina
                 </th>
                 {categoryStations.map((st: any) => (
-                  <th
-                    key={st.id}
-                    colSpan={weekDays.length}
-                    className="bg-[hsl(220,80%,50%)] text-white border-b border-r-2 border-foreground/20 p-2 text-center"
-                  >
+                  <th key={st.id} colSpan={weekDays.length} className="bg-[hsl(220,80%,50%)] text-white border-b border-r-2 border-foreground/20 p-2 text-center">
                     <div className="flex items-center justify-center gap-2">
                       <Wrench className="h-3.5 w-3.5" />
                       <span className="font-semibold text-sm">{st.name}</span>
@@ -277,18 +347,12 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
                   </th>
                 ))}
               </tr>
-              {/* Day headers per station */}
               <tr>
                 {categoryStations.map((st: any) =>
                   weekDays.map(day => {
                     const today = isToday(day);
                     return (
-                      <th
-                        key={`${st.id}-${day.toISOString()}`}
-                        className={`border-b-2 border-r border-foreground/20 p-1.5 text-center min-w-[120px] ${
-                          today ? 'bg-[hsl(220,80%,50%)] text-white' : 'bg-[hsl(220,30%,95%)] dark:bg-[hsl(220,20%,20%)] text-foreground'
-                        }`}
-                      >
+                      <th key={`${st.id}-${day.toISOString()}`} className={`border-b-2 border-r border-foreground/20 p-1.5 text-center min-w-[120px] ${today ? 'bg-[hsl(220,80%,50%)] text-white' : 'bg-[hsl(220,30%,95%)] dark:bg-[hsl(220,20%,20%)] text-foreground'}`}>
                         <div className="font-bold text-xs">{format(day, 'EEE', { locale: pl })}</div>
                         <div className={`text-sm font-black ${today ? 'text-white' : ''}`}>{format(day, 'dd.MM')}</div>
                       </th>
@@ -302,38 +366,48 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
                 const isEvenRow = hourIdx % 2 === 0;
                 return (
                   <tr key={hour}>
-                    <td className={`border-b border-r-2 border-foreground/20 p-2 text-right font-mono font-bold text-sm sticky left-0 z-10 ${
-                      isEvenRow ? 'bg-[hsl(220,20%,97%)] dark:bg-[hsl(220,15%,15%)] text-foreground' : 'bg-[hsl(220,25%,93%)] dark:bg-[hsl(220,15%,18%)] text-foreground'
-                    }`}>
+                    <td className={`border-b border-r-2 border-foreground/20 p-2 text-right font-mono font-bold text-sm sticky left-0 z-10 ${isEvenRow ? 'bg-[hsl(220,20%,97%)] dark:bg-[hsl(220,15%,15%)] text-foreground' : 'bg-[hsl(220,25%,93%)] dark:bg-[hsl(220,15%,18%)] text-foreground'}`}>
                       {`${hour}:00`}
                     </td>
                     {categoryStations.map((st: any) =>
                       weekDays.map(day => {
                         const key = cellKey(st.id, day, hour);
                         const isDragOver = dragOverCell === key;
-                        const scheduledOrder = getOrderForCell(st.id, day, hour);
+                        const scheduledOrder = getOrderStartingAt(st.id, day, hour);
+                        const occupied = !scheduledOrder && isCellOccupied(st.id, day, hour);
                         const today = isToday(day);
+                        const span = scheduledOrder ? getOrderSpan(scheduledOrder) : 1;
+
+                        // If cell is part of a spanning order but not the start, skip rendering content
+                        if (occupied) {
+                          return (
+                            <td key={key} className="border-b border-r border-foreground/15 p-0 h-14" />
+                          );
+                        }
+
+                        // Calculate resize preview span
+                        let displaySpan = span;
+                        if (resizingOrder && scheduledOrder && resizingOrder.id === scheduledOrder.id && resizeTargetHour !== null) {
+                          displaySpan = Math.max(1, resizeTargetHour - hour);
+                        }
 
                         return (
                           <td
                             key={key}
-                            className={`border-b border-r border-foreground/15 p-0.5 cursor-pointer transition-all relative h-14 ${
+                            rowSpan={scheduledOrder ? displaySpan : 1}
+                            className={`border-b border-r border-foreground/15 p-0.5 cursor-pointer transition-all relative ${scheduledOrder ? '' : 'h-14'} ${
                               today
                                 ? (isEvenRow ? 'bg-[hsl(220,60%,97%)] dark:bg-[hsl(220,30%,15%)]' : 'bg-[hsl(220,60%,94%)] dark:bg-[hsl(220,30%,18%)]')
                                 : (isEvenRow ? 'bg-background' : 'bg-[hsl(220,15%,96%)] dark:bg-[hsl(220,10%,14%)]')
-                            } ${
-                              isDragOver && draggedOrder
-                                ? '!bg-[hsl(130,60%,85%)] dark:!bg-[hsl(130,40%,20%)] ring-2 ring-[hsl(130,60%,40%)] ring-inset'
-                                : scheduledOrder ? '' : 'hover:bg-[hsl(220,40%,92%)] dark:hover:bg-[hsl(220,20%,22%)]'
-                            }`}
-                            onClick={() => handleCellClick(day, hour, st.id)}
-                            onDragOver={(e) => { e.preventDefault(); setDragOverCell(key); }}
+                            } ${isDragOver && draggedOrder ? '!bg-[hsl(130,60%,85%)] dark:!bg-[hsl(130,40%,20%)] ring-2 ring-[hsl(130,60%,40%)] ring-inset' : scheduledOrder ? '' : 'hover:bg-[hsl(220,40%,92%)] dark:hover:bg-[hsl(220,20%,22%)]'}`}
+                            onClick={() => !scheduledOrder && handleCellClick(day, hour, st.id)}
+                            onDragOver={(e) => { if (!occupied) { e.preventDefault(); setDragOverCell(key); } }}
                             onDragLeave={() => { if (dragOverCell === key) setDragOverCell(null); }}
-                            onDrop={() => handleDrop(day, hour, st.id)}
+                            onDrop={() => !occupied && handleDrop(day, hour, st.id)}
                           >
                             {scheduledOrder ? (
                               <div
-                                className="bg-[hsl(220,70%,55%)] text-white rounded-md p-1 text-[10px] h-full cursor-grab active:cursor-grabbing shadow-sm hover:shadow-md transition-shadow"
+                                className="bg-[hsl(220,70%,55%)] text-white rounded-md p-1.5 text-[10px] h-full cursor-grab active:cursor-grabbing shadow-sm hover:shadow-md transition-shadow relative select-none"
                                 draggable
                                 onDragStart={(e) => { e.stopPropagation(); setDraggedOrder(scheduledOrder); setDragSource('scheduled'); }}
                                 onDragEnd={resetDrag}
@@ -344,6 +418,16 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
                                   <span className="truncate">{scheduledOrder.vehicle ? `${scheduledOrder.vehicle.brand} ${scheduledOrder.vehicle.model}` : 'Zlecenie'}</span>
                                 </div>
                                 <div className="text-white/70 truncate ml-4">{scheduledOrder.order_number}</div>
+                                {displaySpan > 1 && (
+                                  <div className="text-white/60 text-[9px] ml-4 mt-0.5">{displaySpan}h</div>
+                                )}
+                                {/* Resize handle at bottom */}
+                                <div
+                                  className="absolute bottom-0 left-0 right-0 h-3 cursor-s-resize flex items-center justify-center bg-[hsl(220,70%,45%)] rounded-b-md opacity-0 hover:opacity-100 transition-opacity group"
+                                  onMouseDown={(e) => handleResizeStart(e, scheduledOrder)}
+                                >
+                                  <ChevronsUpDown className="h-2.5 w-2.5 text-white/80" />
+                                </div>
                               </div>
                             ) : (
                               <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-40 transition-opacity">
@@ -400,7 +484,6 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
             <Button variant="outline" onClick={() => setShowAddCategory(false)}>Anuluj</Button>
             <Button onClick={() => {
               if (newCategoryName.trim()) {
-                // Add a default station for this category
                 addStationMut.mutate({ name: `${newCategoryName.trim()} 1`, category: newCategoryName.trim() });
                 setActiveCategory(newCategoryName.trim());
                 setNewCategoryName('');
@@ -421,8 +504,10 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
         onSchedule={async (orderId, day, hour, stationId) => {
           const scheduledStart = new Date(day);
           scheduledStart.setHours(hour, 0, 0, 0);
+          const scheduledEnd = new Date(day);
+          scheduledEnd.setHours(hour + 1, 0, 0, 0);
           try {
-            await updateOrder.mutateAsync({ id: orderId, scheduled_start: scheduledStart.toISOString(), scheduled_station_id: stationId });
+            await updateOrder.mutateAsync({ id: orderId, scheduled_start: scheduledStart.toISOString(), scheduled_end: scheduledEnd.toISOString(), scheduled_station_id: stationId });
             toast.success('Zlecenie dodane do terminarza');
           } catch { toast.error('Nie udało się zaplanować'); }
         }}
