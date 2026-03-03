@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Plus, FolderOpen, Archive, Trash2, MoreVertical } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { WorkspaceInvitations } from "./WorkspaceInvitations";
 
 const PROJECT_COLORS = [
   "#6C4AE2", "#ef4444", "#f59e0b", "#22c55e", "#3b82f6", "#ec4899", "#8b5cf6", "#14b8a6"
@@ -18,9 +19,10 @@ interface Props {
   onSelectProject: (p: WorkspaceProject) => void;
   onCreateProject: (name: string, description?: string, color?: string) => Promise<WorkspaceProject | null>;
   onDeleteProject: (id: string) => void;
+  onRefresh?: () => void;
 }
 
-export function WorkspaceProjectsList({ projects, onSelectProject, onCreateProject, onDeleteProject }: Props) {
+export function WorkspaceProjectsList({ projects, onSelectProject, onCreateProject, onDeleteProject, onRefresh }: Props) {
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState("");
   const [desc, setDesc] = useState("");
@@ -43,6 +45,9 @@ export function WorkspaceProjectsList({ projects, onSelectProject, onCreateProje
 
   return (
     <div className="space-y-6">
+      {/* Pending invitations */}
+      <WorkspaceInvitations onAccepted={() => onRefresh?.()} />
+
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold">Workspace</h2>
