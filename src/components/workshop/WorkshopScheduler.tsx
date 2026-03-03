@@ -16,11 +16,12 @@ import { toast } from 'sonner';
 interface Props {
   providerId: string;
   onBack: () => void;
+  title?: string;
 }
 
 const HOURS = Array.from({ length: 11 }, (_, i) => i + 8);
 
-export function WorkshopScheduler({ providerId, onBack }: Props) {
+export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz' }: Props) {
   const queryClient = useQueryClient();
   const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
@@ -41,9 +42,11 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
   // Resize state
   const [resizingOrder, setResizingOrder] = useState<any>(null);
   const [resizeTargetHour, setResizeTargetHour] = useState<number | null>(null);
-  const resizeRef = useRef<{ startY: number; startHour: number; endHour: number; orderId: string } | null>(null);
+  const [resizeStartHour, setResizeStartHour] = useState<number | null>(null);
+  const resizeRef = useRef<{ startY: number; origStartHour: number; origEndHour: number; orderId: string; direction: 'top' | 'bottom' } | null>(null);
   const resizingOrderRef = useRef<any>(null);
   const resizeTargetHourRef = useRef<number | null>(null);
+  const resizeStartHourRef = useRef<number | null>(null);
 
   const updateOrder = useUpdateWorkshopOrder();
 
@@ -141,10 +144,11 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
   const isCellOccupied = (stationId: string, day: Date, hour: number) => {
     const dayStr = format(day, 'yyyy-MM-dd');
     // Check resize preview occupation
-    if (resizingOrder && resizingOrder.scheduled_start && resizingOrder.scheduled_station_id === stationId && resizeTargetHour !== null) {
+    if (resizingOrder && resizingOrder.scheduled_start && resizingOrder.scheduled_station_id === stationId) {
       const rDate = format(new Date(resizingOrder.scheduled_start), 'yyyy-MM-dd');
-      const rHour = new Date(resizingOrder.scheduled_start).getHours();
-      if (rDate === dayStr && hour >= rHour && hour < resizeTargetHour) {
+      const effStart = resizeStartHour ?? new Date(resizingOrder.scheduled_start).getHours();
+      const effEnd = resizeTargetHour ?? (effStart + getOrderSpan(resizingOrder));
+      if (rDate === dayStr && hour >= effStart && hour < effEnd) {
         return true;
       }
     }
@@ -160,13 +164,14 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
 
   // Check if cell is part of the resize preview (for coloring)
   const isResizePreviewCell = (stationId: string, day: Date, hour: number) => {
-    if (!resizingOrder || resizeTargetHour === null || !resizingOrder.scheduled_start) return false;
+    if (!resizingOrder || !resizingOrder.scheduled_start) return false;
     if (resizingOrder.scheduled_station_id !== stationId) return false;
     const dayStr = format(day, 'yyyy-MM-dd');
     const rDate = format(new Date(resizingOrder.scheduled_start), 'yyyy-MM-dd');
     if (dayStr !== rDate) return false;
-    const rHour = new Date(resizingOrder.scheduled_start).getHours();
-    return hour >= rHour && hour < resizeTargetHour;
+    const effStart = resizeStartHour ?? new Date(resizingOrder.scheduled_start).getHours();
+    const effEnd = resizeTargetHour ?? (effStart + getOrderSpan(resizingOrder));
+    return hour >= effStart && hour < effEnd;
   };
 
   const weekDays = useMemo(() => {
@@ -220,23 +225,33 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
   const cellKey = (stationId: string, day: Date, hour: number) => `${stationId}-${format(day, 'yyyy-MM-dd')}-${hour}`;
 
   // Resize handlers
-  const handleResizeStart = (e: React.MouseEvent, order: any) => {
+  const handleResizeStart = (e: React.MouseEvent, order: any, direction: 'top' | 'bottom') => {
     e.stopPropagation();
     e.preventDefault();
-    const startHour = new Date(order.scheduled_start).getHours();
+    const origStartHour = new Date(order.scheduled_start).getHours();
     const span = getOrderSpan(order);
-    resizeRef.current = { startY: e.clientY, startHour, endHour: startHour + span, orderId: order.id };
+    const origEndHour = origStartHour + span;
+    resizeRef.current = { startY: e.clientY, origStartHour, origEndHour, orderId: order.id, direction };
     resizingOrderRef.current = order;
-    resizeTargetHourRef.current = null;
+    resizeTargetHourRef.current = origEndHour;
+    resizeStartHourRef.current = origStartHour;
     setResizingOrder(order);
+    setResizeTargetHour(origEndHour);
+    setResizeStartHour(origStartHour);
 
     const onMouseMove = (ev: MouseEvent) => {
       if (!resizeRef.current) return;
       const deltaY = ev.clientY - resizeRef.current.startY;
-      const deltaHours = Math.round(deltaY / 56); // ~56px per row
-      const newEndHour = Math.max(resizeRef.current.startHour + 1, Math.min(resizeRef.current.startHour + (resizeRef.current.endHour - resizeRef.current.startHour) + deltaHours, HOURS[HOURS.length - 1] + 1));
-      resizeTargetHourRef.current = newEndHour;
-      setResizeTargetHour(newEndHour);
+      const deltaHours = Math.round(deltaY / 56);
+      if (resizeRef.current.direction === 'bottom') {
+        const newEnd = Math.max(resizeRef.current.origStartHour + 1, Math.min(resizeRef.current.origEndHour + deltaHours, HOURS[HOURS.length - 1] + 1));
+        resizeTargetHourRef.current = newEnd;
+        setResizeTargetHour(newEnd);
+      } else {
+        const newStart = Math.max(HOURS[0], Math.min(resizeRef.current.origStartHour + deltaHours, resizeRef.current.origEndHour - 1));
+        resizeStartHourRef.current = newStart;
+        setResizeStartHour(newStart);
+      }
     };
 
     const onMouseUp = async () => {
@@ -244,23 +259,28 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
       document.removeEventListener('mouseup', onMouseUp);
       const currentOrder = resizingOrderRef.current;
       const currentTargetHour = resizeTargetHourRef.current;
-      if (resizeRef.current && currentTargetHour !== null && currentOrder) {
-        const start = new Date(currentOrder.scheduled_start);
-        const end = new Date(start);
-        end.setHours(currentTargetHour, 0, 0, 0);
-        if (end.getTime() > start.getTime()) {
+      const currentStartHour = resizeStartHourRef.current;
+      if (resizeRef.current && currentOrder) {
+        const origStart = new Date(currentOrder.scheduled_start);
+        const newStart = new Date(origStart);
+        newStart.setHours(currentStartHour ?? resizeRef.current.origStartHour, 0, 0, 0);
+        const newEnd = new Date(origStart);
+        newEnd.setHours(currentTargetHour ?? resizeRef.current.origEndHour, 0, 0, 0);
+        if (newEnd.getTime() > newStart.getTime()) {
           try {
-            await updateOrder.mutateAsync({ id: currentOrder.id, scheduled_end: end.toISOString() });
-            const hours = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60));
+            await updateOrder.mutateAsync({ id: currentOrder.id, scheduled_start: newStart.toISOString(), scheduled_end: newEnd.toISOString() });
+            const hours = Math.round((newEnd.getTime() - newStart.getTime()) / (1000 * 60 * 60));
             toast.success(`Czas pracy: ${hours}h`);
           } catch { toast.error('Błąd zmiany czasu'); }
         }
       }
       setResizingOrder(null);
       setResizeTargetHour(null);
+      setResizeStartHour(null);
       resizeRef.current = null;
       resizingOrderRef.current = null;
       resizeTargetHourRef.current = null;
+      resizeStartHourRef.current = null;
     };
 
     document.addEventListener('mousemove', onMouseMove);
@@ -272,7 +292,7 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
       <div className="flex items-center gap-3">
         <button onClick={onBack} className="text-primary hover:underline text-sm">🏠</button>
         <span className="text-muted-foreground">/</span>
-        <h2 className="text-xl font-bold">Terminarz</h2>
+        <h2 className="text-xl font-bold">{title}</h2>
       </div>
 
       {/* Unplanned orders */}
@@ -410,17 +430,21 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
                           );
                         }
 
-                        // Calculate resize preview span
+                        // Calculate resize preview span (accounting for both top/bottom resize)
                         let displaySpan = span;
-                        if (resizingOrder && scheduledOrder && resizingOrder.id === scheduledOrder.id && resizeTargetHour !== null) {
-                          displaySpan = Math.max(1, resizeTargetHour - hour);
+                        let displayStartHour = hour;
+                        if (resizingOrder && scheduledOrder && resizingOrder.id === scheduledOrder.id) {
+                          const effStart = resizeStartHour ?? new Date(scheduledOrder.scheduled_start).getHours();
+                          const effEnd = resizeTargetHour ?? (effStart + span);
+                          displaySpan = Math.max(1, effEnd - effStart);
+                          displayStartHour = effStart;
                         }
 
                         return (
                           <td
                             key={key}
                             rowSpan={scheduledOrder ? displaySpan : 1}
-                            className={`border-b border-r border-foreground/15 p-0.5 cursor-pointer transition-all relative ${scheduledOrder ? '' : 'h-14'} ${
+                            className={`border-b border-r border-foreground/15 ${scheduledOrder ? 'p-0' : 'p-0.5'} cursor-pointer transition-all relative ${scheduledOrder ? '' : 'h-14'} ${
                               today
                                 ? (isEvenRow ? 'bg-[hsl(220,60%,97%)] dark:bg-[hsl(220,30%,15%)]' : 'bg-[hsl(220,60%,94%)] dark:bg-[hsl(220,30%,18%)]')
                                 : (isEvenRow ? 'bg-background' : 'bg-[hsl(220,15%,96%)] dark:bg-[hsl(220,10%,14%)]')
@@ -432,12 +456,19 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
                           >
                             {scheduledOrder ? (
                               <div
-                                className="bg-[hsl(220,70%,55%)] text-white rounded-md p-1.5 text-[10px] h-full cursor-grab active:cursor-grabbing shadow-sm hover:shadow-md transition-shadow relative select-none"
+                                className="bg-[hsl(220,70%,55%)] text-white rounded-md p-1.5 text-[10px] h-full w-full cursor-grab active:cursor-grabbing shadow-sm hover:shadow-md transition-shadow relative select-none"
                                 draggable
                                 onDragStart={(e) => { e.stopPropagation(); setDraggedOrder(scheduledOrder); setDragSource('scheduled'); }}
                                 onDragEnd={resetDrag}
                               >
-                                <div className="flex items-center gap-0.5 font-semibold">
+                                {/* Resize handle at top */}
+                                <div
+                                  className="absolute top-0 left-0 right-0 h-3 cursor-n-resize flex items-center justify-center bg-[hsl(220,70%,45%)] rounded-t-md opacity-0 hover:opacity-100 transition-opacity"
+                                  onMouseDown={(e) => handleResizeStart(e, scheduledOrder, 'top')}
+                                >
+                                  <ChevronsUpDown className="h-2.5 w-2.5 text-white/80" />
+                                </div>
+                                <div className="flex items-center gap-0.5 font-semibold mt-2">
                                   <GripVertical className="h-3 w-3 opacity-60 flex-shrink-0" />
                                   <Car className="h-3 w-3 flex-shrink-0" />
                                   <span className="truncate">{scheduledOrder.vehicle ? `${scheduledOrder.vehicle.brand} ${scheduledOrder.vehicle.model}` : 'Zlecenie'}</span>
@@ -448,8 +479,8 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
                                 )}
                                 {/* Resize handle at bottom */}
                                 <div
-                                  className="absolute bottom-0 left-0 right-0 h-3 cursor-s-resize flex items-center justify-center bg-[hsl(220,70%,45%)] rounded-b-md opacity-0 hover:opacity-100 transition-opacity group"
-                                  onMouseDown={(e) => handleResizeStart(e, scheduledOrder)}
+                                  className="absolute bottom-0 left-0 right-0 h-3 cursor-s-resize flex items-center justify-center bg-[hsl(220,70%,45%)] rounded-b-md opacity-0 hover:opacity-100 transition-opacity"
+                                  onMouseDown={(e) => handleResizeStart(e, scheduledOrder, 'bottom')}
                                 >
                                   <ChevronsUpDown className="h-2.5 w-2.5 text-white/80" />
                                 </div>
