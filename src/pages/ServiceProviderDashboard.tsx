@@ -94,7 +94,7 @@ export default function ServiceProviderDashboard() {
       return;
     }
     checkAuth();
-  }, [roleLoading, roles]);
+  }, [roleLoading, roles, features.ai_workspace_enabled]);
 
   const checkAuth = async () => {
     const { data: { user } } = await supabase.auth.getUser();
