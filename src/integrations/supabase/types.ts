@@ -14792,6 +14792,27 @@ export type Database = {
           },
         ]
       }
+      workspace_email_whitelist: {
+        Row: {
+          added_by: string | null
+          created_at: string
+          email: string
+          id: string
+        }
+        Insert: {
+          added_by?: string | null
+          created_at?: string
+          email: string
+          id?: string
+        }
+        Update: {
+          added_by?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+        }
+        Relationships: []
+      }
       workspace_invitations: {
         Row: {
           created_at: string | null

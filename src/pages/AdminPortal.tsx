@@ -11,6 +11,7 @@ import { TTSSettingsPanel } from '@/components/admin/TTSSettingsPanel';
 import { AccountingModuleSettings } from '@/components/admin/AccountingModuleSettings';
 import { PortalCategoriesManager } from '@/components/admin/PortalCategoriesManager';
 import { AdminAIAssistant } from '@/components/admin/AdminAIAssistant';
+import { WorkspaceManagement } from '@/components/admin/WorkspaceManagement';
 import { SupportTicketsPanel } from '@/components/admin/SupportTicketsPanel';
 import { EmailSettings } from '@/components/EmailSettings';
 import { AdminAuthUsersPanel } from '@/components/admin/AdminAuthUsersPanel';
@@ -18,7 +19,7 @@ import { SecurityApiKeysPanel } from '@/components/admin/SecurityApiKeysPanel';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { UserDropdown } from '@/components/UserDropdown';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Settings, Palette, Users, Wrench, Volume2, Building2, Calculator, LayoutGrid, Bot, Mail, Shield, TicketCheck } from 'lucide-react';
+import { Loader2, Settings, Palette, Users, Wrench, Volume2, Building2, Calculator, LayoutGrid, Bot, Mail, Shield, TicketCheck, Briefcase } from 'lucide-react';
 
 export default function AdminPortal() {
   const navigate = useNavigate();
@@ -99,6 +100,7 @@ export default function AdminPortal() {
     { value: 'portals', label: 'Portale', icon: LayoutGrid },
     { value: 'branding', label: 'Wygląd', icon: Palette },
     { value: 'users', label: 'Użytkownicy', icon: Users },
+    { value: 'workspace', label: 'Workspace', icon: Briefcase },
   ];
 
   return (
@@ -387,6 +389,11 @@ export default function AdminPortal() {
                 <UserRolesManager />
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Workspace Tab */}
+          <TabsContent value="workspace" className="space-y-6">
+            <WorkspaceManagement />
           </TabsContent>
         </Tabs>
       </div>
