@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import LanguageSelector from "@/components/LanguageSelector";
 import { useTranslation } from 'react-i18next';
-import { LoginModal } from "@/components/LoginModal";
+import { AuthModal } from "@/components/auth/AuthModal";
 
 const Header = () => {
   const { t } = useTranslation();
@@ -97,11 +97,11 @@ const Header = () => {
         </nav>
       </div>
 
-      {/* Login Modal */}
-      <LoginModal
+      {/* Auth Modal */}
+      <AuthModal
         open={showLoginModal}
         onOpenChange={setShowLoginModal}
-        redirectTo="/klient"
+        redirectAfterLogin="/klient"
       />
     </header>
   );

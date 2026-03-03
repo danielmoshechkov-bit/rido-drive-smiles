@@ -29,7 +29,7 @@ import {
   HandCoins,
   UserPlus
 } from "lucide-react";
-import { LoginModal } from "@/components/LoginModal";
+import { AuthModal } from "@/components/auth/AuthModal";
 import { UniversalHomeButton } from "@/components/UniversalHomeButton";
 
 export default function DriverInfoLanding() {
@@ -379,10 +379,11 @@ export default function DriverInfoLanding() {
         </Card>
       </section>
 
-      {/* Login Modal */}
-      <LoginModal 
+      {/* Auth Modal */}
+      <AuthModal 
         open={showLoginModal} 
         onOpenChange={setShowLoginModal}
+        initialMode={loginMode}
       />
     </div>
   );

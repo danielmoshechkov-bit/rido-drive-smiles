@@ -103,8 +103,8 @@ const App = () => (
                 <Route path="/gielda/panel" element={<MarketplaceDashboard />} />
                 <Route path="/gielda/dodaj-pojazd" element={<AddVehicleListing />} />
                 <Route path="/easy" element={<EasyHub />} />
-                <Route path="/easy/login" element={<EasyAuth mode="login" />} />
-                <Route path="/easy/register" element={<EasyAuth mode="register" />} />
+                <Route path="/easy/login" element={<Navigate to="/easy" replace />} />
+                <Route path="/easy/register" element={<Navigate to="/easy" replace />} />
                 <Route path="/nieruchomosci" element={<RealEstateMarketplace />} />
                 <Route path="/nieruchomosci/ogloszenie/:id" element={<PropertyDetailPage />} />
                 <Route path="/nieruchomosci/porownaj" element={<PropertyCompare />} />
