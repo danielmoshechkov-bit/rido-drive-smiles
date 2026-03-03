@@ -1396,6 +1396,51 @@ export type Database = {
           },
         ]
       }
+      ai_function_mapping: {
+        Row: {
+          category: string
+          created_at: string | null
+          custom_prompt: string | null
+          function_description: string | null
+          function_key: string
+          function_name: string
+          id: string
+          is_enabled: boolean | null
+          model_override: string | null
+          provider_key: string | null
+          sort_order: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string
+          created_at?: string | null
+          custom_prompt?: string | null
+          function_description?: string | null
+          function_key: string
+          function_name: string
+          id?: string
+          is_enabled?: boolean | null
+          model_override?: string | null
+          provider_key?: string | null
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          custom_prompt?: string | null
+          function_description?: string | null
+          function_key?: string
+          function_name?: string
+          id?: string
+          is_enabled?: boolean | null
+          model_override?: string | null
+          provider_key?: string | null
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       ai_guest_usage: {
         Row: {
           created_at: string | null

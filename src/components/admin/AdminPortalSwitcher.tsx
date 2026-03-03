@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Building2, Car, ShoppingCart, ChevronDown, Map, Globe, Wrench, Calculator, Briefcase } from 'lucide-react';
+import { Building2, Car, ShoppingCart, ChevronDown, Map, Globe, Wrench, Calculator, Briefcase, Brain } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,6 +26,14 @@ const portals: Portal[] = [
     icon: Globe,
     path: '/admin/portal',
     description: 'Globalne ustawienia portalu',
+    isGlobal: true,
+  },
+  {
+    id: 'ai-brain',
+    name: 'Centrum AI',
+    icon: Brain,
+    path: '/admin/ai',
+    description: 'Mózg platformy – klucze API, routing AI',
     isGlobal: true,
   },
   {
@@ -84,6 +92,9 @@ export function AdminPortalSwitcher() {
   const location = useLocation();
 
   const getCurrentPortal = () => {
+    if (location.pathname.includes('/admin/ai')) {
+      return portals.find((p) => p.id === 'ai-brain');
+    }
     if (location.pathname.includes('/admin/portal')) {
       return portals.find((p) => p.id === 'portal');
     }
