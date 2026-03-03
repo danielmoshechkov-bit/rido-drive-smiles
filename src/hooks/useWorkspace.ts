@@ -53,6 +53,9 @@ export interface WorkspaceMember {
   user_id: string | null;
   email: string | null;
   display_name: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  phone: string | null;
   role: string;
   status: string;
   created_at: string;
@@ -188,12 +191,14 @@ export function useWorkspace() {
     return (data || []) as WorkspaceMember[];
   }, []);
 
-  const addMember = useCallback(async (projectId: string, email: string, role = 'member') => {
+  const addMember = useCallback(async (projectId: string, email: string, role = 'member', firstName?: string, lastName?: string, phone?: string | null) => {
+    const displayName = firstName ? `${firstName} ${lastName || ''}`.trim() : email;
     const { error } = await supabase.from("workspace_project_members").insert({
-      project_id: projectId, email, display_name: email, role, status: 'invited',
-    });
+      project_id: projectId, email, display_name: displayName, role, status: 'invited',
+      first_name: firstName || null, last_name: lastName || null, phone: phone || null,
+    } as any);
     if (error) { toast.error("Błąd dodawania"); return; }
-    toast.success(`Zaproszono ${email}`);
+    toast.success(`Zaproszono ${displayName}`);
   }, []);
 
   const removeMember = useCallback(async (memberId: string) => {
