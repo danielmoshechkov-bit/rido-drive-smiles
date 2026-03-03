@@ -1,17 +1,16 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { useWorkshopOrders } from '@/hooks/useWorkshop';
+import { useWorkshopOrders, useUpdateWorkshopOrder } from '@/hooks/useWorkshop';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { ChevronLeft, ChevronRight, Search, Car, Wrench, Clock, Plus, X } from 'lucide-react';
-import { format, addDays, startOfWeek, addWeeks, subWeeks, isToday, subDays, addHours, setHours, setMinutes } from 'date-fns';
+import { ChevronLeft, ChevronRight, Search, Car, Wrench, Clock, Plus, X, GripVertical } from 'lucide-react';
+import { format, addDays, startOfWeek, addWeeks, subWeeks, isToday, subDays } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 
 interface Props {
@@ -31,6 +30,9 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
   const [showSlotDialog, setShowSlotDialog] = useState(false);
   const [slotData, setSlotData] = useState<{ day: Date; hour: number; stationId: string } | null>(null);
   const [draggedOrder, setDraggedOrder] = useState<any>(null);
+  const [dragOverCell, setDragOverCell] = useState<string | null>(null);
+
+  const updateOrder = useUpdateWorkshopOrder();
 
   const { data: workstations = [] } = useQuery({
     queryKey: ['workshop-workstations', providerId],
@@ -55,7 +57,6 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
     { id: '3', name: 'Stanowisko 3', sort_order: 2 },
   ];
 
-  // If no station selected, pick first
   const activeStationId = selectedStation || defaultStations[0]?.id;
   const activeStation = defaultStations.find((s: any) => s.id === activeStationId);
 
@@ -76,6 +77,23 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
     return filtered.slice(0, 20);
   }, [orders, search]);
 
+  // Scheduled orders for active station
+  const scheduledOrders = useMemo(() => {
+    return orders.filter((o: any) =>
+      o.scheduled_start && o.scheduled_station_id === activeStationId
+    );
+  }, [orders, activeStationId]);
+
+  const getOrderForCell = (day: Date, hour: number) => {
+    const dayStr = format(day, 'yyyy-MM-dd');
+    return scheduledOrders.find((o: any) => {
+      if (!o.scheduled_start) return false;
+      const oDate = format(new Date(o.scheduled_start), 'yyyy-MM-dd');
+      const oHour = new Date(o.scheduled_start).getHours();
+      return oDate === dayStr && oHour === hour;
+    });
+  };
+
   const weekDays = useMemo(() => {
     return Array.from({ length: viewMode === 'day' ? 1 : 5 }, (_, i) =>
       addDays(currentWeekStart, i)
@@ -91,15 +109,31 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
     : `${format(currentWeekStart, 'd', { locale: pl })} – ${format(weekEnd, 'd MMM yyyy', { locale: pl })}`;
 
   const handleCellClick = (day: Date, hour: number, stationId: string) => {
+    if (getOrderForCell(day, hour)) return;
     setSlotData({ day, hour, stationId });
     setShowSlotDialog(true);
   };
 
-  const handleDrop = (day: Date, hour: number, stationId: string) => {
+  const handleDrop = async (day: Date, hour: number, stationId: string) => {
     if (!draggedOrder) return;
-    toast.success(`Zlecenie ${draggedOrder.order_number} zaplanowane na ${format(day, 'dd.MM')} o ${hour}:00`);
+    const scheduledStart = new Date(day);
+    scheduledStart.setHours(hour, 0, 0, 0);
+
+    try {
+      await updateOrder.mutateAsync({
+        id: draggedOrder.id,
+        scheduled_start: scheduledStart.toISOString(),
+        scheduled_station_id: stationId,
+      });
+      toast.success(`Zlecenie ${draggedOrder.order_number} zaplanowane na ${format(day, 'dd.MM')} o ${hour}:00`);
+    } catch {
+      toast.error('Nie udało się zaplanować zlecenia');
+    }
     setDraggedOrder(null);
+    setDragOverCell(null);
   };
+
+  const cellKey = (day: Date, hour: number) => `${format(day, 'yyyy-MM-dd')}-${hour}`;
 
   return (
     <div className="space-y-4">
@@ -109,8 +143,8 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
         <h2 className="text-xl font-bold">Terminarz</h2>
       </div>
 
-      {/* Unplanned tasks - draggable */}
-      <Card>
+      {/* Unplanned tasks */}
+      <Card className="border-2 border-border shadow-sm">
         <CardContent className="py-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-semibold text-lg">Zadania do rozplanowania</h3>
@@ -128,13 +162,14 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
               unplannedOrders.map((o: any) => (
                 <Card
                   key={o.id}
-                  className="min-w-[260px] flex-shrink-0 border-l-4 border-l-primary cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow"
+                  className="min-w-[260px] flex-shrink-0 border-l-4 border-l-primary cursor-grab active:cursor-grabbing hover:shadow-md transition-all bg-card"
                   draggable
                   onDragStart={() => setDraggedOrder(o)}
-                  onDragEnd={() => setDraggedOrder(null)}
+                  onDragEnd={() => { setDraggedOrder(null); setDragOverCell(null); }}
                 >
                   <CardContent className="p-3 space-y-1.5">
                     <div className="flex items-center gap-2 text-sm font-medium">
+                      <GripVertical className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                       <Car className="h-4 w-4 text-muted-foreground" />
                       {o.vehicle ? `${o.vehicle.brand} ${o.vehicle.model} ${o.vehicle.plate || ''}` : 'Brak pojazdu'}
                     </div>
@@ -143,9 +178,6 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
                       <div key={idx} className="flex items-center justify-between text-xs">
                         <span className="flex items-center gap-1 truncate">
                           <Wrench className="h-3 w-3 flex-shrink-0" /> {item.name}
-                        </span>
-                        <span className="flex items-center gap-1 text-muted-foreground">
-                          <Clock className="h-3 w-3" /> 1.00h
                         </span>
                       </div>
                     ))}
@@ -205,20 +237,20 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
         </div>
       </div>
 
-      {/* Schedule grid - single station */}
-      <Card>
+      {/* Schedule grid */}
+      <Card className="border-2 border-border shadow-sm">
         <CardContent className="p-0 overflow-x-auto">
-          <div className="bg-muted/30 px-4 py-2 border-b font-medium text-sm flex items-center gap-2">
+          <div className="bg-primary/10 px-4 py-2.5 border-b-2 border-border font-semibold text-sm flex items-center gap-2">
             <Wrench className="h-4 w-4 text-primary" />
             {activeStation?.name || 'Stanowisko'}
           </div>
           <table className="w-full border-collapse text-xs">
             <thead>
-              <tr>
-                <th className="w-16 border-b border-r p-2 text-left text-muted-foreground sticky left-0 bg-background z-10">Godzina</th>
+              <tr className="bg-muted/60">
+                <th className="w-16 border-b-2 border-r-2 border-border p-2.5 text-left text-muted-foreground font-semibold sticky left-0 bg-muted/60 z-10">Godzina</th>
                 {weekDays.map(day => (
-                  <th key={day.toISOString()} className="border-b p-2 text-center min-w-[150px]">
-                    <div className={`font-semibold ${isToday(day) ? 'text-primary' : ''}`}>
+                  <th key={day.toISOString()} className="border-b-2 border-r border-border p-2.5 text-center min-w-[150px]">
+                    <div className={`font-bold text-sm ${isToday(day) ? 'text-primary' : 'text-foreground'}`}>
                       {format(day, 'EEE dd.MM', { locale: pl })}
                     </div>
                   </th>
@@ -226,28 +258,57 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
               </tr>
             </thead>
             <tbody>
-              {HOURS.map(hour => (
-                <tr key={hour} className="h-14">
-                  <td className="border-b border-r p-1 text-right text-muted-foreground font-mono sticky left-0 bg-background z-10">
-                    {`${hour}:00`}
-                  </td>
-                  {weekDays.map(day => (
-                    <td
-                      key={`${day.toISOString()}-${hour}`}
-                      className={`border-b border-r p-0.5 cursor-pointer transition-colors relative group ${
-                        draggedOrder ? 'hover:bg-primary/10 hover:ring-2 hover:ring-primary/30 hover:ring-inset' : 'hover:bg-accent/30'
-                      }`}
-                      onClick={() => handleCellClick(day, hour, activeStationId)}
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={() => handleDrop(day, hour, activeStationId)}
-                    >
-                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Plus className="h-4 w-4 text-muted-foreground" />
-                      </div>
+              {HOURS.map((hour, hourIdx) => {
+                const isEvenRow = hourIdx % 2 === 0;
+                return (
+                  <tr key={hour} className="h-16">
+                    <td className={`border-b border-r-2 border-border p-2 text-right text-muted-foreground font-mono font-semibold text-sm sticky left-0 z-10 ${isEvenRow ? 'bg-background' : 'bg-muted/20'}`}>
+                      {`${hour}:00`}
                     </td>
-                  ))}
-                </tr>
-              ))}
+                    {weekDays.map(day => {
+                      const key = cellKey(day, hour);
+                      const isDragOver = dragOverCell === key;
+                      const scheduledOrder = getOrderForCell(day, hour);
+                      return (
+                        <td
+                          key={key}
+                          className={`border-b border-r border-border p-1 cursor-pointer transition-all relative ${
+                            isEvenRow ? 'bg-background' : 'bg-muted/20'
+                          } ${
+                            isDragOver && draggedOrder
+                              ? 'bg-primary/20 ring-2 ring-primary ring-inset shadow-inner'
+                              : scheduledOrder
+                                ? ''
+                                : 'hover:bg-accent/40'
+                          }`}
+                          onClick={() => handleCellClick(day, hour, activeStationId)}
+                          onDragOver={(e) => { e.preventDefault(); setDragOverCell(key); }}
+                          onDragLeave={() => { if (dragOverCell === key) setDragOverCell(null); }}
+                          onDrop={() => handleDrop(day, hour, activeStationId)}
+                        >
+                          {scheduledOrder ? (
+                            <div className="bg-primary/15 border border-primary/40 rounded-md p-1.5 text-xs h-full">
+                              <div className="flex items-center gap-1 font-semibold text-foreground">
+                                <Car className="h-3 w-3 text-primary flex-shrink-0" />
+                                <span className="truncate">
+                                  {scheduledOrder.vehicle
+                                    ? `${scheduledOrder.vehicle.brand} ${scheduledOrder.vehicle.model}`
+                                    : 'Zlecenie'}
+                                </span>
+                              </div>
+                              <div className="text-muted-foreground truncate">{scheduledOrder.order_number}</div>
+                            </div>
+                          ) : (
+                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 hover:opacity-100 transition-opacity">
+                              <Plus className="h-4 w-4 text-muted-foreground/50" />
+                            </div>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </CardContent>
@@ -260,35 +321,49 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
         slotData={slotData}
         unplannedOrders={unplannedOrders}
         station={activeStation}
+        onSchedule={async (orderId, day, hour, stationId) => {
+          const scheduledStart = new Date(day);
+          scheduledStart.setHours(hour, 0, 0, 0);
+          try {
+            await updateOrder.mutateAsync({
+              id: orderId,
+              scheduled_start: scheduledStart.toISOString(),
+              scheduled_station_id: stationId,
+            });
+            toast.success('Zlecenie dodane do terminarza');
+          } catch {
+            toast.error('Nie udało się zaplanować');
+          }
+        }}
       />
     </div>
   );
 }
 
-function SlotDialog({ open, onOpenChange, slotData, unplannedOrders, station }: {
+function SlotDialog({ open, onOpenChange, slotData, unplannedOrders, station, onSchedule }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   slotData: { day: Date; hour: number; stationId: string } | null;
   unplannedOrders: any[];
   station: any;
+  onSchedule: (orderId: string, day: Date, hour: number, stationId: string) => Promise<void>;
 }) {
   const [selectedOrderId, setSelectedOrderId] = useState('');
-  const [description, setDescription] = useState('');
 
   if (!slotData) return null;
 
-  const handleCreate = () => {
-    toast.success('Zlecenie dodane do terminarza');
+  const handleCreate = async () => {
+    if (!selectedOrderId) return;
+    await onSchedule(selectedOrderId, slotData.day, slotData.hour, slotData.stationId);
     onOpenChange(false);
     setSelectedOrderId('');
-    setDescription('');
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Nowe zlecenie w terminarzu</DialogTitle>
+          <DialogTitle>Zaplanuj zlecenie</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
@@ -311,7 +386,7 @@ function SlotDialog({ open, onOpenChange, slotData, unplannedOrders, station }: 
 
           {unplannedOrders.length > 0 && (
             <div>
-              <label className="text-sm font-medium mb-1.5 block">Wybierz istniejące zlecenie</label>
+              <label className="text-sm font-medium mb-1.5 block">Wybierz zlecenie</label>
               <Select value={selectedOrderId} onValueChange={setSelectedOrderId}>
                 <SelectTrigger><SelectValue placeholder="Wybierz zlecenie z listy..." /></SelectTrigger>
                 <SelectContent>
@@ -325,26 +400,10 @@ function SlotDialog({ open, onOpenChange, slotData, unplannedOrders, station }: 
             </div>
           )}
 
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <div className="flex-1 border-t" />
-            <span>lub utwórz nowe</span>
-            <div className="flex-1 border-t" />
-          </div>
-
-          <div>
-            <label className="text-sm font-medium mb-1.5 block">Opis zlecenia</label>
-            <Textarea
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-              placeholder="Opis prac do wykonania..."
-              rows={3}
-            />
-          </div>
-
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>Anuluj</Button>
-            <Button onClick={handleCreate} disabled={!selectedOrderId && !description}>
-              Utwórz zlecenie
+            <Button onClick={handleCreate} disabled={!selectedOrderId}>
+              Zaplanuj
             </Button>
           </div>
         </div>

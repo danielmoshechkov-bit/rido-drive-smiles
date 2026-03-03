@@ -1,16 +1,14 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useCreateWorkshopOrder, useWorkshopClients, useWorkshopVehicles, useCreateWorkshopOrderItem } from '@/hooks/useWorkshop';
 import { WorkshopAddVehicleDialog } from './WorkshopAddVehicleDialog';
 import { WorkshopAddClientDialog } from './WorkshopAddClientDialog';
-import { Plus, ClipboardList, Loader2, Car, Users, Trash2 } from 'lucide-react';
+import { Plus, ClipboardList, Loader2, Car, Users, Camera, X, MessageSquare } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface Props {
   open: boolean;
@@ -18,15 +16,18 @@ interface Props {
   providerId: string;
 }
 
-interface TaskItem {
-  name: string;
-  mechanic: string;
-  unit: string;
-  quantity: number;
-  price: number;
-  purchase_price: number;
-  discount: number;
+interface TaskPoint {
+  text: string;
 }
+
+const PHOTO_SLOTS = [
+  { key: 'front', label: 'Przód' },
+  { key: 'back', label: 'Tył' },
+  { key: 'left', label: 'Lewy bok' },
+  { key: 'right', label: 'Prawy bok' },
+  { key: 'interior_front', label: 'Wnętrze przód' },
+  { key: 'interior_back', label: 'Wnętrze tył' },
+];
 
 export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props) {
   const { data: clients = [] } = useWorkshopClients(providerId);
@@ -36,32 +37,43 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
 
   const [vehicleId, setVehicleId] = useState('');
   const [clientId, setClientId] = useState('');
-  const [description, setDescription] = useState('');
-  const [priceMode, setPriceMode] = useState<'net' | 'gross'>('gross');
-  const [tasks, setTasks] = useState<TaskItem[]>([]);
-  const [newTask, setNewTask] = useState<TaskItem>({ name: '', mechanic: '', unit: 'szt', quantity: 1, price: 0, purchase_price: 0, discount: 0 });
+  const [taskPoints, setTaskPoints] = useState<TaskPoint[]>([{ text: '' }]);
+  const [damageDescription, setDamageDescription] = useState('');
+  const [photos, setPhotos] = useState<Record<string, File | null>>({});
   const [showAddVehicle, setShowAddVehicle] = useState(false);
   const [showAddClient, setShowAddClient] = useState(false);
   const [vehicleSearch, setVehicleSearch] = useState('');
   const [clientSearch, setClientSearch] = useState('');
   const [showVehicleList, setShowVehicleList] = useState(false);
   const [showClientList, setShowClientList] = useState(false);
+  const [showSmsConfirm, setShowSmsConfirm] = useState(false);
+  const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
 
-  // Toggles
-  const [returnParts, setReturnParts] = useState(false);
-  const [regDoc, setRegDoc] = useState(false);
-  const [testDrive, setTestDrive] = useState(true);
-  const [topUpFluids, setTopUpFluids] = useState(false);
-  const [topUpLights, setTopUpLights] = useState(false);
+  const vehicleDropdownRef = useRef<HTMLDivElement>(null);
+  const clientDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdowns on outside click
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (vehicleDropdownRef.current && !vehicleDropdownRef.current.contains(e.target as Node)) {
+        setShowVehicleList(false);
+      }
+      if (clientDropdownRef.current && !clientDropdownRef.current.contains(e.target as Node)) {
+        setShowClientList(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
 
   const filteredVehicles = useMemo(() => {
     if (!vehicleSearch) return vehicles;
     const s = vehicleSearch.toLowerCase();
     return vehicles.filter((v: any) =>
-      (v.brand?.toLowerCase().includes(s)) ||
-      (v.model?.toLowerCase().includes(s)) ||
-      (v.plate?.toLowerCase().includes(s)) ||
-      (v.vin?.toLowerCase().includes(s))
+      v.brand?.toLowerCase().includes(s) ||
+      v.model?.toLowerCase().includes(s) ||
+      v.plate?.toLowerCase().includes(s) ||
+      v.vin?.toLowerCase().includes(s)
     );
   }, [vehicles, vehicleSearch]);
 
@@ -69,10 +81,10 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
     if (!clientSearch) return clients;
     const s = clientSearch.toLowerCase();
     return clients.filter((c: any) =>
-      (c.first_name?.toLowerCase().includes(s)) ||
-      (c.last_name?.toLowerCase().includes(s)) ||
-      (c.company_name?.toLowerCase().includes(s)) ||
-      (c.nip?.includes(s))
+      c.first_name?.toLowerCase().includes(s) ||
+      c.last_name?.toLowerCase().includes(s) ||
+      c.company_name?.toLowerCase().includes(s) ||
+      c.nip?.includes(s)
     );
   }, [clients, clientSearch]);
 
@@ -88,269 +100,277 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
       : `${selectedClient.first_name || ''} ${selectedClient.last_name || ''}`.trim()
     : '';
 
-  const totalCost = tasks.reduce((sum, t) => {
-    const base = t.quantity * t.price;
-    return sum + base - (base * t.discount / 100);
-  }, 0);
-
-  const addTask = () => {
-    if (!newTask.name) return;
-    setTasks([...tasks, { ...newTask }]);
-    setNewTask({ name: '', mechanic: '', unit: 'szt', quantity: 1, price: 0, purchase_price: 0, discount: 0 });
+  const addTaskPoint = () => {
+    setTaskPoints([...taskPoints, { text: '' }]);
   };
 
-  const removeTask = (i: number) => setTasks(tasks.filter((_, idx) => idx !== i));
+  const updateTaskPoint = (index: number, text: string) => {
+    const updated = [...taskPoints];
+    updated[index] = { text };
+    setTaskPoints(updated);
+  };
+
+  const removeTaskPoint = (index: number) => {
+    if (taskPoints.length <= 1) return;
+    setTaskPoints(taskPoints.filter((_, i) => i !== index));
+  };
+
+  const handlePhotoChange = (key: string, file: File | null) => {
+    setPhotos(prev => ({ ...prev, [key]: file }));
+  };
 
   const handleSubmit = async () => {
+    const descriptionText = taskPoints
+      .filter(p => p.text.trim())
+      .map((p, i) => `${i + 1}. ${p.text.trim()}`)
+      .join('\n');
+
     const order = await createOrder.mutateAsync({
       provider_id: providerId,
-      order_number: '', // auto-generated
+      order_number: '',
       vehicle_id: vehicleId || null,
       client_id: clientId || null,
-      description: description || null,
-      price_mode: priceMode,
-      total_net: priceMode === 'net' ? totalCost : totalCost / 1.23,
-      total_gross: priceMode === 'gross' ? totalCost : totalCost * 1.23,
-      return_parts_to_client: returnParts,
-      registration_document: regDoc,
-      test_drive_consent: testDrive,
-      top_up_fluids: topUpFluids,
-      top_up_lights: topUpLights,
+      description: descriptionText || null,
+      damage_description: damageDescription || null,
       status_name: 'Przyjęcie do serwisu',
     });
 
-    // Insert task items
-    for (const t of tasks) {
-      const base = t.quantity * t.price;
-      const discounted = base - (base * t.discount / 100);
-      await createItem.mutateAsync({
-        order_id: order.id,
-        name: t.name,
-        mechanic: t.mechanic || null,
-        unit: t.unit,
-        quantity: t.quantity,
-        unit_price_gross: priceMode === 'gross' ? t.price : t.price * 1.23,
-        unit_price_net: priceMode === 'net' ? t.price : t.price / 1.23,
-        unit_cost_gross: priceMode === 'gross' ? t.purchase_price : t.purchase_price * 1.23,
-        unit_cost_net: priceMode === 'net' ? t.purchase_price : t.purchase_price / 1.23,
-        discount_percent: t.discount,
-        total_gross: priceMode === 'gross' ? discounted : discounted * 1.23,
-        total_net: priceMode === 'net' ? discounted : discounted / 1.23,
-      });
-    }
+    setCreatedOrderId(order.id);
+    setShowSmsConfirm(true);
+  };
 
-    // Reset
-    setVehicleId(''); setClientId(''); setDescription(''); setTasks([]);
-    setReturnParts(false); setRegDoc(false); setTestDrive(true); setTopUpFluids(false); setTopUpLights(false);
+  const handleSmsResponse = (send: boolean) => {
+    if (send && selectedClient) {
+      toast.success('Potwierdzenie przyjęcia auta wysłane do klienta');
+    }
+    // Reset form
+    setVehicleId(''); setClientId('');
+    setTaskPoints([{ text: '' }]);
+    setDamageDescription('');
+    setPhotos({});
+    setCreatedOrderId(null);
+    setShowSmsConfirm(false);
+    onOpenChange(false);
+  };
+
+  const resetAndClose = () => {
+    setVehicleId(''); setClientId('');
+    setTaskPoints([{ text: '' }]);
+    setDamageDescription('');
+    setPhotos({});
+    setShowSmsConfirm(false);
+    setCreatedOrderId(null);
     onOpenChange(false);
   };
 
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
+      <Dialog open={open} onOpenChange={(v) => { if (!v) resetAndClose(); }}>
         <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto">
-          <DialogHeader>
-            <div className="flex items-center justify-between">
-              <DialogTitle className="flex items-center gap-2">
-                <ClipboardList className="h-5 w-5" /> Zlecenie
-              </DialogTitle>
-              <div className="flex gap-1 text-sm">
-                <Button variant={priceMode === 'net' ? 'secondary' : 'ghost'} size="sm" onClick={() => setPriceMode('net')}>NETTO</Button>
-                <Button variant={priceMode === 'gross' ? 'secondary' : 'ghost'} size="sm" onClick={() => setPriceMode('gross')}>BRUTTO</Button>
-              </div>
-            </div>
-          </DialogHeader>
-
-          <div className="space-y-5">
-            {/* Vehicle & Client */}
-            <div className="grid grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Pojazd</Label>
-                {vehicleId ? (
-                  <div className="flex items-center gap-2 p-2 border rounded-md bg-muted/50">
-                    <Car className="h-4 w-4 text-primary" />
-                    <span className="text-sm font-medium flex-1">{vehicleLabel}</span>
-                    <Button variant="ghost" size="sm" onClick={() => { setVehicleId(''); setShowVehicleList(true); }}>Zmień</Button>
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <Input
-                      value={vehicleSearch}
-                      onChange={e => { setVehicleSearch(e.target.value); setShowVehicleList(true); }}
-                      onFocus={() => setShowVehicleList(true)}
-                      placeholder="Pojazd (np. rejestracja, marka...)"
-                    />
-                    {showVehicleList && (
-                      <div className="absolute z-50 w-full mt-1 border rounded-md bg-background shadow-lg max-h-60 overflow-y-auto">
-                        <button className="w-full text-left px-3 py-2 hover:bg-accent text-sm flex items-center gap-2 border-b" onClick={() => { setShowVehicleList(false); setShowAddVehicle(true); }}>
-                          <Plus className="h-4 w-4" /> Utwórz nowy pojazd
-                        </button>
-                        {filteredVehicles.map((v: any) => (
-                          <button key={v.id} className="w-full text-left px-3 py-2 hover:bg-accent text-sm" onClick={() => { setVehicleId(v.id); setShowVehicleList(false); setVehicleSearch(''); }}>
-                            <div className="flex items-center gap-2">
-                              <Car className="h-3.5 w-3.5 text-muted-foreground" />
-                              <div>
-                                <div className="font-medium">{v.brand} {v.model} {v.year ? `${v.year}` : ''} {v.engine_capacity_cm3 ? `${v.engine_capacity_cm3} cm³` : ''}</div>
-                                <div className="text-xs text-muted-foreground">{v.plate} {v.vin || ''}</div>
-                              </div>
-                            </div>
-                          </button>
-                        ))}
-                        {filteredVehicles.length === 0 && <div className="px-3 py-2 text-sm text-muted-foreground">Brak wyników</div>}
-                      </div>
-                    )}
-                  </div>
+          {showSmsConfirm ? (
+            /* SMS confirmation screen */
+            <div className="space-y-6 py-4">
+              <div className="text-center space-y-3">
+                <div className="mx-auto w-16 h-16 rounded-full bg-accent flex items-center justify-center">
+                  <ClipboardList className="h-8 w-8 text-primary" />
+                </div>
+                <h3 className="text-xl font-bold">Zlecenie utworzone!</h3>
+                <p className="text-muted-foreground">
+                  Czy chcesz wysłać potwierdzenie przyjęcia pojazdu do klienta?
+                </p>
+                {selectedClient && (
+                  <p className="text-sm text-muted-foreground">
+                    Wiadomość zostanie wysłana na numer: <span className="font-medium text-foreground">{selectedClient.phone || 'brak numeru'}</span>
+                  </p>
                 )}
               </div>
+              <div className="flex justify-center gap-3">
+                <Button variant="outline" onClick={() => handleSmsResponse(false)}>
+                  Nie, pomiń
+                </Button>
+                <Button onClick={() => handleSmsResponse(true)} className="gap-2" disabled={!selectedClient?.phone}>
+                  <MessageSquare className="h-4 w-4" />
+                  Tak, wyślij SMS
+                </Button>
+              </div>
+            </div>
+          ) : (
+            /* Main form */
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <ClipboardList className="h-5 w-5" /> Przyjęcie pojazdu
+                </DialogTitle>
+              </DialogHeader>
 
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Klient</Label>
-                {clientId ? (
-                  <div className="flex items-center gap-2 p-2 border rounded-md bg-muted/50">
-                    <Users className="h-4 w-4 text-primary" />
-                    <span className="text-sm font-medium flex-1">{clientLabel}</span>
-                    <Button variant="ghost" size="sm" onClick={() => { setClientId(''); setShowClientList(true); }}>Zmień</Button>
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <Input
-                      value={clientSearch}
-                      onChange={e => { setClientSearch(e.target.value); setShowClientList(true); }}
-                      onFocus={() => setShowClientList(true)}
-                      placeholder="Wyszukaj klienta..."
-                    />
-                    {showClientList && (
-                      <div className="absolute z-50 w-full mt-1 border rounded-md bg-background shadow-lg max-h-60 overflow-y-auto">
-                        <button className="w-full text-left px-3 py-2 hover:bg-accent text-sm flex items-center gap-2 border-b" onClick={() => { setShowClientList(false); setShowAddClient(true); }}>
-                          <Plus className="h-4 w-4" /> Utwórz nowego klienta
-                        </button>
-                        {filteredClients.map((c: any) => (
-                          <button key={c.id} className="w-full text-left px-3 py-2 hover:bg-accent text-sm" onClick={() => { setClientId(c.id); setShowClientList(false); setClientSearch(''); }}>
-                            <div className="flex items-center gap-2">
-                              <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                              <div>
-                                <div className="font-medium">
-                                  {c.client_type === 'company' ? c.company_name : `${c.first_name || ''} ${c.last_name || ''}`}
+              <div className="space-y-6">
+                {/* Vehicle & Client */}
+                <div className="grid grid-cols-2 gap-6">
+                  {/* Vehicle selector */}
+                  <div className="space-y-2" ref={vehicleDropdownRef}>
+                    <Label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Pojazd</Label>
+                    {vehicleId ? (
+                      <div className="flex items-center gap-2 p-2.5 border-2 border-primary/30 rounded-lg bg-primary/5">
+                        <Car className="h-4 w-4 text-primary" />
+                        <span className="text-sm font-medium flex-1">{vehicleLabel}</span>
+                        <Button variant="ghost" size="sm" onClick={() => { setVehicleId(''); setShowVehicleList(true); }}>Zmień</Button>
+                      </div>
+                    ) : (
+                      <div className="relative">
+                        <Input
+                          value={vehicleSearch}
+                          onChange={e => { setVehicleSearch(e.target.value); setShowVehicleList(true); }}
+                          onFocus={() => setShowVehicleList(true)}
+                          placeholder="Pojazd (np. rejestracja, marka...)"
+                        />
+                        {showVehicleList && (
+                          <div className="absolute z-50 w-full mt-1 border-2 border-border rounded-lg bg-background shadow-xl max-h-60 overflow-y-auto">
+                            <button className="w-full text-left px-3 py-2.5 hover:bg-accent text-sm flex items-center gap-2 border-b font-medium" onClick={() => { setShowVehicleList(false); setShowAddVehicle(true); }}>
+                              <Plus className="h-4 w-4 text-primary" /> Utwórz nowy pojazd
+                            </button>
+                            {filteredVehicles.map((v: any) => (
+                              <button key={v.id} className="w-full text-left px-3 py-2.5 hover:bg-accent text-sm transition-colors" onClick={() => { setVehicleId(v.id); setShowVehicleList(false); setVehicleSearch(''); }}>
+                                <div className="flex items-center gap-2">
+                                  <Car className="h-3.5 w-3.5 text-muted-foreground" />
+                                  <div>
+                                    <div className="font-medium">{v.brand} {v.model}</div>
+                                    <div className="text-xs text-muted-foreground">{v.plate} {v.vin || ''}</div>
+                                  </div>
                                 </div>
-                                {c.nip && <div className="text-xs text-muted-foreground">NIP: {c.nip}</div>}
-                              </div>
-                            </div>
-                          </button>
-                        ))}
-                        {filteredClients.length === 0 && <div className="px-3 py-2 text-sm text-muted-foreground">Brak wyników</div>}
+                              </button>
+                            ))}
+                            {filteredVehicles.length === 0 && <div className="px-3 py-3 text-sm text-muted-foreground text-center">Brak wyników</div>}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
-                )}
-              </div>
-            </div>
 
-            {/* Description */}
-            <div className="space-y-1.5">
-              <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Opis zlecenia" rows={3} />
-            </div>
+                  {/* Client selector */}
+                  <div className="space-y-2" ref={clientDropdownRef}>
+                    <Label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Klient</Label>
+                    {clientId ? (
+                      <div className="flex items-center gap-2 p-2.5 border-2 border-primary/30 rounded-lg bg-primary/5">
+                        <Users className="h-4 w-4 text-primary" />
+                        <span className="text-sm font-medium flex-1">{clientLabel}</span>
+                        <Button variant="ghost" size="sm" onClick={() => { setClientId(''); setShowClientList(true); }}>Zmień</Button>
+                      </div>
+                    ) : (
+                      <div className="relative">
+                        <Input
+                          value={clientSearch}
+                          onChange={e => { setClientSearch(e.target.value); setShowClientList(true); }}
+                          onFocus={() => setShowClientList(true)}
+                          placeholder="Wyszukaj klienta..."
+                        />
+                        {showClientList && (
+                          <div className="absolute z-50 w-full mt-1 border-2 border-border rounded-lg bg-background shadow-xl max-h-60 overflow-y-auto">
+                            <button className="w-full text-left px-3 py-2.5 hover:bg-accent text-sm flex items-center gap-2 border-b font-medium" onClick={() => { setShowClientList(false); setShowAddClient(true); }}>
+                              <Plus className="h-4 w-4 text-primary" /> Utwórz nowego klienta
+                            </button>
+                            {filteredClients.map((c: any) => (
+                              <button key={c.id} className="w-full text-left px-3 py-2.5 hover:bg-accent text-sm transition-colors" onClick={() => { setClientId(c.id); setShowClientList(false); setClientSearch(''); }}>
+                                <div className="flex items-center gap-2">
+                                  <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                                  <div>
+                                    <div className="font-medium">
+                                      {c.client_type === 'company' ? c.company_name : `${c.first_name || ''} ${c.last_name || ''}`}
+                                    </div>
+                                    {c.nip && <div className="text-xs text-muted-foreground">NIP: {c.nip}</div>}
+                                  </div>
+                                </div>
+                              </button>
+                            ))}
+                            {filteredClients.length === 0 && <div className="px-3 py-3 text-sm text-muted-foreground text-center">Brak wyników</div>}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
 
-            {/* Tasks table */}
-            <div>
-              <Label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-2 block">Lista zadań</Label>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nazwa</TableHead>
-                    <TableHead>Mechanik</TableHead>
-                    <TableHead>Jedn</TableHead>
-                    <TableHead className="text-right">Ilość</TableHead>
-                    <TableHead className="text-right">Cena {priceMode === 'net' ? 'netto' : 'brutto'}</TableHead>
-                    <TableHead className="text-right">Cena zakupu</TableHead>
-                    <TableHead className="text-right">Rabat %</TableHead>
-                    <TableHead className="text-right">Koszt</TableHead>
-                    <TableHead className="text-right">Zysk</TableHead>
-                    <TableHead></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {tasks.map((t, i) => {
-                    const base = t.quantity * t.price;
-                    const cost = base - (base * t.discount / 100);
-                    const purchaseCost = t.quantity * t.purchase_price;
-                    const profit = cost - purchaseCost;
-                    return (
-                      <TableRow key={i}>
-                        <TableCell className="font-medium">{t.name}</TableCell>
-                        <TableCell>{t.mechanic}</TableCell>
-                        <TableCell>{t.unit}</TableCell>
-                        <TableCell className="text-right">{t.quantity}</TableCell>
-                        <TableCell className="text-right">{t.price.toFixed(2)}</TableCell>
-                        <TableCell className="text-right text-muted-foreground">{t.purchase_price.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">{t.discount}%</TableCell>
-                        <TableCell className="text-right">{cost.toFixed(2)}</TableCell>
-                        <TableCell className={`text-right font-medium ${profit >= 0 ? 'text-green-600' : 'text-destructive'}`}>
-                          {profit.toFixed(2)}
-                        </TableCell>
-                        <TableCell>
-                          <Button variant="ghost" size="icon" onClick={() => removeTask(i)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
+                {/* Task points - numbered list */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Lista zadań do wykonania</Label>
+                  <div className="space-y-2">
+                    {taskPoints.map((point, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-primary min-w-[28px] text-center">{index + 1}.</span>
+                        <Input
+                          value={point.text}
+                          onChange={e => updateTaskPoint(index, e.target.value)}
+                          placeholder="Opisz co klient chce zrobić..."
+                          className="flex-1"
+                        />
+                        {taskPoints.length > 1 && (
+                          <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0" onClick={() => removeTaskPoint(index)}>
+                            <X className="h-4 w-4 text-muted-foreground" />
                           </Button>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                  {tasks.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={10} className="text-center text-muted-foreground">Brak danych</TableCell>
-                    </TableRow>
-                  )}
-                  <TableRow className="font-semibold border-t-2">
-                    <TableCell colSpan={7}>Razem</TableCell>
-                    <TableCell className="text-right">{totalCost.toFixed(2)}</TableCell>
-                    <TableCell className="text-right text-green-600">
-                      {(totalCost - tasks.reduce((s, t) => s + t.quantity * t.purchase_price, 0)).toFixed(2)}
-                    </TableCell>
-                    <TableCell></TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <Button variant="outline" size="sm" onClick={addTaskPoint} className="gap-1">
+                    <Plus className="h-4 w-4" /> Dodaj pozycję
+                  </Button>
+                </div>
 
-              {/* Add task row */}
-              <div className="grid grid-cols-7 gap-2 mt-2 items-end">
-                <Input placeholder="Nazwa" value={newTask.name} onChange={e => setNewTask(p => ({ ...p, name: e.target.value }))} />
-                <Input placeholder="Mechanik" value={newTask.mechanic} onChange={e => setNewTask(p => ({ ...p, mechanic: e.target.value }))} />
-                <Input placeholder="Jedn" value={newTask.unit} onChange={e => setNewTask(p => ({ ...p, unit: e.target.value }))} className="w-16" />
-                <Input type="number" placeholder="Ilość" value={newTask.quantity} onChange={e => setNewTask(p => ({ ...p, quantity: Number(e.target.value) }))} />
-                <Input type="number" placeholder={`Cena ${priceMode === 'net' ? 'netto' : 'brutto'}`} value={newTask.price || ''} onChange={e => setNewTask(p => ({ ...p, price: Number(e.target.value) }))} />
-                <Input type="number" placeholder="Cena zakupu" value={newTask.purchase_price || ''} onChange={e => setNewTask(p => ({ ...p, purchase_price: Number(e.target.value) }))} />
-                <Button onClick={addTask} className="gap-1"><Plus className="h-4 w-4" /> Dodaj</Button>
+                {/* Damage description + photos */}
+                <div className="space-y-3 border-t pt-4">
+                  <Label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Uszkodzenia pojazdu</Label>
+                  <Textarea
+                    value={damageDescription}
+                    onChange={e => setDamageDescription(e.target.value)}
+                    placeholder="Ogólny opis uszkodzeń pojazdu..."
+                    rows={3}
+                  />
+
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Zdjęcia pojazdu przy przyjęciu</Label>
+                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+                      {PHOTO_SLOTS.map(slot => (
+                        <label key={slot.key} className="cursor-pointer group">
+                          <div className={`aspect-square rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-1 transition-all
+                            ${photos[slot.key]
+                              ? 'border-primary bg-primary/5'
+                              : 'border-border hover:border-primary/50 hover:bg-accent/30'
+                            }`}
+                          >
+                            {photos[slot.key] ? (
+                              <div className="relative w-full h-full">
+                                <img src={URL.createObjectURL(photos[slot.key]!)} alt={slot.label} className="w-full h-full object-cover rounded-lg" />
+                                <button
+                                  className="absolute top-0.5 right-0.5 bg-destructive text-destructive-foreground rounded-full p-0.5"
+                                  onClick={(e) => { e.preventDefault(); handlePhotoChange(slot.key, null); }}
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </div>
+                            ) : (
+                              <>
+                                <Camera className="h-6 w-6 text-muted-foreground group-hover:text-primary transition-colors" />
+                                <span className="text-[10px] text-muted-foreground text-center leading-tight">{slot.label}</span>
+                              </>
+                            )}
+                          </div>
+                          <input type="file" accept="image/*" className="hidden" onChange={e => handlePhotoChange(slot.key, e.target.files?.[0] || null)} />
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Submit */}
+                <div className="flex justify-end gap-2 pt-4 border-t">
+                  <Button variant="outline" onClick={resetAndClose}>Anuluj</Button>
+                  <Button onClick={handleSubmit} disabled={createOrder.isPending}>
+                    {createOrder.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    Utwórz zlecenie
+                  </Button>
+                </div>
               </div>
-            </div>
-
-            {/* Toggles */}
-            <div className="flex flex-wrap gap-x-6 gap-y-3 pt-2 border-t">
-              <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <Switch checked={returnParts} onCheckedChange={setReturnParts} /> Zwrot części do klienta
-              </label>
-              <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <Switch checked={regDoc} onCheckedChange={setRegDoc} /> Dowód rejestracyjny
-              </label>
-              <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <Switch checked={testDrive} onCheckedChange={setTestDrive} /> Zgoda na jazdę próbną
-              </label>
-              <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <Switch checked={topUpFluids} onCheckedChange={setTopUpFluids} /> Uzupełnić płyny
-              </label>
-              <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <Switch checked={topUpLights} onCheckedChange={setTopUpLights} /> Uzupełnić oświetlenie
-              </label>
-            </div>
-
-            {/* Submit */}
-            <div className="flex justify-end gap-2 pt-4">
-              <Button variant="outline" onClick={() => onOpenChange(false)}>Anuluj</Button>
-              <Button onClick={handleSubmit} disabled={createOrder.isPending}>
-                {createOrder.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                Utwórz zlecenie
-              </Button>
-            </div>
-          </div>
+            </>
+          )}
         </DialogContent>
       </Dialog>
 
