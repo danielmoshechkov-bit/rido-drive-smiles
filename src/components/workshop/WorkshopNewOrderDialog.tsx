@@ -164,6 +164,13 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
       internal_notes: clientNotes || null,
       status_name: 'Przyjęcie do serwisu',
     });
+    // Auto-persist owner to vehicle
+    if (vehicleId && clientId) {
+      try {
+        await (supabase as any).from('workshop_vehicles').update({ owner_client_id: clientId }).eq('id', vehicleId);
+        qc.invalidateQueries({ queryKey: ['workshop-vehicles'] });
+      } catch (e) { console.error('Auto-persist owner error:', e); }
+    }
     setCreatedOrderId(order.id);
     setSendMethod(clientPhone ? 'sms' : clientEmail ? 'email' : 'sms');
     setManualPhone(''); setManualEmail('');
@@ -289,7 +296,7 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                         <Input
                           value={vehicleSearch}
                           onChange={e => { setVehicleSearch(e.target.value); setShowVehicleList(true); }}
-                          onFocus={() => setShowVehicleList(true)}
+                          onClick={() => setShowVehicleList(true)}
                           placeholder="Pojazd (np. rejestracja, marka...)"
                           className={errors.vehicle ? 'border-destructive' : ''}
                         />

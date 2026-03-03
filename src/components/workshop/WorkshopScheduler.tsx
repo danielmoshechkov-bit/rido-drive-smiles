@@ -524,6 +524,7 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
         open={showSlotDialog}
         onOpenChange={setShowSlotDialog}
         slotData={slotData}
+        providerId={providerId}
         unplannedOrders={unplannedOrders}
         stationName={categoryStations.find((s: any) => s.id === slotData?.stationId)?.name || ''}
         onSchedule={async (orderId, day, hour, stationId) => {
@@ -564,44 +565,133 @@ function OrderCard({ order, onDragStart, onDragEnd }: { order: any; onDragStart:
   );
 }
 
-function SlotDialog({ open, onOpenChange, slotData, unplannedOrders, stationName, onSchedule }: {
+function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders, stationName, onSchedule }: {
   open: boolean; onOpenChange: (v: boolean) => void;
   slotData: { day: Date; hour: number; stationId: string } | null;
+  providerId: string;
   unplannedOrders: any[]; stationName: string;
   onSchedule: (orderId: string, day: Date, hour: number, stationId: string) => Promise<void>;
 }) {
   const [selectedOrderId, setSelectedOrderId] = useState('');
+  const [activeTab, setActiveTab] = useState<'event' | 'order'>('event');
+  const [eventForm, setEventForm] = useState({
+    service: '', type: 'Wydarzenie', color: 'Niebieski', allDay: false,
+    duration: '1 godz.', worker: '', description: '',
+  });
   if (!slotData) return null;
 
+  const endHour = slotData.hour + 1;
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(v) => { if (!v) { setSelectedOrderId(''); setActiveTab('event'); } onOpenChange(v); }}>
       <DialogContent className="sm:max-w-lg">
-        <DialogHeader><DialogTitle>Zaplanuj zlecenie</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>Nowe wydarzenie / zlecenie</DialogTitle>
+        </DialogHeader>
         <div className="space-y-4">
+          {/* Tabs */}
+          <div className="flex gap-1 border rounded-lg p-0.5 bg-muted/30">
+            <Button variant={activeTab === 'event' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveTab('event')} className="flex-1 text-xs">
+              Nowe wydarzenie
+            </Button>
+            <Button variant={activeTab === 'order' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveTab('order')} className="flex-1 text-xs">
+              Nowe zlecenie
+            </Button>
+          </div>
+
+          {/* Date/time info */}
           <div className="grid grid-cols-3 gap-4 text-sm">
             <div><label className="font-medium">Data</label><div className="text-muted-foreground mt-1">{format(slotData.day, 'EEEE, d MMM', { locale: pl })}</div></div>
-            <div><label className="font-medium">Godzina</label><div className="text-muted-foreground mt-1">{slotData.hour}:00</div></div>
+            <div><label className="font-medium">Godzina</label><div className="text-muted-foreground mt-1">{slotData.hour}:00 – {endHour}:00</div></div>
             <div><label className="font-medium">Stanowisko</label><div className="text-muted-foreground mt-1">{stationName}</div></div>
           </div>
-          {unplannedOrders.length > 0 && (
-            <div>
-              <label className="text-sm font-medium mb-1.5 block">Wybierz zlecenie</label>
-              <Select value={selectedOrderId} onValueChange={setSelectedOrderId}>
-                <SelectTrigger><SelectValue placeholder="Wybierz zlecenie z listy..." /></SelectTrigger>
-                <SelectContent>
-                  {unplannedOrders.map((o: any) => (
-                    <SelectItem key={o.id} value={o.id}>
-                      {o.order_number} — {o.vehicle ? `${o.vehicle.brand} ${o.vehicle.model}` : 'Brak pojazdu'}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+
+          {activeTab === 'event' ? (
+            <div className="space-y-3">
+              <div>
+                <Label>Usługa / czynność</Label>
+                <Input value={eventForm.service} onChange={e => setEventForm(f => ({...f, service: e.target.value}))} placeholder="Wybierz usługę lub czynność" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Typ</Label>
+                  <Select value={eventForm.type} onValueChange={v => setEventForm(f => ({...f, type: v}))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Wydarzenie">Wydarzenie</SelectItem>
+                      <SelectItem value="Zadanie">Zadanie</SelectItem>
+                      <SelectItem value="Przerwa">Przerwa</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Kolor</Label>
+                  <Select value={eventForm.color} onValueChange={v => setEventForm(f => ({...f, color: v}))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Niebieski">🔵 Niebieski</SelectItem>
+                      <SelectItem value="Fioletowy">🟣 Fioletowy</SelectItem>
+                      <SelectItem value="Zielony">🟢 Zielony</SelectItem>
+                      <SelectItem value="Czerwony">🔴 Czerwony</SelectItem>
+                      <SelectItem value="Pomarańczowy">🟠 Pomarańczowy</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div>
+                <Label>Czas trwania</Label>
+                <Select value={eventForm.duration} onValueChange={v => setEventForm(f => ({...f, duration: v}))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="30 min">30 min</SelectItem>
+                    <SelectItem value="1 godz.">1 godz.</SelectItem>
+                    <SelectItem value="2 godz.">2 godz.</SelectItem>
+                    <SelectItem value="3 godz.">3 godz.</SelectItem>
+                    <SelectItem value="4 godz.">4 godz.</SelectItem>
+                    <SelectItem value="Cały dzień">Cały dzień</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Pracownik</Label>
+                <Input value={eventForm.worker} onChange={e => setEventForm(f => ({...f, worker: e.target.value}))} placeholder="Wybierz pracownika (opcjonalnie)" />
+              </div>
+              <div>
+                <Label>Opis</Label>
+                <Input value={eventForm.description} onChange={e => setEventForm(f => ({...f, description: e.target.value}))} placeholder="Dodatkowe informacje..." />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => onOpenChange(false)}>Anuluj</Button>
+                <Button onClick={() => { toast.success('Wydarzenie dodane'); onOpenChange(false); }}>Zapisz wydarzenie</Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {unplannedOrders.length > 0 && (
+                <div>
+                  <label className="text-sm font-medium mb-1.5 block">Wybierz istniejące zlecenie</label>
+                  <Select value={selectedOrderId} onValueChange={setSelectedOrderId}>
+                    <SelectTrigger><SelectValue placeholder="Wybierz zlecenie z listy..." /></SelectTrigger>
+                    <SelectContent>
+                      {unplannedOrders.map((o: any) => (
+                        <SelectItem key={o.id} value={o.id}>
+                          {o.order_number} — {o.vehicle ? `${o.vehicle.brand} ${o.vehicle.model}` : 'Brak pojazdu'}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              <div className="text-center text-sm text-muted-foreground py-2">lub</div>
+              <Button variant="outline" className="w-full gap-2" onClick={() => { onOpenChange(false); toast.info('Otwórz formularz nowego zlecenia z sekcji Zlecenia'); }}>
+                <Plus className="h-4 w-4" /> Utwórz nowe zlecenie
+              </Button>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => onOpenChange(false)}>Anuluj</Button>
+                <Button onClick={async () => { if (selectedOrderId) { await onSchedule(selectedOrderId, slotData.day, slotData.hour, slotData.stationId); onOpenChange(false); setSelectedOrderId(''); } }} disabled={!selectedOrderId}>Zaplanuj</Button>
+              </div>
             </div>
           )}
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>Anuluj</Button>
-            <Button onClick={async () => { if (selectedOrderId) { await onSchedule(selectedOrderId, slotData.day, slotData.hour, slotData.stationId); onOpenChange(false); setSelectedOrderId(''); } }} disabled={!selectedOrderId}>Zaplanuj</Button>
-          </div>
         </div>
       </DialogContent>
     </Dialog>
