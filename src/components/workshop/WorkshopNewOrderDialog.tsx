@@ -8,8 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useCreateWorkshopOrder, useWorkshopClients, useWorkshopVehicles, useCreateWorkshopOrderItem } from '@/hooks/useWorkshop';
 import { WorkshopAddVehicleDialog } from './WorkshopAddVehicleDialog';
 import { WorkshopAddClientDialog } from './WorkshopAddClientDialog';
-import { Plus, ClipboardList, Loader2, Car, Users, Camera, X, MessageSquare, AlertCircle } from 'lucide-react';
+import { Plus, ClipboardList, Loader2, Car, Users, Camera, X, MessageSquare, AlertCircle, Mail, Phone } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Props {
   open: boolean;
@@ -64,6 +65,15 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
   const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Store newly created vehicle/client data directly (so label shows before query refresh)
+  const [createdVehicleData, setCreatedVehicleData] = useState<any>(null);
+  const [createdClientData, setCreatedClientData] = useState<any>(null);
+
+  // SMS/Email confirmation state
+  const [sendMethod, setSendMethod] = useState<'sms' | 'email'>('sms');
+  const [manualPhone, setManualPhone] = useState('');
+  const [manualEmail, setManualEmail] = useState('');
+
   const vehicleDropdownRef = useRef<HTMLDivElement>(null);
   const clientDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -102,17 +112,21 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
     );
   }, [clients, clientSearch]);
 
-  const selectedVehicle = vehicles.find((v: any) => v.id === vehicleId);
-  const selectedClient = clients.find((c: any) => c.id === clientId);
+  // Use createdVehicleData if vehicle was just created, otherwise find from query
+  const selectedVehicle = createdVehicleData?.id === vehicleId ? createdVehicleData : vehicles.find((v: any) => v.id === vehicleId);
+  const selectedClient = createdClientData?.id === clientId ? createdClientData : clients.find((c: any) => c.id === clientId);
 
   const vehicleLabel = selectedVehicle
-    ? `${selectedVehicle.brand || ''} ${selectedVehicle.model || ''} ${selectedVehicle.plate || ''}`.trim()
+    ? `${selectedVehicle.brand || ''} ${selectedVehicle.model || ''} — ${selectedVehicle.plate || 'brak nr rej.'}`.trim()
     : '';
   const clientLabel = selectedClient
     ? selectedClient.client_type === 'company'
       ? selectedClient.company_name
       : `${selectedClient.first_name || ''} ${selectedClient.last_name || ''}`.trim()
     : '';
+
+  const clientPhone = selectedClient?.phone || '';
+  const clientEmail = selectedClient?.email || '';
 
   const addTaskPoint = () => setTaskPoints([...taskPoints, { text: '' }]);
   const updateTaskPoint = (index: number, text: string) => {
@@ -160,13 +174,39 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
     });
 
     setCreatedOrderId(order.id);
+    setSendMethod(clientPhone ? 'sms' : clientEmail ? 'email' : 'sms');
+    setManualPhone('');
+    setManualEmail('');
     setShowSmsConfirm(true);
   };
 
-  const handleSmsResponse = (send: boolean) => {
-    if (send && selectedClient) {
-      toast.success('Potwierdzenie przyjęcia auta wysłane do klienta');
+  const handleSendConfirmation = async () => {
+    const phone = clientPhone || manualPhone;
+    const email = clientEmail || manualEmail;
+
+    // Save contact info to client if entered manually
+    if (clientId && (manualPhone || manualEmail)) {
+      const updates: any = {};
+      if (manualPhone && !clientPhone) updates.phone = manualPhone;
+      if (manualEmail && !clientEmail) updates.email = manualEmail;
+      if (Object.keys(updates).length > 0) {
+        await (supabase as any).from('workshop_clients').update(updates).eq('id', clientId);
+      }
     }
+
+    if (sendMethod === 'sms' && phone) {
+      toast.success(`SMS potwierdzenia wysłany na ${phone}`);
+    } else if (sendMethod === 'email' && email) {
+      toast.success(`E-mail potwierdzenia wysłany na ${email}`);
+    } else {
+      toast.info('Brak danych kontaktowych — pomijam wysyłkę');
+    }
+
+    resetForm();
+    onOpenChange(false);
+  };
+
+  const handleSkip = () => {
     resetForm();
     onOpenChange(false);
   };
@@ -176,9 +216,14 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
     setTaskPoints([{ text: '' }]);
     setDamageDescription(''); setMileage(''); setFuelLevel(''); setClientNotes('');
     setPhotos({}); setCreatedOrderId(null); setShowSmsConfirm(false); setErrors({});
+    setCreatedVehicleData(null); setCreatedClientData(null);
+    setManualPhone(''); setManualEmail(''); setSendMethod('sms');
   };
 
   const resetAndClose = () => { resetForm(); onOpenChange(false); };
+
+  const currentContact = sendMethod === 'sms' ? (clientPhone || manualPhone) : (clientEmail || manualEmail);
+  const hasContact = !!currentContact;
 
   return (
     <>
@@ -194,16 +239,80 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                 <p className="text-muted-foreground">
                   Czy chcesz wysłać potwierdzenie przyjęcia pojazdu do klienta?
                 </p>
-                {selectedClient && (
-                  <p className="text-sm text-muted-foreground">
-                    Wiadomość zostanie wysłana na numer: <span className="font-medium text-foreground">{selectedClient.phone || 'brak numeru'}</span>
-                  </p>
+              </div>
+
+              {/* Method choice */}
+              <div className="space-y-4">
+                <Label className="text-sm font-semibold">Sposób wysyłki</Label>
+                <div className="flex gap-2 justify-center">
+                  <Button
+                    variant={sendMethod === 'sms' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSendMethod('sms')}
+                    className="gap-2"
+                  >
+                    <Phone className="h-4 w-4" /> SMS
+                  </Button>
+                  <Button
+                    variant={sendMethod === 'email' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSendMethod('email')}
+                    className="gap-2"
+                  >
+                    <Mail className="h-4 w-4" /> E-mail
+                  </Button>
+                </div>
+
+                {sendMethod === 'sms' && (
+                  <div className="space-y-2">
+                    {clientPhone ? (
+                      <p className="text-sm text-center">
+                        Wiadomość zostanie wysłana na numer: <span className="font-semibold text-foreground">{clientPhone}</span>
+                      </p>
+                    ) : (
+                      <div className="space-y-1.5 max-w-sm mx-auto">
+                        <Label className="text-xs text-destructive font-medium">Brak numeru telefonu — wpisz ręcznie</Label>
+                        <div className="flex gap-2">
+                          <span className="flex items-center px-3 border rounded-md bg-muted text-sm">+48</span>
+                          <Input
+                            value={manualPhone}
+                            onChange={e => setManualPhone(e.target.value)}
+                            placeholder="Numer telefonu"
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground">Numer zostanie zapisany do karty klienta</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {sendMethod === 'email' && (
+                  <div className="space-y-2">
+                    {clientEmail ? (
+                      <p className="text-sm text-center">
+                        Wiadomość zostanie wysłana na: <span className="font-semibold text-foreground">{clientEmail}</span>
+                      </p>
+                    ) : (
+                      <div className="space-y-1.5 max-w-sm mx-auto">
+                        <Label className="text-xs text-destructive font-medium">Brak adresu e-mail — wpisz ręcznie</Label>
+                        <Input
+                          type="email"
+                          value={manualEmail}
+                          onChange={e => setManualEmail(e.target.value)}
+                          placeholder="Adres e-mail"
+                        />
+                        <p className="text-xs text-muted-foreground">Adres zostanie zapisany do karty klienta</p>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
+
               <div className="flex justify-center gap-3">
-                <Button variant="outline" onClick={() => handleSmsResponse(false)}>Nie, pomiń</Button>
-                <Button onClick={() => handleSmsResponse(true)} className="gap-2" disabled={!selectedClient?.phone}>
-                  <MessageSquare className="h-4 w-4" /> Tak, wyślij SMS
+                <Button variant="outline" onClick={handleSkip}>Nie, pomiń</Button>
+                <Button onClick={handleSendConfirmation} className="gap-2" disabled={!hasContact}>
+                  {sendMethod === 'sms' ? <MessageSquare className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
+                  {sendMethod === 'sms' ? 'Wyślij SMS' : 'Wyślij e-mail'}
                 </Button>
               </div>
             </div>
@@ -223,11 +332,14 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                     <Label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
                       Pojazd <span className="text-destructive">*</span>
                     </Label>
-                    {vehicleId ? (
+                    {vehicleId && selectedVehicle ? (
                       <div className="flex items-center gap-2 p-2.5 border-2 border-primary/30 rounded-lg bg-primary/5">
-                        <Car className="h-4 w-4 text-primary" />
-                        <span className="text-sm font-medium flex-1">{vehicleLabel}</span>
-                        <Button variant="ghost" size="sm" onClick={() => { setVehicleId(''); setShowVehicleList(true); }}>Zmień</Button>
+                        <Car className="h-4 w-4 text-primary flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-semibold truncate">{selectedVehicle.brand} {selectedVehicle.model}</div>
+                          <div className="text-xs text-muted-foreground">{selectedVehicle.plate || 'brak nr rej.'} {selectedVehicle.vin ? `• VIN: ${selectedVehicle.vin}` : ''}</div>
+                        </div>
+                        <Button variant="ghost" size="sm" onClick={() => { setVehicleId(''); setCreatedVehicleData(null); setShowVehicleList(true); }}>Zmień</Button>
                       </div>
                     ) : (
                       <div className="relative">
@@ -249,7 +361,16 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                               <Plus className="h-4 w-4 text-primary" /> Utwórz nowy pojazd
                             </button>
                             {filteredVehicles.map((v: any) => (
-                              <button key={v.id} className="w-full text-left px-3 py-2.5 hover:bg-accent text-sm transition-colors" onClick={() => { setVehicleId(v.id); setShowVehicleList(false); setVehicleSearch(''); setErrors(e => { const { vehicle, ...rest } = e; return rest; }); if (v.owner_client_id && !clientId) setClientId(v.owner_client_id); }}>
+                              <button key={v.id} className="w-full text-left px-3 py-2.5 hover:bg-accent text-sm transition-colors" onClick={() => {
+                                setVehicleId(v.id);
+                                setCreatedVehicleData(null);
+                                setShowVehicleList(false);
+                                setVehicleSearch('');
+                                setErrors(e => { const { vehicle, ...rest } = e; return rest; });
+                                if (v.owner_client_id && !clientId) {
+                                  setClientId(v.owner_client_id);
+                                }
+                              }}>
                                 <div className="flex items-center gap-2">
                                   <Car className="h-3.5 w-3.5 text-muted-foreground" />
                                   <div>
@@ -269,11 +390,14 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                   {/* Client */}
                   <div className="space-y-2" ref={clientDropdownRef}>
                     <Label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Klient</Label>
-                    {clientId ? (
+                    {clientId && selectedClient ? (
                       <div className="flex items-center gap-2 p-2.5 border-2 border-primary/30 rounded-lg bg-primary/5">
-                        <Users className="h-4 w-4 text-primary" />
-                        <span className="text-sm font-medium flex-1">{clientLabel}</span>
-                        <Button variant="ghost" size="sm" onClick={() => { setClientId(''); setShowClientList(true); }}>Zmień</Button>
+                        <Users className="h-4 w-4 text-primary flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-semibold truncate">{clientLabel}</div>
+                          {selectedClient.phone && <div className="text-xs text-muted-foreground">{selectedClient.phone}</div>}
+                        </div>
+                        <Button variant="ghost" size="sm" onClick={() => { setClientId(''); setCreatedClientData(null); setShowClientList(true); }}>Zmień</Button>
                       </div>
                     ) : (
                       <div className="relative">
@@ -289,7 +413,7 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                               <Plus className="h-4 w-4 text-primary" /> Utwórz nowego klienta
                             </button>
                             {filteredClients.map((c: any) => (
-                              <button key={c.id} className="w-full text-left px-3 py-2.5 hover:bg-accent text-sm transition-colors" onClick={() => { setClientId(c.id); setShowClientList(false); setClientSearch(''); }}>
+                              <button key={c.id} className="w-full text-left px-3 py-2.5 hover:bg-accent text-sm transition-colors" onClick={() => { setClientId(c.id); setCreatedClientData(null); setShowClientList(false); setClientSearch(''); }}>
                                 <div className="flex items-center gap-2">
                                   <Users className="h-3.5 w-3.5 text-muted-foreground" />
                                   <div>
@@ -438,13 +562,24 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
         open={showAddVehicle}
         onOpenChange={setShowAddVehicle}
         providerId={providerId}
-        onCreated={(v) => { setVehicleId(v.id); setErrors(e => { const { vehicle, ...rest } = e; return rest; }); }}
+        onCreated={(v) => {
+          setVehicleId(v.id);
+          setCreatedVehicleData(v);
+          setErrors(e => { const { vehicle, ...rest } = e; return rest; });
+          // Auto-link owner if vehicle has one
+          if (v.owner_client_id && !clientId) {
+            setClientId(v.owner_client_id);
+          }
+        }}
       />
       <WorkshopAddClientDialog
         open={showAddClient}
         onOpenChange={setShowAddClient}
         providerId={providerId}
-        onCreated={(c) => { setClientId(c.id); }}
+        onCreated={(c) => {
+          setClientId(c.id);
+          setCreatedClientData(c);
+        }}
       />
     </>
   );
