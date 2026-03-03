@@ -14,26 +14,36 @@ import { WorkshopWarehouse } from './WorkshopWarehouse';
 import { WorkshopTireStorage } from './WorkshopTireStorage';
 import { WorkshopRepairData } from './WorkshopRepairData';
 import { WorkshopSettings } from './WorkshopSettings';
-import {
-  ClipboardList, CheckSquare, Calendar, ShoppingCart,
-  Receipt, Package, Users, Car, BarChart3, Warehouse,
-  Archive, Wrench, Loader2, Settings
-} from 'lucide-react';
+import { Loader2, Wrench } from 'lucide-react';
+
+import tileZlecenia from '@/assets/workshop/tile-zlecenia.jpg';
+import tileZadania from '@/assets/workshop/tile-zadania.jpg';
+import tileTerminarz from '@/assets/workshop/tile-terminarz.jpg';
+import tileZakupy from '@/assets/workshop/tile-zakupy.jpg';
+import tileSprzedaz from '@/assets/workshop/tile-sprzedaz.jpg';
+import tileTowary from '@/assets/workshop/tile-towary.jpg';
+import tileKlienci from '@/assets/workshop/tile-klienci.jpg';
+import tilePojazdy from '@/assets/workshop/tile-pojazdy.jpg';
+import tileRaporty from '@/assets/workshop/tile-raporty.jpg';
+import tileMagazyn from '@/assets/workshop/tile-magazyn.jpg';
+import tilePrzechodnia from '@/assets/workshop/tile-przechowalnia.jpg';
+import tileDaneNaprawcze from '@/assets/workshop/tile-dane-naprawcze.jpg';
+import tileUstawienia from '@/assets/workshop/tile-ustawienia.jpg';
 
 const modules = [
-  { key: 'zlecenia', label: 'Zlecenia', icon: ClipboardList, ready: true },
-  { key: 'zadania', label: 'Zadania', icon: CheckSquare, ready: false },
-  { key: 'terminarz', label: 'Terminarz', icon: Calendar, ready: true },
-  { key: 'zakupy', label: 'Zakupy', icon: ShoppingCart, ready: false },
-  { key: 'sprzedaz', label: 'Sprzedaż', icon: Receipt, ready: true },
-  { key: 'towary', label: 'Towary', icon: Package, ready: false },
-  { key: 'klienci', label: 'Klienci', icon: Users, ready: true },
-  { key: 'pojazdy', label: 'Pojazdy', icon: Car, ready: true },
-  { key: 'raporty', label: 'Raporty', icon: BarChart3, ready: true },
-  { key: 'magazyn', label: 'Magazyn', icon: Warehouse, ready: true },
-  { key: 'przechowalnia', label: 'Przechowalnia', icon: Archive, ready: true },
-  { key: 'dane-naprawcze', label: 'Dane naprawcze', icon: Wrench, ready: true },
-  { key: 'ustawienia', label: 'Ustawienia', icon: Settings, ready: true },
+  { key: 'zlecenia', label: 'Zlecenia', img: tileZlecenia, ready: true },
+  { key: 'zadania', label: 'Zadania', img: tileZadania, ready: false },
+  { key: 'terminarz', label: 'Terminarz', img: tileTerminarz, ready: true },
+  { key: 'zakupy', label: 'Zakupy', img: tileZakupy, ready: false },
+  { key: 'sprzedaz', label: 'Sprzedaż', img: tileSprzedaz, ready: true },
+  { key: 'towary', label: 'Towary', img: tileTowary, ready: false },
+  { key: 'klienci', label: 'Klienci', img: tileKlienci, ready: true },
+  { key: 'pojazdy', label: 'Pojazdy', img: tilePojazdy, ready: true },
+  { key: 'raporty', label: 'Raporty', img: tileRaporty, ready: true },
+  { key: 'magazyn', label: 'Magazyn', img: tileMagazyn, ready: true },
+  { key: 'przechowalnia', label: 'Przechowalnia', img: tilePrzechodnia, ready: true },
+  { key: 'dane-naprawcze', label: 'Dane naprawcze', img: tileDaneNaprawcze, ready: true },
+  { key: 'ustawienia', label: 'Ustawienia', img: tileUstawienia, ready: true },
 ];
 
 interface WorkshopDashboardProps {
@@ -66,7 +76,6 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
     );
   }
 
-  // Order detail view
   if (selectedOrder) {
     return (
       <WorkshopOrderDetail
@@ -77,7 +86,6 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
     );
   }
 
-  // Vehicle detail view
   if (selectedVehicle) {
     return (
       <WorkshopVehicleDetail
@@ -94,7 +102,6 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
 
   const goHome = () => setActiveModule(null);
 
-  // Module views
   if (activeModule === 'zlecenia') {
     return (
       <div className="space-y-4">
@@ -109,9 +116,7 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
   }
 
   if (activeModule === 'klienci') return <WorkshopClientsList providerId={providerId} onBack={goHome} />;
-  if (activeModule === 'pojazdy') {
-    return <WorkshopVehiclesList providerId={providerId} onBack={goHome} onSelectVehicle={setSelectedVehicle} />;
-  }
+  if (activeModule === 'pojazdy') return <WorkshopVehiclesList providerId={providerId} onBack={goHome} onSelectVehicle={setSelectedVehicle} />;
   if (activeModule === 'terminarz') return <WorkshopScheduler providerId={providerId} onBack={goHome} />;
   if (activeModule === 'sprzedaz') return <WorkshopSales providerId={providerId} onBack={goHome} />;
   if (activeModule === 'raporty') return <WorkshopReports providerId={providerId} onBack={goHome} />;
@@ -120,25 +125,31 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
   if (activeModule === 'dane-naprawcze') return <WorkshopRepairData providerId={providerId} onBack={goHome} />;
   if (activeModule === 'ustawienia') return <WorkshopSettings providerId={providerId} onBack={goHome} />;
 
-  // Dashboard grid
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {modules.map(m => (
           <Card
             key={m.key}
-            className={`cursor-pointer transition-all hover:shadow-md hover:scale-[1.02] ${
-              !m.ready ? 'opacity-50' : ''
+            className={`cursor-pointer transition-all hover:shadow-lg hover:scale-[1.03] overflow-hidden group ${
+              !m.ready ? 'opacity-60 grayscale' : ''
             }`}
             onClick={() => m.ready && setActiveModule(m.key)}
           >
-            <CardContent className="flex flex-col items-center justify-center py-8 gap-3">
-              <m.icon className="h-10 w-10 text-primary" strokeWidth={1.5} />
-              <span className="font-medium text-sm">{m.label}</span>
-              {!m.ready && (
-                <span className="text-xs text-muted-foreground">Wkrótce</span>
-              )}
-            </CardContent>
+            <div className="relative h-32 overflow-hidden">
+              <img
+                src={m.img}
+                alt={m.label}
+                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+              <div className="absolute bottom-0 left-0 right-0 p-3">
+                <span className="font-semibold text-white text-sm drop-shadow-lg">{m.label}</span>
+                {!m.ready && (
+                  <span className="block text-xs text-white/70 mt-0.5">Wkrótce</span>
+                )}
+              </div>
+            </div>
           </Card>
         ))}
       </div>
