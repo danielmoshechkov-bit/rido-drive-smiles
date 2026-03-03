@@ -100,7 +100,7 @@ Deno.serve(async (req) => {
       const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
         email,
         password,
-        email_confirm: true, // Email is confirmed, user can login immediately
+        email_confirm: true,
         user_metadata: { first_name, last_name, preferred_language: language }
       });
 
@@ -108,20 +108,65 @@ Deno.serve(async (req) => {
         console.error("❌ Auth error:", authError.message);
         
         if (authError.message.includes("already been registered") || authError.message.includes("already exists")) {
+          // Account exists (possibly created by admin with temp password)
+          // Check if this user already completed full registration (has driver_app_users link)
+          const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
+          const existingAuthUser = existingUsers?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase());
+          
+          if (!existingAuthUser) {
+            return new Response(
+              JSON.stringify({ error: "Email już jest zarejestrowany. Użyj opcji logowania lub resetowania hasła." }),
+              { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+          
+          // Check if user already has a driver profile linked
+          const { data: existingLink } = await supabaseAdmin
+            .from("driver_app_users")
+            .select("driver_id")
+            .eq("user_id", existingAuthUser.id)
+            .maybeSingle();
+          
+          if (existingLink?.driver_id) {
+            // User already fully registered as driver
+            return new Response(
+              JSON.stringify({ error: "Email już jest zarejestrowany. Użyj opcji logowania lub resetowania hasła." }),
+              { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+          
+          // User exists but no driver profile - this is an admin-created temp account
+          // Update password to the one provided by the user and continue registration
+          console.log("🔄 Account exists (admin temp) - updating password and continuing registration for:", email);
+          
+          const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+            existingAuthUser.id,
+            { 
+              password,
+              user_metadata: { first_name, last_name, preferred_language: language }
+            }
+          );
+          
+          if (updateError) {
+            console.error("❌ Error updating existing user:", updateError);
+            return new Response(
+              JSON.stringify({ error: updateError.message }),
+              { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+          
+          userId = existingAuthUser.id;
+          console.log("✅ Existing temp account updated, continuing registration:", userId);
+        } else {
           return new Response(
-            JSON.stringify({ error: "Email już jest zarejestrowany. Użyj opcji logowania lub resetowania hasła." }),
+            JSON.stringify({ error: authError.message }),
             { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
-        
-        return new Response(
-          JSON.stringify({ error: authError.message }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+      } else {
+        userId = authData.user!.id;
+        console.log("✅ Auth user created with confirmed email:", userId);
       }
-
-      userId = authData.user!.id;
-      console.log("✅ Auth user created with confirmed email:", userId);
     }
 
     // 2. Check for existing driver - PRIORITIZE PHONE (most stable identifier)

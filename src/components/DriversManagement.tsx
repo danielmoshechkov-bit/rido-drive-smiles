@@ -906,7 +906,7 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                             <Phone size={14} />
                             <ChevronDown className="h-3 w-3 text-primary" />
                             {driver.phone ? (
-                              mode === 'admin' ? (
+                              (mode === 'admin' || mode === 'fleet') ? (
                                 <InlineEdit
                                   value={driver.phone}
                                   onSave={(value) => updateDriverField(driver.id, 'phone', value)}
@@ -915,7 +915,15 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                                 <span>{driver.phone}</span>
                               )
                             ) : (
-                              <span className="text-red-500 text-xs">Brak telefonu</span>
+                              (mode === 'admin' || mode === 'fleet') ? (
+                                <InlineEdit
+                                  value=""
+                                  onSave={(value) => updateDriverField(driver.id, 'phone', value)}
+                                  placeholder="Dodaj telefon"
+                                />
+                              ) : (
+                                <span className="text-red-500 text-xs">Brak telefonu</span>
+                              )
                             )}
                           </div>
                           
@@ -923,7 +931,7 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                             <Mail size={14} />
                             <ChevronDown className="h-3 w-3 text-primary" />
                             {driver.email ? (
-                              mode === 'admin' ? (
+                              (mode === 'admin' || mode === 'fleet') ? (
                                 <InlineEdit
                                   value={driver.email}
                                   onSave={(value) => updateDriverField(driver.id, 'email', value)}
@@ -932,7 +940,15 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                                 <span>{driver.email}</span>
                               )
                             ) : (
-                              <span className="text-red-500 text-xs">Brak e-maila</span>
+                              (mode === 'admin' || mode === 'fleet') ? (
+                                <InlineEdit
+                                  value=""
+                                  onSave={(value) => updateDriverField(driver.id, 'email', value)}
+                                  placeholder="Dodaj email"
+                                />
+                              ) : (
+                                <span className="text-red-500 text-xs">Brak e-maila</span>
+                              )
                             )}
                           </div>
                           
