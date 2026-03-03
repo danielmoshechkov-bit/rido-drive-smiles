@@ -234,11 +234,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       // The purpose of this modal is to map NEW platform IDs from CSV,
       // not to manage existing drivers' app accounts.
       
-      // Filter out unmapped drivers with zero revenue (no point mapping them)
-      const unmappedWithRevenue = (unmapped || []).filter((u: any) => {
-        const totalEarnings = parseFloat(u.total_earnings || u.uber_base || u.bolt_base || u.freenow_base || '0');
-        return totalEarnings !== 0;
-      });
+      // Show all pending unmapped drivers (they need mapping regardless of revenue)
+      const unmappedWithRevenue = unmapped || [];
       
       if (unmappedWithRevenue.length > 0) {
         setUnmappedDrivers(unmappedWithRevenue);
@@ -2366,10 +2363,10 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
               {/* Mobile View - Collapsible per driver */}
               <div className="md:hidden space-y-2">
                 {filteredSettlements.map((settlement) => {
-                  // Check platform activity (driver worked if base > 0)
-                  const hasUberActivity = settlement.uber_base > 0;
-                  const hasBoltActivity = settlement.bolt_base > 0;
-                  const hasFreenowActivity = settlement.freenow_base > 0;
+                   // Check platform activity (driver worked if base > 0 OR had cash rides)
+                   const hasUberActivity = settlement.uber_base > 0 || settlement.uber_cash > 0;
+                   const hasBoltActivity = settlement.bolt_base > 0 || settlement.bolt_cash > 0;
+                   const hasFreenowActivity = settlement.freenow_base > 0 || settlement.freenow_cash > 0;
                   
                   return (
                   <Collapsible key={settlement.driver_id} className="border rounded-lg bg-white">
@@ -2547,10 +2544,10 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                   <TableBody>
                     {filteredSettlements.map((rawSettlement) => {
                       const settlement = getEffectiveSettlement(rawSettlement);
-                      // Check platform activity (driver worked if base > 0)
-                      const hasUberActivity = settlement.uber_base > 0;
-                      const hasBoltActivity = settlement.bolt_base > 0;
-                      const hasFreenowActivity = settlement.freenow_base > 0;
+                      // Check platform activity (driver worked if base > 0 OR had cash rides)
+                      const hasUberActivity = settlement.uber_base > 0 || settlement.uber_cash > 0;
+                      const hasBoltActivity = settlement.bolt_base > 0 || settlement.bolt_cash > 0;
+                      const hasFreenowActivity = settlement.freenow_base > 0 || settlement.freenow_cash > 0;
                       const hasAnyActivity = hasUberActivity || hasBoltActivity || hasFreenowActivity;
                       
                       return (
