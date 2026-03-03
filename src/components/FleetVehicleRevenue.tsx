@@ -26,6 +26,8 @@ interface VehicleRevenue {
   rental_fee: number;
   paid_amount: number;
   debt_balance: number;
+  previous_debt: number;
+  total_debt: number;
 }
 
 interface FleetVehicleRevenueProps {
@@ -196,7 +198,20 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
             ? (driverAvailableMap.get(assignment.driver_id) || 0) 
             : 0;
           const paidAmount = Math.min(Math.max(driverAvailable, 0), proportionalRent);
-          const rentalDebt = Math.max(proportionalRent - paidAmount, 0);
+          const currentWeekDebt = Math.max(proportionalRent - paidAmount, 0);
+          
+          // Total accumulated debt from driver_debts table
+          const totalAccumulatedDebt = assignment?.driver_id 
+            ? (debtMap.get(assignment.driver_id) || 0) 
+            : 0;
+          
+          // Previous debt = total debt - this week's new debt
+          // If driver has surplus (paid more than rental), previous debt decreases
+          const surplus = Math.max(driverAvailable - proportionalRent, 0);
+          const previousDebt = Math.max(totalAccumulatedDebt - currentWeekDebt + surplus, 0);
+          
+          // Total = previous + current week debt - surplus
+          const totalDebt = Math.max(previousDebt + currentWeekDebt - surplus, 0);
 
           return {
             driver_id: assignment?.driver_id || null,
@@ -209,10 +224,12 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
             weekly_rate: weeklyFee,
             rental_fee: proportionalRent,
             paid_amount: paidAmount,
-            debt_balance: rentalDebt,
+            debt_balance: currentWeekDebt,
+            previous_debt: previousDebt,
+            total_debt: totalDebt,
           };
         })
-        .filter(revenue => revenue.driver_id !== null); // Only show vehicles with assigned drivers
+        .filter(revenue => revenue.driver_id !== null);
 
       setRevenues(revenueData);
     } catch (error: any) {
@@ -411,6 +428,8 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
                   <TableHead className="text-right p-1.5 text-xs whitespace-nowrap">Wynajem</TableHead>
                   <TableHead className="text-right p-1.5 text-xs whitespace-nowrap">Opłacone</TableHead>
                   <TableHead className="text-right p-1.5 text-xs whitespace-nowrap">Zadłużenie</TableHead>
+                  <TableHead className="text-right p-1.5 text-xs whitespace-nowrap">Poprzednie</TableHead>
+                  <TableHead className="text-right p-1.5 text-xs whitespace-nowrap">Łącznie</TableHead>
                   <TableHead className="p-1.5 text-xs whitespace-nowrap">Akcje</TableHead>
                 </TableRow>
               </TableHeader>
@@ -468,6 +487,12 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
                   <TableCell className={`text-right p-1.5 text-xs ${getDebtColor(rev.debt_balance)}`}>
                     {rev.debt_balance === 0 ? '—' : formatCurrency(rev.debt_balance)}
                   </TableCell>
+                  <TableCell className={`text-right p-1.5 text-xs ${getDebtColor(rev.previous_debt)}`}>
+                    {rev.previous_debt === 0 ? '—' : formatCurrency(rev.previous_debt)}
+                  </TableCell>
+                  <TableCell className={`text-right p-1.5 text-xs ${getDebtColor(rev.total_debt)}`}>
+                    {rev.total_debt === 0 ? '—' : formatCurrency(rev.total_debt)}
+                  </TableCell>
                   <TableCell className="p-1.5 text-xs">
                     {rev.driver_id && (
                       <Button
@@ -498,6 +523,12 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
                   </TableCell>
                   <TableCell className="text-right p-1.5 text-xs">
                     {formatCurrency(revenues.reduce((sum, r) => sum + (r.driver_id ? r.debt_balance : 0), 0))}
+                  </TableCell>
+                  <TableCell className="text-right p-1.5 text-xs">
+                    {formatCurrency(revenues.reduce((sum, r) => sum + (r.driver_id ? r.previous_debt : 0), 0))}
+                  </TableCell>
+                  <TableCell className="text-right p-1.5 text-xs">
+                    {formatCurrency(revenues.reduce((sum, r) => sum + (r.driver_id ? r.total_debt : 0), 0))}
                   </TableCell>
                   <TableCell className="p-1.5 text-xs"></TableCell>
                 </TableRow>
