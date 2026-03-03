@@ -20,6 +20,7 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { useFeatureToggles } from '@/hooks/useFeatureToggles';
 import { WebsiteBuilderWizard } from '@/components/website-builder/WebsiteBuilderWizard';
 import { WorkshopDashboard } from '@/components/workshop/WorkshopDashboard';
+import { WorkshopScheduler } from '@/components/workshop/WorkshopScheduler';
 import { SettingsPanel } from '@/components/workshop/SettingsPanel';
 import { CalendarView } from '@/components/calendar/CalendarView';
 import { AgentTypeSelector } from '@/components/ai-agents/AgentTypeSelector';
@@ -552,7 +553,11 @@ export default function ServiceProviderDashboard() {
 
           {/* Calendar Tab */}
           <TabsContent value="calendar" className="mt-6">
-            <CalendarView />
+            {providerId ? (
+              <WorkshopScheduler providerId={providerId} onBack={() => setActiveTab('dashboard')} />
+            ) : (
+              <CalendarView />
+            )}
           </TabsContent>
 
           {/* Bookings Tab */}

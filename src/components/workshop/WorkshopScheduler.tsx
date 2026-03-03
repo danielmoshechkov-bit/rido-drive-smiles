@@ -42,6 +42,8 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
   const [resizingOrder, setResizingOrder] = useState<any>(null);
   const [resizeTargetHour, setResizeTargetHour] = useState<number | null>(null);
   const resizeRef = useRef<{ startY: number; startHour: number; endHour: number; orderId: string } | null>(null);
+  const resizingOrderRef = useRef<any>(null);
+  const resizeTargetHourRef = useRef<number | null>(null);
 
   const updateOrder = useUpdateWorkshopOrder();
 
@@ -205,6 +207,8 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
     const startHour = new Date(order.scheduled_start).getHours();
     const span = getOrderSpan(order);
     resizeRef.current = { startY: e.clientY, startHour, endHour: startHour + span, orderId: order.id };
+    resizingOrderRef.current = order;
+    resizeTargetHourRef.current = null;
     setResizingOrder(order);
 
     const onMouseMove = (ev: MouseEvent) => {
@@ -212,31 +216,32 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
       const deltaY = ev.clientY - resizeRef.current.startY;
       const deltaHours = Math.round(deltaY / 56); // ~56px per row
       const newEndHour = Math.max(resizeRef.current.startHour + 1, Math.min(resizeRef.current.startHour + (resizeRef.current.endHour - resizeRef.current.startHour) + deltaHours, HOURS[HOURS.length - 1] + 1));
+      resizeTargetHourRef.current = newEndHour;
       setResizeTargetHour(newEndHour);
     };
 
     const onMouseUp = async () => {
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
-      if (resizeRef.current && resizeTargetHour !== null) {
-        const order = resizingOrder;
-        if (order) {
-          const start = new Date(order.scheduled_start);
-          const end = new Date(start);
-          const finalEndHour = resizeTargetHour ?? (resizeRef.current.endHour);
-          end.setHours(finalEndHour, 0, 0, 0);
-          if (end.getTime() > start.getTime()) {
-            try {
-              await updateOrder.mutateAsync({ id: order.id, scheduled_end: end.toISOString() });
-              const hours = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60));
-              toast.success(`Czas pracy: ${hours}h`);
-            } catch { toast.error('Błąd zmiany czasu'); }
-          }
+      const currentOrder = resizingOrderRef.current;
+      const currentTargetHour = resizeTargetHourRef.current;
+      if (resizeRef.current && currentTargetHour !== null && currentOrder) {
+        const start = new Date(currentOrder.scheduled_start);
+        const end = new Date(start);
+        end.setHours(currentTargetHour, 0, 0, 0);
+        if (end.getTime() > start.getTime()) {
+          try {
+            await updateOrder.mutateAsync({ id: currentOrder.id, scheduled_end: end.toISOString() });
+            const hours = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60));
+            toast.success(`Czas pracy: ${hours}h`);
+          } catch { toast.error('Błąd zmiany czasu'); }
         }
       }
       setResizingOrder(null);
       setResizeTargetHour(null);
       resizeRef.current = null;
+      resizingOrderRef.current = null;
+      resizeTargetHourRef.current = null;
     };
 
     document.addEventListener('mousemove', onMouseMove);
@@ -399,7 +404,7 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
                               today
                                 ? (isEvenRow ? 'bg-[hsl(220,60%,97%)] dark:bg-[hsl(220,30%,15%)]' : 'bg-[hsl(220,60%,94%)] dark:bg-[hsl(220,30%,18%)]')
                                 : (isEvenRow ? 'bg-background' : 'bg-[hsl(220,15%,96%)] dark:bg-[hsl(220,10%,14%)]')
-                            } ${isDragOver && draggedOrder ? '!bg-[hsl(130,60%,85%)] dark:!bg-[hsl(130,40%,20%)] ring-2 ring-[hsl(130,60%,40%)] ring-inset' : scheduledOrder ? '' : 'hover:bg-[hsl(220,40%,92%)] dark:hover:bg-[hsl(220,20%,22%)]'}`}
+                            } ${isDragOver && draggedOrder ? '!bg-[hsl(220,70%,85%)] dark:!bg-[hsl(220,50%,25%)] ring-2 ring-[hsl(220,70%,50%)] ring-inset' : scheduledOrder ? '' : 'hover:bg-[hsl(220,40%,92%)] dark:hover:bg-[hsl(220,20%,22%)]'}`}
                             onClick={() => !scheduledOrder && handleCellClick(day, hour, st.id)}
                             onDragOver={(e) => { if (!occupied) { e.preventDefault(); setDragOverCell(key); } }}
                             onDragLeave={() => { if (dragOverCell === key) setDragOverCell(null); }}
