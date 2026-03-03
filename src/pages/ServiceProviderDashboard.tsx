@@ -554,7 +554,7 @@ export default function ServiceProviderDashboard() {
           {/* Calendar Tab */}
           <TabsContent value="calendar" className="mt-6">
             {providerId ? (
-              <WorkshopScheduler providerId={providerId} onBack={() => setActiveTab('dashboard')} />
+              <WorkshopScheduler providerId={providerId} onBack={() => setActiveTab('dashboard')} title="Kalendarz" />
             ) : (
               <CalendarView />
             )}
