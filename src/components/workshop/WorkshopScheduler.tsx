@@ -137,9 +137,17 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
     });
   };
 
-  // Check if cell is occupied by a spanning order
+  // Check if cell is occupied by a spanning order (or resize preview)
   const isCellOccupied = (stationId: string, day: Date, hour: number) => {
     const dayStr = format(day, 'yyyy-MM-dd');
+    // Check resize preview occupation
+    if (resizingOrder && resizingOrder.scheduled_start && resizingOrder.scheduled_station_id === stationId && resizeTargetHour !== null) {
+      const rDate = format(new Date(resizingOrder.scheduled_start), 'yyyy-MM-dd');
+      const rHour = new Date(resizingOrder.scheduled_start).getHours();
+      if (rDate === dayStr && hour >= rHour && hour < resizeTargetHour) {
+        return true;
+      }
+    }
     return orders.some((o: any) => {
       if (!o.scheduled_start || o.scheduled_station_id !== stationId) return false;
       const oDate = format(new Date(o.scheduled_start), 'yyyy-MM-dd');
@@ -148,6 +156,17 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
       const span = getOrderSpan(o);
       return hour >= oHour && hour < oHour + span;
     });
+  };
+
+  // Check if cell is part of the resize preview (for coloring)
+  const isResizePreviewCell = (stationId: string, day: Date, hour: number) => {
+    if (!resizingOrder || resizeTargetHour === null || !resizingOrder.scheduled_start) return false;
+    if (resizingOrder.scheduled_station_id !== stationId) return false;
+    const dayStr = format(day, 'yyyy-MM-dd');
+    const rDate = format(new Date(resizingOrder.scheduled_start), 'yyyy-MM-dd');
+    if (dayStr !== rDate) return false;
+    const rHour = new Date(resizingOrder.scheduled_start).getHours();
+    return hour >= rHour && hour < resizeTargetHour;
   };
 
   const weekDays = useMemo(() => {
@@ -383,10 +402,11 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
                         const today = isToday(day);
                         const span = scheduledOrder ? getOrderSpan(scheduledOrder) : 1;
 
-                        // If cell is part of a spanning order but not the start, skip rendering content
+                        // If cell is part of a spanning order but not the start, skip or show resize preview color
                         if (occupied) {
+                          const isResizePreview = isResizePreviewCell(st.id, day, hour);
                           return (
-                            <td key={key} className="border-b border-r border-foreground/15 p-0 h-14" />
+                            <td key={key} className={`border-b border-r border-foreground/15 p-0 h-14 ${isResizePreview ? 'bg-[hsl(220,70%,55%)]' : ''}`} />
                           );
                         }
 

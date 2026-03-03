@@ -173,7 +173,7 @@ export function useWorkshopVehicles(providerId: string | undefined) {
       console.log('[useWorkshopVehicles] Fetching vehicles for provider:', providerId);
       const { data, error } = await (supabase as any)
         .from('workshop_vehicles')
-        .select('*, owner:workshop_clients(id, first_name, last_name, company_name)')
+        .select('*, owner:workshop_clients!workshop_vehicles_owner_client_id_fkey(id, first_name, last_name, company_name)')
         .eq('provider_id', providerId)
         .order('created_at', { ascending: false });
       if (error) {
