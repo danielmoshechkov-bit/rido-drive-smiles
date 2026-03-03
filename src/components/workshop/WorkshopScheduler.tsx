@@ -1,11 +1,10 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { useWorkshopOrders, useUpdateWorkshopOrder } from '@/hooks/useWorkshop';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { ChevronLeft, ChevronRight, Search, Car, Wrench, Clock, Plus, X, GripVertical } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, Car, Wrench, Plus, GripVertical, Undo2 } from 'lucide-react';
 import { format, addDays, startOfWeek, addWeeks, subWeeks, isToday, subDays } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { Input } from '@/components/ui/input';
@@ -30,7 +29,9 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
   const [showSlotDialog, setShowSlotDialog] = useState(false);
   const [slotData, setSlotData] = useState<{ day: Date; hour: number; stationId: string } | null>(null);
   const [draggedOrder, setDraggedOrder] = useState<any>(null);
+  const [dragSource, setDragSource] = useState<'unplanned' | 'scheduled' | null>(null);
   const [dragOverCell, setDragOverCell] = useState<string | null>(null);
+  const [dragOverUnplanned, setDragOverUnplanned] = useState(false);
 
   const updateOrder = useUpdateWorkshopOrder();
 
@@ -77,7 +78,6 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
     return filtered.slice(0, 20);
   }, [orders, search]);
 
-  // Scheduled orders for active station
   const scheduledOrders = useMemo(() => {
     return orders.filter((o: any) =>
       o.scheduled_start && o.scheduled_station_id === activeStationId
@@ -116,6 +116,12 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
 
   const handleDrop = async (day: Date, hour: number, stationId: string) => {
     if (!draggedOrder) return;
+    const existing = getOrderForCell(day, hour);
+    if (existing && existing.id !== draggedOrder.id) {
+      toast.error('Ten slot jest już zajęty');
+      resetDrag();
+      return;
+    }
     const scheduledStart = new Date(day);
     scheduledStart.setHours(hour, 0, 0, 0);
 
@@ -125,12 +131,33 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
         scheduled_start: scheduledStart.toISOString(),
         scheduled_station_id: stationId,
       });
-      toast.success(`Zlecenie ${draggedOrder.order_number} zaplanowane na ${format(day, 'dd.MM')} o ${hour}:00`);
+      toast.success(`Zlecenie ${draggedOrder.order_number} → ${format(day, 'dd.MM')} ${hour}:00`);
     } catch {
       toast.error('Nie udało się zaplanować zlecenia');
     }
+    resetDrag();
+  };
+
+  const handleDropToUnplanned = async () => {
+    if (!draggedOrder || dragSource !== 'scheduled') return;
+    try {
+      await updateOrder.mutateAsync({
+        id: draggedOrder.id,
+        scheduled_start: null,
+        scheduled_station_id: null,
+      });
+      toast.success(`Zlecenie ${draggedOrder.order_number} wróciło do nieprzypisanych`);
+    } catch {
+      toast.error('Nie udało się cofnąć zlecenia');
+    }
+    resetDrag();
+  };
+
+  const resetDrag = () => {
     setDraggedOrder(null);
+    setDragSource(null);
     setDragOverCell(null);
+    setDragOverUnplanned(false);
   };
 
   const cellKey = (day: Date, hour: number) => `${format(day, 'yyyy-MM-dd')}-${hour}`;
@@ -143,11 +170,32 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
         <h2 className="text-xl font-bold">Terminarz</h2>
       </div>
 
-      {/* Unplanned tasks */}
-      <Card className="border-2 border-border shadow-sm">
+      {/* Unplanned tasks - drop zone when dragging from calendar */}
+      <Card
+        className={`border-2 shadow-sm transition-all ${
+          dragOverUnplanned && dragSource === 'scheduled'
+            ? 'border-orange-400 bg-orange-50 dark:bg-orange-950/20'
+            : 'border-border'
+        }`}
+        onDragOver={(e) => {
+          if (dragSource === 'scheduled') {
+            e.preventDefault();
+            setDragOverUnplanned(true);
+          }
+        }}
+        onDragLeave={() => setDragOverUnplanned(false)}
+        onDrop={handleDropToUnplanned}
+      >
         <CardContent className="py-4">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-lg">Zadania do rozplanowania</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold text-lg">Zadania do rozplanowania</h3>
+              {dragSource === 'scheduled' && (
+                <span className="text-xs text-orange-600 font-medium flex items-center gap-1 animate-pulse">
+                  <Undo2 className="h-3 w-3" /> Upuść tutaj aby cofnąć
+                </span>
+              )}
+            </div>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Szukaj" className="pl-9 w-[200px]" />
@@ -160,29 +208,12 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
               </div>
             ) : (
               unplannedOrders.map((o: any) => (
-                <Card
+                <OrderCard
                   key={o.id}
-                  className="min-w-[260px] flex-shrink-0 border-l-4 border-l-primary cursor-grab active:cursor-grabbing hover:shadow-md transition-all bg-card"
-                  draggable
-                  onDragStart={() => setDraggedOrder(o)}
-                  onDragEnd={() => { setDraggedOrder(null); setDragOverCell(null); }}
-                >
-                  <CardContent className="p-3 space-y-1.5">
-                    <div className="flex items-center gap-2 text-sm font-medium">
-                      <GripVertical className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                      <Car className="h-4 w-4 text-muted-foreground" />
-                      {o.vehicle ? `${o.vehicle.brand} ${o.vehicle.model} ${o.vehicle.plate || ''}` : 'Brak pojazdu'}
-                    </div>
-                    <div className="text-xs text-muted-foreground">{o.order_number}</div>
-                    {o.items?.slice(0, 3).map((item: any, idx: number) => (
-                      <div key={idx} className="flex items-center justify-between text-xs">
-                        <span className="flex items-center gap-1 truncate">
-                          <Wrench className="h-3 w-3 flex-shrink-0" /> {item.name}
-                        </span>
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
+                  order={o}
+                  onDragStart={() => { setDraggedOrder(o); setDragSource('unplanned'); }}
+                  onDragEnd={resetDrag}
+                />
               ))
             )}
           </div>
@@ -237,49 +268,74 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
         </div>
       </div>
 
-      {/* Schedule grid */}
-      <Card className="border-2 border-border shadow-sm">
-        <CardContent className="p-0 overflow-x-auto">
-          <div className="bg-primary/10 px-4 py-2.5 border-b-2 border-border font-semibold text-sm flex items-center gap-2">
-            <Wrench className="h-4 w-4 text-primary" />
-            {activeStation?.name || 'Stanowisko'}
-          </div>
+      {/* Schedule grid - HIGH CONTRAST */}
+      <div className="rounded-xl border-2 border-foreground/20 shadow-lg overflow-hidden">
+        {/* Station header - BLUE */}
+        <div className="bg-[hsl(220,80%,50%)] px-4 py-2.5 font-semibold text-sm flex items-center gap-2 text-white">
+          <Wrench className="h-4 w-4" />
+          {activeStation?.name || 'Stanowisko'}
+        </div>
+
+        <div className="overflow-x-auto">
           <table className="w-full border-collapse text-xs">
             <thead>
-              <tr className="bg-muted/60">
-                <th className="w-16 border-b-2 border-r-2 border-border p-2.5 text-left text-muted-foreground font-semibold sticky left-0 bg-muted/60 z-10">Godzina</th>
-                {weekDays.map(day => (
-                  <th key={day.toISOString()} className="border-b-2 border-r border-border p-2.5 text-center min-w-[150px]">
-                    <div className={`font-bold text-sm ${isToday(day) ? 'text-primary' : 'text-foreground'}`}>
-                      {format(day, 'EEE dd.MM', { locale: pl })}
-                    </div>
-                  </th>
-                ))}
+              <tr>
+                <th className="w-16 bg-[hsl(220,30%,95%)] dark:bg-[hsl(220,20%,20%)] border-b-2 border-r-2 border-foreground/20 p-2.5 text-left text-foreground font-bold sticky left-0 z-10">
+                  Godzina
+                </th>
+                {weekDays.map(day => {
+                  const today = isToday(day);
+                  return (
+                    <th
+                      key={day.toISOString()}
+                      className={`border-b-2 border-r border-foreground/20 p-2.5 text-center min-w-[150px] ${
+                        today
+                          ? 'bg-[hsl(220,80%,50%)] text-white'
+                          : 'bg-[hsl(220,30%,95%)] dark:bg-[hsl(220,20%,20%)] text-foreground'
+                      }`}
+                    >
+                      <div className="font-bold text-sm">
+                        {format(day, 'EEE', { locale: pl })}
+                      </div>
+                      <div className={`text-lg font-black ${today ? 'text-white' : ''}`}>
+                        {format(day, 'dd.MM')}
+                      </div>
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody>
               {HOURS.map((hour, hourIdx) => {
                 const isEvenRow = hourIdx % 2 === 0;
                 return (
-                  <tr key={hour} className="h-16">
-                    <td className={`border-b border-r-2 border-border p-2 text-right text-muted-foreground font-mono font-semibold text-sm sticky left-0 z-10 ${isEvenRow ? 'bg-background' : 'bg-muted/20'}`}>
+                  <tr key={hour}>
+                    <td className={`border-b border-r-2 border-foreground/20 p-2 text-right font-mono font-bold text-sm sticky left-0 z-10 ${
+                      isEvenRow
+                        ? 'bg-[hsl(220,20%,97%)] dark:bg-[hsl(220,15%,15%)] text-foreground'
+                        : 'bg-[hsl(220,25%,93%)] dark:bg-[hsl(220,15%,18%)] text-foreground'
+                    }`}>
                       {`${hour}:00`}
                     </td>
                     {weekDays.map(day => {
                       const key = cellKey(day, hour);
                       const isDragOver = dragOverCell === key;
                       const scheduledOrder = getOrderForCell(day, hour);
+                      const today = isToday(day);
+
                       return (
                         <td
                           key={key}
-                          className={`border-b border-r border-border p-1 cursor-pointer transition-all relative ${
-                            isEvenRow ? 'bg-background' : 'bg-muted/20'
+                          className={`border-b border-r border-foreground/15 p-1 cursor-pointer transition-all relative h-16 ${
+                            today
+                              ? (isEvenRow ? 'bg-[hsl(220,60%,97%)] dark:bg-[hsl(220,30%,15%)]' : 'bg-[hsl(220,60%,94%)] dark:bg-[hsl(220,30%,18%)]')
+                              : (isEvenRow ? 'bg-background' : 'bg-[hsl(220,15%,96%)] dark:bg-[hsl(220,10%,14%)]')
                           } ${
                             isDragOver && draggedOrder
-                              ? 'bg-primary/20 ring-2 ring-primary ring-inset shadow-inner'
+                              ? '!bg-[hsl(130,60%,85%)] dark:!bg-[hsl(130,40%,20%)] ring-2 ring-[hsl(130,60%,40%)] ring-inset shadow-inner'
                               : scheduledOrder
                                 ? ''
-                                : 'hover:bg-accent/40'
+                                : 'hover:bg-[hsl(220,40%,92%)] dark:hover:bg-[hsl(220,20%,22%)]'
                           }`}
                           onClick={() => handleCellClick(day, hour, activeStationId)}
                           onDragOver={(e) => { e.preventDefault(); setDragOverCell(key); }}
@@ -287,20 +343,30 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
                           onDrop={() => handleDrop(day, hour, activeStationId)}
                         >
                           {scheduledOrder ? (
-                            <div className="bg-primary/15 border border-primary/40 rounded-md p-1.5 text-xs h-full">
-                              <div className="flex items-center gap-1 font-semibold text-foreground">
-                                <Car className="h-3 w-3 text-primary flex-shrink-0" />
+                            <div
+                              className="bg-[hsl(220,70%,55%)] text-white rounded-md p-1.5 text-xs h-full cursor-grab active:cursor-grabbing shadow-sm hover:shadow-md transition-shadow"
+                              draggable
+                              onDragStart={(e) => {
+                                e.stopPropagation();
+                                setDraggedOrder(scheduledOrder);
+                                setDragSource('scheduled');
+                              }}
+                              onDragEnd={resetDrag}
+                            >
+                              <div className="flex items-center gap-1 font-semibold">
+                                <GripVertical className="h-3 w-3 opacity-60 flex-shrink-0" />
+                                <Car className="h-3 w-3 flex-shrink-0" />
                                 <span className="truncate">
                                   {scheduledOrder.vehicle
                                     ? `${scheduledOrder.vehicle.brand} ${scheduledOrder.vehicle.model}`
                                     : 'Zlecenie'}
                                 </span>
                               </div>
-                              <div className="text-muted-foreground truncate">{scheduledOrder.order_number}</div>
+                              <div className="text-white/70 truncate ml-5">{scheduledOrder.order_number}</div>
                             </div>
                           ) : (
-                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 hover:opacity-100 transition-opacity">
-                              <Plus className="h-4 w-4 text-muted-foreground/50" />
+                            <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-40 transition-opacity">
+                              <Plus className="h-5 w-5 text-foreground" />
                             </div>
                           )}
                         </td>
@@ -311,8 +377,8 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
               })}
             </tbody>
           </table>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Slot dialog */}
       <SlotDialog
@@ -337,6 +403,31 @@ export function WorkshopScheduler({ providerId, onBack }: Props) {
         }}
       />
     </div>
+  );
+}
+
+function OrderCard({ order, onDragStart, onDragEnd }: { order: any; onDragStart: () => void; onDragEnd: () => void }) {
+  return (
+    <Card
+      className="min-w-[260px] flex-shrink-0 border-l-4 border-l-[hsl(220,70%,55%)] cursor-grab active:cursor-grabbing hover:shadow-md transition-all bg-card"
+      draggable
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+    >
+      <CardContent className="p-3 space-y-1.5">
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <GripVertical className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+          <Car className="h-4 w-4 text-muted-foreground" />
+          {order.vehicle ? `${order.vehicle.brand} ${order.vehicle.model} ${order.vehicle.plate || ''}` : 'Brak pojazdu'}
+        </div>
+        <div className="text-xs text-muted-foreground">{order.order_number}</div>
+        {order.items?.slice(0, 3).map((item: any, idx: number) => (
+          <div key={idx} className="flex items-center text-xs">
+            <Wrench className="h-3 w-3 flex-shrink-0 mr-1" /> <span className="truncate">{item.name}</span>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
   );
 }
 
