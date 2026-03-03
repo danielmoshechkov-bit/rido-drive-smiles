@@ -79,8 +79,9 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
       description: form.description || null,
       owner_client_id: form.owner_client_id || null,
     });
-    // Ensure vehicles list refreshes
-    qc.invalidateQueries({ queryKey: ['workshop-vehicles'] });
+    // Force refresh vehicles list from database
+    await qc.invalidateQueries({ queryKey: ['workshop-vehicles'] });
+    await qc.refetchQueries({ queryKey: ['workshop-vehicles'] });
     onCreated?.(vehicle);
     setForm({ brand: '', model: '', color: '', vin: '', plate: '', year: '', first_registration_date: '', fuel_type: '', engine_number: '', engine_capacity_cm3: '', engine_power_kw: '', mileage_unit: 'km', description: '', owner_client_id: '' });
     setCreatedOwner(null);

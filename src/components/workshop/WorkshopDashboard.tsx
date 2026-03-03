@@ -51,27 +51,27 @@ interface WorkshopDashboardProps {
 
 function WorkshopSidebar({ activeModule, onNavigate }: { activeModule: string; onNavigate: (key: string | null) => void }) {
   return (
-    <div className="w-[140px] flex-shrink-0 space-y-1.5 pr-3 border-r border-border">
+    <div className="w-[200px] flex-shrink-0 space-y-2 pr-3 border-r border-border">
       <button
         onClick={() => onNavigate(null)}
-        className="w-full text-left px-2 py-1.5 rounded text-xs font-semibold text-primary hover:bg-primary/10 transition-colors"
+        className="w-full text-left px-3 py-2 rounded-lg text-sm font-semibold text-primary hover:bg-primary/10 transition-colors"
       >
         🏠 Pulpit
       </button>
-      <div className="grid grid-cols-2 gap-1">
+      <div className="grid grid-cols-2 gap-1.5">
         {modules.filter(m => m.ready).map(m => (
           <button
             key={m.key}
             onClick={() => onNavigate(m.key)}
-            className={`relative rounded-lg overflow-hidden h-16 transition-all group ${
+            className={`relative rounded-lg overflow-hidden h-20 transition-all group ${
               activeModule === m.key
                 ? 'ring-2 ring-primary shadow-md'
                 : 'hover:ring-1 hover:ring-primary/40'
             }`}
           >
             <img src={m.img} alt={m.label} className="w-full h-full object-cover" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-            <span className="absolute bottom-0.5 left-0.5 right-0.5 text-[9px] font-semibold text-white leading-tight text-center drop-shadow">
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+            <span className="absolute bottom-1 left-1 right-1 text-[11px] font-bold text-white leading-tight text-center drop-shadow-lg">
               {m.label}
             </span>
           </button>

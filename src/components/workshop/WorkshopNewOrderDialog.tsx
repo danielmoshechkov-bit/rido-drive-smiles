@@ -39,7 +39,6 @@ const DEFAULT_CHECKLIST = {
   test_drive: false,
   refill_fluids: true,
   refill_lights: true,
-  wash_vehicle: false,
 };
 
 function generateOrderNumber() {
@@ -283,7 +282,7 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                           <div className="text-sm font-semibold truncate">{selectedVehicle.brand} {selectedVehicle.model}</div>
                           <div className="text-xs text-muted-foreground">{selectedVehicle.plate || 'brak nr rej.'} {selectedVehicle.vin ? `• VIN: ${selectedVehicle.vin}` : ''}</div>
                         </div>
-                        <Button variant="ghost" size="sm" onClick={() => { setVehicleId(''); setCreatedVehicleData(null); setShowVehicleList(true); }}>Zmień</Button>
+                        <Button variant="ghost" size="sm" onClick={() => { setVehicleId(''); setShowVehicleList(true); qc.invalidateQueries({ queryKey: ['workshop-vehicles'] }); }}>Zmień</Button>
                       </div>
                     ) : (
                       <div className="relative">
@@ -332,7 +331,7 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                           <div className="text-sm font-semibold truncate">{clientLabel}</div>
                           {selectedClient.phone && <div className="text-xs text-muted-foreground">{selectedClient.phone}</div>}
                         </div>
-                        <Button variant="ghost" size="sm" onClick={() => { setClientId(''); setCreatedClientData(null); setShowClientList(true); }}>Zmień</Button>
+                        <Button variant="ghost" size="sm" onClick={() => { setClientId(''); setShowClientList(true); qc.invalidateQueries({ queryKey: ['workshop-clients'] }); }}>Zmień</Button>
                       </div>
                     ) : (
                       <div className="relative">
@@ -460,7 +459,6 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                       { key: 'test_drive', label: 'Wymagana jazda próbna' },
                       { key: 'refill_fluids', label: 'Uzupełnić płyny' },
                       { key: 'refill_lights', label: 'Sprawdzić oświetlenie' },
-                      { key: 'wash_vehicle', label: 'Mycie po naprawie' },
                     ].map(item => (
                       <div key={item.key} className="flex items-center gap-2">
                         <Switch
