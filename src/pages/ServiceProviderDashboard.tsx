@@ -344,12 +344,10 @@ export default function ServiceProviderDashboard() {
             <Calendar className="h-4 w-4 mr-1.5" />
             Kalendarz
           </TabsTrigger>
-          {features.ai_workspace_enabled && workspaceAllowed && (
-            <TabsTrigger value="workspace">
-              <Briefcase className="h-4 w-4 mr-1.5" />
-              Workspace
-            </TabsTrigger>
-          )}
+          <TabsTrigger value="workspace">
+            <Briefcase className="h-4 w-4 mr-1.5" />
+            Workspace
+          </TabsTrigger>
           <TabsTrigger value="workshop">
             <Hammer className="h-4 w-4 mr-1.5" />
             Zarządzanie
@@ -619,11 +617,9 @@ export default function ServiceProviderDashboard() {
           )}
 
           {/* Workspace Tab */}
-          {features.ai_workspace_enabled && workspaceAllowed && (
-            <TabsContent value="workspace" className="mt-6">
-              <WorkspaceView />
-            </TabsContent>
-          )}
+          <TabsContent value="workspace" className="mt-6">
+            <WorkspaceView />
+          </TabsContent>
 
           {/* Account Switcher Tab */}
           <TabsContent value="account" className="mt-6">
