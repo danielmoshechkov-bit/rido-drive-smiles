@@ -27,7 +27,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   const isGross = priceMode === 'gross';
 
   // New task inline row
-  const emptyTask = { name: '', mechanic: '', quantity: 1, price_net: 0, price_gross: 0, cost_net: 0, cost_gross: 0, discount: 0, estimated_hours: 0 };
+  const emptyTask = { name: '', mechanic: '', quantity: 1, price_net: 0, price_gross: 0, cost_net: 0, cost_gross: 0, discount: 0 };
   const [newTask, setNewTask] = useState(emptyTask);
   const [taskSearch, setTaskSearch] = useState('');
 
@@ -85,7 +85,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       discount_percent: newTask.discount,
       total_gross: isGross ? totalGross : totalGross * VAT_RATE,
       total_net: isGross ? totalGross / VAT_RATE : totalGross,
-    });
+    } as any);
     setNewTask(emptyTask);
     toast.success('Usługa dodana');
   };
@@ -188,7 +188,6 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                   <th className="p-2 text-left font-medium text-muted-foreground min-w-[200px]">ZADANIE</th>
                   <th className="p-2 text-left font-medium text-muted-foreground w-28">MECHANIK</th>
                   <th className="p-2 text-center font-medium text-muted-foreground w-16">ILOŚĆ</th>
-                  <th className="p-2 text-right font-medium text-muted-foreground w-20">CZAS</th>
                   <th className="p-2 text-right font-medium text-muted-foreground w-24">
                     CENA {isGross ? 'BR.' : 'NT.'}
                   </th>
@@ -207,20 +206,12 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                     <td className="p-2 font-medium">{t.name}</td>
                     <td className="p-2 text-muted-foreground">{t.mechanic || '—'}</td>
                     <td className="p-2 text-center">{t.quantity}</td>
-                    <td className="p-2 text-right text-muted-foreground">
-                      <span className="flex items-center justify-end gap-1">
-                        <Clock className="h-3 w-3" /> {t.estimated_hours || '0'}h
-                      </span>
-                    </td>
                     <td className="p-2 text-right tabular-nums">{fmt(getItemPrice(t))}</td>
                     <td className="p-2 text-right">{t.discount_percent || 0}%</td>
                     <td className="p-2 text-right text-muted-foreground tabular-nums">{fmt(getItemCost(t))}</td>
                     <td className="p-2 text-right font-semibold tabular-nums">{fmt(getItemTotal(t))}</td>
                     <td className="p-2 text-center">
-                      {t.status === 'done'
-                        ? <CheckCircle2 className="h-4 w-4 text-green-500" />
-                        : <Play className="h-4 w-4 text-primary cursor-pointer hover:scale-110 transition-transform" />
-                      }
+                      <Play className="h-4 w-4 text-primary cursor-pointer hover:scale-110 transition-transform" />
                     </td>
                   </tr>
                 ))}
@@ -234,8 +225,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                 {/* Sum row */}
                 <tr className="bg-muted/30 font-semibold text-sm border-b">
                   <td className="p-2"></td>
-                  <td className="p-2" colSpan={4}>Razem usługi</td>
-                  <td className="p-2"></td>
+                  <td className="p-2" colSpan={3}>Razem usługi</td>
                   <td className="p-2"></td>
                   <td className="p-2 text-right text-muted-foreground tabular-nums">{fmt(tasksCost)}</td>
                   <td className="p-2 text-right tabular-nums">{fmt(tasksTotal)}</td>
@@ -272,16 +262,6 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                       value={newTask.quantity}
                       onChange={e => setNewTask(p => ({ ...p, quantity: Number(e.target.value) }))}
                       className="h-9 text-sm text-center"
-                    />
-                  </td>
-                  <td className="p-1.5">
-                    <Input
-                      type="number"
-                      step="0.5"
-                      placeholder="0h"
-                      value={newTask.estimated_hours || ''}
-                      onChange={e => setNewTask(p => ({ ...p, estimated_hours: Number(e.target.value) }))}
-                      className="h-9 text-sm text-right"
                     />
                   </td>
                   <td className="p-1.5">

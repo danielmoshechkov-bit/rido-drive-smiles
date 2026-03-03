@@ -154,8 +154,8 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
               </TableHeader>
               <TableBody>
                 {filteredOrders.map((order: any) => (
-                  <TableRow key={order.id} className="group cursor-pointer hover:bg-accent/50" onClick={() => onSelectOrder?.(order)}>
-                    <TableCell>
+                  <TableRow key={order.id} className="group cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => onSelectOrder?.(order)}>
+                    <TableCell onClick={e => e.stopPropagation()}>
                       <Checkbox
                         checked={selectedIds.has(order.id)}
                         onCheckedChange={() => toggleSelect(order.id)}
@@ -169,13 +169,13 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                     </TableCell>
                     <TableCell>{format(new Date(order.created_at), 'yyyy-MM-dd')}</TableCell>
                     <TableCell>{order.completed_at ? format(new Date(order.completed_at), 'yyyy-MM-dd') : ''}</TableCell>
-                    <TableCell>
+                    <TableCell onClick={e => e.stopPropagation()}>
                       <div className="relative">
                         <button
                           onClick={() => setStatusDropdownId(statusDropdownId === order.id ? null : order.id)}
                           className="cursor-pointer"
                         >
-                          <Badge className={`${statusColors[order.status_name] || 'bg-gray-200 text-black'} text-xs whitespace-nowrap`}>
+                          <Badge className={`${statusColors[order.status_name] || 'bg-gray-200 text-black'} text-xs whitespace-nowrap hover:opacity-80 transition-opacity`}>
                             {order.status_name || 'Brak'}
                           </Badge>
                         </button>
