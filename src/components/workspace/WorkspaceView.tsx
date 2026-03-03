@@ -35,6 +35,7 @@ export function WorkspaceView() {
       onSelectProject={(p) => { setSelectedProject(p); setActiveSubTab("tasks"); }}
       onCreateProject={workspace.createProject}
       onDeleteProject={workspace.deleteProject}
+      onRefresh={workspace.loadProjects}
     />
   );
 }
