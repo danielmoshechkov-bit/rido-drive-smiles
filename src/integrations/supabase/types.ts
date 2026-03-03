@@ -14715,6 +14715,7 @@ export type Database = {
       }
       workshop_workstations: {
         Row: {
+          category: string | null
           created_at: string
           description: string | null
           id: string
@@ -14724,6 +14725,7 @@ export type Database = {
           sort_order: number | null
         }
         Insert: {
+          category?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -14733,6 +14735,7 @@ export type Database = {
           sort_order?: number | null
         }
         Update: {
+          category?: string | null
           created_at?: string
           description?: string | null
           id?: string
