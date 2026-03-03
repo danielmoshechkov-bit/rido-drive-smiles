@@ -101,8 +101,8 @@ export default function ServiceProviderDashboard() {
     if (!user) { navigate('/auth'); return; }
     setUser(user);
 
-    // Check workspace whitelist
-    if (features.ai_workspace_enabled && user.email) {
+    // Check workspace whitelist - always check regardless of feature toggle
+    if (user.email) {
       const { data: wl } = await (supabase as any)
         .from('workspace_email_whitelist')
         .select('id')
