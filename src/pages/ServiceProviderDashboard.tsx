@@ -344,13 +344,13 @@ export default function ServiceProviderDashboard() {
             <Calendar className="h-4 w-4 mr-1.5" />
             Kalendarz
           </TabsTrigger>
-          <TabsTrigger value="bookings">
-            <ClipboardList className="h-4 w-4 mr-1.5" />
-            Rezerwacje
-          </TabsTrigger>
           <TabsTrigger value="workshop">
             <Hammer className="h-4 w-4 mr-1.5" />
             Zarządzanie
+          </TabsTrigger>
+          <TabsTrigger value="bookings">
+            <ClipboardList className="h-4 w-4 mr-1.5" />
+            Rezerwacje
           </TabsTrigger>
           <TabsTrigger value="ai-agent">
             <Bot className="h-4 w-4 mr-1.5" />
