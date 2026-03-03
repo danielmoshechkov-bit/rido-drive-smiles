@@ -412,7 +412,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                     <Select value={newGoods.task_name} onValueChange={v => setNewGoods(p => ({ ...p, task_name: v }))}>
                       <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Usługa" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">—</SelectItem>
+                        <SelectItem value="__none__">—</SelectItem>
                         {tasks.map((t: any) => (
                           <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>
                         ))}
