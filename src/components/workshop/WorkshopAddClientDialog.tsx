@@ -37,6 +37,11 @@ export function WorkshopAddClientDialog({ open, onOpenChange, providerId, onCrea
     set('postal_code', formatPostalCode(val));
   };
 
+  const capitalizeFirst = (val: string) => {
+    if (!val) return val;
+    return val.charAt(0).toUpperCase() + val.slice(1);
+  };
+
   const handleSubmit = async () => {
     const displayName = clientType === 'company' ? form.company_name : `${form.first_name} ${form.last_name}`;
     if (!displayName.trim()) return;
@@ -48,8 +53,8 @@ export function WorkshopAddClientDialog({ open, onOpenChange, providerId, onCrea
       client_type: clientType,
       company_name: clientType === 'company' ? form.company_name : null,
       nip: form.nip || null,
-      first_name: clientType === 'company' ? form.contact_first_name || null : form.first_name || null,
-      last_name: clientType === 'company' ? form.contact_last_name || null : form.last_name || null,
+      first_name: clientType === 'company' ? capitalizeFirst(form.contact_first_name) || null : capitalizeFirst(form.first_name) || null,
+      last_name: clientType === 'company' ? capitalizeFirst(form.contact_last_name) || null : capitalizeFirst(form.last_name) || null,
       phone: clientType === 'company' ? form.contact_phone || form.phone || null : form.phone || null,
       email: clientType === 'company' ? form.contact_email || form.email || null : form.email || null,
       postal_code: form.postal_code || null,

@@ -6,7 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useWorkshopClients } from '@/hooks/useWorkshop';
 import { WorkshopAddClientDialog } from './WorkshopAddClientDialog';
-import { Plus, Search, ArrowLeft, Loader2, Users, Building, User, Phone, Mail } from 'lucide-react';
+import { WorkshopEditClientDialog } from './WorkshopEditClientDialog';
+import { Plus, Search, Loader2, Building, User, Phone, Mail } from 'lucide-react';
 
 interface Props {
   providerId: string;
@@ -17,6 +18,7 @@ export function WorkshopClientsList({ providerId, onBack }: Props) {
   const { data: clients = [], isLoading } = useWorkshopClients(providerId);
   const [search, setSearch] = useState('');
   const [showAdd, setShowAdd] = useState(false);
+  const [editClient, setEditClient] = useState<any>(null);
 
   const filtered = useMemo(() => {
     if (!search) return clients;
@@ -33,9 +35,7 @@ export function WorkshopClientsList({ providerId, onBack }: Props) {
   }, [clients, search]);
 
   const getClientName = (c: any) => {
-    if (c.client_type === 'company') {
-      return c.company_name || 'Brak danych';
-    }
+    if (c.client_type === 'company') return c.company_name || 'Brak danych';
     const name = `${c.first_name || ''} ${c.last_name || ''}`.trim();
     return name || 'Brak danych';
   };
@@ -78,7 +78,7 @@ export function WorkshopClientsList({ providerId, onBack }: Props) {
               </TableHeader>
               <TableBody>
                 {filtered.map((c: any) => (
-                  <TableRow key={c.id} className="hover:bg-accent/50">
+                  <TableRow key={c.id} className="hover:bg-accent/50 cursor-pointer" onClick={() => setEditClient(c)}>
                     <TableCell>
                       <Badge variant={c.marketing_consent ? 'default' : 'secondary'} className="text-xs">
                         {c.marketing_consent ? 'Tak' : 'Nie'}
@@ -132,6 +132,7 @@ export function WorkshopClientsList({ providerId, onBack }: Props) {
       </div>
 
       <WorkshopAddClientDialog open={showAdd} onOpenChange={setShowAdd} providerId={providerId} />
+      <WorkshopEditClientDialog open={!!editClient} onOpenChange={(v) => { if (!v) setEditClient(null); }} client={editClient} />
     </div>
   );
 }

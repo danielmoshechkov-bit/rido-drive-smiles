@@ -161,6 +161,7 @@ export function useWorkshopVehicles(providerId: string | undefined) {
   return useQuery({
     queryKey: ['workshop-vehicles', providerId],
     enabled: !!providerId,
+    refetchOnMount: 'always',
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from('workshop_vehicles')

@@ -452,21 +452,21 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                 {/* Checklist */}
                 <div className="space-y-3 border-t pt-4">
                   <Label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Protokół przyjęcia</Label>
-                  <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+                  <div className="flex flex-wrap gap-x-6 gap-y-3 border rounded-md p-4">
                     {[
-                      { key: 'return_parts', label: 'Zwrot zużytych części' },
-                      { key: 'registration_doc', label: 'Przyjęto dowód rejestracyjny' },
-                      { key: 'test_drive', label: 'Wymagana jazda próbna' },
-                      { key: 'refill_fluids', label: 'Uzupełnić płyny' },
-                      { key: 'refill_lights', label: 'Sprawdzić oświetlenie' },
+                      { key: 'return_parts', label: 'Zwrot części do klienta' },
+                      { key: 'registration_doc', label: 'Dowód rejestracyjny' },
+                      { key: 'test_drive', label: 'Zgoda na jazdę próbną' },
+                      { key: 'refill_fluids', label: 'Uzupełnić płyny eksploatacyjne' },
+                      { key: 'refill_lights', label: 'Uzupełnić oświetlenie' },
                     ].map(item => (
-                      <div key={item.key} className="flex items-center gap-2">
+                      <label key={item.key} className="flex items-center gap-2 text-sm cursor-pointer">
                         <Switch
                           checked={(checklist as any)[item.key]}
                           onCheckedChange={v => setChecklist(prev => ({ ...prev, [item.key]: v }))}
                         />
-                        <Label className="text-sm cursor-pointer">{item.label}</Label>
-                      </div>
+                        {item.label}
+                      </label>
                     ))}
                   </div>
                 </div>
