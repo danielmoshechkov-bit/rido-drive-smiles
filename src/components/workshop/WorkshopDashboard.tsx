@@ -65,8 +65,8 @@ function WorkshopSidebar({ activeModule, onNavigate }: { activeModule: string; o
             onClick={() => onNavigate(m.key)}
             className={`relative rounded-lg overflow-hidden h-20 transition-all group ${
               activeModule === m.key
-                ? 'ring-2 ring-primary shadow-md'
-                : 'hover:ring-1 hover:ring-primary/40'
+                ? 'ring-2 ring-[hsl(45,100%,50%)] shadow-md shadow-[hsl(45,100%,50%)]/30'
+                : 'hover:ring-2 hover:ring-[hsl(45,100%,70%)] hover:shadow-sm'
             }`}
           >
             <img src={m.img} alt={m.label} className="w-full h-full object-cover" />

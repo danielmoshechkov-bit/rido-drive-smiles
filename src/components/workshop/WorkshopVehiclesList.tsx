@@ -77,11 +77,7 @@ export function WorkshopVehiclesList({ providerId, onBack, onSelectVehicle }: Pr
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        <button onClick={onBack} className="text-primary hover:underline text-sm">🏠</button>
-        <span className="text-muted-foreground">/</span>
-        <h2 className="text-xl font-bold">Pojazdy</h2>
-      </div>
+      <h2 className="text-2xl font-bold tracking-tight">Pojazdy</h2>
 
       <div className="flex flex-wrap items-center gap-2">
         <Button onClick={() => setShowAdd(true)} className="gap-2">
@@ -116,14 +112,14 @@ export function WorkshopVehiclesList({ providerId, onBack, onSelectVehicle }: Pr
                       onCheckedChange={toggleAll}
                     />
                   </TableHead>
-                  <TableHead className="text-xs font-semibold uppercase tracking-wide">Marka / Model</TableHead>
-                  <TableHead className="text-xs font-semibold uppercase tracking-wide">Nr rejestracyjny</TableHead>
-                  <TableHead className="text-xs font-semibold uppercase tracking-wide">VIN</TableHead>
-                  <TableHead className="text-xs font-semibold uppercase tracking-wide">Właściciel</TableHead>
-                  <TableHead className="text-xs font-semibold uppercase tracking-wide">Rok prod.</TableHead>
-                  <TableHead className="text-xs font-semibold uppercase tracking-wide">Pojemność</TableHead>
-                  <TableHead className="text-xs font-semibold uppercase tracking-wide">Silnik</TableHead>
-                  <TableHead className="text-xs font-semibold uppercase tracking-wide">Moc silnika</TableHead>
+                  <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Marka / Model</TableHead>
+                  <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Nr rejestracyjny</TableHead>
+                  <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">VIN</TableHead>
+                  <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Właściciel</TableHead>
+                  <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Rok prod.</TableHead>
+                  <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Pojemność</TableHead>
+                  <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Silnik</TableHead>
+                  <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Moc silnika</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
