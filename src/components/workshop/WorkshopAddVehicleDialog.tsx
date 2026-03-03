@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -62,30 +63,36 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
 
   const handleSubmit = async () => {
     if (!form.brand && !form.plate) return;
-    const vehicle = await create.mutateAsync({
-      provider_id: providerId,
-      brand: form.brand || null,
-      model: form.model || null,
-      color: form.color || null,
-      vin: form.vin || null,
-      plate: form.plate?.toUpperCase() || null,
-      year: form.year ? parseInt(form.year) : null,
-      first_registration_date: form.first_registration_date || null,
-      fuel_type: form.fuel_type || null,
-      engine_number: form.engine_number || null,
-      engine_capacity_cm3: form.engine_capacity_cm3 ? parseInt(form.engine_capacity_cm3) : null,
-      engine_power_kw: form.engine_power_kw ? parseInt(form.engine_power_kw) : null,
-      mileage_unit: form.mileage_unit,
-      description: form.description || null,
-      owner_client_id: form.owner_client_id || null,
-    });
-    // Force refresh vehicles list from database
-    await qc.invalidateQueries({ queryKey: ['workshop-vehicles'] });
-    await qc.refetchQueries({ queryKey: ['workshop-vehicles'] });
-    onCreated?.(vehicle);
-    setForm({ brand: '', model: '', color: '', vin: '', plate: '', year: '', first_registration_date: '', fuel_type: '', engine_number: '', engine_capacity_cm3: '', engine_power_kw: '', mileage_unit: 'km', description: '', owner_client_id: '' });
-    setCreatedOwner(null);
-    onOpenChange(false);
+    try {
+      const vehicle = await create.mutateAsync({
+        provider_id: providerId,
+        brand: form.brand || null,
+        model: form.model || null,
+        color: form.color || null,
+        vin: form.vin?.toUpperCase() || null,
+        plate: form.plate?.toUpperCase() || null,
+        year: form.year ? parseInt(form.year) : null,
+        first_registration_date: form.first_registration_date || null,
+        fuel_type: form.fuel_type || null,
+        engine_number: form.engine_number || null,
+        engine_capacity_cm3: form.engine_capacity_cm3 ? parseInt(form.engine_capacity_cm3) : null,
+        engine_power_kw: form.engine_power_kw ? parseInt(form.engine_power_kw) : null,
+        mileage_unit: form.mileage_unit,
+        description: form.description || null,
+        owner_client_id: form.owner_client_id || null,
+      });
+      onCreated?.(vehicle);
+      setForm({ brand: '', model: '', color: '', vin: '', plate: '', year: '', first_registration_date: '', fuel_type: '', engine_number: '', engine_capacity_cm3: '', engine_power_kw: '', mileage_unit: 'km', description: '', owner_client_id: '' });
+      setCreatedOwner(null);
+      onOpenChange(false);
+      // Refresh in background after dialog is closed
+      setTimeout(() => {
+        qc.invalidateQueries({ queryKey: ['workshop-vehicles'] });
+      }, 100);
+    } catch (e: any) {
+      console.error('Vehicle save error:', e);
+      toast.error('Błąd zapisu pojazdu: ' + (e?.message || 'Nieznany błąd'));
+    }
   };
 
   return (

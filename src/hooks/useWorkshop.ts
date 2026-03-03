@@ -9,12 +9,17 @@ export function useWorkshopProviderId() {
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
+      console.log('[useWorkshopProviderId] User ID:', user.id);
       const { data, error } = await supabase
         .from('service_providers')
         .select('id')
         .eq('user_id', user.id)
         .maybeSingle();
-      if (error) throw error;
+      if (error) {
+        console.error('[useWorkshopProviderId] Error:', error);
+        throw error;
+      }
+      console.log('[useWorkshopProviderId] Provider ID:', data?.id);
       if (!data) return null;
       return data.id as string;
     },
@@ -162,13 +167,20 @@ export function useWorkshopVehicles(providerId: string | undefined) {
     queryKey: ['workshop-vehicles', providerId],
     enabled: !!providerId,
     refetchOnMount: 'always',
+    staleTime: 0,
+    gcTime: 30000,
     queryFn: async () => {
+      console.log('[useWorkshopVehicles] Fetching vehicles for provider:', providerId);
       const { data, error } = await (supabase as any)
         .from('workshop_vehicles')
         .select('*, owner:workshop_clients(id, first_name, last_name, company_name)')
         .eq('provider_id', providerId)
         .order('created_at', { ascending: false });
-      if (error) throw error;
+      if (error) {
+        console.error('[useWorkshopVehicles] Error:', error);
+        throw error;
+      }
+      console.log('[useWorkshopVehicles] Got', data?.length, 'vehicles');
       return data || [];
     },
   });
