@@ -15191,6 +15191,8 @@ export type Database = {
           total_size_bytes: number
         }[]
       }
+      get_workspace_member_project_ids: { Args: never; Returns: string[] }
+      get_workspace_owned_project_ids: { Args: never; Returns: string[] }
       has_ai_pro_access: {
         Args: { p_entity_id?: string; p_user_id: string }
         Returns: boolean
@@ -15219,6 +15221,14 @@ export type Database = {
       is_plan_available: { Args: { _plan_id: string }; Returns: boolean }
       is_sales_admin: { Args: { p_user_id: string }; Returns: boolean }
       is_sales_user: { Args: { p_user_id: string }; Returns: boolean }
+      is_workspace_project_member: {
+        Args: { p_project_id: string }
+        Returns: boolean
+      }
+      is_workspace_project_owner: {
+        Args: { p_project_id: string }
+        Returns: boolean
+      }
       link_auth_user_to_driver: {
         Args: { p_driver_id: string; p_user_id: string }
         Returns: undefined
