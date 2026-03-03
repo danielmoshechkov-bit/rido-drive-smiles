@@ -10,6 +10,7 @@ interface FeatureToggles {
   driver_registration_enabled: boolean;
   account_switching_enabled: boolean;
   marketplace_email_confirmation_required: boolean;
+  ai_workspace_enabled: boolean;
   [key: string]: boolean;
 }
 
@@ -23,6 +24,7 @@ export function useFeatureToggles() {
     driver_registration_enabled: true,
     account_switching_enabled: false,
     marketplace_email_confirmation_required: false,
+    ai_workspace_enabled: false,
   });
   const [loading, setLoading] = useState(true);
 
@@ -47,6 +49,7 @@ export function useFeatureToggles() {
         driver_registration_enabled: true,
         account_switching_enabled: false,
         marketplace_email_confirmation_required: false,
+        ai_workspace_enabled: false,
       };
 
       data?.forEach((toggle) => {

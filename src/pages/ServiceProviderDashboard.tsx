@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { UniversalHomeButton } from '@/components/UniversalHomeButton';
 import { MyGetRidoButton } from '@/components/MyGetRidoButton';
 import { AccountSwitcherPanel } from '@/components/AccountSwitcherPanel';
+import { WorkspaceView } from '@/components/workspace/WorkspaceView';
 import { TabsPill } from '@/components/ui/TabsPill';
 import { TabsContent, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -31,7 +32,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   LayoutDashboard, Wrench, Calendar, ClipboardList, Settings, Phone,
   Users, Clock, Star, Globe, Bot, Hammer, Plus, Trash2, Edit, Save, Image,
-  Upload, X, ImageIcon
+  Upload, X, ImageIcon, Briefcase
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -350,6 +351,12 @@ export default function ServiceProviderDashboard() {
               Strona WWW
             </TabsTrigger>
           )}
+          {features.ai_workspace_enabled && (
+            <TabsTrigger value="workspace">
+              <Briefcase className="h-4 w-4 mr-1.5" />
+              Workspace
+            </TabsTrigger>
+          )}
           <TabsTrigger value="account">
             <Users className="h-4 w-4 mr-1.5" />
             Wybierz moduł
@@ -597,6 +604,13 @@ export default function ServiceProviderDashboard() {
           {features.website_builder_enabled && (
             <TabsContent value="website" className="mt-6">
               <WebsiteBuilderWizard />
+            </TabsContent>
+          )}
+
+          {/* Workspace Tab */}
+          {features.ai_workspace_enabled && (
+            <TabsContent value="workspace" className="mt-6">
+              <WorkspaceView />
             </TabsContent>
           )}
 
