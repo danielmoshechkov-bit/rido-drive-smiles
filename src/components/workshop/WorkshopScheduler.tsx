@@ -268,7 +268,12 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz' }: P
 
   return (
     <div className="space-y-4">
-      <h2 className="text-2xl font-bold tracking-tight">{title}</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold tracking-tight">{title}</h2>
+        <Button onClick={() => { setSlotData({ day: weekDays[0], hour: HOURS[0], stationId: categoryStations[0]?.id || '__default' }); setShowSlotDialog(true); }} className="gap-2">
+          <Plus className="h-4 w-4" /> Dodaj zlecenie
+        </Button>
+      </div>
 
       {/* Unplanned orders */}
       <Card

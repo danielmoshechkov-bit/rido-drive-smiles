@@ -138,23 +138,23 @@ export function WorkshopVehiclesList({ providerId, onBack, onSelectVehicle }: Pr
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Car className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium text-sm">{v.brand} {v.model}</span>
+                        <span className="font-semibold text-[13px] tracking-wide">{v.brand} {v.model}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="font-mono text-sm">{v.plate || ''}</TableCell>
-                    <TableCell className="font-mono text-xs text-muted-foreground">{v.vin || ''}</TableCell>
+                    <TableCell className="text-[13px] font-semibold tracking-wide">{v.plate || ''}</TableCell>
+                    <TableCell className="text-[12px] text-muted-foreground tracking-wide">{v.vin || ''}</TableCell>
                     <TableCell>
                       {getOwnerName(v) && (
-                        <div className="flex items-center gap-1.5 text-sm">
+                        <div className="flex items-center gap-1.5 text-[13px] font-medium">
                           <User className="h-3.5 w-3.5 text-muted-foreground" />
                           {getOwnerName(v)}
                         </div>
                       )}
                     </TableCell>
-                    <TableCell className="text-sm">{v.year || ''}</TableCell>
-                    <TableCell className="text-sm">{v.engine_capacity_cm3 || ''}</TableCell>
-                    <TableCell className="text-sm">{v.fuel_type || ''}</TableCell>
-                    <TableCell className="text-sm">
+                    <TableCell className="text-[13px] font-semibold">{v.year || ''}</TableCell>
+                    <TableCell className="text-[13px]">{v.engine_capacity_cm3 || ''}</TableCell>
+                    <TableCell className="text-[13px]">{v.fuel_type || ''}</TableCell>
+                    <TableCell className="text-[13px]">
                       {v.engine_power_kw ? `${v.engine_power_kw} kW` : ''}
                     </TableCell>
                   </TableRow>
