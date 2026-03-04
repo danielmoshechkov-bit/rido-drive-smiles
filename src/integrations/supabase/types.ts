@@ -2012,6 +2012,75 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_routing_modes: {
+        Row: {
+          cache_ttl_minutes: number | null
+          complexity_threshold: number | null
+          created_at: string | null
+          fallback_model: string | null
+          fallback_provider: string | null
+          icon_name: string | null
+          id: string
+          is_enabled: boolean | null
+          max_tokens: number | null
+          mode_description: string | null
+          mode_key: string
+          mode_name: string
+          primary_model: string
+          primary_provider: string
+          sort_order: number | null
+          system_prompt: string | null
+          temperature: number | null
+          updated_at: string | null
+          upgraded_model: string | null
+          upgraded_provider: string | null
+        }
+        Insert: {
+          cache_ttl_minutes?: number | null
+          complexity_threshold?: number | null
+          created_at?: string | null
+          fallback_model?: string | null
+          fallback_provider?: string | null
+          icon_name?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          max_tokens?: number | null
+          mode_description?: string | null
+          mode_key: string
+          mode_name: string
+          primary_model?: string
+          primary_provider?: string
+          sort_order?: number | null
+          system_prompt?: string | null
+          temperature?: number | null
+          updated_at?: string | null
+          upgraded_model?: string | null
+          upgraded_provider?: string | null
+        }
+        Update: {
+          cache_ttl_minutes?: number | null
+          complexity_threshold?: number | null
+          created_at?: string | null
+          fallback_model?: string | null
+          fallback_provider?: string | null
+          icon_name?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          max_tokens?: number | null
+          mode_description?: string | null
+          mode_key?: string
+          mode_name?: string
+          primary_model?: string
+          primary_provider?: string
+          sort_order?: number | null
+          system_prompt?: string | null
+          temperature?: number | null
+          updated_at?: string | null
+          upgraded_model?: string | null
+          upgraded_provider?: string | null
+        }
+        Relationships: []
+      }
       ai_routing_rules: {
         Row: {
           allow_fallback: boolean | null
