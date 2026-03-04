@@ -5,18 +5,19 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { AdminPortalSwitcher } from '@/components/admin/AdminPortalSwitcher';
 import { UserDropdown } from '@/components/UserDropdown';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Loader2, Brain, Key, Route, ToggleLeft, Shield, Activity, Plug, Mic, Phone, ListTodo } from 'lucide-react';
+import { Loader2, Brain, Key, Route, ToggleLeft, Shield, Activity, Plug, Mic, Phone, ListTodo, MessageCircle } from 'lucide-react';
 import { AIHubPanel } from '@/components/admin/AIHubPanel';
 import { AIFunctionMappingPanel } from '@/components/admin/AIFunctionMappingPanel';
 import { AIVoiceAgentSettings } from '@/components/admin/AIVoiceAgentSettings';
 import { AICallAdminPanel } from '@/components/admin/AICallAdminPanel';
+import { RidoAIChat } from '@/components/admin/RidoAIChat';
 
 export default function AdminAIBrain() {
   const navigate = useNavigate();
   const { isAdmin, loading: roleLoading } = useUserRole();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('hub');
+  const [activeTab, setActiveTab] = useState('rido-ai');
   const [userEmail, setUserEmail] = useState('');
 
   useEffect(() => {
@@ -64,6 +65,7 @@ export default function AdminAIBrain() {
   if (!isAdmin) return null;
 
   const tabs = [
+    { value: 'rido-ai', label: 'RidoAI', icon: MessageCircle },
     { value: 'hub', label: 'Dostawcy & API', icon: Key },
     { value: 'mapping', label: 'Funkcje → AI', icon: Route },
     { value: 'voice-agent', label: 'AI Voice Agent', icon: Mic },
@@ -140,6 +142,10 @@ export default function AdminAIBrain() {
               ))}
             </div>
           </div>
+
+          <TabsContent value="rido-ai">
+            <RidoAIChat />
+          </TabsContent>
 
           <TabsContent value="hub">
             <AIHubPanel />

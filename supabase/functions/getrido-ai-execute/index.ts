@@ -134,6 +134,10 @@ serve(async (req) => {
         apiKey = provider.api_key_encrypted;
         apiUrl = "https://api.openai.com/v1/chat/completions";
         model = provider.default_model || "gpt-4o";
+      } else if (provider.provider_key === "kimi" && provider.api_key_encrypted) {
+        apiKey = provider.api_key_encrypted;
+        apiUrl = "https://api.moonshot.cn/v1/chat/completions";
+        model = provider.default_model || "moonshot-v1-8k";
       } else if (provider.provider_key === "gemini" && provider.api_key_encrypted) {
         // Use Lovable gateway with Gemini model
         model = provider.default_model || "google/gemini-3-flash-preview";
