@@ -153,7 +153,32 @@ serve(async (req) => {
       aiMessages.push({ role: "user", content: query });
     }
 
-    // 9) Handle tools/actions
+    // 9) Handle image generation for rido_create
+    if ((mode === "rido_create" && taskType === "image") || feature === "ai_image") {
+      const imageResult = await generateImage(query, LOVABLE_API_KEY);
+      
+      await logRequest(supabase, {
+        actor_user_id: userId, tenant_id: tenantId,
+        feature: "ai_image", task_type: "image", mode,
+        provider: "lovable", model: "google/gemini-2.5-flash-image",
+        status: imageResult.ok ? "success" : "failed",
+        cache_hit: false, response_time_ms: Date.now() - startTime,
+      });
+
+      if (imageResult.ok) {
+        return jsonResponse({
+          result: imageResult.text || "Oto Twoja grafika! 🎨",
+          images: imageResult.images,
+          _brand: "Rido AI",
+          _mode: mode,
+          _model: "google/gemini-2.5-flash-image",
+        });
+      }
+      // Fall through to text if image gen fails
+      console.warn("[Rido AI] Image generation failed, falling back to text");
+    }
+
+    // 9b) Handle tools/actions
     let toolsPayload: unknown = undefined;
     let toolChoice: unknown = undefined;
     if (toolName && feature === "ai_tools") {
@@ -253,6 +278,44 @@ serve(async (req) => {
     return jsonResponse({ error: e instanceof Error ? e.message : "Błąd Rido AI", _brand: "Rido AI" }, 500);
   }
 });
+
+// === IMAGE GENERATION ===
+async function generateImage(prompt: string, apiKey: string | undefined): Promise<{ ok: boolean; images?: string[]; text?: string }> {
+  if (!apiKey) return { ok: false };
+  
+  try {
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-image",
+        messages: [
+          { role: "user", content: prompt }
+        ],
+        modalities: ["image", "text"],
+      }),
+    });
+
+    if (!response.ok) {
+      console.error("[Rido AI] Image gen error:", response.status);
+      return { ok: false };
+    }
+
+    const data = await response.json();
+    const message = data.choices?.[0]?.message;
+    const text = message?.content || "";
+    const images = (message?.images || []).map((img: any) => img?.image_url?.url).filter(Boolean);
+
+    if (images.length === 0) return { ok: false };
+    return { ok: true, images, text };
+  } catch (e) {
+    console.error("[Rido AI] Image gen exception:", e);
+    return { ok: false };
+  }
+}
 
 // === HELPER: JSON Response with CORS ===
 function jsonResponse(data: unknown, status = 200) {

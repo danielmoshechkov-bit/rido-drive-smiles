@@ -66,6 +66,7 @@ import DriverInfoLanding from "./pages/DriverInfoLanding";
 import SalesPortal from "./pages/SalesPortal";
 import RentalClientPortal from "./pages/RentalClientPortal";
 import WorkshopClientCard from "./pages/WorkshopClientCard";
+import RidoAIChat from "./pages/RidoAIChat";
 const queryClient = new QueryClient();
 
 /**
@@ -134,6 +135,7 @@ const App = () => (
                 <Route path="/admin/portal" element={<AdminPortal />} />
                 <Route path="/admin/uslugi" element={<AdminServices />} />
                 <Route path="/admin/ai" element={<AdminAIBrain />} />
+                <Route path="/rido-ai" element={<RidoAIChat />} />
                 <Route path="/mapy" element={<GetRidoMaps />} />
                 <Route path="/fleet/dashboard" element={<FleetDashboard />} />
                 <Route path="/admin/system-alerts" element={<SystemAlerts />} />
