@@ -5073,6 +5073,135 @@ export type Database = {
           },
         ]
       }
+      email_accounts: {
+        Row: {
+          auto_reply_enabled: boolean | null
+          created_at: string | null
+          display_name: string | null
+          email: string
+          encrypted_password: string | null
+          id: string
+          imap_host: string | null
+          imap_port: number | null
+          is_connected: boolean | null
+          last_sync_at: string | null
+          provider: string
+          smtp_host: string | null
+          smtp_port: number | null
+          sync_interval_minutes: number | null
+          total_count: number | null
+          unread_count: number | null
+          updated_at: string | null
+          user_id: string
+          username: string | null
+        }
+        Insert: {
+          auto_reply_enabled?: boolean | null
+          created_at?: string | null
+          display_name?: string | null
+          email: string
+          encrypted_password?: string | null
+          id?: string
+          imap_host?: string | null
+          imap_port?: number | null
+          is_connected?: boolean | null
+          last_sync_at?: string | null
+          provider?: string
+          smtp_host?: string | null
+          smtp_port?: number | null
+          sync_interval_minutes?: number | null
+          total_count?: number | null
+          unread_count?: number | null
+          updated_at?: string | null
+          user_id: string
+          username?: string | null
+        }
+        Update: {
+          auto_reply_enabled?: boolean | null
+          created_at?: string | null
+          display_name?: string | null
+          email?: string
+          encrypted_password?: string | null
+          id?: string
+          imap_host?: string | null
+          imap_port?: number | null
+          is_connected?: boolean | null
+          last_sync_at?: string | null
+          provider?: string
+          smtp_host?: string | null
+          smtp_port?: number | null
+          sync_interval_minutes?: number | null
+          total_count?: number | null
+          unread_count?: number | null
+          updated_at?: string | null
+          user_id?: string
+          username?: string | null
+        }
+        Relationships: []
+      }
+      email_drafts: {
+        Row: {
+          account_id: string | null
+          ai_generated: boolean | null
+          body: string | null
+          cc_addresses: string[] | null
+          created_at: string | null
+          id: string
+          reply_to_email_id: string | null
+          sent_at: string | null
+          status: string | null
+          subject: string | null
+          to_addresses: string[] | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          ai_generated?: boolean | null
+          body?: string | null
+          cc_addresses?: string[] | null
+          created_at?: string | null
+          id?: string
+          reply_to_email_id?: string | null
+          sent_at?: string | null
+          status?: string | null
+          subject?: string | null
+          to_addresses?: string[] | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          account_id?: string | null
+          ai_generated?: boolean | null
+          body?: string | null
+          cc_addresses?: string[] | null
+          created_at?: string | null
+          id?: string
+          reply_to_email_id?: string | null
+          sent_at?: string | null
+          status?: string | null
+          subject?: string | null
+          to_addresses?: string[] | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_drafts_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "email_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_drafts_reply_to_email_id_fkey"
+            columns: ["reply_to_email_id"]
+            isOneToOne: false
+            referencedRelation: "emails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_settings: {
         Row: {
           created_at: string | null
@@ -5171,6 +5300,95 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      emails: {
+        Row: {
+          account_id: string
+          ai_action_items: Json | null
+          ai_analyzed_at: string | null
+          ai_category: string | null
+          ai_priority: string | null
+          ai_suggested_replies: Json | null
+          ai_summary: string | null
+          body_html: string | null
+          body_text: string | null
+          cc_addresses: string[] | null
+          created_at: string | null
+          folder: string | null
+          from_address: string | null
+          from_name: string | null
+          has_attachments: boolean | null
+          id: string
+          is_important: boolean | null
+          is_read: boolean | null
+          is_spam: boolean | null
+          message_id: string | null
+          received_at: string | null
+          subject: string | null
+          to_addresses: string[] | null
+          user_id: string
+        }
+        Insert: {
+          account_id: string
+          ai_action_items?: Json | null
+          ai_analyzed_at?: string | null
+          ai_category?: string | null
+          ai_priority?: string | null
+          ai_suggested_replies?: Json | null
+          ai_summary?: string | null
+          body_html?: string | null
+          body_text?: string | null
+          cc_addresses?: string[] | null
+          created_at?: string | null
+          folder?: string | null
+          from_address?: string | null
+          from_name?: string | null
+          has_attachments?: boolean | null
+          id?: string
+          is_important?: boolean | null
+          is_read?: boolean | null
+          is_spam?: boolean | null
+          message_id?: string | null
+          received_at?: string | null
+          subject?: string | null
+          to_addresses?: string[] | null
+          user_id: string
+        }
+        Update: {
+          account_id?: string
+          ai_action_items?: Json | null
+          ai_analyzed_at?: string | null
+          ai_category?: string | null
+          ai_priority?: string | null
+          ai_suggested_replies?: Json | null
+          ai_summary?: string | null
+          body_html?: string | null
+          body_text?: string | null
+          cc_addresses?: string[] | null
+          created_at?: string | null
+          folder?: string | null
+          from_address?: string | null
+          from_name?: string | null
+          has_attachments?: boolean | null
+          id?: string
+          is_important?: boolean | null
+          is_read?: boolean | null
+          is_spam?: boolean | null
+          message_id?: string | null
+          received_at?: string | null
+          subject?: string | null
+          to_addresses?: string[] | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emails_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "email_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       entities: {
         Row: {

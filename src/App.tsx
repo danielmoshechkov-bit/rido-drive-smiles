@@ -68,6 +68,7 @@ import RentalClientPortal from "./pages/RentalClientPortal";
 import WorkshopClientCard from "./pages/WorkshopClientCard";
 import RidoAIChat from "./pages/RidoAIChat";
 import MeetingsPage from "./pages/MeetingsPage";
+import RidoMailPage from "./pages/RidoMailPage";
 const queryClient = new QueryClient();
 
 /**
@@ -138,6 +139,7 @@ const App = () => (
                 <Route path="/admin/ai" element={<AdminAIBrain />} />
                 <Route path="/rido-ai" element={<RidoAIChat />} />
                 <Route path="/meetings" element={<MeetingsPage />} />
+                <Route path="/mail" element={<RidoMailPage />} />
                 <Route path="/mapy" element={<GetRidoMaps />} />
                 <Route path="/fleet/dashboard" element={<FleetDashboard />} />
                 <Route path="/admin/system-alerts" element={<SystemAlerts />} />
