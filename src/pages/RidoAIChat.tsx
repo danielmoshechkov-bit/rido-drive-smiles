@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useGetRidoAI } from '@/hooks/useGetRidoAI';
-import { Loader2, Send, Sparkles, RotateCcw, MessageCircle, Code, Palette, Eye, Crown, Image, Video, ArrowLeft } from 'lucide-react';
+import { Loader2, Send, Sparkles, RotateCcw, MessageCircle, Code, Palette, Eye, Crown, Image, Video, ArrowLeft, Mic } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ReactMarkdown from 'react-markdown';
 
@@ -28,6 +28,7 @@ const AI_MODES: AIMode[] = [
   { key: 'rido_create', label: 'Grafika', icon: Image, description: 'Generowanie obrazów i grafik', color: 'from-pink-500 to-rose-500' },
   { key: 'rido_vision', label: 'Vision', icon: Eye, description: 'Analiza obrazów i dokumentów', color: 'from-amber-500 to-orange-500' },
   { key: 'rido_pro', label: 'Pro', icon: Crown, description: 'Najwyższa jakość odpowiedzi', color: 'from-purple-500 to-violet-600' },
+  { key: 'rido_meeting', label: 'Meeting AI', icon: Mic, description: 'Asystent spotkań', color: 'from-red-500 to-rose-600' },
 ];
 
 const RIDO_AVATAR = '/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png';
@@ -190,7 +191,7 @@ export default function RidoAIChatPage() {
             return (
               <button
                 key={mode.key}
-                onClick={() => setActiveMode(mode.key)}
+                onClick={() => mode.key === 'rido_meeting' ? navigate('/meetings') : setActiveMode(mode.key)}
                 className={cn(
                   "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all text-left",
                   isActive
