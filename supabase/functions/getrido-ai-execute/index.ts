@@ -7,10 +7,10 @@ const corsHeaders = {
 };
 
 interface AIRequest {
-  feature: string; // ai_search, ai_help, ai_ocr, ai_image, ai_description, ai_invoice, ai_agent, ai_tools
-  taskType: string; // text, image, ocr, search
+  feature: string;
+  taskType: string;
   query: string;
-  mode?: string; // fast, accurate, action
+  mode?: string; // rido_chat, rido_code, rido_create, rido_vision, rido_pro
   tenantId?: string;
   messages?: Array<{ role: string; content: string }>;
   systemPrompt?: string;
@@ -29,11 +29,10 @@ serve(async (req) => {
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
   let userId: string | null = null;
-  let logId: string | null = null;
   const startTime = Date.now();
 
   try {
-    // Auth (optional - some features may be public)
+    // Auth (optional)
     const authHeader = req.headers.get("Authorization");
     if (authHeader) {
       const token = authHeader.replace("Bearer ", "");
@@ -42,7 +41,7 @@ serve(async (req) => {
     }
 
     const body: AIRequest = await req.json();
-    const { feature, taskType, query, mode = "fast", tenantId, messages, systemPrompt, contextHints, toolName, toolParams, stream = false } = body;
+    const { feature, taskType, query, mode = "rido_chat", tenantId, messages, systemPrompt, contextHints, toolName, toolParams, stream = false } = body;
 
     if (!feature || !taskType) {
       throw new Error("Wymagane parametry: feature, taskType");
@@ -57,12 +56,10 @@ serve(async (req) => {
       .maybeSingle();
 
     if (flag && !flag.is_enabled) {
-      return new Response(JSON.stringify({ error: "Funkcja AI wyłączona", code: "FEATURE_DISABLED" }), {
-        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ error: "Funkcja AI wyłączona", code: "FEATURE_DISABLED" }, 403);
     }
 
-    // Also check engine flag
+    // Check engine flag
     const { data: engineFlag } = await supabase
       .from("ai_feature_flags")
       .select("is_enabled")
@@ -70,92 +67,68 @@ serve(async (req) => {
       .maybeSingle();
 
     if (engineFlag && !engineFlag.is_enabled) {
-      return new Response(JSON.stringify({ error: "GetRido AI Engine wyłączony", code: "ENGINE_DISABLED" }), {
-        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ error: "GetRido AI Engine wyłączony", code: "ENGINE_DISABLED" }, 403);
     }
 
     // 2) Check limits
     const limitCheck = await checkLimits(supabase, userId, tenantId);
     if (!limitCheck.allowed) {
-      return new Response(JSON.stringify({ error: limitCheck.message, code: "LIMIT_EXCEEDED" }), {
-        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ error: limitCheck.message, code: "LIMIT_EXCEEDED" }, 429);
     }
 
-    // 3) Check cache
-    const cacheKey = generateCacheKey(tenantId || "", feature, query || "", mode);
-    const { data: cached } = await supabase
-      .from("ai_response_cache")
-      .select("response_data")
-      .eq("cache_key", cacheKey)
-      .gt("expires_at", new Date().toISOString())
-      .maybeSingle();
+    // 3) Check cache (skip for streaming chat)
+    if (!stream && query) {
+      const cacheKey = generateCacheKey(tenantId || "", feature, query, mode);
+      const { data: cached } = await supabase
+        .from("ai_response_cache")
+        .select("response_data")
+        .eq("cache_key", cacheKey)
+        .gt("expires_at", new Date().toISOString())
+        .maybeSingle();
 
-    if (cached) {
-      // Log cache hit
-      await logRequest(supabase, {
-        actor_user_id: userId,
-        tenant_id: tenantId,
-        feature, task_type: taskType, mode,
-        provider: "cache", model: "cache",
-        status: "success", cache_hit: true,
-        response_time_ms: Date.now() - startTime,
-      });
-      return new Response(JSON.stringify({ ...cached.response_data, _cached: true, _brand: "GetRido AI" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // 4) Get routing
-    const { data: routing } = await supabase
-      .from("ai_routing_rules")
-      .select("primary_provider_key, secondary_provider_key, allow_fallback")
-      .eq("task_type", taskType)
-      .maybeSingle();
-
-    const providerKey = routing?.primary_provider_key || "lovable";
-
-    // 5) Get provider config
-    const { data: provider } = await supabase
-      .from("ai_providers")
-      .select("*")
-      .eq("provider_key", providerKey)
-      .eq("is_enabled", true)
-      .maybeSingle();
-
-    // Determine API key and URL
-    let apiKey = LOVABLE_API_KEY;
-    let apiUrl = "https://ai.gateway.lovable.dev/v1/chat/completions";
-    let model = "google/gemini-3-flash-preview";
-
-    if (provider) {
-      if (provider.provider_key === "openai" && provider.api_key_encrypted) {
-        apiKey = provider.api_key_encrypted;
-        apiUrl = "https://api.openai.com/v1/chat/completions";
-        model = provider.default_model || "gpt-4o";
-      } else if (provider.provider_key === "kimi" && provider.api_key_encrypted) {
-        apiKey = provider.api_key_encrypted;
-        apiUrl = "https://api.moonshot.cn/v1/chat/completions";
-        model = provider.default_model || "moonshot-v1-8k";
-      } else if (provider.provider_key === "gemini" && provider.api_key_encrypted) {
-        // Use Lovable gateway with Gemini model
-        model = provider.default_model || "google/gemini-3-flash-preview";
-      } else if (provider.default_model) {
-        model = provider.default_model;
+      if (cached) {
+        await logRequest(supabase, {
+          actor_user_id: userId, tenant_id: tenantId,
+          feature, task_type: taskType, mode,
+          provider: "cache", model: "cache",
+          status: "success", cache_hit: true,
+          response_time_ms: Date.now() - startTime,
+        });
+        return jsonResponse({ ...cached.response_data, _cached: true, _brand: "Rido AI" });
       }
     }
 
-    // Mode affects model selection
-    if (mode === "accurate" && model.includes("flash")) {
-      model = model.replace("flash", "pro");
+    // 4) Get routing mode config
+    const { data: routingMode } = await supabase
+      .from("ai_routing_modes")
+      .select("*")
+      .eq("mode_key", mode)
+      .eq("is_enabled", true)
+      .maybeSingle();
+
+    // 4b) Load provider API keys from DB for non-lovable providers
+    const { data: providers } = await supabase
+      .from("ai_providers")
+      .select("provider_key, api_key_encrypted, default_model, is_enabled")
+      .eq("is_enabled", true);
+    
+    const providerKeys: Record<string, string> = {};
+    if (providers) {
+      for (const p of providers) {
+        if (p.api_key_encrypted) providerKeys[p.provider_key] = p.api_key_encrypted;
+      }
     }
 
-    if (!apiKey) {
-      throw new Error("Brak klucza API. Skonfiguruj dostawcę AI w AI Hub.");
-    }
+    // 5) Analyze complexity for smart routing
+    const complexity = analyzeComplexity(query || "", messages);
 
-    // 6) Get context
+    // 6) Determine provider, model, and system prompt based on mode + complexity
+    const routing = resolveRouting(routingMode, complexity, LOVABLE_API_KEY, providerKeys);
+    
+    // Allow custom system prompt to override mode default
+    const finalSystemPrompt = systemPrompt || routing.systemPrompt;
+
+    // 7) Build context
     let contextPrompt = "";
     if (tenantId) {
       const { data: tenantCtx } = await supabase
@@ -167,30 +140,20 @@ serve(async (req) => {
         contextPrompt += `\nKontekst firmy: ${tenantCtx.business_description || ""} (branża: ${tenantCtx.industry || "nieznana"})`;
       }
     }
-    if (userId) {
-      const { data: userCtx } = await supabase
-        .from("ai_user_context")
-        .select("preferred_language, response_style")
-        .eq("user_id", userId)
-        .maybeSingle();
-      if (userCtx) {
-        contextPrompt += `\nStyl odpowiedzi: ${userCtx.response_style || "balanced"}. Język: ${userCtx.preferred_language || "pl"}`;
-      }
-    }
 
-    // 7) Build messages
+    // 8) Build messages
     const aiMessages: Array<{ role: string; content: string }> = [];
-
-    const baseSystemPrompt = systemPrompt || "Jesteś asystentem GetRido AI. Odpowiadaj po polsku, zwięźle i pomocnie. Nigdy nie wspominaj o OpenAI, Gemini ani żadnych dostawcach AI – jesteś GetRido AI.";
-    aiMessages.push({ role: "system", content: baseSystemPrompt + contextPrompt });
+    aiMessages.push({ role: "system", content: finalSystemPrompt + contextPrompt });
 
     if (messages && messages.length > 0) {
-      aiMessages.push(...messages);
+      // Filter out any system messages from client (we set our own)
+      const clientMessages = messages.filter(m => m.role !== 'system');
+      aiMessages.push(...clientMessages);
     } else if (query) {
       aiMessages.push({ role: "user", content: query });
     }
 
-    // 8) Handle tools/actions
+    // 9) Handle tools/actions
     let toolsPayload: unknown = undefined;
     let toolChoice: unknown = undefined;
     if (toolName && feature === "ai_tools") {
@@ -198,149 +161,319 @@ serve(async (req) => {
       toolChoice = { type: "function", function: { name: toolName } };
     }
 
-    // 9) Call AI
-    const aiBody: Record<string, unknown> = {
-      model,
-      messages: aiMessages,
-      stream: stream,
-    };
-    if (toolsPayload) {
-      aiBody.tools = toolsPayload;
-      aiBody.tool_choice = toolChoice;
-    }
+    // 10) Call AI with fallback chain
+    const result = await callWithFallback(
+      routing, aiMessages, stream, toolsPayload, toolChoice, LOVABLE_API_KEY
+    );
 
-    const aiResponse = await fetch(apiUrl, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(aiBody),
-    });
-
-    if (!aiResponse.ok) {
-      const errText = await aiResponse.text();
-      console.error(`[GetRido AI] Provider error ${aiResponse.status}:`, errText);
-
-      // Try fallback if allowed
-      if (routing?.allow_fallback && routing.secondary_provider_key) {
-        console.log("[GetRido AI] Attempting fallback...");
-        // Simplified fallback - use Lovable gateway
-        const fallbackResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ model: "google/gemini-3-flash-preview", messages: aiMessages }),
-        });
-
-        if (fallbackResponse.ok) {
-          const fbData = await fallbackResponse.json();
-          const result = extractResult(fbData);
-          await logRequest(supabase, {
-            actor_user_id: userId, tenant_id: tenantId,
-            feature, task_type: taskType, mode,
-            provider: "lovable", model: "google/gemini-3-flash-preview",
-            status: "success", cache_hit: false,
-            response_time_ms: Date.now() - startTime,
-            tokens_in: fbData.usage?.prompt_tokens,
-            tokens_out: fbData.usage?.completion_tokens,
-          });
-          return new Response(JSON.stringify({ result, _brand: "GetRido AI", _fallback: true }), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-      }
-
-      if (aiResponse.status === 429) {
+    if (!result.ok) {
+      // Handle specific error codes
+      if (result.status === 429) {
         await logRequest(supabase, {
           actor_user_id: userId, tenant_id: tenantId,
           feature, task_type: taskType, mode,
-          provider: providerKey, model, status: "failed",
+          provider: result.usedProvider, model: result.usedModel, status: "failed",
           error_message: "Rate limit exceeded",
           response_time_ms: Date.now() - startTime,
         });
-        return new Response(JSON.stringify({ error: "Zbyt wiele zapytań. Spróbuj ponownie za chwilę.", code: "RATE_LIMITED" }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return jsonResponse({ error: "Zbyt wiele zapytań. Spróbuj ponownie za chwilę.", code: "RATE_LIMITED" }, 429);
       }
-      if (aiResponse.status === 402) {
-        return new Response(JSON.stringify({ error: "Brak środków na AI. Doładuj konto.", code: "PAYMENT_REQUIRED" }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+      if (result.status === 402) {
+        return jsonResponse({ error: "Brak środków na AI. Doładuj konto.", code: "PAYMENT_REQUIRED" }, 402);
       }
-
-      throw new Error(`AI provider error: ${aiResponse.status}`);
+      throw new Error(`AI provider error: ${result.status} - ${result.errorText}`);
     }
 
-    // 10) Stream or JSON response
-    if (stream) {
+    // 11) Stream or JSON response
+    if (stream && result.response) {
       await logRequest(supabase, {
         actor_user_id: userId, tenant_id: tenantId,
         feature, task_type: taskType, mode,
-        provider: providerKey, model, status: "success",
+        provider: result.usedProvider, model: result.usedModel, status: "success",
         cache_hit: false, response_time_ms: Date.now() - startTime,
       });
-      return new Response(aiResponse.body, {
+      return new Response(result.response.body, {
         headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
       });
     }
 
-    const data = await aiResponse.json();
-    const result = extractResult(data);
+    const data = result.data;
+    const textResult = extractResult(data);
     const responseTime = Date.now() - startTime;
 
-    // 11) Log
+    // 12) Log
     await logRequest(supabase, {
       actor_user_id: userId, tenant_id: tenantId,
       feature, task_type: taskType, mode,
-      provider: providerKey, model, status: "success",
-      cache_hit: false, response_time_ms: responseTime,
-      tokens_in: data.usage?.prompt_tokens,
-      tokens_out: data.usage?.completion_tokens,
-      cost_estimate: estimateCost(data.usage?.prompt_tokens, data.usage?.completion_tokens, model),
+      provider: result.usedProvider, model: result.usedModel,
+      status: "success", cache_hit: false,
+      response_time_ms: responseTime,
+      tokens_in: data?.usage?.prompt_tokens,
+      tokens_out: data?.usage?.completion_tokens,
+      cost_estimate: estimateCost(data?.usage?.prompt_tokens, data?.usage?.completion_tokens, result.usedModel),
     });
 
-    // 12) Cache (for expensive operations, 15-60 min)
-    if (query && mode !== "action") {
-      const cacheTTL = mode === "accurate" ? 60 : 15; // minutes
+    // 13) Cache
+    const cacheTTL = routingMode?.cache_ttl_minutes || 15;
+    if (query && !stream && cacheTTL > 0) {
+      const cacheKey = generateCacheKey(tenantId || "", feature, query, mode);
       await supabase.from("ai_response_cache").upsert({
         cache_key: cacheKey,
         tenant_id: tenantId || null,
         feature,
         query_hash: simpleHash(query),
         mode,
-        response_data: { result },
+        response_data: { result: textResult },
         expires_at: new Date(Date.now() + cacheTTL * 60 * 1000).toISOString(),
       }, { onConflict: "cache_key" }).select();
     }
 
-    return new Response(JSON.stringify({ result, _brand: "GetRido AI" }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    return jsonResponse({
+      result: textResult,
+      _brand: "Rido AI",
+      _mode: mode,
+      _model: result.usedModel,
+      _fallback: result.usedFallback,
+      _complexity: complexity,
+      _time_ms: responseTime,
     });
 
   } catch (e) {
-    console.error("[GetRido AI Engine] Error:", e);
-    // Log failure
+    console.error("[Rido AI Engine] Error:", e);
     try {
       await logRequest(supabase, {
         actor_user_id: userId,
-        feature: "unknown", task_type: "unknown", mode: "fast",
+        feature: "unknown", task_type: "unknown", mode: "rido_chat",
         provider: "unknown", model: "unknown", status: "failed",
         error_message: e instanceof Error ? e.message : "Unknown error",
         response_time_ms: Date.now() - startTime,
       });
-    } catch (_) { /* ignore logging errors */ }
+    } catch (_) { /* ignore */ }
 
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Błąd GetRido AI", _brand: "GetRido AI" }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResponse({ error: e instanceof Error ? e.message : "Błąd Rido AI", _brand: "Rido AI" }, 500);
   }
 });
 
-// === Helper Functions ===
+// === HELPER: JSON Response with CORS ===
+function jsonResponse(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
 
+// === COMPLEXITY ANALYSIS ===
+function analyzeComplexity(query: string, messages?: Array<{ role: string; content: string }>): number {
+  let score = 0;
+  const text = query.toLowerCase();
+  const totalLength = (messages || []).reduce((acc, m) => acc + m.content.length, 0) + query.length;
+
+  // Length-based scoring
+  if (totalLength > 2000) score += 3;
+  else if (totalLength > 500) score += 1;
+
+  // Code indicators
+  if (/```|function |class |import |const |=>|async |await /.test(text)) score += 2;
+  if (/debug|error|bug|fix|refactor/.test(text)) score += 1;
+
+  // Complexity indicators
+  if (/analizuj|przeanalizuj|porównaj|compare|analyze|research|zbadaj/.test(text)) score += 2;
+  if (/stwórz.*aplikacj|zbuduj.*system|zaprojektuj|architektur/.test(text)) score += 3;
+  
+  // Multi-step / detailed requests
+  if (/krok po kroku|step by step|szczegółow|dokładn/.test(text)) score += 1;
+  
+  // Simple queries
+  if (totalLength < 50 && !/\n/.test(query)) score = Math.max(0, score - 1);
+
+  // Conversation depth (more messages = more complex context)
+  if (messages && messages.length > 10) score += 2;
+  else if (messages && messages.length > 4) score += 1;
+
+  return Math.min(10, score);
+}
+
+// === ROUTING RESOLVER ===
+interface RoutingResult {
+  apiUrl: string;
+  apiKey: string | undefined;
+  model: string;
+  systemPrompt: string;
+  provider: string;
+  fallbackApiUrl: string;
+  fallbackApiKey: string | undefined;
+  fallbackModel: string;
+  fallbackProvider: string;
+  temperature: number;
+  maxTokens: number;
+}
+
+function resolveRouting(
+  routingMode: any,
+  complexity: number,
+  lovableKey: string | undefined,
+  providerKeys: Record<string, string> = {},
+): RoutingResult {
+  const defaults: RoutingResult = {
+    apiUrl: "https://ai.gateway.lovable.dev/v1/chat/completions",
+    apiKey: lovableKey,
+    model: "google/gemini-3-flash-preview",
+    systemPrompt: "Jesteś RidoAI – inteligentny asystent platformy GetRido. Odpowiadaj po polsku, zwięźle i profesjonalnie. Nigdy nie wspominaj o zewnętrznych dostawcach AI – jesteś RidoAI. Formatuj odpowiedzi w markdown.",
+    provider: "lovable",
+    fallbackApiUrl: "https://ai.gateway.lovable.dev/v1/chat/completions",
+    fallbackApiKey: lovableKey,
+    fallbackModel: "google/gemini-2.5-flash",
+    fallbackProvider: "lovable",
+    temperature: 0.7,
+    maxTokens: 4096,
+  };
+
+  if (!routingMode) return defaults;
+
+  const primary = resolveProviderEndpoint(routingMode.primary_provider, routingMode.primary_model, lovableKey, providerKeys);
+  const fallback = resolveProviderEndpoint(routingMode.fallback_provider || "lovable", routingMode.fallback_model || "google/gemini-2.5-flash", lovableKey, providerKeys);
+
+  let result: RoutingResult = {
+    ...primary,
+    provider: routingMode.primary_provider,
+    systemPrompt: routingMode.system_prompt || defaults.systemPrompt,
+    fallbackApiUrl: fallback.apiUrl,
+    fallbackApiKey: fallback.apiKey,
+    fallbackModel: fallback.model,
+    fallbackProvider: routingMode.fallback_provider || "lovable",
+    temperature: Number(routingMode.temperature) || 0.7,
+    maxTokens: routingMode.max_tokens || 4096,
+  };
+
+  if (complexity >= (routingMode.complexity_threshold || 99) && routingMode.upgraded_provider && routingMode.upgraded_model) {
+    const upgraded = resolveProviderEndpoint(routingMode.upgraded_provider, routingMode.upgraded_model, lovableKey, providerKeys);
+    result = { ...result, ...upgraded, provider: routingMode.upgraded_provider };
+    console.log(`[Rido AI] Complexity ${complexity} >= ${routingMode.complexity_threshold}, upgraded to ${routingMode.upgraded_model}`);
+  }
+
+  return result;
+}
+
+function resolveProviderEndpoint(provider: string, model: string, lovableKey: string | undefined, providerKeys: Record<string, string> = {}) {
+  switch (provider) {
+    case "kimi":
+      return {
+        apiUrl: "https://api.moonshot.cn/v1/chat/completions",
+        apiKey: providerKeys["kimi"] || Deno.env.get("KIMI_API_KEY") || lovableKey,
+        model,
+      };
+    case "openai":
+      return {
+        apiUrl: "https://api.openai.com/v1/chat/completions",
+        apiKey: providerKeys["openai"] || Deno.env.get("OPENAI_API_KEY") || lovableKey,
+        model,
+      };
+    case "lovable":
+    default:
+      return {
+        apiUrl: "https://ai.gateway.lovable.dev/v1/chat/completions",
+        apiKey: lovableKey,
+        model,
+      };
+  }
+}
+
+// === CALL WITH FALLBACK ===
+interface CallResult {
+  ok: boolean;
+  status?: number;
+  data?: any;
+  response?: Response;
+  errorText?: string;
+  usedProvider: string;
+  usedModel: string;
+  usedFallback: boolean;
+}
+
+async function callWithFallback(
+  routing: RoutingResult,
+  messages: Array<{ role: string; content: string }>,
+  stream: boolean,
+  tools?: unknown,
+  toolChoice?: unknown,
+  lovableKey?: string | undefined,
+): Promise<CallResult> {
+  // Try primary
+  const primaryResult = await callProvider(
+    routing.apiUrl, routing.apiKey, routing.model,
+    messages, stream, routing.temperature, routing.maxTokens, tools, toolChoice
+  );
+
+  if (primaryResult.ok) {
+    return { ...primaryResult, usedProvider: routing.provider, usedModel: routing.model, usedFallback: false };
+  }
+
+  console.warn(`[Rido AI] Primary failed (${routing.provider}/${routing.model}): ${primaryResult.status}. Trying fallback...`);
+
+  // Try fallback
+  const fallbackResult = await callProvider(
+    routing.fallbackApiUrl, routing.fallbackApiKey, routing.fallbackModel,
+    messages, stream, routing.temperature, routing.maxTokens, tools, toolChoice
+  );
+
+  if (fallbackResult.ok) {
+    return { ...fallbackResult, usedProvider: routing.fallbackProvider, usedModel: routing.fallbackModel, usedFallback: true };
+  }
+
+  // Last resort: Lovable gateway with basic model
+  if (routing.provider !== "lovable" || routing.fallbackProvider !== "lovable") {
+    console.warn("[Rido AI] Fallback failed. Last resort: Lovable gateway.");
+    const lastResort = await callProvider(
+      "https://ai.gateway.lovable.dev/v1/chat/completions",
+      lovableKey,
+      "google/gemini-2.5-flash",
+      messages, stream, 0.7, 4096, tools, toolChoice
+    );
+    if (lastResort.ok) {
+      return { ...lastResort, usedProvider: "lovable", usedModel: "google/gemini-2.5-flash", usedFallback: true };
+    }
+  }
+
+  return { ok: false, status: fallbackResult.status, errorText: fallbackResult.errorText, usedProvider: routing.provider, usedModel: routing.model, usedFallback: true };
+}
+
+async function callProvider(
+  apiUrl: string, apiKey: string | undefined, model: string,
+  messages: Array<{ role: string; content: string }>,
+  stream: boolean, temperature: number, maxTokens: number,
+  tools?: unknown, toolChoice?: unknown,
+): Promise<{ ok: boolean; status?: number; data?: any; response?: Response; errorText?: string }> {
+  if (!apiKey) return { ok: false, status: 401, errorText: "No API key configured" };
+
+  const aiBody: Record<string, unknown> = { model, messages, stream, temperature, max_tokens: maxTokens };
+  if (tools) { aiBody.tools = tools; aiBody.tool_choice = toolChoice; }
+
+  try {
+    const response = await fetch(apiUrl, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify(aiBody),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error(`[Rido AI] Provider ${apiUrl} error ${response.status}:`, errText.slice(0, 200));
+      return { ok: false, status: response.status, errorText: errText };
+    }
+
+    if (stream) {
+      return { ok: true, response };
+    }
+
+    const data = await response.json();
+    return { ok: true, data };
+  } catch (e) {
+    console.error(`[Rido AI] Provider ${apiUrl} network error:`, e);
+    return { ok: false, status: 0, errorText: e instanceof Error ? e.message : "Network error" };
+  }
+}
+
+// === FEATURE FLAG MAPPING ===
 function mapFeatureToFlag(feature: string): string {
   const map: Record<string, string> = {
     ai_search: "ai_search_enabled",
@@ -360,14 +493,14 @@ function mapFeatureToFlag(feature: string): string {
 }
 
 function extractResult(data: any): string {
-  if (data.choices?.[0]?.message?.tool_calls) {
+  if (data?.choices?.[0]?.message?.tool_calls) {
     try {
       return JSON.parse(data.choices[0].message.tool_calls[0].function.arguments);
     } catch {
       return data.choices[0].message.tool_calls[0].function.arguments;
     }
   }
-  return data.choices?.[0]?.message?.content || "";
+  return data?.choices?.[0]?.message?.content || "";
 }
 
 function generateCacheKey(tenantId: string, feature: string, query: string, mode: string): string {
@@ -386,20 +519,17 @@ function simpleHash(str: string): string {
 
 function estimateCost(tokensIn?: number, tokensOut?: number, model?: string): number {
   if (!tokensIn && !tokensOut) return 0;
-  // Rough estimates per 1K tokens in PLN
   const rates: Record<string, number> = {
-    "gpt-4o": 0.05,
-    "gpt-5": 0.08,
-    "google/gemini-3-flash-preview": 0.01,
-    "google/gemini-2.5-flash": 0.01,
-    "google/gemini-2.5-pro": 0.04,
+    "gpt-4o": 0.05, "gpt-5": 0.08, "openai/gpt-5": 0.08, "openai/gpt-5.2": 0.10,
+    "google/gemini-3-flash-preview": 0.01, "google/gemini-2.5-flash": 0.01,
+    "google/gemini-2.5-pro": 0.04, "google/gemini-2.5-flash-image": 0.015,
+    "moonshot-v1-8k": 0.02, "moonshot-v1-128k": 0.06,
   };
   const rate = rates[model || ""] || 0.02;
   return Math.round(((tokensIn || 0) + (tokensOut || 0)) / 1000 * rate * 100) / 100;
 }
 
 async function checkLimits(supabase: any, userId: string | null, tenantId?: string): Promise<{ allowed: boolean; message?: string }> {
-  // Get global limits
   const { data: globalLimit } = await supabase
     .from("ai_limits_config")
     .select("*")
@@ -409,7 +539,6 @@ async function checkLimits(supabase: any, userId: string | null, tenantId?: stri
 
   if (!globalLimit) return { allowed: true };
 
-  // Count today's requests
   const today = new Date().toISOString().split("T")[0];
   const { count } = await supabase
     .from("ai_requests_log")
@@ -426,11 +555,8 @@ async function checkLimits(supabase: any, userId: string | null, tenantId?: stri
 }
 
 async function logRequest(supabase: any, data: Record<string, unknown>) {
-  try {
-    await supabase.from("ai_requests_log").insert(data);
-  } catch (e) {
-    console.error("[GetRido AI] Log error:", e);
-  }
+  try { await supabase.from("ai_requests_log").insert(data); }
+  catch (e) { console.error("[Rido AI] Log error:", e); }
 }
 
 function getToolDefinitions(toolName: string): any[] {

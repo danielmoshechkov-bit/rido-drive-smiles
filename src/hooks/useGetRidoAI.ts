@@ -6,7 +6,7 @@ interface GetRidoAIParams {
   feature: string;
   taskType: string;
   query?: string;
-  mode?: "fast" | "accurate" | "action";
+  mode?: string;
   tenantId?: string;
   messages?: Array<{ role: string; content: string }>;
   systemPrompt?: string;
