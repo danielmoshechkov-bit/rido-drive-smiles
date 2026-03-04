@@ -23,6 +23,7 @@ interface GetRidoAIResult {
   _fallback?: boolean;
   error?: string;
   code?: string;
+  images?: string[];
 }
 
 export function useGetRidoAI() {
