@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from '@/hooks/useUserRole';
 import { AdminPortalSwitcher } from '@/components/admin/AdminPortalSwitcher';
 import { UserDropdown } from '@/components/UserDropdown';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Loader2, Brain, Key, Route, ToggleLeft, Shield, Activity, Plug, Mic, Phone, ListTodo, MessageCircle } from 'lucide-react';
+import { Loader2, Brain, Key, Route, ToggleLeft, Shield, Activity, Plug, Mic, Phone, ListTodo, MessageCircle, Mail } from 'lucide-react';
 import { AIHubPanel } from '@/components/admin/AIHubPanel';
 import { AIFunctionMappingPanel } from '@/components/admin/AIFunctionMappingPanel';
 import { AIVoiceAgentSettings } from '@/components/admin/AIVoiceAgentSettings';
@@ -70,6 +72,7 @@ export default function AdminAIBrain() {
     { value: 'mapping', label: 'Funkcje → AI', icon: Route },
     { value: 'voice-agent', label: 'AI Voice Agent', icon: Mic },
     { value: 'call-admin', label: 'AI Call Admin', icon: Phone },
+    { value: 'mail', label: 'Rido Mail', icon: Mail },
   ];
 
   return (
@@ -161,6 +164,32 @@ export default function AdminAIBrain() {
 
           <TabsContent value="call-admin">
             <AICallAdminPanel />
+          </TabsContent>
+
+          <TabsContent value="mail">
+            <Card className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <Mail className="h-6 w-6 text-primary" />
+                <div>
+                  <h3 className="font-bold text-lg">Rido Mail – Asystent Poczty</h3>
+                  <p className="text-sm text-muted-foreground">Zarządzanie modułem email AI</p>
+                </div>
+              </div>
+              <div className="space-y-3 text-sm">
+                <p>Moduł Rido Mail pozwala użytkownikom:</p>
+                <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                  <li>Podłączyć skrzynki pocztowe (IMAP/SMTP) – Gmail, Outlook, firmowe</li>
+                  <li>Automatyczna analiza AI – podsumowanie, priorytet, kategoria</li>
+                  <li>Sugestie odpowiedzi generowane przez AI</li>
+                  <li>Wyciąganie zadań i action items z maili</li>
+                </ul>
+                <div className="flex gap-2 mt-4">
+                  <a href="/mail" target="_blank">
+                    <Button variant="outline" size="sm">Otwórz Rido Mail</Button>
+                  </a>
+                </div>
+              </div>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
