@@ -452,7 +452,7 @@ export default function EasyHub() {
         description: 'Asystent AI – pytaj o wszystko',
         icon: MessageCircle,
         image: null,
-        link: '/admin/ai-brain',
+        link: '/admin/ai',
         available: true
       });
     }
