@@ -8432,6 +8432,142 @@ export type Database = {
           },
         ]
       }
+      meeting_decisions: {
+        Row: {
+          created_at: string
+          decision: string
+          id: string
+          impact: string | null
+          meeting_id: string
+          rationale: string | null
+        }
+        Insert: {
+          created_at?: string
+          decision: string
+          id?: string
+          impact?: string | null
+          meeting_id: string
+          rationale?: string | null
+        }
+        Update: {
+          created_at?: string
+          decision?: string
+          id?: string
+          impact?: string | null
+          meeting_id?: string
+          rationale?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meeting_decisions_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "meetings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meeting_tasks: {
+        Row: {
+          assignee: string | null
+          created_at: string
+          deadline: string | null
+          id: string
+          is_completed: boolean | null
+          meeting_id: string
+          priority: string | null
+          source_quote: string | null
+          task: string
+        }
+        Insert: {
+          assignee?: string | null
+          created_at?: string
+          deadline?: string | null
+          id?: string
+          is_completed?: boolean | null
+          meeting_id: string
+          priority?: string | null
+          source_quote?: string | null
+          task: string
+        }
+        Update: {
+          assignee?: string | null
+          created_at?: string
+          deadline?: string | null
+          id?: string
+          is_completed?: boolean | null
+          meeting_id?: string
+          priority?: string | null
+          source_quote?: string | null
+          task?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meeting_tasks_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "meetings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meetings: {
+        Row: {
+          audio_url: string | null
+          created_at: string
+          duration_seconds: number | null
+          id: string
+          key_points: Json | null
+          next_meeting_suggestion: Json | null
+          participants: string[] | null
+          questions_unresolved: Json | null
+          sentiment: string | null
+          source_type: string
+          status: string
+          summary: string | null
+          title: string
+          transcript: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          audio_url?: string | null
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          key_points?: Json | null
+          next_meeting_suggestion?: Json | null
+          participants?: string[] | null
+          questions_unresolved?: Json | null
+          sentiment?: string | null
+          source_type?: string
+          status?: string
+          summary?: string | null
+          title?: string
+          transcript?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          audio_url?: string | null
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          key_points?: Json | null
+          next_meeting_suggestion?: Json | null
+          participants?: string[] | null
+          questions_unresolved?: Json | null
+          sentiment?: string | null
+          source_type?: string
+          status?: string
+          summary?: string | null
+          title?: string
+          transcript?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           content: string
