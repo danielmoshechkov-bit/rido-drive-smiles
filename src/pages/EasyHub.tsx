@@ -39,6 +39,7 @@ import {
 import { cn } from "@/lib/utils";
 import Footer from "@/components/Footer";
 import { useModuleVisibility } from "@/hooks/useModuleVisibility";
+import { useUserRole } from "@/hooks/useUserRole";
 import { MyGetRidoButton } from "@/components/MyGetRidoButton";
 import { AddListingModal } from "@/components/AddListingModal";
 import { UniversalHomeButton } from "@/components/UniversalHomeButton";
@@ -222,7 +223,16 @@ function MarketplaceTileCard({ tile, onClick }: { tile: MarketplaceTile; onClick
       onClick={() => tile.available && onClick()}
     >
       {/* Background image or gradient */}
-      {tile.image ? (
+      {tile.id === 'rido-ai' ? (
+        <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/80 to-accent transition-transform duration-500 group-hover:scale-110">
+          <div className="absolute inset-0 bg-black/10" />
+          <img 
+            src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
+            alt="RidoAI" 
+            className="absolute top-2 right-2 w-14 h-14 md:w-16 md:h-16 rounded-full opacity-90 ring-2 ring-white/30 shadow-lg"
+          />
+        </div>
+      ) : tile.image ? (
         <div 
           className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110"
           style={{ backgroundImage: `url(${tile.image})` }}
@@ -238,13 +248,13 @@ function MarketplaceTileCard({ tile, onClick }: { tile: MarketplaceTile; onClick
         <CardContent className="relative z-10 p-3 md:p-4 h-28 md:h-36 flex flex-col justify-end">
           <h3 className={cn(
             "font-bold text-sm md:text-base leading-tight drop-shadow-lg",
-            tile.image ? "text-white [text-shadow:_0_1px_3px_rgb(0_0_0_/_60%),_0_2px_8px_rgb(0_0_0_/_40%)]" : "text-foreground"
+            (tile.image || tile.id === 'rido-ai') ? "text-white [text-shadow:_0_1px_3px_rgb(0_0_0_/_60%),_0_2px_8px_rgb(0_0_0_/_40%)]" : "text-foreground"
           )}>
             {tile.title}
           </h3>
           <p className={cn(
             "text-[11px] md:text-xs mt-0.5 line-clamp-2 font-medium",
-            tile.image ? "text-white/95 [text-shadow:_0_1px_2px_rgb(0_0_0_/_50%)]" : "text-muted-foreground"
+            (tile.image || tile.id === 'rido-ai') ? "text-white/95 [text-shadow:_0_1px_2px_rgb(0_0_0_/_50%)]" : "text-muted-foreground"
           )}>
             {tile.description}
           </p>
@@ -262,11 +272,11 @@ function MarketplaceTileCard({ tile, onClick }: { tile: MarketplaceTile; onClick
           <div className={cn(
             "absolute top-2 right-2 p-1.5 rounded-full transition-all duration-300",
             "opacity-0 group-hover:opacity-100 translate-x-2 group-hover:translate-x-0",
-            tile.image ? "bg-white/20 backdrop-blur-sm" : "bg-primary/10"
+            (tile.image || tile.id === 'rido-ai') ? "bg-white/20 backdrop-blur-sm" : "bg-primary/10"
           )}>
             <ArrowRight className={cn(
               "h-3 w-3",
-              tile.image ? "text-white" : "text-primary"
+              (tile.image || tile.id === 'rido-ai') ? "text-white" : "text-primary"
             )} />
           </div>
         )}
@@ -297,6 +307,7 @@ export default function EasyHub() {
   const [showActivationModal, setShowActivationModal] = useState(false);
   const [activationPlatform, setActivationPlatform] = useState<'none' | 'android' | 'iphone'>('none');
   const { isVisible: mapsVisible } = useModuleVisibility('maps');
+  const { isAdmin } = useUserRole();
 
   // Check if user has full services access
   const hasServicesAccess = user?.email && SERVICES_FULL_ACCESS_EMAILS.includes(user.email);
@@ -432,6 +443,19 @@ export default function EasyHub() {
   // Build dynamic tiles list with conditional visibility
   const dynamicTiles = useMemo(() => {
     let tiles: MarketplaceTile[] = [];
+
+    // Add RidoAI tile for admins at the top
+    if (isAdmin) {
+      tiles.push({
+        id: 'rido-ai',
+        title: 'RidoAI',
+        description: 'Asystent AI – pytaj o wszystko',
+        icon: MessageCircle,
+        image: null,
+        link: '/admin/ai-brain',
+        available: true
+      });
+    }
     
     // Add main tiles but filter services for non-authorized users
     mainTiles.forEach(tile => {
@@ -470,7 +494,7 @@ export default function EasyHub() {
     }
     
     return tiles;
-  }, [mapsVisible, user, hasServicesAccess]);
+  }, [mapsVisible, user, hasServicesAccess, isAdmin]);
 
   // Get category title
   const getCategoryTitle = () => {
