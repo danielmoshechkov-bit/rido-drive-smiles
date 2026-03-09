@@ -33,15 +33,49 @@ serve(async (req) => {
 
     console.log(`Processing debt for driver ${driver_id}, payout: ${calculated_payout}`);
 
-    // DEDUPLICATION: Check if a debt transaction already exists for this settlement
-    const { data: existingTx } = await supabase
+    // 🚫 SKIP FLEET OWNERS: Check if driver is actually a fleet owner (has fleet role)
+    const { data: driverAppUser } = await supabase
+      .from("driver_app_users")
+      .select("user_id")
+      .eq("driver_id", driver_id)
+      .maybeSingle();
+    
+    if (driverAppUser?.user_id) {
+      const { data: ownerRole } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", driverAppUser.user_id)
+        .in("role", ["fleet_settlement", "fleet_rental"])
+        .maybeSingle();
+      
+      if (ownerRole) {
+        console.log(`⏭️ Driver ${driver_id} is a fleet owner (${ownerRole.role}), skipping debt calculation`);
+        return new Response(
+          JSON.stringify({ success: true, skipped: true, reason: "fleet_owner" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    // DEDUPLICATION: Check by settlement_id AND by period to prevent duplicates
+    const { data: existingTxBySettlement } = await supabase
       .from("driver_debt_transactions")
       .select("id")
       .eq("settlement_id", settlement_id)
       .maybeSingle();
 
-    if (existingTx) {
-      console.log(`⚠️ Debt transaction already exists for settlement ${settlement_id}, skipping`);
+    // Also check for existing transaction for same driver + period (regardless of settlement_id)
+    const { data: existingTxByPeriod } = await supabase
+      .from("driver_debt_transactions")
+      .select("id")
+      .eq("driver_id", driver_id)
+      .eq("period_from", period_from)
+      .eq("period_to", period_to)
+      .limit(1)
+      .maybeSingle();
+
+    if (existingTxBySettlement || existingTxByPeriod) {
+      console.log(`⚠️ Debt transaction already exists for driver ${driver_id} period ${period_from}-${period_to}, skipping`);
       // Return existing settlement debt info
       const { data: settlement } = await supabase
         .from("settlements")
