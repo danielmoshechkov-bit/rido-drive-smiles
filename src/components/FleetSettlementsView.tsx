@@ -1096,6 +1096,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           billing_method,
           b2b_enabled,
           b2b_vat_payer,
+          exclude_from_settlements,
           driver_app_users!left(settlement_plan_id, user_id)
         `)
         .eq('fleet_id', fleetId);
