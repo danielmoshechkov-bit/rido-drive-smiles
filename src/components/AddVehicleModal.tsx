@@ -192,9 +192,9 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId, fleetId, f
           </div>
 
           <div>
-            <Label>Rodzaj nadwozia {!isRentalVariant && '*'}</Label>
-            <Select value={bodyType} onValueChange={setBodyType}>
-              <SelectTrigger>
+            <Label className={validationErrors.has('bodyType') ? 'text-destructive' : ''}>Rodzaj nadwozia {!isRentalVariant && '*'}</Label>
+            <Select value={bodyType} onValueChange={v => { setBodyType(v); setValidationErrors(prev => { const n = new Set(prev); n.delete('bodyType'); return n; }); }}>
+              <SelectTrigger className={validationErrors.has('bodyType') ? 'border-destructive ring-1 ring-destructive' : ''}>
                 <SelectValue placeholder="Wybierz rodzaj nadwozia" />
               </SelectTrigger>
               <SelectContent>
@@ -205,9 +205,9 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId, fleetId, f
             </Select>
           </div>
           <div>
-            <Label>Rodzaj paliwa *</Label>
-            <Select value={fuelType} onValueChange={setFuelType}>
-              <SelectTrigger>
+            <Label className={validationErrors.has('fuelType') ? 'text-destructive' : ''}>Rodzaj paliwa *</Label>
+            <Select value={fuelType} onValueChange={v => { setFuelType(v); setValidationErrors(prev => { const n = new Set(prev); n.delete('fuelType'); return n; }); }}>
+              <SelectTrigger className={validationErrors.has('fuelType') ? 'border-destructive ring-1 ring-destructive' : ''}>
                 <SelectValue placeholder="Wybierz rodzaj paliwa" />
               </SelectTrigger>
               <SelectContent>
