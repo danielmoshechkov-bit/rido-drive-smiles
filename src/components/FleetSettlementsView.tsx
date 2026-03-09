@@ -164,6 +164,12 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     { key: 'freenow_commission', label: 'FN prow.' },
     { key: 'total_cash', label: 'Razem got.' },
     { key: 'total_commission', label: 'Razem prow.' },
+    ...(fleetSettlementModeState === 'dual_tax' ? [
+      { key: 'netto', label: 'Netto' },
+      { key: 'bonusy', label: 'Bonusy' },
+      { key: 'anulacje', label: 'Anulacje' },
+      { key: 'rekompensaty', label: 'Rekomp.' },
+    ] : []),
     { key: 'fuel', label: 'Paliwo' },
     { key: 'vat', label: 'VAT' },
     { key: 'vat_refund', label: 'VAT zwrot' },
