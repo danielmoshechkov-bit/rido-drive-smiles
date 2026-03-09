@@ -725,13 +725,26 @@ export function PartnerFleetsManagement({ fleetId }: PartnerFleetsManagementProp
                 <Label className="text-xs">Miasto</Label>
                 <Input value={editFleet.city || ''} onChange={e => setEditFleet({ ...editFleet, city: e.target.value })} />
               </div>
+              <div className="col-span-2">
+                <Label className="text-xs">Ulica</Label>
+                <Input value={editFleet.street || ''} onChange={e => setEditFleet({ ...editFleet, street: e.target.value })} />
+              </div>
               <div>
-                <Label className="text-xs">Adres</Label>
-                <Input value={editFleet.address || ''} onChange={e => setEditFleet({ ...editFleet, address: e.target.value })} />
+                <Label className="text-xs">Nr budynku</Label>
+                <Input value={editFleet.house_number || ''} onChange={e => setEditFleet({ ...editFleet, house_number: e.target.value })} />
               </div>
               <div>
                 <Label className="text-xs">Kod pocztowy</Label>
-                <Input value={editFleet.postal_code || ''} onChange={e => setEditFleet({ ...editFleet, postal_code: e.target.value })} />
+                <Input 
+                  value={editFleet.postal_code || ''} 
+                  onChange={e => {
+                    let v = e.target.value.replace(/[^0-9]/g, '').slice(0, 5);
+                    if (v.length > 2) v = v.slice(0, 2) + '-' + v.slice(2);
+                    setEditFleet({ ...editFleet, postal_code: v });
+                  }}
+                  placeholder="00-000"
+                  maxLength={6}
+                />
               </div>
               <div>
                 <Label className="text-xs">Kontakt</Label>
@@ -743,7 +756,17 @@ export function PartnerFleetsManagement({ fleetId }: PartnerFleetsManagementProp
               </div>
               <div>
                 <Label className="text-xs">Telefon</Label>
-                <Input value={editFleet.phone || ''} onChange={e => setEditFleet({ ...editFleet, phone: e.target.value })} />
+                <Input 
+                  value={editFleet.phone || ''} 
+                  onChange={e => {
+                    let v = e.target.value.replace(/[^0-9]/g, '').slice(0, 9);
+                    if (v.length > 6) v = v.slice(0, 3) + ' ' + v.slice(3, 6) + ' ' + v.slice(6);
+                    else if (v.length > 3) v = v.slice(0, 3) + ' ' + v.slice(3);
+                    setEditFleet({ ...editFleet, phone: v });
+                  }}
+                  placeholder="000 000 000"
+                  maxLength={11}
+                />
               </div>
               <div className="col-span-2">
                 <Label className="text-xs">Nr rachunku bankowego</Label>
