@@ -391,11 +391,12 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         return;
       }
 
-      // Separate payouts from debts
-      const payouts = cashDrivers.filter(s => s.final_payout > 0);
-      const debts = cashDrivers.filter(s => s.final_payout < 0);
+      // Separate payouts from debts using debt-adjusted amounts
+      const cashWithDoWyplaty = cashDrivers.map(s => ({ ...s, doWyplaty: getDoWyplaty(s) }));
+      const payouts = cashWithDoWyplaty.filter(s => s.doWyplaty > 0);
+      const debts = cashWithDoWyplaty.filter(s => s.final_payout < 0);
       
-      const totalPayout = payouts.reduce((sum, s) => sum + s.final_payout, 0);
+      const totalPayout = payouts.reduce((sum, s) => sum + s.doWyplaty, 0);
       const totalDebt = Math.abs(debts.reduce((sum, s) => sum + s.final_payout, 0));
       
       // Use Monday date of the settlement period
