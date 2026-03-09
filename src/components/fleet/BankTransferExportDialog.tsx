@@ -480,7 +480,15 @@ export function BankTransferExportDialog({
         checked={row.selected}
         onCheckedChange={c => updateDriverRow(row.id, { selected: !!c })}
       />
-      <span className="w-[130px] truncate font-medium">{row.name}</span>
+      <div className="w-[160px] truncate">
+        <span className="font-medium">{row.b2bEnabled ? row.displayName : row.name}</span>
+        {row.b2bEnabled && (
+          <span className="ml-1 text-[9px] text-primary font-semibold">B2B</span>
+        )}
+        {row.b2bEnabled && row.name !== row.displayName && (
+          <span className="block text-[9px] text-muted-foreground truncate">{row.name}</span>
+        )}
+      </div>
       <span className="w-[70px] text-right font-semibold text-primary">
         {row.payout.toFixed(2)} zł
       </span>
