@@ -164,8 +164,8 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId, fleetId, f
         <div className="overflow-y-auto flex-1 px-4 sm:px-6 pb-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <Label>Nr rejestracyjny *</Label>
-            <Input value={plate} onChange={(e) => setPlate(e.target.value.toUpperCase())} placeholder="np. WX1234A" className="uppercase" />
+            <Label className={validationErrors.has('plate') ? 'text-destructive' : ''}>Nr rejestracyjny *</Label>
+            <Input value={plate} onChange={(e) => { setPlate(e.target.value.toUpperCase()); setValidationErrors(prev => { const n = new Set(prev); n.delete('plate'); return n; }); }} placeholder="np. WX1234A" className={`uppercase ${validationErrors.has('plate') ? 'border-destructive ring-1 ring-destructive' : ''}`} />
           </div>
           <div>
             <Label>VIN</Label>
