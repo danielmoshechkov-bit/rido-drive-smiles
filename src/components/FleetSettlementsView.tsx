@@ -1135,7 +1135,9 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           .map(link => link.driver_id)
       );
 
-      const filteredDriversData = driversData.filter(d => !fleetOwnerDriverIds.has(d.id));
+      const filteredDriversData = driversData.filter(d => 
+        !fleetOwnerDriverIds.has(d.id) && !(d as any).exclude_from_settlements
+      );
       
       if (filteredDriversData.length === 0) {
         setSettlements([]);

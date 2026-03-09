@@ -1090,6 +1090,28 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                                 />
                               </div>
 
+                              {/* Exclude from settlements toggle */}
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <Users size={14} />
+                                  <span className="text-xs font-medium">Nie rozliczaj (flotowy)</span>
+                                </div>
+                                <Switch
+                                  checked={!!(driver as any).exclude_from_settlements}
+                                  onCheckedChange={async (checked) => {
+                                    const { error } = await supabase
+                                      .from('drivers')
+                                      .update({ exclude_from_settlements: checked })
+                                      .eq('id', driver.id);
+                                    if (error) toast.error('Błąd zapisu');
+                                    else {
+                                      toast.success(checked ? 'Kierowca wykluczony z rozliczeń' : 'Kierowca uwzględniony w rozliczeniach');
+                                      refetch();
+                                    }
+                                  }}
+                                />
+                              </div>
+
                               {(driver as any).b2b_enabled && (
                                 <div className="space-y-2 pl-5 text-xs">
                                   <div className="flex items-center gap-2">
