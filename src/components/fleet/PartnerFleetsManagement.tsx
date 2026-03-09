@@ -51,6 +51,8 @@ interface PartnerFleet {
   nip: string | null;
   city: string | null;
   address: string | null;
+  street: string | null;
+  house_number: string | null;
   postal_code: string | null;
   email: string | null;
   phone: string | null;
@@ -98,7 +100,7 @@ export function PartnerFleetsManagement({ fleetId }: PartnerFleetsManagementProp
   const [nipSearching, setNipSearching] = useState(false);
   const [saving, setSaving] = useState(false);
   const [newFleet, setNewFleet] = useState({
-    name: '', nip: '', city: '', address: '', postal_code: '',
+    name: '', nip: '', city: '', street: '', house_number: '', apartment_number: '', postal_code: '',
     contact_name: '', email: '', phone: '', sender_bank_account: '',
   });
 
@@ -129,7 +131,7 @@ export function PartnerFleetsManagement({ fleetId }: PartnerFleetsManagementProp
     if (partnerIds.length > 0) {
       const { data: fleetsData } = await supabase
         .from('fleets')
-        .select('id, name, nip, city, address, postal_code, email, phone, contact_name, sender_bank_account')
+        .select('id, name, nip, city, address, street, house_number, postal_code, email, phone, contact_name, sender_bank_account')
         .in('id', partnerIds);
       setPartnerFleets(fleetsData || []);
     } else {
@@ -160,7 +162,7 @@ export function PartnerFleetsManagement({ fleetId }: PartnerFleetsManagementProp
     setNipSearching(true);
     const { data } = await supabase
       .from('fleets')
-      .select('id, name, nip, city, address, postal_code, email, phone, contact_name, sender_bank_account')
+      .select('id, name, nip, city, address, street, house_number, postal_code, email, phone, contact_name, sender_bank_account')
       .eq('nip', nipSearch.trim())
       .neq('id', fleetId)
       .maybeSingle();
@@ -188,13 +190,16 @@ export function PartnerFleetsManagement({ fleetId }: PartnerFleetsManagementProp
           setSaving(false);
           return;
         }
+        const fullAddress = [newFleet.street, newFleet.house_number, newFleet.apartment_number ? `/${newFleet.apartment_number}` : ''].filter(Boolean).join(' ');
         const { data: created, error } = await supabase
           .from('fleets')
           .insert({
             name: newFleet.name,
             nip: newFleet.nip || null,
             city: newFleet.city || null,
-            address: newFleet.address || null,
+            street: newFleet.street || null,
+            house_number: newFleet.house_number || null,
+            address: fullAddress || null,
             postal_code: newFleet.postal_code || null,
             contact_name: newFleet.contact_name || null,
             email: newFleet.email || null,
@@ -212,8 +217,7 @@ export function PartnerFleetsManagement({ fleetId }: PartnerFleetsManagementProp
         partnerFleetId = created.id;
       }
 
-      // Check if partnership already exists (for any driver - we create a placeholder)
-      // Just add to the list, driver assignments are separate
+      // Check if partnership already exists
       const exists = partnerFleets.some(f => f.id === partnerFleetId);
       if (exists) {
         toast.info('Ta flota jest już dodana jako partner');
@@ -222,8 +226,31 @@ export function PartnerFleetsManagement({ fleetId }: PartnerFleetsManagementProp
         return;
       }
 
-      // Create a placeholder partnership to establish the relationship
-      // Use the first driver or create without driver for now
+      // Create a placeholder partnership record to establish the fleet-level relationship
+      // Use the first available driver from the fleet
+      if (drivers.length === 0) {
+        toast.error('Dodaj najpierw kierowcę do floty, aby móc dodać flotę partnerską');
+        setSaving(false);
+        return;
+      }
+
+      const { error: partnershipError } = await supabase
+        .from('driver_fleet_partnerships')
+        .insert({
+          driver_id: drivers[0].id,
+          partner_fleet_id: partnerFleetId,
+          managing_fleet_id: fleetId,
+          settled_by: 'managing',
+        });
+
+      if (partnershipError) {
+        console.error('Error creating partnership:', partnershipError);
+        // Don't fail - fleet was created, just partnership link failed
+        if (!partnershipError.message.includes('duplicate')) {
+          toast.error('Flota utworzona, ale nie udało się powiązać: ' + partnershipError.message);
+        }
+      }
+
       toast.success('Flota partnerska dodana');
       setShowAddModal(false);
       resetAddForm();
@@ -312,7 +339,9 @@ export function PartnerFleetsManagement({ fleetId }: PartnerFleetsManagementProp
         name: editFleet.name,
         nip: editFleet.nip,
         city: editFleet.city,
-        address: editFleet.address,
+        street: editFleet.street,
+        house_number: editFleet.house_number,
+        address: [editFleet.street, editFleet.house_number].filter(Boolean).join(' ') || editFleet.address,
         postal_code: editFleet.postal_code,
         email: editFleet.email,
         phone: editFleet.phone,
@@ -331,7 +360,7 @@ export function PartnerFleetsManagement({ fleetId }: PartnerFleetsManagementProp
   };
 
   const resetAddForm = () => {
-    setNewFleet({ name: '', nip: '', city: '', address: '', postal_code: '', contact_name: '', email: '', phone: '', sender_bank_account: '' });
+    setNewFleet({ name: '', nip: '', city: '', street: '', house_number: '', apartment_number: '', postal_code: '', contact_name: '', email: '', phone: '', sender_bank_account: '' });
     setNipSearch('');
     setNipResult(null);
     setAddTab('new');
@@ -577,13 +606,30 @@ export function PartnerFleetsManagement({ fleetId }: PartnerFleetsManagementProp
                   <Label className="text-xs">Miasto</Label>
                   <Input value={newFleet.city} onChange={e => setNewFleet(p => ({ ...p, city: e.target.value }))} />
                 </div>
+                <div className="col-span-2">
+                  <Label className="text-xs">Ulica</Label>
+                  <Input value={newFleet.street} onChange={e => setNewFleet(p => ({ ...p, street: e.target.value }))} placeholder="np. Żurawia" />
+                </div>
                 <div>
-                  <Label className="text-xs">Adres</Label>
-                  <Input value={newFleet.address} onChange={e => setNewFleet(p => ({ ...p, address: e.target.value }))} />
+                  <Label className="text-xs">Nr budynku</Label>
+                  <Input value={newFleet.house_number} onChange={e => setNewFleet(p => ({ ...p, house_number: e.target.value }))} placeholder="np. 22" />
+                </div>
+                <div>
+                  <Label className="text-xs">Nr lokalu</Label>
+                  <Input value={newFleet.apartment_number} onChange={e => setNewFleet(p => ({ ...p, apartment_number: e.target.value }))} placeholder="np. 704" />
                 </div>
                 <div>
                   <Label className="text-xs">Kod pocztowy</Label>
-                  <Input value={newFleet.postal_code} onChange={e => setNewFleet(p => ({ ...p, postal_code: e.target.value }))} />
+                  <Input 
+                    value={newFleet.postal_code} 
+                    onChange={e => {
+                      let v = e.target.value.replace(/[^0-9]/g, '').slice(0, 5);
+                      if (v.length > 2) v = v.slice(0, 2) + '-' + v.slice(2);
+                      setNewFleet(p => ({ ...p, postal_code: v }));
+                    }}
+                    placeholder="00-000"
+                    maxLength={6}
+                  />
                 </div>
                 <div>
                   <Label className="text-xs">Osoba kontaktowa</Label>
@@ -595,7 +641,17 @@ export function PartnerFleetsManagement({ fleetId }: PartnerFleetsManagementProp
                 </div>
                 <div>
                   <Label className="text-xs">Telefon</Label>
-                  <Input value={newFleet.phone} onChange={e => setNewFleet(p => ({ ...p, phone: e.target.value }))} />
+                  <Input 
+                    value={newFleet.phone} 
+                    onChange={e => {
+                      let v = e.target.value.replace(/[^0-9]/g, '').slice(0, 9);
+                      if (v.length > 6) v = v.slice(0, 3) + ' ' + v.slice(3, 6) + ' ' + v.slice(6);
+                      else if (v.length > 3) v = v.slice(0, 3) + ' ' + v.slice(3);
+                      setNewFleet(p => ({ ...p, phone: v }));
+                    }}
+                    placeholder="000 000 000"
+                    maxLength={11}
+                  />
                 </div>
                 <div className="col-span-2">
                   <Label className="text-xs">Nr rachunku bankowego</Label>
@@ -671,13 +727,26 @@ export function PartnerFleetsManagement({ fleetId }: PartnerFleetsManagementProp
                 <Label className="text-xs">Miasto</Label>
                 <Input value={editFleet.city || ''} onChange={e => setEditFleet({ ...editFleet, city: e.target.value })} />
               </div>
+              <div className="col-span-2">
+                <Label className="text-xs">Ulica</Label>
+                <Input value={editFleet.street || ''} onChange={e => setEditFleet({ ...editFleet, street: e.target.value })} />
+              </div>
               <div>
-                <Label className="text-xs">Adres</Label>
-                <Input value={editFleet.address || ''} onChange={e => setEditFleet({ ...editFleet, address: e.target.value })} />
+                <Label className="text-xs">Nr budynku</Label>
+                <Input value={editFleet.house_number || ''} onChange={e => setEditFleet({ ...editFleet, house_number: e.target.value })} />
               </div>
               <div>
                 <Label className="text-xs">Kod pocztowy</Label>
-                <Input value={editFleet.postal_code || ''} onChange={e => setEditFleet({ ...editFleet, postal_code: e.target.value })} />
+                <Input 
+                  value={editFleet.postal_code || ''} 
+                  onChange={e => {
+                    let v = e.target.value.replace(/[^0-9]/g, '').slice(0, 5);
+                    if (v.length > 2) v = v.slice(0, 2) + '-' + v.slice(2);
+                    setEditFleet({ ...editFleet, postal_code: v });
+                  }}
+                  placeholder="00-000"
+                  maxLength={6}
+                />
               </div>
               <div>
                 <Label className="text-xs">Kontakt</Label>
@@ -689,7 +758,17 @@ export function PartnerFleetsManagement({ fleetId }: PartnerFleetsManagementProp
               </div>
               <div>
                 <Label className="text-xs">Telefon</Label>
-                <Input value={editFleet.phone || ''} onChange={e => setEditFleet({ ...editFleet, phone: e.target.value })} />
+                <Input 
+                  value={editFleet.phone || ''} 
+                  onChange={e => {
+                    let v = e.target.value.replace(/[^0-9]/g, '').slice(0, 9);
+                    if (v.length > 6) v = v.slice(0, 3) + ' ' + v.slice(3, 6) + ' ' + v.slice(6);
+                    else if (v.length > 3) v = v.slice(0, 3) + ' ' + v.slice(3);
+                    setEditFleet({ ...editFleet, phone: v });
+                  }}
+                  placeholder="000 000 000"
+                  maxLength={11}
+                />
               </div>
               <div className="col-span-2">
                 <Label className="text-xs">Nr rachunku bankowego</Label>

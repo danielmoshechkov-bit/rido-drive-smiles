@@ -33,6 +33,66 @@ serve(async (req) => {
 
     console.log(`Processing debt for driver ${driver_id}, payout: ${calculated_payout}`);
 
+    // DEDUPLICATION: Check if a debt transaction already exists for this settlement
+    const { data: existingTx } = await supabase
+      .from("driver_debt_transactions")
+      .select("id")
+      .eq("settlement_id", settlement_id)
+      .maybeSingle();
+
+    if (existingTx) {
+      console.log(`⚠️ Debt transaction already exists for settlement ${settlement_id}, skipping`);
+      // Return existing settlement debt info
+      const { data: settlement } = await supabase
+        .from("settlements")
+        .select("debt_before, debt_payment, debt_after, actual_payout")
+        .eq("id", settlement_id)
+        .single();
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          skipped: true,
+          debt_before: settlement?.debt_before || 0,
+          debt_payment: settlement?.debt_payment || 0,
+          debt_after: settlement?.debt_after || 0,
+          actual_payout: settlement?.actual_payout || 0
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // If payout is 0 or very close to 0, no debt action needed
+    if (Math.abs(calculated_payout) < 0.01) {
+      console.log(`Payout is ~0, no debt action needed`);
+      
+      const { data: debtData } = await supabase
+        .from("driver_debts")
+        .select("current_balance")
+        .eq("driver_id", driver_id)
+        .maybeSingle();
+      
+      const currentDebt = debtData?.current_balance || 0;
+      
+      await supabase.from("settlements").update({
+        debt_before: currentDebt,
+        debt_payment: 0,
+        debt_after: currentDebt,
+        actual_payout: 0
+      }).eq("id", settlement_id);
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          debt_before: currentDebt,
+          debt_payment: 0,
+          debt_after: currentDebt,
+          actual_payout: 0
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // 1. Pobierz aktualny dług
     let { data: debtData, error: debtError } = await supabase
       .from("driver_debts")
