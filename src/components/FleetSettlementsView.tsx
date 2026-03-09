@@ -1198,7 +1198,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       // Mapuj numery kart paliwowych kierowców (normalizacja - usuń wiodące zera)
       // CROSS-FLEET: Kierowca może mieć kartę paliwową przypisaną w innej flocie
       const driverFuelCards: Record<string, string> = {};
-      driversData.forEach(d => {
+      filteredDriversData.forEach(d => {
         const driver = d as any;
         if (driver.fuel_card_number) {
           driverFuelCards[driver.id] = driver.fuel_card_number.replace(/^0+/, '');
