@@ -2472,8 +2472,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                 <div className="bg-muted/50 rounded-lg p-3 mt-4">
                   <div className="flex justify-between text-sm font-bold">
                     <span>RAZEM ({filteredSettlements.length}):</span>
-                    <span className={getAmountColor(filteredSettlements.reduce((sum, s) => sum + s.final_payout, 0))}>
-                      {formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.final_payout, 0))}
+                    <span className={getAmountColor(filteredSettlements.reduce((sum, s) => sum + getEffectiveSettlement(s).final_payout, 0))}>
+                      {formatCurrency(filteredSettlements.reduce((sum, s) => sum + getEffectiveSettlement(s).final_payout, 0))}
                     </span>
                   </div>
                 </div>
