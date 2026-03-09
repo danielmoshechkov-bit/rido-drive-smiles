@@ -260,6 +260,7 @@ export function AddFleetDriverModal({
                   <SelectContent>
                     <SelectItem value="cash">Gotówka</SelectItem>
                     <SelectItem value="transfer">Przelew bankowy</SelectItem>
+                    <SelectItem value="fleet">Flota (przelew zbiorczy)</SelectItem>
                   </SelectContent>
                 </Select>
 
