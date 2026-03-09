@@ -2894,6 +2894,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                           </TableCell>
                         );
                       })()}
+                      {isColVisible('paid') && <TableCell />}
                     </TableRow>
                   </TableFooter>
                 </Table>
