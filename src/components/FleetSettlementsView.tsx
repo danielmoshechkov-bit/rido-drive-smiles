@@ -2553,32 +2553,27 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                   <TableHeader className="sticky top-0 z-10 bg-background shadow-sm">
                     <TableRow>
                       <TableHead className="px-2 py-1.5 text-xs font-medium whitespace-nowrap">Kierowca</TableHead>
-                      {fleetSettlementModeState === 'dual_tax' ? (
-                        <>
-                          <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">Brutto</TableHead>
-                          <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-purple-600 whitespace-nowrap">{fleetVatRateState + fleetAdditionalPercentRateState}%</TableHead>
-                          <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">Pob. gotówka</TableHead>
-                          
-                          <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-purple-600 whitespace-nowrap">Bonusy ({fleetSecondaryVatRateState}%)</TableHead>
-                          <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">Anulacja ({fleetSecondaryVatRateState}%)</TableHead>
-                          <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-purple-600 whitespace-nowrap">Rekomp.</TableHead>
-                          <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-orange-600 whitespace-nowrap">Prowizja</TableHead>
-                          <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">Zwroty</TableHead>
-                          <TableHead className="text-right px-2 py-1.5 text-xs font-bold whitespace-nowrap">Netto</TableHead>
-                        </>
-                      ) : (
-                        <>
-                          {isColVisible('uber') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-gray-900 whitespace-nowrap">Uber</TableHead>}
-                          {isColVisible('uber_cash') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-gray-900 whitespace-nowrap">Uber got.</TableHead>}
-                          {isColVisible('bolt') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-green-600 whitespace-nowrap">Bolt</TableHead>}
-                          {isColVisible('bolt_cash') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-green-600 whitespace-nowrap">Bolt got.</TableHead>}
-                          {isColVisible('bolt_commission') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-green-600 whitespace-nowrap">Bolt prow.</TableHead>}
-                          {isColVisible('freenow') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">FreeNow</TableHead>}
-                          {isColVisible('freenow_cash') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">FN got.</TableHead>}
-                          {isColVisible('freenow_commission') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">FN prow.</TableHead>}
-                          {isColVisible('total_cash') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">Razem got.</TableHead>}
-                          {isColVisible('total_commission') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-orange-600 whitespace-nowrap">Razem prow.</TableHead>}
-                        </>
+                      {isColVisible('uber') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-gray-900 whitespace-nowrap">Uber</TableHead>}
+                      {isColVisible('uber_cash') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-gray-900 whitespace-nowrap">Uber got.</TableHead>}
+                      {isColVisible('bolt') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-green-600 whitespace-nowrap">Bolt</TableHead>}
+                      {isColVisible('bolt_cash') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-green-600 whitespace-nowrap">Bolt got.</TableHead>}
+                      {isColVisible('bolt_commission') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-green-600 whitespace-nowrap">Bolt prow.</TableHead>}
+                      {isColVisible('freenow') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">FreeNow</TableHead>}
+                      {isColVisible('freenow_cash') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">FN got.</TableHead>}
+                      {isColVisible('freenow_commission') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">FN prow.</TableHead>}
+                      {isColVisible('total_cash') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">Razem got.</TableHead>}
+                      {isColVisible('total_commission') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-orange-600 whitespace-nowrap">Razem prow.</TableHead>}
+                      {fleetSettlementModeState === 'dual_tax' && isColVisible('netto') && (
+                        <TableHead className="text-right px-2 py-1.5 text-xs font-bold whitespace-nowrap">Netto</TableHead>
+                      )}
+                      {fleetSettlementModeState === 'dual_tax' && isColVisible('bonusy') && (
+                        <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-purple-600 whitespace-nowrap">Bonusy ({fleetSecondaryVatRateState}%)</TableHead>
+                      )}
+                      {fleetSettlementModeState === 'dual_tax' && isColVisible('anulacje') && (
+                        <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">Anulacja ({fleetSecondaryVatRateState}%)</TableHead>
+                      )}
+                      {fleetSettlementModeState === 'dual_tax' && isColVisible('rekompensaty') && (
+                        <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-purple-600 whitespace-nowrap">Rekomp.</TableHead>
                       )}
                       {fleetSettlementModeState !== 'dual_tax' && isColVisible('fuel') && (
                         <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">Paliwo</TableHead>
