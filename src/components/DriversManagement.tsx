@@ -142,6 +142,35 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
     }
   };
 
+  // Load partnership data for fleet company filtering
+  const [partnershipDriverIds, setPartnershipDriverIds] = useState<Record<string, string[]>>({});
+  
+  useEffect(() => {
+    const loadPartnerships = async () => {
+      const { data } = await supabase
+        .from('driver_fleet_partnerships')
+        .select('driver_id, partner_fleet_id, managing_fleet_id')
+        .eq('is_active', true);
+      
+      if (data) {
+        const byFleet: Record<string, string[]> = {};
+        data.forEach(p => {
+          // Index by both partner_fleet_id and managing_fleet_id
+          if (p.partner_fleet_id) {
+            if (!byFleet[p.partner_fleet_id]) byFleet[p.partner_fleet_id] = [];
+            byFleet[p.partner_fleet_id].push(p.driver_id);
+          }
+          if (p.managing_fleet_id) {
+            if (!byFleet[p.managing_fleet_id]) byFleet[p.managing_fleet_id] = [];
+            byFleet[p.managing_fleet_id].push(p.driver_id);
+          }
+        });
+        setPartnershipDriverIds(byFleet);
+      }
+    };
+    loadPartnerships();
+  }, []);
+
   const displayDrivers = drivers;
 
   // Check account status for all drivers
