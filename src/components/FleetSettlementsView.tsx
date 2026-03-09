@@ -1067,6 +1067,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           city_id,
           fuel_card_number,
           payment_method,
+          billing_method,
+          b2b_enabled,
           b2b_vat_payer,
           driver_app_users!left(settlement_plan_id, user_id)
         `)
