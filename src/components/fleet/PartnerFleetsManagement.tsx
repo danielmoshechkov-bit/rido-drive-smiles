@@ -358,7 +358,7 @@ export function PartnerFleetsManagement({ fleetId }: PartnerFleetsManagementProp
   };
 
   const resetAddForm = () => {
-    setNewFleet({ name: '', nip: '', city: '', address: '', postal_code: '', contact_name: '', email: '', phone: '', sender_bank_account: '' });
+    setNewFleet({ name: '', nip: '', city: '', street: '', house_number: '', apartment_number: '', postal_code: '', contact_name: '', email: '', phone: '', sender_bank_account: '' });
     setNipSearch('');
     setNipResult(null);
     setAddTab('new');
