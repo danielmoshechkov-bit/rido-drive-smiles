@@ -1206,7 +1206,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       });
       
       // For drivers without fuel cards, check if same person (by name) has a card in another fleet
-      const driversWithoutCards = driversData.filter(d => !(d as any).fuel_card_number);
+      const driversWithoutCards = filteredDriversData.filter(d => !(d as any).fuel_card_number);
       if (driversWithoutCards.length > 0) {
         const names = driversWithoutCards.map(d => `${(d as any).first_name} ${(d as any).last_name}`);
         const { data: crossFleetCards } = await supabase
