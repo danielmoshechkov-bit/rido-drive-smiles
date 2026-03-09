@@ -1,0 +1,1 @@
+ALTER TABLE public.fleets ADD COLUMN IF NOT EXISTS sender_bank_account text;
