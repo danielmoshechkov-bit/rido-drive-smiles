@@ -195,6 +195,22 @@ export function BankTransferExportDialog({
       loadFleetSettings();
       setMissingAccounts([]);
       setShowMissingAccounts(false);
+      // Load partner fleets
+      supabase
+        .from('driver_fleet_partnerships')
+        .select('partner_fleet_id, fleets!driver_fleet_partnerships_partner_fleet_id_fkey(id, name)')
+        .eq('managing_fleet_id', fleetId)
+        .eq('is_active', true)
+        .then(({ data }) => {
+          if (data) {
+            const fleets = data
+              .map((p: any) => ({ id: p.fleets?.id, name: p.fleets?.name }))
+              .filter((f: any) => f.id && f.name);
+            // Deduplicate
+            const unique = Array.from(new Map(fleets.map((f: any) => [f.id, f])).values()) as PartnerFleet[];
+            setPartnerFleets(unique);
+          }
+        });
     }
   }, [open, fleetId, periodLabel]);
 
