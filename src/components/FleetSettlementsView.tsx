@@ -715,17 +715,29 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     return isNaN(parsed) ? 0 : parsed;
   };
 
+  // Track pending cell to open after current save completes
+  const pendingEditRef = useRef<{ driverId: string; field: string; currentValue: number; index?: number } | null>(null);
+  const isSavingRef = useRef(false);
+
   const startEditing = (driverId: string, field: string, currentValue: number, index?: number) => {
+    if (isSavingRef.current) {
+      // Queue this click — it will be opened after the current save finishes
+      pendingEditRef.current = { driverId, field, currentValue, index };
+      return;
+    }
     setEditingCell({ driverId, field, index });
-    // Show the current value so user can edit it (not zero it out)
     setEditValue(currentValue !== 0 ? currentValue.toString() : '');
   };
 
   const commitEdit = async () => {
     if (!editingCell) return;
+    isSavingRef.current = true;
     const val = parseLocalizedNumber(editValue);
     const { driverId, field, index } = editingCell;
     
+    // Immediately clear editing state so next cell can open
+    setEditingCell(null);
+
     setManualOverrides(prev => {
       const existing = prev[driverId] || {};
       if (field === 'additional_fee' && index !== undefined) {
@@ -734,16 +746,16 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       return { ...prev, [driverId]: { ...existing, [field]: val } };
     });
     
-    // Persist to settlements table
+    // Persist to settlements table in background
     try {
       if (!currentWeek) {
         console.error('No currentWeek for saving');
         toast.error('Brak wybranego okresu');
-        setEditingCell(null);
+        isSavingRef.current = false;
+        openPendingEdit();
         return;
       }
       
-      // Find ALL settlement records for this driver in current period
       const { data: existingSettlements, error: fetchErr } = await supabase
         .from('settlements')
         .select('id, amounts')
@@ -754,30 +766,29 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       if (fetchErr) {
         console.error('Error fetching settlements for save:', fetchErr);
         toast.error('Błąd odczytu rozliczenia');
-        setEditingCell(null);
+        isSavingRef.current = false;
+        openPendingEdit();
         return;
       }
 
       if (!existingSettlements || existingSettlements.length === 0) {
         console.error('No settlement records found for driver', driverId, 'period', currentWeek);
         toast.error('Brak rekordu rozliczenia do zapisu');
-        setEditingCell(null);
+        isSavingRef.current = false;
+        openPendingEdit();
         return;
       }
       
-      // Update the first settlement record
       const targetId = existingSettlements[0].id;
       const updateData: any = {};
       
       if (field === 'rental') {
         updateData.rental_fee = val;
-        // Also mark in amounts JSON that this was manually set
         const amounts = (existingSettlements[0].amounts as any) || {};
         amounts.manual_rental_fee = val;
         updateData.amounts = amounts;
       }
       
-      // For service_fee and additional fees, store in amounts JSON
       if (field === 'service_fee' || (field === 'additional_fee' && index !== undefined)) {
         const amounts = (existingSettlements[0].amounts as any) || {};
         if (field === 'service_fee') {
@@ -799,11 +810,6 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           toast.error('Błąd zapisu: ' + updateErr.message);
         } else {
           console.log('✅ Saved override for driver', driverId, field, val, 'to settlement', targetId);
-          toast.success('Zapisano zmianę');
-          // Keep manual overrides (they show correct recalculated values)
-          // Don't re-fetch entire page - just clear editing state
-          setEditingCell(null);
-          return;
         }
       }
     } catch (err) {
@@ -811,7 +817,17 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       toast.error('Błąd zapisu');
     }
     
-    setEditingCell(null);
+    isSavingRef.current = false;
+    openPendingEdit();
+  };
+
+  const openPendingEdit = () => {
+    const pending = pendingEditRef.current;
+    if (pending) {
+      pendingEditRef.current = null;
+      setEditingCell({ driverId: pending.driverId, field: pending.field, index: pending.index });
+      setEditValue(pending.currentValue !== 0 ? pending.currentValue.toString() : '');
+    }
   };
 
   const cancelEdit = () => setEditingCell(null);
@@ -2246,7 +2262,10 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             }
           }}
           fleetId={fleetId}
-          settlements={settlements}
+          settlements={settlements.map(s => {
+            const eff = getEffectiveSettlement(s);
+            return { ...s, final_payout: eff.final_payout };
+          })}
           periodLabel={currentWeek?.label || `Tydzień ${selectedWeek}`}
           weekStart={currentWeek?.start}
         />

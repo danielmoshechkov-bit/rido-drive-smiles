@@ -494,9 +494,29 @@ export function BankTransferExportDialog({
       {row.paymentMode === 'fleet' && (
         <Select
           value={row.fleetId || ''}
-          onValueChange={v => {
+          onValueChange={async (v) => {
             const fleet = fleetOptions.find(f => f.id === v);
             updateDriverRow(row.id, { fleetId: v, fleetName: fleet?.name });
+            // Persist fleet assignment to DB
+            try {
+              await supabase.from('drivers').update({ fleet_id: v } as any).eq('id', row.id);
+              // Also create partnership if not exists
+              const { data: existing } = await supabase
+                .from('driver_fleet_partnerships')
+                .select('id')
+                .eq('managing_fleet_id', fleetId)
+                .eq('partner_fleet_id', v)
+                .maybeSingle();
+              if (!existing) {
+                await supabase.from('driver_fleet_partnerships').insert({
+                  managing_fleet_id: fleetId,
+                  partner_fleet_id: v,
+                  is_active: true,
+                } as any);
+              }
+            } catch (e) {
+              console.error('Error persisting fleet assignment:', e);
+            }
           }}
         >
           <SelectTrigger className="h-7 w-[110px] text-xs">
