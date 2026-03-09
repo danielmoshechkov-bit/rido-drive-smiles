@@ -507,7 +507,7 @@ export function PartnerFleetsManagement({ fleetId }: PartnerFleetsManagementProp
                                     {p.settled_by === 'managing' ? 'Rozlicza: my' : 'Rozlicza: partner'}
                                   </Badge>
                                   {p.is_b2b && (
-                                    <Badge className="bg-blue-500/10 text-blue-700 border-blue-500/20 text-[10px]" variant="outline">
+                                    <Badge className="bg-primary/10 text-primary border-primary/20 text-[10px]" variant="outline">
                                       <FileText className="h-2.5 w-2.5 mr-0.5" />
                                       B2B
                                     </Badge>
@@ -631,7 +631,7 @@ export function PartnerFleetsManagement({ fleetId }: PartnerFleetsManagementProp
                     {nipResult.address && <p>Adres: {nipResult.address}</p>}
                     {nipResult.sender_bank_account && <p>Konto: {nipResult.sender_bank_account}</p>}
                   </div>
-                  <Badge className="mt-1 bg-primary/10 text-primary border-primary/20" variant="outline">
+                  <Badge className="mt-1 bg-primary/10 text-primary border-primaryariant="outline">
                     Znaleziono w systemie
                   </Badge>
                 </div>
