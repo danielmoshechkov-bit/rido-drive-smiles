@@ -1090,7 +1090,33 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         return;
       }
 
-      const driverIds = driversData.map(d => d.id);
+      // Filter out fleet owners (users with fleet_settlement or fleet_rental roles)
+      const { data: fleetOwnerRoles } = await supabase
+        .from('user_roles')
+        .select('fleet_id')
+        .in('role', ['fleet_settlement', 'fleet_rental']);
+      
+      // Get driver_app_users to map user_id -> driver_id for fleet owners
+      const { data: fleetOwnerDriverLinks } = await supabase
+        .from('driver_app_users')
+        .select('driver_id, user_id');
+      
+      const fleetOwnerUserIds = new Set((fleetOwnerRoles || []).map(r => (r as any).user_id || '').filter(Boolean));
+      const fleetOwnerDriverIds = new Set(
+        (fleetOwnerDriverLinks || [])
+          .filter(link => fleetOwnerUserIds.has(link.user_id))
+          .map(link => link.driver_id)
+      );
+
+      const filteredDriversData = driversData.filter(d => !fleetOwnerDriverIds.has(d.id));
+      
+      if (filteredDriversData.length === 0) {
+        setSettlements([]);
+        setLoading(false);
+        return;
+      }
+
+      const driverIds = filteredDriversData.map(d => d.id);
 
       // Pobierz rozliczenia dla wybranego okresu (bez filtrowania po platform!)
       let query = supabase
