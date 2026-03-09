@@ -43,6 +43,7 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId, fleetId, f
   const isFleetUser = userType === 'fleet' && fleetId;
   const isRentalVariant = variant === 'rental';
   const [loading, setLoading] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Set<string>>(new Set());
 
   const [plate, setPlate] = useState("");
   const [vin, setVin] = useState("");
