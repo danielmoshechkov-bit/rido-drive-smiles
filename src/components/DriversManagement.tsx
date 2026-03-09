@@ -243,9 +243,11 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
       }
     }
 
-    // Fleet company filter
+    // Fleet company filter - check both direct fleet_id AND partnerships
     if (filters.fleetCompanyId) {
-      if (driver.fleet_id !== filters.fleetCompanyId) {
+      const isDirectFleet = driver.fleet_id === filters.fleetCompanyId;
+      const isPartnerFleet = partnershipDriverIds[filters.fleetCompanyId]?.includes(driver.id) ?? false;
+      if (!isDirectFleet && !isPartnerFleet) {
         return false;
       }
     }
