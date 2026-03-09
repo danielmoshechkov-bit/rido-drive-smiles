@@ -198,6 +198,14 @@ Deno.serve(async (req) => {
               const totalCash = (amounts.uber_cash_f || 0) + (amounts.bolt_cash || 0) + (amounts.freenow_cash_f || 0);
               const totalCommission = (amounts.uber_commission || 0) + (amounts.bolt_commission || 0) + (amounts.freenow_commission_t || 0);
               
+              // If driver has zero/no earnings AND no negative platform balance, skip debt creation entirely
+              // This prevents creating artificial debt for inactive drivers
+              const hasAnyActivity = totalBase !== 0 || totalCash !== 0;
+              if (!hasAnyActivity) {
+                console.log(`⏭️ Driver ${driverId}: no activity, skipping debt calculation`);
+                continue;
+              }
+              
               // VAT 8% on base
               const vat8 = totalBase * 0.08;
               
@@ -205,14 +213,17 @@ Deno.serve(async (req) => {
               const fuel = amounts.fuel || 0;
               const fuelVatRefund = amounts.fuel_vat_refund || 0;
               
-              // Service fee (50 PLN default - will be overridden by frontend if fleet has custom fee)
-              const serviceFee = 50;
+              // Use actual service fee from settlement, or fleet base_fee, fallback to 0
+              // The frontend saves the actual fee to the settlement record
+              const serviceFee = fullSettlement.service_fee || 0;
               
-              // Final payout = Base - Commission - VAT - Service Fee - Cash - Fuel + Fuel VAT Refund
-              // Cash is subtracted because driver already collected it
-              const calculatedPayout = totalBase - totalCommission - vat8 - serviceFee - totalCash - fuel + fuelVatRefund;
+              // Rental from settlement
+              const rentalFee = fullSettlement.rental_fee || 0;
               
-              console.log(`📊 Driver ${driverId}: base=${totalBase}, cash=${totalCash}, vat=${vat8}, service=${serviceFee}, fuel=${fuel}, fuelRefund=${fuelVatRefund}, payout=${calculatedPayout}`);
+              // Final payout = Base - Commission - VAT - Service Fee - Rental - Cash - Fuel + Fuel VAT Refund
+              const calculatedPayout = totalBase - totalCommission - vat8 - serviceFee - rentalFee - totalCash - fuel + fuelVatRefund;
+              
+              console.log(`📊 Driver ${driverId}: base=${totalBase}, cash=${totalCash}, vat=${vat8}, service=${serviceFee}, rental=${rentalFee}, fuel=${fuel}, fuelRefund=${fuelVatRefund}, payout=${calculatedPayout}`);
               
               try {
                 const debtResponse = await fetch(`${supabaseUrl}/functions/v1/update-driver-debt`, {
