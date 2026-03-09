@@ -1611,8 +1611,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       const filteredAggregated = aggregated
         .filter((row): row is NonNullable<typeof row> => row !== null) // Remove null rows (fleet owners)
         .filter(row => {
-          // Pokazuj kierowców z zarobkami LUB z ujemnym saldem LUB z długiem
-          return row.total_base > 0 || row.has_negative_balance === true || (row.debt_current || 0) > 0;
+          // Pokazuj kierowców z zarobkami (dodatnimi LUB ujemnymi) LUB z ujemnym saldem LUB z długiem
+          return row.total_base !== 0 || row.has_negative_balance === true || (row.debt_current || 0) > 0;
         });
 
       console.log('📈 Aggregated settlements:', aggregated.length);
