@@ -1623,7 +1623,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           fuel: total_fuel,
           fuel_vat_refund: total_fuel_vat_refund,
           net_without_commission: netto,
-          final_payout: displayPayout,
+          final_payout: payout,
           has_negative_balance: hasNegativeBalance,
           negative_deficit: hasNegativeBalance ? Math.abs(payout) : 0,
           debt_current: currentDebtFromDB,
