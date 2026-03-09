@@ -604,13 +604,30 @@ export function PartnerFleetsManagement({ fleetId }: PartnerFleetsManagementProp
                   <Label className="text-xs">Miasto</Label>
                   <Input value={newFleet.city} onChange={e => setNewFleet(p => ({ ...p, city: e.target.value }))} />
                 </div>
+                <div className="col-span-2">
+                  <Label className="text-xs">Ulica</Label>
+                  <Input value={newFleet.street} onChange={e => setNewFleet(p => ({ ...p, street: e.target.value }))} placeholder="np. Żurawia" />
+                </div>
                 <div>
-                  <Label className="text-xs">Adres</Label>
-                  <Input value={newFleet.address} onChange={e => setNewFleet(p => ({ ...p, address: e.target.value }))} />
+                  <Label className="text-xs">Nr budynku</Label>
+                  <Input value={newFleet.house_number} onChange={e => setNewFleet(p => ({ ...p, house_number: e.target.value }))} placeholder="np. 22" />
+                </div>
+                <div>
+                  <Label className="text-xs">Nr lokalu</Label>
+                  <Input value={newFleet.apartment_number} onChange={e => setNewFleet(p => ({ ...p, apartment_number: e.target.value }))} placeholder="np. 704" />
                 </div>
                 <div>
                   <Label className="text-xs">Kod pocztowy</Label>
-                  <Input value={newFleet.postal_code} onChange={e => setNewFleet(p => ({ ...p, postal_code: e.target.value }))} />
+                  <Input 
+                    value={newFleet.postal_code} 
+                    onChange={e => {
+                      let v = e.target.value.replace(/[^0-9]/g, '').slice(0, 5);
+                      if (v.length > 2) v = v.slice(0, 2) + '-' + v.slice(2);
+                      setNewFleet(p => ({ ...p, postal_code: v }));
+                    }}
+                    placeholder="00-000"
+                    maxLength={6}
+                  />
                 </div>
                 <div>
                   <Label className="text-xs">Osoba kontaktowa</Label>
@@ -622,7 +639,17 @@ export function PartnerFleetsManagement({ fleetId }: PartnerFleetsManagementProp
                 </div>
                 <div>
                   <Label className="text-xs">Telefon</Label>
-                  <Input value={newFleet.phone} onChange={e => setNewFleet(p => ({ ...p, phone: e.target.value }))} />
+                  <Input 
+                    value={newFleet.phone} 
+                    onChange={e => {
+                      let v = e.target.value.replace(/[^0-9]/g, '').slice(0, 9);
+                      if (v.length > 6) v = v.slice(0, 3) + ' ' + v.slice(3, 6) + ' ' + v.slice(6);
+                      else if (v.length > 3) v = v.slice(0, 3) + ' ' + v.slice(3);
+                      setNewFleet(p => ({ ...p, phone: v }));
+                    }}
+                    placeholder="000 000 000"
+                    maxLength={11}
+                  />
                 </div>
                 <div className="col-span-2">
                   <Label className="text-xs">Nr rachunku bankowego</Label>
