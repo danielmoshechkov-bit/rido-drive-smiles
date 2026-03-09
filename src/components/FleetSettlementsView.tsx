@@ -2542,7 +2542,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                               <span>{formatCurrency(driverDebts[settlement.driver_id])}</span>
                             </div>
                           )}
-                          <div className="flex justify-between text-sm font-bold text-green-700">
+                          <div className={`flex justify-between text-sm font-bold ${getDoWyplaty(settlement) > 0 ? 'text-green-700' : getDoWyplaty(settlement) < 0 ? 'text-red-600' : 'text-muted-foreground'}`}>
                             <span>Do wypłaty:</span>
                             <span>{formatCurrency(getDoWyplaty(settlement))}</span>
                           </div>
