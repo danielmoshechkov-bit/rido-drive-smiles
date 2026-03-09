@@ -173,12 +173,12 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId, fleetId, f
           </div>
           
           {/* Car Brand/Model Selector - spans full width */}
-          <div className="md:col-span-2">
+          <div className={`md:col-span-2 ${(validationErrors.has('brand') || validationErrors.has('model')) ? 'ring-1 ring-destructive rounded-md p-1' : ''}`}>
             <CarBrandModelSelector
               brand={brand}
               model={model}
-              onBrandChange={setBrand}
-              onModelChange={setModel}
+              onBrandChange={v => { setBrand(v); setValidationErrors(prev => { const n = new Set(prev); n.delete('brand'); return n; }); }}
+              onModelChange={v => { setModel(v); setValidationErrors(prev => { const n = new Set(prev); n.delete('model'); return n; }); }}
             />
           </div>
 
