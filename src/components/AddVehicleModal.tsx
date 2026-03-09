@@ -219,12 +219,13 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId, fleetId, f
           </div>
 
           <div>
-            <Label>Kwota za wynajem {isRentalVariant ? '*' : '(opcjonalnie)'}</Label>
+            <Label className={validationErrors.has('weeklyRentalFee') ? 'text-destructive' : ''}>Kwota za wynajem {isRentalVariant ? '*' : '(opcjonalnie)'}</Label>
             <Input 
               type="number" 
               value={weeklyRentalFee} 
-              onChange={(e) => setWeeklyRentalFee(e.target.value === "" ? "" : Number(e.target.value))} 
+              onChange={(e) => { setWeeklyRentalFee(e.target.value === "" ? "" : Number(e.target.value)); setValidationErrors(prev => { const n = new Set(prev); n.delete('weeklyRentalFee'); return n; }); }} 
               placeholder="zł/tydzień" 
+              className={validationErrors.has('weeklyRentalFee') ? 'border-destructive ring-1 ring-destructive' : ''}
             />
           </div>
           <div>

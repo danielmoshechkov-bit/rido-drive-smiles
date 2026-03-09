@@ -595,10 +595,13 @@ export function BankTransferExportDialog({
                 ) : (
                   <div className="flex items-center gap-2">
                     <Input
-                      placeholder="00000000000000000000000000"
-                      value={senderAccount}
-                      onChange={e => setSenderAccount(e.target.value)}
-                      className="font-mono text-sm flex-1"
+                      placeholder="00 0000 0000 0000 0000 0000 0000"
+                      value={formatIbanDisplay(senderAccount)}
+                      onChange={e => {
+                        const digitsOnly = e.target.value.replace(/[^0-9]/g, '').slice(0, 26);
+                        setSenderAccount(digitsOnly);
+                      }}
+                      className="font-mono text-[11px] tracking-wider flex-1 text-foreground"
                     />
                     <Button variant="default" size="sm" className="gap-1 h-8" onClick={handleSaveSenderAccount} disabled={!senderAccount.replace(/\s/g, '')}>
                       <Check className="h-3.5 w-3.5" /> Zapisz
