@@ -4932,6 +4932,11 @@ export type Database = {
           address_country: string | null
           address_postal_code: string | null
           address_street: string | null
+          b2b_address: string | null
+          b2b_company_name: string | null
+          b2b_enabled: boolean | null
+          b2b_nip: string | null
+          b2b_vat_payer: boolean | null
           bank_account: string | null
           billing_method: string | null
           city_id: string
@@ -4975,6 +4980,11 @@ export type Database = {
           address_country?: string | null
           address_postal_code?: string | null
           address_street?: string | null
+          b2b_address?: string | null
+          b2b_company_name?: string | null
+          b2b_enabled?: boolean | null
+          b2b_nip?: string | null
+          b2b_vat_payer?: boolean | null
           bank_account?: string | null
           billing_method?: string | null
           city_id: string
@@ -5018,6 +5028,11 @@ export type Database = {
           address_country?: string | null
           address_postal_code?: string | null
           address_street?: string | null
+          b2b_address?: string | null
+          b2b_company_name?: string | null
+          b2b_enabled?: boolean | null
+          b2b_nip?: string | null
+          b2b_vat_payer?: boolean | null
           bank_account?: string | null
           billing_method?: string | null
           city_id?: string

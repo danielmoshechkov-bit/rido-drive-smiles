@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Search, Plus, Copy, Check, Phone, Mail, Users, ChevronDown, ChevronUp, Trash2, Edit, UserCircle, Building, X, Shield, CreditCard, Banknote, RotateCcw, FileText, MapPin, Car, Loader2 } from 'lucide-react';
+import { Search, Plus, Copy, Check, Phone, Mail, Users, ChevronDown, ChevronUp, Trash2, Edit, UserCircle, Building, X, Shield, CreditCard, Banknote, RotateCcw, FileText, MapPin, Car, Loader2, ToggleRight } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -1027,6 +1028,95 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                               <span className="font-mono text-xs">{(driver as any).bank_account || '-'}</span>
                             )}
                           </div>
+
+                          {/* B2B Toggle */}
+                          {(mode === 'admin' || mode === 'fleet') && (
+                            <div className="border-t pt-2 mt-2 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <Building size={14} />
+                                  <span className="text-xs font-medium">B2B (firma)</span>
+                                </div>
+                                <Switch
+                                  checked={!!(driver as any).b2b_enabled}
+                                  onCheckedChange={async (checked) => {
+                                    const updates: any = { b2b_enabled: checked };
+                                    if (checked) {
+                                      updates.billing_method = 'b2b';
+                                    } else {
+                                      updates.billing_method = 'standard';
+                                    }
+                                    const { error } = await supabase
+                                      .from('drivers')
+                                      .update(updates)
+                                      .eq('id', driver.id);
+                                    if (error) toast.error('Błąd zapisu');
+                                    else {
+                                      toast.success(checked ? 'B2B włączone' : 'B2B wyłączone');
+                                      refetch();
+                                    }
+                                  }}
+                                />
+                              </div>
+
+                              {(driver as any).b2b_enabled && (
+                                <div className="space-y-1.5 pl-5 text-xs">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-muted-foreground w-[70px]">Firma:</span>
+                                    <InlineEdit
+                                      value={(driver as any).b2b_company_name || ''}
+                                      onSave={async (value) => {
+                                        const { error } = await supabase.from('drivers').update({ b2b_company_name: value.trim() || null } as any).eq('id', driver.id);
+                                        if (error) toast.error('Błąd'); else { toast.success('Zapisano'); refetch(); }
+                                      }}
+                                      placeholder="Nazwa firmy"
+                                    />
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-muted-foreground w-[70px]">NIP:</span>
+                                    <InlineEdit
+                                      value={(driver as any).b2b_nip || ''}
+                                      onSave={async (value) => {
+                                        const { error } = await supabase.from('drivers').update({ b2b_nip: value.trim() || null } as any).eq('id', driver.id);
+                                        if (error) toast.error('Błąd'); else { toast.success('Zapisano'); refetch(); }
+                                      }}
+                                      placeholder="NIP firmy"
+                                    />
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-muted-foreground w-[70px]">Adres:</span>
+                                    <InlineEdit
+                                      value={(driver as any).b2b_address || ''}
+                                      onSave={async (value) => {
+                                        const { error } = await supabase.from('drivers').update({ b2b_address: value.trim() || null } as any).eq('id', driver.id);
+                                        if (error) toast.error('Błąd'); else { toast.success('Zapisano'); refetch(); }
+                                      }}
+                                      placeholder="Adres firmy"
+                                    />
+                                  </div>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-muted-foreground">Płatnik VAT:</span>
+                                    <Switch
+                                      checked={!!(driver as any).b2b_vat_payer}
+                                      onCheckedChange={async (checked) => {
+                                        const { error } = await supabase.from('drivers').update({ b2b_vat_payer: checked } as any).eq('id', driver.id);
+                                        if (error) toast.error('Błąd');
+                                        else {
+                                          toast.success(checked ? 'VAT: płatnik (wypłata z VAT)' : 'VAT: nievatowiec (potrącenie 8%)');
+                                          refetch();
+                                        }
+                                      }}
+                                    />
+                                  </div>
+                                  <p className="text-[10px] text-muted-foreground italic">
+                                    {(driver as any).b2b_vat_payer
+                                      ? 'Płatnik VAT — wypłata brutto z VAT, kierowca sam odlicza'
+                                      : 'Nie jest płatnikiem VAT — system potrąci 8% VAT'}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                     </div>
                     
