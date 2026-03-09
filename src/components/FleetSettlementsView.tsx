@@ -1576,23 +1576,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         // === DŁUG: use ACTUAL current debt from DB (reflects manual payments) ===
         const currentDebtFromDB = debtsMap[driver.id] ?? 0;
         
-        // For payout display: negative payout means driver owes money
-        // Show 0 instead of negative, the deficit goes to debt
+        // Store raw payout (can be negative) — debt adjustment happens at render time via getDoWyplaty()
         let hasNegativeBalance = payout < 0;
-        let displayPayout = payout;
-        
-        if (payout < 0) {
-          // Driver didn't earn enough to cover costs - show 0 payout
-          // The abs(payout) will become debt when settlement is saved
-          displayPayout = 0;
-        } else if (currentDebtFromDB > 0 && payout > 0) {
-          // Show payout after debt deduction (preview of what would happen)
-          if (payout >= currentDebtFromDB) {
-            displayPayout = payout - currentDebtFromDB;
-          } else {
-            displayPayout = 0;
-          }
-        }
 
         // Aggregate Bolt tips and anulacje for display
         const bolt_tips = driverSettlements.reduce((sum, s) => {
