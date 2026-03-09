@@ -190,13 +190,16 @@ export function PartnerFleetsManagement({ fleetId }: PartnerFleetsManagementProp
           setSaving(false);
           return;
         }
+        const fullAddress = [newFleet.street, newFleet.house_number, newFleet.apartment_number ? `/${newFleet.apartment_number}` : ''].filter(Boolean).join(' ');
         const { data: created, error } = await supabase
           .from('fleets')
           .insert({
             name: newFleet.name,
             nip: newFleet.nip || null,
             city: newFleet.city || null,
-            address: newFleet.address || null,
+            street: newFleet.street || null,
+            house_number: newFleet.house_number || null,
+            address: fullAddress || null,
             postal_code: newFleet.postal_code || null,
             contact_name: newFleet.contact_name || null,
             email: newFleet.email || null,
@@ -214,8 +217,7 @@ export function PartnerFleetsManagement({ fleetId }: PartnerFleetsManagementProp
         partnerFleetId = created.id;
       }
 
-      // Check if partnership already exists (for any driver - we create a placeholder)
-      // Just add to the list, driver assignments are separate
+      // Check if partnership already exists
       const exists = partnerFleets.some(f => f.id === partnerFleetId);
       if (exists) {
         toast.info('Ta flota jest już dodana jako partner');
@@ -224,8 +226,31 @@ export function PartnerFleetsManagement({ fleetId }: PartnerFleetsManagementProp
         return;
       }
 
-      // Create a placeholder partnership to establish the relationship
-      // Use the first driver or create without driver for now
+      // Create a placeholder partnership record to establish the fleet-level relationship
+      // Use the first available driver from the fleet
+      if (drivers.length === 0) {
+        toast.error('Dodaj najpierw kierowcę do floty, aby móc dodać flotę partnerską');
+        setSaving(false);
+        return;
+      }
+
+      const { error: partnershipError } = await supabase
+        .from('driver_fleet_partnerships')
+        .insert({
+          driver_id: drivers[0].id,
+          partner_fleet_id: partnerFleetId,
+          managing_fleet_id: fleetId,
+          settled_by: 'managing',
+        });
+
+      if (partnershipError) {
+        console.error('Error creating partnership:', partnershipError);
+        // Don't fail - fleet was created, just partnership link failed
+        if (!partnershipError.message.includes('duplicate')) {
+          toast.error('Flota utworzona, ale nie udało się powiązać: ' + partnershipError.message);
+        }
+      }
+
       toast.success('Flota partnerska dodana');
       setShowAddModal(false);
       resetAddForm();
