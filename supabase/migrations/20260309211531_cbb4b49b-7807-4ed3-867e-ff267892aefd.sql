@@ -1,0 +1,1 @@
+ALTER TABLE drivers ADD COLUMN IF NOT EXISTS exclude_from_settlements boolean DEFAULT false;
