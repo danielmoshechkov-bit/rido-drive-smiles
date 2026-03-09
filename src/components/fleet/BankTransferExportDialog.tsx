@@ -289,6 +289,7 @@ export function BankTransferExportDialog({
             payout: s.final_payout,
             iban: driver?.iban || '',
             switchToCash: false,
+            switchToFleet: false,
           };
         }));
         setShowMissingAccounts(true);
