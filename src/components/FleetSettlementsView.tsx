@@ -2760,9 +2760,6 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                   <TableFooter>
                     <TableRow className="bg-muted/50 font-bold">
                       <TableCell className="px-2 py-1.5 text-xs whitespace-nowrap">RAZEM ({filteredSettlements.length})</TableCell>
-                      <TableCell className="text-right px-2 py-1.5 text-xs text-gray-900 tabular-nums whitespace-nowrap">
-                        {formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.uber_base, 0))}
-                      </TableCell>
                       {isColVisible('uber') && <TableCell className="text-right px-2 py-1.5 text-xs text-gray-900 tabular-nums whitespace-nowrap">
                         {formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.uber_base, 0))}
                       </TableCell>}
