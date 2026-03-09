@@ -321,15 +321,39 @@ export function BankTransferExportDialog({
         }
       }
 
-      // Re-filter after potential updates (exclude switched-to-cash and still missing iban)
+      // Re-filter after potential updates (exclude switched-to-cash, switched-to-fleet, and still missing iban)
+      const fleetGroupedDrivers: Record<string, { fleetName: string; drivers: typeof transferDrivers; total: number }> = {};
+      
       const finalTransferDrivers = transferDrivers.filter(s => {
         const driver = driverMap.get(s.driver_id);
         if (!driver) return false;
+        
+        // Check if this driver was switched to fleet
+        const maEntry = missingAccounts.find(ma => ma.id === s.driver_id);
+        if (maEntry?.switchToFleet || driver.payment_method === 'fleet') {
+          // Group by partner fleet
+          const fleetId = maEntry?.partnerFleetId || 'unknown';
+          const fleetName = partnerFleets.find(f => f.id === fleetId)?.name || 'Flota partnerska';
+          if (!fleetGroupedDrivers[fleetId]) {
+            fleetGroupedDrivers[fleetId] = { fleetName, drivers: [], total: 0 };
+          }
+          fleetGroupedDrivers[fleetId].drivers.push(s);
+          fleetGroupedDrivers[fleetId].total += s.final_payout;
+          return false; // Exclude from individual transfers
+        }
+        
         if (driver.payment_method !== 'transfer') return false;
         return !!getDriverIban(driver);
       });
 
-      if (finalTransferDrivers.length === 0) {
+      // Show fleet summary info
+      const fleetGroups = Object.values(fleetGroupedDrivers);
+      if (fleetGroups.length > 0) {
+        const fleetSummary = fleetGroups.map(g => `${g.fleetName}: ${g.drivers.length} kierowców = ${g.total.toFixed(2)} zł`).join(', ');
+        toast.info(`Kierowcy flotowi: ${fleetSummary}`);
+      }
+
+      if (finalTransferDrivers.length === 0 && fleetGroups.length === 0) {
         toast.info('Brak kierowców z prawidłowym nr konta do eksportu');
         setLoading(false);
         return;
