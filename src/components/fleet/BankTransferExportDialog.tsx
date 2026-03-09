@@ -428,6 +428,24 @@ export function BankTransferExportDialog({
   };
 
   // ── Render: driver row ──
+  const formatIbanDisplay = (iban: string): string => {
+    const clean = iban.replace(/\s/g, '').replace(/[^0-9]/g, '');
+    if (!clean) return '';
+    const parts: string[] = [];
+    parts.push(clean.slice(0, 2));
+    let rest = clean.slice(2);
+    while (rest.length > 0) {
+      parts.push(rest.slice(0, 4));
+      rest = rest.slice(4);
+    }
+    return parts.join(' ');
+  };
+
+  const handleIbanChange = (id: string, rawValue: string) => {
+    const digitsOnly = rawValue.replace(/[^0-9]/g, '').slice(0, 26);
+    updateDriverRow(id, { iban: digitsOnly });
+  };
+
   const renderDriverRow = (row: DriverRow, showIban = true, showModeSelector = true) => (
     <div
       key={row.id}
@@ -444,11 +462,11 @@ export function BankTransferExportDialog({
 
       {showIban && row.paymentMode === 'transfer' && (
         <Input
-          placeholder="Nr konta (26 cyfr)"
-          value={row.iban}
-          onChange={e => updateDriverRow(row.id, { iban: e.target.value })}
+          placeholder="00 0000 0000 0000 0000 0000 0000"
+          value={formatIbanDisplay(row.iban)}
+          onChange={e => handleIbanChange(row.id, e.target.value)}
           onBlur={() => saveIban(row.id, row.iban)}
-          className="h-7 text-xs flex-1 min-w-[140px] font-mono"
+          className="h-7 text-[11px] flex-1 min-w-[200px] font-mono tracking-wider text-foreground"
         />
       )}
 
