@@ -2854,6 +2854,14 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                       {isColVisible('rental') && <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
                         -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + (getEffectiveSettlement(s).rental || 0), 0))}
                       </TableCell>}
+                      {isColVisible('payout') && (() => {
+                        const totalPayout = filteredSettlements.reduce((sum, s) => sum + getEffectiveSettlement(s).final_payout, 0);
+                        return (
+                          <TableCell className={`text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${getAmountColor(totalPayout)}`}>
+                            {formatCurrency(totalPayout)}
+                          </TableCell>
+                        );
+                      })()}
                       {isColVisible('debt') && <TableCell className="text-center px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
                         {(() => {
                           const totalDebt = filteredSettlements.reduce((sum, s) => sum + (driverDebts[s.driver_id] || 0), 0);
@@ -2868,11 +2876,11 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                           );
                         })()}
                       </TableCell>}
-                      {isColVisible('payout') && (() => {
-                        const totalPayout = filteredSettlements.reduce((sum, s) => sum + getEffectiveSettlement(s).final_payout, 0);
+                      {isColVisible('do_wyplaty') && (() => {
+                        const totalDoWyplaty = filteredSettlements.reduce((sum, s) => sum + getDoWyplaty(s), 0);
                         return (
-                          <TableCell className={`text-right font-bold px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${getAmountColor(totalPayout)}`}>
-                            {formatCurrency(totalPayout)}
+                          <TableCell className={`text-right font-bold px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${totalDoWyplaty > 0 ? 'text-green-700' : 'text-muted-foreground'}`}>
+                            {formatCurrency(totalDoWyplaty)}
                           </TableCell>
                         );
                       })()}
