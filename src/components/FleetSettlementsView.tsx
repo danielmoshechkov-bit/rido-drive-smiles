@@ -2532,7 +2532,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                           )}
                           <div className="flex justify-between text-sm font-bold text-green-700">
                             <span>Do wypłaty:</span>
-                            <span>{formatCurrency(getDoWyplaty(rawSettlement))}</span>
+                            <span>{formatCurrency(getDoWyplaty(settlement))}</span>
                           </div>
                         </div>
                       </div>
