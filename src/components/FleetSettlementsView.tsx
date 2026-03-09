@@ -714,13 +714,15 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     return s;
   };
 
-  // Calculate debt-adjusted "Do wypłaty" (what driver actually receives)
+  // Calculate debt-adjusted "Wypłata" — negative means new debt carries over
   const getDoWyplaty = (settlement: DriverSettlement): number => {
     const effective = getEffectiveSettlement(settlement);
     const rawPayout = effective.final_payout;
-    if (rawPayout <= 0) return 0;
     const debt = driverDebts[settlement.driver_id] ?? settlement.debt_current ?? 0;
-    if (debt > 0) return Math.max(0, rawPayout - debt);
+    // rawPayout negative + debt = deeper negative (both accumulate)
+    if (rawPayout <= 0) return rawPayout - debt;
+    // rawPayout positive but debt exists — subtract debt
+    if (debt > 0) return rawPayout - debt;
     return rawPayout;
   };
 
