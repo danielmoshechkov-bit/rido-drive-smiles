@@ -297,7 +297,7 @@ export function BankTransferExportDialog({
   };
 
   const getTransferTitle = (row: DriverRow): string => {
-    if (row.billingMethod === 'b2b' || row.billingMethod === 'B2B') {
+    if (row.b2bEnabled || row.billingMethod === 'b2b' || row.billingMethod === 'B2B') {
       return 'zaliczka na fakture';
     }
     if (row.contractNumber) {
