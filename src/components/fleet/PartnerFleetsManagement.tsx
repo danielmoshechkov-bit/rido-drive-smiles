@@ -51,6 +51,8 @@ interface PartnerFleet {
   nip: string | null;
   city: string | null;
   address: string | null;
+  street: string | null;
+  house_number: string | null;
   postal_code: string | null;
   email: string | null;
   phone: string | null;
