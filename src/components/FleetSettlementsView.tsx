@@ -510,7 +510,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         if (!driver) return false;
         if (cityId !== 'all' && driver.city_id !== cityId) return false;
         if (driver.payment_method !== 'transfer') return false;
-        if (s.final_payout <= 0) return false;
+        if (getDoWyplaty(s) <= 0) return false;
         
         const appUser = driver.driver_app_users?.[0];
         const isWeekly = !appUser?.settlement_frequency || appUser.settlement_frequency === 'weekly';
