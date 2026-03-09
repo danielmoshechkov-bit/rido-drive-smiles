@@ -2792,10 +2792,10 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                         </TableCell>
                       ))}
                       {isColVisible('service_fee') && <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
-                        -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.service_fee, 0))}
+                        -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + getEffectiveSettlement(s).service_fee, 0))}
                       </TableCell>}
                       {isColVisible('rental') && <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
-                        -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + (s.rental || 0), 0))}
+                        -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + (getEffectiveSettlement(s).rental || 0), 0))}
                       </TableCell>}
                       {isColVisible('debt') && <TableCell className="text-center px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
                         {(() => {
