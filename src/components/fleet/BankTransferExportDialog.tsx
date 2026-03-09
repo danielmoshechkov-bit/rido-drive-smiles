@@ -79,6 +79,18 @@ interface FleetOption {
   iban?: string;
 }
 
+// ── Helpers ──
+
+/** Strip Polish diacritics and other non-ASCII chars for bank transfer files */
+function stripDiacritics(str: string): string {
+  const map: Record<string, string> = {
+    'ą': 'a', 'ć': 'c', 'ę': 'e', 'ł': 'l', 'ń': 'n', 'ó': 'o', 'ś': 's', 'ź': 'z', 'ż': 'z',
+    'Ą': 'A', 'Ć': 'C', 'Ę': 'E', 'Ł': 'L', 'Ń': 'N', 'Ó': 'O', 'Ś': 'S', 'Ź': 'Z', 'Ż': 'Z',
+  };
+  return str.replace(/[ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/g, ch => map[ch] || ch)
+    .replace(/[^\x20-\x7E]/g, ''); // remove any remaining non-ASCII
+}
+
 // ── Format generators ──
 
 function generateElixir0(rows: TransferRow[], senderAccount: string, dateStr: string): string {
@@ -88,7 +100,9 @@ function generateElixir0(rows: TransferRow[], senderAccount: string, dateStr: st
   for (const r of rows) {
     const recipientAccount = r.iban.replace(/\s/g, '').replace(/^PL/i, '');
     const amountStr = r.amount.toFixed(2).replace('.', ',');
-    lines.push(`1|${cleanAccount}|${recipientAccount}|${r.name}|Adres odbiorcy|${amountStr}|1|${r.title}|${dateStr}|`);
+    const name = stripDiacritics(r.name);
+    const title = stripDiacritics(r.title);
+    lines.push(`1|${cleanAccount}|${recipientAccount}|${name}|Adres odbiorcy|${amountStr}|1|${title}|${dateStr}|`);
   }
   return lines.join('\n');
 }
