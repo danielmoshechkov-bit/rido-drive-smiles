@@ -1403,7 +1403,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         const appUserData = driverInfo.driver_app_users;
         const b2bProfile = b2bProfilesMap.get(appUserData?.user_id);
         const isB2BDriver = driverInfo.payment_method === 'b2b';
-        const isB2BVatPayer = isB2BDriver && b2bProfile?.vat_payer === true;
+        // Check both sources: drivers.b2b_vat_payer (admin toggle) OR driver_b2b_profiles.vat_payer
+        const isB2BVatPayer = isB2BDriver && (driverInfo.b2b_vat_payer === true || b2bProfile?.vat_payer === true);
         const effectiveVatRate = isB2BVatPayer ? 0 : fleetVatRate;
 
         // === DUAL TAX MODE: Calculate from specific Bolt CSV columns ===
