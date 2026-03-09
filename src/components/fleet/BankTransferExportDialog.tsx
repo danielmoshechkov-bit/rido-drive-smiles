@@ -133,7 +133,7 @@ const POLISH_BANKS: BankFormat[] = [
     extension: 'csv',
     generate: (rows) => rows.map(r => {
       const a = r.amount.toFixed(2).replace('.', ',');
-      return `${r.iban.replace(/\s/g, '')};${a};${r.name};;${r.title}`;
+      return `${r.iban.replace(/\s/g, '')};${a};${stripDiacritics(r.name)};;${stripDiacritics(r.title)}`;
     }).join('\n'),
   },
   {
@@ -143,7 +143,7 @@ const POLISH_BANKS: BankFormat[] = [
     extension: 'csv',
     generate: (rows) => rows.map(r => {
       const a = r.amount.toFixed(2).replace('.', ',');
-      return `${r.iban.replace(/\s/g, '')};${a};${r.name};${r.title}`;
+      return `${r.iban.replace(/\s/g, '')};${a};${stripDiacritics(r.name)};${stripDiacritics(r.title)}`;
     }).join('\n'),
   },
   {
@@ -153,7 +153,7 @@ const POLISH_BANKS: BankFormat[] = [
     extension: 'csv',
     generate: (rows) => rows.map(r => {
       const a = r.amount.toFixed(2).replace('.', ',');
-      return `${r.iban.replace(/\s/g, '')};${a};PLN;${r.name};${r.title}`;
+      return `${r.iban.replace(/\s/g, '')};${a};PLN;${stripDiacritics(r.name)};${stripDiacritics(r.title)}`;
     }).join('\n'),
   },
   {
@@ -162,10 +162,10 @@ const POLISH_BANKS: BankFormat[] = [
     shortName: 'CSV',
     extension: 'csv',
     generate: (rows) => {
-      const header = 'Odbiorca;IBAN;Kwota;Tytuł';
+      const header = 'Odbiorca;IBAN;Kwota;Tytul';
       const body = rows.map(r => {
         const a = r.amount.toFixed(2).replace('.', ',');
-        return `${r.name};${r.iban.replace(/\s/g, '')};${a};${r.title}`;
+        return `${stripDiacritics(r.name)};${r.iban.replace(/\s/g, '')};${a};${stripDiacritics(r.title)}`;
       }).join('\n');
       return header + '\n' + body;
     },
