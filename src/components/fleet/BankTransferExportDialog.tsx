@@ -47,6 +47,14 @@ interface MissingAccountDriver {
   payout: number;
   iban: string;
   switchToCash: boolean;
+  switchToFleet: boolean;
+  partnerFleetId?: string;
+  partnerFleetName?: string;
+}
+
+interface PartnerFleet {
+  id: string;
+  name: string;
 }
 
 const POLISH_BANKS: BankFormat[] = [
