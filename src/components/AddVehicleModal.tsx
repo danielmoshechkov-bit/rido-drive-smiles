@@ -63,16 +63,22 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId, fleetId, f
   const [acPremium, setAcPremium] = useState<number | "">("");
 
   const handleSave = async () => {
+    const errors = new Set<string>();
+    if (!plate) errors.add('plate');
+    if (!brand) errors.add('brand');
+    if (!model) errors.add('model');
+    if (!fuelType) errors.add('fuelType');
     if (isRentalVariant) {
-      if (!plate || !brand || !model || !fuelType || !year || !color || !weeklyRentalFee) {
-        toast.error("Uzupełnij wymagane pola: nr rejestracyjny, markę, model, rodzaj paliwa, rok, kolor i kwotę wynajmu.");
-        return;
-      }
+      if (!year) errors.add('year');
+      if (!color) errors.add('color');
+      if (!weeklyRentalFee) errors.add('weeklyRentalFee');
     } else {
-      if (!plate || !brand || !model || !bodyType || !fuelType) {
-        toast.error("Uzupełnij wymagane pola: nr rejestracyjny, markę, model, rodzaj nadwozia i paliwa.");
-        return;
-      }
+      if (!bodyType) errors.add('bodyType');
+    }
+    setValidationErrors(errors);
+    if (errors.size > 0) {
+      toast.error("Uzupełnij wymagane pola podświetlone na czerwono.");
+      return;
     }
     setLoading(true);
     try {
