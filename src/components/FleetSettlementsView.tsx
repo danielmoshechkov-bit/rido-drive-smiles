@@ -2308,8 +2308,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           }}
           fleetId={fleetId}
           settlements={settlements.map(s => {
-            const eff = getEffectiveSettlement(s);
-            return { ...s, final_payout: eff.final_payout };
+            return { ...s, final_payout: getDoWyplaty(s) };
           })}
           periodLabel={currentWeek?.label || `Tydzień ${selectedWeek}`}
           weekStart={currentWeek?.start}
