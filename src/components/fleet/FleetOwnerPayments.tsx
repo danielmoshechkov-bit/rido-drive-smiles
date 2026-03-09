@@ -199,8 +199,22 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
         const nonSettlementCharges = ownerCharges.filter((c: any) => !(c.is_settled && c.amount === 0 && c.adjustment_note?.includes("Rozliczenie")));
         const adjustmentsTotal = nonSettlementCharges.reduce((sum: number, c: any) => sum + parseFloat(c.adjustment?.toString() || "0"), 0);
         
-        // Total owed = what drivers covered + adjustments (if no driver data, fall back to weekly total)
-        const totalOwed = totalDriverCovered > 0 ? (totalDriverCovered + adjustmentsTotal) : totalWeekly;
+        // Check if there are ANY settlements for the drivers of this owner's vehicles
+        const hasSettlementData = ownerVehicles.some((v: any) => {
+          const assignment = ((assignmentsData as any[]) || []).find((a: any) => a.vehicle_id === v.id);
+          if (!assignment?.driver_id) return false;
+          return (settlementsData || []).some((s: any) => s.driver_id === assignment.driver_id);
+        });
+        
+        // Total owed = what drivers actually covered (capped at rental per vehicle) + adjustments
+        // If no settlement data exists yet, show 0 (not the weekly fee — nothing was collected)
+        // Only show totalWeekly as fallback when there are NO driver assignments at all
+        const hasAnyAssignment = ownerVehicles.some((v: any) => 
+          ((assignmentsData as any[]) || []).find((a: any) => a.vehicle_id === v.id)
+        );
+        const totalOwed = hasSettlementData 
+          ? (totalDriverCovered + adjustmentsTotal) 
+          : (hasAnyAssignment ? adjustmentsTotal : totalWeekly);
 
         return {
           owner_id: owner.id,
