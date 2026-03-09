@@ -100,7 +100,7 @@ export function PartnerFleetsManagement({ fleetId }: PartnerFleetsManagementProp
   const [nipSearching, setNipSearching] = useState(false);
   const [saving, setSaving] = useState(false);
   const [newFleet, setNewFleet] = useState({
-    name: '', nip: '', city: '', address: '', postal_code: '',
+    name: '', nip: '', city: '', street: '', house_number: '', apartment_number: '', postal_code: '',
     contact_name: '', email: '', phone: '', sender_bank_account: '',
   });
 
