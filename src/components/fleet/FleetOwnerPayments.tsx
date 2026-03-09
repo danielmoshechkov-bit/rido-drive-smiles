@@ -150,7 +150,7 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
         assignmentDriverVehicle.set(a.driver_id, a.vehicle_id);
       });
 
-      // Map driver → actual payout
+      // Map driver → actual payout (what driver received after all deductions)
       const vehicleDriverPayout = new Map<string, number>();
       (settlementsData || []).forEach((s: any) => {
         const vehicleId = assignmentDriverVehicle.get(s.driver_id);
@@ -161,15 +161,16 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
       });
 
       // Calculate driver available amount per vehicle (after taxes/fees, before rental)
-      // Use actual_payout when > 0, fallback to net_amount when stale
+      // net_amount = what driver earned BEFORE fleet deductions (rental, service fees)
+      // This is the correct base for "how much was available for the car"
       const vehicleDriverEarnings = new Map<string, number>();
       (settlementsData || []).forEach((s: any) => {
         const vehicleId = assignmentDriverVehicle.get(s.driver_id);
         if (vehicleId) {
-          const payout = parseFloat(s.actual_payout?.toString() || "0");
-          const earnings = parseFloat(s.total_earnings?.toString() || "0");
           const netAmount = parseFloat(s.net_amount?.toString() || "0");
-          const available = payout > 0 ? payout : (earnings > 0 ? netAmount : 0);
+          // net_amount represents what driver earned after platform fees but before rental
+          // If net_amount is 0, driver earned nothing → nothing available for car payment
+          const available = Math.max(netAmount, 0);
           vehicleDriverEarnings.set(vehicleId, (vehicleDriverEarnings.get(vehicleId) || 0) + available);
         }
       });
@@ -198,8 +199,22 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
         const nonSettlementCharges = ownerCharges.filter((c: any) => !(c.is_settled && c.amount === 0 && c.adjustment_note?.includes("Rozliczenie")));
         const adjustmentsTotal = nonSettlementCharges.reduce((sum: number, c: any) => sum + parseFloat(c.adjustment?.toString() || "0"), 0);
         
-        // Total owed = what drivers covered + adjustments (if no driver data, fall back to weekly total)
-        const totalOwed = totalDriverCovered > 0 ? (totalDriverCovered + adjustmentsTotal) : totalWeekly;
+        // Check if there are ANY settlements for the drivers of this owner's vehicles
+        const hasSettlementData = ownerVehicles.some((v: any) => {
+          const assignment = ((assignmentsData as any[]) || []).find((a: any) => a.vehicle_id === v.id);
+          if (!assignment?.driver_id) return false;
+          return (settlementsData || []).some((s: any) => s.driver_id === assignment.driver_id);
+        });
+        
+        // Total owed = what drivers actually covered (capped at rental per vehicle) + adjustments
+        // If no settlement data exists yet, show 0 (not the weekly fee — nothing was collected)
+        // Only show totalWeekly as fallback when there are NO driver assignments at all
+        const hasAnyAssignment = ownerVehicles.some((v: any) => 
+          ((assignmentsData as any[]) || []).find((a: any) => a.vehicle_id === v.id)
+        );
+        const totalOwed = hasSettlementData 
+          ? (totalDriverCovered + adjustmentsTotal) 
+          : (hasAnyAssignment ? adjustmentsTotal : totalWeekly);
 
         return {
           owner_id: owner.id,
