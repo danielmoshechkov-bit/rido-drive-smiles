@@ -31,6 +31,8 @@ import {
   Search,
   Edit,
   Check,
+  FileText,
+  Coins,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -45,14 +47,6 @@ interface BankTransferExportDialogProps {
   }>;
   periodLabel: string;
   weekStart?: string;
-}
-
-interface BankFormat {
-  id: string;
-  name: string;
-  shortName: string;
-  extension: string;
-  generate: (rows: TransferRow[], senderAccount: string, date: string) => string;
 }
 
 interface TransferRow {
@@ -95,11 +89,12 @@ function generateElixir0(rows: TransferRow[], senderAccount: string, dateStr: st
   return lines.join('\n');
 }
 
-function generateCSV(rows: TransferRow[], sep: string, _senderAccount: string): string {
-  return rows.map(r => {
-    const amountStr = r.amount.toFixed(2).replace('.', ',');
-    return `${r.iban.replace(/\s/g, '')}${sep}${amountStr}${sep}${r.name}${sep}${r.title}`;
-  }).join('\n');
+interface BankFormat {
+  id: string;
+  name: string;
+  shortName: string;
+  extension: string;
+  generate: (rows: TransferRow[], senderAccount: string, date: string) => string;
 }
 
 const POLISH_BANKS: BankFormat[] = [
@@ -108,7 +103,7 @@ const POLISH_BANKS: BankFormat[] = [
     name: 'Santander Bank Polska (Elixir-0)',
     shortName: 'Santander',
     extension: 'txt',
-    generate: (rows, sender, _date) => {
+    generate: (rows, sender) => {
       const d = format(new Date(), 'dd-MM-yyyy');
       return generateElixir0(rows, sender, d);
     },
@@ -128,7 +123,10 @@ const POLISH_BANKS: BankFormat[] = [
     name: 'PKO Bank Polski',
     shortName: 'PKO BP',
     extension: 'csv',
-    generate: (rows) => generateCSV(rows, ';', ''),
+    generate: (rows) => rows.map(r => {
+      const a = r.amount.toFixed(2).replace('.', ',');
+      return `${r.iban.replace(/\s/g, '')};${a};${r.name};${r.title}`;
+    }).join('\n'),
   },
   {
     id: 'ing',
@@ -178,7 +176,7 @@ export function BankTransferExportDialog({
   const [driverRows, setDriverRows] = useState<DriverRow[]>([]);
   const [fleetOptions, setFleetOptions] = useState<FleetOption[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState('drivers');
+  const [activeTab, setActiveTab] = useState('transfers');
   const [showSettings, setShowSettings] = useState(false);
   const [defaultTitle, setDefaultTitle] = useState('wynajem auta');
 
@@ -190,7 +188,6 @@ export function BankTransferExportDialog({
   const loadData = async () => {
     setLoading(true);
     try {
-      // Load fleet sender account & settings
       const { data: fleetData } = await supabase
         .from('fleets')
         .select('*')
@@ -201,11 +198,11 @@ export function BankTransferExportDialog({
         const saved = fleetData.sender_bank_account || '';
         setSenderAccount(saved);
         setSavedSenderAccount(saved);
-        setEditingSender(!saved); // If no account saved, start in edit mode
+        setEditingSender(!saved);
         setDefaultTitle(fleetData.transfer_title_template || 'wynajem auta');
       }
 
-      // Load ONLY partner fleets (not all fleets!) for fleet assignment
+      // Load ONLY partner fleets
       const { data: partnerships } = await supabase
         .from('driver_fleet_partnerships')
         .select('partner_fleet_id, fleets!driver_fleet_partnerships_partner_fleet_id_fkey(id, name, sender_bank_account)')
@@ -223,13 +220,11 @@ export function BankTransferExportDialog({
       }
       setFleetOptions(partnerFleets);
 
-      // Load drivers
       const { data: driversData } = await supabase
         .from('drivers')
         .select('id, first_name, last_name, iban, bank_account, payment_method, billing_method, fleet_id')
         .eq('fleet_id', fleetId);
 
-      // Load signed contracts
       const { data: contracts } = await supabase
         .from('driver_document_requests')
         .select('driver_id, contract_number')
@@ -238,7 +233,6 @@ export function BankTransferExportDialog({
         .eq('status', 'signed');
 
       const contractMap = new Map((contracts || []).map((c: any) => [c.driver_id, c.contract_number]));
-
       const driverMap = new Map((driversData || []).map(d => [d.id, d]));
 
       const rows: DriverRow[] = settlements
@@ -253,12 +247,12 @@ export function BankTransferExportDialog({
             name: `${driver?.first_name || ''} ${driver?.last_name || ''}`.trim() || s.driver_name,
             payout: s.final_payout,
             iban: existingIban || driver?.iban || '',
-            paymentMode: (pm === 'cash' ? 'cash' : pm === 'fleet' ? 'fleet' : 'transfer') as 'transfer' | 'cash' | 'fleet',
+            paymentMode: (pm === 'cash' ? 'cash' : pm === 'fleet' ? 'fleet' : 'transfer') as DriverRow['paymentMode'],
             fleetId: undefined,
             fleetName: undefined,
             contractNumber: contractMap.get(s.driver_id) || null,
             billingMethod: driver?.billing_method || '',
-            selected: pm === 'transfer' && !!existingIban,
+            selected: false,
           };
         })
         .sort((a, b) => a.name.localeCompare(b.name, 'pl'));
@@ -305,51 +299,55 @@ export function BankTransferExportDialog({
     toast.success('Zapisano nr konta nadawcy');
   };
 
+  // Filtered by search
   const filteredDrivers = useMemo(() => {
     if (!searchQuery) return driverRows;
     const q = searchQuery.toLowerCase();
     return driverRows.filter(r => r.name.toLowerCase().includes(q));
   }, [driverRows, searchQuery]);
 
+  // Grouped views
+  const transferDrivers = useMemo(() => filteredDrivers.filter(r => r.paymentMode === 'transfer'), [filteredDrivers]);
+  const cashDrivers = useMemo(() => filteredDrivers.filter(r => r.paymentMode === 'cash'), [filteredDrivers]);
+  const fleetDrivers = useMemo(() => filteredDrivers.filter(r => r.paymentMode === 'fleet'), [filteredDrivers]);
+
   const fleetGroupedDrivers = useMemo(() => {
     const groups: Record<string, { fleet: FleetOption; drivers: DriverRow[]; total: number }> = {};
-    for (const r of driverRows) {
-      if (r.paymentMode === 'fleet' && r.fleetId) {
-        if (!groups[r.fleetId]) {
-          const fo = fleetOptions.find(f => f.id === r.fleetId);
-          groups[r.fleetId] = { fleet: fo || { id: r.fleetId, name: r.fleetName || 'Nieznana' }, drivers: [], total: 0 };
-        }
-        groups[r.fleetId].drivers.push(r);
-        groups[r.fleetId].total += r.payout;
+    for (const r of driverRows.filter(d => d.paymentMode === 'fleet' && d.fleetId)) {
+      if (!groups[r.fleetId!]) {
+        const fo = fleetOptions.find(f => f.id === r.fleetId);
+        groups[r.fleetId!] = { fleet: fo || { id: r.fleetId!, name: r.fleetName || 'Nieznana' }, drivers: [], total: 0 };
       }
+      groups[r.fleetId!].drivers.push(r);
+      groups[r.fleetId!].total += r.payout;
     }
     return Object.values(groups);
   }, [driverRows, fleetOptions]);
 
-  const transferRows = driverRows.filter(r => r.paymentMode === 'transfer' && r.selected);
-  const cashRows = driverRows.filter(r => r.paymentMode === 'cash');
-  const fleetRows = driverRows.filter(r => r.paymentMode === 'fleet');
-  const transferTotal = transferRows.reduce((s, r) => s + r.payout, 0);
-  const fleetTotal = fleetRows.reduce((s, r) => s + r.payout, 0);
+  // Stats
+  const selectedTransfers = driverRows.filter(r => r.paymentMode === 'transfer' && r.selected);
+  const selectedCash = driverRows.filter(r => r.paymentMode === 'cash' && r.selected);
+  const selectedFleetGroups = fleetGroupedDrivers.filter(g => g.drivers.some(d => d.selected));
+  const transferTotal = selectedTransfers.reduce((s, r) => s + r.payout, 0);
+  const cashTotal = selectedCash.reduce((s, r) => s + r.payout, 0);
+  const fleetTotal = fleetGroupedDrivers.reduce((s, g) => s + g.total, 0);
 
-  const handleExport = async () => {
+  const selectAll = (mode: 'transfer' | 'cash' | 'fleet', checked: boolean) => {
+    setDriverRows(prev => prev.map(r => r.paymentMode === mode ? { ...r, selected: checked } : r));
+  };
+
+  // ── EXPORT: bank transfers ──
+  const handleExportTransfers = async () => {
     if (!senderAccount.replace(/\s/g, '')) {
       toast.error('Wprowadź nr konta nadawcy (floty)');
       return;
     }
-
     const bank = POLISH_BANKS.find(b => b.id === selectedBank) || POLISH_BANKS[0];
-
-    // Save sender account
     await supabase.from('fleets').update({ sender_bank_account: senderAccount }).eq('id', fleetId);
 
-    // Persist IBAN / payment_method changes
-    for (const row of driverRows) {
-      const updates: any = {};
-      if (row.paymentMode === 'cash') updates.payment_method = 'cash';
-      else if (row.paymentMode === 'fleet') updates.payment_method = 'fleet';
-      else updates.payment_method = 'transfer';
-
+    // Persist payment methods
+    for (const row of selectedTransfers) {
+      const updates: any = { payment_method: 'transfer' };
       const cleanIban = row.iban.replace(/\s/g, '');
       if (cleanIban.length >= 20) {
         updates.iban = cleanIban;
@@ -358,52 +356,149 @@ export function BankTransferExportDialog({
       await supabase.from('drivers').update(updates).eq('id', row.id);
     }
 
-    const individualTransfers: TransferRow[] = transferRows
+    const transfers: TransferRow[] = selectedTransfers
       .filter(r => r.iban.replace(/\s/g, '').length >= 20)
-      .map(r => ({
-        iban: r.iban,
-        amount: r.payout,
-        name: r.name,
-        title: getTransferTitle(r),
-      }));
+      .map(r => ({ iban: r.iban, amount: r.payout, name: r.name, title: getTransferTitle(r) }));
 
+    // Add fleet aggregate transfers
     for (const group of fleetGroupedDrivers) {
-      const fleetIban = group.fleet.iban;
-      if (fleetIban && fleetIban.replace(/\s/g, '').length >= 20) {
-        individualTransfers.push({
-          iban: fleetIban,
-          amount: group.total,
-          name: group.fleet.name,
-          title: `rozliczenie floty ${periodLabel}`,
-        });
+      if (group.drivers.some(d => d.selected)) {
+        const fleetIban = group.fleet.iban;
+        if (fleetIban && fleetIban.replace(/\s/g, '').length >= 20) {
+          transfers.push({
+            iban: fleetIban,
+            amount: group.total,
+            name: group.fleet.name,
+            title: 'zaliczka na fakture',
+          });
+        }
       }
     }
 
-    if (individualTransfers.length === 0) {
+    if (transfers.length === 0) {
       toast.info('Brak przelewów do wygenerowania');
       return;
     }
 
     const dateStr = weekStart ? format(new Date(weekStart), 'dd-MM-yyyy') : format(new Date(), 'dd-MM-yyyy');
-    const content = bank.generate(individualTransfers, senderAccount, dateStr);
+    const content = bank.generate(transfers, senderAccount, dateStr);
+    const mondayDate = weekStart ? format(new Date(weekStart), 'dd.MM.yyyy') : format(new Date(), 'dd.MM.yyyy');
+    downloadFile(content, `${mondayDate}_Przelewy_${bank.shortName}.${bank.extension}`);
+    toast.success(`Wygenerowano ${transfers.length} przelewów (${bank.name})`);
+  };
 
-    const mondayDate = weekStart
-      ? format(new Date(weekStart), 'dd.MM.yyyy')
-      : format(new Date(), 'dd.MM.yyyy');
+  // ── EXPORT: cash list (KW) ──
+  const handleExportCashList = () => {
+    if (selectedCash.length === 0) {
+      toast.info('Zaznacz kierowców do listy gotówkowej');
+      return;
+    }
 
+    const mondayDate = weekStart ? format(new Date(weekStart), 'dd.MM.yyyy') : format(new Date(), 'dd.MM.yyyy');
+    const lines = [
+      `LISTA WYPŁAT GOTÓWKOWYCH - KW`,
+      `Okres: ${periodLabel}`,
+      `Data: ${mondayDate}`,
+      ``,
+      `Lp.;Imię i nazwisko;Kwota;Podpis`,
+    ];
+    selectedCash.forEach((r, i) => {
+      lines.push(`${i + 1};${r.name};${r.payout.toFixed(2)} zł;`);
+    });
+    lines.push(``);
+    lines.push(`RAZEM: ${cashTotal.toFixed(2)} zł`);
+    lines.push(`Liczba wypłat: ${selectedCash.length}`);
+
+    downloadFile(lines.join('\n'), `${mondayDate}_Wyplaty_KW.csv`);
+
+    // Persist cash payment methods
+    for (const row of selectedCash) {
+      supabase.from('drivers').update({ payment_method: 'cash' } as any).eq('id', row.id);
+    }
+
+    toast.success(`Wygenerowano listę KW: ${selectedCash.length} wypłat`);
+  };
+
+  const downloadFile = (content: string, filename: string) => {
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `${mondayDate}_Przelewy_${bank.shortName}.${bank.extension}`;
+    link.download = filename;
     link.click();
-
-    toast.success(`Wygenerowano ${individualTransfers.length} przelewów (${bank.name})`);
-    onOpenChange(false);
   };
 
-  const selectAllTransfer = (checked: boolean) => {
-    setDriverRows(prev => prev.map(r => r.paymentMode === 'transfer' ? { ...r, selected: checked } : r));
-  };
+  // ── Render: driver row ──
+  const renderDriverRow = (row: DriverRow, showIban = true, showModeSelector = true) => (
+    <div
+      key={row.id}
+      className="flex items-center gap-2 p-2 rounded-lg border text-xs hover:bg-muted/50 transition-colors"
+    >
+      <Checkbox
+        checked={row.selected}
+        onCheckedChange={c => updateDriverRow(row.id, { selected: !!c })}
+      />
+      <span className="w-[130px] truncate font-medium">{row.name}</span>
+      <span className="w-[70px] text-right font-semibold text-primary">
+        {row.payout.toFixed(2)} zł
+      </span>
+
+      {showIban && row.paymentMode === 'transfer' && (
+        <Input
+          placeholder="Nr konta (26 cyfr)"
+          value={row.iban}
+          onChange={e => updateDriverRow(row.id, { iban: e.target.value })}
+          onBlur={() => saveIban(row.id, row.iban)}
+          className="h-7 text-xs flex-1 min-w-[140px] font-mono"
+        />
+      )}
+
+      {showModeSelector && (
+        <Select
+          value={row.paymentMode}
+          onValueChange={(v: DriverRow['paymentMode']) => {
+            updateDriverRow(row.id, {
+              paymentMode: v,
+              selected: false,
+            });
+          }}
+        >
+          <SelectTrigger className="h-7 w-[100px] text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="transfer">Przelew</SelectItem>
+            <SelectItem value="cash">Gotówka</SelectItem>
+            <SelectItem value="fleet">Flota</SelectItem>
+          </SelectContent>
+        </Select>
+      )}
+
+      {row.paymentMode === 'fleet' && (
+        <Select
+          value={row.fleetId || ''}
+          onValueChange={v => {
+            const fleet = fleetOptions.find(f => f.id === v);
+            updateDriverRow(row.id, { fleetId: v, fleetName: fleet?.name });
+          }}
+        >
+          <SelectTrigger className="h-7 w-[110px] text-xs">
+            <SelectValue placeholder="Wybierz..." />
+          </SelectTrigger>
+          <SelectContent>
+            {fleetOptions.length === 0 ? (
+              <div className="p-2 text-xs text-muted-foreground text-center">
+                Brak flot partnerskich
+              </div>
+            ) : (
+              fleetOptions.map(f => (
+                <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
+              ))
+            )}
+          </SelectContent>
+        </Select>
+      )}
+    </div>
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -411,7 +506,7 @@ export function BankTransferExportDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Building2 className="h-5 w-5" />
-            Generuj przelewy
+            Generuj przelewy i wypłaty
           </DialogTitle>
           <DialogDescription>
             Zarządzaj wypłatami kierowców: przelew, gotówka lub flota. Okres: {periodLabel}
@@ -419,19 +514,23 @@ export function BankTransferExportDialog({
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="drivers" className="gap-1.5">
-              <Users className="h-4 w-4" />
-              Kierowcy ({driverRows.length})
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="transfers" className="gap-1 text-xs">
+              <Banknote className="h-3.5 w-3.5" />
+              Przelewy ({transferDrivers.length})
             </TabsTrigger>
-            <TabsTrigger value="fleets" className="gap-1.5">
-              <Truck className="h-4 w-4" />
+            <TabsTrigger value="cash" className="gap-1 text-xs">
+              <Coins className="h-3.5 w-3.5" />
+              Gotówka ({cashDrivers.length})
+            </TabsTrigger>
+            <TabsTrigger value="fleets" className="gap-1 text-xs">
+              <Truck className="h-3.5 w-3.5" />
               Floty ({fleetGroupedDrivers.length})
             </TabsTrigger>
           </TabsList>
 
-          {/* ── TAB: KIEROWCY ── */}
-          <TabsContent value="drivers" className="space-y-3 mt-3">
+          {/* ── TAB: PRZELEWY ── */}
+          <TabsContent value="transfers" className="space-y-3 mt-3">
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -442,241 +541,204 @@ export function BankTransferExportDialog({
               />
             </div>
 
-            <div className="flex flex-wrap gap-2 text-xs">
-              <Badge variant="outline" className="gap-1">
-                <Banknote className="h-3 w-3" />
-                Przelewy: {transferRows.length} = {transferTotal.toFixed(2)} zł
-              </Badge>
-              <Badge variant="secondary" className="gap-1">
-                Gotówka: {cashRows.length}
-              </Badge>
-              <Badge variant="secondary" className="gap-1">
-                <Truck className="h-3 w-3" />
-                Floty: {fleetRows.length} = {fleetTotal.toFixed(2)} zł
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Checkbox
+                  checked={transferDrivers.length > 0 && transferDrivers.every(r => r.selected)}
+                  onCheckedChange={c => selectAll('transfer', !!c)}
+                />
+                <span>Zaznacz wszystkich</span>
+              </div>
+              <Badge variant="outline" className="text-xs gap-1">
+                Zaznaczono: {selectedTransfers.length} = {transferTotal.toFixed(2)} zł
               </Badge>
             </div>
 
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Checkbox
-                checked={transferRows.length > 0 && transferRows.length === driverRows.filter(r => r.paymentMode === 'transfer').length}
-                onCheckedChange={(c) => selectAllTransfer(!!c)}
+            <div className="space-y-1 max-h-[300px] overflow-y-auto pr-1">
+              {transferDrivers.map(row => renderDriverRow(row, true, true))}
+              {transferDrivers.length === 0 && (
+                <p className="text-center text-sm text-muted-foreground py-4">Brak kierowców z przelewem</p>
+              )}
+            </div>
+
+            {/* Bank settings */}
+            <div className="space-y-2 border-t pt-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Nr konta nadawcy</Label>
+                {savedSenderAccount && !editingSender ? (
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 px-3 py-2 rounded-md border bg-muted/30 font-mono text-sm text-muted-foreground">
+                      {maskIban(savedSenderAccount)}
+                    </div>
+                    <Button variant="outline" size="sm" className="gap-1 h-8" onClick={() => setEditingSender(true)}>
+                      <Edit className="h-3.5 w-3.5" /> Edytuj
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      placeholder="00000000000000000000000000"
+                      value={senderAccount}
+                      onChange={e => setSenderAccount(e.target.value)}
+                      className="font-mono text-sm flex-1"
+                    />
+                    <Button variant="default" size="sm" className="gap-1 h-8" onClick={handleSaveSenderAccount} disabled={!senderAccount.replace(/\s/g, '')}>
+                      <Check className="h-3.5 w-3.5" /> Zapisz
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs">Format banku</Label>
+                <Select value={selectedBank} onValueChange={setSelectedBank}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {POLISH_BANKS.map(b => (
+                      <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => onOpenChange(false)}>Anuluj</Button>
+              <Button onClick={handleExportTransfers} disabled={loading || selectedTransfers.length === 0} className="gap-2">
+                <Download className="h-4 w-4" />
+                Generuj przelewy ({selectedTransfers.length})
+              </Button>
+            </div>
+          </TabsContent>
+
+          {/* ── TAB: GOTÓWKA ── */}
+          <TabsContent value="cash" className="space-y-3 mt-3">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Szukaj kierowcy..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="pl-8 h-8 text-sm"
               />
-              <span>Zaznacz wszystkich (przelew)</span>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Checkbox
+                  checked={cashDrivers.length > 0 && cashDrivers.every(r => r.selected)}
+                  onCheckedChange={c => selectAll('cash', !!c)}
+                />
+                <span>Zaznacz wszystkich</span>
+              </div>
+              <Badge variant="outline" className="text-xs gap-1">
+                Zaznaczono: {selectedCash.length} = {cashTotal.toFixed(2)} zł
+              </Badge>
             </div>
 
             <div className="space-y-1 max-h-[350px] overflow-y-auto pr-1">
-              {filteredDrivers.map(row => (
-                <div
-                  key={row.id}
-                  className="flex items-center gap-2 p-2 rounded-lg border text-xs hover:bg-muted/50 transition-colors"
-                >
-                  <Checkbox
-                    checked={row.selected && row.paymentMode === 'transfer'}
-                    disabled={row.paymentMode !== 'transfer'}
-                    onCheckedChange={c => updateDriverRow(row.id, { selected: !!c })}
-                  />
+              {cashDrivers.map(row => renderDriverRow(row, false, true))}
+              {cashDrivers.length === 0 && (
+                <p className="text-center text-sm text-muted-foreground py-4">Brak kierowców gotówkowych</p>
+              )}
+            </div>
 
-                  <span className="w-[130px] truncate font-medium">{row.name}</span>
-
-                  <span className="w-[70px] text-right font-semibold text-primary">
-                    {row.payout.toFixed(2)} zł
-                  </span>
-
-                  <Input
-                    placeholder="Nr konta (26 cyfr)"
-                    value={row.iban}
-                    onChange={e => updateDriverRow(row.id, { iban: e.target.value })}
-                    onBlur={() => saveIban(row.id, row.iban)}
-                    disabled={row.paymentMode !== 'transfer'}
-                    className="h-7 text-xs flex-1 min-w-[140px] font-mono"
-                  />
-
-                  <Select
-                    value={row.paymentMode}
-                    onValueChange={(v: 'transfer' | 'cash' | 'fleet') => {
-                      updateDriverRow(row.id, {
-                        paymentMode: v,
-                        selected: v === 'transfer' && row.iban.replace(/\s/g, '').length >= 20,
-                      });
-                    }}
-                  >
-                    <SelectTrigger className="h-7 w-[100px] text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="transfer">Przelew</SelectItem>
-                      <SelectItem value="cash">Gotówka</SelectItem>
-                      <SelectItem value="fleet">Flota</SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  {/* Fleet selector - only partner fleets */}
-                  {row.paymentMode === 'fleet' && (
-                    <Select
-                      value={row.fleetId || ''}
-                      onValueChange={v => {
-                        const fleet = fleetOptions.find(f => f.id === v);
-                        updateDriverRow(row.id, { fleetId: v, fleetName: fleet?.name });
-                      }}
-                    >
-                      <SelectTrigger className="h-7 w-[110px] text-xs">
-                        <SelectValue placeholder="Wybierz..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {fleetOptions.length === 0 ? (
-                          <div className="p-2 text-xs text-muted-foreground text-center">
-                            Brak flot partnerskich. Dodaj w zakładce "Floty partnerskie".
-                          </div>
-                        ) : (
-                          fleetOptions.map(f => (
-                            <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
-                  )}
-                </div>
-              ))}
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => onOpenChange(false)}>Anuluj</Button>
+              <Button onClick={handleExportCashList} disabled={selectedCash.length === 0} variant="secondary" className="gap-2">
+                <FileText className="h-4 w-4" />
+                Generuj listę KW ({selectedCash.length})
+              </Button>
             </div>
           </TabsContent>
 
           {/* ── TAB: FLOTY ── */}
           <TabsContent value="fleets" className="space-y-3 mt-3">
-            {fleetGroupedDrivers.length === 0 ? (
+            {fleetGroupedDrivers.length === 0 && fleetDrivers.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground text-sm">
                 <Truck className="h-10 w-10 mx-auto mb-2 opacity-40" />
                 <p>Brak kierowców przypisanych do flot</p>
-                <p className="text-xs mt-1">Zmień tryb wypłaty na "Flota" w zakładce Kierowcy</p>
+                <p className="text-xs mt-1">Zmień tryb wypłaty na "Flota" w zakładce Przelewy lub Gotówka</p>
               </div>
             ) : (
-              fleetGroupedDrivers.map(group => (
-                <div key={group.fleet.id} className="border rounded-lg p-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Truck className="h-4 w-4 text-primary" />
-                      <span className="font-semibold text-sm">{group.fleet.name}</span>
-                      <Badge variant="outline" className="text-xs">
-                        {group.drivers.length} kierowców
-                      </Badge>
+              <>
+                {/* Unassigned fleet drivers */}
+                {fleetDrivers.filter(r => !r.fleetId).length > 0 && (
+                  <div className="border rounded-lg p-3 space-y-2 border-destructive/30 bg-destructive/5">
+                    <p className="text-xs font-medium text-destructive">Kierowcy bez przypisanej floty:</p>
+                    <div className="space-y-1">
+                      {fleetDrivers.filter(r => !r.fleetId).map(row => renderDriverRow(row, false, true))}
                     </div>
-                    <span className="font-bold text-primary">
-                      {group.total.toFixed(2)} zł
-                    </span>
                   </div>
+                )}
 
-                  <div className="flex items-center gap-2">
-                    <Label className="text-xs whitespace-nowrap">Nr konta floty:</Label>
-                    <Input
-                      placeholder="Nr konta floty (26 cyfr)"
-                      value={group.fleet.iban || ''}
-                      onChange={e => {
-                        const newIban = e.target.value;
-                        setFleetOptions(prev => prev.map(f => f.id === group.fleet.id ? { ...f, iban: newIban } : f));
-                      }}
-                      className="h-7 text-xs font-mono flex-1"
-                    />
-                  </div>
-
-                  <div className="space-y-1 pl-4 border-l-2 border-muted">
-                    {group.drivers.map(d => (
-                      <div key={d.id} className="flex items-center justify-between text-xs py-1">
-                        <span>{d.name}</span>
-                        <span className="font-medium">{d.payout.toFixed(2)} zł</span>
+                {/* Grouped by fleet */}
+                {fleetGroupedDrivers.map(group => (
+                  <div key={group.fleet.id} className="border rounded-lg p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          checked={group.drivers.every(d => d.selected)}
+                          onCheckedChange={c => {
+                            for (const d of group.drivers) {
+                              updateDriverRow(d.id, { selected: !!c });
+                            }
+                          }}
+                        />
+                        <Truck className="h-4 w-4 text-primary" />
+                        <span className="font-semibold text-sm">{group.fleet.name}</span>
+                        <Badge variant="outline" className="text-xs">{group.drivers.length} kier.</Badge>
                       </div>
-                    ))}
+                      <span className="font-bold text-primary">{group.total.toFixed(2)} zł</span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Label className="text-xs whitespace-nowrap">Nr konta floty:</Label>
+                      <Input
+                        placeholder="Nr konta floty (26 cyfr)"
+                        value={group.fleet.iban || ''}
+                        onChange={e => {
+                          setFleetOptions(prev => prev.map(f => f.id === group.fleet.id ? { ...f, iban: e.target.value } : f));
+                        }}
+                        className="h-7 text-xs font-mono flex-1"
+                      />
+                    </div>
+
+                    <div className="space-y-1 pl-4 border-l-2 border-muted">
+                      {group.drivers.map(d => (
+                        <div key={d.id} className="flex items-center justify-between text-xs py-1">
+                          <span>{d.name}</span>
+                          <span className="font-medium">{d.payout.toFixed(2)} zł</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <p className="text-[10px] text-muted-foreground">
+                      Tytuł przelewu: <span className="font-medium">zaliczka na fakture</span>
+                    </p>
                   </div>
-                </div>
-              ))
+                ))}
+              </>
+            )}
+
+            {fleetGroupedDrivers.length > 0 && (
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => onOpenChange(false)}>Anuluj</Button>
+                <Button onClick={handleExportTransfers} disabled={loading} className="gap-2">
+                  <Download className="h-4 w-4" />
+                  Generuj przelewy flotowe
+                </Button>
+              </div>
             )}
           </TabsContent>
         </Tabs>
 
-        {/* ── BANK & SENDER SETTINGS ── */}
-        <div className="space-y-3 border-t pt-3 mt-2">
-          {/* Sender account - saved mode with mask */}
-          <div className="space-y-1.5">
-            <Label className="text-xs">Nr konta nadawcy (Twojej floty)</Label>
-            {savedSenderAccount && !editingSender ? (
-              <div className="flex items-center gap-2">
-                <div className="flex-1 px-3 py-2 rounded-md border bg-muted/30 font-mono text-sm text-muted-foreground">
-                  {maskIban(savedSenderAccount)}
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1 h-8"
-                  onClick={() => setEditingSender(true)}
-                >
-                  <Edit className="h-3.5 w-3.5" />
-                  Edytuj
-                </Button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <Input
-                  placeholder="00000000000000000000000000"
-                  value={senderAccount}
-                  onChange={e => setSenderAccount(e.target.value)}
-                  className="font-mono text-sm flex-1"
-                />
-                <Button
-                  variant="default"
-                  size="sm"
-                  className="gap-1 h-8"
-                  onClick={handleSaveSenderAccount}
-                  disabled={!senderAccount.replace(/\s/g, '')}
-                >
-                  <Check className="h-3.5 w-3.5" />
-                  Zapisz
-                </Button>
-              </div>
-            )}
-          </div>
-
-          {/* Bank selection */}
-          <div className="space-y-1.5">
-            <Label className="text-xs">Format banku</Label>
-            <Select value={selectedBank} onValueChange={setSelectedBank}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {POLISH_BANKS.map(b => (
-                  <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Preview */}
-          <div className="p-2 bg-muted/50 rounded text-xs text-muted-foreground">
-            Do wygenerowania: <strong>{transferRows.length}</strong> przelewów indywidualnych
-            {fleetGroupedDrivers.length > 0 && (
-              <> + <strong>{fleetGroupedDrivers.length}</strong> przelewów flotowych</>
-            )}
-            {' '}= <strong>{(transferTotal + fleetTotal).toFixed(2)} zł</strong>
-          </div>
-        </div>
-
-        <div className="flex justify-between items-center pt-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-xs gap-1"
-            onClick={() => setShowSettings(!showSettings)}
-          >
+        {/* Settings */}
+        <div className="flex justify-start pt-1">
+          <Button variant="ghost" size="sm" className="text-xs gap-1" onClick={() => setShowSettings(!showSettings)}>
             <Settings className="h-3 w-3" />
-            {showSettings ? 'Ukryj' : 'Ustawienia'}
+            {showSettings ? 'Ukryj ustawienia' : 'Ustawienia'}
           </Button>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Anuluj
-            </Button>
-            <Button onClick={handleExport} disabled={loading} className="gap-2">
-              <Download className="h-4 w-4" />
-              {loading ? 'Generowanie...' : 'Pobierz plik przelewów'}
-            </Button>
-          </div>
         </div>
 
         {showSettings && (
