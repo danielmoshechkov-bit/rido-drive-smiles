@@ -47,6 +47,14 @@ interface MissingAccountDriver {
   payout: number;
   iban: string;
   switchToCash: boolean;
+  switchToFleet: boolean;
+  partnerFleetId?: string;
+  partnerFleetName?: string;
+}
+
+interface PartnerFleet {
+  id: string;
+  name: string;
 }
 
 const POLISH_BANKS: BankFormat[] = [
@@ -165,6 +173,7 @@ export function BankTransferExportDialog({
   const [loading, setLoading] = useState(false);
   const [missingAccounts, setMissingAccounts] = useState<MissingAccountDriver[]>([]);
   const [showMissingAccounts, setShowMissingAccounts] = useState(false);
+  const [partnerFleets, setPartnerFleets] = useState<PartnerFleet[]>([]);
 
   // Load fleet settings for default transfer title
   useEffect(() => {
@@ -186,6 +195,22 @@ export function BankTransferExportDialog({
       loadFleetSettings();
       setMissingAccounts([]);
       setShowMissingAccounts(false);
+      // Load partner fleets
+      supabase
+        .from('driver_fleet_partnerships')
+        .select('partner_fleet_id, fleets!driver_fleet_partnerships_partner_fleet_id_fkey(id, name)')
+        .eq('managing_fleet_id', fleetId)
+        .eq('is_active', true)
+        .then(({ data }) => {
+          if (data) {
+            const fleets = data
+              .map((p: any) => ({ id: p.fleets?.id, name: p.fleets?.name }))
+              .filter((f: any) => f.id && f.name);
+            // Deduplicate
+            const unique = Array.from(new Map(fleets.map((f: any) => [f.id, f])).values()) as PartnerFleet[];
+            setPartnerFleets(unique);
+          }
+        });
     }
   }, [open, fleetId, periodLabel]);
 
@@ -264,6 +289,7 @@ export function BankTransferExportDialog({
             payout: s.final_payout,
             iban: driver?.iban || '',
             switchToCash: false,
+            switchToFleet: false,
           };
         }));
         setShowMissingAccounts(true);
@@ -276,6 +302,8 @@ export function BankTransferExportDialog({
         for (const ma of missingAccounts) {
           if (ma.switchToCash) {
             await supabase.from('drivers').update({ payment_method: 'cash' }).eq('id', ma.id);
+          } else if (ma.switchToFleet) {
+            await supabase.from('drivers').update({ payment_method: 'fleet' } as any).eq('id', ma.id);
           } else if (ma.iban.replace(/\s/g, '').length >= 20) {
             await supabase.from('drivers').update({ iban: ma.iban, bank_account: ma.iban } as any).eq('id', ma.id);
           }
@@ -293,15 +321,39 @@ export function BankTransferExportDialog({
         }
       }
 
-      // Re-filter after potential updates (exclude switched-to-cash and still missing iban)
+      // Re-filter after potential updates (exclude switched-to-cash, switched-to-fleet, and still missing iban)
+      const fleetGroupedDrivers: Record<string, { fleetName: string; drivers: typeof transferDrivers; total: number }> = {};
+      
       const finalTransferDrivers = transferDrivers.filter(s => {
         const driver = driverMap.get(s.driver_id);
         if (!driver) return false;
+        
+        // Check if this driver was switched to fleet
+        const maEntry = missingAccounts.find(ma => ma.id === s.driver_id);
+        if (maEntry?.switchToFleet || driver.payment_method === 'fleet') {
+          // Group by partner fleet
+          const fleetId = maEntry?.partnerFleetId || 'unknown';
+          const fleetName = partnerFleets.find(f => f.id === fleetId)?.name || 'Flota partnerska';
+          if (!fleetGroupedDrivers[fleetId]) {
+            fleetGroupedDrivers[fleetId] = { fleetName, drivers: [], total: 0 };
+          }
+          fleetGroupedDrivers[fleetId].drivers.push(s);
+          fleetGroupedDrivers[fleetId].total += s.final_payout;
+          return false; // Exclude from individual transfers
+        }
+        
         if (driver.payment_method !== 'transfer') return false;
         return !!getDriverIban(driver);
       });
 
-      if (finalTransferDrivers.length === 0) {
+      // Show fleet summary info
+      const fleetGroups = Object.values(fleetGroupedDrivers);
+      if (fleetGroups.length > 0) {
+        const fleetSummary = fleetGroups.map(g => `${g.fleetName}: ${g.drivers.length} kierowców = ${g.total.toFixed(2)} zł`).join(', ');
+        toast.info(`Kierowcy flotowi: ${fleetSummary}`);
+      }
+
+      if (finalTransferDrivers.length === 0 && fleetGroups.length === 0) {
         toast.info('Brak kierowców z prawidłowym nr konta do eksportu');
         setLoading(false);
         return;
@@ -425,9 +477,9 @@ export function BankTransferExportDialog({
                 {missingAccounts.length} kierowców bez nr konta
               </div>
               <p className="text-xs text-amber-700">
-                Wpisz nr konta lub zaznacz "Gotówka" aby zmienić sposób wypłaty.
+                Wpisz nr konta lub zaznacz "Gotówka" / "Flota" aby zmienić sposób wypłaty.
               </p>
-              <div className="space-y-2 max-h-[200px] overflow-y-auto">
+              <div className="space-y-2 max-h-[250px] overflow-y-auto">
                 {missingAccounts.map((ma, idx) => (
                   <div key={ma.id} className="flex items-center gap-2 text-xs">
                     <span className="w-[120px] truncate font-medium">{ma.name}</span>
@@ -438,17 +490,16 @@ export function BankTransferExportDialog({
                       onChange={(e) => {
                         const newIban = e.target.value;
                         setMissingAccounts(prev => prev.map((m, i) => 
-                          i === idx ? { ...m, iban: newIban, switchToCash: false } : m
+                          i === idx ? { ...m, iban: newIban, switchToCash: false, switchToFleet: false } : m
                         ));
                       }}
                       onBlur={async () => {
-                        // Auto-save IBAN when valid (26+ digits)
                         const cleanIban = ma.iban.replace(/\s/g, '');
-                        if (cleanIban.length >= 20 && !ma.switchToCash) {
+                        if (cleanIban.length >= 20 && !ma.switchToCash && !ma.switchToFleet) {
                           await supabase.from('drivers').update({ iban: ma.iban, bank_account: ma.iban } as any).eq('id', ma.id);
                         }
                       }}
-                      disabled={ma.switchToCash}
+                      disabled={ma.switchToCash || ma.switchToFleet}
                       className="h-7 text-xs flex-1"
                     />
                     <div className="flex items-center gap-1 whitespace-nowrap">
@@ -456,12 +507,25 @@ export function BankTransferExportDialog({
                         checked={ma.switchToCash}
                         onCheckedChange={(checked) => {
                           setMissingAccounts(prev => prev.map((m, i) => 
-                            i === idx ? { ...m, switchToCash: !!checked } : m
+                            i === idx ? { ...m, switchToCash: !!checked, switchToFleet: false } : m
                           ));
                         }}
                       />
                       <span className="text-xs">Gotówka</span>
                     </div>
+                    {partnerFleets.length > 0 && (
+                      <div className="flex items-center gap-1 whitespace-nowrap">
+                        <Checkbox
+                          checked={ma.switchToFleet}
+                          onCheckedChange={(checked) => {
+                            setMissingAccounts(prev => prev.map((m, i) => 
+                              i === idx ? { ...m, switchToFleet: !!checked, switchToCash: false, partnerFleetId: partnerFleets[0]?.id } : m
+                            ));
+                          }}
+                        />
+                        <span className="text-xs">Flota</span>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

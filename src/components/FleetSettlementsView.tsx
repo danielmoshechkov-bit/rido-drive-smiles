@@ -2472,8 +2472,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                 <div className="bg-muted/50 rounded-lg p-3 mt-4">
                   <div className="flex justify-between text-sm font-bold">
                     <span>RAZEM ({filteredSettlements.length}):</span>
-                    <span className={getAmountColor(filteredSettlements.reduce((sum, s) => sum + s.final_payout, 0))}>
-                      {formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.final_payout, 0))}
+                    <span className={getAmountColor(filteredSettlements.reduce((sum, s) => sum + getEffectiveSettlement(s).final_payout, 0))}>
+                      {formatCurrency(filteredSettlements.reduce((sum, s) => sum + getEffectiveSettlement(s).final_payout, 0))}
                     </span>
                   </div>
                 </div>
@@ -2671,7 +2671,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                         {/* Dług - clickable to view history */}
                         {isColVisible('debt') && <TableCell className="text-center px-2 py-1.5 text-xs whitespace-nowrap">
                           {(() => {
-                            const debt = settlement.debt_current || 0;
+                            const debt = driverDebts[settlement.driver_id] ?? settlement.debt_current ?? 0;
                             const badgeClick = (e: React.MouseEvent) => {
                               e.stopPropagation();
                               e.preventDefault();
@@ -2788,14 +2788,14 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                         return false;
                       }).map((fee, idx) => (
                         <TableCell key={fee.id} className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
-                          -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + (s.additional_fees[idx]?.amount || 0), 0))}
+                          -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + (getEffectiveSettlement(s).additional_fees[idx]?.amount || 0), 0))}
                         </TableCell>
                       ))}
                       {isColVisible('service_fee') && <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
-                        -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.service_fee, 0))}
+                        -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + getEffectiveSettlement(s).service_fee, 0))}
                       </TableCell>}
                       {isColVisible('rental') && <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
-                        -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + (s.rental || 0), 0))}
+                        -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + (getEffectiveSettlement(s).rental || 0), 0))}
                       </TableCell>}
                       {isColVisible('debt') && <TableCell className="text-center px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
                         {(() => {
@@ -2811,9 +2811,14 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                           );
                         })()}
                       </TableCell>}
-                      {isColVisible('payout') && <TableCell className={`text-right font-bold px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${getAmountColor(filteredSettlements.reduce((sum, s) => sum + s.final_payout, 0))}`}>
-                        {formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.final_payout, 0))}
-                      </TableCell>}
+                      {isColVisible('payout') && (() => {
+                        const totalPayout = filteredSettlements.reduce((sum, s) => sum + getEffectiveSettlement(s).final_payout, 0);
+                        return (
+                          <TableCell className={`text-right font-bold px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${getAmountColor(totalPayout)}`}>
+                            {formatCurrency(totalPayout)}
+                          </TableCell>
+                        );
+                      })()}
                     </TableRow>
                   </TableFooter>
                 </Table>
