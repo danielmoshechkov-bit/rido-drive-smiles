@@ -226,18 +226,11 @@ export function PartnerFleetsManagement({ fleetId }: PartnerFleetsManagementProp
         return;
       }
 
-      // Create a placeholder partnership record to establish the fleet-level relationship
-      // Use the first available driver from the fleet
-      if (drivers.length === 0) {
-        toast.error('Dodaj najpierw kierowcę do floty, aby móc dodać flotę partnerską');
-        setSaving(false);
-        return;
-      }
-
+      // Create a fleet-level partnership record (no specific driver needed)
       const { error: partnershipError } = await supabase
         .from('driver_fleet_partnerships')
         .insert({
-          driver_id: drivers[0].id,
+          driver_id: null,
           partner_fleet_id: partnerFleetId,
           managing_fleet_id: fleetId,
           settled_by: 'managing',
