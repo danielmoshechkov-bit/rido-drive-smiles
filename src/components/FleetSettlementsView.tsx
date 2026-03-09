@@ -2786,36 +2786,70 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                   <TableFooter>
                     <TableRow className="bg-muted/50 font-bold">
                       <TableCell className="px-2 py-1.5 text-xs whitespace-nowrap">RAZEM ({filteredSettlements.length})</TableCell>
-                      {isColVisible('uber') && <TableCell className="text-right px-2 py-1.5 text-xs text-gray-900 tabular-nums whitespace-nowrap">
-                        {formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.uber_base, 0))}
-                      </TableCell>}
-                      {isColVisible('uber_cash') && <TableCell className="text-right px-2 py-1.5 text-xs text-gray-900 tabular-nums whitespace-nowrap">
-                        -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.uber_cash, 0))}
-                      </TableCell>}
-                      {isColVisible('bolt') && <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
-                        {formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.bolt_base, 0))}
-                      </TableCell>}
-                      {isColVisible('bolt_cash') && <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
-                        -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.bolt_cash, 0))}
-                      </TableCell>}
-                      {isColVisible('bolt_commission') && <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
-                        -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.bolt_commission, 0))}
-                      </TableCell>}
-                      {isColVisible('freenow') && <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
-                        {formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.freenow_base, 0))}
-                      </TableCell>}
-                      {isColVisible('freenow_cash') && <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
-                        -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.freenow_cash, 0))}
-                      </TableCell>}
-                      {isColVisible('freenow_commission') && <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
-                        -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.freenow_commission, 0))}
-                      </TableCell>}
-                      {isColVisible('total_cash') && <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 font-semibold tabular-nums whitespace-nowrap">
-                        -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.total_cash, 0))}
-                      </TableCell>}
-                      {isColVisible('total_commission') && <TableCell className="text-right px-2 py-1.5 text-xs text-orange-600 font-semibold tabular-nums whitespace-nowrap">
-                        -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.total_commission, 0))}
-                      </TableCell>}
+                      {fleetSettlementModeState === 'dual_tax' ? (
+                        <>
+                          <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
+                            {formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.total_base, 0))}
+                          </TableCell>
+                          <TableCell className="text-right px-2 py-1.5 text-xs text-purple-600 tabular-nums whitespace-nowrap">
+                            -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.vat_amount, 0))}
+                          </TableCell>
+                          <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
+                            -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.total_cash, 0))}
+                          </TableCell>
+                          <TableCell className="text-right px-2 py-1.5 text-xs text-purple-600 tabular-nums whitespace-nowrap">
+                            {formatCurrency(filteredSettlements.reduce((sum, s) => sum + (s.bolt_bonusy || 0), 0))}
+                          </TableCell>
+                          <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
+                            {formatCurrency(filteredSettlements.reduce((sum, s) => sum + (s.bolt_rekompensaty || 0), 0))}
+                          </TableCell>
+                          <TableCell className="text-right px-2 py-1.5 text-xs text-purple-600 tabular-nums whitespace-nowrap">
+                            {formatCurrency(filteredSettlements.reduce((sum, s) => sum + Math.abs(s.bolt_anulacje || 0), 0))}
+                          </TableCell>
+                          <TableCell className="text-right px-2 py-1.5 text-xs text-orange-600 tabular-nums whitespace-nowrap">
+                            -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.total_commission, 0))}
+                          </TableCell>
+                          <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
+                            0,00
+                          </TableCell>
+                          <TableCell className="text-right px-2 py-1.5 text-xs font-bold tabular-nums whitespace-nowrap">
+                            {formatCurrency(filteredSettlements.reduce((sum, s) => sum + (s.netto || 0), 0))}
+                          </TableCell>
+                        </>
+                      ) : (
+                        <>
+                          {isColVisible('uber') && <TableCell className="text-right px-2 py-1.5 text-xs text-gray-900 tabular-nums whitespace-nowrap">
+                            {formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.uber_base, 0))}
+                          </TableCell>}
+                          {isColVisible('uber_cash') && <TableCell className="text-right px-2 py-1.5 text-xs text-gray-900 tabular-nums whitespace-nowrap">
+                            -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.uber_cash, 0))}
+                          </TableCell>}
+                          {isColVisible('bolt') && <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
+                            {formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.bolt_base, 0))}
+                          </TableCell>}
+                          {isColVisible('bolt_cash') && <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
+                            -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.bolt_cash, 0))}
+                          </TableCell>}
+                          {isColVisible('bolt_commission') && <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
+                            -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.bolt_commission, 0))}
+                          </TableCell>}
+                          {isColVisible('freenow') && <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
+                            {formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.freenow_base, 0))}
+                          </TableCell>}
+                          {isColVisible('freenow_cash') && <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
+                            -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.freenow_cash, 0))}
+                          </TableCell>}
+                          {isColVisible('freenow_commission') && <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
+                            -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.freenow_commission, 0))}
+                          </TableCell>}
+                          {isColVisible('total_cash') && <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 font-semibold tabular-nums whitespace-nowrap">
+                            -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.total_cash, 0))}
+                          </TableCell>}
+                          {isColVisible('total_commission') && <TableCell className="text-right px-2 py-1.5 text-xs text-orange-600 font-semibold tabular-nums whitespace-nowrap">
+                            -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.total_commission, 0))}
+                          </TableCell>}
+                        </>
+                      )}
                       {fleetSettlementModeState !== 'dual_tax' && isColVisible('fuel') && (
                         <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
                           -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.fuel, 0))}
