@@ -1445,7 +1445,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             fuel: 0,
             fuel_vat_refund: 0,
             net_without_commission: platform_net,
-            final_payout: 0, // Don't show negative payout - deficit goes to debt
+            final_payout: negFinalPayout, // Store raw negative payout
             has_negative_balance: true,
             negative_deficit: Math.abs(negFinalPayout),
           };
