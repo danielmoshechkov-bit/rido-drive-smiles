@@ -4580,7 +4580,7 @@ export type Database = {
       driver_fleet_partnerships: {
         Row: {
           created_at: string
-          driver_id: string
+          driver_id: string | null
           id: string
           invoice_frequency: string | null
           is_active: boolean
@@ -4593,7 +4593,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          driver_id: string
+          driver_id?: string | null
           id?: string
           invoice_frequency?: string | null
           is_active?: boolean
@@ -4606,7 +4606,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          driver_id?: string
+          driver_id?: string | null
           id?: string
           invoice_frequency?: string | null
           is_active?: boolean
