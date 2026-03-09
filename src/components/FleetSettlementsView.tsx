@@ -532,7 +532,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       transferDrivers.forEach(s => {
         const driver = driverMap.get(s.driver_id);
         const iban = driver?.iban || '';
-        const amount = s.final_payout.toFixed(2).replace('.', ',');
+        const amount = getDoWyplaty(s).toFixed(2).replace('.', ',');
         csvContent += `${s.driver_name};${iban};${amount};Rozliczenie ${periodLabel}\n`;
       });
       
