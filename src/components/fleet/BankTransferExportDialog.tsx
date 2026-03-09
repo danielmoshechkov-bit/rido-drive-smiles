@@ -383,7 +383,7 @@ export function BankTransferExportDialog({
 
     const transfers: TransferRow[] = selectedTransfers
       .filter(r => r.iban.replace(/\s/g, '').length >= 20)
-      .map(r => ({ iban: r.iban, amount: r.payout, name: r.name, title: getTransferTitle(r) }));
+      .map(r => ({ iban: r.iban, amount: r.payout, name: r.displayName, title: getTransferTitle(r) }));
 
     // Add fleet aggregate transfers
     for (const group of fleetGroupedDrivers) {
