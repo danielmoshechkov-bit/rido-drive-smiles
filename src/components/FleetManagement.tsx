@@ -469,6 +469,7 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
           { value: "owners", label: "Nasz wynajem", visible: userType === 'fleet' && !!fleetId },
           { value: "najem", label: "Najem", visible: userType === 'fleet' && !!fleetId },
           { value: "rentals", label: "Rezerwacje z giełdy", visible: userType === 'fleet' && !!fleetId },
+          { value: "partner-fleets", label: "Floty partnerskie", visible: userType === 'fleet' && !!fleetId },
           { value: "settings", label: "Ustawienia floty", visible: false },
           { value: "fleets", label: "Floty", visible: userType === 'admin' },
           { value: "driver-vehicles", label: "Auta kierowców", visible: userType === 'admin' },
