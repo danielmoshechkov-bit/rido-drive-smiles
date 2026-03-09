@@ -2575,10 +2575,10 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                       {fleetSettlementModeState === 'dual_tax' && isColVisible('rekompensaty') && (
                         <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-purple-600 whitespace-nowrap">Rekomp.</TableHead>
                       )}
-                      {fleetSettlementModeState !== 'dual_tax' && isColVisible('fuel') && (
+                      {isColVisible('fuel') && (
                         <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">Paliwo</TableHead>
                       )}
-                      {fleetSettlementModeState !== 'dual_tax' && isColVisible('vat') && (
+                      {isColVisible('vat') && (
                         <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-purple-600 whitespace-nowrap">VAT {fleetVatRateState}%</TableHead>
                       )}
                       {isColVisible('vat_refund') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-green-600 whitespace-nowrap">VAT zwrot</TableHead>}
