@@ -2705,39 +2705,6 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                         {isColVisible('rental') && <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
                           {renderEditableCell(settlement.driver_id, 'rental', settlement.rental || 0, hasAnyActivity)}
                         </TableCell>}
-                        {/* Dług - clickable to view history */}
-                        {isColVisible('debt') && <TableCell className="text-center px-2 py-1.5 text-xs whitespace-nowrap">
-                          {(() => {
-                            const debt = driverDebts[settlement.driver_id] ?? settlement.debt_current ?? 0;
-                            const badgeClick = (e: React.MouseEvent) => {
-                              e.stopPropagation();
-                              e.preventDefault();
-                              setSelectedDriverForDebt({ id: settlement.driver_id, name: settlement.driver_name });
-                              setDebtDialogOpen(true);
-                            };
-                            if (debt <= 0) {
-                              return (
-                                <Badge 
-                                  variant="outline" 
-                                  className="bg-green-500/10 text-green-700 border-green-500/20 text-[10px] cursor-pointer"
-                                  onClick={badgeClick}
-                                >
-                                  ✓ 0
-                                </Badge>
-                              );
-                            }
-                            return (
-                              <Badge 
-                                variant="destructive" 
-                                className="cursor-pointer text-[10px]"
-                                onClick={badgeClick}
-                              >
-                                {formatCurrency(debt)} zł
-                              </Badge>
-                            );
-                          })()}
-                        </TableCell>}
-                        {/* Wypłata (auto-calculated) */}
                         {/* Wypłata (raw calculated payout, can be negative) */}
                         {isColVisible('payout') && <TableCell className={`text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${getAmountColor(settlement.final_payout)}`}>
                           {formatCurrency(settlement.final_payout)}
