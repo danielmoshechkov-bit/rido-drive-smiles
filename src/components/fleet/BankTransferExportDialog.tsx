@@ -240,7 +240,7 @@ export function BankTransferExportDialog({
 
       const { data: driversData } = await supabase
         .from('drivers')
-        .select('id, first_name, last_name, iban, bank_account, payment_method, billing_method, fleet_id')
+        .select('id, first_name, last_name, iban, bank_account, payment_method, billing_method, fleet_id, b2b_enabled, b2b_company_name, b2b_vat_payer')
         .eq('fleet_id', fleetId);
 
       const { data: contracts } = await supabase
@@ -256,13 +256,17 @@ export function BankTransferExportDialog({
       const rows: DriverRow[] = settlements
         .filter(s => s.final_payout > 0)
         .map(s => {
-          const driver = driverMap.get(s.driver_id);
+          const driver = driverMap.get(s.driver_id) as any;
           const existingIban = getCleanIban(driver);
           const pm = driver?.payment_method || 'transfer';
+          const personalName = `${driver?.first_name || ''} ${driver?.last_name || ''}`.trim() || s.driver_name;
+          const isB2B = !!(driver?.b2b_enabled);
+          const companyName = driver?.b2b_company_name || '';
 
           return {
             id: s.driver_id,
-            name: `${driver?.first_name || ''} ${driver?.last_name || ''}`.trim() || s.driver_name,
+            name: personalName,
+            displayName: isB2B && companyName ? companyName : personalName,
             payout: s.final_payout,
             iban: existingIban || driver?.iban || '',
             paymentMode: (pm === 'cash' ? 'cash' : pm === 'fleet' ? 'fleet' : 'transfer') as DriverRow['paymentMode'],
@@ -270,6 +274,9 @@ export function BankTransferExportDialog({
             fleetName: undefined,
             contractNumber: contractMap.get(s.driver_id) || null,
             billingMethod: driver?.billing_method || '',
+            b2bEnabled: isB2B,
+            b2bCompanyName: companyName,
+            b2bVatPayer: !!(driver?.b2b_vat_payer),
             selected: false,
           };
         })
