@@ -716,12 +716,13 @@ export function BankTransferExportDialog({
                     <div className="flex items-center gap-2">
                       <Label className="text-xs whitespace-nowrap">Nr konta floty:</Label>
                       <Input
-                        placeholder="Nr konta floty (26 cyfr)"
-                        value={group.fleet.iban || ''}
+                        placeholder="00 0000 0000 0000 0000 0000 0000"
+                        value={formatIbanDisplay(group.fleet.iban || '')}
                         onChange={e => {
-                          setFleetOptions(prev => prev.map(f => f.id === group.fleet.id ? { ...f, iban: e.target.value } : f));
+                          const digitsOnly = e.target.value.replace(/[^0-9]/g, '').slice(0, 26);
+                          setFleetOptions(prev => prev.map(f => f.id === group.fleet.id ? { ...f, iban: digitsOnly } : f));
                         }}
-                        className="h-7 text-xs font-mono flex-1"
+                        className="h-7 text-[11px] font-mono tracking-wider flex-1 text-foreground"
                       />
                     </div>
 
