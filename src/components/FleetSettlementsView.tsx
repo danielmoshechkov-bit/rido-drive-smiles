@@ -1211,23 +1211,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       // Agreguj rozliczenia per kierowca
       const aggregated = driversData.map(driver => {
         const driverSettlements = settlementsData?.filter(s => s.driver_id === driver.id) || [];
-        
-        // DEBUG: Log amounts for drivers with Bolt data
-        if (driverSettlements.length > 0) {
-          driverSettlements.forEach(s => {
-            const amounts = s.amounts as any || {};
-            if (amounts.bolt_projected_d || amounts.boltGross || amounts.bolt_base || amounts.bolt_net) {
-              console.log(`🔍 BOLT DEBUG [${(driver as any).first_name} ${(driver as any).last_name}] settlement ${s.id}:`, 
-                'bolt_projected_d=', amounts.bolt_projected_d, 
-                'boltGross=', amounts.boltGross,
-                'bolt_base=', amounts.bolt_base,
-                'bolt_net=', amounts.bolt_net,
-                'platform=', s.platform,
-                'ALL KEYS=', Object.keys(amounts).filter(k => k.toLowerCase().includes('bolt'))
-              );
-            }
-          });
-        }
+
 
         // Parsuj amounts JSONB - obsługuj NOWE klucze snake_case z bazy oraz STARE camelCase z CSV importu
         const uber_base = driverSettlements.reduce((sum, s) => {
@@ -1240,7 +1224,15 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         const bolt_base = driverSettlements.reduce((sum, s) => {
           const amounts = s.amounts as any || {};
           // Nowy format: bolt_projected_d, stary: boltGross
-          const bolt = parseFloat(amounts.bolt_projected_d || amounts.boltGross || '0');
+          // Jeśli bolt_projected_d = 0 ale bolt_payout_s != 0, użyj bolt_payout_s jako base
+          // (np. kierowca ma tylko opłaty Bolt bez kursów = -6.77)
+          let bolt = parseFloat(amounts.bolt_projected_d || amounts.boltGross || '0');
+          if (bolt === 0) {
+            const boltPayout = parseFloat(amounts.bolt_payout_s || '0');
+            if (boltPayout !== 0) {
+              bolt = boltPayout;
+            }
+          }
           return sum + bolt;
         }, 0);
 
