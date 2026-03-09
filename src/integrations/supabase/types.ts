@@ -4933,9 +4933,14 @@ export type Database = {
           address_postal_code: string | null
           address_street: string | null
           b2b_address: string | null
+          b2b_apartment_number: string | null
+          b2b_building_number: string | null
+          b2b_city: string | null
           b2b_company_name: string | null
           b2b_enabled: boolean | null
           b2b_nip: string | null
+          b2b_postal_code: string | null
+          b2b_street: string | null
           b2b_vat_payer: boolean | null
           bank_account: string | null
           billing_method: string | null
@@ -4981,9 +4986,14 @@ export type Database = {
           address_postal_code?: string | null
           address_street?: string | null
           b2b_address?: string | null
+          b2b_apartment_number?: string | null
+          b2b_building_number?: string | null
+          b2b_city?: string | null
           b2b_company_name?: string | null
           b2b_enabled?: boolean | null
           b2b_nip?: string | null
+          b2b_postal_code?: string | null
+          b2b_street?: string | null
           b2b_vat_payer?: boolean | null
           bank_account?: string | null
           billing_method?: string | null
@@ -5029,9 +5039,14 @@ export type Database = {
           address_postal_code?: string | null
           address_street?: string | null
           b2b_address?: string | null
+          b2b_apartment_number?: string | null
+          b2b_building_number?: string | null
+          b2b_city?: string | null
           b2b_company_name?: string | null
           b2b_enabled?: boolean | null
           b2b_nip?: string | null
+          b2b_postal_code?: string | null
+          b2b_street?: string | null
           b2b_vat_payer?: boolean | null
           bank_account?: string | null
           billing_method?: string | null

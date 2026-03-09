@@ -43,6 +43,7 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId, fleetId, f
   const isFleetUser = userType === 'fleet' && fleetId;
   const isRentalVariant = variant === 'rental';
   const [loading, setLoading] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Set<string>>(new Set());
 
   const [plate, setPlate] = useState("");
   const [vin, setVin] = useState("");
@@ -62,16 +63,22 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId, fleetId, f
   const [acPremium, setAcPremium] = useState<number | "">("");
 
   const handleSave = async () => {
+    const errors = new Set<string>();
+    if (!plate) errors.add('plate');
+    if (!brand) errors.add('brand');
+    if (!model) errors.add('model');
+    if (!fuelType) errors.add('fuelType');
     if (isRentalVariant) {
-      if (!plate || !brand || !model || !fuelType || !year || !color || !weeklyRentalFee) {
-        toast.error("Uzupełnij wymagane pola: nr rejestracyjny, markę, model, rodzaj paliwa, rok, kolor i kwotę wynajmu.");
-        return;
-      }
+      if (!year) errors.add('year');
+      if (!color) errors.add('color');
+      if (!weeklyRentalFee) errors.add('weeklyRentalFee');
     } else {
-      if (!plate || !brand || !model || !bodyType || !fuelType) {
-        toast.error("Uzupełnij wymagane pola: nr rejestracyjny, markę, model, rodzaj nadwozia i paliwa.");
-        return;
-      }
+      if (!bodyType) errors.add('bodyType');
+    }
+    setValidationErrors(errors);
+    if (errors.size > 0) {
+      toast.error("Uzupełnij wymagane pola podświetlone na czerwono.");
+      return;
     }
     setLoading(true);
     try {
@@ -157,8 +164,8 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId, fleetId, f
         <div className="overflow-y-auto flex-1 px-4 sm:px-6 pb-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <Label>Nr rejestracyjny *</Label>
-            <Input value={plate} onChange={(e) => setPlate(e.target.value.toUpperCase())} placeholder="np. WX1234A" className="uppercase" />
+            <Label className={validationErrors.has('plate') ? 'text-destructive' : ''}>Nr rejestracyjny *</Label>
+            <Input value={plate} onChange={(e) => { setPlate(e.target.value.toUpperCase()); setValidationErrors(prev => { const n = new Set(prev); n.delete('plate'); return n; }); }} placeholder="np. WX1234A" className={`uppercase ${validationErrors.has('plate') ? 'border-destructive ring-1 ring-destructive' : ''}`} />
           </div>
           <div>
             <Label>VIN</Label>
@@ -166,28 +173,28 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId, fleetId, f
           </div>
           
           {/* Car Brand/Model Selector - spans full width */}
-          <div className="md:col-span-2">
+          <div className={`md:col-span-2 ${(validationErrors.has('brand') || validationErrors.has('model')) ? 'ring-1 ring-destructive rounded-md p-1' : ''}`}>
             <CarBrandModelSelector
               brand={brand}
               model={model}
-              onBrandChange={setBrand}
-              onModelChange={setModel}
+              onBrandChange={v => { setBrand(v); setValidationErrors(prev => { const n = new Set(prev); n.delete('brand'); return n; }); }}
+              onModelChange={v => { setModel(v); setValidationErrors(prev => { const n = new Set(prev); n.delete('model'); return n; }); }}
             />
           </div>
 
           <div>
-            <Label>Rok {isRentalVariant && '*'}</Label>
-            <Input type="number" value={year} onChange={(e) => setYear(e.target.value === "" ? "" : Number(e.target.value))} placeholder="np. 2018" />
+            <Label className={validationErrors.has('year') ? 'text-destructive' : ''}>Rok {isRentalVariant && '*'}</Label>
+            <Input type="number" value={year} onChange={(e) => { setYear(e.target.value === "" ? "" : Number(e.target.value)); setValidationErrors(prev => { const n = new Set(prev); n.delete('year'); return n; }); }} placeholder="np. 2018" className={validationErrors.has('year') ? 'border-destructive ring-1 ring-destructive' : ''} />
           </div>
           <div>
-            <Label>Kolor {isRentalVariant && '*'}</Label>
-            <Input value={color} onChange={(e) => setColor(e.target.value)} placeholder="np. biały" />
+            <Label className={validationErrors.has('color') ? 'text-destructive' : ''}>Kolor {isRentalVariant && '*'}</Label>
+            <Input value={color} onChange={(e) => { setColor(e.target.value); setValidationErrors(prev => { const n = new Set(prev); n.delete('color'); return n; }); }} placeholder="np. biały" className={validationErrors.has('color') ? 'border-destructive ring-1 ring-destructive' : ''} />
           </div>
 
           <div>
-            <Label>Rodzaj nadwozia {!isRentalVariant && '*'}</Label>
-            <Select value={bodyType} onValueChange={setBodyType}>
-              <SelectTrigger>
+            <Label className={validationErrors.has('bodyType') ? 'text-destructive' : ''}>Rodzaj nadwozia {!isRentalVariant && '*'}</Label>
+            <Select value={bodyType} onValueChange={v => { setBodyType(v); setValidationErrors(prev => { const n = new Set(prev); n.delete('bodyType'); return n; }); }}>
+              <SelectTrigger className={validationErrors.has('bodyType') ? 'border-destructive ring-1 ring-destructive' : ''}>
                 <SelectValue placeholder="Wybierz rodzaj nadwozia" />
               </SelectTrigger>
               <SelectContent>
@@ -198,9 +205,9 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId, fleetId, f
             </Select>
           </div>
           <div>
-            <Label>Rodzaj paliwa *</Label>
-            <Select value={fuelType} onValueChange={setFuelType}>
-              <SelectTrigger>
+            <Label className={validationErrors.has('fuelType') ? 'text-destructive' : ''}>Rodzaj paliwa *</Label>
+            <Select value={fuelType} onValueChange={v => { setFuelType(v); setValidationErrors(prev => { const n = new Set(prev); n.delete('fuelType'); return n; }); }}>
+              <SelectTrigger className={validationErrors.has('fuelType') ? 'border-destructive ring-1 ring-destructive' : ''}>
                 <SelectValue placeholder="Wybierz rodzaj paliwa" />
               </SelectTrigger>
               <SelectContent>
@@ -212,12 +219,13 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId, fleetId, f
           </div>
 
           <div>
-            <Label>Kwota za wynajem {isRentalVariant ? '*' : '(opcjonalnie)'}</Label>
+            <Label className={validationErrors.has('weeklyRentalFee') ? 'text-destructive' : ''}>Kwota za wynajem {isRentalVariant ? '*' : '(opcjonalnie)'}</Label>
             <Input 
               type="number" 
               value={weeklyRentalFee} 
-              onChange={(e) => setWeeklyRentalFee(e.target.value === "" ? "" : Number(e.target.value))} 
+              onChange={(e) => { setWeeklyRentalFee(e.target.value === "" ? "" : Number(e.target.value)); setValidationErrors(prev => { const n = new Set(prev); n.delete('weeklyRentalFee'); return n; }); }} 
               placeholder="zł/tydzień" 
+              className={validationErrors.has('weeklyRentalFee') ? 'border-destructive ring-1 ring-destructive' : ''}
             />
           </div>
           <div>

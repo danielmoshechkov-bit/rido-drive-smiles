@@ -1060,41 +1060,105 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                               </div>
 
                               {(driver as any).b2b_enabled && (
-                                <div className="space-y-1.5 pl-5 text-xs">
+                                <div className="space-y-2 pl-5 text-xs">
                                   <div className="flex items-center gap-2">
-                                    <span className="text-muted-foreground w-[70px]">Firma:</span>
+                                    <span className="text-muted-foreground w-[70px]">Firma: <span className="text-destructive">*</span></span>
                                     <InlineEdit
                                       value={(driver as any).b2b_company_name || ''}
                                       onSave={async (value) => {
-                                        const { error } = await supabase.from('drivers').update({ b2b_company_name: value.trim() || null } as any).eq('id', driver.id);
+                                        if (!value.trim()) { toast.error('Nazwa firmy jest wymagana'); return; }
+                                        const { error } = await supabase.from('drivers').update({ b2b_company_name: value.trim() } as any).eq('id', driver.id);
                                         if (error) toast.error('Błąd'); else { toast.success('Zapisano'); refetch(); }
                                       }}
-                                      placeholder="Nazwa firmy"
+                                      placeholder="Nazwa firmy (wymagane)"
+                                      className={!(driver as any).b2b_company_name ? 'ring-1 ring-destructive rounded-lg' : ''}
                                     />
                                   </div>
                                   <div className="flex items-center gap-2">
-                                    <span className="text-muted-foreground w-[70px]">NIP:</span>
+                                    <span className="text-muted-foreground w-[70px]">NIP: <span className="text-destructive">*</span></span>
                                     <InlineEdit
                                       value={(driver as any).b2b_nip || ''}
                                       onSave={async (value) => {
-                                        const { error } = await supabase.from('drivers').update({ b2b_nip: value.trim() || null } as any).eq('id', driver.id);
+                                        const clean = value.replace(/\D/g, '');
+                                        if (clean.length !== 10) { toast.error('NIP musi mieć 10 cyfr'); return; }
+                                        const { error } = await supabase.from('drivers').update({ b2b_nip: clean } as any).eq('id', driver.id);
                                         if (error) toast.error('Błąd'); else { toast.success('Zapisano'); refetch(); }
                                       }}
-                                      placeholder="NIP firmy"
+                                      placeholder="NIP firmy (wymagane)"
+                                      className={!(driver as any).b2b_nip ? 'ring-1 ring-destructive rounded-lg' : ''}
                                     />
                                   </div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-muted-foreground w-[70px]">Adres:</span>
-                                    <InlineEdit
-                                      value={(driver as any).b2b_address || ''}
-                                      onSave={async (value) => {
-                                        const { error } = await supabase.from('drivers').update({ b2b_address: value.trim() || null } as any).eq('id', driver.id);
-                                        if (error) toast.error('Błąd'); else { toast.success('Zapisano'); refetch(); }
-                                      }}
-                                      placeholder="Adres firmy"
-                                    />
+
+                                  {/* Address fields */}
+                                  <div className="space-y-1.5 border-t pt-2">
+                                    <span className="text-muted-foreground text-[10px] font-medium uppercase tracking-wide">Adres firmy</span>
+                                    <div className="grid grid-cols-[1fr_70px_50px] gap-1.5">
+                                      <div>
+                                        <InlineEdit
+                                          value={(driver as any).b2b_street || ''}
+                                          onSave={async (value) => {
+                                            if (!value.trim()) { toast.error('Ulica jest wymagana'); return; }
+                                            const { error } = await supabase.from('drivers').update({ b2b_street: value.trim() } as any).eq('id', driver.id);
+                                            if (error) toast.error('Błąd'); else { toast.success('Zapisano'); refetch(); }
+                                          }}
+                                          placeholder="Ulica *"
+                                          className={!(driver as any).b2b_street ? 'ring-1 ring-destructive rounded-lg' : ''}
+                                        />
+                                      </div>
+                                      <div>
+                                        <InlineEdit
+                                          value={(driver as any).b2b_building_number || ''}
+                                          onSave={async (value) => {
+                                            if (!value.trim()) { toast.error('Nr domu jest wymagany'); return; }
+                                            const { error } = await supabase.from('drivers').update({ b2b_building_number: value.trim() } as any).eq('id', driver.id);
+                                            if (error) toast.error('Błąd'); else { toast.success('Zapisano'); refetch(); }
+                                          }}
+                                          placeholder="Nr *"
+                                          className={!(driver as any).b2b_building_number ? 'ring-1 ring-destructive rounded-lg' : ''}
+                                        />
+                                      </div>
+                                      <div>
+                                        <InlineEdit
+                                          value={(driver as any).b2b_apartment_number || ''}
+                                          onSave={async (value) => {
+                                            const { error } = await supabase.from('drivers').update({ b2b_apartment_number: value.trim() || null } as any).eq('id', driver.id);
+                                            if (error) toast.error('Błąd'); else { toast.success('Zapisano'); refetch(); }
+                                          }}
+                                          placeholder="Lok."
+                                        />
+                                      </div>
+                                    </div>
+                                    <div className="grid grid-cols-[100px_1fr] gap-1.5">
+                                      <div>
+                                        <InlineEdit
+                                          value={(driver as any).b2b_postal_code || ''}
+                                          onSave={async (value) => {
+                                            const digits = value.replace(/\D/g, '');
+                                            if (digits.length !== 5) { toast.error('Kod pocztowy: 5 cyfr (00-000)'); return; }
+                                            const formatted = `${digits.slice(0, 2)}-${digits.slice(2, 5)}`;
+                                            const { error } = await supabase.from('drivers').update({ b2b_postal_code: formatted } as any).eq('id', driver.id);
+                                            if (error) toast.error('Błąd'); else { toast.success('Zapisano'); refetch(); }
+                                          }}
+                                          placeholder="00-000 *"
+                                          className={!(driver as any).b2b_postal_code ? 'ring-1 ring-destructive rounded-lg' : ''}
+                                        />
+                                      </div>
+                                      <div>
+                                        <InlineEdit
+                                          value={(driver as any).b2b_city || ''}
+                                          onSave={async (value) => {
+                                            if (!value.trim()) { toast.error('Miasto jest wymagane'); return; }
+                                            const { error } = await supabase.from('drivers').update({ b2b_city: value.trim() } as any).eq('id', driver.id);
+                                            if (error) toast.error('Błąd'); else { toast.success('Zapisano'); refetch(); }
+                                          }}
+                                          placeholder="Miasto *"
+                                          className={!(driver as any).b2b_city ? 'ring-1 ring-destructive rounded-lg' : ''}
+                                        />
+                                      </div>
+                                    </div>
                                   </div>
-                                  <div className="flex items-center justify-between">
+
+                                  <div className="flex items-center justify-between pt-1">
                                     <span className="text-muted-foreground">Płatnik VAT:</span>
                                     <Switch
                                       checked={!!(driver as any).b2b_vat_payer}

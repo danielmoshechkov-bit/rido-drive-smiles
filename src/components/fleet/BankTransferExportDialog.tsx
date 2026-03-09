@@ -428,6 +428,24 @@ export function BankTransferExportDialog({
   };
 
   // ── Render: driver row ──
+  const formatIbanDisplay = (iban: string): string => {
+    const clean = iban.replace(/\s/g, '').replace(/[^0-9]/g, '');
+    if (!clean) return '';
+    const parts: string[] = [];
+    parts.push(clean.slice(0, 2));
+    let rest = clean.slice(2);
+    while (rest.length > 0) {
+      parts.push(rest.slice(0, 4));
+      rest = rest.slice(4);
+    }
+    return parts.join(' ');
+  };
+
+  const handleIbanChange = (id: string, rawValue: string) => {
+    const digitsOnly = rawValue.replace(/[^0-9]/g, '').slice(0, 26);
+    updateDriverRow(id, { iban: digitsOnly });
+  };
+
   const renderDriverRow = (row: DriverRow, showIban = true, showModeSelector = true) => (
     <div
       key={row.id}
@@ -444,11 +462,11 @@ export function BankTransferExportDialog({
 
       {showIban && row.paymentMode === 'transfer' && (
         <Input
-          placeholder="Nr konta (26 cyfr)"
-          value={row.iban}
-          onChange={e => updateDriverRow(row.id, { iban: e.target.value })}
+          placeholder="00 0000 0000 0000 0000 0000 0000"
+          value={formatIbanDisplay(row.iban)}
+          onChange={e => handleIbanChange(row.id, e.target.value)}
           onBlur={() => saveIban(row.id, row.iban)}
-          className="h-7 text-xs flex-1 min-w-[140px] font-mono"
+          className="h-7 text-[11px] flex-1 min-w-[200px] font-mono tracking-wider text-foreground"
         />
       )}
 
@@ -577,10 +595,13 @@ export function BankTransferExportDialog({
                 ) : (
                   <div className="flex items-center gap-2">
                     <Input
-                      placeholder="00000000000000000000000000"
-                      value={senderAccount}
-                      onChange={e => setSenderAccount(e.target.value)}
-                      className="font-mono text-sm flex-1"
+                      placeholder="00 0000 0000 0000 0000 0000 0000"
+                      value={formatIbanDisplay(senderAccount)}
+                      onChange={e => {
+                        const digitsOnly = e.target.value.replace(/[^0-9]/g, '').slice(0, 26);
+                        setSenderAccount(digitsOnly);
+                      }}
+                      className="font-mono text-[11px] tracking-wider flex-1 text-foreground"
                     />
                     <Button variant="default" size="sm" className="gap-1 h-8" onClick={handleSaveSenderAccount} disabled={!senderAccount.replace(/\s/g, '')}>
                       <Check className="h-3.5 w-3.5" /> Zapisz
@@ -695,12 +716,13 @@ export function BankTransferExportDialog({
                     <div className="flex items-center gap-2">
                       <Label className="text-xs whitespace-nowrap">Nr konta floty:</Label>
                       <Input
-                        placeholder="Nr konta floty (26 cyfr)"
-                        value={group.fleet.iban || ''}
+                        placeholder="00 0000 0000 0000 0000 0000 0000"
+                        value={formatIbanDisplay(group.fleet.iban || '')}
                         onChange={e => {
-                          setFleetOptions(prev => prev.map(f => f.id === group.fleet.id ? { ...f, iban: e.target.value } : f));
+                          const digitsOnly = e.target.value.replace(/[^0-9]/g, '').slice(0, 26);
+                          setFleetOptions(prev => prev.map(f => f.id === group.fleet.id ? { ...f, iban: digitsOnly } : f));
                         }}
-                        className="h-7 text-xs font-mono flex-1"
+                        className="h-7 text-[11px] font-mono tracking-wider flex-1 text-foreground"
                       />
                     </div>
 
