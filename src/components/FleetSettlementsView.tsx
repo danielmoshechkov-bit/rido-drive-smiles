@@ -2738,9 +2738,51 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                           })()}
                         </TableCell>}
                         {/* Wypłata (auto-calculated) */}
-                        {isColVisible('payout') && <TableCell className={`text-right font-bold px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${getAmountColor(settlement.final_payout)}`}>
+                        {/* Wypłata (raw calculated payout, can be negative) */}
+                        {isColVisible('payout') && <TableCell className={`text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${getAmountColor(settlement.final_payout)}`}>
                           {formatCurrency(settlement.final_payout)}
                         </TableCell>}
+                        {/* Dług - clickable to view history */}
+                        {isColVisible('debt') && <TableCell className="text-center px-2 py-1.5 text-xs whitespace-nowrap">
+                          {(() => {
+                            const debt = driverDebts[settlement.driver_id] ?? settlement.debt_current ?? 0;
+                            const badgeClick = (e: React.MouseEvent) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              setSelectedDriverForDebt({ id: settlement.driver_id, name: settlement.driver_name });
+                              setDebtDialogOpen(true);
+                            };
+                            if (debt <= 0) {
+                              return (
+                                <Badge 
+                                  variant="outline" 
+                                  className="bg-green-500/10 text-green-700 border-green-500/20 text-[10px] cursor-pointer"
+                                  onClick={badgeClick}
+                                >
+                                  ✓ 0
+                                </Badge>
+                              );
+                            }
+                            return (
+                              <Badge 
+                                variant="destructive" 
+                                className="cursor-pointer text-[10px]"
+                                onClick={badgeClick}
+                              >
+                                {formatCurrency(debt)} zł
+                              </Badge>
+                            );
+                          })()}
+                        </TableCell>}
+                        {/* Do wypłaty (after debt deduction) */}
+                        {isColVisible('do_wyplaty') && (() => {
+                          const doWyplaty = getDoWyplaty(rawSettlement);
+                          return (
+                            <TableCell className={`text-right font-bold px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${doWyplaty > 0 ? 'text-green-700' : 'text-muted-foreground'}`}>
+                              {formatCurrency(doWyplaty)}
+                            </TableCell>
+                          );
+                        })()}
                         {/* Opłacony - toggle */}
                         {isColVisible('paid') && <TableCell className="text-center px-2 py-1.5 text-xs whitespace-nowrap">
                           <button
