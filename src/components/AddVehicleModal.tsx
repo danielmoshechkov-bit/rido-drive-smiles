@@ -183,12 +183,12 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId, fleetId, f
           </div>
 
           <div>
-            <Label>Rok {isRentalVariant && '*'}</Label>
-            <Input type="number" value={year} onChange={(e) => setYear(e.target.value === "" ? "" : Number(e.target.value))} placeholder="np. 2018" />
+            <Label className={validationErrors.has('year') ? 'text-destructive' : ''}>Rok {isRentalVariant && '*'}</Label>
+            <Input type="number" value={year} onChange={(e) => { setYear(e.target.value === "" ? "" : Number(e.target.value)); setValidationErrors(prev => { const n = new Set(prev); n.delete('year'); return n; }); }} placeholder="np. 2018" className={validationErrors.has('year') ? 'border-destructive ring-1 ring-destructive' : ''} />
           </div>
           <div>
-            <Label>Kolor {isRentalVariant && '*'}</Label>
-            <Input value={color} onChange={(e) => setColor(e.target.value)} placeholder="np. biały" />
+            <Label className={validationErrors.has('color') ? 'text-destructive' : ''}>Kolor {isRentalVariant && '*'}</Label>
+            <Input value={color} onChange={(e) => { setColor(e.target.value); setValidationErrors(prev => { const n = new Set(prev); n.delete('color'); return n; }); }} placeholder="np. biały" className={validationErrors.has('color') ? 'border-destructive ring-1 ring-destructive' : ''} />
           </div>
 
           <div>
