@@ -193,6 +193,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
+      try { localStorage.setItem(`fleet_hidden_cols_${fleetId}`, JSON.stringify([...next])); } catch {}
       return next;
     });
   };
