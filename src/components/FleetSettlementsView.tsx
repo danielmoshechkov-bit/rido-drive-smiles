@@ -150,8 +150,14 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const [fleetSettlementModeState, setFleetSettlementModeState] = useState<string>('single_tax');
   const [fleetSecondaryVatRateState, setFleetSecondaryVatRateState] = useState(23);
   const [fleetAdditionalPercentRateState, setFleetAdditionalPercentRateState] = useState(0);
-  // Column visibility state for single_tax mode
-  const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(new Set());
+  // Column visibility state - persisted per fleet
+  const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem(`fleet_hidden_cols_${fleetId}`);
+      if (saved) return new Set(JSON.parse(saved));
+    } catch {}
+    return new Set();
+  });
 
   const SINGLE_TAX_COLUMNS = [
     { key: 'uber', label: 'Uber' },
@@ -187,6 +193,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
+      try { localStorage.setItem(`fleet_hidden_cols_${fleetId}`, JSON.stringify([...next])); } catch {}
       return next;
     });
   };
@@ -707,13 +714,15 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     return s;
   };
 
-  // Calculate debt-adjusted "Do wypłaty" (what driver actually receives)
+  // Calculate debt-adjusted "Wypłata" — negative means new debt carries over
   const getDoWyplaty = (settlement: DriverSettlement): number => {
     const effective = getEffectiveSettlement(settlement);
     const rawPayout = effective.final_payout;
-    if (rawPayout <= 0) return 0;
     const debt = driverDebts[settlement.driver_id] ?? settlement.debt_current ?? 0;
-    if (debt > 0) return Math.max(0, rawPayout - debt);
+    // rawPayout negative + debt = deeper negative (both accumulate)
+    if (rawPayout <= 0) return rawPayout - debt;
+    // rawPayout positive but debt exists — subtract debt
+    if (debt > 0) return rawPayout - debt;
     return rawPayout;
   };
 
