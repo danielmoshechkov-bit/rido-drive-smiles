@@ -173,6 +173,7 @@ export function BankTransferExportDialog({
   const [loading, setLoading] = useState(false);
   const [missingAccounts, setMissingAccounts] = useState<MissingAccountDriver[]>([]);
   const [showMissingAccounts, setShowMissingAccounts] = useState(false);
+  const [partnerFleets, setPartnerFleets] = useState<PartnerFleet[]>([]);
 
   // Load fleet settings for default transfer title
   useEffect(() => {
