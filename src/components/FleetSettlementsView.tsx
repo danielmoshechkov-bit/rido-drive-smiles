@@ -177,6 +177,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     { key: 'rental', label: 'Wynajem' },
     { key: 'payout', label: 'Wypłata' },
     { key: 'debt', label: 'Dług' },
+    { key: 'do_wyplaty', label: 'Do wypłaty' },
     { key: 'paid', label: 'Opłacony' },
   ];
 
