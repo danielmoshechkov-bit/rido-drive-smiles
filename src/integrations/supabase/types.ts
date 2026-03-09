@@ -4954,6 +4954,7 @@ export type Database = {
           created_at: string
           custom_weekly_fee: number | null
           email: string | null
+          exclude_from_settlements: boolean | null
           first_name: string | null
           fleet_id: string | null
           fuel_card_number: string | null
@@ -5007,6 +5008,7 @@ export type Database = {
           created_at?: string
           custom_weekly_fee?: number | null
           email?: string | null
+          exclude_from_settlements?: boolean | null
           first_name?: string | null
           fleet_id?: string | null
           fuel_card_number?: string | null
@@ -5060,6 +5062,7 @@ export type Database = {
           created_at?: string
           custom_weekly_fee?: number | null
           email?: string | null
+          exclude_from_settlements?: boolean | null
           first_name?: string | null
           fleet_id?: string | null
           fuel_card_number?: string | null
