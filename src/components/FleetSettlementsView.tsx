@@ -692,11 +692,10 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       );
     }
     
-    // Recalculate payout based on settlement mode
+    // Recalculate raw payout based on settlement mode (before debt deduction)
     const total_additional = s.additional_fees.reduce((sum, f) => sum + f.amount, 0);
     
     if (fleetSettlementModeState === 'dual_tax') {
-      // Dual tax: Netto - Cash - VAT%(D) - 23%(I+J+K) - fees
       const netto_calc = s.total_base - s.total_commission;
       s.final_payout = netto_calc - s.total_cash - s.vat_amount - (s.secondary_vat_amount || 0) 
                        - s.service_fee - total_additional - (s.rental || 0) - s.fuel + s.fuel_vat_refund;
@@ -705,6 +704,16 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     }
     
     return s;
+  };
+
+  // Calculate debt-adjusted "Do wypłaty" (what driver actually receives)
+  const getDoWyplaty = (settlement: DriverSettlement): number => {
+    const effective = getEffectiveSettlement(settlement);
+    const rawPayout = effective.final_payout;
+    if (rawPayout <= 0) return 0;
+    const debt = driverDebts[settlement.driver_id] ?? settlement.debt_current ?? 0;
+    if (debt > 0) return Math.max(0, rawPayout - debt);
+    return rawPayout;
   };
 
   // Parse locale-aware number: handles "0.00400" → 400, "1 031,00" → 1031, etc.
