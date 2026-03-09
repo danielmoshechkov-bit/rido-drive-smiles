@@ -1240,7 +1240,15 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         const bolt_base = driverSettlements.reduce((sum, s) => {
           const amounts = s.amounts as any || {};
           // Nowy format: bolt_projected_d, stary: boltGross
-          const bolt = parseFloat(amounts.bolt_projected_d || amounts.boltGross || '0');
+          // Jeśli bolt_projected_d = 0 ale bolt_payout_s != 0, użyj bolt_payout_s jako base
+          // (np. kierowca ma tylko opłaty Bolt bez kursów = -6.77)
+          let bolt = parseFloat(amounts.bolt_projected_d || amounts.boltGross || '0');
+          if (bolt === 0) {
+            const boltPayout = parseFloat(amounts.bolt_payout_s || '0');
+            if (boltPayout !== 0) {
+              bolt = boltPayout;
+            }
+          }
           return sum + bolt;
         }, 0);
 
