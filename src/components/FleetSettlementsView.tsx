@@ -445,7 +445,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                 <tr>
                   <td>${idx + 1}</td>
                   <td>${s.driver_name}</td>
-                  <td class="amount ${s.final_payout >= 0 ? 'payout' : 'debt'}">${s.final_payout.toFixed(2).replace('.', ',')} zł</td>
+                  <td class="amount ${s.doWyplaty >= 0 ? 'payout' : 'debt'}">${(s.doWyplaty || s.final_payout).toFixed(2).replace('.', ',')} zł</td>
                   <td class="signature"></td>
                 </tr>
               `).join('')}
