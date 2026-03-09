@@ -123,12 +123,23 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Send email via SMTP
+    // Minify HTML to avoid SMTP line length issues (RFC 2821 limit: 998 chars per line)
+    const minifiedHtml = htmlContent
+      .replace(/\r\n/g, '\n')
+      .replace(/\n\s+/g, ' ')
+      .replace(/>\s+</g, '><')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+
+    // Configure SMTP client
+    const port = smtpPort;
+    const useTls = port === 465;
+
     const client = new SMTPClient({
       connection: {
         hostname: smtpHost,
-        port: smtpPort,
-        tls: true,
+        port: port,
+        tls: useTls,
         auth: {
           username: smtpUser,
           password: smtpPassword,
@@ -138,17 +149,10 @@ const handler = async (req: Request): Promise<Response> => {
 
     await client.send({
       from: `${senderName} <${senderEmail}>`,
-      to: email,
+      to: [email],
       subject: subject,
       content: "Twoja przeglądarka nie obsługuje HTML.",
-      html: htmlContent,
-      mimeContent: [
-        {
-          mimeType: "text/html; charset=utf-8",
-          content: htmlContent,
-          transferEncoding: "quoted-printable",
-        },
-      ],
+      html: minifiedHtml,
     });
 
     await client.close();
