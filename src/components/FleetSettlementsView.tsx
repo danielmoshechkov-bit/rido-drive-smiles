@@ -150,8 +150,14 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const [fleetSettlementModeState, setFleetSettlementModeState] = useState<string>('single_tax');
   const [fleetSecondaryVatRateState, setFleetSecondaryVatRateState] = useState(23);
   const [fleetAdditionalPercentRateState, setFleetAdditionalPercentRateState] = useState(0);
-  // Column visibility state for single_tax mode
-  const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(new Set());
+  // Column visibility state - persisted per fleet
+  const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem(`fleet_hidden_cols_${fleetId}`);
+      if (saved) return new Set(JSON.parse(saved));
+    } catch {}
+    return new Set();
+  });
 
   const SINGLE_TAX_COLUMNS = [
     { key: 'uber', label: 'Uber' },
