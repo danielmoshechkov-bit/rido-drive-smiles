@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -10,10 +10,27 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Download, Building2, Settings, AlertTriangle } from 'lucide-react';
+import {
+  Download,
+  Building2,
+  Settings,
+  Users,
+  Banknote,
+  Plus,
+  Truck,
+  Search,
+} from 'lucide-react';
 import { format } from 'date-fns';
 
 interface BankTransferExportDialogProps {
@@ -33,130 +50,110 @@ interface BankFormat {
   id: string;
   name: string;
   shortName: string;
-  separator: string;
-  encoding: string;
-  dateFormat: string;
-  amountFormat: 'comma' | 'dot';
-  columns: string[];
   extension: string;
+  generate: (rows: TransferRow[], senderAccount: string, date: string) => string;
 }
 
-interface MissingAccountDriver {
+interface TransferRow {
+  iban: string;
+  amount: number;
+  name: string;
+  title: string;
+}
+
+interface DriverRow {
   id: string;
   name: string;
   payout: number;
   iban: string;
-  switchToCash: boolean;
-  switchToFleet: boolean;
-  partnerFleetId?: string;
-  partnerFleetName?: string;
+  paymentMode: 'transfer' | 'cash' | 'fleet';
+  fleetId?: string;
+  fleetName?: string;
+  contractNumber?: string | null;
+  billingMethod?: string;
+  selected: boolean;
 }
 
-interface PartnerFleet {
+interface FleetOption {
   id: string;
   name: string;
+  iban?: string;
+}
+
+// ── Format generators ──
+
+function generateElixir0(rows: TransferRow[], senderAccount: string, dateStr: string): string {
+  const cleanAccount = senderAccount.replace(/\s/g, '').replace(/^PL/i, '');
+  const lines: string[] = [];
+  // Header
+  lines.push('4120414|1');
+  for (const r of rows) {
+    const recipientAccount = r.iban.replace(/\s/g, '').replace(/^PL/i, '');
+    const amountStr = r.amount.toFixed(2).replace('.', ',');
+    lines.push(`1|${cleanAccount}|${recipientAccount}|${r.name}|Adres odbiorcy|${amountStr}|1|${r.title}|${dateStr}|`);
+  }
+  return lines.join('\n');
+}
+
+function generateCSV(rows: TransferRow[], sep: string, _senderAccount: string): string {
+  return rows.map(r => {
+    const amountStr = r.amount.toFixed(2).replace('.', ',');
+    return `${r.iban.replace(/\s/g, '')}${sep}${amountStr}${sep}${r.name}${sep}${r.title}`;
+  }).join('\n');
 }
 
 const POLISH_BANKS: BankFormat[] = [
   {
+    id: 'santander',
+    name: 'Santander Bank Polska (Elixir-0)',
+    shortName: 'Santander',
+    extension: 'txt',
+    generate: (rows, sender, _date) => {
+      const d = format(new Date(), 'dd-MM-yyyy');
+      return generateElixir0(rows, sender, d);
+    },
+  },
+  {
     id: 'mbank',
     name: 'mBank',
     shortName: 'mBank',
-    separator: ';',
-    encoding: 'utf-8',
-    dateFormat: 'yyyy-MM-dd',
-    amountFormat: 'comma',
-    columns: ['account', 'amount', 'name', 'address', 'title'],
-    extension: 'csv'
+    extension: 'csv',
+    generate: (rows) => rows.map(r => {
+      const a = r.amount.toFixed(2).replace('.', ',');
+      return `${r.iban.replace(/\s/g, '')};${a};${r.name};;${r.title}`;
+    }).join('\n'),
   },
   {
     id: 'pko_bp',
     name: 'PKO Bank Polski',
     shortName: 'PKO BP',
-    separator: ';',
-    encoding: 'windows-1250',
-    dateFormat: 'dd.MM.yyyy',
-    amountFormat: 'comma',
-    columns: ['account', 'amount', 'name', 'title'],
-    extension: 'csv'
+    extension: 'csv',
+    generate: (rows) => generateCSV(rows, ';', ''),
   },
   {
     id: 'ing',
     name: 'ING Bank Śląski',
     shortName: 'ING',
-    separator: ';',
-    encoding: 'utf-8',
-    dateFormat: 'yyyy-MM-dd',
-    amountFormat: 'comma',
-    columns: ['account', 'amount', 'currency', 'name', 'title'],
-    extension: 'csv'
-  },
-  {
-    id: 'santander',
-    name: 'Santander Bank Polska',
-    shortName: 'Santander',
-    separator: ';',
-    encoding: 'windows-1250',
-    dateFormat: 'dd-MM-yyyy',
-    amountFormat: 'comma',
-    columns: ['account', 'amount', 'name', 'title'],
-    extension: 'txt'
-  },
-  {
-    id: 'bnp_paribas',
-    name: 'BNP Paribas Bank Polska',
-    shortName: 'BNP Paribas',
-    separator: ';',
-    encoding: 'utf-8',
-    dateFormat: 'yyyy-MM-dd',
-    amountFormat: 'comma',
-    columns: ['account', 'amount', 'name', 'title'],
-    extension: 'csv'
-  },
-  {
-    id: 'pekao',
-    name: 'Bank Pekao SA',
-    shortName: 'Pekao',
-    separator: ';',
-    encoding: 'windows-1250',
-    dateFormat: 'dd.MM.yyyy',
-    amountFormat: 'comma',
-    columns: ['account', 'amount', 'name', 'address', 'title'],
-    extension: 'csv'
-  },
-  {
-    id: 'millennium',
-    name: 'Bank Millennium',
-    shortName: 'Millennium',
-    separator: ';',
-    encoding: 'utf-8',
-    dateFormat: 'yyyy-MM-dd',
-    amountFormat: 'comma',
-    columns: ['account', 'amount', 'name', 'title'],
-    extension: 'csv'
-  },
-  {
-    id: 'alior',
-    name: 'Alior Bank',
-    shortName: 'Alior',
-    separator: '|',
-    encoding: 'utf-8',
-    dateFormat: 'yyyy-MM-dd',
-    amountFormat: 'dot',
-    columns: ['account', 'amount', 'currency', 'name', 'title'],
-    extension: 'txt'
+    extension: 'csv',
+    generate: (rows) => rows.map(r => {
+      const a = r.amount.toFixed(2).replace('.', ',');
+      return `${r.iban.replace(/\s/g, '')};${a};PLN;${r.name};${r.title}`;
+    }).join('\n'),
   },
   {
     id: 'universal',
     name: 'Format uniwersalny (CSV)',
     shortName: 'CSV',
-    separator: ';',
-    encoding: 'utf-8',
-    dateFormat: 'yyyy-MM-dd',
-    amountFormat: 'comma',
-    columns: ['name', 'account', 'amount', 'title'],
-    extension: 'csv'
-  }
+    extension: 'csv',
+    generate: (rows) => {
+      const header = 'Odbiorca;IBAN;Kwota;Tytuł';
+      const body = rows.map(r => {
+        const a = r.amount.toFixed(2).replace('.', ',');
+        return `${r.name};${r.iban.replace(/\s/g, '')};${a};${r.title}`;
+      }).join('\n');
+      return header + '\n' + body;
+    },
+  },
 ];
 
 export function BankTransferExportDialog({
@@ -165,451 +162,508 @@ export function BankTransferExportDialog({
   fleetId,
   settlements,
   periodLabel,
-  weekStart
+  weekStart,
 }: BankTransferExportDialogProps) {
-  const [selectedBank, setSelectedBank] = useState<string>('universal');
-  const [transferTitle, setTransferTitle] = useState<string>('');
-  const [showSettings, setShowSettings] = useState(false);
+  const [selectedBank, setSelectedBank] = useState('santander');
+  const [senderAccount, setSenderAccount] = useState('');
   const [loading, setLoading] = useState(false);
-  const [missingAccounts, setMissingAccounts] = useState<MissingAccountDriver[]>([]);
-  const [showMissingAccounts, setShowMissingAccounts] = useState(false);
-  const [partnerFleets, setPartnerFleets] = useState<PartnerFleet[]>([]);
+  const [driverRows, setDriverRows] = useState<DriverRow[]>([]);
+  const [fleetOptions, setFleetOptions] = useState<FleetOption[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState('drivers');
+  const [showSettings, setShowSettings] = useState(false);
+  const [defaultTitle, setDefaultTitle] = useState('wynajem auta');
 
-  // Load fleet settings for default transfer title
+  // Load data when dialog opens
   useEffect(() => {
-    const loadFleetSettings = async () => {
-      const { data } = await supabase
+    if (!open) return;
+    loadData();
+  }, [open, fleetId]);
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      // Load fleet sender account & settings
+      const { data: fleetData } = await supabase
         .from('fleets')
         .select('*')
         .eq('id', fleetId)
         .single();
-      
-      if (data && (data as any).transfer_title_template) {
-        setTransferTitle((data as any).transfer_title_template);
-      } else {
-        setTransferTitle('wynajem auta');
+
+      if (fleetData) {
+        setSenderAccount((fleetData as any).sender_bank_account || '');
+        setDefaultTitle((fleetData as any).transfer_title_template || 'wynajem auta');
       }
-    };
-    
-    if (open) {
-      loadFleetSettings();
-      setMissingAccounts([]);
-      setShowMissingAccounts(false);
-      // Load partner fleets
-      supabase
+
+      // Load all fleets for fleet assignment
+      const { data: allFleets } = await supabase
+        .from('fleets')
+        .select('id, name')
+        .order('name');
+
+      setFleetOptions((allFleets || []).map(f => ({ id: f.id, name: f.name })));
+
+      // Load partner fleets with IBAN
+      const { data: partnerships } = await supabase
         .from('driver_fleet_partnerships')
         .select('partner_fleet_id, fleets!driver_fleet_partnerships_partner_fleet_id_fkey(id, name)')
         .eq('managing_fleet_id', fleetId)
-        .eq('is_active', true)
-        .then(({ data }) => {
-          if (data) {
-            const fleets = data
-              .map((p: any) => ({ id: p.fleets?.id, name: p.fleets?.name }))
-              .filter((f: any) => f.id && f.name);
-            // Deduplicate
-            const unique = Array.from(new Map(fleets.map((f: any) => [f.id, f])).values()) as PartnerFleet[];
-            setPartnerFleets(unique);
-          }
-        });
-    }
-  }, [open, fleetId, periodLabel]);
+        .eq('is_active', true);
 
-  const handleExport = async () => {
-    setLoading(true);
-    try {
-      const bank = POLISH_BANKS.find(b => b.id === selectedBank) || POLISH_BANKS[POLISH_BANKS.length - 1];
-      
-      // Get drivers with IBAN and payment method
+      const partnerFleetIds = (partnerships || []).map((p: any) => p.fleets?.id).filter(Boolean);
+
+      // Load drivers
       const { data: driversData } = await supabase
         .from('drivers')
-        .select(`
-          id, first_name, last_name, iban, bank_account, payment_method, billing_method,
-          driver_app_users!left(settlement_frequency, payout_requested_at)
-        `)
+        .select('id, first_name, last_name, iban, bank_account, payment_method, billing_method, fleet_id')
         .eq('fleet_id', fleetId);
 
-      // Get signed rental contracts for transfer title
-      const { data: signedContracts } = await supabase
+      // Load signed contracts
+      const { data: contracts } = await supabase
         .from('driver_document_requests')
         .select('driver_id, contract_number')
         .eq('fleet_id', fleetId)
         .eq('template_code', 'RENTAL_CONTRACT')
         .eq('status', 'signed');
 
-      const contractMap = new Map(
-        (signedContracts || []).map(c => [c.driver_id, c.contract_number])
-      );
+      const contractMap = new Map((contracts || []).map((c: any) => [c.driver_id, c.contract_number]));
 
-      if (!driversData) {
-        toast.error('Brak danych kierowców');
-        return;
-      }
+      // Build driver rows from settlements
+      const driverMap = new Map((driversData || []).map(d => [d.id, d]));
 
-      const driverMap = new Map(driversData.map(d => [d.id, d as any]));
-
-      // Filter drivers with transfer payment and positive payout
-      const transferDrivers = settlements.filter(s => {
-        const driver = driverMap.get(s.driver_id);
-        if (!driver) return false;
-        if (driver.payment_method !== 'transfer') return false;
-        if (s.final_payout <= 0) return false;
-        
-        const appUser = driver.driver_app_users?.[0];
-        const isWeekly = !appUser?.settlement_frequency || appUser.settlement_frequency === 'weekly';
-        const requestedPayout = !!appUser?.payout_requested_at;
-        
-        return isWeekly || requestedPayout;
-      });
-
-      if (transferDrivers.length === 0) {
-        toast.info('Brak kierowców z przelewem do eksportu');
-        setLoading(false);
-        return;
-      }
-
-      // Check for missing bank accounts (check both iban and bank_account fields)
-      const getDriverIban = (driver: any) => {
-        const iban = (driver?.iban || '').replace(/\s/g, '');
-        const bankAccount = (driver?.bank_account || '').replace(/\s/g, '');
-        return iban.length >= 20 ? iban : (bankAccount.length >= 20 ? bankAccount : '');
-      };
-
-      const driversWithoutIban = transferDrivers.filter(s => {
-        const driver = driverMap.get(s.driver_id);
-        return !getDriverIban(driver);
-      });
-
-      if (driversWithoutIban.length > 0 && !showMissingAccounts) {
-        // Show missing accounts panel
-        setMissingAccounts(driversWithoutIban.map(s => {
+      const rows: DriverRow[] = settlements
+        .filter(s => s.final_payout > 0)
+        .map(s => {
           const driver = driverMap.get(s.driver_id);
+          const existingIban = getCleanIban(driver);
+          const pm = driver?.payment_method || 'transfer';
+
           return {
             id: s.driver_id,
             name: `${driver?.first_name || ''} ${driver?.last_name || ''}`.trim() || s.driver_name,
             payout: s.final_payout,
-            iban: driver?.iban || '',
-            switchToCash: false,
-            switchToFleet: false,
+            iban: existingIban || driver?.iban || '',
+            paymentMode: (pm === 'cash' ? 'cash' : pm === 'fleet' ? 'fleet' : 'transfer') as 'transfer' | 'cash' | 'fleet',
+            fleetId: undefined,
+            fleetName: undefined,
+            contractNumber: contractMap.get(s.driver_id) || null,
+            billingMethod: driver?.billing_method || '',
+            selected: pm === 'transfer' && !!existingIban,
           };
-        }));
-        setShowMissingAccounts(true);
-        setLoading(false);
-        return;
-      }
+        })
+        .sort((a, b) => a.name.localeCompare(b.name, 'pl'));
 
-      // If showing missing accounts, apply changes first
-      if (showMissingAccounts && missingAccounts.length > 0) {
-        for (const ma of missingAccounts) {
-          if (ma.switchToCash) {
-            await supabase.from('drivers').update({ payment_method: 'cash' }).eq('id', ma.id);
-          } else if (ma.switchToFleet) {
-            await supabase.from('drivers').update({ payment_method: 'fleet' } as any).eq('id', ma.id);
-          } else if (ma.iban.replace(/\s/g, '').length >= 20) {
-            await supabase.from('drivers').update({ iban: ma.iban, bank_account: ma.iban } as any).eq('id', ma.id);
-          }
-        }
-        // Re-fetch drivers
-        const { data: updatedDrivers } = await supabase
-          .from('drivers')
-          .select('id, first_name, last_name, iban, bank_account, payment_method, billing_method, driver_app_users!left(settlement_frequency, payout_requested_at)')
-          .eq('fleet_id', fleetId);
-        if (updatedDrivers) {
-          driversData.length = 0;
-          driversData.push(...updatedDrivers);
-          driverMap.clear();
-          updatedDrivers.forEach(d => driverMap.set(d.id, d as any));
-        }
-      }
-
-      // Re-filter after potential updates (exclude switched-to-cash, switched-to-fleet, and still missing iban)
-      const fleetGroupedDrivers: Record<string, { fleetName: string; drivers: typeof transferDrivers; total: number }> = {};
-      
-      const finalTransferDrivers = transferDrivers.filter(s => {
-        const driver = driverMap.get(s.driver_id);
-        if (!driver) return false;
-        
-        // Check if this driver was switched to fleet
-        const maEntry = missingAccounts.find(ma => ma.id === s.driver_id);
-        if (maEntry?.switchToFleet || driver.payment_method === 'fleet') {
-          // Group by partner fleet
-          const fleetId = maEntry?.partnerFleetId || 'unknown';
-          const fleetName = partnerFleets.find(f => f.id === fleetId)?.name || 'Flota partnerska';
-          if (!fleetGroupedDrivers[fleetId]) {
-            fleetGroupedDrivers[fleetId] = { fleetName, drivers: [], total: 0 };
-          }
-          fleetGroupedDrivers[fleetId].drivers.push(s);
-          fleetGroupedDrivers[fleetId].total += s.final_payout;
-          return false; // Exclude from individual transfers
-        }
-        
-        if (driver.payment_method !== 'transfer') return false;
-        return !!getDriverIban(driver);
-      });
-
-      // Show fleet summary info
-      const fleetGroups = Object.values(fleetGroupedDrivers);
-      if (fleetGroups.length > 0) {
-        const fleetSummary = fleetGroups.map(g => `${g.fleetName}: ${g.drivers.length} kierowców = ${g.total.toFixed(2)} zł`).join(', ');
-        toast.info(`Kierowcy flotowi: ${fleetSummary}`);
-      }
-
-      if (finalTransferDrivers.length === 0 && fleetGroups.length === 0) {
-        toast.info('Brak kierowców z prawidłowym nr konta do eksportu');
-        setLoading(false);
-        return;
-      }
-
-      // Generate file content based on bank format
-      let content = '';
-
-      // Header row for some banks
-      if (bank.id === 'universal') {
-        content = `Odbiorca${bank.separator}IBAN${bank.separator}Kwota${bank.separator}Tytuł\n`;
-      }
-
-      finalTransferDrivers.forEach(s => {
-        const driver = driverMap.get(s.driver_id);
-        const iban = getDriverIban(driver);
-        const amount = bank.amountFormat === 'comma'
-          ? s.final_payout.toFixed(2).replace('.', ',')
-          : s.final_payout.toFixed(2);
-        
-        // Determine title: signed contract number > B2B invoice > default
-        let title = transferTitle;
-        const contractNumber = contractMap.get(s.driver_id);
-        if (contractNumber) {
-          title = `Umowa najmu auta nr ${contractNumber}`;
-        } else if (driver?.billing_method === 'b2b' || driver?.billing_method === 'B2B') {
-          title = `Faktura ${periodLabel}`;
-        }
-
-        const driverName = `${driver?.first_name || ''} ${driver?.last_name || ''}`.trim() || s.driver_name;
-        
-        // Build row based on bank format
-        switch (bank.id) {
-          case 'mbank':
-            content += `${iban}${bank.separator}${amount}${bank.separator}${driverName}${bank.separator}${bank.separator}${title}\n`;
-            break;
-          case 'pko_bp':
-          case 'pekao':
-            content += `${iban}${bank.separator}${amount}${bank.separator}${driverName}${bank.separator}${title}\n`;
-            break;
-          case 'ing':
-            content += `${iban}${bank.separator}${amount}${bank.separator}PLN${bank.separator}${driverName}${bank.separator}${title}\n`;
-            break;
-          case 'santander':
-            content += `${iban}${bank.separator}${amount}${bank.separator}${driverName}${bank.separator}${title}\n`;
-            break;
-          case 'alior':
-            content += `${iban.replace(/\D/g, '')}|${s.final_payout.toFixed(2)}|PLN|${driverName}|${title.substring(0, 140)}\n`;
-            break;
-          default:
-            content += `${driverName}${bank.separator}${iban}${bank.separator}${amount}${bank.separator}${title}\n`;
-        }
-      });
-
-      // Create and download file
-      const encoding = bank.encoding === 'windows-1250' ? 'windows-1250' : 'utf-8';
-      const bom = (encoding === 'utf-8' && bank.id !== 'alior') ? '\ufeff' : '';
-      const blob = new Blob([bom + content.trimEnd() + (bank.id === 'alior' ? '' : '\n')], { 
-        type: `text/${bank.extension};charset=${encoding}` 
-      });
-      
-      const mondayDate = weekStart 
-        ? format(new Date(weekStart), 'dd.MM.yyyy')
-        : format(new Date(), 'dd.MM.yyyy');
-      
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = `${mondayDate}_Przelewy_${bank.shortName}.${bank.extension}`;
-      link.click();
-
-      // Clear payout_requested_at for processed drivers
-      const processedDriverIds = finalTransferDrivers.map(s => s.driver_id);
-      await supabase
-        .from('driver_app_users')
-        .update({ payout_requested_at: null })
-        .in('driver_id', processedDriverIds);
-
-      toast.success(`Wyeksportowano ${finalTransferDrivers.length} przelewów w formacie ${bank.name}`);
-      onOpenChange(false);
-    } catch (error) {
-      console.error('Error exporting transfers:', error);
-      toast.error('Błąd podczas eksportu');
+      setDriverRows(rows);
+    } catch (e) {
+      console.error('Error loading transfer data:', e);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSaveDefaultTitle = async () => {
-    try {
-      await supabase
-        .from('fleets')
-        .update({ transfer_title_template: transferTitle } as any)
-        .eq('id', fleetId);
-      
-      toast.success('Zapisano domyślny tytuł przelewu');
-      setShowSettings(false);
-    } catch (error) {
-      toast.error('Błąd zapisu ustawień');
+  const getCleanIban = (driver: any) => {
+    const iban = (driver?.iban || '').replace(/\s/g, '');
+    const bankAccount = (driver?.bank_account || '').replace(/\s/g, '');
+    return iban.length >= 20 ? iban : bankAccount.length >= 20 ? bankAccount : '';
+  };
+
+  const getTransferTitle = (row: DriverRow): string => {
+    if (row.billingMethod === 'b2b' || row.billingMethod === 'B2B') {
+      return 'zaliczka na fakture';
     }
+    if (row.contractNumber) {
+      return `wynajem auta umowa nr ${row.contractNumber}`;
+    }
+    return defaultTitle || 'wynajem auta';
+  };
+
+  const updateDriverRow = (id: string, updates: Partial<DriverRow>) => {
+    setDriverRows(prev => prev.map(r => r.id === id ? { ...r, ...updates } : r));
+  };
+
+  // Save IBAN to driver profile on blur
+  const saveIban = async (driverId: string, iban: string) => {
+    const clean = iban.replace(/\s/g, '');
+    if (clean.length >= 20) {
+      await supabase.from('drivers').update({ iban: clean, bank_account: clean } as any).eq('id', driverId);
+    }
+  };
+
+  // Filtered rows
+  const filteredDrivers = useMemo(() => {
+    if (!searchQuery) return driverRows;
+    const q = searchQuery.toLowerCase();
+    return driverRows.filter(r => r.name.toLowerCase().includes(q));
+  }, [driverRows, searchQuery]);
+
+  // Fleet-grouped drivers
+  const fleetGroupedDrivers = useMemo(() => {
+    const groups: Record<string, { fleet: FleetOption; drivers: DriverRow[]; total: number }> = {};
+    for (const r of driverRows) {
+      if (r.paymentMode === 'fleet' && r.fleetId) {
+        if (!groups[r.fleetId]) {
+          const fo = fleetOptions.find(f => f.id === r.fleetId);
+          groups[r.fleetId] = { fleet: fo || { id: r.fleetId, name: r.fleetName || 'Nieznana' }, drivers: [], total: 0 };
+        }
+        groups[r.fleetId].drivers.push(r);
+        groups[r.fleetId].total += r.payout;
+      }
+    }
+    return Object.values(groups);
+  }, [driverRows, fleetOptions]);
+
+  // Stats
+  const transferRows = driverRows.filter(r => r.paymentMode === 'transfer' && r.selected);
+  const cashRows = driverRows.filter(r => r.paymentMode === 'cash');
+  const fleetRows = driverRows.filter(r => r.paymentMode === 'fleet');
+  const transferTotal = transferRows.reduce((s, r) => s + r.payout, 0);
+  const fleetTotal = fleetRows.reduce((s, r) => s + r.payout, 0);
+
+  const handleExport = async () => {
+    if (!senderAccount.replace(/\s/g, '')) {
+      toast.error('Wprowadź nr konta nadawcy (floty)');
+      return;
+    }
+
+    const bank = POLISH_BANKS.find(b => b.id === selectedBank) || POLISH_BANKS[0];
+
+    // Save sender account if not saved
+    await supabase.from('fleets').update({ sender_bank_account: senderAccount } as any).eq('id', fleetId);
+
+    // Persist any IBAN / payment_method changes
+    for (const row of driverRows) {
+      const updates: any = {};
+      if (row.paymentMode === 'cash') updates.payment_method = 'cash';
+      else if (row.paymentMode === 'fleet') updates.payment_method = 'fleet';
+      else updates.payment_method = 'transfer';
+
+      const cleanIban = row.iban.replace(/\s/g, '');
+      if (cleanIban.length >= 20) {
+        updates.iban = cleanIban;
+        updates.bank_account = cleanIban;
+      }
+      await supabase.from('drivers').update(updates).eq('id', row.id);
+    }
+
+    // Build transfer rows for individual drivers
+    const individualTransfers: TransferRow[] = transferRows
+      .filter(r => r.iban.replace(/\s/g, '').length >= 20)
+      .map(r => ({
+        iban: r.iban,
+        amount: r.payout,
+        name: r.name,
+        title: getTransferTitle(r),
+      }));
+
+    // Build fleet aggregate transfers
+    for (const group of fleetGroupedDrivers) {
+      const fleetIban = group.fleet.iban;
+      if (fleetIban && fleetIban.replace(/\s/g, '').length >= 20) {
+        individualTransfers.push({
+          iban: fleetIban,
+          amount: group.total,
+          name: group.fleet.name,
+          title: `rozliczenie floty ${periodLabel}`,
+        });
+      }
+    }
+
+    if (individualTransfers.length === 0) {
+      toast.info('Brak przelewów do wygenerowania');
+      return;
+    }
+
+    const dateStr = weekStart ? format(new Date(weekStart), 'dd-MM-yyyy') : format(new Date(), 'dd-MM-yyyy');
+    const content = bank.generate(individualTransfers, senderAccount, dateStr);
+
+    const mondayDate = weekStart
+      ? format(new Date(weekStart), 'dd.MM.yyyy')
+      : format(new Date(), 'dd.MM.yyyy');
+
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `${mondayDate}_Przelewy_${bank.shortName}.${bank.extension}`;
+    link.click();
+
+    toast.success(`Wygenerowano ${individualTransfers.length} przelewów (${bank.name})`);
+    onOpenChange(false);
+  };
+
+  const handleSaveSenderAccount = async () => {
+    await supabase.from('fleets').update({ sender_bank_account: senderAccount } as any).eq('id', fleetId);
+    toast.success('Zapisano nr konta nadawcy');
+    setShowSettings(false);
+  };
+
+  const selectAllTransfer = (checked: boolean) => {
+    setDriverRows(prev => prev.map(r => r.paymentMode === 'transfer' ? { ...r, selected: checked } : r));
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Building2 className="h-5 w-5" />
-            Generuj listę przelewów
+            Generuj przelewy
           </DialogTitle>
           <DialogDescription>
-            Wybierz swój bank, aby wygenerować plik importu przelewów w odpowiednim formacie.
+            Zarządzaj wypłatami kierowców: przelew, gotówka lub flota. Okres: {periodLabel}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
-          {/* Missing accounts warning */}
-          {showMissingAccounts && missingAccounts.length > 0 && (
-            <div className="p-3 rounded-lg border border-amber-300 bg-amber-50 space-y-3">
-              <div className="flex items-center gap-2 text-amber-800 font-medium text-sm">
-                <AlertTriangle className="h-4 w-4" />
-                {missingAccounts.length} kierowców bez nr konta
-              </div>
-              <p className="text-xs text-amber-700">
-                Wpisz nr konta lub zaznacz "Gotówka" / "Flota" aby zmienić sposób wypłaty.
-              </p>
-              <div className="space-y-2 max-h-[250px] overflow-y-auto">
-                {missingAccounts.map((ma, idx) => (
-                  <div key={ma.id} className="flex items-center gap-2 text-xs">
-                    <span className="w-[120px] truncate font-medium">{ma.name}</span>
-                    <span className="text-muted-foreground w-[60px] text-right">{ma.payout.toFixed(2)} zł</span>
-                    <Input
-                      placeholder="Nr konta (26 cyfr)"
-                      value={ma.iban}
-                      onChange={(e) => {
-                        const newIban = e.target.value;
-                        setMissingAccounts(prev => prev.map((m, i) => 
-                          i === idx ? { ...m, iban: newIban, switchToCash: false, switchToFleet: false } : m
-                        ));
-                      }}
-                      onBlur={async () => {
-                        const cleanIban = ma.iban.replace(/\s/g, '');
-                        if (cleanIban.length >= 20 && !ma.switchToCash && !ma.switchToFleet) {
-                          await supabase.from('drivers').update({ iban: ma.iban, bank_account: ma.iban } as any).eq('id', ma.id);
-                        }
-                      }}
-                      disabled={ma.switchToCash || ma.switchToFleet}
-                      className="h-7 text-xs flex-1"
-                    />
-                    <div className="flex items-center gap-1 whitespace-nowrap">
-                      <Checkbox
-                        checked={ma.switchToCash}
-                        onCheckedChange={(checked) => {
-                          setMissingAccounts(prev => prev.map((m, i) => 
-                            i === idx ? { ...m, switchToCash: !!checked, switchToFleet: false } : m
-                          ));
-                        }}
-                      />
-                      <span className="text-xs">Gotówka</span>
-                    </div>
-                    {partnerFleets.length > 0 && (
-                      <div className="flex items-center gap-1 whitespace-nowrap">
-                        <Checkbox
-                          checked={ma.switchToFleet}
-                          onCheckedChange={(checked) => {
-                            setMissingAccounts(prev => prev.map((m, i) => 
-                              i === idx ? { ...m, switchToFleet: !!checked, switchToCash: false, partnerFleetId: partnerFleets[0]?.id } : m
-                            ));
-                          }}
-                        />
-                        <span className="text-xs">Flota</span>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="drivers" className="gap-1.5">
+              <Users className="h-4 w-4" />
+              Kierowcy ({driverRows.length})
+            </TabsTrigger>
+            <TabsTrigger value="fleets" className="gap-1.5">
+              <Truck className="h-4 w-4" />
+              Floty ({fleetGroupedDrivers.length})
+            </TabsTrigger>
+          </TabsList>
 
-          {/* Bank Selection */}
-          <div className="space-y-2">
-            <Label>Bank</Label>
+          {/* ── TAB: KIEROWCY ── */}
+          <TabsContent value="drivers" className="space-y-3 mt-3">
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Szukaj kierowcy..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="pl-8 h-8 text-sm"
+              />
+            </div>
+
+            {/* Summary badges */}
+            <div className="flex flex-wrap gap-2 text-xs">
+              <Badge variant="outline" className="gap-1">
+                <Banknote className="h-3 w-3" />
+                Przelewy: {transferRows.length} = {transferTotal.toFixed(2)} zł
+              </Badge>
+              <Badge variant="secondary" className="gap-1">
+                Gotówka: {cashRows.length}
+              </Badge>
+              <Badge variant="secondary" className="gap-1">
+                <Truck className="h-3 w-3" />
+                Floty: {fleetRows.length} = {fleetTotal.toFixed(2)} zł
+              </Badge>
+            </div>
+
+            {/* Select all */}
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Checkbox
+                checked={transferRows.length > 0 && transferRows.length === driverRows.filter(r => r.paymentMode === 'transfer').length}
+                onCheckedChange={(c) => selectAllTransfer(!!c)}
+              />
+              <span>Zaznacz wszystkich (przelew)</span>
+            </div>
+
+            {/* Driver list */}
+            <div className="space-y-1 max-h-[350px] overflow-y-auto pr-1">
+              {filteredDrivers.map(row => (
+                <div
+                  key={row.id}
+                  className="flex items-center gap-2 p-2 rounded-lg border text-xs hover:bg-muted/50 transition-colors"
+                >
+                  {/* Checkbox - only for transfer */}
+                  <Checkbox
+                    checked={row.selected && row.paymentMode === 'transfer'}
+                    disabled={row.paymentMode !== 'transfer'}
+                    onCheckedChange={c => updateDriverRow(row.id, { selected: !!c })}
+                  />
+
+                  {/* Name */}
+                  <span className="w-[130px] truncate font-medium">{row.name}</span>
+
+                  {/* Amount */}
+                  <span className="w-[70px] text-right font-semibold text-primary">
+                    {row.payout.toFixed(2)} zł
+                  </span>
+
+                  {/* IBAN input */}
+                  <Input
+                    placeholder="Nr konta (26 cyfr)"
+                    value={row.iban}
+                    onChange={e => updateDriverRow(row.id, { iban: e.target.value })}
+                    onBlur={() => saveIban(row.id, row.iban)}
+                    disabled={row.paymentMode !== 'transfer'}
+                    className="h-7 text-xs flex-1 min-w-[140px] font-mono"
+                  />
+
+                  {/* Payment mode selector */}
+                  <Select
+                    value={row.paymentMode}
+                    onValueChange={(v: 'transfer' | 'cash' | 'fleet') => {
+                      updateDriverRow(row.id, {
+                        paymentMode: v,
+                        selected: v === 'transfer' && row.iban.replace(/\s/g, '').length >= 20,
+                      });
+                    }}
+                  >
+                    <SelectTrigger className="h-7 w-[100px] text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="transfer">Przelew</SelectItem>
+                      <SelectItem value="cash">Gotówka</SelectItem>
+                      <SelectItem value="fleet">Flota</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {/* Fleet selector - show only if paymentMode === 'fleet' */}
+                  {row.paymentMode === 'fleet' && (
+                    <Select
+                      value={row.fleetId || ''}
+                      onValueChange={v => {
+                        const fleet = fleetOptions.find(f => f.id === v);
+                        updateDriverRow(row.id, { fleetId: v, fleetName: fleet?.name });
+                      }}
+                    >
+                      <SelectTrigger className="h-7 w-[110px] text-xs">
+                        <SelectValue placeholder="Wybierz flotę" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {fleetOptions.filter(f => f.id !== fleetId).map(f => (
+                          <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+              ))}
+            </div>
+          </TabsContent>
+
+          {/* ── TAB: FLOTY ── */}
+          <TabsContent value="fleets" className="space-y-3 mt-3">
+            {fleetGroupedDrivers.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground text-sm">
+                <Truck className="h-10 w-10 mx-auto mb-2 opacity-40" />
+                <p>Brak kierowców przypisanych do flot</p>
+                <p className="text-xs mt-1">Zmień tryb wypłaty na "Flota" w zakładce Kierowcy</p>
+              </div>
+            ) : (
+              fleetGroupedDrivers.map(group => (
+                <div key={group.fleet.id} className="border rounded-lg p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Truck className="h-4 w-4 text-primary" />
+                      <span className="font-semibold text-sm">{group.fleet.name}</span>
+                      <Badge variant="outline" className="text-xs">
+                        {group.drivers.length} kierowców
+                      </Badge>
+                    </div>
+                    <span className="font-bold text-primary">
+                      {group.total.toFixed(2)} zł
+                    </span>
+                  </div>
+
+                  {/* Fleet IBAN */}
+                  <div className="flex items-center gap-2">
+                    <Label className="text-xs whitespace-nowrap">Nr konta floty:</Label>
+                    <Input
+                      placeholder="Nr konta floty (26 cyfr)"
+                      value={group.fleet.iban || ''}
+                      onChange={e => {
+                        const newIban = e.target.value;
+                        setFleetOptions(prev => prev.map(f => f.id === group.fleet.id ? { ...f, iban: newIban } : f));
+                      }}
+                      className="h-7 text-xs font-mono flex-1"
+                    />
+                  </div>
+
+                  {/* Drivers in this fleet */}
+                  <div className="space-y-1 pl-4 border-l-2 border-muted">
+                    {group.drivers.map(d => (
+                      <div key={d.id} className="flex items-center justify-between text-xs py-1">
+                        <span>{d.name}</span>
+                        <span className="font-medium">{d.payout.toFixed(2)} zł</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))
+            )}
+          </TabsContent>
+        </Tabs>
+
+        {/* ── BANK & SENDER SETTINGS ── */}
+        <div className="space-y-3 border-t pt-3 mt-2">
+          {/* Sender account */}
+          <div className="space-y-1.5">
+            <Label className="text-xs">Nr konta nadawcy (Twojej floty)</Label>
+            <Input
+              placeholder="np. 70109025900000000157505882"
+              value={senderAccount}
+              onChange={e => setSenderAccount(e.target.value)}
+              className="font-mono text-sm"
+            />
+          </div>
+
+          {/* Bank selection */}
+          <div className="space-y-1.5">
+            <Label className="text-xs">Format banku</Label>
             <Select value={selectedBank} onValueChange={setSelectedBank}>
               <SelectTrigger>
-                <SelectValue placeholder="Wybierz bank" />
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {POLISH_BANKS.map(bank => (
-                  <SelectItem key={bank.id} value={bank.id}>
-                    {bank.name}
-                  </SelectItem>
+                {POLISH_BANKS.map(b => (
+                  <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
 
-          {/* Transfer Title */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Tytuł przelewu</Label>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="h-7 text-xs gap-1"
-                onClick={() => setShowSettings(!showSettings)}
-              >
-                <Settings className="h-3 w-3" />
-                Zapisz jako domyślny
-              </Button>
-            </div>
+          {/* Preview */}
+          <div className="p-2 bg-muted/50 rounded text-xs text-muted-foreground">
+            Do wygenerowania: <strong>{transferRows.length}</strong> przelewów indywidualnych
+            {fleetGroupedDrivers.length > 0 && (
+              <> + <strong>{fleetGroupedDrivers.length}</strong> przelewów flotowych</>
+            )}
+            {' '}= <strong>{(transferTotal + fleetTotal).toFixed(2)} zł</strong>
+          </div>
+        </div>
+
+        <div className="flex justify-between items-center pt-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs gap-1"
+            onClick={() => setShowSettings(!showSettings)}
+          >
+            <Settings className="h-3 w-3" />
+            {showSettings ? 'Ukryj' : 'Ustawienia'}
+          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Anuluj
+            </Button>
+            <Button onClick={handleExport} disabled={loading} className="gap-2">
+              <Download className="h-4 w-4" />
+              {loading ? 'Generowanie...' : 'Pobierz plik przelewów'}
+            </Button>
+          </div>
+        </div>
+
+        {showSettings && (
+          <div className="p-3 bg-muted rounded-lg space-y-2 text-sm">
+            <Label className="text-xs">Domyślny tytuł przelewu</Label>
             <Input
-              value={transferTitle}
-              onChange={(e) => setTransferTitle(e.target.value)}
-              placeholder="np. wynajem auta"
+              value={defaultTitle}
+              onChange={e => setDefaultTitle(e.target.value)}
+              placeholder="wynajem auta"
+              className="text-sm"
             />
-            <p className="text-xs text-muted-foreground">
-              Dla kierowców B2B tytuł zostanie automatycznie zmieniony na "Faktura"
-            </p>
+            <Button size="sm" onClick={handleSaveSenderAccount}>
+              Zapisz ustawienia
+            </Button>
           </div>
-
-          {showSettings && (
-            <div className="p-3 bg-muted rounded-lg space-y-2">
-              <p className="text-sm">
-                Zapisać "{transferTitle}" jako domyślny tytuł przelewu dla tej floty?
-              </p>
-              <div className="flex gap-2">
-                <Button size="sm" onClick={handleSaveDefaultTitle}>
-                  Zapisz
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => setShowSettings(false)}>
-                  Anuluj
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* Preview info */}
-          <div className="p-3 bg-muted/50 rounded-lg text-sm">
-            <p className="font-medium">Podgląd:</p>
-            <p className="text-muted-foreground">
-              {settlements.filter(s => s.final_payout > 0).length} kierowców z dodatnim saldem
-            </p>
-            <p className="text-muted-foreground">
-              Okres: {periodLabel}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Anuluj
-          </Button>
-          <Button onClick={handleExport} disabled={loading} className="gap-2">
-            <Download className="h-4 w-4" />
-            {loading ? 'Generowanie...' : showMissingAccounts ? 'Zapisz i generuj' : 'Pobierz plik'}
-          </Button>
-        </div>
+        )}
       </DialogContent>
     </Dialog>
   );
