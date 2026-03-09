@@ -2811,9 +2811,14 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                           );
                         })()}
                       </TableCell>}
-                      {isColVisible('payout') && <TableCell className={`text-right font-bold px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${getAmountColor(filteredSettlements.reduce((sum, s) => sum + s.final_payout, 0))}`}>
-                        {formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.final_payout, 0))}
-                      </TableCell>}
+                      {isColVisible('payout') && (() => {
+                        const totalPayout = filteredSettlements.reduce((sum, s) => sum + getEffectiveSettlement(s).final_payout, 0);
+                        return (
+                          <TableCell className={`text-right font-bold px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${getAmountColor(totalPayout)}`}>
+                            {formatCurrency(totalPayout)}
+                          </TableCell>
+                        );
+                      })()}
                     </TableRow>
                   </TableFooter>
                 </Table>
