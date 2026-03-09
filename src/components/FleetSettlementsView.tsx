@@ -2594,8 +2594,9 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                       ))}
                       {isColVisible('service_fee') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">Opłata</TableHead>}
                       {isColVisible('rental') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">Wynajem</TableHead>}
+                      {isColVisible('payout') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">Wypłata</TableHead>}
                       {isColVisible('debt') && <TableHead className="text-center px-2 py-1.5 text-xs font-medium whitespace-nowrap">Dług</TableHead>}
-                      {isColVisible('payout') && <TableHead className="text-right px-2 py-1.5 text-xs font-bold whitespace-nowrap">Wypłata</TableHead>}
+                      {isColVisible('do_wyplaty') && <TableHead className="text-right px-2 py-1.5 text-xs font-bold whitespace-nowrap text-green-700">Do wypłaty</TableHead>}
                       {isColVisible('paid') && <TableHead className="text-center px-2 py-1.5 text-xs font-medium whitespace-nowrap">Opłacony</TableHead>}
                     </TableRow>
                   </TableHeader>
