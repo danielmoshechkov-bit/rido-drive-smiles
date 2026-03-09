@@ -302,6 +302,8 @@ export function BankTransferExportDialog({
         for (const ma of missingAccounts) {
           if (ma.switchToCash) {
             await supabase.from('drivers').update({ payment_method: 'cash' }).eq('id', ma.id);
+          } else if (ma.switchToFleet) {
+            await supabase.from('drivers').update({ payment_method: 'fleet' } as any).eq('id', ma.id);
           } else if (ma.iban.replace(/\s/g, '').length >= 20) {
             await supabase.from('drivers').update({ iban: ma.iban, bank_account: ma.iban } as any).eq('id', ma.id);
           }
