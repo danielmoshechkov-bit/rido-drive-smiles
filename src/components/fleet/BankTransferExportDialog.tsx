@@ -27,9 +27,10 @@ import {
   Settings,
   Users,
   Banknote,
-  Plus,
   Truck,
   Search,
+  Edit,
+  Check,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -85,7 +86,6 @@ interface FleetOption {
 function generateElixir0(rows: TransferRow[], senderAccount: string, dateStr: string): string {
   const cleanAccount = senderAccount.replace(/\s/g, '').replace(/^PL/i, '');
   const lines: string[] = [];
-  // Header
   lines.push('4120414|1');
   for (const r of rows) {
     const recipientAccount = r.iban.replace(/\s/g, '').replace(/^PL/i, '');
@@ -156,6 +156,12 @@ const POLISH_BANKS: BankFormat[] = [
   },
 ];
 
+function maskIban(iban: string): string {
+  const clean = iban.replace(/\s/g, '');
+  if (clean.length < 8) return '••••••••••••••••••••••••••';
+  return '••' + clean.slice(2, 6) + '••••••••••••••' + clean.slice(-4);
+}
+
 export function BankTransferExportDialog({
   open,
   onOpenChange,
@@ -166,6 +172,8 @@ export function BankTransferExportDialog({
 }: BankTransferExportDialogProps) {
   const [selectedBank, setSelectedBank] = useState('santander');
   const [senderAccount, setSenderAccount] = useState('');
+  const [savedSenderAccount, setSavedSenderAccount] = useState('');
+  const [editingSender, setEditingSender] = useState(false);
   const [loading, setLoading] = useState(false);
   const [driverRows, setDriverRows] = useState<DriverRow[]>([]);
   const [fleetOptions, setFleetOptions] = useState<FleetOption[]>([]);
@@ -174,7 +182,6 @@ export function BankTransferExportDialog({
   const [showSettings, setShowSettings] = useState(false);
   const [defaultTitle, setDefaultTitle] = useState('wynajem auta');
 
-  // Load data when dialog opens
   useEffect(() => {
     if (!open) return;
     loadData();
@@ -191,26 +198,30 @@ export function BankTransferExportDialog({
         .single();
 
       if (fleetData) {
-        setSenderAccount((fleetData as any).sender_bank_account || '');
-        setDefaultTitle((fleetData as any).transfer_title_template || 'wynajem auta');
+        const saved = fleetData.sender_bank_account || '';
+        setSenderAccount(saved);
+        setSavedSenderAccount(saved);
+        setEditingSender(!saved); // If no account saved, start in edit mode
+        setDefaultTitle(fleetData.transfer_title_template || 'wynajem auta');
       }
 
-      // Load all fleets for fleet assignment
-      const { data: allFleets } = await supabase
-        .from('fleets')
-        .select('id, name')
-        .order('name');
-
-      setFleetOptions((allFleets || []).map(f => ({ id: f.id, name: f.name })));
-
-      // Load partner fleets with IBAN
+      // Load ONLY partner fleets (not all fleets!) for fleet assignment
       const { data: partnerships } = await supabase
         .from('driver_fleet_partnerships')
-        .select('partner_fleet_id, fleets!driver_fleet_partnerships_partner_fleet_id_fkey(id, name)')
+        .select('partner_fleet_id, fleets!driver_fleet_partnerships_partner_fleet_id_fkey(id, name, sender_bank_account)')
         .eq('managing_fleet_id', fleetId)
         .eq('is_active', true);
 
-      const partnerFleetIds = (partnerships || []).map((p: any) => p.fleets?.id).filter(Boolean);
+      const partnerFleets: FleetOption[] = [];
+      const seenIds = new Set<string>();
+      for (const p of (partnerships || [])) {
+        const f = (p as any).fleets;
+        if (f && !seenIds.has(f.id)) {
+          seenIds.add(f.id);
+          partnerFleets.push({ id: f.id, name: f.name, iban: f.sender_bank_account || '' });
+        }
+      }
+      setFleetOptions(partnerFleets);
 
       // Load drivers
       const { data: driversData } = await supabase
@@ -228,7 +239,6 @@ export function BankTransferExportDialog({
 
       const contractMap = new Map((contracts || []).map((c: any) => [c.driver_id, c.contract_number]));
 
-      // Build driver rows from settlements
       const driverMap = new Map((driversData || []).map(d => [d.id, d]));
 
       const rows: DriverRow[] = settlements
@@ -281,7 +291,6 @@ export function BankTransferExportDialog({
     setDriverRows(prev => prev.map(r => r.id === id ? { ...r, ...updates } : r));
   };
 
-  // Save IBAN to driver profile on blur
   const saveIban = async (driverId: string, iban: string) => {
     const clean = iban.replace(/\s/g, '');
     if (clean.length >= 20) {
@@ -289,14 +298,19 @@ export function BankTransferExportDialog({
     }
   };
 
-  // Filtered rows
+  const handleSaveSenderAccount = async () => {
+    await supabase.from('fleets').update({ sender_bank_account: senderAccount }).eq('id', fleetId);
+    setSavedSenderAccount(senderAccount);
+    setEditingSender(false);
+    toast.success('Zapisano nr konta nadawcy');
+  };
+
   const filteredDrivers = useMemo(() => {
     if (!searchQuery) return driverRows;
     const q = searchQuery.toLowerCase();
     return driverRows.filter(r => r.name.toLowerCase().includes(q));
   }, [driverRows, searchQuery]);
 
-  // Fleet-grouped drivers
   const fleetGroupedDrivers = useMemo(() => {
     const groups: Record<string, { fleet: FleetOption; drivers: DriverRow[]; total: number }> = {};
     for (const r of driverRows) {
@@ -312,7 +326,6 @@ export function BankTransferExportDialog({
     return Object.values(groups);
   }, [driverRows, fleetOptions]);
 
-  // Stats
   const transferRows = driverRows.filter(r => r.paymentMode === 'transfer' && r.selected);
   const cashRows = driverRows.filter(r => r.paymentMode === 'cash');
   const fleetRows = driverRows.filter(r => r.paymentMode === 'fleet');
@@ -327,10 +340,10 @@ export function BankTransferExportDialog({
 
     const bank = POLISH_BANKS.find(b => b.id === selectedBank) || POLISH_BANKS[0];
 
-    // Save sender account if not saved
-    await supabase.from('fleets').update({ sender_bank_account: senderAccount } as any).eq('id', fleetId);
+    // Save sender account
+    await supabase.from('fleets').update({ sender_bank_account: senderAccount }).eq('id', fleetId);
 
-    // Persist any IBAN / payment_method changes
+    // Persist IBAN / payment_method changes
     for (const row of driverRows) {
       const updates: any = {};
       if (row.paymentMode === 'cash') updates.payment_method = 'cash';
@@ -345,7 +358,6 @@ export function BankTransferExportDialog({
       await supabase.from('drivers').update(updates).eq('id', row.id);
     }
 
-    // Build transfer rows for individual drivers
     const individualTransfers: TransferRow[] = transferRows
       .filter(r => r.iban.replace(/\s/g, '').length >= 20)
       .map(r => ({
@@ -355,7 +367,6 @@ export function BankTransferExportDialog({
         title: getTransferTitle(r),
       }));
 
-    // Build fleet aggregate transfers
     for (const group of fleetGroupedDrivers) {
       const fleetIban = group.fleet.iban;
       if (fleetIban && fleetIban.replace(/\s/g, '').length >= 20) {
@@ -390,12 +401,6 @@ export function BankTransferExportDialog({
     onOpenChange(false);
   };
 
-  const handleSaveSenderAccount = async () => {
-    await supabase.from('fleets').update({ sender_bank_account: senderAccount } as any).eq('id', fleetId);
-    toast.success('Zapisano nr konta nadawcy');
-    setShowSettings(false);
-  };
-
   const selectAllTransfer = (checked: boolean) => {
     setDriverRows(prev => prev.map(r => r.paymentMode === 'transfer' ? { ...r, selected: checked } : r));
   };
@@ -427,7 +432,6 @@ export function BankTransferExportDialog({
 
           {/* ── TAB: KIEROWCY ── */}
           <TabsContent value="drivers" className="space-y-3 mt-3">
-            {/* Search */}
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -438,7 +442,6 @@ export function BankTransferExportDialog({
               />
             </div>
 
-            {/* Summary badges */}
             <div className="flex flex-wrap gap-2 text-xs">
               <Badge variant="outline" className="gap-1">
                 <Banknote className="h-3 w-3" />
@@ -453,7 +456,6 @@ export function BankTransferExportDialog({
               </Badge>
             </div>
 
-            {/* Select all */}
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Checkbox
                 checked={transferRows.length > 0 && transferRows.length === driverRows.filter(r => r.paymentMode === 'transfer').length}
@@ -462,29 +464,24 @@ export function BankTransferExportDialog({
               <span>Zaznacz wszystkich (przelew)</span>
             </div>
 
-            {/* Driver list */}
             <div className="space-y-1 max-h-[350px] overflow-y-auto pr-1">
               {filteredDrivers.map(row => (
                 <div
                   key={row.id}
                   className="flex items-center gap-2 p-2 rounded-lg border text-xs hover:bg-muted/50 transition-colors"
                 >
-                  {/* Checkbox - only for transfer */}
                   <Checkbox
                     checked={row.selected && row.paymentMode === 'transfer'}
                     disabled={row.paymentMode !== 'transfer'}
                     onCheckedChange={c => updateDriverRow(row.id, { selected: !!c })}
                   />
 
-                  {/* Name */}
                   <span className="w-[130px] truncate font-medium">{row.name}</span>
 
-                  {/* Amount */}
                   <span className="w-[70px] text-right font-semibold text-primary">
                     {row.payout.toFixed(2)} zł
                   </span>
 
-                  {/* IBAN input */}
                   <Input
                     placeholder="Nr konta (26 cyfr)"
                     value={row.iban}
@@ -494,7 +491,6 @@ export function BankTransferExportDialog({
                     className="h-7 text-xs flex-1 min-w-[140px] font-mono"
                   />
 
-                  {/* Payment mode selector */}
                   <Select
                     value={row.paymentMode}
                     onValueChange={(v: 'transfer' | 'cash' | 'fleet') => {
@@ -514,7 +510,7 @@ export function BankTransferExportDialog({
                     </SelectContent>
                   </Select>
 
-                  {/* Fleet selector - show only if paymentMode === 'fleet' */}
+                  {/* Fleet selector - only partner fleets */}
                   {row.paymentMode === 'fleet' && (
                     <Select
                       value={row.fleetId || ''}
@@ -524,12 +520,18 @@ export function BankTransferExportDialog({
                       }}
                     >
                       <SelectTrigger className="h-7 w-[110px] text-xs">
-                        <SelectValue placeholder="Wybierz flotę" />
+                        <SelectValue placeholder="Wybierz..." />
                       </SelectTrigger>
                       <SelectContent>
-                        {fleetOptions.filter(f => f.id !== fleetId).map(f => (
-                          <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
-                        ))}
+                        {fleetOptions.length === 0 ? (
+                          <div className="p-2 text-xs text-muted-foreground text-center">
+                            Brak flot partnerskich. Dodaj w zakładce "Floty partnerskie".
+                          </div>
+                        ) : (
+                          fleetOptions.map(f => (
+                            <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
                   )}
@@ -562,7 +564,6 @@ export function BankTransferExportDialog({
                     </span>
                   </div>
 
-                  {/* Fleet IBAN */}
                   <div className="flex items-center gap-2">
                     <Label className="text-xs whitespace-nowrap">Nr konta floty:</Label>
                     <Input
@@ -576,7 +577,6 @@ export function BankTransferExportDialog({
                     />
                   </div>
 
-                  {/* Drivers in this fleet */}
                   <div className="space-y-1 pl-4 border-l-2 border-muted">
                     {group.drivers.map(d => (
                       <div key={d.id} className="flex items-center justify-between text-xs py-1">
@@ -593,15 +593,44 @@ export function BankTransferExportDialog({
 
         {/* ── BANK & SENDER SETTINGS ── */}
         <div className="space-y-3 border-t pt-3 mt-2">
-          {/* Sender account */}
+          {/* Sender account - saved mode with mask */}
           <div className="space-y-1.5">
             <Label className="text-xs">Nr konta nadawcy (Twojej floty)</Label>
-            <Input
-              placeholder="np. 70109025900000000157505882"
-              value={senderAccount}
-              onChange={e => setSenderAccount(e.target.value)}
-              className="font-mono text-sm"
-            />
+            {savedSenderAccount && !editingSender ? (
+              <div className="flex items-center gap-2">
+                <div className="flex-1 px-3 py-2 rounded-md border bg-muted/30 font-mono text-sm text-muted-foreground">
+                  {maskIban(savedSenderAccount)}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1 h-8"
+                  onClick={() => setEditingSender(true)}
+                >
+                  <Edit className="h-3.5 w-3.5" />
+                  Edytuj
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Input
+                  placeholder="00000000000000000000000000"
+                  value={senderAccount}
+                  onChange={e => setSenderAccount(e.target.value)}
+                  className="font-mono text-sm flex-1"
+                />
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="gap-1 h-8"
+                  onClick={handleSaveSenderAccount}
+                  disabled={!senderAccount.replace(/\s/g, '')}
+                >
+                  <Check className="h-3.5 w-3.5" />
+                  Zapisz
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Bank selection */}
@@ -659,7 +688,11 @@ export function BankTransferExportDialog({
               placeholder="wynajem auta"
               className="text-sm"
             />
-            <Button size="sm" onClick={handleSaveSenderAccount}>
+            <Button size="sm" onClick={async () => {
+              await supabase.from('fleets').update({ transfer_title_template: defaultTitle }).eq('id', fleetId);
+              toast.success('Zapisano ustawienia');
+              setShowSettings(false);
+            }}>
               Zapisz ustawienia
             </Button>
           </div>
