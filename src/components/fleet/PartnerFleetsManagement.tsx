@@ -162,7 +162,7 @@ export function PartnerFleetsManagement({ fleetId }: PartnerFleetsManagementProp
     setNipSearching(true);
     const { data } = await supabase
       .from('fleets')
-      .select('id, name, nip, city, address, postal_code, email, phone, contact_name, sender_bank_account')
+      .select('id, name, nip, city, address, street, house_number, postal_code, email, phone, contact_name, sender_bank_account')
       .eq('nip', nipSearch.trim())
       .neq('id', fleetId)
       .maybeSingle();
