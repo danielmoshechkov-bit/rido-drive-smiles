@@ -59,6 +59,7 @@ interface TransferRow {
 interface DriverRow {
   id: string;
   name: string;
+  displayName: string; // name used in transfer file (company name for B2B)
   payout: number;
   iban: string;
   paymentMode: 'transfer' | 'cash' | 'fleet';
@@ -66,6 +67,9 @@ interface DriverRow {
   fleetName?: string;
   contractNumber?: string | null;
   billingMethod?: string;
+  b2bEnabled?: boolean;
+  b2bCompanyName?: string;
+  b2bVatPayer?: boolean;
   selected: boolean;
 }
 
@@ -73,6 +77,18 @@ interface FleetOption {
   id: string;
   name: string;
   iban?: string;
+}
+
+// ── Helpers ──
+
+/** Strip Polish diacritics and other non-ASCII chars for bank transfer files */
+function stripDiacritics(str: string): string {
+  const map: Record<string, string> = {
+    'ą': 'a', 'ć': 'c', 'ę': 'e', 'ł': 'l', 'ń': 'n', 'ó': 'o', 'ś': 's', 'ź': 'z', 'ż': 'z',
+    'Ą': 'A', 'Ć': 'C', 'Ę': 'E', 'Ł': 'L', 'Ń': 'N', 'Ó': 'O', 'Ś': 'S', 'Ź': 'Z', 'Ż': 'Z',
+  };
+  return str.replace(/[ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/g, ch => map[ch] || ch)
+    .replace(/[^\x20-\x7E]/g, ''); // remove any remaining non-ASCII
 }
 
 // ── Format generators ──
@@ -84,7 +100,9 @@ function generateElixir0(rows: TransferRow[], senderAccount: string, dateStr: st
   for (const r of rows) {
     const recipientAccount = r.iban.replace(/\s/g, '').replace(/^PL/i, '');
     const amountStr = r.amount.toFixed(2).replace('.', ',');
-    lines.push(`1|${cleanAccount}|${recipientAccount}|${r.name}|Adres odbiorcy|${amountStr}|1|${r.title}|${dateStr}|`);
+    const name = stripDiacritics(r.name);
+    const title = stripDiacritics(r.title);
+    lines.push(`1|${cleanAccount}|${recipientAccount}|${name}|Adres odbiorcy|${amountStr}|1|${title}|${dateStr}|`);
   }
   return lines.join('\n');
 }
@@ -115,7 +133,7 @@ const POLISH_BANKS: BankFormat[] = [
     extension: 'csv',
     generate: (rows) => rows.map(r => {
       const a = r.amount.toFixed(2).replace('.', ',');
-      return `${r.iban.replace(/\s/g, '')};${a};${r.name};;${r.title}`;
+      return `${r.iban.replace(/\s/g, '')};${a};${stripDiacritics(r.name)};;${stripDiacritics(r.title)}`;
     }).join('\n'),
   },
   {
@@ -125,7 +143,7 @@ const POLISH_BANKS: BankFormat[] = [
     extension: 'csv',
     generate: (rows) => rows.map(r => {
       const a = r.amount.toFixed(2).replace('.', ',');
-      return `${r.iban.replace(/\s/g, '')};${a};${r.name};${r.title}`;
+      return `${r.iban.replace(/\s/g, '')};${a};${stripDiacritics(r.name)};${stripDiacritics(r.title)}`;
     }).join('\n'),
   },
   {
@@ -135,7 +153,7 @@ const POLISH_BANKS: BankFormat[] = [
     extension: 'csv',
     generate: (rows) => rows.map(r => {
       const a = r.amount.toFixed(2).replace('.', ',');
-      return `${r.iban.replace(/\s/g, '')};${a};PLN;${r.name};${r.title}`;
+      return `${r.iban.replace(/\s/g, '')};${a};PLN;${stripDiacritics(r.name)};${stripDiacritics(r.title)}`;
     }).join('\n'),
   },
   {
@@ -144,10 +162,10 @@ const POLISH_BANKS: BankFormat[] = [
     shortName: 'CSV',
     extension: 'csv',
     generate: (rows) => {
-      const header = 'Odbiorca;IBAN;Kwota;Tytuł';
+      const header = 'Odbiorca;IBAN;Kwota;Tytul';
       const body = rows.map(r => {
         const a = r.amount.toFixed(2).replace('.', ',');
-        return `${r.name};${r.iban.replace(/\s/g, '')};${a};${r.title}`;
+        return `${stripDiacritics(r.name)};${r.iban.replace(/\s/g, '')};${a};${stripDiacritics(r.title)}`;
       }).join('\n');
       return header + '\n' + body;
     },
@@ -222,7 +240,7 @@ export function BankTransferExportDialog({
 
       const { data: driversData } = await supabase
         .from('drivers')
-        .select('id, first_name, last_name, iban, bank_account, payment_method, billing_method, fleet_id')
+        .select('id, first_name, last_name, iban, bank_account, payment_method, billing_method, fleet_id, b2b_enabled, b2b_company_name, b2b_vat_payer')
         .eq('fleet_id', fleetId);
 
       const { data: contracts } = await supabase
@@ -238,13 +256,17 @@ export function BankTransferExportDialog({
       const rows: DriverRow[] = settlements
         .filter(s => s.final_payout > 0)
         .map(s => {
-          const driver = driverMap.get(s.driver_id);
+          const driver = driverMap.get(s.driver_id) as any;
           const existingIban = getCleanIban(driver);
           const pm = driver?.payment_method || 'transfer';
+          const personalName = `${driver?.first_name || ''} ${driver?.last_name || ''}`.trim() || s.driver_name;
+          const isB2B = !!(driver?.b2b_enabled);
+          const companyName = driver?.b2b_company_name || '';
 
           return {
             id: s.driver_id,
-            name: `${driver?.first_name || ''} ${driver?.last_name || ''}`.trim() || s.driver_name,
+            name: personalName,
+            displayName: isB2B && companyName ? companyName : personalName,
             payout: s.final_payout,
             iban: existingIban || driver?.iban || '',
             paymentMode: (pm === 'cash' ? 'cash' : pm === 'fleet' ? 'fleet' : 'transfer') as DriverRow['paymentMode'],
@@ -252,6 +274,9 @@ export function BankTransferExportDialog({
             fleetName: undefined,
             contractNumber: contractMap.get(s.driver_id) || null,
             billingMethod: driver?.billing_method || '',
+            b2bEnabled: isB2B,
+            b2bCompanyName: companyName,
+            b2bVatPayer: !!(driver?.b2b_vat_payer),
             selected: false,
           };
         })
@@ -272,7 +297,7 @@ export function BankTransferExportDialog({
   };
 
   const getTransferTitle = (row: DriverRow): string => {
-    if (row.billingMethod === 'b2b' || row.billingMethod === 'B2B') {
+    if (row.b2bEnabled || row.billingMethod === 'b2b' || row.billingMethod === 'B2B') {
       return 'zaliczka na fakture';
     }
     if (row.contractNumber) {
@@ -358,7 +383,7 @@ export function BankTransferExportDialog({
 
     const transfers: TransferRow[] = selectedTransfers
       .filter(r => r.iban.replace(/\s/g, '').length >= 20)
-      .map(r => ({ iban: r.iban, amount: r.payout, name: r.name, title: getTransferTitle(r) }));
+      .map(r => ({ iban: r.iban, amount: r.payout, name: r.displayName, title: getTransferTitle(r) }));
 
     // Add fleet aggregate transfers
     for (const group of fleetGroupedDrivers) {
@@ -455,7 +480,15 @@ export function BankTransferExportDialog({
         checked={row.selected}
         onCheckedChange={c => updateDriverRow(row.id, { selected: !!c })}
       />
-      <span className="w-[130px] truncate font-medium">{row.name}</span>
+      <div className="w-[160px] truncate">
+        <span className="font-medium">{row.b2bEnabled ? row.displayName : row.name}</span>
+        {row.b2bEnabled && (
+          <span className="ml-1 text-[9px] text-primary font-semibold">B2B</span>
+        )}
+        {row.b2bEnabled && row.name !== row.displayName && (
+          <span className="block text-[9px] text-muted-foreground truncate">{row.name}</span>
+        )}
+      </div>
       <span className="w-[70px] text-right font-semibold text-primary">
         {row.payout.toFixed(2)} zł
       </span>
