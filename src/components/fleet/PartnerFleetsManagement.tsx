@@ -631,7 +631,7 @@ export function PartnerFleetsManagement({ fleetId }: PartnerFleetsManagementProp
                     {nipResult.address && <p>Adres: {nipResult.address}</p>}
                     {nipResult.sender_bank_account && <p>Konto: {nipResult.sender_bank_account}</p>}
                   </div>
-                  <Badge className="mt-1 bg-primary/10 text-primary border-primaryariant="outline">
+                  <Badge className="mt-1 bg-primary/10 text-primary border-primary/20" variant="outline">
                     Znaleziono w systemie
                   </Badge>
                 </div>
