@@ -36,6 +36,7 @@ import { FleetContractSettings } from "./fleet/FleetContractSettings";
 import { syncRentalAssignments } from "@/hooks/useRentalSync";
 import { VehicleOwnerSelector } from "./fleet/VehicleOwnerSelector";
 import { FleetOwnersTab } from "./fleet/FleetOwnersTab";
+import { PartnerFleetsManagement } from "./fleet/PartnerFleetsManagement";
 
 interface FleetManagementProps {
   cityId?: string | null;
