@@ -150,7 +150,7 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
         assignmentDriverVehicle.set(a.driver_id, a.vehicle_id);
       });
 
-      // Map driver → actual payout
+      // Map driver → actual payout (what driver received after all deductions)
       const vehicleDriverPayout = new Map<string, number>();
       (settlementsData || []).forEach((s: any) => {
         const vehicleId = assignmentDriverVehicle.get(s.driver_id);
@@ -161,15 +161,16 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
       });
 
       // Calculate driver available amount per vehicle (after taxes/fees, before rental)
-      // Use actual_payout when > 0, fallback to net_amount when stale
+      // net_amount = what driver earned BEFORE fleet deductions (rental, service fees)
+      // This is the correct base for "how much was available for the car"
       const vehicleDriverEarnings = new Map<string, number>();
       (settlementsData || []).forEach((s: any) => {
         const vehicleId = assignmentDriverVehicle.get(s.driver_id);
         if (vehicleId) {
-          const payout = parseFloat(s.actual_payout?.toString() || "0");
-          const earnings = parseFloat(s.total_earnings?.toString() || "0");
           const netAmount = parseFloat(s.net_amount?.toString() || "0");
-          const available = payout > 0 ? payout : (earnings > 0 ? netAmount : 0);
+          // net_amount represents what driver earned after platform fees but before rental
+          // If net_amount is 0, driver earned nothing → nothing available for car payment
+          const available = Math.max(netAmount, 0);
           vehicleDriverEarnings.set(vehicleId, (vehicleDriverEarnings.get(vehicleId) || 0) + available);
         }
       });
