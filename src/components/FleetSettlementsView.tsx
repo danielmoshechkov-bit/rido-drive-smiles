@@ -1235,7 +1235,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       }
 
       // Agreguj rozliczenia per kierowca
-      const aggregated = driversData.map(driver => {
+      const aggregated = filteredDriversData.map(driver => {
         const driverSettlements = settlementsData?.filter(s => s.driver_id === driver.id) || [];
 
 
