@@ -1360,9 +1360,10 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           };
         }
 
-        // 🚫 FILTRUJ WŁAŚCICIELI FLOT: Jeśli kierowca ma TYLKO ujemne saldo (wypłata bez kursów)
+        // 🚫 FILTRUJ WŁAŚCICIELI FLOT: Jeśli kierowca ma bardzo duże ujemne saldo (wypłata bez kursów)
         // np. Daniel Moshechkov z uber_base = -13450.97 = to właściciel floty, ukryj go
-        if (total_base < 0) {
+        // Małe ujemne kwoty (np. -6.77 z Bolt) to normalni kierowcy z negatywnym saldem
+        if (total_base < -1000) {
           // Return null to be filtered out later
           return null;
         }
