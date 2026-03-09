@@ -2399,10 +2399,10 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
               {/* Mobile View - Collapsible per driver */}
               <div className="md:hidden space-y-2">
                 {filteredSettlements.map((settlement) => {
-                   // Check platform activity (driver worked if base > 0 OR had cash rides)
-                   const hasUberActivity = settlement.uber_base > 0 || settlement.uber_cash > 0;
-                   const hasBoltActivity = settlement.bolt_base > 0 || settlement.bolt_cash > 0;
-                   const hasFreenowActivity = settlement.freenow_base > 0 || settlement.freenow_cash > 0;
+                   // Check platform activity (driver worked if base != 0 OR had cash rides)
+                   const hasUberActivity = settlement.uber_base !== 0 || settlement.uber_cash !== 0;
+                   const hasBoltActivity = settlement.bolt_base !== 0 || settlement.bolt_cash !== 0;
+                   const hasFreenowActivity = settlement.freenow_base !== 0 || settlement.freenow_cash !== 0;
                   
                   return (
                   <Collapsible key={settlement.driver_id} className="border rounded-lg bg-white">
