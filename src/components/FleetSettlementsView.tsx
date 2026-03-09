@@ -2737,15 +2737,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                           })()}
                         </TableCell>}
                         {/* Wypłata (auto-calculated) */}
-                        {isColVisible('payout') && <TableCell className={`text-right font-bold px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${settlement.has_negative_balance ? 'text-red-600' : getAmountColor(settlement.final_payout)}`}>
-                          {settlement.has_negative_balance ? (
-                            <>
-                              {formatCurrency(0)}
-                              <Badge variant="destructive" className="ml-1 text-[10px] px-1 py-0">
-                                -{formatCurrency(settlement.negative_deficit || 0)}
-                              </Badge>
-                            </>
-                          ) : formatCurrency(settlement.final_payout)}
+                        {isColVisible('payout') && <TableCell className={`text-right font-bold px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${getAmountColor(settlement.final_payout)}`}>
+                          {formatCurrency(settlement.final_payout)}
                         </TableCell>}
                         {/* Opłacony - toggle */}
                         {isColVisible('paid') && <TableCell className="text-center px-2 py-1.5 text-xs whitespace-nowrap">
