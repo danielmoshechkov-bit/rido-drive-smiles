@@ -921,6 +921,10 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
         <CarBrandsManagement />
       )}
 
+      {activeTab === "partner-fleets" && userType === 'fleet' && fleetId && (
+        <PartnerFleetsManagement fleetId={fleetId} />
+      )}
+
       <AddVehicleModal 
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
