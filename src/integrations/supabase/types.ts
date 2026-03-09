@@ -5978,6 +5978,7 @@ export type Database = {
           postal_code: string | null
           registration_code: string | null
           secondary_vat_rate: number
+          sender_bank_account: string | null
           settlement_frequency_enabled: boolean | null
           settlement_mode: string
           street: string | null
@@ -6023,6 +6024,7 @@ export type Database = {
           postal_code?: string | null
           registration_code?: string | null
           secondary_vat_rate?: number
+          sender_bank_account?: string | null
           settlement_frequency_enabled?: boolean | null
           settlement_mode?: string
           street?: string | null
@@ -6068,6 +6070,7 @@ export type Database = {
           postal_code?: string | null
           registration_code?: string | null
           secondary_vat_rate?: number
+          sender_bank_account?: string | null
           settlement_frequency_enabled?: boolean | null
           settlement_mode?: string
           street?: string | null
