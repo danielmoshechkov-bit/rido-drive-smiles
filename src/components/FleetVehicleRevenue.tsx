@@ -197,21 +197,28 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
           const driverAvailable = assignment?.driver_id 
             ? (driverAvailableMap.get(assignment.driver_id) || 0) 
             : 0;
-          const paidAmount = Math.min(Math.max(driverAvailable, 0), proportionalRent);
-          const currentWeekDebt = Math.max(proportionalRent - paidAmount, 0);
+          
+          // If driver earned 0 and has no negative balance from platforms, 
+          // rental should be 0 (no artificial debt for inactive drivers)
+          const hasSettlement = assignment?.driver_id 
+            ? driverSettlements.some(s => s.driver_id === assignment.driver_id) 
+            : false;
+          const effectiveRent = hasSettlement ? proportionalRent : 0;
+          
+          const paidAmount = Math.min(Math.max(driverAvailable, 0), effectiveRent);
+          const currentWeekDebt = Math.max(effectiveRent - paidAmount, 0);
           
           // Total accumulated debt from driver_debts table
           const totalAccumulatedDebt = assignment?.driver_id 
             ? (debtMap.get(assignment.driver_id) || 0) 
             : 0;
           
-          // Previous debt = total debt - this week's new debt
-          // If driver has surplus (paid more than rental), previous debt decreases
-          const surplus = Math.max(driverAvailable - proportionalRent, 0);
-          const previousDebt = Math.max(totalAccumulatedDebt - currentWeekDebt + surplus, 0);
+          // Previous debt = total accumulated debt from DB (already includes all history)
+          // Current week debt is new debt that hasn't been persisted yet
+          const previousDebt = Math.max(totalAccumulatedDebt, 0);
           
-          // Total = previous + current week debt - surplus
-          const totalDebt = Math.max(previousDebt + currentWeekDebt - surplus, 0);
+          // Total = previous accumulated + current week's new debt
+          const totalDebt = previousDebt + currentWeekDebt;
 
           return {
             driver_id: assignment?.driver_id || null,
@@ -222,7 +229,7 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
             vehicle_model: vehicle.model,
             assigned_date: assignment?.assigned_at || '',
             weekly_rate: weeklyFee,
-            rental_fee: proportionalRent,
+            rental_fee: effectiveRent,
             paid_amount: paidAmount,
             debt_balance: currentWeekDebt,
             previous_debt: previousDebt,
