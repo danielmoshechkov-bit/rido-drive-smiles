@@ -2788,7 +2788,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                         return false;
                       }).map((fee, idx) => (
                         <TableCell key={fee.id} className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
-                          -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + (s.additional_fees[idx]?.amount || 0), 0))}
+                          -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + (getEffectiveSettlement(s).additional_fees[idx]?.amount || 0), 0))}
                         </TableCell>
                       ))}
                       {isColVisible('service_fee') && <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
