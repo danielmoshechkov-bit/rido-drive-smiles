@@ -2570,10 +2570,10 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                   <TableBody>
                     {filteredSettlements.map((rawSettlement) => {
                       const settlement = getEffectiveSettlement(rawSettlement);
-                      // Check platform activity (driver worked if base > 0 OR had cash rides)
-                      const hasUberActivity = settlement.uber_base > 0 || settlement.uber_cash > 0;
-                      const hasBoltActivity = settlement.bolt_base > 0 || settlement.bolt_cash > 0;
-                      const hasFreenowActivity = settlement.freenow_base > 0 || settlement.freenow_cash > 0;
+                      // Check platform activity (driver worked if base != 0 OR had cash rides)
+                      const hasUberActivity = settlement.uber_base !== 0 || settlement.uber_cash !== 0;
+                      const hasBoltActivity = settlement.bolt_base !== 0 || settlement.bolt_cash !== 0;
+                      const hasFreenowActivity = settlement.freenow_base !== 0 || settlement.freenow_cash !== 0;
                       const hasAnyActivity = hasUberActivity || hasBoltActivity || hasFreenowActivity;
                       
                       return (
