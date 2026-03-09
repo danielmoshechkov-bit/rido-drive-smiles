@@ -1093,7 +1093,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       // Filter out fleet owners (users with fleet_settlement or fleet_rental roles)
       const { data: fleetOwnerRoles } = await supabase
         .from('user_roles')
-        .select('fleet_id')
+        .select('user_id, fleet_id')
         .in('role', ['fleet_settlement', 'fleet_rental']);
       
       // Get driver_app_users to map user_id -> driver_id for fleet owners
