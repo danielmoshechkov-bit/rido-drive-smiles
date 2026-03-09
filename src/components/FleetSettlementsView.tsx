@@ -177,6 +177,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     { key: 'rental', label: 'Wynajem' },
     { key: 'payout', label: 'Wypłata' },
     { key: 'debt', label: 'Dług' },
+    { key: 'do_wyplaty', label: 'Do wypłaty' },
     { key: 'paid', label: 'Opłacony' },
   ];
 
@@ -390,11 +391,12 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         return;
       }
 
-      // Separate payouts from debts
-      const payouts = cashDrivers.filter(s => s.final_payout > 0);
-      const debts = cashDrivers.filter(s => s.final_payout < 0);
+      // Separate payouts from debts using debt-adjusted amounts
+      const cashWithDoWyplaty = cashDrivers.map(s => ({ ...s, doWyplaty: getDoWyplaty(s) }));
+      const payouts = cashWithDoWyplaty.filter(s => s.doWyplaty > 0);
+      const debts = cashWithDoWyplaty.filter(s => s.final_payout < 0);
       
-      const totalPayout = payouts.reduce((sum, s) => sum + s.final_payout, 0);
+      const totalPayout = payouts.reduce((sum, s) => sum + s.doWyplaty, 0);
       const totalDebt = Math.abs(debts.reduce((sum, s) => sum + s.final_payout, 0));
       
       // Use Monday date of the settlement period
@@ -443,7 +445,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                 <tr>
                   <td>${idx + 1}</td>
                   <td>${s.driver_name}</td>
-                  <td class="amount ${s.final_payout >= 0 ? 'payout' : 'debt'}">${s.final_payout.toFixed(2).replace('.', ',')} zł</td>
+                  <td class="amount ${s.doWyplaty >= 0 ? 'payout' : 'debt'}">${(s.doWyplaty || s.final_payout).toFixed(2).replace('.', ',')} zł</td>
                   <td class="signature"></td>
                 </tr>
               `).join('')}
@@ -508,7 +510,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         if (!driver) return false;
         if (cityId !== 'all' && driver.city_id !== cityId) return false;
         if (driver.payment_method !== 'transfer') return false;
-        if (s.final_payout <= 0) return false;
+        if (getDoWyplaty(s) <= 0) return false;
         
         const appUser = driver.driver_app_users?.[0];
         const isWeekly = !appUser?.settlement_frequency || appUser.settlement_frequency === 'weekly';
@@ -530,7 +532,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       transferDrivers.forEach(s => {
         const driver = driverMap.get(s.driver_id);
         const iban = driver?.iban || '';
-        const amount = s.final_payout.toFixed(2).replace('.', ',');
+        const amount = getDoWyplaty(s).toFixed(2).replace('.', ',');
         csvContent += `${s.driver_name};${iban};${amount};Rozliczenie ${periodLabel}\n`;
       });
       
@@ -691,11 +693,10 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       );
     }
     
-    // Recalculate payout based on settlement mode
+    // Recalculate raw payout based on settlement mode (before debt deduction)
     const total_additional = s.additional_fees.reduce((sum, f) => sum + f.amount, 0);
     
     if (fleetSettlementModeState === 'dual_tax') {
-      // Dual tax: Netto - Cash - VAT%(D) - 23%(I+J+K) - fees
       const netto_calc = s.total_base - s.total_commission;
       s.final_payout = netto_calc - s.total_cash - s.vat_amount - (s.secondary_vat_amount || 0) 
                        - s.service_fee - total_additional - (s.rental || 0) - s.fuel + s.fuel_vat_refund;
@@ -704,6 +705,16 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     }
     
     return s;
+  };
+
+  // Calculate debt-adjusted "Do wypłaty" (what driver actually receives)
+  const getDoWyplaty = (settlement: DriverSettlement): number => {
+    const effective = getEffectiveSettlement(settlement);
+    const rawPayout = effective.final_payout;
+    if (rawPayout <= 0) return 0;
+    const debt = driverDebts[settlement.driver_id] ?? settlement.debt_current ?? 0;
+    if (debt > 0) return Math.max(0, rawPayout - debt);
+    return rawPayout;
   };
 
   // Parse locale-aware number: handles "0.00400" → 400, "1 031,00" → 1031, etc.
@@ -1435,7 +1446,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             fuel: 0,
             fuel_vat_refund: 0,
             net_without_commission: platform_net,
-            final_payout: 0, // Don't show negative payout - deficit goes to debt
+            final_payout: negFinalPayout, // Store raw negative payout
             has_negative_balance: true,
             negative_deficit: Math.abs(negFinalPayout),
           };
@@ -1566,23 +1577,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         // === DŁUG: use ACTUAL current debt from DB (reflects manual payments) ===
         const currentDebtFromDB = debtsMap[driver.id] ?? 0;
         
-        // For payout display: negative payout means driver owes money
-        // Show 0 instead of negative, the deficit goes to debt
+        // Store raw payout (can be negative) — debt adjustment happens at render time via getDoWyplaty()
         let hasNegativeBalance = payout < 0;
-        let displayPayout = payout;
-        
-        if (payout < 0) {
-          // Driver didn't earn enough to cover costs - show 0 payout
-          // The abs(payout) will become debt when settlement is saved
-          displayPayout = 0;
-        } else if (currentDebtFromDB > 0 && payout > 0) {
-          // Show payout after debt deduction (preview of what would happen)
-          if (payout >= currentDebtFromDB) {
-            displayPayout = payout - currentDebtFromDB;
-          } else {
-            displayPayout = 0;
-          }
-        }
 
         // Aggregate Bolt tips and anulacje for display
         const bolt_tips = driverSettlements.reduce((sum, s) => {
@@ -1628,7 +1624,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           fuel: total_fuel,
           fuel_vat_refund: total_fuel_vat_refund,
           net_without_commission: netto,
-          final_payout: displayPayout,
+          final_payout: payout,
           has_negative_balance: hasNegativeBalance,
           negative_deficit: hasNegativeBalance ? Math.abs(payout) : 0,
           debt_current: currentDebtFromDB,
@@ -2312,8 +2308,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           }}
           fleetId={fleetId}
           settlements={settlements.map(s => {
-            const eff = getEffectiveSettlement(s);
-            return { ...s, final_payout: eff.final_payout };
+            return { ...s, final_payout: getDoWyplaty(s) };
           })}
           periodLabel={currentWeek?.label || `Tydzień ${selectedWeek}`}
           weekStart={currentWeek?.start}
@@ -2529,6 +2524,16 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                             <span>Wypłata:</span>
                             <span className={getAmountColor(settlement.final_payout)}>{formatCurrency(settlement.final_payout)}</span>
                           </div>
+                          {(driverDebts[settlement.driver_id] || 0) > 0 && (
+                            <div className="flex justify-between text-xs text-muted-foreground">
+                              <span>Dług:</span>
+                              <span>{formatCurrency(driverDebts[settlement.driver_id])}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between text-sm font-bold text-green-700">
+                            <span>Do wypłaty:</span>
+                            <span>{formatCurrency(getDoWyplaty(settlement))}</span>
+                          </div>
                         </div>
                       </div>
                     </CollapsibleContent>
@@ -2599,8 +2604,9 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                       ))}
                       {isColVisible('service_fee') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">Opłata</TableHead>}
                       {isColVisible('rental') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">Wynajem</TableHead>}
+                      {isColVisible('payout') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">Wypłata</TableHead>}
                       {isColVisible('debt') && <TableHead className="text-center px-2 py-1.5 text-xs font-medium whitespace-nowrap">Dług</TableHead>}
-                      {isColVisible('payout') && <TableHead className="text-right px-2 py-1.5 text-xs font-bold whitespace-nowrap">Wypłata</TableHead>}
+                      {isColVisible('do_wyplaty') && <TableHead className="text-right px-2 py-1.5 text-xs font-bold whitespace-nowrap text-green-700">Do wypłaty</TableHead>}
                       {isColVisible('paid') && <TableHead className="text-center px-2 py-1.5 text-xs font-medium whitespace-nowrap">Opłacony</TableHead>}
                     </TableRow>
                   </TableHeader>
@@ -2709,6 +2715,10 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                         {isColVisible('rental') && <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
                           {renderEditableCell(settlement.driver_id, 'rental', settlement.rental || 0, hasAnyActivity)}
                         </TableCell>}
+                        {/* Wypłata (raw calculated payout, can be negative) */}
+                        {isColVisible('payout') && <TableCell className={`text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${getAmountColor(settlement.final_payout)}`}>
+                          {formatCurrency(settlement.final_payout)}
+                        </TableCell>}
                         {/* Dług - clickable to view history */}
                         {isColVisible('debt') && <TableCell className="text-center px-2 py-1.5 text-xs whitespace-nowrap">
                           {(() => {
@@ -2741,10 +2751,15 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                             );
                           })()}
                         </TableCell>}
-                        {/* Wypłata (auto-calculated) */}
-                        {isColVisible('payout') && <TableCell className={`text-right font-bold px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${getAmountColor(settlement.final_payout)}`}>
-                          {formatCurrency(settlement.final_payout)}
-                        </TableCell>}
+                        {/* Do wypłaty (after debt deduction) */}
+                        {isColVisible('do_wyplaty') && (() => {
+                          const doWyplaty = getDoWyplaty(rawSettlement);
+                          return (
+                            <TableCell className={`text-right font-bold px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${doWyplaty > 0 ? 'text-green-700' : 'text-muted-foreground'}`}>
+                              {formatCurrency(doWyplaty)}
+                            </TableCell>
+                          );
+                        })()}
                         {/* Opłacony - toggle */}
                         {isColVisible('paid') && <TableCell className="text-center px-2 py-1.5 text-xs whitespace-nowrap">
                           <button
@@ -2849,6 +2864,14 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                       {isColVisible('rental') && <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
                         -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + (getEffectiveSettlement(s).rental || 0), 0))}
                       </TableCell>}
+                      {isColVisible('payout') && (() => {
+                        const totalPayout = filteredSettlements.reduce((sum, s) => sum + getEffectiveSettlement(s).final_payout, 0);
+                        return (
+                          <TableCell className={`text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${getAmountColor(totalPayout)}`}>
+                            {formatCurrency(totalPayout)}
+                          </TableCell>
+                        );
+                      })()}
                       {isColVisible('debt') && <TableCell className="text-center px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
                         {(() => {
                           const totalDebt = filteredSettlements.reduce((sum, s) => sum + (driverDebts[s.driver_id] || 0), 0);
@@ -2863,14 +2886,15 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                           );
                         })()}
                       </TableCell>}
-                      {isColVisible('payout') && (() => {
-                        const totalPayout = filteredSettlements.reduce((sum, s) => sum + getEffectiveSettlement(s).final_payout, 0);
+                      {isColVisible('do_wyplaty') && (() => {
+                        const totalDoWyplaty = filteredSettlements.reduce((sum, s) => sum + getDoWyplaty(s), 0);
                         return (
-                          <TableCell className={`text-right font-bold px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${getAmountColor(totalPayout)}`}>
-                            {formatCurrency(totalPayout)}
+                          <TableCell className={`text-right font-bold px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${totalDoWyplaty > 0 ? 'text-green-700' : 'text-muted-foreground'}`}>
+                            {formatCurrency(totalDoWyplaty)}
                           </TableCell>
                         );
                       })()}
+                      {isColVisible('paid') && <TableCell />}
                     </TableRow>
                   </TableFooter>
                 </Table>
