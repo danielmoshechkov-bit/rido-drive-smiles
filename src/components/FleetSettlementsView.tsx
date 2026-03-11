@@ -1522,9 +1522,36 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         }, 0);
         const platform_net = uber_net + bolt_net + freenow_net;
 
+        // Snapshot długu dla bieżącego widoku tygodnia:
+        // - jeśli jest rekord rozliczenia w tym tygodniu, użyj jego debt_before/debt_after
+        // - jeśli nie ma rekordu w tygodniu, użyj salda z driver_debts (carry-over)
+        const debtAfterFromSettlement = driverSettlements.reduce((max, s) => {
+          const da = (s as any).debt_after;
+          if (da !== null && da !== undefined) return Math.max(max, parseFloat(da?.toString() || '0'));
+          return max;
+        }, -1);
+
+        const hasDebtBeforeSnapshot = driverSettlements.some(s => {
+          const db = (s as any).debt_before;
+          return db !== null && db !== undefined;
+        });
+
+        const debtBeforeFromSettlement = driverSettlements.reduce((max, s) => {
+          const db = (s as any).debt_before ?? 0;
+          return Math.max(max, parseFloat(db?.toString() || '0'));
+        }, 0);
+
+        const currentDebtForDisplay = debtAfterFromSettlement >= 0
+          ? debtAfterFromSettlement
+          : (debtsMap[driver.id] ?? 0);
+
+        const debtBeforeForDisplay = hasDebtBeforeSnapshot
+          ? debtBeforeFromSettlement
+          : currentDebtForDisplay;
+
         // ⚠️ OCHRONA ZEROWYCH ZAROBKÓW
         // Jeśli kierowca nie jeździł (suma zarobków = 0) I nie ma ujemnego salda
-        // NIE naliczamy ŻADNYCH opłat - zero rental, zero service_fee
+        // NIE naliczamy opłat, ale jeśli ma dług to nadal pokazujemy go na liście
         if (total_base === 0 && platform_net >= 0) {
           return {
             driver_id: driver.id,
@@ -1541,6 +1568,15 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             net_without_commission: 0,
             final_payout: 0,
             has_negative_balance: false,
+            debt_current: currentDebtForDisplay,
+            debt_previous: debtBeforeForDisplay,
+            settlement_id: (settlementSnapshot as any)?.id,
+            period_from: (settlementSnapshot as any)?.period_from,
+            period_to: (settlementSnapshot as any)?.period_to,
+            snapshot_debt_before: (settlementSnapshot as any)?.debt_before ?? undefined,
+            snapshot_debt_after: (settlementSnapshot as any)?.debt_after ?? undefined,
+            snapshot_debt_payment: (settlementSnapshot as any)?.debt_payment ?? undefined,
+            snapshot_actual_payout: (settlementSnapshot as any)?.actual_payout ?? undefined,
           };
         }
 
@@ -1581,6 +1617,15 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             final_payout: negFinalPayout, // Store raw negative payout
             has_negative_balance: true,
             negative_deficit: Math.abs(negFinalPayout),
+            debt_current: currentDebtForDisplay,
+            debt_previous: debtBeforeForDisplay,
+            settlement_id: (settlementSnapshot as any)?.id,
+            period_from: (settlementSnapshot as any)?.period_from,
+            period_to: (settlementSnapshot as any)?.period_to,
+            snapshot_debt_before: (settlementSnapshot as any)?.debt_before ?? undefined,
+            snapshot_debt_after: (settlementSnapshot as any)?.debt_after ?? undefined,
+            snapshot_debt_payment: (settlementSnapshot as any)?.debt_payment ?? undefined,
+            snapshot_actual_payout: (settlementSnapshot as any)?.actual_payout ?? undefined,
           };
         }
 
@@ -1706,28 +1751,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           payout = total_base - total_commission - vat_amount - service_fee - total_additional_fees - rental - total_cash - total_fuel + total_fuel_vat_refund;
         }
 
-        // === DŁUG: use debt_after from settlement record (historical, for viewed week) ===
-        const debtAfterFromSettlement = driverSettlements.reduce((max, s) => {
-          const da = (s as any).debt_after;
-          if (da !== null && da !== undefined) return Math.max(max, parseFloat(da?.toString() || '0'));
-          return max;
-        }, -1);
-        
-        const hasDebtBeforeSnapshot = driverSettlements.some(s => {
-          const db = (s as any).debt_before;
-          return db !== null && db !== undefined;
-        });
-
-        const debtBeforeFromSettlement = driverSettlements.reduce((max, s) => {
-          const db = (s as any).debt_before ?? 0;
-          return Math.max(max, parseFloat(db?.toString() || '0'));
-        }, 0);
-
-        // Use debt_after from settlement if available, otherwise fall back to live balance
-        const currentDebtForDisplay = debtAfterFromSettlement >= 0
-          ? debtAfterFromSettlement
-          : (debtsMap[driver.id] ?? 0);
-        
+        // debtBeforeForDisplay/currentDebtForDisplay wyliczone wyżej (także dla tygodni bez jazdy)
         // Store raw payout (can be negative) — debt adjustment happens at render time via getDoWyplaty()
         let hasNegativeBalance = payout < 0;
 
