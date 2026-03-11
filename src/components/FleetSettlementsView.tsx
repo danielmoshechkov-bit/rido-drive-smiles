@@ -1681,14 +1681,19 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           return max;
         }, -1);
         
+        const hasDebtBeforeSnapshot = driverSettlements.some(s => {
+          const db = (s as any).debt_before;
+          return db !== null && db !== undefined;
+        });
+
         const debtBeforeFromSettlement = driverSettlements.reduce((max, s) => {
           const db = (s as any).debt_before ?? 0;
           return Math.max(max, parseFloat(db?.toString() || '0'));
         }, 0);
-        
+
         // Use debt_after from settlement if available, otherwise fall back to live balance
-        const currentDebtForDisplay = debtAfterFromSettlement >= 0 
-          ? debtAfterFromSettlement 
+        const currentDebtForDisplay = debtAfterFromSettlement >= 0
+          ? debtAfterFromSettlement
           : (debtsMap[driver.id] ?? 0);
         
         // Store raw payout (can be negative) — debt adjustment happens at render time via getDoWyplaty()
