@@ -735,14 +735,16 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   };
 
   // Calculate debt-adjusted "Wypłata" — negative means new debt carries over
+  // Uses debt_previous (= debt_before, the debt entering the week) so we correctly
+  // show: Rozliczenie (revenue - fees - rental) minus existing debt = Do wypłaty
   const getDoWyplaty = (settlement: DriverSettlement): number => {
     const effective = getEffectiveSettlement(settlement);
-    const rawPayout = effective.final_payout;
-    const debt = settlement.debt_current ?? 0;
-    // rawPayout negative + debt = deeper negative (both accumulate)
-    if (rawPayout <= 0) return rawPayout - debt;
-    // rawPayout positive but debt exists — subtract debt
-    if (debt > 0) return rawPayout - debt;
+    const rawPayout = effective.final_payout; // already has fees + rental deducted
+    const debtBefore = settlement.debt_previous ?? 0;
+    // rawPayout negative + existing debt = deeper negative (both accumulate)
+    if (rawPayout <= 0) return rawPayout - debtBefore;
+    // rawPayout positive but existing debt — subtract debt_before
+    if (debtBefore > 0) return rawPayout - debtBefore;
     return rawPayout;
   };
 
