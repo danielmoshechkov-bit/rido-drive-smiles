@@ -1386,8 +1386,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       // Agreguj rozliczenia per kierowca
       const aggregated = filteredDriversData.map(driver => {
         const driverSettlements = settlementsData?.filter(s => s.driver_id === driver.id) || [];
-
-
+        const settlementSnapshot = [...driverSettlements]
+          .sort((a, b) => new Date((b as any).updated_at || 0).getTime() - new Date((a as any).updated_at || 0).getTime())[0];
         // Parsuj amounts JSONB - obsługuj NOWE klucze snake_case z bazy oraz STARE camelCase z CSV importu
         const uber_base = driverSettlements.reduce((sum, s) => {
           const amounts = s.amounts as any || {};
