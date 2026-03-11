@@ -156,6 +156,86 @@ Deno.serve(async (req) => {
     unmappedDriversList = result.unmappedDrivers || [];
   }
 
+  // Ensure debt carry-over for inactive drivers not present in imported CSV
+  if (fleet_id) {
+    const importedDriverIds = new Set(settlementsToInsert.map((s: any) => s.driver_id));
+
+    const { data: fleetDrivers } = await supabase
+      .from('drivers')
+      .select('id')
+      .eq('fleet_id', fleet_id);
+
+    const missingDriverIds = (fleetDrivers || [])
+      .map((d: any) => d.id)
+      .filter((driverId: string) => !importedDriverIds.has(driverId));
+
+    if (missingDriverIds.length > 0) {
+      const [
+        { data: debtsData },
+        { data: previousDebtsData }
+      ] = await Promise.all([
+        supabase
+          .from('driver_debts')
+          .select('driver_id, current_balance')
+          .in('driver_id', missingDriverIds),
+        supabase
+          .from('settlements')
+          .select('driver_id, debt_after')
+          .in('driver_id', missingDriverIds)
+          .lt('period_to', period_from)
+          .not('debt_after', 'is', null)
+          .order('driver_id', { ascending: true })
+          .order('period_to', { ascending: false })
+          .order('updated_at', { ascending: false })
+      ]);
+
+      const debtByDriver = new Map<string, number>();
+      (debtsData || []).forEach((row: any) => {
+        debtByDriver.set(row.driver_id, Math.max(0, row.current_balance || 0));
+      });
+
+      const previousDebtByDriver = new Map<string, number>();
+      (previousDebtsData || []).forEach((row: any) => {
+        if (!previousDebtByDriver.has(row.driver_id)) {
+          previousDebtByDriver.set(row.driver_id, Math.max(0, row.debt_after || 0));
+        }
+      });
+
+      const carryOverSettlements = missingDriverIds
+        .map((driverId: string) => {
+          const carryDebt = Math.max(
+            debtByDriver.get(driverId) || 0,
+            previousDebtByDriver.get(driverId) || 0
+          );
+
+          if (carryDebt <= 0.01) return null;
+
+          return {
+            city_id: effectiveCityId,
+            driver_id: driverId,
+            platform: 'main',
+            period_from,
+            period_to,
+            week_start: period_from,
+            week_end: period_to,
+            total_earnings: 0,
+            commission_amount: 0,
+            net_amount: 0,
+            rental_fee: 0,
+            amounts: {},
+            source: 'debt_carryover',
+            raw_row_id: `carry_${period_from}_${fleet_id}_${driverId}`
+          };
+        })
+        .filter(Boolean);
+
+      if (carryOverSettlements.length > 0) {
+        console.log(`↪️ Added ${carryOverSettlements.length} debt carry-over settlements for inactive drivers`);
+        settlementsToInsert = [...settlementsToInsert, ...carryOverSettlements];
+      }
+    }
+  }
+
     if (settlementsToInsert.length > 0) {
       console.log(`💾 Zapisuję ${settlementsToInsert.length} rozliczeń...`);
       const { data: insertedSettlements, error } = await supabase
@@ -198,29 +278,13 @@ Deno.serve(async (req) => {
               const totalCash = (amounts.uber_cash_f || 0) + (amounts.bolt_cash || 0) + (amounts.freenow_cash_f || 0);
               const totalCommission = (amounts.uber_commission || 0) + (amounts.bolt_commission || 0) + (amounts.freenow_commission_t || 0);
               
-              // If driver has zero/no earnings AND no negative platform balance, skip debt creation
-              // BUT still update settlement record with current debt info for display
+              // Always pass through debt function, even for inactive drivers,
+              // so debt carry-over is preserved week-to-week.
               const hasAnyActivity = totalBase !== 0 || totalCash !== 0;
               if (!hasAnyActivity) {
-                console.log(`⏭️ Driver ${driverId}: no activity, updating settlement debt_before only`);
-                // Fetch current debt to store on settlement for display purposes
-                const { data: inactiveDebtData } = await supabase
-                  .from("driver_debts")
-                  .select("current_balance")
-                  .eq("driver_id", driverId)
-                  .maybeSingle();
-                const inactiveDebt = inactiveDebtData?.current_balance || 0;
-                if (inactiveDebt > 0) {
-                  await supabase.from("settlements").update({
-                    debt_before: inactiveDebt,
-                    debt_payment: 0,
-                    debt_after: inactiveDebt,
-                    actual_payout: 0
-                  }).eq("id", settlement.id);
-                }
-                continue;
+                console.log(`⏭️ Driver ${driverId}: no activity, forcing debt carry-over sync`);
               }
-              
+
               // VAT 8% on base
               const vat8 = totalBase * 0.08;
               
@@ -479,7 +543,7 @@ async function process3PlatformCsvs(
         total_commission: total_commission
       },
       source: '3_platform_csvs',
-      raw_row_id: `combined_${meta.period_from}_${meta.city_id || 'all'}_${driverId}`
+      raw_row_id: `combined_${meta.period_from}_${meta.fleet_id || meta.city_id || 'all'}_${driverId}`
     });
   }
 
@@ -691,7 +755,7 @@ async function processRidoTemplate(
         total_commission
       },
       source: 'rido_template',
-      raw_row_id: `rido_${meta.period_from}_${meta.city_id || 'all'}_${driverId}`
+      raw_row_id: `rido_${meta.period_from}_${meta.fleet_id || meta.city_id || 'all'}_${driverId}`
     });
   }
 
