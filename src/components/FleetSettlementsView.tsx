@@ -1338,12 +1338,13 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         .from('settlement_plans')
         .select('*');
 
-      // Pobierz aktywne przypisania pojazdów z opłatą wynajmu
+      // Pobierz aktywne przypisania pojazdów z opłatą wynajmu i datą przypisania
       const { data: assignmentsData } = await supabase
         .from('driver_vehicle_assignments')
         .select(`
           driver_id,
           vehicle_id,
+          assigned_at,
           vehicles(weekly_rental_fee)
         `)
         .in('driver_id', driverIds)
