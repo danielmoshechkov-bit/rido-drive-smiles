@@ -755,7 +755,7 @@ async function processRidoTemplate(
         total_commission
       },
       source: 'rido_template',
-      raw_row_id: `rido_${meta.period_from}_${meta.city_id || 'all'}_${driverId}`
+      raw_row_id: `rido_${meta.period_from}_${meta.fleet_id || meta.city_id || 'all'}_${driverId}`
     });
   }
 
