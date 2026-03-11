@@ -425,6 +425,7 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
               />
             </div>
           </div>
+        </CardHeader>
       <CardContent className="p-0 md:p-6">
         {loading ? (
           <div className="text-center py-8 text-muted-foreground">
