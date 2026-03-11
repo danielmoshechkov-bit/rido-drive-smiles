@@ -135,7 +135,16 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteCityId, setDeleteCityId] = useState<string>('all');
   const [debtDialogOpen, setDebtDialogOpen] = useState(false);
-  const [selectedDriverForDebt, setSelectedDriverForDebt] = useState<{id: string, name: string} | null>(null);
+  const [selectedDriverForDebt, setSelectedDriverForDebt] = useState<{
+    id: string;
+    name: string;
+    settlementDebtBefore: number;
+    rentalDebtBefore: number;
+    totalDebtBefore: number;
+    debtAfter: number;
+    periodFrom?: string;
+    periodTo?: string;
+  } | null>(null);
   const [driverDebts, setDriverDebts] = useState<Record<string, number>>({});
   const [unmappedDrivers, setUnmappedDrivers] = useState<any[]>([]);
   const [showUnmappedModal, setShowUnmappedModal] = useState(false);
