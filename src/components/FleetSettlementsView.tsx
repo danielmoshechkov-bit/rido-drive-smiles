@@ -78,6 +78,7 @@ interface DriverSettlement {
   weekly_rental_fee?: number;
   debt_current?: number;
   debt_previous?: number;
+  rental_debt_previous?: number;
   covered_rental?: boolean;
   // For negative balance tracking
   has_negative_balance?: boolean;
