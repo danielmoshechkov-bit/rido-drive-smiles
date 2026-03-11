@@ -1854,18 +1854,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           };
         }
 
-        // Calculate VAT amount from fleet settings
-        // B2B drivers with vat_payer=true don't pay VAT - they handle it themselves
-        const driverInfo = driver as any;
-        const appUserData = driverInfo.driver_app_users;
-        const b2bProfile = b2bProfilesMap.get(appUserData?.user_id);
-        // Check ALL possible B2B indicators: payment_method, billing_method, b2b_enabled
-        const isB2BDriver = driverInfo.payment_method === 'b2b' 
-                         || driverInfo.billing_method === 'b2b' 
-                         || driverInfo.b2b_enabled === true;
-        // Check VAT payer from drivers table directly OR from b2b_profiles table
-        const isB2BVatPayer = isB2BDriver && (driverInfo.b2b_vat_payer === true || b2bProfile?.vat_payer === true);
-        const effectiveVatRate = isB2BVatPayer ? 0 : fleetVatRate;
+        // B2B/VAT already calculated above (before negative balance check)
 
         // === DUAL TAX MODE: Calculate from specific Bolt CSV columns ===
         let vat_amount = 0;
