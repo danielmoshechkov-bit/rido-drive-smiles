@@ -882,12 +882,48 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           .from('settlements')
           .update(updateData)
           .eq('id', targetId);
-        
+
         if (updateErr) {
           console.error('Error saving override:', updateErr);
           toast.error('Błąd zapisu: ' + updateErr.message);
         } else {
           console.log('✅ Saved override for driver', driverId, field, val, 'to settlement', targetId);
+
+          const currentSettlement = settlements.find(s => s.driver_id === driverId);
+          if (currentSettlement) {
+            const overridePatch: {
+              additional_fees?: Record<number, number>;
+              service_fee?: number;
+              rental?: number;
+            } = {};
+
+            if (field === 'rental') overridePatch.rental = val;
+            if (field === 'service_fee') overridePatch.service_fee = val;
+            if (field === 'additional_fee' && index !== undefined) {
+              overridePatch.additional_fees = { [index]: val };
+            }
+
+            const settlementForRecalc = applyOverridesToSettlement(currentSettlement, overridePatch);
+            const recalculatedPayout = calculateRawPayout(settlementForRecalc);
+
+            const { data: debtSyncData, error: debtSyncError } = await supabase.functions.invoke('update-driver-debt', {
+              body: {
+                driver_id: driverId,
+                settlement_id: targetId,
+                period_from: currentWeek.start,
+                period_to: currentWeek.end,
+                calculated_payout: recalculatedPayout,
+                force_recalculate_chain: true,
+              },
+            });
+
+            if (debtSyncError || (debtSyncData as any)?.error) {
+              console.error('Error syncing debt chain after override:', debtSyncError || debtSyncData);
+              toast.error('Zapisano zmianę, ale nie udało się przeliczyć długu');
+            }
+          }
+
+          await fetchSettlements();
         }
       }
     } catch (err) {
