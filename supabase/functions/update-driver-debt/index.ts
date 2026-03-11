@@ -12,6 +12,7 @@ interface DebtUpdateRequest {
   period_from: string;
   period_to: string;
   calculated_payout: number;
+  force_recalculate_chain?: boolean;
 }
 
 serve(async (req) => {
@@ -29,7 +30,7 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { driver_id, settlement_id, period_from, period_to, calculated_payout }: DebtUpdateRequest = await req.json();
+    const { driver_id, settlement_id, period_from, period_to, calculated_payout, force_recalculate_chain }: DebtUpdateRequest = await req.json();
 
     console.log(`Processing debt for driver ${driver_id}, payout: ${calculated_payout}`);
 
@@ -56,6 +57,188 @@ serve(async (req) => {
         );
       }
     }
+
+    const round2 = (value: number): number => Math.round((value + Number.EPSILON) * 100) / 100;
+
+    const computeDebtValues = (debtBefore: number, payout: number) => {
+      const normalizedDebtBefore = round2(Math.max(0, debtBefore || 0));
+      const normalizedPayout = round2(payout || 0);
+
+      let debtPayment = 0;
+      let remainingDebt = normalizedDebtBefore;
+      let actualPayout = 0;
+
+      if (Math.abs(normalizedPayout) < 0.01) {
+        return { debtBefore: normalizedDebtBefore, debtPayment, remainingDebt, actualPayout };
+      }
+
+      if (normalizedPayout < 0) {
+        remainingDebt = round2(normalizedDebtBefore + Math.abs(normalizedPayout));
+      } else if (normalizedDebtBefore <= 0) {
+        remainingDebt = 0;
+        actualPayout = normalizedPayout;
+      } else if (normalizedPayout >= normalizedDebtBefore) {
+        debtPayment = normalizedDebtBefore;
+        remainingDebt = 0;
+        actualPayout = round2(normalizedPayout - normalizedDebtBefore);
+      } else {
+        debtPayment = normalizedPayout;
+        remainingDebt = round2(normalizedDebtBefore - normalizedPayout);
+      }
+
+      return {
+        debtBefore: normalizedDebtBefore,
+        debtPayment: round2(debtPayment),
+        remainingDebt: round2(remainingDebt),
+        actualPayout: round2(actualPayout),
+      };
+    };
+
+    const deriveRawPayoutFromSnapshot = (settlement: any): number => {
+      const debtBefore = round2(Math.max(0, Number(settlement?.debt_before ?? 0)));
+      const debtAfter = round2(Math.max(0, Number(settlement?.debt_after ?? debtBefore)));
+      const debtPayment = round2(Math.max(0, Number(settlement?.debt_payment ?? 0)));
+      const actualPayout = round2(Number(settlement?.actual_payout ?? 0));
+      const debtIncrease = round2(Math.max(0, debtAfter - debtBefore));
+
+      if (debtIncrease > 0.01) {
+        return round2(-debtIncrease);
+      }
+
+      return round2(actualPayout + debtPayment);
+    };
+
+    const recalculateDebtChainFromPeriod = async () => {
+      const { data: previousSettlement, error: previousSettlementError } = await supabase
+        .from("settlements")
+        .select("debt_after")
+        .eq("driver_id", driver_id)
+        .lt("period_to", period_from)
+        .not("debt_after", "is", null)
+        .order("period_to", { ascending: false })
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (previousSettlementError) {
+        console.error("Error fetching previous settlement for chain recalculation:", previousSettlementError);
+        throw previousSettlementError;
+      }
+
+      let runningDebt = round2(Math.max(0, Number(previousSettlement?.debt_after ?? 0)));
+
+      const { error: deleteAutoTxError } = await supabase
+        .from("driver_debt_transactions")
+        .delete()
+        .eq("driver_id", driver_id)
+        .gte("period_from", period_from)
+        .in("type", ["debt_increase", "debt_payment"]);
+
+      if (deleteAutoTxError) {
+        console.error("Error deleting auto debt transactions for recalculation:", deleteAutoTxError);
+        throw deleteAutoTxError;
+      }
+
+      const { data: chainSettlements, error: chainSettlementsError } = await supabase
+        .from("settlements")
+        .select("id, period_from, period_to, debt_before, debt_payment, debt_after, actual_payout")
+        .eq("driver_id", driver_id)
+        .gte("period_from", period_from)
+        .order("period_from", { ascending: true })
+        .order("period_to", { ascending: true })
+        .order("updated_at", { ascending: true });
+
+      if (chainSettlementsError) {
+        console.error("Error fetching settlements for debt chain recalculation:", chainSettlementsError);
+        throw chainSettlementsError;
+      }
+
+      if (!chainSettlements || chainSettlements.length === 0) {
+        throw new Error("No settlements found for debt chain recalculation");
+      }
+
+      let targetSnapshot: { debtBefore: number; debtPayment: number; remainingDebt: number; actualPayout: number } | null = null;
+
+      for (const settlement of chainSettlements) {
+        const rawPayout = settlement.id === settlement_id
+          ? round2(calculated_payout)
+          : deriveRawPayoutFromSnapshot(settlement);
+
+        const computed = computeDebtValues(runningDebt, rawPayout);
+
+        const { error: settlementUpdateError } = await supabase
+          .from("settlements")
+          .update({
+            debt_before: computed.debtBefore,
+            debt_payment: computed.debtPayment,
+            debt_after: computed.remainingDebt,
+            actual_payout: computed.actualPayout,
+          })
+          .eq("id", settlement.id);
+
+        if (settlementUpdateError) {
+          console.error("Error updating settlement during debt chain recalculation:", settlementUpdateError);
+          throw settlementUpdateError;
+        }
+
+        if (rawPayout < -0.01) {
+          const { error: txError } = await supabase.from("driver_debt_transactions").insert({
+            driver_id,
+            settlement_id: settlement.id,
+            type: "debt_increase",
+            amount: Math.abs(rawPayout),
+            balance_before: computed.debtBefore,
+            balance_after: computed.remainingDebt,
+            period_from: settlement.period_from,
+            period_to: settlement.period_to,
+            description: `Dług z okresu ${settlement.period_from} - ${settlement.period_to}`,
+          });
+
+          if (txError) {
+            console.error("Error creating debt increase transaction during chain recalculation:", txError);
+            throw txError;
+          }
+        } else if (computed.debtPayment > 0.01) {
+          const { error: txError } = await supabase.from("driver_debt_transactions").insert({
+            driver_id,
+            settlement_id: settlement.id,
+            type: "debt_payment",
+            amount: -Math.abs(computed.debtPayment),
+            balance_before: computed.debtBefore,
+            balance_after: computed.remainingDebt,
+            period_from: settlement.period_from,
+            period_to: settlement.period_to,
+            description: `Spłata długu z okresu ${settlement.period_from} - ${settlement.period_to}`,
+          });
+
+          if (txError) {
+            console.error("Error creating debt payment transaction during chain recalculation:", txError);
+            throw txError;
+          }
+        }
+
+        runningDebt = computed.remainingDebt;
+
+        if (settlement.id === settlement_id) {
+          targetSnapshot = computed;
+        }
+      }
+
+      const { error: debtUpsertError } = await supabase.from("driver_debts").upsert({
+        driver_id,
+        current_balance: runningDebt,
+        updated_at: new Date().toISOString(),
+      }, {
+        onConflict: "driver_id",
+      });
+
+      if (debtUpsertError) {
+        console.error("Error upserting driver debt after chain recalculation:", debtUpsertError);
+        throw debtUpsertError;
+      }
+
+      return targetSnapshot;
+    };
 
     const getAuthoritativeDebtBalance = async (): Promise<number> => {
       const [
@@ -125,6 +308,24 @@ serve(async (req) => {
 
       return authoritativeDebt;
     };
+
+    if (force_recalculate_chain) {
+      console.log(`♻️ Force recalculating debt chain for driver ${driver_id} from ${period_from}`);
+
+      const snapshot = await recalculateDebtChainFromPeriod();
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          recalculated: true,
+          debt_before: snapshot?.debtBefore ?? 0,
+          debt_payment: snapshot?.debtPayment ?? 0,
+          debt_after: snapshot?.remainingDebt ?? 0,
+          actual_payout: snapshot?.actualPayout ?? 0,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // DEDUPLICATION: Check by settlement_id AND by period to prevent duplicates
     const { data: existingTxBySettlement } = await supabase

@@ -704,34 +704,64 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
 
   // Apply manual overrides and recalculate payout
-  const getEffectiveSettlement = (settlement: DriverSettlement) => {
-    const overrides = manualOverrides[settlement.driver_id];
-    if (!overrides) return settlement;
+  const applyOverridesToSettlement = (
+    settlement: DriverSettlement,
+    overrides?: {
+      additional_fees?: Record<number, number>;
+      service_fee?: number;
+      rental?: number;
+    }
+  ): DriverSettlement => {
+    if (!overrides) return { ...settlement };
 
     const s = { ...settlement };
-    
+
     if (overrides.service_fee !== undefined) s.service_fee = overrides.service_fee;
     if (overrides.rental !== undefined) s.rental = overrides.rental;
     if (overrides.additional_fees) {
-      s.additional_fees = s.additional_fees.map((fee, idx) => 
-        overrides.additional_fees?.[idx] !== undefined 
-          ? { ...fee, amount: overrides.additional_fees[idx] } 
+      s.additional_fees = s.additional_fees.map((fee, idx) =>
+        overrides.additional_fees?.[idx] !== undefined
+          ? { ...fee, amount: overrides.additional_fees[idx] }
           : fee
       );
     }
-    
-    // Recalculate raw payout based on settlement mode (before debt deduction)
-    const total_additional = s.additional_fees.reduce((sum, f) => sum + f.amount, 0);
-    
-    if (fleetSettlementModeState === 'dual_tax') {
-      const netto_calc = s.total_base - s.total_commission;
-      s.final_payout = netto_calc - s.total_cash - s.vat_amount - (s.secondary_vat_amount || 0) 
-                       - s.service_fee - total_additional - (s.rental || 0) - s.fuel + s.fuel_vat_refund;
-    } else {
-      s.final_payout = s.total_base - s.total_commission - s.vat_amount - s.service_fee - total_additional - (s.rental || 0) - s.total_cash - s.fuel + s.fuel_vat_refund;
-    }
-    
+
     return s;
+  };
+
+  const calculateRawPayout = (settlement: DriverSettlement): number => {
+    const totalAdditional = settlement.additional_fees.reduce((sum, f) => sum + f.amount, 0);
+
+    if (fleetSettlementModeState === 'dual_tax') {
+      const nettoCalc = settlement.total_base - settlement.total_commission;
+      return nettoCalc
+        - settlement.total_cash
+        - settlement.vat_amount
+        - (settlement.secondary_vat_amount || 0)
+        - settlement.service_fee
+        - totalAdditional
+        - (settlement.rental || 0)
+        - settlement.fuel
+        + settlement.fuel_vat_refund;
+    }
+
+    return settlement.total_base
+      - settlement.total_commission
+      - settlement.vat_amount
+      - settlement.service_fee
+      - totalAdditional
+      - (settlement.rental || 0)
+      - settlement.total_cash
+      - settlement.fuel
+      + settlement.fuel_vat_refund;
+  };
+
+  const getEffectiveSettlement = (settlement: DriverSettlement) => {
+    const overridden = applyOverridesToSettlement(settlement, manualOverrides[settlement.driver_id]);
+    return {
+      ...overridden,
+      final_payout: calculateRawPayout(overridden),
+    };
   };
 
   // Calculate debt-adjusted "Wypłata" — negative means new debt carries over
@@ -852,12 +882,48 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           .from('settlements')
           .update(updateData)
           .eq('id', targetId);
-        
+
         if (updateErr) {
           console.error('Error saving override:', updateErr);
           toast.error('Błąd zapisu: ' + updateErr.message);
         } else {
           console.log('✅ Saved override for driver', driverId, field, val, 'to settlement', targetId);
+
+          const currentSettlement = settlements.find(s => s.driver_id === driverId);
+          if (currentSettlement) {
+            const overridePatch: {
+              additional_fees?: Record<number, number>;
+              service_fee?: number;
+              rental?: number;
+            } = {};
+
+            if (field === 'rental') overridePatch.rental = val;
+            if (field === 'service_fee') overridePatch.service_fee = val;
+            if (field === 'additional_fee' && index !== undefined) {
+              overridePatch.additional_fees = { [index]: val };
+            }
+
+            const settlementForRecalc = applyOverridesToSettlement(currentSettlement, overridePatch);
+            const recalculatedPayout = calculateRawPayout(settlementForRecalc);
+
+            const { data: debtSyncData, error: debtSyncError } = await supabase.functions.invoke('update-driver-debt', {
+              body: {
+                driver_id: driverId,
+                settlement_id: targetId,
+                period_from: currentWeek.start,
+                period_to: currentWeek.end,
+                calculated_payout: recalculatedPayout,
+                force_recalculate_chain: true,
+              },
+            });
+
+            if (debtSyncError || (debtSyncData as any)?.error) {
+              console.error('Error syncing debt chain after override:', debtSyncError || debtSyncData);
+              toast.error('Zapisano zmianę, ale nie udało się przeliczyć długu');
+            }
+          }
+
+          await fetchSettlements();
         }
       }
     } catch (err) {
@@ -1615,14 +1681,19 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           return max;
         }, -1);
         
+        const hasDebtBeforeSnapshot = driverSettlements.some(s => {
+          const db = (s as any).debt_before;
+          return db !== null && db !== undefined;
+        });
+
         const debtBeforeFromSettlement = driverSettlements.reduce((max, s) => {
           const db = (s as any).debt_before ?? 0;
           return Math.max(max, parseFloat(db?.toString() || '0'));
         }, 0);
-        
+
         // Use debt_after from settlement if available, otherwise fall back to live balance
-        const currentDebtForDisplay = debtAfterFromSettlement >= 0 
-          ? debtAfterFromSettlement 
+        const currentDebtForDisplay = debtAfterFromSettlement >= 0
+          ? debtAfterFromSettlement
           : (debtsMap[driver.id] ?? 0);
         
         // Store raw payout (can be negative) — debt adjustment happens at render time via getDoWyplaty()
@@ -1676,7 +1747,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           has_negative_balance: hasNegativeBalance,
           negative_deficit: hasNegativeBalance ? Math.abs(payout) : 0,
           debt_current: currentDebtForDisplay,
-          debt_previous: debtBeforeFromSettlement || currentDebtForDisplay,
+          debt_previous: hasDebtBeforeSnapshot ? debtBeforeFromSettlement : currentDebtForDisplay,
           // Dual tax fields
           bolt_ef_base,
           bolt_ijk_base,
