@@ -12,6 +12,7 @@ interface DebtUpdateRequest {
   period_from: string;
   period_to: string;
   calculated_payout: number;
+  force_recalculate_chain?: boolean;
 }
 
 serve(async (req) => {
