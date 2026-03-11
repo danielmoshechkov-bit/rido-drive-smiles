@@ -78,6 +78,7 @@ interface DriverSettlement {
   weekly_rental_fee?: number;
   debt_current?: number;
   debt_previous?: number;
+  rental_debt_previous?: number;
   covered_rental?: boolean;
   // For negative balance tracking
   has_negative_balance?: boolean;
@@ -774,18 +775,13 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     };
   };
 
-  // Calculate debt-adjusted "Wypłata" — negative means new debt carries over
-  // Uses debt_previous (= debt_before, the debt entering the week) so we correctly
-  // show: Rozliczenie (revenue - fees - rental) minus existing debt = Do wypłaty
+  // Wypłata finalna: część 1 (rozliczenie bez wynajmu i bez długu wynajmu) + część 2 (wynajem)
   const getDoWyplaty = (settlement: DriverSettlement): number => {
     const effective = getEffectiveSettlement(settlement);
-    const rawPayout = effective.final_payout; // already has fees + rental deducted
-    const debtBefore = settlement.debt_previous ?? 0;
-    // rawPayout negative + existing debt = deeper negative (both accumulate)
-    if (rawPayout <= 0) return rawPayout - debtBefore;
-    // rawPayout positive but existing debt — subtract debt_before
-    if (debtBefore > 0) return rawPayout - debtBefore;
-    return rawPayout;
+    const wyplata1 = getWyplata1(settlement);
+    const rentalDebtBefore = settlement.rental_debt_previous ?? 0;
+    const rental = effective.rental || 0;
+    return round2(wyplata1 - rentalDebtBefore - rental);
   };
 
   // Calculate payout WITHOUT rental (Part 1 of settlement)
@@ -817,23 +813,29 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     const effective = getEffectiveSettlement(settlement);
     const payoutNoRental = calculatePayoutWithoutRental(effective);
     const debtBefore = settlement.debt_previous ?? 0;
-    if (payoutNoRental <= 0) return payoutNoRental - debtBefore;
-    if (debtBefore > 0) return payoutNoRental - debtBefore;
-    return payoutNoRental;
+    return round2(payoutNoRental - debtBefore);
   };
 
-  // Rental debt: shortfall when wypłata 1 can't cover rental
+  // Dług wynajmu (kolumna wejściowa tygodnia): tylko zaległość z wynajmu z poprzednich tygodni
   const getRentalDebt = (settlement: DriverSettlement): number => {
-    const wyplata1 = getWyplata1(settlement);
-    const effective = getEffectiveSettlement(settlement);
-    const rental = effective.rental || 0;
-    if (rental <= 0) return 0;
-    if (wyplata1 <= 0) return rental;
-    if (wyplata1 < rental) return rental - wyplata1;
-    return 0;
+    return round2(Math.max(0, settlement.rental_debt_previous ?? 0));
   };
 
   const round2 = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+
+  const deriveRawPayoutFromSettlementSnapshot = (settlement: any): number => {
+    const debtBefore = round2(Math.max(0, Number(settlement?.debt_before ?? 0)));
+    const debtAfter = round2(Math.max(0, Number(settlement?.debt_after ?? debtBefore)));
+    const debtPayment = round2(Math.max(0, Number(settlement?.debt_payment ?? 0)));
+    const actualPayout = round2(Number(settlement?.actual_payout ?? 0));
+    const debtIncrease = round2(Math.max(0, debtAfter - debtBefore));
+
+    if (debtIncrease > 0.01) {
+      return round2(-debtIncrease);
+    }
+
+    return round2(actualPayout + debtPayment);
+  };
 
   const getSnapshotRawPayout = (settlement: DriverSettlement): number | null => {
     if (
@@ -845,16 +847,12 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       return null;
     }
 
-    const debtBefore = Math.max(0, settlement.snapshot_debt_before || 0);
-    const debtAfter = Math.max(0, settlement.snapshot_debt_after || 0);
-    const debtPayment = Math.max(0, settlement.snapshot_debt_payment || 0);
-    const actualPayout = settlement.snapshot_actual_payout || 0;
-
-    if (debtAfter - debtBefore > 0.01) {
-      return round2(-(debtAfter - debtBefore));
-    }
-
-    return round2(actualPayout + debtPayment);
+    return deriveRawPayoutFromSettlementSnapshot({
+      debt_before: settlement.snapshot_debt_before,
+      debt_after: settlement.snapshot_debt_after,
+      debt_payment: settlement.snapshot_debt_payment,
+      actual_payout: settlement.snapshot_actual_payout,
+    });
   };
 
   // Parse locale-aware number: handles "0.00400" → 400, "1 031,00" → 1031, etc.
@@ -1379,7 +1377,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         (b2bProfiles || []).map(p => [p.driver_user_id, p])
       );
 
-      // Pobierz aktualne długi kierowców
+      // Pobierz aktualne długi kierowców (łączny dług systemowy)
       const { data: debtsData } = await supabase
         .from('driver_debts')
         .select('driver_id, current_balance')
@@ -1390,6 +1388,84 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         debtsMap[d.driver_id] = d.current_balance || 0;
       });
       setDriverDebts(debtsMap);
+
+      // Rozdzielenie długu na 2 strumienie: rozliczenie vs wynajem (łańcuch tygodniowy)
+      const selectedPeriodTo = currentWeek?.end || periodTo;
+      let settlementHistoryQuery = supabase
+        .from('settlements')
+        .select('driver_id, period_from, period_to, rental_fee, debt_before, debt_after, debt_payment, actual_payout, updated_at')
+        .in('driver_id', driverIds);
+
+      if (selectedPeriodTo) {
+        settlementHistoryQuery = settlementHistoryQuery.lte('period_to', selectedPeriodTo);
+      }
+
+      const { data: settlementHistoryData } = await settlementHistoryQuery;
+
+      const splitDebtByWeek = new Map<string, { settlementDebtBefore: number; rentalDebtBefore: number }>();
+
+      for (const driverId of driverIds) {
+        const historyRows = (settlementHistoryData || []).filter((row: any) => row.driver_id === driverId);
+        if (historyRows.length === 0) continue;
+
+        const weeklyRollup = new Map<string, {
+          periodFrom: string;
+          periodTo: string;
+          payoutNoRental: number;
+          rental: number;
+          debtBeforeMax: number;
+        }>();
+
+        historyRows.forEach((row: any) => {
+          const periodFromKey = row.period_from || '';
+          const periodToKey = row.period_to || '';
+          const weekKey = `${periodFromKey}|${periodToKey}`;
+          const rawPayout = deriveRawPayoutFromSettlementSnapshot(row);
+          const rentalFee = Number(row.rental_fee || 0);
+          const debtBefore = Math.max(0, Number(row.debt_before || 0));
+
+          const existing = weeklyRollup.get(weekKey) || {
+            periodFrom: periodFromKey,
+            periodTo: periodToKey,
+            payoutNoRental: 0,
+            rental: 0,
+            debtBeforeMax: 0,
+          };
+
+          existing.payoutNoRental = round2(existing.payoutNoRental + rawPayout + rentalFee);
+          existing.rental = round2(existing.rental + rentalFee);
+          existing.debtBeforeMax = Math.max(existing.debtBeforeMax, debtBefore);
+
+          weeklyRollup.set(weekKey, existing);
+        });
+
+        const sortedWeeks = [...weeklyRollup.values()].sort(
+          (a, b) => new Date(a.periodFrom).getTime() - new Date(b.periodFrom).getTime()
+        );
+
+        if (sortedWeeks.length === 0) continue;
+
+        let runningSettlementDebt = round2(Math.max(0, sortedWeeks[0].debtBeforeMax || 0));
+        let runningRentalDebt = 0;
+
+        for (const week of sortedWeeks) {
+          const weekKey = `${week.periodFrom}|${week.periodTo}`;
+          splitDebtByWeek.set(`${driverId}|${weekKey}`, {
+            settlementDebtBefore: runningSettlementDebt,
+            rentalDebtBefore: runningRentalDebt,
+          });
+
+          const wyplata1 = round2(week.payoutNoRental - runningSettlementDebt);
+          runningSettlementDebt = round2(Math.max(0, -wyplata1));
+
+          const availableForRental = Math.max(0, wyplata1);
+          const remainingPreviousRentalDebt = Math.max(0, runningRentalDebt - availableForRental);
+          const availableAfterPreviousRentalDebt = Math.max(0, availableForRental - runningRentalDebt);
+          const currentRentalDebt = Math.max(0, week.rental - availableAfterPreviousRentalDebt);
+
+          runningRentalDebt = round2(remainingPreviousRentalDebt + currentRentalDebt);
+        }
+      }
 
       // Mapuj numery kart paliwowych kierowców (normalizacja - usuń wiodące zera)
       // CROSS-FLEET: Kierowca może mieć kartę paliwową przypisaną w innej flocie
@@ -1601,6 +1677,12 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           ? debtBeforeFromSettlement
           : 0;
 
+        const rowPeriodFrom = (settlementSnapshot as any)?.period_from || currentWeek?.start || periodFrom || '';
+        const rowPeriodTo = (settlementSnapshot as any)?.period_to || currentWeek?.end || periodTo || '';
+        const splitDebt = splitDebtByWeek.get(`${driver.id}|${rowPeriodFrom}|${rowPeriodTo}`);
+        const settlementDebtBeforeForDisplay = splitDebt?.settlementDebtBefore ?? debtBeforeForDisplay;
+        const rentalDebtBeforeForDisplay = splitDebt?.rentalDebtBefore ?? 0;
+
         // ⚠️ OCHRONA ZEROWYCH ZAROBKÓW
         // Jeśli kierowca nie jeździł (suma zarobków = 0) I nie ma ujemnego salda
         // NIE naliczamy opłat, ale jeśli ma dług to nadal pokazujemy go na liście
@@ -1621,7 +1703,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             final_payout: 0,
             has_negative_balance: false,
             debt_current: currentDebtForDisplay,
-            debt_previous: debtBeforeForDisplay,
+            debt_previous: settlementDebtBeforeForDisplay,
+            rental_debt_previous: rentalDebtBeforeForDisplay,
             settlement_id: (settlementSnapshot as any)?.id,
             period_from: (settlementSnapshot as any)?.period_from,
             period_to: (settlementSnapshot as any)?.period_to,
@@ -1670,7 +1753,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             has_negative_balance: true,
             negative_deficit: Math.abs(negFinalPayout),
             debt_current: currentDebtForDisplay,
-            debt_previous: debtBeforeForDisplay,
+            debt_previous: settlementDebtBeforeForDisplay,
+            rental_debt_previous: rentalDebtBeforeForDisplay,
             settlement_id: (settlementSnapshot as any)?.id,
             period_from: (settlementSnapshot as any)?.period_from,
             period_to: (settlementSnapshot as any)?.period_to,
@@ -1855,7 +1939,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           has_negative_balance: hasNegativeBalance,
           negative_deficit: hasNegativeBalance ? Math.abs(payout) : 0,
           debt_current: currentDebtForDisplay,
-          debt_previous: hasDebtBeforeSnapshot ? debtBeforeFromSettlement : currentDebtForDisplay,
+          debt_previous: settlementDebtBeforeForDisplay,
+          rental_debt_previous: rentalDebtBeforeForDisplay,
           // Dual tax fields
           bolt_ef_base,
           bolt_ijk_base,
