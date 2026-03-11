@@ -1523,8 +1523,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         const platform_net = uber_net + bolt_net + freenow_net;
 
         // Snapshot długu dla bieżącego widoku tygodnia:
-        // - jeśli jest rekord rozliczenia w tym tygodniu, użyj jego debt_before/debt_after
-        // - jeśli nie ma rekordu w tygodniu, użyj salda z driver_debts (carry-over)
+        // Użyj TYLKO historycznych snapshotów z rekordu rozliczenia.
+        // Fallback na live balance TYLKO dla najnowszego tygodnia.
         const debtAfterFromSettlement = driverSettlements.reduce((max, s) => {
           const da = (s as any).debt_after;
           if (da !== null && da !== undefined) return Math.max(max, parseFloat(da?.toString() || '0'));
@@ -1541,13 +1541,18 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           return Math.max(max, parseFloat(db?.toString() || '0'));
         }, 0);
 
+        // Czy przeglądamy najnowszy (bieżący) tydzień?
+        const isLatestWeek = weeks.length > 0 && selectedWeek === weeks[0].number;
+
+        // Dług po rozliczeniu: snapshot jeśli istnieje, live balance TYLKO dla bieżącego tygodnia, w przeciwnym razie 0
         const currentDebtForDisplay = debtAfterFromSettlement >= 0
           ? debtAfterFromSettlement
-          : (debtsMap[driver.id] ?? 0);
+          : (isLatestWeek ? (debtsMap[driver.id] ?? 0) : 0);
 
+        // Dług przed rozliczeniem: snapshot jeśli istnieje, w przeciwnym razie 0 (nie live balance!)
         const debtBeforeForDisplay = hasDebtBeforeSnapshot
           ? debtBeforeFromSettlement
-          : currentDebtForDisplay;
+          : 0;
 
         // ⚠️ OCHRONA ZEROWYCH ZAROBKÓW
         // Jeśli kierowca nie jeździł (suma zarobków = 0) I nie ma ujemnego salda
