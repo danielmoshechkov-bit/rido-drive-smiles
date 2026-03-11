@@ -157,6 +157,27 @@ const POLISH_BANKS: BankFormat[] = [
     }).join('\n'),
   },
   {
+    id: 'alior',
+    name: 'Alior Bank (Elixir PLI)',
+    shortName: 'Alior',
+    extension: 'pli',
+    generate: (rows, senderAccount) => {
+      const cleanSender = senderAccount.replace(/\s/g, '').replace(/^PL/i, '');
+      const senderBankCode = cleanSender.substring(2, 10); // NRB positions 3-10
+      const dateStr = format(new Date(), 'yyyyMMdd');
+      return rows.map(r => {
+        const recipientAccount = r.iban.replace(/\s/g, '').replace(/^PL/i, '');
+        const recipientBankCode = recipientAccount.substring(2, 10);
+        // Amount in grosze (no decimals)
+        const amountGrosze = Math.round(r.amount * 100);
+        const name = stripDiacritics(r.name);
+        const title = stripDiacritics(r.title);
+        // Alior ELIXIR: fields separated by commas, text in quotes
+        return `110,${dateStr},${amountGrosze},${senderBankCode},0,"${cleanSender}","${recipientAccount}","${name}","${name}",0,${recipientBankCode},"${title}","","","51"`;
+      }).join('\r\n');
+    },
+  },
+  {
     id: 'universal',
     name: 'Format uniwersalny (CSV)',
     shortName: 'CSV',
