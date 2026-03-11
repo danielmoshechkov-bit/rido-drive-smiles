@@ -21,8 +21,18 @@ interface DebtTransaction {
   description: string;
 }
 
+interface WeekDebtContext {
+  settlementDebtBefore: number;
+  rentalDebtBefore: number;
+  totalDebtBefore: number;
+  debtAfter: number;
+  periodFrom?: string;
+  periodTo?: string;
+}
+
 interface DriverDebtHistoryProps {
   driverId: string;
+  weekDebtContext?: WeekDebtContext;
   onDebtChanged?: () => void;
 }
 
