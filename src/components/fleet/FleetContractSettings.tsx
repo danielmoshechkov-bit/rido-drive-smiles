@@ -575,6 +575,11 @@ export function FleetContractSettings({ fleetId }: FleetContractSettingsProps) {
             </Card>
           )}
         </TabsContent>
+
+        {/* Account Settings Tab */}
+        <TabsContent value="account">
+          <AccountSettingsTab />
+        </TabsContent>
       </Tabs>
     </div>
   );
