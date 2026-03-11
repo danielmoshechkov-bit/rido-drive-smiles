@@ -57,6 +57,75 @@ serve(async (req) => {
       }
     }
 
+    const getAuthoritativeDebtBalance = async (): Promise<number> => {
+      const [
+        { data: debtData, error: debtError },
+        { data: txData, error: txError },
+        { data: previousSettlement, error: previousSettlementError }
+      ] = await Promise.all([
+        supabase
+          .from("driver_debts")
+          .select("current_balance")
+          .eq("driver_id", driver_id)
+          .maybeSingle(),
+        supabase
+          .from("driver_debt_transactions")
+          .select("type, amount")
+          .eq("driver_id", driver_id),
+        supabase
+          .from("settlements")
+          .select("debt_after")
+          .eq("driver_id", driver_id)
+          .lt("period_to", period_from)
+          .not("debt_after", "is", null)
+          .order("period_to", { ascending: false })
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      ]);
+
+      if (debtError) {
+        console.error("Error fetching driver_debts:", debtError);
+        throw debtError;
+      }
+      if (txError) {
+        console.error("Error fetching debt transactions:", txError);
+        throw txError;
+      }
+      if (previousSettlementError) {
+        console.error("Error fetching previous settlement debt:", previousSettlementError);
+        throw previousSettlementError;
+      }
+
+      const dbDebt = Math.max(0, debtData?.current_balance || 0);
+      const previousSettlementDebt = Math.max(0, previousSettlement?.debt_after || 0);
+
+      let authoritativeDebt = 0;
+
+      if ((txData || []).length > 0) {
+        const ledgerDebt = (txData || []).reduce((sum: number, tx: any) => {
+          const amount = Math.abs(tx.amount || 0);
+          if (tx.type === "debt_increase" || tx.type === "manual_add") return sum + amount;
+          return sum - amount;
+        }, 0);
+        authoritativeDebt = Math.max(0, ledgerDebt);
+      } else {
+        authoritativeDebt = Math.max(dbDebt, previousSettlementDebt);
+      }
+
+      if (Math.abs(dbDebt - authoritativeDebt) > 0.01) {
+        await supabase.from("driver_debts").upsert({
+          driver_id,
+          current_balance: authoritativeDebt,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: "driver_id"
+        });
+      }
+
+      return authoritativeDebt;
+    };
+
     // DEDUPLICATION: Check by settlement_id AND by period to prevent duplicates
     const { data: existingTxBySettlement } = await supabase
       .from("driver_debt_transactions")
@@ -75,38 +144,89 @@ serve(async (req) => {
       .maybeSingle();
 
     if (existingTxBySettlement || existingTxByPeriod) {
-      console.log(`⚠️ Debt transaction already exists for driver ${driver_id} period ${period_from}-${period_to}, skipping`);
-      // Return existing settlement debt info
-      const { data: settlement } = await supabase
-        .from("settlements")
-        .select("debt_before, debt_payment, debt_after, actual_payout")
-        .eq("id", settlement_id)
-        .single();
+      console.log(`⚠️ Debt transaction already exists for driver ${driver_id} period ${period_from}-${period_to}, syncing settlement snapshot`);
+
+      const [
+        { data: currentSettlement },
+        { data: periodSnapshot },
+        { data: periodTx }
+      ] = await Promise.all([
+        supabase
+          .from("settlements")
+          .select("id, debt_before, debt_payment, debt_after, actual_payout")
+          .eq("id", settlement_id)
+          .maybeSingle(),
+        supabase
+          .from("settlements")
+          .select("id, debt_before, debt_payment, debt_after, actual_payout")
+          .eq("driver_id", driver_id)
+          .eq("period_from", period_from)
+          .eq("period_to", period_to)
+          .not("debt_after", "is", null)
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from("driver_debt_transactions")
+          .select("type, amount, balance_before, balance_after")
+          .eq("driver_id", driver_id)
+          .eq("period_from", period_from)
+          .eq("period_to", period_to)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      ]);
+
+      const resolvedDebtBefore = periodSnapshot?.debt_before
+        ?? currentSettlement?.debt_before
+        ?? periodTx?.balance_before
+        ?? 0;
+      const resolvedDebtAfter = periodSnapshot?.debt_after
+        ?? currentSettlement?.debt_after
+        ?? periodTx?.balance_after
+        ?? 0;
+      const resolvedDebtPayment = periodSnapshot?.debt_payment
+        ?? currentSettlement?.debt_payment
+        ?? (periodTx?.type === "debt_payment" ? Math.abs(periodTx?.amount || 0) : 0);
+      const resolvedActualPayout = periodSnapshot?.actual_payout
+        ?? currentSettlement?.actual_payout
+        ?? 0;
+
+      if (currentSettlement && (
+        Math.abs((currentSettlement.debt_before || 0) - resolvedDebtBefore) > 0.01 ||
+        Math.abs((currentSettlement.debt_payment || 0) - resolvedDebtPayment) > 0.01 ||
+        Math.abs((currentSettlement.debt_after || 0) - resolvedDebtAfter) > 0.01 ||
+        Math.abs((currentSettlement.actual_payout || 0) - resolvedActualPayout) > 0.01
+      )) {
+        await supabase
+          .from("settlements")
+          .update({
+            debt_before: resolvedDebtBefore,
+            debt_payment: resolvedDebtPayment,
+            debt_after: resolvedDebtAfter,
+            actual_payout: resolvedActualPayout
+          })
+          .eq("id", settlement_id);
+      }
 
       return new Response(
         JSON.stringify({
           success: true,
           skipped: true,
-          debt_before: settlement?.debt_before || 0,
-          debt_payment: settlement?.debt_payment || 0,
-          debt_after: settlement?.debt_after || 0,
-          actual_payout: settlement?.actual_payout || 0
+          debt_before: resolvedDebtBefore,
+          debt_payment: resolvedDebtPayment,
+          debt_after: resolvedDebtAfter,
+          actual_payout: resolvedActualPayout
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
+    const currentDebt = await getAuthoritativeDebtBalance();
+
     // If payout is 0 or very close to 0, no debt action needed
     if (Math.abs(calculated_payout) < 0.01) {
       console.log(`Payout is ~0, no debt action needed`);
-      
-      const { data: debtData } = await supabase
-        .from("driver_debts")
-        .select("current_balance")
-        .eq("driver_id", driver_id)
-        .maybeSingle();
-      
-      const currentDebt = debtData?.current_balance || 0;
       
       await supabase.from("settlements").update({
         debt_before: currentDebt,
@@ -127,19 +247,6 @@ serve(async (req) => {
       );
     }
 
-    // 1. Pobierz aktualny dług
-    let { data: debtData, error: debtError } = await supabase
-      .from("driver_debts")
-      .select("current_balance")
-      .eq("driver_id", driver_id)
-      .maybeSingle();
-
-    if (debtError) {
-      console.error("Error fetching debt:", debtError);
-      throw debtError;
-    }
-
-    const currentDebt = debtData?.current_balance || 0;
     let debtPayment = 0;
     let remainingDebt = 0;
     let actualPayout = 0;
