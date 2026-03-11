@@ -2476,8 +2476,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
               case 'payout':
                 return dir * (getEffectiveSettlement(a).final_payout - getEffectiveSettlement(b).final_payout);
               case 'debt': {
-                const debtA = a.debt_current ?? 0;
-                const debtB = b.debt_current ?? 0;
+                const debtA = a.debt_previous ?? 0;
+                const debtB = b.debt_previous ?? 0;
                 return dir * (debtA - debtB);
               }
               case 'do_wyplaty':
