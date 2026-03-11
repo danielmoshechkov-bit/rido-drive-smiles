@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2, Users, Search, Download, Mail, Phone, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
+import { AddUserDialog } from './AddUserDialog';
 
 interface UserProfile {
   id: string;
