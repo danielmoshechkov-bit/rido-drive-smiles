@@ -179,7 +179,7 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
         const totalCommission = (parseFloat(a.uber_commission || 0)) + (parseFloat(a.bolt_commission || 0)) + (parseFloat(a.freenow_commission_t || 0));
         const totalCash = (parseFloat(a.uber_cash_f || 0)) + (parseFloat(a.bolt_cash || 0)) + (parseFloat(a.freenow_cash_f || 0));
         const vat8 = totalBase * 0.08;
-        const serviceFee = parseFloat(s.service_fee?.toString() || '0');
+        const serviceFee = parseFloat(a.service_fee?.toString() || '0');
         const fuel = parseFloat(a.fuel || 0);
         const fuelVatRefund = parseFloat(a.fuel_vat_refund || 0);
         
