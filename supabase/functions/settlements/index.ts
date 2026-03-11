@@ -156,6 +156,86 @@ Deno.serve(async (req) => {
     unmappedDriversList = result.unmappedDrivers || [];
   }
 
+  // Ensure debt carry-over for inactive drivers not present in imported CSV
+  if (fleet_id) {
+    const importedDriverIds = new Set(settlementsToInsert.map((s: any) => s.driver_id));
+
+    const { data: fleetDrivers } = await supabase
+      .from('drivers')
+      .select('id')
+      .eq('fleet_id', fleet_id);
+
+    const missingDriverIds = (fleetDrivers || [])
+      .map((d: any) => d.id)
+      .filter((driverId: string) => !importedDriverIds.has(driverId));
+
+    if (missingDriverIds.length > 0) {
+      const [
+        { data: debtsData },
+        { data: previousDebtsData }
+      ] = await Promise.all([
+        supabase
+          .from('driver_debts')
+          .select('driver_id, current_balance')
+          .in('driver_id', missingDriverIds),
+        supabase
+          .from('settlements')
+          .select('driver_id, debt_after')
+          .in('driver_id', missingDriverIds)
+          .lt('period_to', period_from)
+          .not('debt_after', 'is', null)
+          .order('driver_id', { ascending: true })
+          .order('period_to', { ascending: false })
+          .order('updated_at', { ascending: false })
+      ]);
+
+      const debtByDriver = new Map<string, number>();
+      (debtsData || []).forEach((row: any) => {
+        debtByDriver.set(row.driver_id, Math.max(0, row.current_balance || 0));
+      });
+
+      const previousDebtByDriver = new Map<string, number>();
+      (previousDebtsData || []).forEach((row: any) => {
+        if (!previousDebtByDriver.has(row.driver_id)) {
+          previousDebtByDriver.set(row.driver_id, Math.max(0, row.debt_after || 0));
+        }
+      });
+
+      const carryOverSettlements = missingDriverIds
+        .map((driverId: string) => {
+          const carryDebt = Math.max(
+            debtByDriver.get(driverId) || 0,
+            previousDebtByDriver.get(driverId) || 0
+          );
+
+          if (carryDebt <= 0.01) return null;
+
+          return {
+            city_id: effectiveCityId,
+            driver_id: driverId,
+            platform: 'main',
+            period_from,
+            period_to,
+            week_start: period_from,
+            week_end: period_to,
+            total_earnings: 0,
+            commission_amount: 0,
+            net_amount: 0,
+            rental_fee: 0,
+            amounts: {},
+            source: 'debt_carryover',
+            raw_row_id: `carry_${period_from}_${fleet_id}_${driverId}`
+          };
+        })
+        .filter(Boolean);
+
+      if (carryOverSettlements.length > 0) {
+        console.log(`↪️ Added ${carryOverSettlements.length} debt carry-over settlements for inactive drivers`);
+        settlementsToInsert = [...settlementsToInsert, ...carryOverSettlements];
+      }
+    }
+  }
+
     if (settlementsToInsert.length > 0) {
       console.log(`💾 Zapisuję ${settlementsToInsert.length} rozliczeń...`);
       const { data: insertedSettlements, error } = await supabase
