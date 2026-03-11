@@ -1393,7 +1393,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       const selectedPeriodTo = currentWeek?.end || periodTo;
       let settlementHistoryQuery = supabase
         .from('settlements')
-        .select('driver_id, period_from, period_to, rental_fee, debt_before, debt_after, debt_payment, actual_payout, updated_at')
+        .select('driver_id, period_from, period_to, rental_fee, debt_before, debt_after, debt_payment, actual_payout, amounts, updated_at')
         .in('driver_id', driverIds);
 
       if (selectedPeriodTo) {
@@ -1403,6 +1403,14 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       const { data: settlementHistoryData } = await settlementHistoryQuery;
 
       const splitDebtByWeek = new Map<string, { settlementDebtBefore: number; rentalDebtBefore: number }>();
+
+      const fallbackRentalByDriver = new Map<string, number>();
+      (assignmentsData || []).forEach((assignment: any) => {
+        const fallbackRental = Number((assignment?.vehicles as any)?.weekly_rental_fee || 0);
+        if (fallbackRental > 0 && !fallbackRentalByDriver.has(assignment.driver_id)) {
+          fallbackRentalByDriver.set(assignment.driver_id, fallbackRental);
+        }
+      });
 
       for (const driverId of driverIds) {
         const historyRows = (settlementHistoryData || []).filter((row: any) => row.driver_id === driverId);
@@ -1420,8 +1428,21 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           const periodFromKey = row.period_from || '';
           const periodToKey = row.period_to || '';
           const weekKey = `${periodFromKey}|${periodToKey}`;
+          const amounts = (row.amounts as any) || {};
           const rawPayout = deriveRawPayoutFromSettlementSnapshot(row);
-          const rentalFee = Number(row.rental_fee || 0);
+
+          const manualRentalFee = amounts?.manual_rental_fee;
+          const baseFromAmounts = Number(amounts.uber_base || 0) + Number(amounts.bolt_projected_d || 0) + Number(amounts.freenow_base_s || 0);
+          const cashFromAmounts = Number(amounts.uber_cash_f || 0) + Number(amounts.bolt_cash || 0) + Number(amounts.freenow_cash_f || 0);
+          const hasAnyActivity = Math.abs(baseFromAmounts) > 0.01 || Math.abs(cashFromAmounts) > 0.01;
+
+          let rentalFee = Number(row.rental_fee || 0);
+          if (manualRentalFee !== null && manualRentalFee !== undefined) {
+            rentalFee = Number(manualRentalFee || 0);
+          } else if (rentalFee <= 0 && hasAnyActivity) {
+            rentalFee = Number(fallbackRentalByDriver.get(driverId) || 0);
+          }
+
           const debtBefore = Math.max(0, Number(row.debt_before || 0));
 
           const existing = weeklyRollup.get(weekKey) || {
