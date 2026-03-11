@@ -208,10 +208,12 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     { key: 'vat', label: 'VAT' },
     { key: 'vat_refund', label: 'VAT zwrot' },
     { key: 'service_fee', label: 'Opłata' },
-    { key: 'rental', label: 'Wynajem' },
     { key: 'payout', label: 'Rozliczenie' },
     { key: 'debt', label: 'Dług' },
-    { key: 'do_wyplaty', label: 'Wypłata' },
+    { key: 'wyplata_1', label: 'Wypłata' },
+    { key: 'rental', label: 'Wynajem' },
+    { key: 'debt_rental', label: 'Dług wynajmu' },
+    { key: 'do_wyplaty', label: 'Wypłata fin.' },
     { key: 'paid', label: 'Opłacony' },
   ];
 
@@ -784,6 +786,51 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     // rawPayout positive but existing debt — subtract debt_before
     if (debtBefore > 0) return rawPayout - debtBefore;
     return rawPayout;
+  };
+
+  // Calculate payout WITHOUT rental (Part 1 of settlement)
+  const calculatePayoutWithoutRental = (settlement: DriverSettlement): number => {
+    const totalAdditional = settlement.additional_fees.reduce((sum, f) => sum + f.amount, 0);
+    if (fleetSettlementModeState === 'dual_tax') {
+      const nettoCalc = settlement.total_base - settlement.total_commission;
+      return nettoCalc
+        - settlement.total_cash
+        - settlement.vat_amount
+        - (settlement.secondary_vat_amount || 0)
+        - settlement.service_fee
+        - totalAdditional
+        - settlement.fuel
+        + settlement.fuel_vat_refund;
+    }
+    return settlement.total_base
+      - settlement.total_commission
+      - settlement.vat_amount
+      - settlement.service_fee
+      - totalAdditional
+      - settlement.total_cash
+      - settlement.fuel
+      + settlement.fuel_vat_refund;
+  };
+
+  // Wypłata 1: payout without rental minus settlement debt
+  const getWyplata1 = (settlement: DriverSettlement): number => {
+    const effective = getEffectiveSettlement(settlement);
+    const payoutNoRental = calculatePayoutWithoutRental(effective);
+    const debtBefore = settlement.debt_previous ?? 0;
+    if (payoutNoRental <= 0) return payoutNoRental - debtBefore;
+    if (debtBefore > 0) return payoutNoRental - debtBefore;
+    return payoutNoRental;
+  };
+
+  // Rental debt: shortfall when wypłata 1 can't cover rental
+  const getRentalDebt = (settlement: DriverSettlement): number => {
+    const wyplata1 = getWyplata1(settlement);
+    const effective = getEffectiveSettlement(settlement);
+    const rental = effective.rental || 0;
+    if (rental <= 0) return 0;
+    if (wyplata1 <= 0) return rental;
+    if (wyplata1 < rental) return rental - wyplata1;
+    return 0;
   };
 
   const round2 = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
@@ -2850,15 +2897,17 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                         <TableHead key={fee.id} className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">{fee.name}</TableHead>
                       ))}
                       {isColVisible('service_fee') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">Opłata</TableHead>}
-                      {isColVisible('rental') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">Wynajem</TableHead>}
                       {isColVisible('payout') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap cursor-pointer select-none hover:bg-muted/50" onClick={() => handleSort('payout')}>
                         <span className="inline-flex items-center justify-end w-full">Rozliczenie{getSortIcon('payout')}</span>
                       </TableHead>}
                       {isColVisible('debt') && <TableHead className="text-center px-2 py-1.5 text-xs font-medium whitespace-nowrap cursor-pointer select-none hover:bg-muted/50" onClick={() => handleSort('debt')}>
                         <span className="inline-flex items-center justify-center">Dług{getSortIcon('debt')}</span>
                       </TableHead>}
+                      {isColVisible('wyplata_1') && <TableHead className="text-right px-2 py-1.5 text-xs font-bold whitespace-nowrap text-blue-700">Wypłata</TableHead>}
+                      {isColVisible('rental') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap border-l-2 border-primary/20">Wynajem</TableHead>}
+                      {isColVisible('debt_rental') && <TableHead className="text-center px-2 py-1.5 text-xs font-medium whitespace-nowrap">Dług wynajmu</TableHead>}
                       {isColVisible('do_wyplaty') && <TableHead className="text-right px-2 py-1.5 text-xs font-bold whitespace-nowrap text-green-700 cursor-pointer select-none hover:bg-muted/50" onClick={() => handleSort('do_wyplaty')}>
-                        <span className="inline-flex items-center justify-end w-full">Wypłata{getSortIcon('do_wyplaty')}</span>
+                        <span className="inline-flex items-center justify-end w-full">Wypłata fin.{getSortIcon('do_wyplaty')}</span>
                       </TableHead>}
                       {isColVisible('paid') && <TableHead className="text-center px-2 py-1.5 text-xs font-medium whitespace-nowrap">Opłacony</TableHead>}
                     </TableRow>
@@ -2964,14 +3013,15 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                         {isColVisible('service_fee') && <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
                           {renderEditableCell(settlement.driver_id, 'service_fee', settlement.service_fee, hasAnyActivity)}
                         </TableCell>}
-                        {/* Editable: Wynajem */}
-                        {isColVisible('rental') && <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
-                          {renderEditableCell(settlement.driver_id, 'rental', settlement.rental || 0, hasAnyActivity)}
-                        </TableCell>}
-                        {/* Wypłata (raw calculated payout, can be negative) */}
-                        {isColVisible('payout') && <TableCell className={`text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${getAmountColor(settlement.final_payout)}`}>
-                          {formatCurrency(settlement.final_payout)}
-                        </TableCell>}
+                        {/* Rozliczenie (WITHOUT rental) */}
+                        {isColVisible('payout') && (() => {
+                          const payoutNoRental = calculatePayoutWithoutRental(settlement);
+                          return (
+                            <TableCell className={`text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${getAmountColor(payoutNoRental)}`}>
+                              {formatCurrency(payoutNoRental)}
+                            </TableCell>
+                          );
+                        })()}
                         {/* Dług - clickable to view history */}
                         {isColVisible('debt') && <TableCell className="text-center px-2 py-1.5 text-xs whitespace-nowrap">
                           {(() => {
@@ -3004,7 +3054,38 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                             );
                           })()}
                         </TableCell>}
-                        {/* Do wypłaty (after debt deduction) */}
+                        {/* Wypłata 1 (after settlement debt, before rental) */}
+                        {isColVisible('wyplata_1') && (() => {
+                          const w1 = getWyplata1(rawSettlement);
+                          return (
+                            <TableCell className={`text-right font-bold px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${w1 > 0 ? 'text-blue-700' : w1 < 0 ? 'text-red-600' : 'text-muted-foreground'}`}>
+                              {formatCurrency(w1)}
+                            </TableCell>
+                          );
+                        })()}
+                        {/* === PART 2: WYNAJEM === */}
+                        {/* Editable: Wynajem */}
+                        {isColVisible('rental') && <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap border-l-2 border-primary/20">
+                          {renderEditableCell(settlement.driver_id, 'rental', settlement.rental || 0, hasAnyActivity)}
+                        </TableCell>}
+                        {/* Dług wynajmu */}
+                        {isColVisible('debt_rental') && (() => {
+                          const rentalDebt = getRentalDebt(rawSettlement);
+                          return (
+                            <TableCell className="text-center px-2 py-1.5 text-xs whitespace-nowrap">
+                              {rentalDebt > 0 ? (
+                                <Badge variant="destructive" className="text-[10px]">
+                                  {formatCurrency(rentalDebt)} zł
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="bg-green-500/10 text-green-700 border-green-500/20 text-[10px]">
+                                  ✓ 0
+                                </Badge>
+                              )}
+                            </TableCell>
+                          );
+                        })()}
+                        {/* Wypłata finalna (after rental and all debts) */}
                         {isColVisible('do_wyplaty') && (() => {
                           const doWyplaty = getDoWyplaty(rawSettlement);
                           return (
@@ -3114,11 +3195,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                       {isColVisible('service_fee') && <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
                         -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + getEffectiveSettlement(s).service_fee, 0))}
                       </TableCell>}
-                      {isColVisible('rental') && <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
-                        -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + (getEffectiveSettlement(s).rental || 0), 0))}
-                      </TableCell>}
                       {isColVisible('payout') && (() => {
-                        const totalPayout = filteredSettlements.reduce((sum, s) => sum + getEffectiveSettlement(s).final_payout, 0);
+                        const totalPayout = filteredSettlements.reduce((sum, s) => sum + calculatePayoutWithoutRental(getEffectiveSettlement(s)), 0);
                         return (
                           <TableCell className={`text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${getAmountColor(totalPayout)}`}>
                             {formatCurrency(totalPayout)}
@@ -3139,6 +3217,33 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                           );
                         })()}
                       </TableCell>}
+                      {isColVisible('wyplata_1') && (() => {
+                        const totalW1 = filteredSettlements.reduce((sum, s) => sum + getWyplata1(s), 0);
+                        return (
+                          <TableCell className={`text-right font-bold px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${totalW1 > 0 ? 'text-blue-700' : totalW1 < 0 ? 'text-red-600' : 'text-muted-foreground'}`}>
+                            {formatCurrency(totalW1)}
+                          </TableCell>
+                        );
+                      })()}
+                      {isColVisible('rental') && <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap border-l-2 border-primary/20">
+                        -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + (getEffectiveSettlement(s).rental || 0), 0))}
+                      </TableCell>}
+                      {isColVisible('debt_rental') && (() => {
+                        const totalRentalDebt = filteredSettlements.reduce((sum, s) => sum + getRentalDebt(s), 0);
+                        return (
+                          <TableCell className="text-center px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
+                            {totalRentalDebt > 0 ? (
+                              <Badge variant="destructive" className="text-[10px]">
+                                {formatCurrency(totalRentalDebt)} zł
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="bg-green-500/10 text-green-700 border-green-500/20 text-[10px]">
+                                ✓ 0
+                              </Badge>
+                            )}
+                          </TableCell>
+                        );
+                      })()}
                       {isColVisible('do_wyplaty') && (() => {
                         const totalDoWyplaty = filteredSettlements.reduce((sum, s) => sum + getDoWyplaty(s), 0);
                         return (
