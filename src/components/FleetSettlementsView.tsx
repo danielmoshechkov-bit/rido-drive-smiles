@@ -786,6 +786,30 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     return rawPayout;
   };
 
+  const round2 = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+
+  const getSnapshotRawPayout = (settlement: DriverSettlement): number | null => {
+    if (
+      settlement.snapshot_debt_before === undefined ||
+      settlement.snapshot_debt_after === undefined ||
+      settlement.snapshot_debt_payment === undefined ||
+      settlement.snapshot_actual_payout === undefined
+    ) {
+      return null;
+    }
+
+    const debtBefore = Math.max(0, settlement.snapshot_debt_before || 0);
+    const debtAfter = Math.max(0, settlement.snapshot_debt_after || 0);
+    const debtPayment = Math.max(0, settlement.snapshot_debt_payment || 0);
+    const actualPayout = settlement.snapshot_actual_payout || 0;
+
+    if (debtAfter - debtBefore > 0.01) {
+      return round2(-(debtAfter - debtBefore));
+    }
+
+    return round2(actualPayout + debtPayment);
+  };
+
   // Parse locale-aware number: handles "0.00400" → 400, "1 031,00" → 1031, etc.
   const parseLocalizedNumber = (value: string): number => {
     if (!value) return 0;
