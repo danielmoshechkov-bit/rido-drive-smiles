@@ -467,6 +467,9 @@ serve(async (req) => {
       );
     }
 
+    // Get authoritative debt only for non-zero payouts (after zero-payout early return above)
+    const currentDebt = await getAuthoritativeDebtBalance();
+
     let debtPayment = 0;
     let remainingDebt = 0;
     let actualPayout = 0;
