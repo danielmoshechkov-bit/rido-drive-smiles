@@ -543,7 +543,7 @@ async function process3PlatformCsvs(
         total_commission: total_commission
       },
       source: '3_platform_csvs',
-      raw_row_id: `combined_${meta.period_from}_${meta.city_id || 'all'}_${driverId}`
+      raw_row_id: `combined_${meta.period_from}_${meta.fleet_id || meta.city_id || 'all'}_${driverId}`
     });
   }
 
