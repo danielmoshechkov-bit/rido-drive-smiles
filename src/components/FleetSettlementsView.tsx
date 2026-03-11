@@ -738,7 +738,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const getDoWyplaty = (settlement: DriverSettlement): number => {
     const effective = getEffectiveSettlement(settlement);
     const rawPayout = effective.final_payout;
-    const debt = driverDebts[settlement.driver_id] ?? settlement.debt_current ?? 0;
+    const debt = settlement.debt_current ?? 0;
     // rawPayout negative + debt = deeper negative (both accumulate)
     if (rawPayout <= 0) return rawPayout - debt;
     // rawPayout positive but debt exists — subtract debt
