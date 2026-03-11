@@ -36,7 +36,7 @@ interface DriverDebtHistoryProps {
   onDebtChanged?: () => void;
 }
 
-export const DriverDebtHistory = ({ driverId, onDebtChanged }: DriverDebtHistoryProps) => {
+export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged }: DriverDebtHistoryProps) => {
   const [transactions, setTransactions] = useState<DebtTransaction[]>([]);
   const [currentDebt, setCurrentDebt] = useState<number>(0);
   const [loading, setLoading] = useState(true);
