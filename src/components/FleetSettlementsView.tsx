@@ -3009,6 +3009,65 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
               <div className="hidden md:block overflow-x-auto overflow-y-auto pb-4 scrollbar-visible [&_th]:text-sm [&_td]:text-sm" style={{ maxHeight: '80vh' }}>
                 <Table>
                   <TableHeader className="sticky top-0 z-10 bg-background shadow-sm">
+                    {/* Section labels row */}
+                    <TableRow className="border-b-0">
+                      {/* Span all columns up to Wypłata as "Rozliczenie kierowców" */}
+                      {(() => {
+                        // Count visible columns in the "driver settlement" section (up to and including Wypłata)
+                        let driverCols = 1; // Kierowca always visible
+                        if (isColVisible('uber')) driverCols++;
+                        if (isColVisible('uber_cash')) driverCols++;
+                        if (isColVisible('bolt')) driverCols++;
+                        if (isColVisible('bolt_cash')) driverCols++;
+                        if (isColVisible('bolt_commission')) driverCols++;
+                        if (isColVisible('freenow')) driverCols++;
+                        if (isColVisible('freenow_cash')) driverCols++;
+                        if (isColVisible('freenow_commission')) driverCols++;
+                        if (isColVisible('total_cash')) driverCols++;
+                        if (isColVisible('total_commission')) driverCols++;
+                        if (fleetSettlementModeState === 'dual_tax' && isColVisible('netto')) driverCols++;
+                        if (fleetSettlementModeState === 'dual_tax' && isColVisible('bonusy')) driverCols++;
+                        if (fleetSettlementModeState === 'dual_tax' && isColVisible('anulacje')) driverCols++;
+                        if (fleetSettlementModeState === 'dual_tax' && isColVisible('rekompensaty')) driverCols++;
+                        if (isColVisible('fuel')) driverCols++;
+                        if (isColVisible('vat')) driverCols++;
+                        if (isColVisible('vat_refund')) driverCols++;
+                        // Active fees
+                        const visibleFees = activeFees.filter(fee => {
+                          const weekStart = currentWeek?.start ? new Date(currentWeek.start) : new Date();
+                          if ((fee as any).valid_from && new Date((fee as any).valid_from) > weekStart) return false;
+                          if ((fee as any).valid_to && new Date((fee as any).valid_to) < weekStart) return false;
+                          if (fee.frequency === 'weekly') return true;
+                          if (fee.frequency === 'monthly') return weekStart.getDate() >= 1 && weekStart.getDate() <= 7;
+                          return false;
+                        });
+                        driverCols += visibleFees.length;
+                        if (isColVisible('service_fee')) driverCols++;
+                        if (isColVisible('payout')) driverCols++;
+                        if (isColVisible('debt')) driverCols++;
+                        if (isColVisible('wyplata_1')) driverCols++;
+
+                        // Count visible columns in the "rental settlement" section
+                        let rentalCols = 0;
+                        if (isColVisible('rental')) rentalCols++;
+                        if (isColVisible('debt_rental')) rentalCols++;
+                        if (isColVisible('do_wyplaty')) rentalCols++;
+                        if (isColVisible('paid')) rentalCols++;
+
+                        return (
+                          <>
+                            <TableHead colSpan={driverCols} className="text-center py-1 text-xs font-semibold text-blue-700 bg-blue-50/50 border-b-0">
+                              Rozliczenie kierowców
+                            </TableHead>
+                            {rentalCols > 0 && (
+                              <TableHead colSpan={rentalCols} className="text-center py-1 text-xs font-semibold text-green-700 bg-green-50/50 border-l-2 border-primary/20 border-b-0">
+                                Rozliczenie wynajmu
+                              </TableHead>
+                            )}
+                          </>
+                        );
+                      })()}
+                    </TableRow>
                     <TableRow>
                       <TableHead className="px-2 py-1.5 text-xs font-medium whitespace-nowrap cursor-pointer select-none hover:bg-muted/50" onClick={() => handleSort('driver_name')}>
                         <span className="inline-flex items-center">Kierowca{getSortIcon('driver_name')}</span>
