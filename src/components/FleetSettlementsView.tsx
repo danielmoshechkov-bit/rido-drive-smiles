@@ -1377,7 +1377,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         (b2bProfiles || []).map(p => [p.driver_user_id, p])
       );
 
-      // Pobierz aktualne długi kierowców
+      // Pobierz aktualne długi kierowców (łączny dług systemowy)
       const { data: debtsData } = await supabase
         .from('driver_debts')
         .select('driver_id, current_balance')
@@ -1388,6 +1388,84 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         debtsMap[d.driver_id] = d.current_balance || 0;
       });
       setDriverDebts(debtsMap);
+
+      // Rozdzielenie długu na 2 strumienie: rozliczenie vs wynajem (łańcuch tygodniowy)
+      const selectedPeriodTo = currentWeek?.end || periodTo;
+      let settlementHistoryQuery = supabase
+        .from('settlements')
+        .select('driver_id, period_from, period_to, rental_fee, debt_before, debt_after, debt_payment, actual_payout, updated_at')
+        .in('driver_id', driverIds);
+
+      if (selectedPeriodTo) {
+        settlementHistoryQuery = settlementHistoryQuery.lte('period_to', selectedPeriodTo);
+      }
+
+      const { data: settlementHistoryData } = await settlementHistoryQuery;
+
+      const splitDebtByWeek = new Map<string, { settlementDebtBefore: number; rentalDebtBefore: number }>();
+
+      for (const driverId of driverIds) {
+        const historyRows = (settlementHistoryData || []).filter((row: any) => row.driver_id === driverId);
+        if (historyRows.length === 0) continue;
+
+        const weeklyRollup = new Map<string, {
+          periodFrom: string;
+          periodTo: string;
+          payoutNoRental: number;
+          rental: number;
+          debtBeforeMax: number;
+        }>();
+
+        historyRows.forEach((row: any) => {
+          const periodFromKey = row.period_from || '';
+          const periodToKey = row.period_to || '';
+          const weekKey = `${periodFromKey}|${periodToKey}`;
+          const rawPayout = deriveRawPayoutFromSettlementSnapshot(row);
+          const rentalFee = Number(row.rental_fee || 0);
+          const debtBefore = Math.max(0, Number(row.debt_before || 0));
+
+          const existing = weeklyRollup.get(weekKey) || {
+            periodFrom: periodFromKey,
+            periodTo: periodToKey,
+            payoutNoRental: 0,
+            rental: 0,
+            debtBeforeMax: 0,
+          };
+
+          existing.payoutNoRental = round2(existing.payoutNoRental + rawPayout + rentalFee);
+          existing.rental = round2(existing.rental + rentalFee);
+          existing.debtBeforeMax = Math.max(existing.debtBeforeMax, debtBefore);
+
+          weeklyRollup.set(weekKey, existing);
+        });
+
+        const sortedWeeks = [...weeklyRollup.values()].sort(
+          (a, b) => new Date(a.periodFrom).getTime() - new Date(b.periodFrom).getTime()
+        );
+
+        if (sortedWeeks.length === 0) continue;
+
+        let runningSettlementDebt = round2(Math.max(0, sortedWeeks[0].debtBeforeMax || 0));
+        let runningRentalDebt = 0;
+
+        for (const week of sortedWeeks) {
+          const weekKey = `${week.periodFrom}|${week.periodTo}`;
+          splitDebtByWeek.set(`${driverId}|${weekKey}`, {
+            settlementDebtBefore: runningSettlementDebt,
+            rentalDebtBefore: runningRentalDebt,
+          });
+
+          const wyplata1 = round2(week.payoutNoRental - runningSettlementDebt);
+          runningSettlementDebt = round2(Math.max(0, -wyplata1));
+
+          const availableForRental = Math.max(0, wyplata1);
+          const remainingPreviousRentalDebt = Math.max(0, runningRentalDebt - availableForRental);
+          const availableAfterPreviousRentalDebt = Math.max(0, availableForRental - runningRentalDebt);
+          const currentRentalDebt = Math.max(0, week.rental - availableAfterPreviousRentalDebt);
+
+          runningRentalDebt = round2(remainingPreviousRentalDebt + currentRentalDebt);
+        }
+      }
 
       // Mapuj numery kart paliwowych kierowców (normalizacja - usuń wiodące zera)
       // CROSS-FLEET: Kierowca może mieć kartę paliwową przypisaną w innej flocie
