@@ -2670,9 +2670,15 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                       ))}
                       {isColVisible('service_fee') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">Opłata</TableHead>}
                       {isColVisible('rental') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">Wynajem</TableHead>}
-                      {isColVisible('payout') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">Rozliczenie</TableHead>}
-                      {isColVisible('debt') && <TableHead className="text-center px-2 py-1.5 text-xs font-medium whitespace-nowrap">Dług</TableHead>}
-                      {isColVisible('do_wyplaty') && <TableHead className="text-right px-2 py-1.5 text-xs font-bold whitespace-nowrap text-green-700">Wypłata</TableHead>}
+                      {isColVisible('payout') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap cursor-pointer select-none hover:bg-muted/50" onClick={() => handleSort('payout')}>
+                        <span className="inline-flex items-center justify-end w-full">Rozliczenie{getSortIcon('payout')}</span>
+                      </TableHead>}
+                      {isColVisible('debt') && <TableHead className="text-center px-2 py-1.5 text-xs font-medium whitespace-nowrap cursor-pointer select-none hover:bg-muted/50" onClick={() => handleSort('debt')}>
+                        <span className="inline-flex items-center justify-center">Dług{getSortIcon('debt')}</span>
+                      </TableHead>}
+                      {isColVisible('do_wyplaty') && <TableHead className="text-right px-2 py-1.5 text-xs font-bold whitespace-nowrap text-green-700 cursor-pointer select-none hover:bg-muted/50" onClick={() => handleSort('do_wyplaty')}>
+                        <span className="inline-flex items-center justify-end w-full">Wypłata{getSortIcon('do_wyplaty')}</span>
+                      </TableHead>}
                       {isColVisible('paid') && <TableHead className="text-center px-2 py-1.5 text-xs font-medium whitespace-nowrap">Opłacony</TableHead>}
                     </TableRow>
                   </TableHeader>
