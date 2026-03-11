@@ -2769,7 +2769,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
               </div>
               
               {/* Desktop View - Full table */}
-              <div className="hidden md:block overflow-x-auto overflow-y-auto pb-4 scrollbar-visible" style={{ maxHeight: '80vh' }}>
+              <div className="hidden md:block overflow-x-auto overflow-y-auto pb-4 scrollbar-visible [&_th]:text-sm [&_td]:text-sm" style={{ maxHeight: '80vh' }}>
                 <Table>
                   <TableHeader className="sticky top-0 z-10 bg-background shadow-sm">
                     <TableRow>
