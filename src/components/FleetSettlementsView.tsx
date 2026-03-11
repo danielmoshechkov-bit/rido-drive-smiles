@@ -775,18 +775,13 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     };
   };
 
-  // Calculate debt-adjusted "Wypłata" — negative means new debt carries over
-  // Uses debt_previous (= debt_before, the debt entering the week) so we correctly
-  // show: Rozliczenie (revenue - fees - rental) minus existing debt = Do wypłaty
+  // Wypłata finalna: część 1 (rozliczenie bez wynajmu i bez długu wynajmu) + część 2 (wynajem)
   const getDoWyplaty = (settlement: DriverSettlement): number => {
     const effective = getEffectiveSettlement(settlement);
-    const rawPayout = effective.final_payout; // already has fees + rental deducted
-    const debtBefore = settlement.debt_previous ?? 0;
-    // rawPayout negative + existing debt = deeper negative (both accumulate)
-    if (rawPayout <= 0) return rawPayout - debtBefore;
-    // rawPayout positive but existing debt — subtract debt_before
-    if (debtBefore > 0) return rawPayout - debtBefore;
-    return rawPayout;
+    const wyplata1 = getWyplata1(settlement);
+    const rentalDebtBefore = settlement.rental_debt_previous ?? 0;
+    const rental = effective.rental || 0;
+    return round2(wyplata1 - rentalDebtBefore - rental);
   };
 
   // Calculate payout WITHOUT rental (Part 1 of settlement)
@@ -818,20 +813,12 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     const effective = getEffectiveSettlement(settlement);
     const payoutNoRental = calculatePayoutWithoutRental(effective);
     const debtBefore = settlement.debt_previous ?? 0;
-    if (payoutNoRental <= 0) return payoutNoRental - debtBefore;
-    if (debtBefore > 0) return payoutNoRental - debtBefore;
-    return payoutNoRental;
+    return round2(payoutNoRental - debtBefore);
   };
 
-  // Rental debt: shortfall when wypłata 1 can't cover rental
+  // Dług wynajmu (kolumna wejściowa tygodnia): tylko zaległość z wynajmu z poprzednich tygodni
   const getRentalDebt = (settlement: DriverSettlement): number => {
-    const wyplata1 = getWyplata1(settlement);
-    const effective = getEffectiveSettlement(settlement);
-    const rental = effective.rental || 0;
-    if (rental <= 0) return 0;
-    if (wyplata1 <= 0) return rental;
-    if (wyplata1 < rental) return rental - wyplata1;
-    return 0;
+    return round2(Math.max(0, settlement.rental_debt_previous ?? 0));
   };
 
   const round2 = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
