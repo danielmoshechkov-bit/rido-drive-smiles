@@ -415,8 +415,16 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
                 </SelectContent>
               </Select>
             </div>
+            <div className="flex items-center gap-2">
+              <Label className="text-sm whitespace-nowrap">Szukaj:</Label>
+              <Input
+                placeholder="Imię, nazwisko lub nr rej."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-9 w-[220px]"
+              />
+            </div>
           </div>
-        </CardHeader>
       <CardContent className="p-0 md:p-6">
         {loading ? (
           <div className="text-center py-8 text-muted-foreground">
