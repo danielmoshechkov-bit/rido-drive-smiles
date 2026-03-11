@@ -151,13 +151,13 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
       // Fetch debts for assigned drivers
       const assignedDriverIds = assignments?.map(a => a.driver_id).filter(Boolean) || [];
 
-      // Fetch actual earnings from settlements for this week (including debt_before/debt_after and service_fee)
-      let driverSettlements: Array<{ driver_id: string; actual_payout: number; total_earnings: number; rental_fee: number; net_amount: number; service_fee: number; debt_before: number; debt_after: number }> = [];
+      // Fetch actual earnings from settlements for this week (including amounts JSON for calculation)
+      let driverSettlements: Array<{ driver_id: string; amounts: any; service_fee: number; rental_fee: number; debt_before: number; debt_after: number }> = [];
 
       if (assignedDriverIds.length > 0) {
         const { data: paymentsData } = await supabase
           .from('settlements')
-          .select('driver_id, actual_payout, total_earnings, rental_fee, net_amount, service_fee, debt_before, debt_after')
+          .select('driver_id, amounts, service_fee, rental_fee, debt_before, debt_after')
           .in('driver_id', assignedDriverIds)
           .gte('period_from', weekStart)
           .lte('period_to', weekEnd);
@@ -165,15 +165,21 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
         driverSettlements = (paymentsData || []) as any;
       }
 
-      // Map driver_id → amount available for car payment
-      // net_amount = earnings after platform fees/taxes/cash but BEFORE fleet rental, service fee, and debt
-      // We subtract service_fee to get the actual amount available for rental
+      // Calculate available-for-rental from amounts JSON (same logic as FleetSettlementsView)
+      // available = total_base - total_commission - vat8% - service_fee - total_cash - fuel + fuel_vat_refund
+      // This is the amount BEFORE rental deduction
       const driverAvailableMap = new Map<string, number>();
       driverSettlements.forEach(s => {
-        const netAmount = parseFloat(s.net_amount?.toString() || '0');
+        const a = s.amounts || {};
+        const totalBase = (parseFloat(a.uber_base || 0)) + (parseFloat(a.bolt_projected_d || 0)) + (parseFloat(a.freenow_base_s || 0));
+        const totalCommission = (parseFloat(a.uber_commission || 0)) + (parseFloat(a.bolt_commission || 0)) + (parseFloat(a.freenow_commission_t || 0));
+        const totalCash = (parseFloat(a.uber_cash_f || 0)) + (parseFloat(a.bolt_cash || 0)) + (parseFloat(a.freenow_cash_f || 0));
+        const vat8 = totalBase * 0.08;
         const serviceFee = parseFloat(s.service_fee?.toString() || '0');
-        // Available for rental = net_amount - service_fee (deducted before rental)
-        const available = netAmount - serviceFee;
+        const fuel = parseFloat(a.fuel || 0);
+        const fuelVatRefund = parseFloat(a.fuel_vat_refund || 0);
+        
+        const available = totalBase - totalCommission - vat8 - serviceFee - totalCash - fuel + fuelVatRefund;
         driverAvailableMap.set(s.driver_id, (driverAvailableMap.get(s.driver_id) || 0) + available);
       });
 
