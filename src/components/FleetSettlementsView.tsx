@@ -1799,9 +1799,12 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           return null;
         }
 
-        // Jeśli kierowca ma ujemne saldo z platform (np. Bolt fees) - zachowaj rental i service_fee
+        // Jeśli kierowca ma TYLKO ujemne saldo z platform (np. Bolt fees -6.77, brak kursów)
+        // Nie naliczamy opłat serwisowych ani dodatkowych, ale VAT liczymy normalnie wg ustawień
         if (platform_net < 0) {
-          const negFinalPayout = platform_net - service_fee - rental;
+          // VAT z ujemnej kwoty wg stawki floty (np. -6.77 * 8% = -0.54)
+          const negVatAmount = platform_net * (effectiveVatRate / 100);
+          const negFinalPayout = platform_net - negVatAmount; // np. -6.77 - (-0.54) = -6.23
           return {
             driver_id: driver.id,
             driver_name: `${driver.first_name} ${driver.last_name}`,
@@ -1818,14 +1821,14 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             total_commission,
             total_cash: 0,
             tax_8_percent: 0,
-            vat_amount: 0,
-            service_fee,
+            vat_amount: negVatAmount,
+            service_fee: 0,
             additional_fees: [],
-            rental,
+            rental: 0,
             fuel: 0,
             fuel_vat_refund: 0,
             net_without_commission: platform_net,
-            final_payout: negFinalPayout, // Store raw negative payout
+            final_payout: negFinalPayout,
             has_negative_balance: true,
             negative_deficit: Math.abs(negFinalPayout),
             debt_current: currentDebtForDisplay,
