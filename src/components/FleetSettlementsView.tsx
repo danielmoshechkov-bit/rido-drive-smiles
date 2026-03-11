@@ -3276,7 +3276,20 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                             const badgeClick = (e: React.MouseEvent) => {
                               e.stopPropagation();
                               e.preventDefault();
-                              setSelectedDriverForDebt({ id: settlement.driver_id, name: settlement.driver_name });
+                              const settlementDebtBefore = round2(Math.max(0, settlement.debt_previous ?? 0));
+                              const rentalDebtBefore = round2(Math.max(0, settlement.rental_debt_previous ?? 0));
+                              const totalDebtBefore = round2(settlementDebtBefore + rentalDebtBefore);
+                              const debtAfter = round2(Math.max(0, settlement.debt_current ?? 0));
+                              setSelectedDriverForDebt({
+                                id: settlement.driver_id,
+                                name: settlement.driver_name,
+                                settlementDebtBefore,
+                                rentalDebtBefore,
+                                totalDebtBefore,
+                                debtAfter,
+                                periodFrom: settlement.period_from,
+                                periodTo: settlement.period_to,
+                              });
                               setDebtDialogOpen(true);
                             };
                             if (debt <= 0) {
