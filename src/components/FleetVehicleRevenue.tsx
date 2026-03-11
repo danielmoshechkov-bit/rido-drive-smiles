@@ -200,7 +200,7 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
             };
           }
 
-          const selectedWeekKey = `${weekStart}|${weekEnd}`;
+          
 
           // Find the settlement for the selected week
           const selectedSettlement = driverSettlements.find(s =>
