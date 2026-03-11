@@ -91,8 +91,21 @@ export const DriverFilters = ({ onFilterChange }: DriverFiltersProps) => {
 
   const activeFiltersCount = selectedFleets.length + selectedStatuses.length + selectedPaymentMethods.length + (selectedFleetCompanyId !== 'all' ? 1 : 0);
 
+  // Close on click outside
+  const containerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        close();
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen, close]);
+
   return (
-    <div className="relative">
+    <div className="relative" ref={containerRef}>
       <Button
         variant="outline"
         onClick={toggle}
