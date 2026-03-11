@@ -150,40 +150,40 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
 
       // Fetch debts for assigned drivers
       const assignedDriverIds = assignments?.map(a => a.driver_id).filter(Boolean) || [];
-      let debts: Array<{ driver_id: string; current_balance: number }> = [];
-      
-      if (assignedDriverIds.length > 0) {
-        const { data } = await supabase
-          .from('driver_debts')
-          .select('driver_id, current_balance')
-          .in('driver_id', assignedDriverIds);
-        debts = data || [];
-      }
 
-      const debtMap = new Map<string, number>(debts.map(d => [d.driver_id, d.current_balance as number]));
-
-      // Fetch actual earnings from settlements for this week
-      let driverSettlements: Array<{ driver_id: string; actual_payout: number; total_earnings: number; rental_fee: number; net_amount: number }> = [];
+      // Fetch actual earnings from settlements for this week (including debt_before/debt_after and service_fee)
+      let driverSettlements: Array<{ driver_id: string; actual_payout: number; total_earnings: number; rental_fee: number; net_amount: number; service_fee: number; debt_before: number; debt_after: number }> = [];
 
       if (assignedDriverIds.length > 0) {
         const { data: paymentsData } = await supabase
           .from('settlements')
-          .select('driver_id, actual_payout, total_earnings, rental_fee, net_amount')
+          .select('driver_id, actual_payout, total_earnings, rental_fee, net_amount, service_fee, debt_before, debt_after')
           .in('driver_id', assignedDriverIds)
           .gte('period_from', weekStart)
           .lte('period_to', weekEnd);
         
-        driverSettlements = paymentsData || [];
+        driverSettlements = (paymentsData || []) as any;
       }
 
-      // Map driver_id → amount available for car payment (before rental deduction)
-      // net_amount = earnings after platform fees/taxes/cash but BEFORE fleet rental and debt
-      // This is the correct base for calculating how much of the rental was covered
+      // Map driver_id → amount available for car payment
+      // net_amount = earnings after platform fees/taxes/cash but BEFORE fleet rental, service fee, and debt
+      // We subtract service_fee to get the actual amount available for rental
       const driverAvailableMap = new Map<string, number>();
       driverSettlements.forEach(s => {
         const netAmount = parseFloat(s.net_amount?.toString() || '0');
-        const available = Math.max(netAmount, 0);
+        const serviceFee = parseFloat(s.service_fee?.toString() || '0');
+        // Available for rental = net_amount - service_fee (deducted before rental)
+        const available = netAmount - serviceFee;
         driverAvailableMap.set(s.driver_id, (driverAvailableMap.get(s.driver_id) || 0) + available);
+      });
+
+      // Map driver_id → debt_after from settlement (historical debt for this specific week)
+      const driverDebtAfterMap = new Map<string, number>();
+      driverSettlements.forEach(s => {
+        const debtAfter = parseFloat(s.debt_after?.toString() || '0');
+        // Take the max if multiple settlement records exist
+        const existing = driverDebtAfterMap.get(s.driver_id) || 0;
+        driverDebtAfterMap.set(s.driver_id, Math.max(existing, debtAfter));
       });
 
       // Map vehicles to revenue data and filter only those with assigned drivers
