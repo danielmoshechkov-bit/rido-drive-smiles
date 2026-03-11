@@ -836,6 +836,20 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
   const round2 = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 
+  const deriveRawPayoutFromSettlementSnapshot = (settlement: any): number => {
+    const debtBefore = round2(Math.max(0, Number(settlement?.debt_before ?? 0)));
+    const debtAfter = round2(Math.max(0, Number(settlement?.debt_after ?? debtBefore)));
+    const debtPayment = round2(Math.max(0, Number(settlement?.debt_payment ?? 0)));
+    const actualPayout = round2(Number(settlement?.actual_payout ?? 0));
+    const debtIncrease = round2(Math.max(0, debtAfter - debtBefore));
+
+    if (debtIncrease > 0.01) {
+      return round2(-debtIncrease);
+    }
+
+    return round2(actualPayout + debtPayment);
+  };
+
   const getSnapshotRawPayout = (settlement: DriverSettlement): number | null => {
     if (
       settlement.snapshot_debt_before === undefined ||
@@ -846,16 +860,12 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       return null;
     }
 
-    const debtBefore = Math.max(0, settlement.snapshot_debt_before || 0);
-    const debtAfter = Math.max(0, settlement.snapshot_debt_after || 0);
-    const debtPayment = Math.max(0, settlement.snapshot_debt_payment || 0);
-    const actualPayout = settlement.snapshot_actual_payout || 0;
-
-    if (debtAfter - debtBefore > 0.01) {
-      return round2(-(debtAfter - debtBefore));
-    }
-
-    return round2(actualPayout + debtPayment);
+    return deriveRawPayoutFromSettlementSnapshot({
+      debt_before: settlement.snapshot_debt_before,
+      debt_after: settlement.snapshot_debt_after,
+      debt_payment: settlement.snapshot_debt_payment,
+      actual_payout: settlement.snapshot_actual_payout,
+    });
   };
 
   // Parse locale-aware number: handles "0.00400" → 400, "1 031,00" → 1031, etc.
