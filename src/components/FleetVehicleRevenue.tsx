@@ -151,6 +151,22 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
       // Fetch debts for assigned drivers
       const assignedDriverIds = assignments?.map(a => a.driver_id).filter(Boolean) || [];
 
+      // Fetch fleet settings for VAT rate and service fee
+      const { data: fleetData } = await supabase
+        .from('fleets')
+        .select('vat_rate, base_fee')
+        .eq('id', fleetId)
+        .single();
+      const fleetVatRate = (fleetData?.vat_rate ?? 8) / 100;
+      const fleetBaseFee = fleetData?.base_fee ?? 90;
+
+      // Fetch fleet settlement fees (ZUS etc.)
+      const { data: fleetFeesData } = await supabase
+        .from('fleet_settlement_fees')
+        .select('amount, frequency, type, valid_from, valid_to')
+        .eq('fleet_id', fleetId)
+        .eq('is_active', true);
+
       // Fetch settlements history up to selected week (needed for proper debt carry-over)
       let driverSettlements: Array<{
         driver_id: string;
@@ -161,10 +177,9 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
         net_amount: number | null;
       }> = [];
 
-      const calculateAvailableFromSettlement = (amounts: any, netAmount: number | null): number => {
-        const net = parseFloat(netAmount?.toString() || '0');
-        if (!Number.isNaN(net) && netAmount !== null) return net;
-
+      // Calculate available for rental = payout WITHOUT rental (same as FleetSettlementsView)
+      // This must match calculatePayoutWithoutRental logic
+      const calculateAvailableFromSettlement = (amounts: any, periodFrom: string | null): number => {
         const a = amounts || {};
         const totalBase =
           parseFloat(a.uber_base || 0) +
@@ -178,12 +193,37 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
           parseFloat(a.uber_cash_f || 0) +
           parseFloat(a.bolt_cash || 0) +
           parseFloat(a.freenow_cash_f || 0);
-        const vat8 = totalBase * 0.08;
-        const serviceFee = parseFloat(a.service_fee?.toString() || '0');
+        const vatAmount = totalBase * fleetVatRate;
+        
+        // Service fee: use manual override from amounts, or fleet base fee
+        const manualServiceFee = a.manual_service_fee;
+        const serviceFee = (manualServiceFee !== null && manualServiceFee !== undefined)
+          ? parseFloat(manualServiceFee)
+          : fleetBaseFee;
+        
         const fuel = parseFloat(a.fuel || 0);
         const fuelVatRefund = parseFloat(a.fuel_vat_refund || 0);
 
-        return totalBase - totalCommission - vat8 - serviceFee - totalCash - fuel + fuelVatRefund;
+        // Additional fees (ZUS etc.) - same logic as FleetSettlementsView
+        let additionalFeesTotal = 0;
+        if (fleetFeesData && periodFrom) {
+          const periodStartDate = new Date(periodFrom);
+          const isFirstWeek = periodStartDate.getDate() >= 1 && periodStartDate.getDate() <= 7;
+          fleetFeesData.forEach((fee: any) => {
+            if (fee.valid_from && new Date(fee.valid_from) > periodStartDate) return;
+            if (fee.valid_to && new Date(fee.valid_to) < periodStartDate) return;
+            if (fee.frequency === 'weekly') {
+              const manualKey = `manual_fee_${additionalFeesTotal}`;
+              const manualVal = a[manualKey];
+              const baseAmount = fee.type === 'fixed' ? fee.amount : totalBase * (fee.amount / 100);
+              additionalFeesTotal += (manualVal !== null && manualVal !== undefined) ? parseFloat(manualVal) : baseAmount;
+            } else if (fee.frequency === 'monthly' && isFirstWeek) {
+              additionalFeesTotal += fee.type === 'fixed' ? fee.amount : totalBase * (fee.amount / 100);
+            }
+          });
+        }
+
+        return totalBase - totalCommission - vatAmount - serviceFee - additionalFeesTotal - totalCash - fuel + fuelVatRefund;
       };
 
       if (assignedDriverIds.length > 0) {
