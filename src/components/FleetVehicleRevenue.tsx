@@ -42,6 +42,7 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
   const [selectedWeek, setSelectedWeek] = useState<number>(getCurrentWeekNumber(new Date().getFullYear()));
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   // Format currency in Polish style
   const formatCurrency = (amount: number): string => {
