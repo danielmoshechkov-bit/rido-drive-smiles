@@ -823,6 +823,32 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
   const round2 = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 
+  // Proportional rental calculation (same logic as FleetVehicleRevenue)
+  const calculateProportionalRentForSettlement = (
+    assignedAt: string,
+    weekStart: string,
+    weekEnd: string,
+    weeklyFee: number
+  ): number => {
+    const assignDate = new Date(assignedAt);
+    const startDate = new Date(weekStart);
+    const endDate = new Date(weekEnd);
+    
+    // Start counting from the day AFTER assignment
+    const startCounting = new Date(assignDate);
+    startCounting.setDate(startCounting.getDate() + 1);
+    
+    if (startCounting > endDate) return 0;
+    
+    // If assigned before the week, full week rental
+    if (startCounting <= startDate) return weeklyFee;
+    
+    const effectiveStart = startCounting;
+    const days = Math.ceil((endDate.getTime() - effectiveStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    const dailyRate = weeklyFee / 7;
+    return round2(dailyRate * Math.min(days, 7));
+  };
+
   const deriveRawPayoutFromSettlementSnapshot = (settlement: any): number => {
     const debtBefore = round2(Math.max(0, Number(settlement?.debt_before ?? 0)));
     const debtAfter = round2(Math.max(0, Number(settlement?.debt_after ?? debtBefore)));
@@ -1338,12 +1364,13 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         .from('settlement_plans')
         .select('*');
 
-      // Pobierz aktywne przypisania pojazdów z opłatą wynajmu
+      // Pobierz aktywne przypisania pojazdów z opłatą wynajmu i datą przypisania
       const { data: assignmentsData } = await supabase
         .from('driver_vehicle_assignments')
         .select(`
           driver_id,
           vehicle_id,
+          assigned_at,
           vehicles(weekly_rental_fee)
         `)
         .in('driver_id', driverIds)
@@ -1404,11 +1431,14 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
       const splitDebtByWeek = new Map<string, { settlementDebtBefore: number; rentalDebtBefore: number }>();
 
-      const fallbackRentalByDriver = new Map<string, number>();
+      const fallbackRentalByDriver = new Map<string, { weeklyRate: number; assignedAt: string }>();
       (assignmentsData || []).forEach((assignment: any) => {
         const fallbackRental = Number((assignment?.vehicles as any)?.weekly_rental_fee || 0);
         if (fallbackRental > 0 && !fallbackRentalByDriver.has(assignment.driver_id)) {
-          fallbackRentalByDriver.set(assignment.driver_id, fallbackRental);
+          fallbackRentalByDriver.set(assignment.driver_id, {
+            weeklyRate: fallbackRental,
+            assignedAt: assignment.assigned_at || '',
+          });
         }
       });
 
@@ -1440,7 +1470,15 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           if (manualRentalFee !== null && manualRentalFee !== undefined) {
             rentalFee = Number(manualRentalFee || 0);
           } else if (rentalFee <= 0 && hasAnyActivity) {
-            rentalFee = Number(fallbackRentalByDriver.get(driverId) || 0);
+            // Use proportional rental based on assignment date
+            const fallback = fallbackRentalByDriver.get(driverId);
+            if (fallback && fallback.assignedAt && periodFromKey && periodToKey) {
+              rentalFee = calculateProportionalRentForSettlement(
+                fallback.assignedAt, periodFromKey, periodToKey, fallback.weeklyRate
+              );
+            } else {
+              rentalFee = fallback?.weeklyRate || 0;
+            }
           }
 
           const debtBefore = Math.max(0, Number(row.debt_before || 0));
@@ -1641,7 +1679,12 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         // Dzięki temu wartość 0 ustawiona ręcznie nie będzie nadpisana wartością z pojazdu
         const manualRentalFee = firstAmounts.manual_rental_fee;
         const assignment = assignmentsData?.find(a => a.driver_id === driver.id);
-        const vehicleRentalFee = (assignment?.vehicles as any)?.weekly_rental_fee || 0;
+        const vehicleWeeklyRate = (assignment?.vehicles as any)?.weekly_rental_fee || 0;
+        // Calculate proportional rental based on assignment date (same as FleetVehicleRevenue)
+        const assignedAt = (assignment as any)?.assigned_at;
+        const vehicleRentalFee = (assignedAt && vehicleWeeklyRate > 0 && currentWeek)
+          ? calculateProportionalRentForSettlement(assignedAt, currentWeek.start, currentWeek.end, vehicleWeeklyRate)
+          : vehicleWeeklyRate;
         const rental = (manualRentalFee !== null && manualRentalFee !== undefined)
           ? manualRentalFee
           : (persistedRentalFee !== null && persistedRentalFee !== undefined && persistedRentalFee > 0)
@@ -2799,7 +2842,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
               }
             }
             return true;
-          }).sort((a, b) => {
+           }).sort((a, b) => {
             if (!sortColumn) return a.driver_name.localeCompare(b.driver_name, 'pl');
             const dir = sortDirection === 'asc' ? 1 : -1;
             switch (sortColumn) {
@@ -2811,6 +2854,18 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                 const debtA = a.debt_previous ?? 0;
                 const debtB = b.debt_previous ?? 0;
                 return dir * (debtA - debtB);
+              }
+              case 'wyplata_1':
+                return dir * (getWyplata1(a) - getWyplata1(b));
+              case 'rental': {
+                const rentalA = getEffectiveSettlement(a).rental || 0;
+                const rentalB = getEffectiveSettlement(b).rental || 0;
+                return dir * (rentalA - rentalB);
+              }
+              case 'debt_rental': {
+                const rdA = getRentalDebt(a);
+                const rdB = getRentalDebt(b);
+                return dir * (rdA - rdB);
               }
               case 'do_wyplaty':
                 return dir * (getDoWyplaty(a) - getDoWyplaty(b));
@@ -3009,9 +3064,15 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                       {isColVisible('debt') && <TableHead className="text-center px-2 py-1.5 text-xs font-medium whitespace-nowrap cursor-pointer select-none hover:bg-muted/50" onClick={() => handleSort('debt')}>
                         <span className="inline-flex items-center justify-center">Dług{getSortIcon('debt')}</span>
                       </TableHead>}
-                      {isColVisible('wyplata_1') && <TableHead className="text-right px-2 py-1.5 text-xs font-bold whitespace-nowrap text-blue-700">Wypłata</TableHead>}
-                      {isColVisible('rental') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap border-l-2 border-primary/20">Wynajem</TableHead>}
-                      {isColVisible('debt_rental') && <TableHead className="text-center px-2 py-1.5 text-xs font-medium whitespace-nowrap">Dług wynajmu</TableHead>}
+                      {isColVisible('wyplata_1') && <TableHead className="text-right px-2 py-1.5 text-xs font-bold whitespace-nowrap text-blue-700 cursor-pointer select-none hover:bg-muted/50" onClick={() => handleSort('wyplata_1')}>
+                        <span className="inline-flex items-center justify-end w-full">Wypłata{getSortIcon('wyplata_1')}</span>
+                      </TableHead>}
+                      {isColVisible('rental') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap border-l-2 border-primary/20 cursor-pointer select-none hover:bg-muted/50" onClick={() => handleSort('rental')}>
+                        <span className="inline-flex items-center justify-end w-full">Wynajem{getSortIcon('rental')}</span>
+                      </TableHead>}
+                      {isColVisible('debt_rental') && <TableHead className="text-center px-2 py-1.5 text-xs font-medium whitespace-nowrap cursor-pointer select-none hover:bg-muted/50" onClick={() => handleSort('debt_rental')}>
+                        <span className="inline-flex items-center justify-center">Dług wynajmu{getSortIcon('debt_rental')}</span>
+                      </TableHead>}
                       {isColVisible('do_wyplaty') && <TableHead className="text-right px-2 py-1.5 text-xs font-bold whitespace-nowrap text-green-700 cursor-pointer select-none hover:bg-muted/50" onClick={() => handleSort('do_wyplaty')}>
                         <span className="inline-flex items-center justify-end w-full">Wypłata fin.{getSortIcon('do_wyplaty')}</span>
                       </TableHead>}
