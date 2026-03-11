@@ -94,6 +94,14 @@ interface DriverSettlement {
   bolt_anulacje?: number;
   netto?: number;
   payment_method?: string;
+  // Snapshot metadata for debt re-sync
+  settlement_id?: string;
+  period_from?: string;
+  period_to?: string;
+  snapshot_debt_before?: number;
+  snapshot_debt_after?: number;
+  snapshot_debt_payment?: number;
+  snapshot_actual_payout?: number;
 }
 
 interface FleetFee {
