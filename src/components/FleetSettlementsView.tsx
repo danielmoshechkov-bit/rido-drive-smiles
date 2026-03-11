@@ -1589,6 +1589,13 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         // === DŁUG: use ACTUAL current debt from DB (reflects manual payments) ===
         const currentDebtFromDB = debtsMap[driver.id] ?? 0;
         
+        // Get debt_before from the settlement record (set by update-driver-debt edge function)
+        // This represents the debt that existed BEFORE this week's settlement was processed
+        const debtBeforeFromSettlement = driverSettlements.reduce((max, s) => {
+          const db = (s as any).debt_before ?? 0;
+          return Math.max(max, db);
+        }, 0);
+        
         // Store raw payout (can be negative) — debt adjustment happens at render time via getDoWyplaty()
         let hasNegativeBalance = payout < 0;
 
