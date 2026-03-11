@@ -17,8 +17,10 @@ import {
   AlertCircle,
   Stamp,
   Upload,
-  Building2
+  Building2,
+  UserCog
 } from "lucide-react";
+import { AccountSettingsTab } from "./AccountSettingsTab";
 import { formatPostalCode } from "@/utils/formatters";
 
 // Polish postal code to city mapping
