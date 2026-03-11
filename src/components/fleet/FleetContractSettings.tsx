@@ -17,8 +17,10 @@ import {
   AlertCircle,
   Stamp,
   Upload,
-  Building2
+  Building2,
+  UserCog
 } from "lucide-react";
+import { AccountSettingsTab } from "./AccountSettingsTab";
 import { formatPostalCode } from "@/utils/formatters";
 
 // Polish postal code to city mapping
@@ -342,9 +344,10 @@ export function FleetContractSettings({ fleetId }: FleetContractSettingsProps) {
   return (
     <div className="space-y-6">
       <Tabs value={settingsTab} onValueChange={setSettingsTab}>
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="company" className="gap-1"><Building2 className="h-3.5 w-3.5" /> Dane firmy</TabsTrigger>
           <TabsTrigger value="documents" className="gap-1"><PenTool className="h-3.5 w-3.5" /> Ustawienia umów</TabsTrigger>
+          <TabsTrigger value="account" className="gap-1"><UserCog className="h-3.5 w-3.5" /> Ustawienia konta</TabsTrigger>
         </TabsList>
 
         {/* Company Data Tab */}
@@ -571,6 +574,11 @@ export function FleetContractSettings({ fleetId }: FleetContractSettingsProps) {
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        {/* Account Settings Tab */}
+        <TabsContent value="account">
+          <AccountSettingsTab />
         </TabsContent>
       </Tabs>
     </div>
