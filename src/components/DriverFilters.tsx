@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -18,6 +18,11 @@ interface DriverFiltersProps {
 
 export const DriverFilters = ({ onFilterChange }: DriverFiltersProps) => {
   const { isOpen, toggle, close } = useDropdownState("driver-filters");
+  
+  // Close filter panel on mount to prevent it from being open by default
+  useEffect(() => {
+    close();
+  }, []);
   const [selectedFleets, setSelectedFleets] = useState<string[]>([]);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [selectedPaymentMethods, setSelectedPaymentMethods] = useState<string[]>([]);
@@ -86,8 +91,21 @@ export const DriverFilters = ({ onFilterChange }: DriverFiltersProps) => {
 
   const activeFiltersCount = selectedFleets.length + selectedStatuses.length + selectedPaymentMethods.length + (selectedFleetCompanyId !== 'all' ? 1 : 0);
 
+  // Close on click outside
+  const containerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        close();
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen, close]);
+
   return (
-    <div className="relative">
+    <div className="relative" ref={containerRef}>
       <Button
         variant="outline"
         onClick={toggle}
