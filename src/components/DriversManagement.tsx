@@ -73,8 +73,11 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
   
   const { cities } = useCities();
   
+  // When a fleet company filter is active, don't filter by city (drivers may be in different cities)
+  const effectiveCityId = filters.fleetCompanyId ? undefined : (cityId || undefined);
+  
   const { drivers, loading, error, refetch } = useDrivers({ 
-    cityId: cityId || undefined, 
+    cityId: effectiveCityId, 
     fleetId: fleetId || undefined 
   });
 
