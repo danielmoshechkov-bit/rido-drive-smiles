@@ -823,6 +823,32 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
   const round2 = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 
+  // Proportional rental calculation (same logic as FleetVehicleRevenue)
+  const calculateProportionalRentForSettlement = (
+    assignedAt: string,
+    weekStart: string,
+    weekEnd: string,
+    weeklyFee: number
+  ): number => {
+    const assignDate = new Date(assignedAt);
+    const startDate = new Date(weekStart);
+    const endDate = new Date(weekEnd);
+    
+    // Start counting from the day AFTER assignment
+    const startCounting = new Date(assignDate);
+    startCounting.setDate(startCounting.getDate() + 1);
+    
+    if (startCounting > endDate) return 0;
+    
+    // If assigned before the week, full week rental
+    if (startCounting <= startDate) return weeklyFee;
+    
+    const effectiveStart = startCounting;
+    const days = Math.ceil((endDate.getTime() - effectiveStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    const dailyRate = weeklyFee / 7;
+    return round2(dailyRate * Math.min(days, 7));
+  };
+
   const deriveRawPayoutFromSettlementSnapshot = (settlement: any): number => {
     const debtBefore = round2(Math.max(0, Number(settlement?.debt_before ?? 0)));
     const debtAfter = round2(Math.max(0, Number(settlement?.debt_after ?? debtBefore)));
