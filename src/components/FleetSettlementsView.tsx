@@ -704,34 +704,64 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
 
   // Apply manual overrides and recalculate payout
-  const getEffectiveSettlement = (settlement: DriverSettlement) => {
-    const overrides = manualOverrides[settlement.driver_id];
-    if (!overrides) return settlement;
+  const applyOverridesToSettlement = (
+    settlement: DriverSettlement,
+    overrides?: {
+      additional_fees?: Record<number, number>;
+      service_fee?: number;
+      rental?: number;
+    }
+  ): DriverSettlement => {
+    if (!overrides) return { ...settlement };
 
     const s = { ...settlement };
-    
+
     if (overrides.service_fee !== undefined) s.service_fee = overrides.service_fee;
     if (overrides.rental !== undefined) s.rental = overrides.rental;
     if (overrides.additional_fees) {
-      s.additional_fees = s.additional_fees.map((fee, idx) => 
-        overrides.additional_fees?.[idx] !== undefined 
-          ? { ...fee, amount: overrides.additional_fees[idx] } 
+      s.additional_fees = s.additional_fees.map((fee, idx) =>
+        overrides.additional_fees?.[idx] !== undefined
+          ? { ...fee, amount: overrides.additional_fees[idx] }
           : fee
       );
     }
-    
-    // Recalculate raw payout based on settlement mode (before debt deduction)
-    const total_additional = s.additional_fees.reduce((sum, f) => sum + f.amount, 0);
-    
-    if (fleetSettlementModeState === 'dual_tax') {
-      const netto_calc = s.total_base - s.total_commission;
-      s.final_payout = netto_calc - s.total_cash - s.vat_amount - (s.secondary_vat_amount || 0) 
-                       - s.service_fee - total_additional - (s.rental || 0) - s.fuel + s.fuel_vat_refund;
-    } else {
-      s.final_payout = s.total_base - s.total_commission - s.vat_amount - s.service_fee - total_additional - (s.rental || 0) - s.total_cash - s.fuel + s.fuel_vat_refund;
-    }
-    
+
     return s;
+  };
+
+  const calculateRawPayout = (settlement: DriverSettlement): number => {
+    const totalAdditional = settlement.additional_fees.reduce((sum, f) => sum + f.amount, 0);
+
+    if (fleetSettlementModeState === 'dual_tax') {
+      const nettoCalc = settlement.total_base - settlement.total_commission;
+      return nettoCalc
+        - settlement.total_cash
+        - settlement.vat_amount
+        - (settlement.secondary_vat_amount || 0)
+        - settlement.service_fee
+        - totalAdditional
+        - (settlement.rental || 0)
+        - settlement.fuel
+        + settlement.fuel_vat_refund;
+    }
+
+    return settlement.total_base
+      - settlement.total_commission
+      - settlement.vat_amount
+      - settlement.service_fee
+      - totalAdditional
+      - (settlement.rental || 0)
+      - settlement.total_cash
+      - settlement.fuel
+      + settlement.fuel_vat_refund;
+  };
+
+  const getEffectiveSettlement = (settlement: DriverSettlement) => {
+    const overridden = applyOverridesToSettlement(settlement, manualOverrides[settlement.driver_id]);
+    return {
+      ...overridden,
+      final_payout: calculateRawPayout(overridden),
+    };
   };
 
   // Calculate debt-adjusted "Wypłata" — negative means new debt carries over
