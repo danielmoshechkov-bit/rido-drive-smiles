@@ -1653,8 +1653,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           final_payout: payout,
           has_negative_balance: hasNegativeBalance,
           negative_deficit: hasNegativeBalance ? Math.abs(payout) : 0,
-          debt_current: currentDebtFromDB,
-          debt_previous: debtBeforeFromSettlement || currentDebtFromDB,
+          debt_current: currentDebtForDisplay,
+          debt_previous: debtBeforeFromSettlement || currentDebtForDisplay,
           // Dual tax fields
           bolt_ef_base,
           bolt_ijk_base,
