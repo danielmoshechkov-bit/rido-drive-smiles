@@ -151,23 +151,26 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
       // Fetch debts for assigned drivers
       const assignedDriverIds = assignments?.map(a => a.driver_id).filter(Boolean) || [];
 
-      // Fetch actual earnings from settlements for this week (including amounts JSON for calculation)
-      let driverSettlements: Array<{ driver_id: string; amounts: any; service_fee: number; rental_fee: number; debt_before: number; debt_after: number }> = [];
+      // Fetch actual earnings from settlements for this week
+      let driverSettlements: Array<{ driver_id: string; amounts: any; rental_fee: number; debt_before: number; debt_after: number }> = [];
 
+      console.log('🚗 VehicleRevenue: assignedDriverIds=', assignedDriverIds.length, 'weekStart=', weekStart, 'weekEnd=', weekEnd);
       if (assignedDriverIds.length > 0) {
-        const { data: paymentsData } = await supabase
+        const { data: paymentsData, error: paymentsError } = await supabase
           .from('settlements')
-          .select('driver_id, amounts, service_fee, rental_fee, debt_before, debt_after')
+          .select('driver_id, amounts, rental_fee, debt_before, debt_after, period_from, period_to, net_amount')
           .in('driver_id', assignedDriverIds)
           .gte('period_from', weekStart)
           .lte('period_to', weekEnd);
         
+        console.log('🚗 VehicleRevenue: settlements found=', paymentsData?.length, 'error=', paymentsError);
+        if (paymentsData && paymentsData.length > 0) {
+          console.log('🚗 VehicleRevenue: sample settlement=', JSON.stringify(paymentsData[0]));
+        }
         driverSettlements = (paymentsData || []) as any;
       }
 
       // Calculate available-for-rental from amounts JSON (same logic as FleetSettlementsView)
-      // available = total_base - total_commission - vat8% - service_fee - total_cash - fuel + fuel_vat_refund
-      // This is the amount BEFORE rental deduction
       const driverAvailableMap = new Map<string, number>();
       const driverRentalFeeMap = new Map<string, number>();
       driverSettlements.forEach(s => {
@@ -176,7 +179,7 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
         const totalCommission = (parseFloat(a.uber_commission || 0)) + (parseFloat(a.bolt_commission || 0)) + (parseFloat(a.freenow_commission_t || 0));
         const totalCash = (parseFloat(a.uber_cash_f || 0)) + (parseFloat(a.bolt_cash || 0)) + (parseFloat(a.freenow_cash_f || 0));
         const vat8 = totalBase * 0.08;
-        const serviceFee = parseFloat(s.service_fee?.toString() || '0');
+        const serviceFee = parseFloat(a.service_fee?.toString() || '0');
         const fuel = parseFloat(a.fuel || 0);
         const fuelVatRefund = parseFloat(a.fuel_vat_refund || 0);
         
