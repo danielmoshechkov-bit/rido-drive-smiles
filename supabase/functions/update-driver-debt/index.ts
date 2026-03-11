@@ -309,6 +309,24 @@ serve(async (req) => {
       return authoritativeDebt;
     };
 
+    if (force_recalculate_chain) {
+      console.log(`♻️ Force recalculating debt chain for driver ${driver_id} from ${period_from}`);
+
+      const snapshot = await recalculateDebtChainFromPeriod();
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          recalculated: true,
+          debt_before: snapshot?.debtBefore ?? 0,
+          debt_payment: snapshot?.debtPayment ?? 0,
+          debt_after: snapshot?.remainingDebt ?? 0,
+          actual_payout: snapshot?.actualPayout ?? 0,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // DEDUPLICATION: Check by settlement_id AND by period to prevent duplicates
     const { data: existingTxBySettlement } = await supabase
       .from("driver_debt_transactions")
