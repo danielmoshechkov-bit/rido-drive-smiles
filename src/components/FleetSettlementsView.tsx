@@ -1702,6 +1702,9 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
         // Oblicz wypłatę
         const total_base = uber_base + bolt_base + freenow_base;
+        // VAT base uses only positive platform amounts — negative amounts (e.g. Bolt -6.77)
+        // should reduce payout but NOT reduce the VAT base
+        const vat_base = Math.max(0, uber_base) + Math.max(0, bolt_base) + Math.max(0, freenow_base);
 
         // Oblicz net z platform (może być ujemne np. z Bolt)
         const uber_net = driverSettlements.reduce((sum, s) => {
