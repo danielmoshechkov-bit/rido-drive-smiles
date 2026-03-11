@@ -1677,6 +1677,12 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           ? debtBeforeFromSettlement
           : 0;
 
+        const rowPeriodFrom = (settlementSnapshot as any)?.period_from || currentWeek?.start || periodFrom || '';
+        const rowPeriodTo = (settlementSnapshot as any)?.period_to || currentWeek?.end || periodTo || '';
+        const splitDebt = splitDebtByWeek.get(`${driver.id}|${rowPeriodFrom}|${rowPeriodTo}`);
+        const settlementDebtBeforeForDisplay = splitDebt?.settlementDebtBefore ?? debtBeforeForDisplay;
+        const rentalDebtBeforeForDisplay = splitDebt?.rentalDebtBefore ?? 0;
+
         // ⚠️ OCHRONA ZEROWYCH ZAROBKÓW
         // Jeśli kierowca nie jeździł (suma zarobków = 0) I nie ma ujemnego salda
         // NIE naliczamy opłat, ale jeśli ma dług to nadal pokazujemy go na liście
