@@ -21,7 +21,11 @@ export const useCities = () => {
         .select('*')
         .order('name');
 
-      if (error) throw error;
+      console.log('[useCities] Fetched cities:', data?.length, data?.map(c => c.name));
+      if (error) {
+        console.error('[useCities] Error:', error);
+        throw error;
+      }
       setCities(data || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error fetching cities');

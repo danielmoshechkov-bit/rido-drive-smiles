@@ -58,7 +58,8 @@ export const CitySelector = ({ selectedCity, onCitySelect }: CitySelectorProps) 
           <SelectTrigger>
             <SelectValue placeholder="Wybierz miasto" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="max-h-[300px] overflow-y-auto">
+            {cities.length === 0 && <div className="px-2 py-1 text-sm text-muted-foreground">Brak miast</div>}
             {cities.map((city) => (
               <SelectItem key={city.id} value={city.id}>
                 {city.name}
