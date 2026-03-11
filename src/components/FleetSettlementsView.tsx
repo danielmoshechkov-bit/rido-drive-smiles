@@ -1586,15 +1586,22 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           payout = total_base - total_commission - vat_amount - service_fee - total_additional_fees - rental - total_cash - total_fuel + total_fuel_vat_refund;
         }
 
-        // === DŁUG: use ACTUAL current debt from DB (reflects manual payments) ===
-        const currentDebtFromDB = debtsMap[driver.id] ?? 0;
+        // === DŁUG: use debt_after from settlement record (historical, for viewed week) ===
+        const debtAfterFromSettlement = driverSettlements.reduce((max, s) => {
+          const da = (s as any).debt_after;
+          if (da !== null && da !== undefined) return Math.max(max, parseFloat(da?.toString() || '0'));
+          return max;
+        }, -1);
         
-        // Get debt_before from the settlement record (set by update-driver-debt edge function)
-        // This represents the debt that existed BEFORE this week's settlement was processed
         const debtBeforeFromSettlement = driverSettlements.reduce((max, s) => {
           const db = (s as any).debt_before ?? 0;
-          return Math.max(max, db);
+          return Math.max(max, parseFloat(db?.toString() || '0'));
         }, 0);
+        
+        // Use debt_after from settlement if available, otherwise fall back to live balance
+        const currentDebtForDisplay = debtAfterFromSettlement >= 0 
+          ? debtAfterFromSettlement 
+          : (debtsMap[driver.id] ?? 0);
         
         // Store raw payout (can be negative) — debt adjustment happens at render time via getDoWyplaty()
         let hasNegativeBalance = payout < 0;
