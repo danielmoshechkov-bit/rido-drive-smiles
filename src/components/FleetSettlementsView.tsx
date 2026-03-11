@@ -2842,7 +2842,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
               }
             }
             return true;
-          }).sort((a, b) => {
+           }).sort((a, b) => {
             if (!sortColumn) return a.driver_name.localeCompare(b.driver_name, 'pl');
             const dir = sortDirection === 'asc' ? 1 : -1;
             switch (sortColumn) {
@@ -2854,6 +2854,18 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                 const debtA = a.debt_previous ?? 0;
                 const debtB = b.debt_previous ?? 0;
                 return dir * (debtA - debtB);
+              }
+              case 'wyplata_1':
+                return dir * (getWyplata1(a) - getWyplata1(b));
+              case 'rental': {
+                const rentalA = getEffectiveSettlement(a).rental || 0;
+                const rentalB = getEffectiveSettlement(b).rental || 0;
+                return dir * (rentalA - rentalB);
+              }
+              case 'debt_rental': {
+                const rdA = getRentalDebt(a);
+                const rdB = getRentalDebt(b);
+                return dir * (rdA - rdB);
               }
               case 'do_wyplaty':
                 return dir * (getDoWyplaty(a) - getDoWyplaty(b));
