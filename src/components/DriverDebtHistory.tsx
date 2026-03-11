@@ -237,12 +237,12 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged }: 
           <span>💳 Historia zadłużenia</span>
           {currentDebt > 0 && (
             <span className="text-red-600 font-bold">
-              Obecny dług: {currentDebt.toFixed(2)} zł
+              Obecny dług (na dziś): {currentDebt.toFixed(2)} zł
             </span>
           )}
           {currentDebt === 0 && (
             <span className="text-green-600 font-bold">
-              ✓ Brak zadłużenia
+              ✓ Brak bieżącego zadłużenia
             </span>
           )}
         </CardTitle>
