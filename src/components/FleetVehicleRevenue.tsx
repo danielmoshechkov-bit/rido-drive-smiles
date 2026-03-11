@@ -200,7 +200,7 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
             };
           }
 
-          const selectedWeekKey = `${weekStart}|${weekEnd}`;
+          
 
           // Find the settlement for the selected week
           const selectedSettlement = driverSettlements.find(s =>
@@ -234,14 +234,18 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
           // If no settlement exists or no activity, no rental charged
           const finalRent = (selectedSettlement && hasActivity) ? effectiveRent : 0;
 
-          // Paid = rental + previous_debt - remaining_debt_after
-          // debtAfter includes both unpaid previous debt and unpaid current rental
-          const paidAmount = selectedSettlement
-            ? Math.max(0, finalRent + debtBefore - debtAfter)
-            : 0;
+          // Business view:
+          // - "Poprzednie" = debt_before
+          // - "Łącznie" = debt_after
+          // - "Zadłużenie" = tylko bieżący tydzień = debt_after - debt_before
+          const previousDebt = Math.max(debtBefore, 0);
+          const totalDebt = Math.max(debtAfter, 0);
+          const currentWeekDebt = Math.max(totalDebt - previousDebt, 0);
 
-          // Current week debt increase = how much of this week's rental wasn't paid
-          const currentDebt = Math.max(0, debtAfter - Math.max(0, debtBefore - Math.min(paidAmount, debtBefore)));
+          // Opłacone w tym tygodniu dla bieżącego wynajmu
+          const paidAmount = selectedSettlement
+            ? Math.max(0, finalRent - currentWeekDebt)
+            : 0;
 
           return {
             driver_id: assignment.driver_id,
@@ -254,9 +258,9 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
             weekly_rate: weeklyFee,
             rental_fee: finalRent,
             paid_amount: paidAmount,
-            debt_balance: debtAfter,
-            previous_debt: debtBefore,
-            total_debt: debtAfter,
+            debt_balance: currentWeekDebt,
+            previous_debt: previousDebt,
+            total_debt: totalDebt,
           };
         })
         .filter(revenue => revenue.driver_id !== null);
