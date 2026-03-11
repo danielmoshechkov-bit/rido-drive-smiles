@@ -490,7 +490,7 @@ export function BankTransferExportDialog({
     // Use Windows-1250 encoding for Alior PLI files
     const isPli = filename.endsWith('.pli');
     const blob = isPli
-      ? new Blob([encodeWindows1250(content)], { type: 'application/octet-stream' })
+      ? new Blob([encodeWindows1250(content).buffer as ArrayBuffer], { type: 'application/octet-stream' })
       : new Blob([content], { type: 'text/plain;charset=utf-8' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
