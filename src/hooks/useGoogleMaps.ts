@@ -2,6 +2,12 @@ import { useState, useEffect, useCallback } from "react";
 import { setOptions, importLibrary } from "@googlemaps/js-api-loader";
 import { supabase } from "@/integrations/supabase/client";
 
+declare global {
+  interface Window {
+    google: typeof google;
+  }
+}
+
 const LOAD_TIMEOUT = 10000; // 10 seconds timeout
 
 let googleMapsReady = false;
