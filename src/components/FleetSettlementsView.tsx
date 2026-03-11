@@ -1894,19 +1894,19 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           // e.g. 8% VAT + 1% additional = 9% total
           const combinedVatRate = effectiveVatRate + fleetAdditionalPercentRate;
           // Use bolt_base (Column D) for primary VAT calculation
-          const bolt_vat_ef = isB2BVatPayer ? 0 : bolt_base * (combinedVatRate / 100);
+          const bolt_vat_ef = isB2BVatPayer ? 0 : Math.max(0, bolt_base) * (combinedVatRate / 100);
           additional_percent_amount = 0;
           // Tax 2: 23% VAT on campaigns(I) + returns(J) + cancellations(K)
           secondary_vat_amount = isB2BVatPayer ? 0 : (Math.abs(bolt_i_base) + Math.abs(bolt_j_base) + Math.abs(bolt_k_base)) * (fleetSecondaryVatRate / 100);
           
-          // For Uber and FreeNow, still use standard VAT from total base
-          const uber_freenow_base = uber_base + freenow_base;
+          // For Uber and FreeNow, still use standard VAT from positive base only
+          const uber_freenow_base = Math.max(0, uber_base) + Math.max(0, freenow_base);
           const uber_freenow_vat = isB2BVatPayer ? 0 : uber_freenow_base * (effectiveVatRate / 100);
           
           vat_amount = bolt_vat_ef + uber_freenow_vat;
         } else {
-          // === SINGLE TAX MODE (current): VAT from total brutto ===
-          vat_amount = total_base * (effectiveVatRate / 100);
+          // === SINGLE TAX MODE: VAT from positive-only base (negative platform amounts don't reduce VAT) ===
+          vat_amount = vat_base * (effectiveVatRate / 100);
         }
 
         // Helper: sprawdź czy tydzień jest pierwszym pełnym tygodniem miesiąca
