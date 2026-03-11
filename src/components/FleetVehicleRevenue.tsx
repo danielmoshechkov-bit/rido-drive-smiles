@@ -218,11 +218,13 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
               vehicle_model: vehicle.model,
               assigned_date: '',
               weekly_rate: weeklyFee,
+              settlement_payout: 0,
+              settlement_debt: 0,
+              payout_before_rental: 0,
               rental_fee: 0,
-              paid_amount: 0,
-              debt_balance: 0,
-              previous_debt: 0,
-              total_debt: 0,
+              rental_debt: 0,
+              rental_debt_previous: 0,
+              final_payout: 0,
             };
           }
 
