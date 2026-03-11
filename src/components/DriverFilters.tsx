@@ -18,6 +18,11 @@ interface DriverFiltersProps {
 
 export const DriverFilters = ({ onFilterChange }: DriverFiltersProps) => {
   const { isOpen, toggle, close } = useDropdownState("driver-filters");
+  
+  // Close filter panel on mount to prevent it from being open by default
+  useEffect(() => {
+    close();
+  }, []);
   const [selectedFleets, setSelectedFleets] = useState<string[]>([]);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [selectedPaymentMethods, setSelectedPaymentMethods] = useState<string[]>([]);
