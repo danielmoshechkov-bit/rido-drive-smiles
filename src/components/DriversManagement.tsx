@@ -81,19 +81,13 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
     fleetId: fleetId || undefined 
   });
 
+  // Force refetch when fleet company filter changes (overrides city filter)
+  useEffect(() => {
+    refetch();
+  }, [filters.fleetCompanyId]);
+
   // Debug logging
-  console.log('DriversManagement - Drivers loaded:', {
-    count: drivers.length,
-    loading,
-    error,
-    selectedCity: cityId,
-    selectedFleet: fleetId,
-    drivers: drivers.map(d => ({ 
-      id: d.id, 
-      name: `${d.first_name} ${d.last_name}`,
-      email: d.email 
-    }))
-  });
+  console.log('DriversManagement - effectiveCityId:', effectiveCityId, 'fleetCompanyFilter:', filters.fleetCompanyId, 'drivers:', drivers.length);
 
   // Load available vehicles for fleet modal
   useEffect(() => {
