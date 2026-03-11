@@ -206,20 +206,22 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
             : false;
           const effectiveRent = hasSettlement ? proportionalRent : 0;
           
+          // Calculate how much of rental was paid from available earnings
+          // If driverAvailable is negative, nothing goes to rental (all becomes debt)
           const paidAmount = Math.min(Math.max(driverAvailable, 0), effectiveRent);
           const currentWeekDebt = Math.max(effectiveRent - paidAmount, 0);
           
-          // Total accumulated debt from driver_debts table
-          const totalAccumulatedDebt = assignment?.driver_id 
-            ? (debtMap.get(assignment.driver_id) || 0) 
+          // Use debt_after from settlement record (historical, accurate for this week)
+          // This already includes both previous debt and current week changes
+          const debtAfterFromSettlement = assignment?.driver_id 
+            ? (driverDebtAfterMap.get(assignment.driver_id) || 0) 
             : 0;
           
-          // Previous debt = total accumulated debt from DB (already includes all history)
-          // Current week debt is new debt that hasn't been persisted yet
-          const previousDebt = Math.max(totalAccumulatedDebt, 0);
+          // Previous debt = total debt after settlement minus this week's new rental debt
+          const previousDebt = Math.max(debtAfterFromSettlement - currentWeekDebt, 0);
           
-          // Total = previous accumulated + current week's new debt
-          const totalDebt = previousDebt + currentWeekDebt;
+          // Total = debt_after from settlement (already correct total)
+          const totalDebt = Math.max(debtAfterFromSettlement, currentWeekDebt);
 
           return {
             driver_id: assignment?.driver_id || null,
