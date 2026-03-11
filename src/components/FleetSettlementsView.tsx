@@ -3229,12 +3229,24 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                         {isColVisible('vat_refund') && <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
                           {settlement.fuel_vat_refund > 0 ? `+${formatCurrency(settlement.fuel_vat_refund)}` : (hasAnyActivity ? '0,00' : '-')}
                         </TableCell>}
-                        {/* Editable: additional fees (składka ZUS etc.) */}
-                        {settlement.additional_fees.map((fee, idx) => (
-                          <TableCell key={idx} className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
-                            {renderEditableCell(settlement.driver_id, 'additional_fee', fee.amount, hasAnyActivity, idx)}
-                          </TableCell>
-                        ))}
+                        {/* Editable: additional fees (składka ZUS etc.) - always match header count */}
+                        {activeFees.filter(fee => {
+                          const weekStart = currentWeek?.start ? new Date(currentWeek.start) : new Date();
+                          if ((fee as any).valid_from && new Date((fee as any).valid_from) > weekStart) return false;
+                          if ((fee as any).valid_to && new Date((fee as any).valid_to) < weekStart) return false;
+                          if (fee.frequency === 'weekly') return true;
+                          if (fee.frequency === 'monthly') {
+                            return weekStart.getDate() >= 1 && weekStart.getDate() <= 7;
+                          }
+                          return false;
+                        }).map((fee, idx) => {
+                          const feeAmount = settlement.additional_fees[idx]?.amount ?? 0;
+                          return (
+                            <TableCell key={fee.id} className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
+                              {renderEditableCell(settlement.driver_id, 'additional_fee', feeAmount, hasAnyActivity, idx)}
+                            </TableCell>
+                          );
+                        })}
                         {/* Editable: Opłata */}
                         {isColVisible('service_fee') && <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
                           {renderEditableCell(settlement.driver_id, 'service_fee', settlement.service_fee, hasAnyActivity)}
