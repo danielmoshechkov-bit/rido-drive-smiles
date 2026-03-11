@@ -42,6 +42,7 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
   const [selectedWeek, setSelectedWeek] = useState<number>(getCurrentWeekNumber(new Date().getFullYear()));
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   // Format currency in Polish style
   const formatCurrency = (amount: number): string => {
@@ -149,40 +150,40 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
 
       // Fetch debts for assigned drivers
       const assignedDriverIds = assignments?.map(a => a.driver_id).filter(Boolean) || [];
-      let debts: Array<{ driver_id: string; current_balance: number }> = [];
-      
-      if (assignedDriverIds.length > 0) {
-        const { data } = await supabase
-          .from('driver_debts')
-          .select('driver_id, current_balance')
-          .in('driver_id', assignedDriverIds);
-        debts = data || [];
-      }
 
-      const debtMap = new Map<string, number>(debts.map(d => [d.driver_id, d.current_balance as number]));
-
-      // Fetch actual earnings from settlements for this week
-      let driverSettlements: Array<{ driver_id: string; actual_payout: number; total_earnings: number; rental_fee: number; net_amount: number }> = [];
+      // Fetch actual earnings from settlements for this week (including debt_before/debt_after and service_fee)
+      let driverSettlements: Array<{ driver_id: string; actual_payout: number; total_earnings: number; rental_fee: number; net_amount: number; service_fee: number; debt_before: number; debt_after: number }> = [];
 
       if (assignedDriverIds.length > 0) {
         const { data: paymentsData } = await supabase
           .from('settlements')
-          .select('driver_id, actual_payout, total_earnings, rental_fee, net_amount')
+          .select('driver_id, actual_payout, total_earnings, rental_fee, net_amount, service_fee, debt_before, debt_after')
           .in('driver_id', assignedDriverIds)
           .gte('period_from', weekStart)
           .lte('period_to', weekEnd);
         
-        driverSettlements = paymentsData || [];
+        driverSettlements = (paymentsData || []) as any;
       }
 
-      // Map driver_id → amount available for car payment (before rental deduction)
-      // net_amount = earnings after platform fees/taxes/cash but BEFORE fleet rental and debt
-      // This is the correct base for calculating how much of the rental was covered
+      // Map driver_id → amount available for car payment
+      // net_amount = earnings after platform fees/taxes/cash but BEFORE fleet rental, service fee, and debt
+      // We subtract service_fee to get the actual amount available for rental
       const driverAvailableMap = new Map<string, number>();
       driverSettlements.forEach(s => {
         const netAmount = parseFloat(s.net_amount?.toString() || '0');
-        const available = Math.max(netAmount, 0);
+        const serviceFee = parseFloat(s.service_fee?.toString() || '0');
+        // Available for rental = net_amount - service_fee (deducted before rental)
+        const available = netAmount - serviceFee;
         driverAvailableMap.set(s.driver_id, (driverAvailableMap.get(s.driver_id) || 0) + available);
+      });
+
+      // Map driver_id → debt_after from settlement (historical debt for this specific week)
+      const driverDebtAfterMap = new Map<string, number>();
+      driverSettlements.forEach(s => {
+        const debtAfter = parseFloat(s.debt_after?.toString() || '0');
+        // Take the max if multiple settlement records exist
+        const existing = driverDebtAfterMap.get(s.driver_id) || 0;
+        driverDebtAfterMap.set(s.driver_id, Math.max(existing, debtAfter));
       });
 
       // Map vehicles to revenue data and filter only those with assigned drivers
@@ -205,20 +206,22 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
             : false;
           const effectiveRent = hasSettlement ? proportionalRent : 0;
           
+          // Calculate how much of rental was paid from available earnings
+          // If driverAvailable is negative, nothing goes to rental (all becomes debt)
           const paidAmount = Math.min(Math.max(driverAvailable, 0), effectiveRent);
           const currentWeekDebt = Math.max(effectiveRent - paidAmount, 0);
           
-          // Total accumulated debt from driver_debts table
-          const totalAccumulatedDebt = assignment?.driver_id 
-            ? (debtMap.get(assignment.driver_id) || 0) 
+          // Use debt_after from settlement record (historical, accurate for this week)
+          // This already includes both previous debt and current week changes
+          const debtAfterFromSettlement = assignment?.driver_id 
+            ? (driverDebtAfterMap.get(assignment.driver_id) || 0) 
             : 0;
           
-          // Previous debt = total accumulated debt from DB (already includes all history)
-          // Current week debt is new debt that hasn't been persisted yet
-          const previousDebt = Math.max(totalAccumulatedDebt, 0);
+          // Previous debt = total debt after settlement minus this week's new rental debt
+          const previousDebt = Math.max(debtAfterFromSettlement - currentWeekDebt, 0);
           
-          // Total = previous accumulated + current week's new debt
-          const totalDebt = previousDebt + currentWeekDebt;
+          // Total = debt_after from settlement (already correct total)
+          const totalDebt = Math.max(debtAfterFromSettlement, currentWeekDebt);
 
           return {
             driver_id: assignment?.driver_id || null,
@@ -412,6 +415,15 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
                 </SelectContent>
               </Select>
             </div>
+            <div className="flex items-center gap-2">
+              <Label className="text-sm whitespace-nowrap">Szukaj:</Label>
+              <Input
+                placeholder="Imię, nazwisko lub nr rej."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-9 w-[220px]"
+              />
+            </div>
           </div>
         </CardHeader>
       <CardContent className="p-0 md:p-6">
@@ -441,7 +453,13 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
                 </TableRow>
               </TableHeader>
             <TableBody>
-              {revenues.map((rev) => (
+              {revenues
+                .filter(rev => {
+                  if (!searchQuery.trim()) return true;
+                  const q = searchQuery.toLowerCase();
+                  return rev.driver_name.toLowerCase().includes(q) || rev.vehicle_plate.toLowerCase().includes(q);
+                })
+                .map((rev) => (
                 <TableRow key={rev.vehicle_id}>
                   <TableCell className="font-medium p-1.5 text-xs">
                     {rev.driver_id ? (
