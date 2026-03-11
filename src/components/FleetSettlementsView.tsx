@@ -1799,7 +1799,17 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           return null;
         }
 
-        // Jeśli kierowca ma TYLKO ujemne saldo z platform (np. Bolt fees -6.77, brak kursów)
+        // Calculate B2B/VAT status early — needed for negative balance path too
+        const driverInfo = driver as any;
+        const appUserData = driverInfo.driver_app_users;
+        const b2bProfile = b2bProfilesMap.get(appUserData?.user_id);
+        const isB2BDriver = driverInfo.payment_method === 'b2b' 
+                         || driverInfo.billing_method === 'b2b' 
+                         || driverInfo.b2b_enabled === true;
+        const isB2BVatPayer = isB2BDriver && (driverInfo.b2b_vat_payer === true || b2bProfile?.vat_payer === true);
+        const effectiveVatRate = isB2BVatPayer ? 0 : fleetVatRate;
+
+
         // Nie naliczamy opłat serwisowych ani dodatkowych, ale VAT liczymy normalnie wg ustawień
         if (platform_net < 0) {
           // VAT z ujemnej kwoty wg stawki floty (np. -6.77 * 8% = -0.54)
