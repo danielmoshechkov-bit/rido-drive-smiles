@@ -1702,6 +1702,9 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
         // Oblicz wypłatę
         const total_base = uber_base + bolt_base + freenow_base;
+        // VAT base uses only positive platform amounts — negative amounts (e.g. Bolt -6.77)
+        // should reduce payout but NOT reduce the VAT base
+        const vat_base = Math.max(0, uber_base) + Math.max(0, bolt_base) + Math.max(0, freenow_base);
 
         // Oblicz net z platform (może być ujemne np. z Bolt)
         const uber_net = driverSettlements.reduce((sum, s) => {
@@ -1796,9 +1799,22 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           return null;
         }
 
-        // Jeśli kierowca ma ujemne saldo z platform (np. Bolt fees) - zachowaj rental i service_fee
+        // Calculate B2B/VAT status early — needed for negative balance path too
+        const driverInfo = driver as any;
+        const appUserData = driverInfo.driver_app_users;
+        const b2bProfile = b2bProfilesMap.get(appUserData?.user_id);
+        const isB2BDriver = driverInfo.payment_method === 'b2b' 
+                         || driverInfo.billing_method === 'b2b' 
+                         || driverInfo.b2b_enabled === true;
+        const isB2BVatPayer = isB2BDriver && (driverInfo.b2b_vat_payer === true || b2bProfile?.vat_payer === true);
+        const effectiveVatRate = isB2BVatPayer ? 0 : fleetVatRate;
+
+
+        // Nie naliczamy opłat serwisowych ani dodatkowych, ale VAT liczymy normalnie wg ustawień
         if (platform_net < 0) {
-          const negFinalPayout = platform_net - service_fee - rental;
+          // VAT z ujemnej kwoty wg stawki floty (np. -6.77 * 8% = -0.54)
+          const negVatAmount = platform_net * (effectiveVatRate / 100);
+          const negFinalPayout = platform_net - negVatAmount; // np. -6.77 - (-0.54) = -6.23
           return {
             driver_id: driver.id,
             driver_name: `${driver.first_name} ${driver.last_name}`,
@@ -1815,14 +1831,14 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             total_commission,
             total_cash: 0,
             tax_8_percent: 0,
-            vat_amount: 0,
-            service_fee,
+            vat_amount: negVatAmount,
+            service_fee: 0,
             additional_fees: [],
-            rental,
+            rental: 0,
             fuel: 0,
             fuel_vat_refund: 0,
             net_without_commission: platform_net,
-            final_payout: negFinalPayout, // Store raw negative payout
+            final_payout: negFinalPayout,
             has_negative_balance: true,
             negative_deficit: Math.abs(negFinalPayout),
             debt_current: currentDebtForDisplay,
@@ -1838,18 +1854,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           };
         }
 
-        // Calculate VAT amount from fleet settings
-        // B2B drivers with vat_payer=true don't pay VAT - they handle it themselves
-        const driverInfo = driver as any;
-        const appUserData = driverInfo.driver_app_users;
-        const b2bProfile = b2bProfilesMap.get(appUserData?.user_id);
-        // Check ALL possible B2B indicators: payment_method, billing_method, b2b_enabled
-        const isB2BDriver = driverInfo.payment_method === 'b2b' 
-                         || driverInfo.billing_method === 'b2b' 
-                         || driverInfo.b2b_enabled === true;
-        // Check VAT payer from drivers table directly OR from b2b_profiles table
-        const isB2BVatPayer = isB2BDriver && (driverInfo.b2b_vat_payer === true || b2bProfile?.vat_payer === true);
-        const effectiveVatRate = isB2BVatPayer ? 0 : fleetVatRate;
+        // B2B/VAT already calculated above (before negative balance check)
 
         // === DUAL TAX MODE: Calculate from specific Bolt CSV columns ===
         let vat_amount = 0;
@@ -1891,19 +1896,19 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           // e.g. 8% VAT + 1% additional = 9% total
           const combinedVatRate = effectiveVatRate + fleetAdditionalPercentRate;
           // Use bolt_base (Column D) for primary VAT calculation
-          const bolt_vat_ef = isB2BVatPayer ? 0 : bolt_base * (combinedVatRate / 100);
+          const bolt_vat_ef = isB2BVatPayer ? 0 : Math.max(0, bolt_base) * (combinedVatRate / 100);
           additional_percent_amount = 0;
           // Tax 2: 23% VAT on campaigns(I) + returns(J) + cancellations(K)
           secondary_vat_amount = isB2BVatPayer ? 0 : (Math.abs(bolt_i_base) + Math.abs(bolt_j_base) + Math.abs(bolt_k_base)) * (fleetSecondaryVatRate / 100);
           
-          // For Uber and FreeNow, still use standard VAT from total base
-          const uber_freenow_base = uber_base + freenow_base;
+          // For Uber and FreeNow, still use standard VAT from positive base only
+          const uber_freenow_base = Math.max(0, uber_base) + Math.max(0, freenow_base);
           const uber_freenow_vat = isB2BVatPayer ? 0 : uber_freenow_base * (effectiveVatRate / 100);
           
           vat_amount = bolt_vat_ef + uber_freenow_vat;
         } else {
-          // === SINGLE TAX MODE (current): VAT from total brutto ===
-          vat_amount = total_base * (effectiveVatRate / 100);
+          // === SINGLE TAX MODE: VAT from positive-only base (negative platform amounts don't reduce VAT) ===
+          vat_amount = vat_base * (effectiveVatRate / 100);
         }
 
         // Helper: sprawdź czy tydzień jest pierwszym pełnym tygodniem miesiąca
