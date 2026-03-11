@@ -9,7 +9,7 @@
       "DOM.Iterable"
     ],
     "module": "ESNext",
-    "moduleDetection": "force",
+    "moduleDetection": "auto",
     "moduleResolution": "bundler",
     "noEmit": true,
     "noFallthroughCasesInSwitch": false,
