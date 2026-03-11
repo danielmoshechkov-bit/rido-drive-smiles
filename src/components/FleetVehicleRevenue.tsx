@@ -169,6 +169,7 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
       // available = total_base - total_commission - vat8% - service_fee - total_cash - fuel + fuel_vat_refund
       // This is the amount BEFORE rental deduction
       const driverAvailableMap = new Map<string, number>();
+      const driverRentalFeeMap = new Map<string, number>();
       driverSettlements.forEach(s => {
         const a = s.amounts || {};
         const totalBase = (parseFloat(a.uber_base || 0)) + (parseFloat(a.bolt_projected_d || 0)) + (parseFloat(a.freenow_base_s || 0));
@@ -181,13 +182,16 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
         
         const available = totalBase - totalCommission - vat8 - serviceFee - totalCash - fuel + fuelVatRefund;
         driverAvailableMap.set(s.driver_id, (driverAvailableMap.get(s.driver_id) || 0) + available);
+        
+        // Use actual rental_fee from settlement record (already correctly calculated)
+        const settlementRental = parseFloat(s.rental_fee?.toString() || '0');
+        driverRentalFeeMap.set(s.driver_id, (driverRentalFeeMap.get(s.driver_id) || 0) + settlementRental);
       });
 
       // Map driver_id → debt_after from settlement (historical debt for this specific week)
       const driverDebtAfterMap = new Map<string, number>();
       driverSettlements.forEach(s => {
         const debtAfter = parseFloat(s.debt_after?.toString() || '0');
-        // Take the max if multiple settlement records exist
         const existing = driverDebtAfterMap.get(s.driver_id) || 0;
         driverDebtAfterMap.set(s.driver_id, Math.max(existing, debtAfter));
       });
@@ -205,28 +209,31 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
             ? (driverAvailableMap.get(assignment.driver_id) || 0) 
             : 0;
           
-          // If driver earned 0 and has no negative balance from platforms, 
-          // rental should be 0 (no artificial debt for inactive drivers)
           const hasSettlement = assignment?.driver_id 
             ? driverSettlements.some(s => s.driver_id === assignment.driver_id) 
             : false;
-          const effectiveRent = hasSettlement ? proportionalRent : 0;
+
+          // Use rental_fee from settlement if available (already correct),
+          // otherwise fall back to proportional calculation
+          const settlementRental = assignment?.driver_id 
+            ? (driverRentalFeeMap.get(assignment.driver_id) || 0) 
+            : 0;
+          const effectiveRent = hasSettlement 
+            ? (settlementRental > 0 ? settlementRental : proportionalRent)
+            : 0;
           
           // Calculate how much of rental was paid from available earnings
-          // If driverAvailable is negative, nothing goes to rental (all becomes debt)
+          // Priority: first fees/taxes are deducted (already done in driverAvailable),
+          // then whatever is left goes toward rental
           const paidAmount = Math.min(Math.max(driverAvailable, 0), effectiveRent);
           const currentWeekDebt = Math.max(effectiveRent - paidAmount, 0);
           
           // Use debt_after from settlement record (historical, accurate for this week)
-          // This already includes both previous debt and current week changes
           const debtAfterFromSettlement = assignment?.driver_id 
             ? (driverDebtAfterMap.get(assignment.driver_id) || 0) 
             : 0;
           
-          // Previous debt = total debt after settlement minus this week's new rental debt
           const previousDebt = Math.max(debtAfterFromSettlement - currentWeekDebt, 0);
-          
-          // Total = debt_after from settlement (already correct total)
           const totalDebt = Math.max(debtAfterFromSettlement, currentWeekDebt);
 
           return {
