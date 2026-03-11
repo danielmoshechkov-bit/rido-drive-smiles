@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2, Users, Search, Download, Mail, Phone, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
+import { AddUserDialog } from './AddUserDialog';
 
 interface UserProfile {
   id: string;
@@ -169,7 +170,9 @@ export function AdminUsersPanel({
             </CardTitle>
             <CardDescription>{description}</CardDescription>
           </div>
-          <Button variant="outline" onClick={exportToCSV} disabled={exporting || filteredUsers.length === 0}>
+          <div className="flex gap-2">
+            <AddUserDialog onUserCreated={loadUsers} />
+            <Button variant="outline" onClick={exportToCSV} disabled={exporting || filteredUsers.length === 0}>
             {exporting ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
             ) : (
@@ -177,6 +180,7 @@ export function AdminUsersPanel({
             )}
             Eksport CSV
           </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
