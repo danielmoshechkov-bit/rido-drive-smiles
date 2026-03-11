@@ -151,53 +151,51 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
       // Fetch debts for assigned drivers
       const assignedDriverIds = assignments?.map(a => a.driver_id).filter(Boolean) || [];
 
-      // Fetch actual earnings from settlements for this week
-      let driverSettlements: Array<{ driver_id: string; amounts: any; rental_fee: number; debt_before: number; debt_after: number }> = [];
+      // Fetch settlements history up to selected week (needed for proper debt carry-over)
+      let driverSettlements: Array<{
+        driver_id: string;
+        amounts: any;
+        rental_fee: number | null;
+        period_from: string | null;
+        period_to: string | null;
+        net_amount: number | null;
+      }> = [];
 
-      console.log('🚗 VehicleRevenue: assignedDriverIds=', assignedDriverIds.length, 'weekStart=', weekStart, 'weekEnd=', weekEnd);
-      if (assignedDriverIds.length > 0) {
-        const { data: paymentsData, error: paymentsError } = await supabase
-          .from('settlements')
-          .select('driver_id, amounts, rental_fee, debt_before, debt_after, period_from, period_to, net_amount')
-          .in('driver_id', assignedDriverIds)
-          .gte('period_from', weekStart)
-          .lte('period_to', weekEnd);
-        
-        console.log('🚗 VehicleRevenue: settlements found=', paymentsData?.length, 'error=', paymentsError);
-        if (paymentsData && paymentsData.length > 0) {
-          console.log('🚗 VehicleRevenue: sample settlement=', JSON.stringify(paymentsData[0]));
-        }
-        driverSettlements = (paymentsData || []) as any;
-      }
+      const calculateAvailableFromSettlement = (amounts: any, netAmount: number | null): number => {
+        const net = parseFloat(netAmount?.toString() || '0');
+        if (!Number.isNaN(net) && netAmount !== null) return net;
 
-      // Calculate available-for-rental from amounts JSON (same logic as FleetSettlementsView)
-      const driverAvailableMap = new Map<string, number>();
-      const driverRentalFeeMap = new Map<string, number>();
-      driverSettlements.forEach(s => {
-        const a = s.amounts || {};
-        const totalBase = (parseFloat(a.uber_base || 0)) + (parseFloat(a.bolt_projected_d || 0)) + (parseFloat(a.freenow_base_s || 0));
-        const totalCommission = (parseFloat(a.uber_commission || 0)) + (parseFloat(a.bolt_commission || 0)) + (parseFloat(a.freenow_commission_t || 0));
-        const totalCash = (parseFloat(a.uber_cash_f || 0)) + (parseFloat(a.bolt_cash || 0)) + (parseFloat(a.freenow_cash_f || 0));
+        const a = amounts || {};
+        const totalBase =
+          parseFloat(a.uber_base || 0) +
+          parseFloat(a.bolt_projected_d || 0) +
+          parseFloat(a.freenow_base_s || 0);
+        const totalCommission =
+          parseFloat(a.uber_commission || 0) +
+          parseFloat(a.bolt_commission || 0) +
+          parseFloat(a.freenow_commission_t || 0);
+        const totalCash =
+          parseFloat(a.uber_cash_f || 0) +
+          parseFloat(a.bolt_cash || 0) +
+          parseFloat(a.freenow_cash_f || 0);
         const vat8 = totalBase * 0.08;
         const serviceFee = parseFloat(a.service_fee?.toString() || '0');
         const fuel = parseFloat(a.fuel || 0);
         const fuelVatRefund = parseFloat(a.fuel_vat_refund || 0);
-        
-        const available = totalBase - totalCommission - vat8 - serviceFee - totalCash - fuel + fuelVatRefund;
-        driverAvailableMap.set(s.driver_id, (driverAvailableMap.get(s.driver_id) || 0) + available);
-        
-        // Use actual rental_fee from settlement record (already correctly calculated)
-        const settlementRental = parseFloat(s.rental_fee?.toString() || '0');
-        driverRentalFeeMap.set(s.driver_id, (driverRentalFeeMap.get(s.driver_id) || 0) + settlementRental);
-      });
 
-      // Map driver_id → debt_before from settlement (accumulated debt from previous weeks)
-      const driverDebtBeforeMap = new Map<string, number>();
-      driverSettlements.forEach(s => {
-        const debtBefore = parseFloat(s.debt_before?.toString() || '0');
-        const existing = driverDebtBeforeMap.get(s.driver_id) || 0;
-        driverDebtBeforeMap.set(s.driver_id, Math.max(existing, debtBefore));
-      });
+        return totalBase - totalCommission - vat8 - serviceFee - totalCash - fuel + fuelVatRefund;
+      };
+
+      if (assignedDriverIds.length > 0) {
+        const { data: paymentsData, error: paymentsError } = await supabase
+          .from('settlements')
+          .select('driver_id, amounts, rental_fee, period_from, period_to, net_amount')
+          .in('driver_id', assignedDriverIds)
+          .lte('period_to', weekEnd);
+
+        if (paymentsError) throw paymentsError;
+        driverSettlements = (paymentsData || []) as any;
+      }
 
       // Map vehicles to revenue data and filter only those with assigned drivers
       const revenueData: VehicleRevenue[] = vehicles
@@ -205,63 +203,146 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
           const assignment = assignmentMap.get(vehicle.id);
           const driver = assignment?.drivers as any;
           const weeklyFee = parseFloat(vehicle.weekly_rental_fee?.toString() || '0');
-          const proportionalRent = assignment?.assigned_at 
-            ? calculateProportionalRent(assignment.assigned_at, weekStart, weekEnd, weeklyFee)
-            : 0;
-          const driverAvailable = assignment?.driver_id 
-            ? (driverAvailableMap.get(assignment.driver_id) || 0) 
-            : 0;
-          
-          const hasSettlement = assignment?.driver_id 
-            ? driverSettlements.some(s => s.driver_id === assignment.driver_id) 
-            : false;
 
-          const settlementRental = assignment?.driver_id 
-            ? (driverRentalFeeMap.get(assignment.driver_id) || 0) 
-            : 0;
-          const effectiveRent = hasSettlement 
-            ? (settlementRental > 0 ? settlementRental : proportionalRent)
-            : 0;
-          
-          // Available after all deductions except rental
-          const availableForRental = Math.max(driverAvailable, 0);
-          
-          // Previous debt from before this week (debt_before from settlement)
-          const previousDebt = assignment?.driver_id 
-            ? (driverDebtBeforeMap.get(assignment.driver_id) || 0)
-            : 0;
-          
-          // This week: from available, first pay off previous debt, then rental
-          const afterPreviousDebt = Math.max(availableForRental - previousDebt, 0);
-          const paidPreviousDebt = Math.min(availableForRental, previousDebt);
-          const paidRental = Math.min(afterPreviousDebt, effectiveRent);
-          const paidAmount = paidPreviousDebt + paidRental;
-          
-          // Current week's new debt from rental shortfall
-          const currentWeekDebt = Math.max(effectiveRent - paidRental, 0);
-          
-          // Remaining previous debt that wasn't paid off
-          const remainingPreviousDebt = Math.max(previousDebt - paidPreviousDebt, 0);
-          
-          // Total accumulated debt
-          const totalDebt = remainingPreviousDebt + currentWeekDebt;
+          if (!assignment?.driver_id || !assignment?.assigned_at) {
+            return {
+              driver_id: null,
+              driver_name: '—',
+              vehicle_id: vehicle.id,
+              vehicle_plate: vehicle.plate,
+              vehicle_brand: vehicle.brand,
+              vehicle_model: vehicle.model,
+              assigned_date: '',
+              weekly_rate: weeklyFee,
+              rental_fee: 0,
+              paid_amount: 0,
+              debt_balance: 0,
+              previous_debt: 0,
+              total_debt: 0,
+            };
+          }
 
-          console.log(`🚗 ${driver?.first_name} ${driver?.last_name}: available=${availableForRental.toFixed(2)}, prevDebt=${previousDebt.toFixed(2)}, rental=${effectiveRent.toFixed(2)}, paidPrev=${paidPreviousDebt.toFixed(2)}, paidRental=${paidRental.toFixed(2)}, newDebt=${currentWeekDebt.toFixed(2)}, total=${totalDebt.toFixed(2)}`);
+          const assignmentDate = new Date(assignment.assigned_at);
+          const selectedWeekKey = `${weekStart}|${weekEnd}`;
+          const weekBuckets = new Map<string, {
+            period_from: string;
+            period_to: string;
+            available: number;
+            settlementRental: number;
+          }>();
+
+          // Aggregate settlements by week for this driver (from assignment onward)
+          driverSettlements
+            .filter(s =>
+              s.driver_id === assignment.driver_id &&
+              !!s.period_from &&
+              !!s.period_to &&
+              new Date(s.period_to as string) >= assignmentDate
+            )
+            .forEach(s => {
+              const periodFrom = s.period_from as string;
+              const periodTo = s.period_to as string;
+              const key = `${periodFrom}|${periodTo}`;
+              const existing = weekBuckets.get(key) || {
+                period_from: periodFrom,
+                period_to: periodTo,
+                available: 0,
+                settlementRental: 0,
+              };
+
+              existing.available += calculateAvailableFromSettlement(s.amounts, s.net_amount);
+              existing.settlementRental += parseFloat(s.rental_fee?.toString() || '0');
+              weekBuckets.set(key, existing);
+            });
+
+          // Ensure continuous week chain from assignment week to selected week
+          let cursor = startOfWeek(assignmentDate, { weekStartsOn: 1 });
+          const selectedWeekStartDate = new Date(weekStart);
+          while (cursor <= selectedWeekStartDate) {
+            const periodFrom = format(cursor, 'yyyy-MM-dd');
+            const periodTo = format(endOfWeek(cursor, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+            const key = `${periodFrom}|${periodTo}`;
+
+            if (!weekBuckets.has(key)) {
+              weekBuckets.set(key, {
+                period_from: periodFrom,
+                period_to: periodTo,
+                available: 0,
+                settlementRental: 0,
+              });
+            }
+
+            const next = new Date(cursor);
+            next.setDate(next.getDate() + 7);
+            cursor = next;
+          }
+
+          // Safety: selected week must exist
+          if (!weekBuckets.has(selectedWeekKey)) {
+            weekBuckets.set(selectedWeekKey, {
+              period_from: weekStart,
+              period_to: weekEnd,
+              available: 0,
+              settlementRental: 0,
+            });
+          }
+
+          const sortedWeeks = Array.from(weekBuckets.values()).sort(
+            (a, b) => new Date(a.period_from).getTime() - new Date(b.period_from).getTime()
+          );
+
+          let runningDebt = 0;
+          let selectedPreviousDebt = 0;
+          let selectedCurrentDebt = 0;
+          let selectedTotalDebt = 0;
+          let selectedRent = 0;
+          let selectedPaidRental = 0;
+
+          for (const weekData of sortedWeeks) {
+            const computedRent = calculateProportionalRent(
+              assignment.assigned_at,
+              weekData.period_from,
+              weekData.period_to,
+              weeklyFee
+            );
+            const effectiveRent = weekData.settlementRental > 0 ? weekData.settlementRental : computedRent;
+            const availableForRental = Math.max(weekData.available, 0);
+
+            // First pay previous car debt, then this week's rental
+            const paidPreviousDebt = Math.min(availableForRental, runningDebt);
+            const afterPreviousDebt = Math.max(availableForRental - paidPreviousDebt, 0);
+            const paidRental = Math.min(afterPreviousDebt, effectiveRent);
+
+            const currentWeekDebt = Math.max(effectiveRent - paidRental, 0);
+            const remainingPreviousDebt = Math.max(runningDebt - paidPreviousDebt, 0);
+            const totalDebt = remainingPreviousDebt + currentWeekDebt;
+
+            const weekKey = `${weekData.period_from}|${weekData.period_to}`;
+            if (weekKey === selectedWeekKey) {
+              selectedPreviousDebt = runningDebt;
+              selectedCurrentDebt = currentWeekDebt;
+              selectedTotalDebt = totalDebt;
+              selectedRent = effectiveRent;
+              selectedPaidRental = paidRental;
+            }
+
+            runningDebt = totalDebt;
+          }
 
           return {
-            driver_id: assignment?.driver_id || null,
+            driver_id: assignment.driver_id,
             driver_name: driver ? `${driver.first_name} ${driver.last_name}` : '—',
             vehicle_id: vehicle.id,
             vehicle_plate: vehicle.plate,
             vehicle_brand: vehicle.brand,
             vehicle_model: vehicle.model,
-            assigned_date: assignment?.assigned_at || '',
+            assigned_date: assignment.assigned_at,
             weekly_rate: weeklyFee,
-            rental_fee: effectiveRent,
-            paid_amount: paidRental,
-            debt_balance: currentWeekDebt,
-            previous_debt: previousDebt,
-            total_debt: totalDebt,
+            rental_fee: selectedRent,
+            paid_amount: selectedPaidRental,
+            debt_balance: selectedCurrentDebt,
+            previous_debt: selectedPreviousDebt,
+            total_debt: selectedTotalDebt,
           };
         })
         .filter(revenue => revenue.driver_id !== null);
