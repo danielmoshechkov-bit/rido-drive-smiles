@@ -2465,7 +2465,25 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
               }
             }
             return true;
-          }).sort((a, b) => a.driver_name.localeCompare(b.driver_name, 'pl'));
+          }).sort((a, b) => {
+            if (!sortColumn) return a.driver_name.localeCompare(b.driver_name, 'pl');
+            const dir = sortDirection === 'asc' ? 1 : -1;
+            switch (sortColumn) {
+              case 'driver_name':
+                return dir * a.driver_name.localeCompare(b.driver_name, 'pl');
+              case 'payout':
+                return dir * (getEffectiveSettlement(a).final_payout - getEffectiveSettlement(b).final_payout);
+              case 'debt': {
+                const debtA = a.debt_current ?? 0;
+                const debtB = b.debt_current ?? 0;
+                return dir * (debtA - debtB);
+              }
+              case 'do_wyplaty':
+                return dir * (getDoWyplaty(a) - getDoWyplaty(b));
+              default:
+                return a.driver_name.localeCompare(b.driver_name, 'pl');
+            }
+          });
 
           return (
             <>
