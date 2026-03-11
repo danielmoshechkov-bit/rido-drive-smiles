@@ -1144,7 +1144,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     }
   };
 
-  const fetchSettlements = async () => {
+  const fetchSettlements = async (options?: { skipDebtSync?: boolean }) => {
     setLoading(true);
     try {
       console.log('🔍 Fetching settlements for fleetId:', fleetId, 'cityId:', selectedCityId);
