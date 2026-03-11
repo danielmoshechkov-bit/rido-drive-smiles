@@ -453,7 +453,13 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
                 </TableRow>
               </TableHeader>
             <TableBody>
-              {revenues.map((rev) => (
+              {revenues
+                .filter(rev => {
+                  if (!searchQuery.trim()) return true;
+                  const q = searchQuery.toLowerCase();
+                  return rev.driver_name.toLowerCase().includes(q) || rev.vehicle_plate.toLowerCase().includes(q);
+                })
+                .map((rev) => (
                 <TableRow key={rev.vehicle_id}>
                   <TableCell className="font-medium p-1.5 text-xs">
                     {rev.driver_id ? (
