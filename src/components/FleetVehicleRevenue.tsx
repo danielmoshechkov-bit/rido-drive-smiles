@@ -297,12 +297,14 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
             (a, b) => new Date(a.period_from).getTime() - new Date(b.period_from).getTime()
           );
 
-          let runningDebt = 0;
-          let selectedPreviousDebt = 0;
-          let selectedCurrentDebt = 0;
-          let selectedTotalDebt = 0;
+          let runningRentalDebt = 0;
+          let selectedSettlementPayout = 0;
+          let selectedSettlementDebt = 0;
+          let selectedPayoutBeforeRental = 0;
           let selectedRent = 0;
-          let selectedPaidRental = 0;
+          let selectedRentalDebt = 0;
+          let selectedRentalDebtPrevious = 0;
+          let selectedFinalPayout = 0;
 
           for (const weekData of sortedWeeks) {
             const computedRent = calculateProportionalRent(
@@ -312,27 +314,33 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
               weeklyFee
             );
             const effectiveRent = weekData.settlementRental > 0 ? weekData.settlementRental : computedRent;
-            const availableForRental = Math.max(weekData.available, 0);
+            const settlementNet = weekData.available; // net after fees/taxes/cash (without rental)
 
-            // First pay previous car debt, then this week's rental
-            const paidPreviousDebt = Math.min(availableForRental, runningDebt);
-            const afterPreviousDebt = Math.max(availableForRental - paidPreviousDebt, 0);
+            // Part 1: Settlement payout (without rental)
+            // If net is negative, that's settlement debt
+            const settlementDebt = Math.max(-settlementNet, 0);
+            const payoutBeforeRental = Math.max(settlementNet, 0);
+
+            // Part 2: From payout, first pay previous rental debt, then current rental
+            const paidPreviousRentalDebt = Math.min(payoutBeforeRental, runningRentalDebt);
+            const afterPreviousDebt = Math.max(payoutBeforeRental - paidPreviousRentalDebt, 0);
             const paidRental = Math.min(afterPreviousDebt, effectiveRent);
-
-            const currentWeekDebt = Math.max(effectiveRent - paidRental, 0);
-            const remainingPreviousDebt = Math.max(runningDebt - paidPreviousDebt, 0);
-            const totalDebt = remainingPreviousDebt + currentWeekDebt;
+            const currentRentalDebt = Math.max(effectiveRent - paidRental, 0);
+            const remainingPreviousRentalDebt = Math.max(runningRentalDebt - paidPreviousRentalDebt, 0);
+            const finalPayout = Math.max(afterPreviousDebt - effectiveRent, 0);
 
             const weekKey = `${weekData.period_from}|${weekData.period_to}`;
             if (weekKey === selectedWeekKey) {
-              selectedPreviousDebt = runningDebt;
-              selectedCurrentDebt = currentWeekDebt;
-              selectedTotalDebt = totalDebt;
+              selectedSettlementPayout = settlementNet;
+              selectedSettlementDebt = settlementDebt;
+              selectedPayoutBeforeRental = payoutBeforeRental;
               selectedRent = effectiveRent;
-              selectedPaidRental = paidRental;
+              selectedRentalDebt = currentRentalDebt;
+              selectedRentalDebtPrevious = runningRentalDebt;
+              selectedFinalPayout = finalPayout;
             }
 
-            runningDebt = totalDebt;
+            runningRentalDebt = remainingPreviousRentalDebt + currentRentalDebt;
           }
 
           return {
@@ -344,11 +352,13 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
             vehicle_model: vehicle.model,
             assigned_date: assignment.assigned_at,
             weekly_rate: weeklyFee,
+            settlement_payout: selectedSettlementPayout,
+            settlement_debt: selectedSettlementDebt,
+            payout_before_rental: selectedPayoutBeforeRental,
             rental_fee: selectedRent,
-            paid_amount: selectedPaidRental,
-            debt_balance: selectedCurrentDebt,
-            previous_debt: selectedPreviousDebt,
-            total_debt: selectedTotalDebt,
+            rental_debt: selectedRentalDebt,
+            rental_debt_previous: selectedRentalDebtPrevious,
+            final_payout: selectedFinalPayout,
           };
         })
         .filter(revenue => revenue.driver_id !== null);
