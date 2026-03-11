@@ -3533,7 +3533,15 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           </DialogHeader>
           {selectedDriverForDebt && (
             <DriverDebtHistory 
-              driverId={selectedDriverForDebt.id} 
+              driverId={selectedDriverForDebt.id}
+              weekDebtContext={{
+                settlementDebtBefore: selectedDriverForDebt.settlementDebtBefore,
+                rentalDebtBefore: selectedDriverForDebt.rentalDebtBefore,
+                totalDebtBefore: selectedDriverForDebt.totalDebtBefore,
+                debtAfter: selectedDriverForDebt.debtAfter,
+                periodFrom: selectedDriverForDebt.periodFrom,
+                periodTo: selectedDriverForDebt.periodTo,
+              }}
               onDebtChanged={async () => {
                 // Refresh debt balance in the table immediately
                 const { data: freshDebt } = await supabase
