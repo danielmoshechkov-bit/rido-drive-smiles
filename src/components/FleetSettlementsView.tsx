@@ -2796,7 +2796,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                         {/* Dług - clickable to view history */}
                         {isColVisible('debt') && <TableCell className="text-center px-2 py-1.5 text-xs whitespace-nowrap">
                           {(() => {
-                            const debt = settlement.debt_current ?? 0;
+                            const debt = settlement.debt_previous ?? 0;
                             const badgeClick = (e: React.MouseEvent) => {
                               e.stopPropagation();
                               e.preventDefault();
