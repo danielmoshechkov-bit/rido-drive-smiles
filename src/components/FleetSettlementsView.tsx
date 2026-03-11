@@ -94,6 +94,14 @@ interface DriverSettlement {
   bolt_anulacje?: number;
   netto?: number;
   payment_method?: string;
+  // Snapshot metadata for debt re-sync
+  settlement_id?: string;
+  period_from?: string;
+  period_to?: string;
+  snapshot_debt_before?: number;
+  snapshot_debt_after?: number;
+  snapshot_debt_payment?: number;
+  snapshot_actual_payout?: number;
 }
 
 interface FleetFee {
@@ -778,6 +786,30 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     return rawPayout;
   };
 
+  const round2 = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+
+  const getSnapshotRawPayout = (settlement: DriverSettlement): number | null => {
+    if (
+      settlement.snapshot_debt_before === undefined ||
+      settlement.snapshot_debt_after === undefined ||
+      settlement.snapshot_debt_payment === undefined ||
+      settlement.snapshot_actual_payout === undefined
+    ) {
+      return null;
+    }
+
+    const debtBefore = Math.max(0, settlement.snapshot_debt_before || 0);
+    const debtAfter = Math.max(0, settlement.snapshot_debt_after || 0);
+    const debtPayment = Math.max(0, settlement.snapshot_debt_payment || 0);
+    const actualPayout = settlement.snapshot_actual_payout || 0;
+
+    if (debtAfter - debtBefore > 0.01) {
+      return round2(-(debtAfter - debtBefore));
+    }
+
+    return round2(actualPayout + debtPayment);
+  };
+
   // Parse locale-aware number: handles "0.00400" → 400, "1 031,00" → 1031, etc.
   const parseLocalizedNumber = (value: string): number => {
     if (!value) return 0;
@@ -1136,7 +1168,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     }
   };
 
-  const fetchSettlements = async () => {
+  const fetchSettlements = async (options?: { skipDebtSync?: boolean }) => {
     setLoading(true);
     try {
       console.log('🔍 Fetching settlements for fleetId:', fleetId, 'cityId:', selectedCityId);
@@ -1354,8 +1386,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       // Agreguj rozliczenia per kierowca
       const aggregated = filteredDriversData.map(driver => {
         const driverSettlements = settlementsData?.filter(s => s.driver_id === driver.id) || [];
-
-
+        const settlementSnapshot = [...driverSettlements]
+          .sort((a, b) => new Date((b as any).updated_at || 0).getTime() - new Date((a as any).updated_at || 0).getTime())[0];
         // Parsuj amounts JSONB - obsługuj NOWE klucze snake_case z bazy oraz STARE camelCase z CSV importu
         const uber_base = driverSettlements.reduce((sum, s) => {
           const amounts = s.amounts as any || {};
@@ -1759,6 +1791,13 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           bolt_rekompensaty,
           bolt_anulacje,
           netto,
+          settlement_id: (settlementSnapshot as any)?.id,
+          period_from: (settlementSnapshot as any)?.period_from,
+          period_to: (settlementSnapshot as any)?.period_to,
+          snapshot_debt_before: (settlementSnapshot as any)?.debt_before ?? undefined,
+          snapshot_debt_after: (settlementSnapshot as any)?.debt_after ?? undefined,
+          snapshot_debt_payment: (settlementSnapshot as any)?.debt_payment ?? undefined,
+          snapshot_actual_payout: (settlementSnapshot as any)?.actual_payout ?? undefined,
         };
       });
 
@@ -1775,15 +1814,55 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       console.log('📈 Aggregated settlements:', aggregated.length);
       console.log('🧹 Filtered (removed ghost drivers + owners):', filteredAggregated.length);
       console.log('✅ Sample settlement:', filteredAggregated[0]);
-      
-      setSettlements(filteredAggregated);
 
-      // NOTE: Debt is NO LONGER auto-persisted on page view.
-      // Debt is only modified during:
-      // 1. Settlement import (edge function)
-      // 2. Manual operations (add debt, add payment in DriverDebtHistory)
-      // 3. Delete settlements handler
-      // This prevents page views from corrupting debt data.
+      if (!options?.skipDebtSync) {
+        const settlementsNeedingDebtSync = filteredAggregated.filter(row => {
+          if (!row.settlement_id || !row.period_from || !row.period_to) return false;
+
+          const snapshotRawPayout = getSnapshotRawPayout(row);
+          if (snapshotRawPayout === null) return false;
+
+          const currentRawPayout = round2(getEffectiveSettlement(row).final_payout);
+          return Math.abs(snapshotRawPayout - currentRawPayout) > 0.5;
+        });
+
+        if (settlementsNeedingDebtSync.length > 0) {
+          console.log(`♻️ Debt snapshot mismatch detected for ${settlementsNeedingDebtSync.length} drivers, syncing chain...`);
+
+          const syncResults = await Promise.all(
+            settlementsNeedingDebtSync.map(async (row) => {
+              try {
+                const currentRawPayout = round2(getEffectiveSettlement(row).final_payout);
+                const { error } = await supabase.functions.invoke('update-driver-debt', {
+                  body: {
+                    driver_id: row.driver_id,
+                    settlement_id: row.settlement_id,
+                    period_from: row.period_from,
+                    period_to: row.period_to,
+                    calculated_payout: currentRawPayout,
+                    force_recalculate_chain: true,
+                  },
+                });
+
+                return { driverId: row.driver_id, ok: !error, error };
+              } catch (error) {
+                return { driverId: row.driver_id, ok: false, error };
+              }
+            })
+          );
+
+          const failedSyncs = syncResults.filter(r => !r.ok);
+          if (failedSyncs.length === 0) {
+            await fetchSettlements({ skipDebtSync: true });
+            return;
+          }
+
+          console.error('❌ Debt sync failed for drivers:', failedSyncs);
+          toast.error('Część długów nie została przeliczona automatycznie');
+        }
+      }
+
+      setSettlements(filteredAggregated);
     } catch (error: any) {
       toast.error('Błąd ładowania rozliczeń: ' + error.message);
     } finally {
@@ -2690,7 +2769,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
               </div>
               
               {/* Desktop View - Full table */}
-              <div className="hidden md:block overflow-x-auto overflow-y-auto pb-4 scrollbar-visible" style={{ maxHeight: '80vh' }}>
+              <div className="hidden md:block overflow-x-auto overflow-y-auto pb-4 scrollbar-visible [&_th]:text-sm [&_td]:text-sm" style={{ maxHeight: '80vh' }}>
                 <Table>
                   <TableHeader className="sticky top-0 z-10 bg-background shadow-sm">
                     <TableRow>
