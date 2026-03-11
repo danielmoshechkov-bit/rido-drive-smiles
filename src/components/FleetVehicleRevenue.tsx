@@ -23,11 +23,15 @@ interface VehicleRevenue {
   vehicle_model: string;
   assigned_date: string;
   weekly_rate: number;
+  // Part 1: Settlement (without rental)
+  settlement_payout: number; // net amount after fees/taxes/cash, before rental
+  settlement_debt: number; // debt from settlement (negative payout)
+  payout_before_rental: number; // what driver gets before rental deduction
+  // Part 2: Rental
   rental_fee: number;
-  paid_amount: number;
-  debt_balance: number;
-  previous_debt: number;
-  total_debt: number;
+  rental_debt: number; // unpaid rental this week
+  rental_debt_previous: number; // accumulated rental debt from previous weeks
+  final_payout: number; // final payout after everything
 }
 
 interface FleetVehicleRevenueProps {
