@@ -2948,7 +2948,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                       })()}
                       {isColVisible('debt') && <TableCell className="text-center px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
                         {(() => {
-                          const totalDebt = filteredSettlements.reduce((sum, s) => sum + (s.debt_current || 0), 0);
+                          const totalDebt = filteredSettlements.reduce((sum, s) => sum + (s.debt_previous || 0), 0);
                           return totalDebt > 0 ? (
                             <Badge variant="destructive" className="text-[10px]">
                               {formatCurrency(totalDebt)} zł
