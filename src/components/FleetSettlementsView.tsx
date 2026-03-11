@@ -3013,14 +3013,15 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                         {isColVisible('service_fee') && <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
                           {renderEditableCell(settlement.driver_id, 'service_fee', settlement.service_fee, hasAnyActivity)}
                         </TableCell>}
-                        {/* Editable: Wynajem */}
-                        {isColVisible('rental') && <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
-                          {renderEditableCell(settlement.driver_id, 'rental', settlement.rental || 0, hasAnyActivity)}
-                        </TableCell>}
-                        {/* Wypłata (raw calculated payout, can be negative) */}
-                        {isColVisible('payout') && <TableCell className={`text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${getAmountColor(settlement.final_payout)}`}>
-                          {formatCurrency(settlement.final_payout)}
-                        </TableCell>}
+                        {/* Rozliczenie (WITHOUT rental) */}
+                        {isColVisible('payout') && (() => {
+                          const payoutNoRental = calculatePayoutWithoutRental(settlement);
+                          return (
+                            <TableCell className={`text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${getAmountColor(payoutNoRental)}`}>
+                              {formatCurrency(payoutNoRental)}
+                            </TableCell>
+                          );
+                        })()}
                         {/* Dług - clickable to view history */}
                         {isColVisible('debt') && <TableCell className="text-center px-2 py-1.5 text-xs whitespace-nowrap">
                           {(() => {
@@ -3053,7 +3054,38 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                             );
                           })()}
                         </TableCell>}
-                        {/* Do wypłaty (after debt deduction) */}
+                        {/* Wypłata 1 (after settlement debt, before rental) */}
+                        {isColVisible('wyplata_1') && (() => {
+                          const w1 = getWyplata1(rawSettlement);
+                          return (
+                            <TableCell className={`text-right font-bold px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${w1 > 0 ? 'text-blue-700' : w1 < 0 ? 'text-red-600' : 'text-muted-foreground'}`}>
+                              {formatCurrency(w1)}
+                            </TableCell>
+                          );
+                        })()}
+                        {/* === PART 2: WYNAJEM === */}
+                        {/* Editable: Wynajem */}
+                        {isColVisible('rental') && <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap border-l-2 border-primary/20">
+                          {renderEditableCell(settlement.driver_id, 'rental', settlement.rental || 0, hasAnyActivity)}
+                        </TableCell>}
+                        {/* Dług wynajmu */}
+                        {isColVisible('debt_rental') && (() => {
+                          const rentalDebt = getRentalDebt(rawSettlement);
+                          return (
+                            <TableCell className="text-center px-2 py-1.5 text-xs whitespace-nowrap">
+                              {rentalDebt > 0 ? (
+                                <Badge variant="destructive" className="text-[10px]">
+                                  {formatCurrency(rentalDebt)} zł
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="bg-green-500/10 text-green-700 border-green-500/20 text-[10px]">
+                                  ✓ 0
+                                </Badge>
+                              )}
+                            </TableCell>
+                          );
+                        })()}
+                        {/* Wypłata finalna (after rental and all debts) */}
                         {isColVisible('do_wyplaty') && (() => {
                           const doWyplaty = getDoWyplaty(rawSettlement);
                           return (
