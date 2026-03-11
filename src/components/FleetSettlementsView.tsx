@@ -2621,7 +2621,9 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                 <Table>
                   <TableHeader className="sticky top-0 z-10 bg-background shadow-sm">
                     <TableRow>
-                      <TableHead className="px-2 py-1.5 text-xs font-medium whitespace-nowrap">Kierowca</TableHead>
+                      <TableHead className="px-2 py-1.5 text-xs font-medium whitespace-nowrap cursor-pointer select-none hover:bg-muted/50" onClick={() => handleSort('driver_name')}>
+                        <span className="inline-flex items-center">Kierowca{getSortIcon('driver_name')}</span>
+                      </TableHead>
                       {isColVisible('uber') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-gray-900 whitespace-nowrap">Uber</TableHead>}
                       {isColVisible('uber_cash') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-gray-900 whitespace-nowrap">Uber got.</TableHead>}
                       {isColVisible('bolt') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-green-600 whitespace-nowrap">Bolt</TableHead>}
