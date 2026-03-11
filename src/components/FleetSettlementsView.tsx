@@ -1791,6 +1791,13 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           bolt_rekompensaty,
           bolt_anulacje,
           netto,
+          settlement_id: (settlementSnapshot as any)?.id,
+          period_from: (settlementSnapshot as any)?.period_from,
+          period_to: (settlementSnapshot as any)?.period_to,
+          snapshot_debt_before: (settlementSnapshot as any)?.debt_before ?? undefined,
+          snapshot_debt_after: (settlementSnapshot as any)?.debt_after ?? undefined,
+          snapshot_debt_payment: (settlementSnapshot as any)?.debt_payment ?? undefined,
+          snapshot_actual_payout: (settlementSnapshot as any)?.actual_payout ?? undefined,
         };
       });
 
