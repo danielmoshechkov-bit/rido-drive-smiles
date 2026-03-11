@@ -1431,11 +1431,14 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
       const splitDebtByWeek = new Map<string, { settlementDebtBefore: number; rentalDebtBefore: number }>();
 
-      const fallbackRentalByDriver = new Map<string, number>();
+      const fallbackRentalByDriver = new Map<string, { weeklyRate: number; assignedAt: string }>();
       (assignmentsData || []).forEach((assignment: any) => {
         const fallbackRental = Number((assignment?.vehicles as any)?.weekly_rental_fee || 0);
         if (fallbackRental > 0 && !fallbackRentalByDriver.has(assignment.driver_id)) {
-          fallbackRentalByDriver.set(assignment.driver_id, fallbackRental);
+          fallbackRentalByDriver.set(assignment.driver_id, {
+            weeklyRate: fallbackRental,
+            assignedAt: assignment.assigned_at || '',
+          });
         }
       });
 
@@ -1467,7 +1470,15 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           if (manualRentalFee !== null && manualRentalFee !== undefined) {
             rentalFee = Number(manualRentalFee || 0);
           } else if (rentalFee <= 0 && hasAnyActivity) {
-            rentalFee = Number(fallbackRentalByDriver.get(driverId) || 0);
+            // Use proportional rental based on assignment date
+            const fallback = fallbackRentalByDriver.get(driverId);
+            if (fallback && fallback.assignedAt && periodFromKey && periodToKey) {
+              rentalFee = calculateProportionalRentForSettlement(
+                fallback.assignedAt, periodFromKey, periodToKey, fallback.weeklyRate
+              );
+            } else {
+              rentalFee = fallback?.weeklyRate || 0;
+            }
           }
 
           const debtBefore = Math.max(0, Number(row.debt_before || 0));
