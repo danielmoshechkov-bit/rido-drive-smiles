@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { format, startOfWeek, endOfWeek } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { toast } from 'sonner';
-import { Check, X, AlertCircle, Search, ChevronDown, ChevronUp, Banknote, CreditCard, Download, Trash2, Loader2, Users, AlertTriangle, Plus, SlidersHorizontal } from 'lucide-react';
+import { Check, X, AlertCircle, Search, ChevronDown, ChevronUp, Banknote, CreditCard, Download, Trash2, Loader2, Users, AlertTriangle, Plus, SlidersHorizontal, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   AlertDialog,
@@ -158,6 +158,26 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     } catch {}
     return new Set();
   });
+
+  // Sorting state
+  const [sortColumn, setSortColumn] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  const handleSort = (column: string) => {
+    if (sortColumn === column) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection(column === 'driver_name' ? 'asc' : 'desc');
+    }
+  };
+
+  const getSortIcon = (column: string) => {
+    if (sortColumn !== column) return <ArrowUpDown className="h-3 w-3 ml-1 opacity-40" />;
+    return sortDirection === 'asc' 
+      ? <ArrowUp className="h-3 w-3 ml-1" /> 
+      : <ArrowDown className="h-3 w-3 ml-1" />;
+  };
 
   const SINGLE_TAX_COLUMNS = [
     { key: 'uber', label: 'Uber' },
@@ -718,7 +738,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const getDoWyplaty = (settlement: DriverSettlement): number => {
     const effective = getEffectiveSettlement(settlement);
     const rawPayout = effective.final_payout;
-    const debt = driverDebts[settlement.driver_id] ?? settlement.debt_current ?? 0;
+    const debt = settlement.debt_current ?? 0;
     // rawPayout negative + debt = deeper negative (both accumulate)
     if (rawPayout <= 0) return rawPayout - debt;
     // rawPayout positive but debt exists — subtract debt
@@ -2445,7 +2465,25 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
               }
             }
             return true;
-          }).sort((a, b) => a.driver_name.localeCompare(b.driver_name, 'pl'));
+          }).sort((a, b) => {
+            if (!sortColumn) return a.driver_name.localeCompare(b.driver_name, 'pl');
+            const dir = sortDirection === 'asc' ? 1 : -1;
+            switch (sortColumn) {
+              case 'driver_name':
+                return dir * a.driver_name.localeCompare(b.driver_name, 'pl');
+              case 'payout':
+                return dir * (getEffectiveSettlement(a).final_payout - getEffectiveSettlement(b).final_payout);
+              case 'debt': {
+                const debtA = a.debt_current ?? 0;
+                const debtB = b.debt_current ?? 0;
+                return dir * (debtA - debtB);
+              }
+              case 'do_wyplaty':
+                return dir * (getDoWyplaty(a) - getDoWyplaty(b));
+              default:
+                return a.driver_name.localeCompare(b.driver_name, 'pl');
+            }
+          });
 
           return (
             <>
@@ -2583,7 +2621,9 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                 <Table>
                   <TableHeader className="sticky top-0 z-10 bg-background shadow-sm">
                     <TableRow>
-                      <TableHead className="px-2 py-1.5 text-xs font-medium whitespace-nowrap">Kierowca</TableHead>
+                      <TableHead className="px-2 py-1.5 text-xs font-medium whitespace-nowrap cursor-pointer select-none hover:bg-muted/50" onClick={() => handleSort('driver_name')}>
+                        <span className="inline-flex items-center">Kierowca{getSortIcon('driver_name')}</span>
+                      </TableHead>
                       {isColVisible('uber') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-gray-900 whitespace-nowrap">Uber</TableHead>}
                       {isColVisible('uber_cash') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-gray-900 whitespace-nowrap">Uber got.</TableHead>}
                       {isColVisible('bolt') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-green-600 whitespace-nowrap">Bolt</TableHead>}
@@ -2630,9 +2670,15 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                       ))}
                       {isColVisible('service_fee') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">Opłata</TableHead>}
                       {isColVisible('rental') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">Wynajem</TableHead>}
-                      {isColVisible('payout') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">Rozliczenie</TableHead>}
-                      {isColVisible('debt') && <TableHead className="text-center px-2 py-1.5 text-xs font-medium whitespace-nowrap">Dług</TableHead>}
-                      {isColVisible('do_wyplaty') && <TableHead className="text-right px-2 py-1.5 text-xs font-bold whitespace-nowrap text-green-700">Wypłata</TableHead>}
+                      {isColVisible('payout') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap cursor-pointer select-none hover:bg-muted/50" onClick={() => handleSort('payout')}>
+                        <span className="inline-flex items-center justify-end w-full">Rozliczenie{getSortIcon('payout')}</span>
+                      </TableHead>}
+                      {isColVisible('debt') && <TableHead className="text-center px-2 py-1.5 text-xs font-medium whitespace-nowrap cursor-pointer select-none hover:bg-muted/50" onClick={() => handleSort('debt')}>
+                        <span className="inline-flex items-center justify-center">Dług{getSortIcon('debt')}</span>
+                      </TableHead>}
+                      {isColVisible('do_wyplaty') && <TableHead className="text-right px-2 py-1.5 text-xs font-bold whitespace-nowrap text-green-700 cursor-pointer select-none hover:bg-muted/50" onClick={() => handleSort('do_wyplaty')}>
+                        <span className="inline-flex items-center justify-end w-full">Wypłata{getSortIcon('do_wyplaty')}</span>
+                      </TableHead>}
                       {isColVisible('paid') && <TableHead className="text-center px-2 py-1.5 text-xs font-medium whitespace-nowrap">Opłacony</TableHead>}
                     </TableRow>
                   </TableHeader>
@@ -2748,7 +2794,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                         {/* Dług - clickable to view history */}
                         {isColVisible('debt') && <TableCell className="text-center px-2 py-1.5 text-xs whitespace-nowrap">
                           {(() => {
-                            const debt = driverDebts[settlement.driver_id] ?? settlement.debt_current ?? 0;
+                            const debt = settlement.debt_current ?? 0;
                             const badgeClick = (e: React.MouseEvent) => {
                               e.stopPropagation();
                               e.preventDefault();
@@ -2900,7 +2946,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                       })()}
                       {isColVisible('debt') && <TableCell className="text-center px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
                         {(() => {
-                          const totalDebt = filteredSettlements.reduce((sum, s) => sum + (driverDebts[s.driver_id] || 0), 0);
+                          const totalDebt = filteredSettlements.reduce((sum, s) => sum + (s.debt_current || 0), 0);
                           return totalDebt > 0 ? (
                             <Badge variant="destructive" className="text-[10px]">
                               {formatCurrency(totalDebt)} zł
