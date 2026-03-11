@@ -735,14 +735,16 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   };
 
   // Calculate debt-adjusted "Wypłata" — negative means new debt carries over
+  // Uses debt_previous (= debt_before, the debt entering the week) so we correctly
+  // show: Rozliczenie (revenue - fees - rental) minus existing debt = Do wypłaty
   const getDoWyplaty = (settlement: DriverSettlement): number => {
     const effective = getEffectiveSettlement(settlement);
-    const rawPayout = effective.final_payout;
-    const debt = settlement.debt_current ?? 0;
-    // rawPayout negative + debt = deeper negative (both accumulate)
-    if (rawPayout <= 0) return rawPayout - debt;
-    // rawPayout positive but debt exists — subtract debt
-    if (debt > 0) return rawPayout - debt;
+    const rawPayout = effective.final_payout; // already has fees + rental deducted
+    const debtBefore = settlement.debt_previous ?? 0;
+    // rawPayout negative + existing debt = deeper negative (both accumulate)
+    if (rawPayout <= 0) return rawPayout - debtBefore;
+    // rawPayout positive but existing debt — subtract debt_before
+    if (debtBefore > 0) return rawPayout - debtBefore;
     return rawPayout;
   };
 
@@ -2474,8 +2476,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
               case 'payout':
                 return dir * (getEffectiveSettlement(a).final_payout - getEffectiveSettlement(b).final_payout);
               case 'debt': {
-                const debtA = a.debt_current ?? 0;
-                const debtB = b.debt_current ?? 0;
+                const debtA = a.debt_previous ?? 0;
+                const debtB = b.debt_previous ?? 0;
                 return dir * (debtA - debtB);
               }
               case 'do_wyplaty':
@@ -2588,10 +2590,10 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                             <span>Wypłata:</span>
                             <span className={getAmountColor(settlement.final_payout)}>{formatCurrency(settlement.final_payout)}</span>
                           </div>
-                          {(driverDebts[settlement.driver_id] || 0) > 0 && (
+                          {(settlement.debt_previous || 0) > 0 && (
                             <div className="flex justify-between text-xs text-muted-foreground">
                               <span>Dług:</span>
-                              <span>{formatCurrency(driverDebts[settlement.driver_id])}</span>
+                              <span>{formatCurrency(settlement.debt_previous || 0)}</span>
                             </div>
                           )}
                           <div className={`flex justify-between text-sm font-bold ${getDoWyplaty(settlement) > 0 ? 'text-green-700' : getDoWyplaty(settlement) < 0 ? 'text-red-600' : 'text-muted-foreground'}`}>
@@ -2794,7 +2796,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                         {/* Dług - clickable to view history */}
                         {isColVisible('debt') && <TableCell className="text-center px-2 py-1.5 text-xs whitespace-nowrap">
                           {(() => {
-                            const debt = settlement.debt_current ?? 0;
+                            const debt = settlement.debt_previous ?? 0;
                             const badgeClick = (e: React.MouseEvent) => {
                               e.stopPropagation();
                               e.preventDefault();
@@ -2946,7 +2948,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                       })()}
                       {isColVisible('debt') && <TableCell className="text-center px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
                         {(() => {
-                          const totalDebt = filteredSettlements.reduce((sum, s) => sum + (s.debt_current || 0), 0);
+                          const totalDebt = filteredSettlements.reduce((sum, s) => sum + (s.debt_previous || 0), 0);
                           return totalDebt > 0 ? (
                             <Badge variant="destructive" className="text-[10px]">
                               {formatCurrency(totalDebt)} zł
