@@ -423,30 +423,52 @@ serve(async (req) => {
       );
     }
 
-    const currentDebt = await getAuthoritativeDebtBalance();
-
-    // If payout is 0 or very close to 0, no debt action needed
+    // If payout is 0 or very close to 0, carry forward ONLY from previous settlement snapshot
+    // DO NOT use driver_debts.current_balance to prevent phantom debt propagation
     if (Math.abs(calculated_payout) < 0.01) {
-      console.log(`Payout is ~0, no debt action needed`);
-      
+      console.log(`Payout is ~0, checking previous settlement for debt carry-forward`);
+
+      // Get debt from the previous period's settlement snapshot (not from driver_debts!)
+      const { data: prevSettlementForZero } = await supabase
+        .from("settlements")
+        .select("debt_after")
+        .eq("driver_id", driver_id)
+        .lt("period_to", period_from)
+        .not("debt_after", "is", null)
+        .order("period_to", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const carryForwardDebt = round2(Math.max(0, Number(prevSettlementForZero?.debt_after ?? 0)));
+
       await supabase.from("settlements").update({
-        debt_before: currentDebt,
+        debt_before: carryForwardDebt,
         debt_payment: 0,
-        debt_after: currentDebt,
+        debt_after: carryForwardDebt,
         actual_payout: 0
       }).eq("id", settlement_id);
+
+      // Sync driver_debts with the carry-forward value (fixes phantom debts)
+      await supabase.from("driver_debts").upsert({
+        driver_id,
+        current_balance: carryForwardDebt,
+        updated_at: new Date().toISOString()
+      }, { onConflict: "driver_id" });
 
       return new Response(
         JSON.stringify({
           success: true,
-          debt_before: currentDebt,
+          debt_before: carryForwardDebt,
           debt_payment: 0,
-          debt_after: currentDebt,
+          debt_after: carryForwardDebt,
           actual_payout: 0
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // Get authoritative debt only for non-zero payouts (after zero-payout early return above)
+    const currentDebt = await getAuthoritativeDebtBalance();
 
     let debtPayment = 0;
     let remainingDebt = 0;
