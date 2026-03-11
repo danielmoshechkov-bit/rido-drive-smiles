@@ -788,6 +788,51 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     return rawPayout;
   };
 
+  // Calculate payout WITHOUT rental (Part 1 of settlement)
+  const calculatePayoutWithoutRental = (settlement: DriverSettlement): number => {
+    const totalAdditional = settlement.additional_fees.reduce((sum, f) => sum + f.amount, 0);
+    if (fleetSettlementModeState === 'dual_tax') {
+      const nettoCalc = settlement.total_base - settlement.total_commission;
+      return nettoCalc
+        - settlement.total_cash
+        - settlement.vat_amount
+        - (settlement.secondary_vat_amount || 0)
+        - settlement.service_fee
+        - totalAdditional
+        - settlement.fuel
+        + settlement.fuel_vat_refund;
+    }
+    return settlement.total_base
+      - settlement.total_commission
+      - settlement.vat_amount
+      - settlement.service_fee
+      - totalAdditional
+      - settlement.total_cash
+      - settlement.fuel
+      + settlement.fuel_vat_refund;
+  };
+
+  // Wypłata 1: payout without rental minus settlement debt
+  const getWyplata1 = (settlement: DriverSettlement): number => {
+    const effective = getEffectiveSettlement(settlement);
+    const payoutNoRental = calculatePayoutWithoutRental(effective);
+    const debtBefore = settlement.debt_previous ?? 0;
+    if (payoutNoRental <= 0) return payoutNoRental - debtBefore;
+    if (debtBefore > 0) return payoutNoRental - debtBefore;
+    return payoutNoRental;
+  };
+
+  // Rental debt: shortfall when wypłata 1 can't cover rental
+  const getRentalDebt = (settlement: DriverSettlement): number => {
+    const wyplata1 = getWyplata1(settlement);
+    const effective = getEffectiveSettlement(settlement);
+    const rental = effective.rental || 0;
+    if (rental <= 0) return 0;
+    if (wyplata1 <= 0) return rental;
+    if (wyplata1 < rental) return rental - wyplata1;
+    return 0;
+  };
+
   const round2 = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 
   const getSnapshotRawPayout = (settlement: DriverSettlement): number | null => {
