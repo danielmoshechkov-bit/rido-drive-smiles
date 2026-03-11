@@ -2590,10 +2590,10 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                             <span>Wypłata:</span>
                             <span className={getAmountColor(settlement.final_payout)}>{formatCurrency(settlement.final_payout)}</span>
                           </div>
-                          {(driverDebts[settlement.driver_id] || 0) > 0 && (
+                          {(settlement.debt_previous || 0) > 0 && (
                             <div className="flex justify-between text-xs text-muted-foreground">
                               <span>Dług:</span>
-                              <span>{formatCurrency(driverDebts[settlement.driver_id])}</span>
+                              <span>{formatCurrency(settlement.debt_previous || 0)}</span>
                             </div>
                           )}
                           <div className={`flex justify-between text-sm font-bold ${getDoWyplaty(settlement) > 0 ? 'text-green-700' : getDoWyplaty(settlement) < 0 ? 'text-red-600' : 'text-muted-foreground'}`}>
