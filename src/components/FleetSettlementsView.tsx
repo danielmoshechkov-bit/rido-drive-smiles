@@ -1642,7 +1642,12 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         // Dzięki temu wartość 0 ustawiona ręcznie nie będzie nadpisana wartością z pojazdu
         const manualRentalFee = firstAmounts.manual_rental_fee;
         const assignment = assignmentsData?.find(a => a.driver_id === driver.id);
-        const vehicleRentalFee = (assignment?.vehicles as any)?.weekly_rental_fee || 0;
+        const vehicleWeeklyRate = (assignment?.vehicles as any)?.weekly_rental_fee || 0;
+        // Calculate proportional rental based on assignment date (same as FleetVehicleRevenue)
+        const assignedAt = (assignment as any)?.assigned_at;
+        const vehicleRentalFee = (assignedAt && vehicleWeeklyRate > 0 && currentWeek)
+          ? calculateProportionalRentForSettlement(assignedAt, currentWeek.start, currentWeek.end, vehicleWeeklyRate)
+          : vehicleWeeklyRate;
         const rental = (manualRentalFee !== null && manualRentalFee !== undefined)
           ? manualRentalFee
           : (persistedRentalFee !== null && persistedRentalFee !== undefined && persistedRentalFee > 0)
