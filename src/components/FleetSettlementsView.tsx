@@ -3195,11 +3195,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                       {isColVisible('service_fee') && <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
                         -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + getEffectiveSettlement(s).service_fee, 0))}
                       </TableCell>}
-                      {isColVisible('rental') && <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
-                        -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + (getEffectiveSettlement(s).rental || 0), 0))}
-                      </TableCell>}
                       {isColVisible('payout') && (() => {
-                        const totalPayout = filteredSettlements.reduce((sum, s) => sum + getEffectiveSettlement(s).final_payout, 0);
+                        const totalPayout = filteredSettlements.reduce((sum, s) => sum + calculatePayoutWithoutRental(getEffectiveSettlement(s)), 0);
                         return (
                           <TableCell className={`text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${getAmountColor(totalPayout)}`}>
                             {formatCurrency(totalPayout)}
@@ -3220,6 +3217,33 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                           );
                         })()}
                       </TableCell>}
+                      {isColVisible('wyplata_1') && (() => {
+                        const totalW1 = filteredSettlements.reduce((sum, s) => sum + getWyplata1(s), 0);
+                        return (
+                          <TableCell className={`text-right font-bold px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${totalW1 > 0 ? 'text-blue-700' : totalW1 < 0 ? 'text-red-600' : 'text-muted-foreground'}`}>
+                            {formatCurrency(totalW1)}
+                          </TableCell>
+                        );
+                      })()}
+                      {isColVisible('rental') && <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap border-l-2 border-primary/20">
+                        -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + (getEffectiveSettlement(s).rental || 0), 0))}
+                      </TableCell>}
+                      {isColVisible('debt_rental') && (() => {
+                        const totalRentalDebt = filteredSettlements.reduce((sum, s) => sum + getRentalDebt(s), 0);
+                        return (
+                          <TableCell className="text-center px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
+                            {totalRentalDebt > 0 ? (
+                              <Badge variant="destructive" className="text-[10px]">
+                                {formatCurrency(totalRentalDebt)} zł
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="bg-green-500/10 text-green-700 border-green-500/20 text-[10px]">
+                                ✓ 0
+                              </Badge>
+                            )}
+                          </TableCell>
+                        );
+                      })()}
                       {isColVisible('do_wyplaty') && (() => {
                         const totalDoWyplaty = filteredSettlements.reduce((sum, s) => sum + getDoWyplaty(s), 0);
                         return (
