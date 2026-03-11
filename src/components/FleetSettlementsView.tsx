@@ -135,7 +135,16 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteCityId, setDeleteCityId] = useState<string>('all');
   const [debtDialogOpen, setDebtDialogOpen] = useState(false);
-  const [selectedDriverForDebt, setSelectedDriverForDebt] = useState<{id: string, name: string} | null>(null);
+  const [selectedDriverForDebt, setSelectedDriverForDebt] = useState<{
+    id: string;
+    name: string;
+    settlementDebtBefore: number;
+    rentalDebtBefore: number;
+    totalDebtBefore: number;
+    debtAfter: number;
+    periodFrom?: string;
+    periodTo?: string;
+  } | null>(null);
   const [driverDebts, setDriverDebts] = useState<Record<string, number>>({});
   const [unmappedDrivers, setUnmappedDrivers] = useState<any[]>([]);
   const [showUnmappedModal, setShowUnmappedModal] = useState(false);
@@ -3267,7 +3276,20 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                             const badgeClick = (e: React.MouseEvent) => {
                               e.stopPropagation();
                               e.preventDefault();
-                              setSelectedDriverForDebt({ id: settlement.driver_id, name: settlement.driver_name });
+                              const settlementDebtBefore = round2(Math.max(0, settlement.debt_previous ?? 0));
+                              const rentalDebtBefore = round2(Math.max(0, settlement.rental_debt_previous ?? 0));
+                              const totalDebtBefore = round2(settlementDebtBefore + rentalDebtBefore);
+                              const debtAfter = round2(Math.max(0, settlement.debt_current ?? 0));
+                              setSelectedDriverForDebt({
+                                id: settlement.driver_id,
+                                name: settlement.driver_name,
+                                settlementDebtBefore,
+                                rentalDebtBefore,
+                                totalDebtBefore,
+                                debtAfter,
+                                periodFrom: settlement.period_from,
+                                periodTo: settlement.period_to,
+                              });
                               setDebtDialogOpen(true);
                             };
                             if (debt <= 0) {
@@ -3511,7 +3533,15 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           </DialogHeader>
           {selectedDriverForDebt && (
             <DriverDebtHistory 
-              driverId={selectedDriverForDebt.id} 
+              driverId={selectedDriverForDebt.id}
+              weekDebtContext={{
+                settlementDebtBefore: selectedDriverForDebt.settlementDebtBefore,
+                rentalDebtBefore: selectedDriverForDebt.rentalDebtBefore,
+                totalDebtBefore: selectedDriverForDebt.totalDebtBefore,
+                debtAfter: selectedDriverForDebt.debtAfter,
+                periodFrom: selectedDriverForDebt.periodFrom,
+                periodTo: selectedDriverForDebt.periodTo,
+              }}
               onDebtChanged={async () => {
                 // Refresh debt balance in the table immediately
                 const { data: freshDebt } = await supabase

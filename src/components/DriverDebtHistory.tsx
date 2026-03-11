@@ -21,12 +21,22 @@ interface DebtTransaction {
   description: string;
 }
 
+interface WeekDebtContext {
+  settlementDebtBefore: number;
+  rentalDebtBefore: number;
+  totalDebtBefore: number;
+  debtAfter: number;
+  periodFrom?: string;
+  periodTo?: string;
+}
+
 interface DriverDebtHistoryProps {
   driverId: string;
+  weekDebtContext?: WeekDebtContext;
   onDebtChanged?: () => void;
 }
 
-export const DriverDebtHistory = ({ driverId, onDebtChanged }: DriverDebtHistoryProps) => {
+export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged }: DriverDebtHistoryProps) => {
   const [transactions, setTransactions] = useState<DebtTransaction[]>([]);
   const [currentDebt, setCurrentDebt] = useState<number>(0);
   const [loading, setLoading] = useState(true);
@@ -227,12 +237,12 @@ export const DriverDebtHistory = ({ driverId, onDebtChanged }: DriverDebtHistory
           <span>💳 Historia zadłużenia</span>
           {currentDebt > 0 && (
             <span className="text-red-600 font-bold">
-              Obecny dług: {currentDebt.toFixed(2)} zł
+              Obecny dług (na dziś): {currentDebt.toFixed(2)} zł
             </span>
           )}
           {currentDebt === 0 && (
             <span className="text-green-600 font-bold">
-              ✓ Brak zadłużenia
+              ✓ Brak bieżącego zadłużenia
             </span>
           )}
         </CardTitle>
@@ -265,6 +275,28 @@ export const DriverDebtHistory = ({ driverId, onDebtChanged }: DriverDebtHistory
             </>
           )}
         </div>
+
+        {weekDebtContext && (
+          <div className="p-3 rounded-lg border bg-muted/40 space-y-1">
+            <div className="text-sm font-semibold">Podgląd długu dla wybranego rozliczenia</div>
+            {(weekDebtContext.periodFrom && weekDebtContext.periodTo) && (
+              <div className="text-xs text-muted-foreground">
+                Okres: {format(new Date(weekDebtContext.periodFrom), 'dd.MM.yyyy', { locale: pl })} - {format(new Date(weekDebtContext.periodTo), 'dd.MM.yyyy', { locale: pl })}
+              </div>
+            )}
+            <div className="text-xs text-muted-foreground">
+              Dług rozliczeniowy: <span className="font-medium text-foreground">{weekDebtContext.settlementDebtBefore.toFixed(2)} zł</span>
+              {' • '}Dług wynajmu: <span className="font-medium text-foreground">{weekDebtContext.rentalDebtBefore.toFixed(2)} zł</span>
+            </div>
+            <div className="text-xs text-muted-foreground">
+              Razem na start tygodnia: <span className="font-semibold text-foreground">{weekDebtContext.totalDebtBefore.toFixed(2)} zł</span>
+              {' • '}Po rozliczeniu tygodnia: <span className="font-semibold text-foreground">{weekDebtContext.debtAfter.toFixed(2)} zł</span>
+            </div>
+            {currentDebt === 0 && weekDebtContext.totalDebtBefore > 0 && (
+              <div className="text-xs font-medium text-green-700">Ten dług został już spłacony — dlatego obecnie saldo to 0.</div>
+            )}
+          </div>
+        )}
 
         {/* Add debt form */}
         {showAddDebtForm && (
