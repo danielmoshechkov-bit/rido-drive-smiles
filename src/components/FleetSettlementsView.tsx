@@ -208,10 +208,12 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     { key: 'vat', label: 'VAT' },
     { key: 'vat_refund', label: 'VAT zwrot' },
     { key: 'service_fee', label: 'Opłata' },
-    { key: 'rental', label: 'Wynajem' },
     { key: 'payout', label: 'Rozliczenie' },
     { key: 'debt', label: 'Dług' },
-    { key: 'do_wyplaty', label: 'Wypłata' },
+    { key: 'wyplata_1', label: 'Wypłata' },
+    { key: 'rental', label: 'Wynajem' },
+    { key: 'debt_rental', label: 'Dług wynajmu' },
+    { key: 'do_wyplaty', label: 'Wypłata fin.' },
     { key: 'paid', label: 'Opłacony' },
   ];
 
