@@ -465,8 +465,33 @@ export function BankTransferExportDialog({
     toast.success(`Wygenerowano listę KW: ${selectedCash.length} wypłat`);
   };
 
+  // Windows-1250 encoding map for Polish characters
+  const encodeWindows1250 = (str: string): Uint8Array => {
+    const win1250Map: Record<number, number> = {
+      0x104: 0xA5, 0x105: 0xB9, // Ą ą
+      0x106: 0xC6, 0x107: 0xE6, // Ć ć
+      0x118: 0xCA, 0x119: 0xEA, // Ę ę
+      0x141: 0xA3, 0x142: 0xB3, // Ł ł
+      0x143: 0xD1, 0x144: 0xF1, // Ń ń
+      0xD3:  0xD3, 0xF3:  0xF3, // Ó ó
+      0x15A: 0x8C, 0x15B: 0x9C, // Ś ś
+      0x179: 0x8F, 0x17A: 0x9F, // Ź ź
+      0x17B: 0xAF, 0x17C: 0xBF, // Ż ż
+    };
+    const bytes = new Uint8Array(str.length);
+    for (let i = 0; i < str.length; i++) {
+      const code = str.charCodeAt(i);
+      bytes[i] = win1250Map[code] ?? (code < 256 ? code : 0x3F); // '?' for unmapped
+    }
+    return bytes;
+  };
+
   const downloadFile = (content: string, filename: string) => {
-    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    // Use Windows-1250 encoding for Alior PLI files
+    const isPli = filename.endsWith('.pli');
+    const blob = isPli
+      ? new Blob([encodeWindows1250(content)], { type: 'application/octet-stream' })
+      : new Blob([content], { type: 'text/plain;charset=utf-8' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
     link.download = filename;
