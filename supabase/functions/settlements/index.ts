@@ -278,29 +278,13 @@ Deno.serve(async (req) => {
               const totalCash = (amounts.uber_cash_f || 0) + (amounts.bolt_cash || 0) + (amounts.freenow_cash_f || 0);
               const totalCommission = (amounts.uber_commission || 0) + (amounts.bolt_commission || 0) + (amounts.freenow_commission_t || 0);
               
-              // If driver has zero/no earnings AND no negative platform balance, skip debt creation
-              // BUT still update settlement record with current debt info for display
+              // Always pass through debt function, even for inactive drivers,
+              // so debt carry-over is preserved week-to-week.
               const hasAnyActivity = totalBase !== 0 || totalCash !== 0;
               if (!hasAnyActivity) {
-                console.log(`⏭️ Driver ${driverId}: no activity, updating settlement debt_before only`);
-                // Fetch current debt to store on settlement for display purposes
-                const { data: inactiveDebtData } = await supabase
-                  .from("driver_debts")
-                  .select("current_balance")
-                  .eq("driver_id", driverId)
-                  .maybeSingle();
-                const inactiveDebt = inactiveDebtData?.current_balance || 0;
-                if (inactiveDebt > 0) {
-                  await supabase.from("settlements").update({
-                    debt_before: inactiveDebt,
-                    debt_payment: 0,
-                    debt_after: inactiveDebt,
-                    actual_payout: 0
-                  }).eq("id", settlement.id);
-                }
-                continue;
+                console.log(`⏭️ Driver ${driverId}: no activity, forcing debt carry-over sync`);
               }
-              
+
               // VAT 8% on base
               const vat8 = totalBase * 0.08;
               
