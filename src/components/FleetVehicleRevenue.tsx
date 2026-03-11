@@ -290,7 +290,7 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
                 settlementRental: 0,
               };
 
-              existing.available += calculateAvailableFromSettlement(s.amounts, s.net_amount);
+              existing.available += calculateAvailableFromSettlement(s.amounts, s.period_from);
               existing.settlementRental += parseFloat(s.rental_fee?.toString() || '0');
               weekBuckets.set(key, existing);
             });
