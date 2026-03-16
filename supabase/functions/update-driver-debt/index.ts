@@ -548,7 +548,8 @@ serve(async (req) => {
         balance_after: remainingDebt,
         period_from,
         period_to,
-        description: `Spłata długu z okresu ${period_from} - ${period_to}`
+        description: `Spłata długu z okresu ${period_from} - ${period_to}`,
+        debt_category: "settlement",
       });
 
       if (txError) {

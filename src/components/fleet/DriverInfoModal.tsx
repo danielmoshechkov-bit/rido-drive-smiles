@@ -305,7 +305,8 @@ export function DriverInfoPopover({
           period_from: today,
           period_to: today,
           description: debtReason,
-        });
+          debt_category: 'settlement',
+        } as any);
 
         setCurrentDebt(newBalance);
         toast.success(`Wpłata ${amount.toFixed(2)} zł zarejestrowana`);
