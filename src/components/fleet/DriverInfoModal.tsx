@@ -9,18 +9,19 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Loader2, Save, Plus, Minus } from 'lucide-react';
+import { Loader2, Save, Plus, Minus, Pencil, Check, X } from 'lucide-react';
 
 interface DriverInfoModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   driverId: string;
   driverName: string;
+  fleetId?: string;
   onComplete?: () => void;
 }
 
@@ -29,11 +30,19 @@ export function DriverInfoModal({
   onOpenChange,
   driverId,
   driverName,
+  fleetId,
   onComplete,
 }: DriverInfoModalProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [driverData, setDriverData] = useState<any>(null);
+  
+  // Editable fields
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [iban, setIban] = useState('');
   const [notes, setNotes] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<string>('transfer');
   const [b2bEnabled, setB2bEnabled] = useState(false);
@@ -44,6 +53,13 @@ export function DriverInfoModal({
   const [b2bApartmentNo, setB2bApartmentNo] = useState('');
   const [b2bPostalCode, setB2bPostalCode] = useState('');
   const [b2bCity, setB2bCity] = useState('');
+  
+  // Vehicle & fleet assignment
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string>('none');
+  const [selectedFleetId, setSelectedFleetId] = useState<string>('none');
+  const [availableVehicles, setAvailableVehicles] = useState<any[]>([]);
+  const [availableFleets, setAvailableFleets] = useState<any[]>([]);
+  
   // Debt management
   const [debtAction, setDebtAction] = useState<'add' | 'payment' | null>(null);
   const [debtAmount, setDebtAmount] = useState('');
@@ -51,9 +67,14 @@ export function DriverInfoModal({
   const [currentDebt, setCurrentDebt] = useState(0);
   const [savingDebt, setSavingDebt] = useState(false);
 
+  // Inline edit tracking
+  const [editingField, setEditingField] = useState<string | null>(null);
+
   useEffect(() => {
     if (open && driverId) {
       fetchDriverData();
+      fetchAvailableVehicles();
+      fetchAvailableFleets();
     }
   }, [open, driverId]);
 
@@ -68,7 +89,7 @@ export function DriverInfoModal({
           driver_vehicle_assignments(
             vehicle_id,
             status,
-            vehicles(plate, brand, model, weekly_rental_fee)
+            vehicles(id, plate, brand, model, weekly_rental_fee)
           )
         `)
         .eq('id', driverId)
@@ -76,9 +97,20 @@ export function DriverInfoModal({
 
       if (driver) {
         setDriverData(driver);
+        setFirstName((driver as any).first_name || '');
+        setLastName((driver as any).last_name || '');
+        setPhone((driver as any).phone || (driver as any).driver_app_users?.phone || '');
+        setEmail((driver as any).driver_app_users?.email || '');
+        setIban((driver as any).iban || '');
         setNotes((driver as any).notes || '');
         setPaymentMethod((driver as any).payment_method || 'transfer');
         setB2bEnabled((driver as any).b2b_enabled || false);
+        setSelectedFleetId((driver as any).fleet_id || 'none');
+
+        const activeAssignment = (driver as any).driver_vehicle_assignments?.find(
+          (a: any) => a.status === 'active'
+        );
+        setSelectedVehicleId(activeAssignment?.vehicle_id || 'none');
 
         // Fetch B2B profile
         const appUser = (driver as any).driver_app_users;
@@ -116,17 +148,82 @@ export function DriverInfoModal({
     }
   };
 
+  const fetchAvailableVehicles = async () => {
+    const query = supabase
+      .from('vehicles')
+      .select('id, plate, brand, model, weekly_rental_fee')
+      .order('plate');
+    
+    if (fleetId) {
+      query.eq('fleet_id', fleetId);
+    }
+
+    const { data } = await query;
+    setAvailableVehicles(data || []);
+  };
+
+  const fetchAvailableFleets = async () => {
+    const { data } = await supabase
+      .from('fleets')
+      .select('id, name')
+      .order('name');
+    setAvailableFleets(data || []);
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
+      // Update driver record
       await supabase
         .from('drivers')
         .update({
+          first_name: firstName,
+          last_name: lastName,
+          phone,
+          iban,
           notes,
           payment_method: paymentMethod === 'b2b' ? 'b2b' : paymentMethod,
           b2b_enabled: paymentMethod === 'b2b' || b2bEnabled,
+          fleet_id: selectedFleetId === 'none' ? null : selectedFleetId,
         } as any)
         .eq('id', driverId);
+
+      // Update email in driver_app_users if changed
+      const appUser = driverData?.driver_app_users;
+      if (appUser?.user_id && email !== appUser.email) {
+        await supabase
+          .from('driver_app_users')
+          .update({ email } as any)
+          .eq('user_id', appUser.user_id);
+      }
+
+      // Handle vehicle assignment change
+      const currentVehicleAssignment = driverData?.driver_vehicle_assignments?.find(
+        (a: any) => a.status === 'active'
+      );
+      const currentVehicleId = currentVehicleAssignment?.vehicle_id;
+
+      if (selectedVehicleId !== (currentVehicleId || 'none')) {
+        // Deactivate current assignment
+        if (currentVehicleId) {
+          await supabase
+            .from('driver_vehicle_assignments')
+            .update({ status: 'inactive' } as any)
+            .eq('driver_id', driverId)
+            .eq('vehicle_id', currentVehicleId)
+            .eq('status', 'active');
+        }
+        // Create new assignment
+        if (selectedVehicleId !== 'none') {
+          await supabase
+            .from('driver_vehicle_assignments')
+            .insert({
+              driver_id: driverId,
+              vehicle_id: selectedVehicleId,
+              status: 'active',
+            } as any);
+        }
+      }
 
       toast.success('Zapisano zmiany');
       onComplete?.();
@@ -154,7 +251,6 @@ export function DriverInfoModal({
       const today = new Date().toISOString().split('T')[0];
 
       if (debtAction === 'add') {
-        // Add debt
         await supabase.rpc('increment_driver_debt', {
           p_driver_id: driverId,
           p_amount: amount,
@@ -182,7 +278,6 @@ export function DriverInfoModal({
         setCurrentDebt(newBalance);
         toast.success(`Dług ${amount.toFixed(2)} zł dodany`);
       } else if (debtAction === 'payment') {
-        // Payment - reduce debt
         const newBalance = Math.max(0, currentDebt - amount);
         await supabase
           .from('driver_debts')
@@ -220,13 +315,35 @@ export function DriverInfoModal({
     (a: any) => a.status === 'active'
   );
   const vehicle = activeVehicle?.vehicles;
-  const appUser = driverData?.driver_app_users;
+
+  const EditableField = ({ label, value, onChange, fieldKey, type = 'text', placeholder = '' }: {
+    label: string;
+    value: string;
+    onChange: (v: string) => void;
+    fieldKey: string;
+    type?: string;
+    placeholder?: string;
+  }) => (
+    <div className="space-y-0.5">
+      <Label className="text-[11px] text-muted-foreground">{label}</Label>
+      <Input
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        type={type}
+        placeholder={placeholder || label}
+        className="h-8 text-xs font-medium"
+      />
+    </div>
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{driverName}</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <Pencil className="h-4 w-4 text-muted-foreground" />
+            Edycja kierowcy
+          </DialogTitle>
         </DialogHeader>
 
         {loading ? (
@@ -235,49 +352,66 @@ export function DriverInfoModal({
           </div>
         ) : (
           <div className="space-y-4">
-            {/* Basic info */}
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <span className="text-muted-foreground">E-mail:</span>
-                <p className="font-medium">{appUser?.email || '-'}</p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Telefon:</span>
-                <p className="font-medium">{appUser?.phone || driverData?.phone || '-'}</p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">ID kierowcy:</span>
-                <p className="font-mono text-xs">{driverId}</p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Konto bankowe:</span>
-                <p className="font-medium text-xs">{driverData?.iban || '-'}</p>
-              </div>
+            {/* Name fields */}
+            <div className="grid grid-cols-2 gap-3">
+              <EditableField label="Imię" value={firstName} onChange={setFirstName} fieldKey="first_name" />
+              <EditableField label="Nazwisko" value={lastName} onChange={setLastName} fieldKey="last_name" />
+            </div>
+
+            {/* Contact info */}
+            <div className="grid grid-cols-2 gap-3">
+              <EditableField label="Telefon" value={phone} onChange={setPhone} fieldKey="phone" type="tel" placeholder="+48..." />
+              <EditableField label="E-mail" value={email} onChange={setEmail} fieldKey="email" type="email" />
+            </div>
+
+            {/* Bank account */}
+            <EditableField label="Nr konta bankowego (IBAN)" value={iban} onChange={setIban} fieldKey="iban" placeholder="00 0000 0000 0000 0000 0000 0000" />
+
+            <div className="text-[11px] text-muted-foreground font-mono">
+              ID: {driverId}
             </div>
 
             <Separator />
 
-            {/* Vehicle info */}
-            <div className="text-sm">
-              <span className="text-muted-foreground">Auto:</span>
-              {vehicle ? (
-                <p className="font-medium">
-                  {vehicle.brand} {vehicle.model} {vehicle.plate}
-                </p>
-              ) : (
-                <p className="text-muted-foreground">Brak przypisanego auta</p>
-              )}
-              <div className="mt-1">
-                <span className="text-muted-foreground">Opłata za auto:</span>
-                <span className="font-semibold ml-2">{vehicle?.weekly_rental_fee?.toFixed(2) || '0.00'} zł/tydzień</span>
-              </div>
+            {/* Vehicle assignment */}
+            <div className="space-y-1">
+              <Label className="text-[11px] text-muted-foreground">Przypisane auto</Label>
+              <Select value={selectedVehicleId} onValueChange={setSelectedVehicleId}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder="Wybierz auto" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Brak auta</SelectItem>
+                  {availableVehicles.map(v => (
+                    <SelectItem key={v.id} value={v.id}>
+                      {v.plate} • {v.brand} {v.model} {v.weekly_rental_fee ? `(${v.weekly_rental_fee} zł/tydz.)` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Fleet assignment */}
+            <div className="space-y-1">
+              <Label className="text-[11px] text-muted-foreground">Flota</Label>
+              <Select value={selectedFleetId} onValueChange={setSelectedFleetId}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder="Wybierz flotę" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Bez floty</SelectItem>
+                  {availableFleets.map(f => (
+                    <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <Separator />
 
             {/* Payment method */}
             <div className="space-y-2">
-              <Label className="text-sm">Sposób rozliczenia:</Label>
+              <Label className="text-[11px] text-muted-foreground">Sposób rozliczenia:</Label>
               <div className="flex gap-2">
                 {(['cash', 'transfer', 'b2b'] as const).map(method => (
                   <button
@@ -301,54 +435,42 @@ export function DriverInfoModal({
               </div>
             </div>
 
-            <Separator />
-
-            {/* B2B toggle */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label className="text-sm">B2B (faktura)</Label>
-                <Switch
-                  checked={b2bEnabled}
-                  onCheckedChange={setB2bEnabled}
-                />
-              </div>
-
-              {b2bEnabled && (
-                <div className="space-y-2 p-3 rounded-md border bg-muted/30">
-                  <p className="text-xs font-medium text-muted-foreground">Dane firmy</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="col-span-2">
-                      <Label className="text-xs">Nazwa firmy</Label>
-                      <Input value={b2bCompanyName} onChange={e => setB2bCompanyName(e.target.value)} className="h-8 text-xs" />
-                    </div>
-                    <div className="col-span-2">
-                      <Label className="text-xs">NIP</Label>
-                      <Input value={b2bNip} onChange={e => setB2bNip(e.target.value)} className="h-8 text-xs" />
-                    </div>
-                    <div className="col-span-2">
-                      <Label className="text-xs">Ulica</Label>
-                      <Input value={b2bStreet} onChange={e => setB2bStreet(e.target.value)} className="h-8 text-xs" />
-                    </div>
-                    <div>
-                      <Label className="text-xs">Nr budynku</Label>
-                      <Input value={b2bBuildingNo} onChange={e => setB2bBuildingNo(e.target.value)} className="h-8 text-xs" />
-                    </div>
-                    <div>
-                      <Label className="text-xs">Nr lokalu</Label>
-                      <Input value={b2bApartmentNo} onChange={e => setB2bApartmentNo(e.target.value)} className="h-8 text-xs" />
-                    </div>
-                    <div>
-                      <Label className="text-xs">Kod pocztowy</Label>
-                      <Input value={b2bPostalCode} onChange={e => setB2bPostalCode(e.target.value)} placeholder="00-000" className="h-8 text-xs" />
-                    </div>
-                    <div>
-                      <Label className="text-xs">Miasto</Label>
-                      <Input value={b2bCity} onChange={e => setB2bCity(e.target.value)} className="h-8 text-xs" />
-                    </div>
+            {/* B2B details - show when b2b selected */}
+            {(paymentMethod === 'b2b' || b2bEnabled) && (
+              <div className="space-y-2 p-3 rounded-md border bg-muted/30">
+                <p className="text-xs font-medium text-muted-foreground">Dane firmy</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="col-span-2">
+                    <Label className="text-xs">Nazwa firmy</Label>
+                    <Input value={b2bCompanyName} onChange={e => setB2bCompanyName(e.target.value)} className="h-8 text-xs" />
+                  </div>
+                  <div className="col-span-2">
+                    <Label className="text-xs">NIP</Label>
+                    <Input value={b2bNip} onChange={e => setB2bNip(e.target.value)} className="h-8 text-xs" />
+                  </div>
+                  <div className="col-span-2">
+                    <Label className="text-xs">Ulica</Label>
+                    <Input value={b2bStreet} onChange={e => setB2bStreet(e.target.value)} className="h-8 text-xs" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Nr budynku</Label>
+                    <Input value={b2bBuildingNo} onChange={e => setB2bBuildingNo(e.target.value)} className="h-8 text-xs" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Nr lokalu</Label>
+                    <Input value={b2bApartmentNo} onChange={e => setB2bApartmentNo(e.target.value)} className="h-8 text-xs" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Kod pocztowy</Label>
+                    <Input value={b2bPostalCode} onChange={e => setB2bPostalCode(e.target.value)} placeholder="00-000" className="h-8 text-xs" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Miasto</Label>
+                    <Input value={b2bCity} onChange={e => setB2bCity(e.target.value)} className="h-8 text-xs" />
                   </div>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
             <Separator />
 
@@ -410,7 +532,7 @@ export function DriverInfoModal({
 
             {/* Notes */}
             <div className="space-y-1">
-              <Label className="text-sm">Notatki</Label>
+              <Label className="text-[11px] text-muted-foreground">Notatki</Label>
               <Textarea
                 value={notes}
                 onChange={e => setNotes(e.target.value)}

@@ -3174,7 +3174,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                           <span className="flex items-center gap-1">
                             {settlement.driver_name}
                             <button
-                              className="inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors border border-border hover:border-primary"
+                              className="inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold bg-primary text-primary-foreground hover:bg-primary/80 transition-colors shadow-sm"
                               title="Informacje o kierowcy"
                               onClick={(e) => {
                                 e.stopPropagation();
