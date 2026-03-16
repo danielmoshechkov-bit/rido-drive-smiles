@@ -3596,23 +3596,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                 periodTo: selectedDriverForDebt.periodTo,
               }}
               onDebtChanged={async () => {
-                // Refresh debt balance in the table immediately
-                const { data: freshDebt } = await supabase
-                  .from('driver_debts')
-                  .select('driver_id, current_balance')
-                  .eq('driver_id', selectedDriverForDebt.id)
-                  .maybeSingle();
-                if (freshDebt) {
-                  setDriverDebts(prev => ({
-                    ...prev,
-                    [freshDebt.driver_id]: freshDebt.current_balance || 0,
-                  }));
-                } else {
-                  setDriverDebts(prev => ({
-                    ...prev,
-                    [selectedDriverForDebt.id]: 0,
-                  }));
-                }
+                // Refresh the entire settlements table to reflect debt changes immediately
+                await fetchSettlements({ skipDebtSync: true });
               }}
             />
           )}
