@@ -39,6 +39,7 @@ import { DriverDebtHistory } from './DriverDebtHistory';
 import { UnmappedDriversModal } from './fleet/UnmappedDriversModal';
 import { BankTransferExportDialog } from './fleet/BankTransferExportDialog';
 import { AddDriverChargeModal } from './fleet/AddDriverChargeModal';
+import { DriverInfoModal } from './fleet/DriverInfoModal';
 import { useUserRole } from '@/hooks/useUserRole';
 import { getAvailableWeeks, getCurrentWeekNumber, getWeekDates } from '@/lib/utils';
 
