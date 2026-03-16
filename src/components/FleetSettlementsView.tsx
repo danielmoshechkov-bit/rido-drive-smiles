@@ -1035,6 +1035,9 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             const settlementForRecalc = applyOverridesToSettlement(currentSettlement, overridePatch);
             const recalculatedPayout = calculateRawPayout(settlementForRecalc);
 
+            const recalculatedPayoutWithoutRental = calculatePayoutWithoutRental(settlementForRecalc);
+            const effectiveRentalForDebt = getEffectiveSettlement(settlementForRecalc).rental || 0;
+
             const { data: debtSyncData, error: debtSyncError } = await supabase.functions.invoke('update-driver-debt', {
               body: {
                 driver_id: driverId,
@@ -1042,6 +1045,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                 period_from: currentWeek.start,
                 period_to: currentWeek.end,
                 calculated_payout: recalculatedPayout,
+                calculated_payout_without_rental: recalculatedPayoutWithoutRental,
+                rental_fee: effectiveRentalForDebt,
                 force_recalculate_chain: true,
               },
             });
