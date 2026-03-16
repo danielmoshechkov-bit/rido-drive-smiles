@@ -427,10 +427,10 @@ export function BankTransferExportDialog({
       return;
     }
 
-    const dateStr = weekStart ? format(new Date(weekStart), 'dd-MM-yyyy') : format(new Date(), 'dd-MM-yyyy');
-    const content = bank.generate(transfers, senderAccount, dateStr);
-    const mondayDate = weekStart ? format(new Date(weekStart), 'dd.MM.yyyy') : format(new Date(), 'dd.MM.yyyy');
-    downloadFile(content, `${mondayDate}_Przelewy_${bank.shortName}.${bank.extension}`);
+    const executionDate = getSettlementExecutionDate(periodEnd);
+    const content = bank.generate(transfers, senderAccount, executionDate);
+    const settlementDateLabel = format(executionDate, 'dd.MM.yyyy');
+    downloadFile(content, `${settlementDateLabel}_Przelewy_${bank.shortName}.${bank.extension}`);
     toast.success(`Wygenerowano ${transfers.length} przelewów (${bank.name})`);
   };
 
@@ -441,7 +441,7 @@ export function BankTransferExportDialog({
       return;
     }
 
-    const mondayDate = weekStart ? format(new Date(weekStart), 'dd.MM.yyyy') : format(new Date(), 'dd.MM.yyyy');
+    const settlementDateLabel = format(getSettlementExecutionDate(periodEnd), 'dd.MM.yyyy');
     const lines = [
       `LISTA WYPŁAT GOTÓWKOWYCH - KW`,
       `Okres: ${periodLabel}`,
