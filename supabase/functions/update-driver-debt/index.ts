@@ -32,7 +32,7 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { driver_id, settlement_id, period_from, period_to, calculated_payout, force_recalculate_chain }: DebtUpdateRequest = await req.json();
+    const { driver_id, settlement_id, period_from, period_to, calculated_payout, calculated_payout_without_rental, rental_fee, force_recalculate_chain }: DebtUpdateRequest = await req.json();
 
     console.log(`Processing debt for driver ${driver_id}, payout: ${calculated_payout}`);
 
