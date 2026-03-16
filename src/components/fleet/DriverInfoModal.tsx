@@ -514,6 +514,48 @@ export function DriverInfoPopover({
                   </Button>
                 </div>
               )}
+
+              {/* Debt History Toggle */}
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setShowDebtHistory(!showDebtHistory)}
+                className="text-[10px] h-6 px-2 w-full justify-start text-muted-foreground"
+              >
+                <History className="h-3 w-3 mr-1" />
+                {showDebtHistory ? 'Ukryj historię' : 'Historia zadłużenia'}
+                {debtHistory.length > 0 && <Badge variant="secondary" className="ml-auto text-[9px] h-4 px-1">{debtHistory.length}</Badge>}
+              </Button>
+
+              {showDebtHistory && (
+                <div className="max-h-40 overflow-y-auto space-y-0.5 border rounded-md p-1.5 bg-muted/20">
+                  {debtHistory.length === 0 ? (
+                    <p className="text-[10px] text-muted-foreground text-center py-2">Brak historii</p>
+                  ) : debtHistory.map(tx => {
+                    const typeLabel = tx.type === 'debt_increase' ? '📈 Dług' 
+                      : tx.type === 'debt_payment' ? '💰 Spłata' 
+                      : tx.type === 'payment' ? '💵 Wpłata'
+                      : tx.type === 'manual_add' ? '✏️ Dodanie'
+                      : tx.type;
+                    const isNegative = tx.amount < 0;
+                    const periodLabel = tx.period_from === tx.period_to 
+                      ? format(new Date(tx.period_from + 'T12:00:00'), 'dd.MM.yy')
+                      : `${format(new Date(tx.period_from + 'T12:00:00'), 'dd.MM', { locale: pl })}-${format(new Date(tx.period_to + 'T12:00:00'), 'dd.MM.yy', { locale: pl })}`;
+                    return (
+                      <div key={tx.id} className="flex items-center gap-1 text-[10px] py-0.5 border-b last:border-b-0 border-border/50">
+                        <span className="shrink-0">{typeLabel}</span>
+                        <span className="text-muted-foreground shrink-0">{periodLabel}</span>
+                        <span className="ml-auto shrink-0 font-mono">
+                          <span className={isNegative ? 'text-green-600' : 'text-red-600'}>
+                            {isNegative ? '' : '+'}{Math.abs(tx.amount).toFixed(2)} zł
+                          </span>
+                        </span>
+                        <span className="shrink-0 text-muted-foreground">→ {tx.balance_after.toFixed(2)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             <Separator />
