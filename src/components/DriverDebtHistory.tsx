@@ -133,11 +133,23 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
       toast.error('Wprowadź poprawną kwotę');
       return;
     }
+
+    const activeCategoryDebt = activeTab === 'settlement' ? settlementDebt : rentalDebt;
+    if (activeCategoryDebt <= 0) {
+      toast.error('W tej zakładce nie ma długu do spłaty');
+      return;
+    }
+
+    if (amount - activeCategoryDebt > 0.01) {
+      toast.error(`Maksymalna wpłata w tej zakładce to ${activeCategoryDebt.toFixed(2)} zł`);
+      return;
+    }
     
     setSaving(true);
     try {
-      const newBalance = Math.max(0, currentDebt - amount);
-      
+      const newTotalBalance = Math.max(0, round2(currentDebt - amount));
+      const categoryBalanceBefore = activeCategoryDebt;
+      const categoryBalanceAfter = Math.max(0, round2(activeCategoryDebt - amount));
       const dateVal = paymentDate || new Date().toISOString().split('T')[0];
       const { error: txError } = await supabase
         .from('driver_debt_transactions')
@@ -145,8 +157,8 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
           driver_id: driverId,
           type: 'payment',
           amount: -amount,
-          balance_before: currentDebt,
-          balance_after: newBalance,
+          balance_before: categoryBalanceBefore,
+          balance_after: categoryBalanceAfter,
           period_from: dateVal,
           period_to: dateVal,
           description: paymentNote || 'Wpłata własna kierowcy',
@@ -156,7 +168,6 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
       if (txError) {
         console.error('Error inserting payment transaction:', txError);
         toast.error('Nie udało się zapisać transakcji wpłaty: ' + txError.message);
-        setSaving(false);
         return;
       }
 
@@ -167,30 +178,18 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
         .maybeSingle();
 
       if (existing) {
-        await supabase
+        const { error: updateDebtError } = await supabase
           .from('driver_debts')
-          .update({ current_balance: newBalance, updated_at: new Date().toISOString() })
+          .update({ current_balance: newTotalBalance, updated_at: new Date().toISOString() })
           .eq('driver_id', driverId);
-      } else {
-        await supabase
-          .from('driver_debts')
-          .insert({ driver_id: driverId, current_balance: newBalance });
-      }
 
-      const { data: latestSettlement } = await supabase
-        .from('settlements')
-        .select('id')
-        .eq('driver_id', driverId)
-        .not('debt_after', 'is', null)
-        .order('period_from', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      
-      if (latestSettlement) {
-        await supabase
-          .from('settlements')
-          .update({ debt_after: newBalance })
-          .eq('id', latestSettlement.id);
+        if (updateDebtError) throw updateDebtError;
+      } else {
+        const { error: insertDebtError } = await supabase
+          .from('driver_debts')
+          .insert({ driver_id: driverId, current_balance: newTotalBalance } as any);
+
+        if (insertDebtError) throw insertDebtError;
       }
       
       toast.success(`Wpłata ${amount.toFixed(2)} zł zarejestrowana`);
@@ -198,7 +197,7 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
       setPaymentNote('');
       setShowPaymentForm(false);
       await fetchDebtData();
-      onDebtChanged?.();
+      await onDebtChanged?.();
     } catch (err) {
       console.error('Error recording payment:', err);
       toast.error('Błąd rejestracji wpłaty');
