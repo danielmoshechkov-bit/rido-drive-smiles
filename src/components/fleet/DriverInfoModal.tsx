@@ -71,6 +71,8 @@ export function DriverInfoPopover({
   const [debtReason, setDebtReason] = useState('');
   const [currentDebt, setCurrentDebt] = useState(0);
   const [savingDebt, setSavingDebt] = useState(false);
+  const [debtHistory, setDebtHistory] = useState<DebtTransaction[]>([]);
+  const [showDebtHistory, setShowDebtHistory] = useState(false);
 
   useEffect(() => {
     if (open && driverId) {
