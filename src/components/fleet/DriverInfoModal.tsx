@@ -9,7 +9,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Loader2, Save, Plus, Minus, Pencil } from 'lucide-react';
+import { Loader2, Save, Plus, Minus, Pencil, History } from 'lucide-react';
+import { format } from 'date-fns';
+import { pl } from 'date-fns/locale';
+
+interface DebtTransaction {
+  id: string;
+  type: string;
+  amount: number;
+  balance_before: number;
+  balance_after: number;
+  period_from: string;
+  period_to: string;
+  description: string | null;
+  created_at: string;
+}
 
 interface DriverInfoPopoverProps {
   driverId: string;
