@@ -2100,6 +2100,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           snapshot_debt_after: (settlementSnapshot as any)?.debt_after ?? undefined,
           snapshot_debt_payment: (settlementSnapshot as any)?.debt_payment ?? undefined,
           snapshot_actual_payout: (settlementSnapshot as any)?.actual_payout ?? undefined,
+          snapshot_settlement_debt_after: snapshotSettlementDebtAfter,
+          snapshot_rental_debt_after: snapshotRentalDebtAfter,
         };
       });
 
