@@ -2753,7 +2753,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             return { ...s, final_payout: getDoWyplaty(s) };
           })}
           periodLabel={currentWeek?.label || `Tydzień ${selectedWeek}`}
-          weekStart={currentWeek?.start}
+          periodEnd={currentWeek?.end}
         />
 
         {/* City Selection Dialog for Cash Payouts */}

@@ -445,7 +445,7 @@ export function BankTransferExportDialog({
     const lines = [
       `LISTA WYPŁAT GOTÓWKOWYCH - KW`,
       `Okres: ${periodLabel}`,
-      `Data: ${mondayDate}`,
+      `Data: ${settlementDateLabel}`,
       ``,
       `Lp.;Imię i nazwisko;Kwota;Podpis`,
     ];
@@ -456,7 +456,7 @@ export function BankTransferExportDialog({
     lines.push(`RAZEM: ${cashTotal.toFixed(2)} zł`);
     lines.push(`Liczba wypłat: ${selectedCash.length}`);
 
-    downloadFile(lines.join('\n'), `${mondayDate}_Wyplaty_KW.csv`);
+    downloadFile(lines.join('\n'), `${settlementDateLabel}_Wyplaty_KW.csv`);
 
     // Persist cash payment methods
     for (const row of selectedCash) {
