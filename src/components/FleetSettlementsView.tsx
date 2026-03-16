@@ -3636,6 +3636,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           onOpenChange={setInfoModalOpen}
           driverId={infoDriver.id}
           driverName={infoDriver.name}
+          fleetId={fleetId}
           onComplete={() => fetchSettlements()}
         />
       )}
