@@ -3354,17 +3354,36 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                         {isColVisible('rental') && <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap border-l-2 border-primary/20">
                           {renderEditableCell(settlement.driver_id, 'rental', settlement.rental || 0, hasAnyActivity)}
                         </TableCell>}
-                        {/* Dług wynajmu */}
+                        {/* Dług wynajmu - clickable to view debt history */}
                         {isColVisible('debt_rental') && (() => {
                           const rentalDebt = getRentalDebt(rawSettlement);
+                          const rentalDebtBadgeClick = (e: React.MouseEvent) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            const settlementDebtBefore = round2(Math.max(0, settlement.debt_previous ?? 0));
+                            const rentalDebtBefore = round2(Math.max(0, settlement.rental_debt_previous ?? 0));
+                            const totalDebtBefore = round2(settlementDebtBefore + rentalDebtBefore);
+                            const debtAfter = round2(Math.max(0, settlement.debt_current ?? 0));
+                            setSelectedDriverForDebt({
+                              id: settlement.driver_id,
+                              name: settlement.driver_name,
+                              settlementDebtBefore,
+                              rentalDebtBefore,
+                              totalDebtBefore,
+                              debtAfter,
+                              periodFrom: settlement.period_from,
+                              periodTo: settlement.period_to,
+                            });
+                            setDebtDialogOpen(true);
+                          };
                           return (
                             <TableCell className="text-center px-2 py-1.5 text-xs whitespace-nowrap">
                               {rentalDebt > 0 ? (
-                                <Badge variant="destructive" className="text-[10px]">
+                                <Badge variant="destructive" className="text-[10px] cursor-pointer" onClick={rentalDebtBadgeClick}>
                                   {formatCurrency(rentalDebt)} zł
                                 </Badge>
                               ) : (
-                                <Badge variant="outline" className="bg-green-500/10 text-green-700 border-green-500/20 text-[10px]">
+                                <Badge variant="outline" className="bg-green-500/10 text-green-700 border-green-500/20 text-[10px] cursor-pointer" onClick={rentalDebtBadgeClick}>
                                   ✓ 0
                                 </Badge>
                               )}
