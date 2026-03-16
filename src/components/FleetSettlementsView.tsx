@@ -1776,6 +1776,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         // Czy przeglądamy najnowszy (bieżący) tydzień?
         const isLatestWeek = weeks.length > 0 && selectedWeek === weeks[0].number;
 
+        const liveBalance = debtsMap[driver.id];
         const liveCategoryDebt = liveDebtByDriver.get(driver.id) || { settlement: 0, rental: 0 };
         const liveTotalBalance = round2(liveCategoryDebt.settlement + liveCategoryDebt.rental);
 
