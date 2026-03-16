@@ -1815,6 +1815,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         const rentalDebtBeforeForDisplay = isLatestWeek
           ? liveCategoryDebt.rental
           : (splitDebt?.rentalDebtBefore ?? 0);
+        const snapshotSettlementDebtAfter = splitDebt?.settlementDebtAfter ?? 0;
+        const snapshotRentalDebtAfter = splitDebt?.rentalDebtAfter ?? 0;
 
         // ⚠️ OCHRONA ZEROWYCH ZAROBKÓW
         // Jeśli kierowca nie jeździł (suma zarobków = 0) I nie ma ujemnego salda
