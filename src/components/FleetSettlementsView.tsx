@@ -104,6 +104,8 @@ interface DriverSettlement {
   snapshot_debt_after?: number;
   snapshot_debt_payment?: number;
   snapshot_actual_payout?: number;
+  snapshot_settlement_debt_after?: number;
+  snapshot_rental_debt_after?: number;
 }
 
 interface FleetFee {
