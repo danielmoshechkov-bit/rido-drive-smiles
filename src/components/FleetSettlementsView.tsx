@@ -3210,6 +3210,9 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                         {isColVisible('freenow_commission') && <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
                           {displayValue(settlement.freenow_commission, hasFreenowActivity, true)}
                         </TableCell>}
+                        {isColVisible('brutto') && <TableCell className="text-right px-2 py-1.5 text-xs font-bold tabular-nums whitespace-nowrap bg-blue-50">
+                          {hasAnyActivity ? formatCurrency(settlement.total_base) : '-'}
+                        </TableCell>}
                         {isColVisible('total_cash') && <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 font-semibold tabular-nums whitespace-nowrap">
                           {displayValue(settlement.total_cash, hasAnyActivity, true)}
                         </TableCell>}
