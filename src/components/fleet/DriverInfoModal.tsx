@@ -147,6 +147,16 @@ export function DriverInfoPopover({
         .maybeSingle();
 
       setCurrentDebt(debtData?.current_balance || 0);
+
+      // Fetch debt transaction history
+      const { data: txData } = await supabase
+        .from('driver_debt_transactions')
+        .select('*')
+        .eq('driver_id', driverId)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      setDebtHistory((txData as DebtTransaction[]) || []);
     } catch (err) {
       console.error('Error fetching driver data:', err);
     } finally {
