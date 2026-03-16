@@ -395,14 +395,14 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
                 <TrendingDown className="h-4 w-4 text-destructive" />
                 Dodaj dług
               </Button>
-              {currentDebt > 0 && (
+              {(activeTab === 'settlement' ? settlementDebt : rentalDebt) > 0 && (
                 <Button 
                   variant="outline" 
                   size="sm" 
                   onClick={() => setShowPaymentForm(true)}
                   className="gap-2 flex-1"
                 >
-                  <Plus className="h-4 w-4" />
+                  <ArrowUp className="h-4 w-4" />
                   Zarejestruj wpłatę
                 </Button>
               )}
