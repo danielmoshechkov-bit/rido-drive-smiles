@@ -461,7 +461,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         <html>
         <head>
           <meta charset="utf-8">
-          <title>KW Gotówka - ${mondayDate}</title>
+          <title>KW Gotówka - ${settlementDateLabel}</title>
           <style>
             body { font-family: Arial, sans-serif; padding: 30px; }
             h1 { text-align: center; margin-bottom: 30px; font-size: 18px; }
@@ -481,7 +481,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           </style>
         </head>
         <body>
-          <h1>${mondayDate} &nbsp;&nbsp; KW / Gotówka</h1>
+          <h1>${settlementDateLabel} &nbsp;&nbsp; KW / Gotówka</h1>
           <table>
             <thead>
               <tr>
