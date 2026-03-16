@@ -498,15 +498,20 @@ export function BankTransferExportDialog({
       </html>
     `;
 
-    const printWindow = window.open('', '_blank', 'width=800,height=600');
-    if (printWindow) {
-      printWindow.document.open();
-      printWindow.document.write(htmlContent);
-      printWindow.document.close();
-      printWindow.onload = () => printWindow.print();
-    } else {
-      toast.error('Przeglądarka zablokowała okno wydruku. Odblokuj popupy.');
-    }
+    // Generate PDF and download directly
+    const container = document.createElement('div');
+    container.innerHTML = htmlContent;
+    document.body.appendChild(container);
+    
+    const { default: html2pdf } = await import('html2pdf.js');
+    await html2pdf().set({
+      margin: 10,
+      filename: `KW_Gotowka_${settlementDateLabel.replace(/\./g, '-')}.pdf`,
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    }).from(container.querySelector('body') || container).save();
+    
+    document.body.removeChild(container);
 
     // Persist cash payment methods
     for (const row of selectedCash) {

@@ -511,16 +511,20 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         </html>
       `;
       
-      // Open in new window for print
-      const printWindow = window.open('', '_blank', 'width=800,height=600');
-      if (printWindow) {
-        printWindow.document.open();
-        printWindow.document.write(htmlContent);
-        printWindow.document.close();
-        printWindow.onload = () => printWindow.print();
-      } else {
-        toast.error('Przeglądarka zablokowała okno wydruku. Odblokuj popupy dla tej strony.');
-      }
+      // Generate PDF and download directly
+      const container = document.createElement('div');
+      container.innerHTML = htmlContent;
+      document.body.appendChild(container);
+      
+      const { default: html2pdf } = await import('html2pdf.js');
+      await html2pdf().set({
+        margin: 10,
+        filename: `KW_Gotowka_${settlementDateLabel.replace(/\./g, '-')}.pdf`,
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      }).from(container.querySelector('body') || container).save();
+      
+      document.body.removeChild(container);
       
       // Clear payout_requested_at for processed drivers
       const processedDriverIds = cashDrivers.map(s => s.driver_id);
