@@ -162,8 +162,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const [editValue, setEditValue] = useState('');
   const [chargeModalOpen, setChargeModalOpen] = useState(false);
   const [chargeDriver, setChargeDriver] = useState<{id: string, name: string} | null>(null);
-  const [infoModalOpen, setInfoModalOpen] = useState(false);
-  const [infoDriver, setInfoDriver] = useState<{id: string, name: string} | null>(null);
+  // Info popover is now inline - no separate state needed
   // Payment status tracking (green check = paid, red X = unpaid)
   const [paidDrivers, setPaidDrivers] = useState<Set<string>>(new Set());
   // Fleet settings for display in headers
