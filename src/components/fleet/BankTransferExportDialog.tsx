@@ -434,29 +434,79 @@ export function BankTransferExportDialog({
     toast.success(`Wygenerowano ${transfers.length} przelewów (${bank.name})`);
   };
 
-  // ── EXPORT: cash list (KW) ──
+  // ── EXPORT: cash list (KW) as printable HTML ──
   const handleExportCashList = async () => {
     if (selectedCash.length === 0) {
       toast.info('Zaznacz kierowców do listy gotówkowej');
       return;
     }
 
-    const settlementDateLabel = format(getSettlementExecutionDate(periodEnd), 'dd.MM.yyyy');
-    const lines = [
-      `LISTA WYPŁAT GOTÓWKOWYCH - KW`,
-      `Okres: ${periodLabel}`,
-      `Data: ${settlementDateLabel}`,
-      ``,
-      `Lp.;Imię i nazwisko;Kwota;Podpis`,
-    ];
-    selectedCash.forEach((r, i) => {
-      lines.push(`${i + 1};${r.name};${r.payout.toFixed(2)} zł;`);
-    });
-    lines.push(``);
-    lines.push(`RAZEM: ${cashTotal.toFixed(2)} zł`);
-    lines.push(`Liczba wypłat: ${selectedCash.length}`);
+    const executionDate = getSettlementExecutionDate(periodEnd);
+    const settlementDateLabel = format(executionDate, 'dd.MM.yyyy');
+    const totalAmount = selectedCash.reduce((s, r) => s + r.payout, 0);
 
-    downloadFile(lines.join('\n'), `${settlementDateLabel}_Wyplaty_KW.csv`);
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>KW Gotówka - ${settlementDateLabel}</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 30px; }
+          h1 { text-align: center; margin-bottom: 30px; font-size: 18px; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+          th, td { border: 1px solid #000; padding: 10px; text-align: left; }
+          th { background-color: #f0f0f0; font-weight: bold; }
+          .amount { text-align: right; }
+          .signature { width: 150px; }
+          .totals { margin-top: 30px; font-size: 16px; }
+          .totals p { margin: 10px 0; }
+          .date-header { text-align: right; font-size: 12px; color: #666; margin-bottom: 10px; }
+          @media print {
+            body { padding: 20px; }
+            button { display: none; }
+          }
+        </style>
+      </head>
+      <body>
+        <p class="date-header">${format(executionDate, 'dd.MM.yyyy, HH:mm')}</p>
+        <h1>${settlementDateLabel} &nbsp;&nbsp; KW / Gotówka</h1>
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 50px;">Lp.</th>
+              <th>Imię i nazwisko</th>
+              <th class="amount" style="width: 120px;">Kwota</th>
+              <th class="signature">Podpis</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${selectedCash.map((r, idx) => `
+              <tr>
+                <td>${idx + 1}</td>
+                <td>${r.name}</td>
+                <td class="amount">${r.payout.toFixed(2).replace('.', ',')} zł</td>
+                <td class="signature"></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        <div class="totals">
+          <p><strong>WYPŁATA:</strong> ${totalAmount.toFixed(2).replace('.', ',')} zł</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const printWindow = window.open('', '_blank', 'width=800,height=600');
+    if (printWindow) {
+      printWindow.document.open();
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
+      printWindow.onload = () => printWindow.print();
+    } else {
+      toast.error('Przeglądarka zablokowała okno wydruku. Odblokuj popupy.');
+    }
 
     // Persist cash payment methods
     for (const row of selectedCash) {
