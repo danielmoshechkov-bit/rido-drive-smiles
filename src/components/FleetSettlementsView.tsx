@@ -587,10 +587,11 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         csvContent += `${s.driver_name};${iban};${amount};Rozliczenie ${periodLabel}\n`;
       });
       
-      // Use Monday date for filename
-      const mondayDate = currentWeek?.start 
-        ? format(new Date(currentWeek.start), 'dd.MM.yyyy')
-        : format(new Date(), 'dd.MM.yyyy');
+      // Use settlement execution date for filename
+      const settlementDateLabel = format(
+        getSettlementExecutionDate(currentWeek?.end),
+        'dd.MM.yyyy'
+      );
       
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
