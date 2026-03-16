@@ -1258,8 +1258,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     }
   };
 
-  const fetchSettlements = async (options?: { skipDebtSync?: boolean }) => {
-    setLoading(true);
+  const fetchSettlements = async (options?: { skipDebtSync?: boolean; silent?: boolean }) => {
+    if (!options?.silent) setLoading(true);
     try {
       console.log('🔍 Fetching settlements for fleetId:', fleetId, 'cityId:', selectedCityId);
       console.log('📅 Selected period:', { year: selectedYear, week: selectedWeek, currentWeek });
@@ -1423,17 +1423,40 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         (b2bProfiles || []).map(p => [p.driver_user_id, p])
       );
 
-      // Pobierz aktualne długi kierowców (łączny dług systemowy)
-      const { data: debtsData } = await supabase
-        .from('driver_debts')
-        .select('driver_id, current_balance')
-        .in('driver_id', driverIds);
+      // Pobierz aktualne długi kierowców (fallback) + ledger transakcji do live podziału settlement/rental
+      const [{ data: debtsData }, { data: debtTransactionsData }] = await Promise.all([
+        supabase
+          .from('driver_debts')
+          .select('driver_id, current_balance')
+          .in('driver_id', driverIds),
+        supabase
+          .from('driver_debt_transactions')
+          .select('driver_id, type, amount, debt_category')
+          .in('driver_id', driverIds),
+      ]);
       
       const debtsMap: Record<string, number> = {};
       (debtsData || []).forEach(d => {
         debtsMap[d.driver_id] = d.current_balance || 0;
       });
       setDriverDebts(debtsMap);
+
+      const liveDebtByDriver = new Map<string, { settlement: number; rental: number }>();
+      (debtTransactionsData || []).forEach((tx: any) => {
+        const category = tx.debt_category === 'rental' ? 'rental' : 'settlement';
+        const amount = Math.abs(Number(tx.amount) || 0);
+        const delta = tx.type === 'debt_increase' || tx.type === 'manual_add' ? amount : -amount;
+        const current = liveDebtByDriver.get(tx.driver_id) || { settlement: 0, rental: 0 };
+        current[category] = round2(current[category] + delta);
+        liveDebtByDriver.set(tx.driver_id, current);
+      });
+
+      liveDebtByDriver.forEach((value, key) => {
+        liveDebtByDriver.set(key, {
+          settlement: Math.max(0, round2(value.settlement)),
+          rental: Math.max(0, round2(value.rental)),
+        });
+      });
 
       // Rozdzielenie długu na 2 strumienie: rozliczenie vs wynajem (łańcuch tygodniowy)
       const selectedPeriodTo = currentWeek?.end || periodTo;
@@ -1753,15 +1776,19 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         // Czy przeglądamy najnowszy (bieżący) tydzień?
         const isLatestWeek = weeks.length > 0 && selectedWeek === weeks[0].number;
 
-        // Dług po rozliczeniu: dla bieżącego tygodnia bierz live balance (driver_debts) bo uwzględnia ręczne wpłaty
-        // Fallback na snapshot jeśli live balance nie istnieje
         const liveBalance = debtsMap[driver.id];
+        const liveCategoryDebt = liveDebtByDriver.get(driver.id) || { settlement: 0, rental: 0 };
+        const liveTotalBalance = round2(liveCategoryDebt.settlement + liveCategoryDebt.rental);
+
+        // Dług po rozliczeniu: dla bieżącego tygodnia bierz live balance z ledgera
         const snapshotDebtAfter = debtAfterFromSettlement >= 0 ? debtAfterFromSettlement : 0;
         const currentDebtForDisplay = isLatestWeek
-          ? (liveBalance !== undefined ? liveBalance : snapshotDebtAfter)
+          ? (liveTotalBalance > 0 || (liveCategoryDebt.settlement > 0 || liveCategoryDebt.rental > 0)
+              ? liveTotalBalance
+              : (liveBalance !== undefined ? liveBalance : snapshotDebtAfter))
           : snapshotDebtAfter;
 
-        // Dług przed rozliczeniem: snapshot jeśli istnieje, w przeciwnym razie 0 (nie live balance!)
+        // Dług przed rozliczeniem: snapshot historyczny, ale dla bieżącego tygodnia pokazuj live split
         const debtBeforeForDisplay = hasDebtBeforeSnapshot
           ? debtBeforeFromSettlement
           : 0;
@@ -1769,8 +1796,12 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         const rowPeriodFrom = (settlementSnapshot as any)?.period_from || currentWeek?.start || periodFrom || '';
         const rowPeriodTo = (settlementSnapshot as any)?.period_to || currentWeek?.end || periodTo || '';
         const splitDebt = splitDebtByWeek.get(`${driver.id}|${rowPeriodFrom}|${rowPeriodTo}`);
-        const settlementDebtBeforeForDisplay = splitDebt?.settlementDebtBefore ?? debtBeforeForDisplay;
-        const rentalDebtBeforeForDisplay = splitDebt?.rentalDebtBefore ?? 0;
+        const settlementDebtBeforeForDisplay = isLatestWeek
+          ? liveCategoryDebt.settlement
+          : (splitDebt?.settlementDebtBefore ?? debtBeforeForDisplay);
+        const rentalDebtBeforeForDisplay = isLatestWeek
+          ? liveCategoryDebt.rental
+          : (splitDebt?.rentalDebtBefore ?? 0);
 
         // ⚠️ OCHRONA ZEROWYCH ZAROBKÓW
         // Jeśli kierowca nie jeździł (suma zarobków = 0) I nie ma ujemnego salda
@@ -3328,6 +3359,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                                 debtAfter,
                                 periodFrom: settlement.period_from,
                                 periodTo: settlement.period_to,
+                                initialTab: 'settlement',
                               });
                               setDebtDialogOpen(true);
                             };
@@ -3386,6 +3418,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                               debtAfter,
                               periodFrom: settlement.period_from,
                               periodTo: settlement.period_to,
+                              initialTab: 'rental',
                             });
                             setDebtDialogOpen(true);
                           };
@@ -3595,6 +3628,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           {selectedDriverForDebt && (
             <DriverDebtHistory 
               driverId={selectedDriverForDebt.id}
+              initialTab={selectedDriverForDebt.initialTab}
               weekDebtContext={{
                 settlementDebtBefore: selectedDriverForDebt.settlementDebtBefore,
                 rentalDebtBefore: selectedDriverForDebt.rentalDebtBefore,
@@ -3604,8 +3638,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                 periodTo: selectedDriverForDebt.periodTo,
               }}
               onDebtChanged={async () => {
-                // Refresh the entire settlements table to reflect debt changes immediately
-                await fetchSettlements({ skipDebtSync: true });
+                await fetchSettlements({ skipDebtSync: true, silent: true });
               }}
             />
           )}
