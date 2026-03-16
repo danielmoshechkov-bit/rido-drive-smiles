@@ -69,11 +69,11 @@ export function DriverInfoPopover({
   const fetchDriverData = async () => {
     setLoading(true);
     try {
-      const { data: driver } = await supabase
+      const { data: driver, error: driverError } = await supabase
         .from('drivers')
         .select(`
           *,
-          driver_app_users(user_id, email, phone),
+          driver_app_users(user_id, phone),
           driver_vehicle_assignments(
             vehicle_id,
             status,
@@ -83,12 +83,16 @@ export function DriverInfoPopover({
         .eq('id', driverId)
         .single();
 
+      if (driverError) {
+        console.error('Error fetching driver:', driverError);
+      }
+
       if (driver) {
         setDriverData(driver);
         setFirstName((driver as any).first_name || '');
         setLastName((driver as any).last_name || '');
         setPhone((driver as any).phone || (driver as any).driver_app_users?.phone || '');
-        setEmail((driver as any).driver_app_users?.email || (driver as any).email || '');
+        setEmail((driver as any).email || '');
         setIban((driver as any).iban || '');
         setNotes((driver as any).notes || '');
         setPaymentMethod((driver as any).payment_method || 'transfer');
