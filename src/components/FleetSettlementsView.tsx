@@ -2870,8 +2870,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
               case 'payout':
                 return dir * (getEffectiveSettlement(a).final_payout - getEffectiveSettlement(b).final_payout);
               case 'debt': {
-                const debtA = a.debt_current ?? 0;
-                const debtB = b.debt_current ?? 0;
+                const debtA = Math.max(0, a.debt_previous ?? 0);
+                const debtB = Math.max(0, b.debt_previous ?? 0);
                 return dir * (debtA - debtB);
               }
               case 'wyplata_1':
@@ -3299,11 +3299,11 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                             </TableCell>
                           );
                         })()}
-                        {/* Dług - clickable to view history */}
+                        {/* Dług - only settlement debt (NOT rental debt) */}
                         {isColVisible('debt') && <TableCell className="text-center px-2 py-1.5 text-xs whitespace-nowrap">
                           {(() => {
-                            // Show cumulative debt (debt_current = total after this period)
-                            const debt = settlement.debt_current ?? 0;
+                            // Show only settlement debt (debt_previous), NOT rental debt
+                            const debt = round2(Math.max(0, settlement.debt_previous ?? 0));
                             const badgeClick = (e: React.MouseEvent) => {
                               e.stopPropagation();
                               e.preventDefault();
