@@ -71,7 +71,7 @@ export function AddDriverChargeModal({
 
         await supabase.from('driver_debt_transactions').insert({
           driver_id: driverId,
-          type: 'debt_increase',
+          type: 'manual_add' as any,
           amount: parsedAmount,
           balance_before: currentBalance - parsedAmount,
           balance_after: currentBalance,
