@@ -3174,6 +3174,17 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                           <span className="flex items-center gap-1">
                             {settlement.driver_name}
                             <button
+                              className="inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors border border-border hover:border-primary"
+                              title="Informacje o kierowcy"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setInfoDriver({ id: settlement.driver_id, name: settlement.driver_name });
+                                setInfoModalOpen(true);
+                              }}
+                            >
+                              i
+                            </button>
+                            <button
                               className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors border border-transparent hover:border-border"
                               title="Dodaj opłatę lub wpłatę dla tego kierowcy"
                               onClick={() => {
