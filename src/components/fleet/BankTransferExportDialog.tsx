@@ -35,6 +35,7 @@ import {
   Coins,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { getSettlementExecutionDate } from '@/lib/utils';
 
 interface BankTransferExportDialogProps {
   open: boolean;
@@ -46,7 +47,7 @@ interface BankTransferExportDialogProps {
     final_payout: number;
   }>;
   periodLabel: string;
-  weekStart?: string;
+  periodEnd?: string;
 }
 
 interface TransferRow {
@@ -112,7 +113,7 @@ interface BankFormat {
   name: string;
   shortName: string;
   extension: string;
-  generate: (rows: TransferRow[], senderAccount: string, date: string) => string;
+  generate: (rows: TransferRow[], senderAccount: string, executionDate: Date) => string;
 }
 
 const POLISH_BANKS: BankFormat[] = [
@@ -121,9 +122,9 @@ const POLISH_BANKS: BankFormat[] = [
     name: 'Santander Bank Polska (Elixir-0)',
     shortName: 'Santander',
     extension: 'txt',
-    generate: (rows, sender) => {
-      const d = format(new Date(), 'dd-MM-yyyy');
-      return generateElixir0(rows, sender, d);
+    generate: (rows, sender, executionDate) => {
+      const dateStr = format(executionDate, 'dd-MM-yyyy');
+      return generateElixir0(rows, sender, dateStr);
     },
   },
   {
@@ -161,10 +162,10 @@ const POLISH_BANKS: BankFormat[] = [
     name: 'Alior Bank (Elixir PLI)',
     shortName: 'Alior',
     extension: 'pli',
-    generate: (rows, senderAccount) => {
+    generate: (rows, senderAccount, executionDate) => {
       const cleanSender = senderAccount.replace(/\s/g, '').replace(/^PL/i, '');
       const senderBankCode = cleanSender.substring(2, 10); // NRB positions 3-10
-      const dateStr = format(new Date(), 'yyyyMMdd');
+      const dateStr = format(executionDate, 'yyyyMMdd');
       return rows.map(r => {
         const recipientAccount = r.iban.replace(/\s/g, '').replace(/^PL/i, '');
         const recipientBankCode = recipientAccount.substring(2, 10);
@@ -205,7 +206,7 @@ export function BankTransferExportDialog({
   fleetId,
   settlements,
   periodLabel,
-  weekStart,
+  periodEnd,
 }: BankTransferExportDialogProps) {
   const [selectedBank, setSelectedBank] = useState('santander');
   const [senderAccount, setSenderAccount] = useState('');
@@ -426,10 +427,10 @@ export function BankTransferExportDialog({
       return;
     }
 
-    const dateStr = weekStart ? format(new Date(weekStart), 'dd-MM-yyyy') : format(new Date(), 'dd-MM-yyyy');
-    const content = bank.generate(transfers, senderAccount, dateStr);
-    const mondayDate = weekStart ? format(new Date(weekStart), 'dd.MM.yyyy') : format(new Date(), 'dd.MM.yyyy');
-    downloadFile(content, `${mondayDate}_Przelewy_${bank.shortName}.${bank.extension}`);
+    const executionDate = getSettlementExecutionDate(periodEnd);
+    const content = bank.generate(transfers, senderAccount, executionDate);
+    const settlementDateLabel = format(executionDate, 'dd.MM.yyyy');
+    downloadFile(content, `${settlementDateLabel}_Przelewy_${bank.shortName}.${bank.extension}`);
     toast.success(`Wygenerowano ${transfers.length} przelewów (${bank.name})`);
   };
 
@@ -440,11 +441,11 @@ export function BankTransferExportDialog({
       return;
     }
 
-    const mondayDate = weekStart ? format(new Date(weekStart), 'dd.MM.yyyy') : format(new Date(), 'dd.MM.yyyy');
+    const settlementDateLabel = format(getSettlementExecutionDate(periodEnd), 'dd.MM.yyyy');
     const lines = [
       `LISTA WYPŁAT GOTÓWKOWYCH - KW`,
       `Okres: ${periodLabel}`,
-      `Data: ${mondayDate}`,
+      `Data: ${settlementDateLabel}`,
       ``,
       `Lp.;Imię i nazwisko;Kwota;Podpis`,
     ];
@@ -455,7 +456,7 @@ export function BankTransferExportDialog({
     lines.push(`RAZEM: ${cashTotal.toFixed(2)} zł`);
     lines.push(`Liczba wypłat: ${selectedCash.length}`);
 
-    downloadFile(lines.join('\n'), `${mondayDate}_Wyplaty_KW.csv`);
+    downloadFile(lines.join('\n'), `${settlementDateLabel}_Wyplaty_KW.csv`);
 
     // Persist cash payment methods
     for (const row of selectedCash) {

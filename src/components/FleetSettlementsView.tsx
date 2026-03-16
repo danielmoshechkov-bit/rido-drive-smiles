@@ -41,7 +41,7 @@ import { BankTransferExportDialog } from './fleet/BankTransferExportDialog';
 import { AddDriverChargeModal } from './fleet/AddDriverChargeModal';
 import { DriverInfoPopover } from './fleet/DriverInfoModal';
 import { useUserRole } from '@/hooks/useUserRole';
-import { getAvailableWeeks, getCurrentWeekNumber, getWeekDates } from '@/lib/utils';
+import { getAvailableWeeks, getCurrentWeekNumber, getSettlementExecutionDate, getWeekDates } from '@/lib/utils';
 
 interface FleetSettlementsViewProps {
   fleetId: string;
@@ -449,10 +449,11 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       const totalPayout = payouts.reduce((sum, s) => sum + s.doWyplaty, 0);
       const totalDebt = Math.abs(debts.reduce((sum, s) => sum + s.final_payout, 0));
       
-      // Use Monday date of the settlement period
-      const mondayDate = currentWeek?.start 
-        ? format(new Date(currentWeek.start), 'dd.MM.yyyy')
-        : format(new Date(), 'dd.MM.yyyy');
+      // Use settlement execution date: day after the selected period ends
+      const settlementDateLabel = format(
+        getSettlementExecutionDate(currentWeek?.end),
+        'dd.MM.yyyy'
+      );
       
       // Generate printable HTML document
       const htmlContent = `
@@ -460,7 +461,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         <html>
         <head>
           <meta charset="utf-8">
-          <title>KW Gotówka - ${mondayDate}</title>
+          <title>KW Gotówka - ${settlementDateLabel}</title>
           <style>
             body { font-family: Arial, sans-serif; padding: 30px; }
             h1 { text-align: center; margin-bottom: 30px; font-size: 18px; }
@@ -480,7 +481,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           </style>
         </head>
         <body>
-          <h1>${mondayDate} &nbsp;&nbsp; KW / Gotówka</h1>
+          <h1>${settlementDateLabel} &nbsp;&nbsp; KW / Gotówka</h1>
           <table>
             <thead>
               <tr>
@@ -586,15 +587,16 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         csvContent += `${s.driver_name};${iban};${amount};Rozliczenie ${periodLabel}\n`;
       });
       
-      // Use Monday date for filename
-      const mondayDate = currentWeek?.start 
-        ? format(new Date(currentWeek.start), 'dd.MM.yyyy')
-        : format(new Date(), 'dd.MM.yyyy');
+      // Use settlement execution date for filename
+      const settlementDateLabel = format(
+        getSettlementExecutionDate(currentWeek?.end),
+        'dd.MM.yyyy'
+      );
       
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
-      link.download = `${mondayDate}_Przelewy.csv`;
+      link.download = `${settlementDateLabel}_Przelewy.csv`;
       link.click();
       
       // Clear payout_requested_at for processed drivers
@@ -2751,7 +2753,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             return { ...s, final_payout: getDoWyplaty(s) };
           })}
           periodLabel={currentWeek?.label || `Tydzień ${selectedWeek}`}
-          weekStart={currentWeek?.start}
+          periodEnd={currentWeek?.end}
         />
 
         {/* City Selection Dialog for Cash Payouts */}

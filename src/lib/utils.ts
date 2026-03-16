@@ -5,6 +5,18 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+export function parseLocalDate(dateString: string) {
+  const [year, month, day] = dateString.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
+export function getSettlementExecutionDate(periodEnd?: string) {
+  const baseDate = periodEnd ? parseLocalDate(periodEnd) : new Date();
+  const executionDate = new Date(baseDate);
+  executionDate.setDate(executionDate.getDate() + 1);
+  return executionDate;
+}
+
 // Get available weeks up to current week (no future weeks)
 export function getAvailableWeeks(year: number) {
   const allWeeks = getWeekDates(year);
