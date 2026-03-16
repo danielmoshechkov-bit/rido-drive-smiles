@@ -275,16 +275,29 @@ export function DriverInfoModal({
 
             <Separator />
 
-            {/* Payment method toggle */}
-            <div className="flex items-center justify-between">
-              <Label className="text-sm">Metoda płatności</Label>
-              <div className="flex items-center gap-2">
-                <span className={`text-xs ${paymentMethod === 'cash' ? 'font-bold' : 'text-muted-foreground'}`}>Gotówka</span>
-                <Switch
-                  checked={paymentMethod === 'transfer'}
-                  onCheckedChange={(checked) => setPaymentMethod(checked ? 'transfer' : 'cash')}
-                />
-                <span className={`text-xs ${paymentMethod === 'transfer' ? 'font-bold' : 'text-muted-foreground'}`}>Przelew</span>
+            {/* Payment method */}
+            <div className="space-y-2">
+              <Label className="text-sm">Sposób rozliczenia:</Label>
+              <div className="flex gap-2">
+                {(['cash', 'transfer', 'b2b'] as const).map(method => (
+                  <button
+                    key={method}
+                    onClick={() => {
+                      setPaymentMethod(method);
+                      if (method === 'b2b') setB2bEnabled(true);
+                      else setB2bEnabled(false);
+                    }}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+                      paymentMethod === method
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-border hover:bg-muted text-muted-foreground'
+                    }`}
+                  >
+                    {method === 'cash' && '💵 Gotówka'}
+                    {method === 'transfer' && '🏦 Przelew'}
+                    {method === 'b2b' && '🏢 B2B (faktury)'}
+                  </button>
+                ))}
               </div>
             </div>
 

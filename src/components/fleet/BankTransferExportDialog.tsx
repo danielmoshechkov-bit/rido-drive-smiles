@@ -459,7 +459,7 @@ export function BankTransferExportDialog({
 
     // Persist cash payment methods
     for (const row of selectedCash) {
-      supabase.from('drivers').update({ payment_method: 'cash' } as any).eq('id', row.id);
+      await supabase.from('drivers').update({ payment_method: 'cash' } as any).eq('id', row.id);
     }
 
     toast.success(`Wygenerowano listę KW: ${selectedCash.length} wypłat`);
