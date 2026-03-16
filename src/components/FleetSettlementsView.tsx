@@ -145,6 +145,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     debtAfter: number;
     periodFrom?: string;
     periodTo?: string;
+    initialTab?: 'settlement' | 'rental';
   } | null>(null);
   const [driverDebts, setDriverDebts] = useState<Record<string, number>>({});
   const [unmappedDrivers, setUnmappedDrivers] = useState<any[]>([]);

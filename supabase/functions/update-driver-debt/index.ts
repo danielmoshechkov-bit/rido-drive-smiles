@@ -12,6 +12,8 @@ interface DebtUpdateRequest {
   period_from: string;
   period_to: string;
   calculated_payout: number;
+  calculated_payout_without_rental?: number;
+  rental_fee?: number;
   force_recalculate_chain?: boolean;
 }
 
