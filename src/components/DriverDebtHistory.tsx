@@ -334,7 +334,7 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
                   <div className={`font-bold ${
                     isDebtIncrease ? 'text-destructive' : 'text-green-600'
                   }`}>
-                    {isDebtIncrease ? '+' : '-'}{Math.abs(tx.amount).toFixed(2)} zł
+                    {isDebtIncrease ? '-' : '+'}{Math.abs(tx.amount).toFixed(2)} zł
                   </div>
                   <div className="text-xs text-muted-foreground">
                     Saldo: {tx.balance_after.toFixed(2)} zł
