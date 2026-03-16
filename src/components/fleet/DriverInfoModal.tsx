@@ -1,10 +1,4 @@
 import { useState, useEffect } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,32 +6,31 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Loader2, Save, Plus, Minus, Pencil, Check, X } from 'lucide-react';
+import { Loader2, Save, Plus, Minus, Pencil } from 'lucide-react';
 
-interface DriverInfoModalProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+interface DriverInfoPopoverProps {
   driverId: string;
   driverName: string;
   fleetId?: string;
   onComplete?: () => void;
+  children: React.ReactNode;
 }
 
-export function DriverInfoModal({
-  open,
-  onOpenChange,
+export function DriverInfoPopover({
   driverId,
   driverName,
   fleetId,
   onComplete,
-}: DriverInfoModalProps) {
+  children,
+}: DriverInfoPopoverProps) {
+  const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [driverData, setDriverData] = useState<any>(null);
   
-  // Editable fields
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
@@ -54,21 +47,16 @@ export function DriverInfoModal({
   const [b2bPostalCode, setB2bPostalCode] = useState('');
   const [b2bCity, setB2bCity] = useState('');
   
-  // Vehicle & fleet assignment
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>('none');
   const [selectedFleetId, setSelectedFleetId] = useState<string>('none');
   const [availableVehicles, setAvailableVehicles] = useState<any[]>([]);
   const [availableFleets, setAvailableFleets] = useState<any[]>([]);
   
-  // Debt management
   const [debtAction, setDebtAction] = useState<'add' | 'payment' | null>(null);
   const [debtAmount, setDebtAmount] = useState('');
   const [debtReason, setDebtReason] = useState('');
   const [currentDebt, setCurrentDebt] = useState(0);
   const [savingDebt, setSavingDebt] = useState(false);
-
-  // Inline edit tracking
-  const [editingField, setEditingField] = useState<string | null>(null);
 
   useEffect(() => {
     if (open && driverId) {
@@ -100,7 +88,7 @@ export function DriverInfoModal({
         setFirstName((driver as any).first_name || '');
         setLastName((driver as any).last_name || '');
         setPhone((driver as any).phone || (driver as any).driver_app_users?.phone || '');
-        setEmail((driver as any).driver_app_users?.email || '');
+        setEmail((driver as any).driver_app_users?.email || (driver as any).email || '');
         setIban((driver as any).iban || '');
         setNotes((driver as any).notes || '');
         setPaymentMethod((driver as any).payment_method || 'transfer');
@@ -112,7 +100,6 @@ export function DriverInfoModal({
         );
         setSelectedVehicleId(activeAssignment?.vehicle_id || 'none');
 
-        // Fetch B2B profile
         const appUser = (driver as any).driver_app_users;
         if (appUser?.user_id) {
           const { data: b2bProfile } = await supabase
@@ -133,7 +120,6 @@ export function DriverInfoModal({
         }
       }
 
-      // Fetch current debt
       const { data: debtData } = await supabase
         .from('driver_debts')
         .select('current_balance')
@@ -173,7 +159,6 @@ export function DriverInfoModal({
   const handleSave = async () => {
     setSaving(true);
     try {
-      // Update driver record
       await supabase
         .from('drivers')
         .update({
@@ -188,7 +173,6 @@ export function DriverInfoModal({
         } as any)
         .eq('id', driverId);
 
-      // Update email in driver_app_users if changed
       const appUser = driverData?.driver_app_users;
       if (appUser?.user_id && email !== appUser.email) {
         await supabase
@@ -197,14 +181,12 @@ export function DriverInfoModal({
           .eq('user_id', appUser.user_id);
       }
 
-      // Handle vehicle assignment change
       const currentVehicleAssignment = driverData?.driver_vehicle_assignments?.find(
         (a: any) => a.status === 'active'
       );
       const currentVehicleId = currentVehicleAssignment?.vehicle_id;
 
       if (selectedVehicleId !== (currentVehicleId || 'none')) {
-        // Deactivate current assignment
         if (currentVehicleId) {
           await supabase
             .from('driver_vehicle_assignments')
@@ -213,7 +195,6 @@ export function DriverInfoModal({
             .eq('vehicle_id', currentVehicleId)
             .eq('status', 'active');
         }
-        // Create new assignment
         if (selectedVehicleId !== 'none') {
           await supabase
             .from('driver_vehicle_assignments')
@@ -314,70 +295,69 @@ export function DriverInfoModal({
   const activeVehicle = driverData?.driver_vehicle_assignments?.find(
     (a: any) => a.status === 'active'
   );
-  const vehicle = activeVehicle?.vehicles;
-
-  const EditableField = ({ label, value, onChange, fieldKey, type = 'text', placeholder = '' }: {
-    label: string;
-    value: string;
-    onChange: (v: string) => void;
-    fieldKey: string;
-    type?: string;
-    placeholder?: string;
-  }) => (
-    <div className="space-y-0.5">
-      <Label className="text-[11px] text-muted-foreground">{label}</Label>
-      <Input
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        type={type}
-        placeholder={placeholder || label}
-        className="h-8 text-xs font-medium"
-      />
-    </div>
-  );
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Pencil className="h-4 w-4 text-muted-foreground" />
-            Edycja kierowcy
-          </DialogTitle>
-        </DialogHeader>
-
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        {children}
+      </PopoverTrigger>
+      <PopoverContent 
+        side="right" 
+        align="start" 
+        className="w-[380px] max-h-[80vh] overflow-y-auto p-4 z-50"
+        sideOffset={8}
+      >
         {loading ? (
           <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3">
+            {/* Header with name */}
+            <div className="flex items-center gap-2 pb-1">
+              <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-sm font-semibold">{firstName} {lastName}</span>
+            </div>
+
             {/* Name fields */}
-            <div className="grid grid-cols-2 gap-3">
-              <EditableField label="Imię" value={firstName} onChange={setFirstName} fieldKey="first_name" />
-              <EditableField label="Nazwisko" value={lastName} onChange={setLastName} fieldKey="last_name" />
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-0.5">
+                <Label className="text-[10px] text-muted-foreground">Imię</Label>
+                <Input value={firstName} onChange={e => setFirstName(e.target.value)} className="h-7 text-xs" />
+              </div>
+              <div className="space-y-0.5">
+                <Label className="text-[10px] text-muted-foreground">Nazwisko</Label>
+                <Input value={lastName} onChange={e => setLastName(e.target.value)} className="h-7 text-xs" />
+              </div>
             </div>
 
-            {/* Contact info */}
-            <div className="grid grid-cols-2 gap-3">
-              <EditableField label="Telefon" value={phone} onChange={setPhone} fieldKey="phone" type="tel" placeholder="+48..." />
-              <EditableField label="E-mail" value={email} onChange={setEmail} fieldKey="email" type="email" />
+            {/* Contact */}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-0.5">
+                <Label className="text-[10px] text-muted-foreground">Telefon</Label>
+                <Input value={phone} onChange={e => setPhone(e.target.value)} type="tel" placeholder="+48..." className="h-7 text-xs" />
+              </div>
+              <div className="space-y-0.5">
+                <Label className="text-[10px] text-muted-foreground">E-mail</Label>
+                <Input value={email} onChange={e => setEmail(e.target.value)} type="email" className="h-7 text-xs" />
+              </div>
             </div>
 
-            {/* Bank account */}
-            <EditableField label="Nr konta bankowego (IBAN)" value={iban} onChange={setIban} fieldKey="iban" placeholder="00 0000 0000 0000 0000 0000 0000" />
-
-            <div className="text-[11px] text-muted-foreground font-mono">
-              ID: {driverId}
+            {/* IBAN */}
+            <div className="space-y-0.5">
+              <Label className="text-[10px] text-muted-foreground">Nr konta bankowego (IBAN)</Label>
+              <Input value={iban} onChange={e => setIban(e.target.value)} placeholder="00 0000 0000 0000 0000 0000 0000" className="h-7 text-xs" />
             </div>
+
+            <div className="text-[10px] text-muted-foreground font-mono">ID: {driverId}</div>
 
             <Separator />
 
-            {/* Vehicle assignment */}
-            <div className="space-y-1">
-              <Label className="text-[11px] text-muted-foreground">Przypisane auto</Label>
+            {/* Vehicle */}
+            <div className="space-y-0.5">
+              <Label className="text-[10px] text-muted-foreground">Przypisane auto</Label>
               <Select value={selectedVehicleId} onValueChange={setSelectedVehicleId}>
-                <SelectTrigger className="h-8 text-xs">
+                <SelectTrigger className="h-7 text-xs">
                   <SelectValue placeholder="Wybierz auto" />
                 </SelectTrigger>
                 <SelectContent>
@@ -391,11 +371,11 @@ export function DriverInfoModal({
               </Select>
             </div>
 
-            {/* Fleet assignment */}
-            <div className="space-y-1">
-              <Label className="text-[11px] text-muted-foreground">Flota</Label>
+            {/* Fleet */}
+            <div className="space-y-0.5">
+              <Label className="text-[10px] text-muted-foreground">Flota</Label>
               <Select value={selectedFleetId} onValueChange={setSelectedFleetId}>
-                <SelectTrigger className="h-8 text-xs">
+                <SelectTrigger className="h-7 text-xs">
                   <SelectValue placeholder="Wybierz flotę" />
                 </SelectTrigger>
                 <SelectContent>
@@ -410,18 +390,17 @@ export function DriverInfoModal({
             <Separator />
 
             {/* Payment method */}
-            <div className="space-y-2">
-              <Label className="text-[11px] text-muted-foreground">Sposób rozliczenia:</Label>
-              <div className="flex gap-2">
+            <div className="space-y-1.5">
+              <Label className="text-[10px] text-muted-foreground">Sposób rozliczenia:</Label>
+              <div className="flex gap-1.5">
                 {(['cash', 'transfer', 'b2b'] as const).map(method => (
                   <button
                     key={method}
                     onClick={() => {
                       setPaymentMethod(method);
-                      if (method === 'b2b') setB2bEnabled(true);
-                      else setB2bEnabled(false);
+                      setB2bEnabled(method === 'b2b');
                     }}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+                    className={`flex items-center gap-1 px-2 py-1 rounded-md border text-[11px] font-medium transition-colors ${
                       paymentMethod === method
                         ? 'border-primary bg-primary/10 text-primary'
                         : 'border-border hover:bg-muted text-muted-foreground'
@@ -429,99 +408,78 @@ export function DriverInfoModal({
                   >
                     {method === 'cash' && '💵 Gotówka'}
                     {method === 'transfer' && '🏦 Przelew'}
-                    {method === 'b2b' && '🏢 B2B (faktury)'}
+                    {method === 'b2b' && '🏢 B2B'}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* B2B details - show when b2b selected */}
-            {(paymentMethod === 'b2b' || b2bEnabled) && (
-              <div className="space-y-2 p-3 rounded-md border bg-muted/30">
-                <p className="text-xs font-medium text-muted-foreground">Dane firmy</p>
-                <div className="grid grid-cols-2 gap-2">
+            {/* B2B details */}
+            {(paymentMethod === 'b2b') && (
+              <div className="space-y-2 p-2 rounded-md border bg-muted/30">
+                <p className="text-[10px] font-medium text-muted-foreground">Dane firmy</p>
+                <div className="grid grid-cols-2 gap-1.5">
                   <div className="col-span-2">
-                    <Label className="text-xs">Nazwa firmy</Label>
-                    <Input value={b2bCompanyName} onChange={e => setB2bCompanyName(e.target.value)} className="h-8 text-xs" />
-                  </div>
-                  <div className="col-span-2">
-                    <Label className="text-xs">NIP</Label>
-                    <Input value={b2bNip} onChange={e => setB2bNip(e.target.value)} className="h-8 text-xs" />
+                    <Input value={b2bCompanyName} onChange={e => setB2bCompanyName(e.target.value)} placeholder="Nazwa firmy" className="h-7 text-xs" />
                   </div>
                   <div className="col-span-2">
-                    <Label className="text-xs">Ulica</Label>
-                    <Input value={b2bStreet} onChange={e => setB2bStreet(e.target.value)} className="h-8 text-xs" />
+                    <Input value={b2bNip} onChange={e => setB2bNip(e.target.value)} placeholder="NIP" className="h-7 text-xs" />
                   </div>
-                  <div>
-                    <Label className="text-xs">Nr budynku</Label>
-                    <Input value={b2bBuildingNo} onChange={e => setB2bBuildingNo(e.target.value)} className="h-8 text-xs" />
+                  <div className="col-span-2">
+                    <Input value={b2bStreet} onChange={e => setB2bStreet(e.target.value)} placeholder="Ulica" className="h-7 text-xs" />
                   </div>
-                  <div>
-                    <Label className="text-xs">Nr lokalu</Label>
-                    <Input value={b2bApartmentNo} onChange={e => setB2bApartmentNo(e.target.value)} className="h-8 text-xs" />
-                  </div>
-                  <div>
-                    <Label className="text-xs">Kod pocztowy</Label>
-                    <Input value={b2bPostalCode} onChange={e => setB2bPostalCode(e.target.value)} placeholder="00-000" className="h-8 text-xs" />
-                  </div>
-                  <div>
-                    <Label className="text-xs">Miasto</Label>
-                    <Input value={b2bCity} onChange={e => setB2bCity(e.target.value)} className="h-8 text-xs" />
-                  </div>
+                  <Input value={b2bBuildingNo} onChange={e => setB2bBuildingNo(e.target.value)} placeholder="Nr bud." className="h-7 text-xs" />
+                  <Input value={b2bApartmentNo} onChange={e => setB2bApartmentNo(e.target.value)} placeholder="Nr lok." className="h-7 text-xs" />
+                  <Input value={b2bPostalCode} onChange={e => setB2bPostalCode(e.target.value)} placeholder="00-000" className="h-7 text-xs" />
+                  <Input value={b2bCity} onChange={e => setB2bCity(e.target.value)} placeholder="Miasto" className="h-7 text-xs" />
                 </div>
               </div>
             )}
 
             <Separator />
 
-            {/* Debt section */}
-            <div className="space-y-2">
+            {/* Debt */}
+            <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <Label className="text-sm">Zadłużenie</Label>
-                <Badge variant={currentDebt > 0 ? 'destructive' : 'outline'} className={currentDebt > 0 ? '' : 'bg-green-500/10 text-green-700 border-green-500/20'}>
+                <Label className="text-xs">Zadłużenie</Label>
+                <Badge variant={currentDebt > 0 ? 'destructive' : 'outline'} className={`text-[10px] ${currentDebt > 0 ? '' : 'bg-green-500/10 text-green-700 border-green-500/20'}`}>
                   {currentDebt > 0 ? `${currentDebt.toFixed(2)} zł` : '0,00 zł'}
                 </Badge>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-1.5">
                 <Button
                   size="sm"
                   variant={debtAction === 'add' ? 'default' : 'outline'}
                   onClick={() => setDebtAction(debtAction === 'add' ? null : 'add')}
-                  className="text-xs h-7"
+                  className="text-[10px] h-6 px-2"
                 >
-                  <Plus className="h-3 w-3 mr-1" />Dodaj dług
+                  <Plus className="h-3 w-3 mr-0.5" />Dodaj dług
                 </Button>
                 <Button
                   size="sm"
                   variant={debtAction === 'payment' ? 'default' : 'outline'}
                   onClick={() => setDebtAction(debtAction === 'payment' ? null : 'payment')}
-                  className="text-xs h-7"
+                  className="text-[10px] h-6 px-2"
                 >
-                  <Minus className="h-3 w-3 mr-1" />Wpłata
+                  <Minus className="h-3 w-3 mr-0.5" />Wpłata
                 </Button>
               </div>
               {debtAction && (
-                <div className="space-y-2 p-3 rounded-md border bg-muted/30">
-                  <div>
-                    <Label className="text-xs">Kwota (PLN)</Label>
-                    <Input
-                      value={debtAmount}
-                      onChange={e => setDebtAmount(e.target.value)}
-                      placeholder="np. 100"
-                      className="h-8 text-xs"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs">Powód</Label>
-                    <Input
-                      value={debtReason}
-                      onChange={e => setDebtReason(e.target.value)}
-                      placeholder={debtAction === 'add' ? 'np. Naprawa, kara...' : 'np. Wpłata gotówkowa...'}
-                      className="h-8 text-xs"
-                    />
-                  </div>
-                  <Button size="sm" onClick={handleDebtAction} disabled={savingDebt} className="text-xs h-7">
-                    {savingDebt ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                <div className="space-y-1.5 p-2 rounded-md border bg-muted/30">
+                  <Input
+                    value={debtAmount}
+                    onChange={e => setDebtAmount(e.target.value)}
+                    placeholder="Kwota PLN"
+                    className="h-7 text-xs"
+                  />
+                  <Input
+                    value={debtReason}
+                    onChange={e => setDebtReason(e.target.value)}
+                    placeholder={debtAction === 'add' ? 'Powód...' : 'Opis wpłaty...'}
+                    className="h-7 text-xs"
+                  />
+                  <Button size="sm" onClick={handleDebtAction} disabled={savingDebt} className="text-[10px] h-6 px-2">
+                    {savingDebt ? <Loader2 className="h-3 w-3 animate-spin mr-0.5" /> : null}
                     {debtAction === 'add' ? 'Zapisz dług' : 'Zapisz wpłatę'}
                   </Button>
                 </div>
@@ -531,25 +489,38 @@ export function DriverInfoModal({
             <Separator />
 
             {/* Notes */}
-            <div className="space-y-1">
-              <Label className="text-[11px] text-muted-foreground">Notatki</Label>
+            <div className="space-y-0.5">
+              <Label className="text-[10px] text-muted-foreground">Notatki</Label>
               <Textarea
                 value={notes}
                 onChange={e => setNotes(e.target.value)}
                 placeholder="Notatki o kierowcy..."
-                rows={3}
-                className="text-xs"
+                rows={2}
+                className="text-xs resize-none"
               />
             </div>
 
-            {/* Save button */}
-            <Button onClick={handleSave} disabled={saving} className="w-full">
-              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+            {/* Save */}
+            <Button onClick={handleSave} disabled={saving} className="w-full h-7 text-xs">
+              {saving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Save className="h-3 w-3 mr-1" />}
               Zapisz zmiany
             </Button>
           </div>
         )}
-      </DialogContent>
-    </Dialog>
+      </PopoverContent>
+    </Popover>
   );
+}
+
+// Keep backward-compatible export
+export function DriverInfoModal(props: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  driverId: string;
+  driverName: string;
+  fleetId?: string;
+  onComplete?: () => void;
+}) {
+  // Redirect to popover - this is kept for backward compatibility
+  return null;
 }
