@@ -1552,7 +1552,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         });
 
         const sortedWeeks = [...weeklyRollup.values()].sort(
-          (a, b) => new Date(a.periodFrom).getTime() - new Date(a.periodFrom).getTime()
+          (a, b) => new Date(a.periodFrom).getTime() - new Date(b.periodFrom).getTime()
         );
 
         if (sortedWeeks.length === 0) continue;
