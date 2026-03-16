@@ -449,10 +449,11 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       const totalPayout = payouts.reduce((sum, s) => sum + s.doWyplaty, 0);
       const totalDebt = Math.abs(debts.reduce((sum, s) => sum + s.final_payout, 0));
       
-      // Use Monday date of the settlement period
-      const mondayDate = currentWeek?.start 
-        ? format(new Date(currentWeek.start), 'dd.MM.yyyy')
-        : format(new Date(), 'dd.MM.yyyy');
+      // Use settlement execution date: day after the selected period ends
+      const settlementDateLabel = format(
+        getSettlementExecutionDate(currentWeek?.end),
+        'dd.MM.yyyy'
+      );
       
       // Generate printable HTML document
       const htmlContent = `
