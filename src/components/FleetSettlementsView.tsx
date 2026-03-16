@@ -3173,17 +3173,20 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                         <TableCell className="font-medium px-2 py-1.5 text-xs whitespace-nowrap">
                           <span className="flex items-center gap-1">
                             {settlement.driver_name}
-                            <button
-                              className="inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold bg-primary text-primary-foreground hover:bg-primary/80 transition-colors shadow-sm"
-                              title="Informacje o kierowcy"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setInfoDriver({ id: settlement.driver_id, name: settlement.driver_name });
-                                setInfoModalOpen(true);
-                              }}
+                            <DriverInfoPopover
+                              driverId={settlement.driver_id}
+                              driverName={settlement.driver_name}
+                              fleetId={fleetId}
+                              onComplete={() => fetchSettlements()}
                             >
-                              i
-                            </button>
+                              <button
+                                className="inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold bg-primary text-primary-foreground hover:bg-primary/80 transition-colors shadow-sm"
+                                title="Informacje o kierowcy"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                i
+                              </button>
+                            </DriverInfoPopover>
                             <button
                               className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors border border-transparent hover:border-border"
                               title="Dodaj opłatę lub wpłatę dla tego kierowcy"
