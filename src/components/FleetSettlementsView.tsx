@@ -209,6 +209,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     { key: 'freenow', label: 'FreeNow' },
     { key: 'freenow_cash', label: 'FN got.' },
     { key: 'freenow_commission', label: 'FN prow.' },
+    { key: 'brutto', label: 'Brutto' },
     { key: 'total_cash', label: 'Razem got.' },
     { key: 'total_commission', label: 'Razem prow.' },
     ...(fleetSettlementModeState === 'dual_tax' ? [
