@@ -78,7 +78,8 @@ export function AddDriverChargeModal({
           period_from: periodFrom || today,
           period_to: periodTo || today,
           description: reason,
-        });
+          debt_category: 'settlement',
+        } as any);
 
         toast.success(`Dług ${parsedAmount.toFixed(2)} zł dodany dla ${driverName}`);
       } else {
@@ -110,7 +111,8 @@ export function AddDriverChargeModal({
             period_from: periodFrom || today,
             period_to: periodTo || today,
             description: `Dodatek: ${reason}`,
-          });
+            debt_category: 'settlement',
+          } as any);
         }
 
         // Also store in settlement_adjustments for display

@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { pl } from "date-fns/locale";
@@ -19,6 +20,7 @@ interface DebtTransaction {
   period_to: string;
   created_at: string;
   description: string;
+  debt_category?: string;
 }
 
 interface WeekDebtContext {
@@ -34,12 +36,14 @@ interface DriverDebtHistoryProps {
   driverId: string;
   weekDebtContext?: WeekDebtContext;
   onDebtChanged?: () => void;
+  initialTab?: 'settlement' | 'rental';
 }
 
-export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged }: DriverDebtHistoryProps) => {
+export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, initialTab = 'settlement' }: DriverDebtHistoryProps) => {
   const [transactions, setTransactions] = useState<DebtTransaction[]>([]);
   const [currentDebt, setCurrentDebt] = useState<number>(0);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<string>(initialTab);
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [showAddDebtForm, setShowAddDebtForm] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState('');
@@ -73,11 +77,39 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged }: 
       .order('created_at', { ascending: false });
     
     if (txData) {
-      setTransactions(txData);
+      setTransactions(txData as DebtTransaction[]);
     }
     
     setLoading(false);
   };
+
+  // Filter transactions by category
+  const getFilteredTransactions = (category: string): DebtTransaction[] => {
+    return transactions.filter(tx => {
+      const cat = (tx as any).debt_category;
+      if (cat) return cat === category;
+      // Fallback heuristic for old transactions without category
+      if (category === 'settlement') {
+        return !tx.description?.toLowerCase().includes('wynajem') && !tx.description?.toLowerCase().includes('rental');
+      }
+      return tx.description?.toLowerCase().includes('wynajem') || tx.description?.toLowerCase().includes('rental');
+    });
+  };
+
+  // Calculate category-specific debt totals
+  const getCategoryDebt = (category: string): number => {
+    const txs = getFilteredTransactions(category);
+    let balance = 0;
+    // Sort ascending by created_at to compute running total
+    const sorted = [...txs].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    for (const tx of sorted) {
+      balance += tx.amount;
+    }
+    return Math.max(0, balance);
+  };
+
+  const settlementDebt = getCategoryDebt('settlement');
+  const rentalDebt = getCategoryDebt('rental');
 
   const handlePayment = async () => {
     const amount = parseFloat(paymentAmount.replace(',', '.'));
@@ -90,7 +122,6 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged }: 
     try {
       const newBalance = Math.max(0, currentDebt - amount);
       
-      // 1. First create the transaction record (most important for history)
       const dateVal = paymentDate || new Date().toISOString().split('T')[0];
       const { error: txError } = await supabase
         .from('driver_debt_transactions')
@@ -102,17 +133,17 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged }: 
           balance_after: newBalance,
           period_from: dateVal,
           period_to: dateVal,
-          description: paymentNote || 'Wpłata własna kierowcy'
-        });
+          description: paymentNote || 'Wpłata własna kierowcy',
+          debt_category: activeTab,
+        } as any);
       
       if (txError) {
         console.error('Error inserting payment transaction:', txError);
         toast.error('Nie udało się zapisać transakcji wpłaty: ' + txError.message);
         setSaving(false);
-        return; // Don't update balance if transaction failed
+        return;
       }
 
-      // 2. Update or create debt balance
       const { data: existing } = await supabase
         .from('driver_debts')
         .select('id')
@@ -130,7 +161,6 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged }: 
           .insert({ driver_id: driverId, current_balance: newBalance });
       }
 
-      // 3. Also update the latest settlement's debt_after to reflect the payment
       const { data: latestSettlement } = await supabase
         .from('settlements')
         .select('id')
@@ -200,8 +230,9 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged }: 
           balance_after: newBalance,
           period_from: dateVal,
           period_to: dateVal,
-          description: debtNote || 'Dług dodany ręcznie'
-        });
+          description: debtNote || 'Dług dodany ręcznie',
+          debt_category: activeTab,
+        } as any);
 
       toast.success(`Dług ${amount.toFixed(2)} zł dodany`);
       setDebtAmount('');
@@ -217,6 +248,83 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged }: 
     }
   };
 
+  const renderTransactionList = (filteredTxs: DebtTransaction[]) => {
+    if (filteredTxs.length === 0) {
+      return (
+        <div className="text-center text-muted-foreground py-4">
+          Brak historii transakcji
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-2">
+        {filteredTxs.map((tx) => {
+          const isDebtIncrease = tx.type === 'debt_increase' || tx.type === 'manual_add';
+          const isManualPayment = tx.type === 'payment';
+          const isDebtPayment = tx.type === 'debt_payment';
+          
+          let label = '';
+          let sublabel = '';
+          if (isDebtIncrease) {
+            label = 'Narastanie długu';
+            sublabel = tx.description || 'Ujemne saldo z rozliczenia';
+          } else if (isManualPayment) {
+            label = 'Wpłata własna';
+            sublabel = tx.description || 'Wpłata gotówkowa / przelew';
+          } else if (isDebtPayment) {
+            label = 'Spłata z rozliczenia';
+            sublabel = tx.description || 'Automatyczna spłata z zarobków';
+          } else {
+            label = tx.type;
+            sublabel = tx.description || '';
+          }
+
+          return (
+            <div
+              key={tx.id}
+              className={`p-3 rounded-lg border ${
+                isDebtIncrease
+                  ? 'bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800'
+                  : 'bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800'
+              }`}
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-2">
+                  {isDebtIncrease ? (
+                    <TrendingDown className="text-destructive" size={20} />
+                  ) : (
+                    <TrendingUp className="text-green-600" size={20} />
+                  )}
+                  <div>
+                    <div className="font-medium text-sm">{label}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {format(new Date(tx.period_from), 'dd.MM', { locale: pl })} -{' '}
+                      {format(new Date(tx.period_to), 'dd.MM.yyyy', { locale: pl })}
+                    </div>
+                    {sublabel && (
+                      <div className="text-xs text-muted-foreground mt-0.5 italic">{sublabel}</div>
+                    )}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className={`font-bold ${
+                    isDebtIncrease ? 'text-destructive' : 'text-green-600'
+                  }`}>
+                    {isDebtIncrease ? '+' : '-'}{Math.abs(tx.amount).toFixed(2)} zł
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Saldo: {tx.balance_after.toFixed(2)} zł
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <Card>
@@ -229,6 +337,9 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged }: 
       </Card>
     );
   }
+
+  const settlementTxs = getFilteredTransactions('settlement');
+  const rentalTxs = getFilteredTransactions('rental');
 
   return (
     <Card>
@@ -248,7 +359,7 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged }: 
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Action buttons - always show */}
+        {/* Action buttons */}
         <div className="flex gap-2">
           {!showPaymentForm && !showAddDebtForm && (
             <>
@@ -301,7 +412,9 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged }: 
         {/* Add debt form */}
         {showAddDebtForm && (
           <div className="p-3 rounded-lg border border-destructive/30 bg-destructive/5 space-y-3">
-            <Label className="text-sm font-medium">Dodaj dług</Label>
+            <Label className="text-sm font-medium">
+              Dodaj dług ({activeTab === 'settlement' ? 'rozliczeniowy' : 'za auto'})
+            </Label>
             <div className="flex gap-2">
               <Input
                 type="text"
@@ -332,7 +445,9 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged }: 
         {/* Payment form */}
         {showPaymentForm && (
           <div className="p-3 rounded-lg border border-green-200 bg-green-50 space-y-3">
-            <Label className="text-sm font-medium">Wpłata na poczet długu</Label>
+            <Label className="text-sm font-medium">
+              Wpłata na poczet długu ({activeTab === 'settlement' ? 'rozliczeniowego' : 'za auto'})
+            </Label>
             <div className="flex gap-2">
               <Input
                 type="text"
@@ -369,78 +484,29 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged }: 
           </div>
         )}
 
-        {transactions.length === 0 ? (
-          <div className="text-center text-muted-foreground py-4">
-            Brak historii transakcji
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {transactions.map((tx) => {
-              const isDebtIncrease = tx.type === 'debt_increase';
-              const isManualPayment = tx.type === 'payment';
-              const isDebtPayment = tx.type === 'debt_payment';
-              const isReducing = isManualPayment || isDebtPayment;
-              
-              // Determine label and sublabel
-              let label = '';
-              let sublabel = '';
-              if (isDebtIncrease) {
-                label = 'Narastanie długu';
-                sublabel = tx.description || 'Ujemne saldo z rozliczenia';
-              } else if (isManualPayment) {
-                label = 'Wpłata własna';
-                sublabel = tx.description || 'Wpłata gotówkowa / przelew';
-              } else if (isDebtPayment) {
-                label = 'Spłata z rozliczenia';
-                sublabel = tx.description || 'Automatyczna spłata z zarobków';
-              } else {
-                label = tx.type;
-                sublabel = tx.description || '';
-              }
-
-              return (
-                <div
-                  key={tx.id}
-                  className={`p-3 rounded-lg border ${
-                    isDebtIncrease
-                      ? 'bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800'
-                      : 'bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800'
-                  }`}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2">
-                      {isDebtIncrease ? (
-                        <TrendingDown className="text-destructive" size={20} />
-                      ) : (
-                        <TrendingUp className="text-green-600" size={20} />
-                      )}
-                      <div>
-                        <div className="font-medium text-sm">{label}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {format(new Date(tx.period_from), 'dd.MM', { locale: pl })} -{' '}
-                          {format(new Date(tx.period_to), 'dd.MM.yyyy', { locale: pl })}
-                        </div>
-                        {sublabel && (
-                          <div className="text-xs text-muted-foreground mt-0.5 italic">{sublabel}</div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className={`font-bold ${
-                        isDebtIncrease ? 'text-destructive' : 'text-green-600'
-                      }`}>
-                        {isDebtIncrease ? '+' : '-'}{Math.abs(tx.amount).toFixed(2)} zł
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        Saldo: {tx.balance_after.toFixed(2)} zł
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+        {/* Tabs: Settlement vs Rental */}
+        <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setShowPaymentForm(false); setShowAddDebtForm(false); }}>
+          <TabsList className="w-full">
+            <TabsTrigger value="settlement" className="flex-1 text-xs">
+              📊 Rozliczenie
+              {settlementDebt > 0 && (
+                <span className="ml-1 text-destructive font-bold">({settlementDebt.toFixed(0)} zł)</span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="rental" className="flex-1 text-xs">
+              🚗 Auto / Wynajem
+              {rentalDebt > 0 && (
+                <span className="ml-1 text-destructive font-bold">({rentalDebt.toFixed(0)} zł)</span>
+              )}
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="settlement" className="mt-3">
+            {renderTransactionList(settlementTxs)}
+          </TabsContent>
+          <TabsContent value="rental" className="mt-3">
+            {renderTransactionList(rentalTxs)}
+          </TabsContent>
+        </Tabs>
       </CardContent>
     </Card>
   );

@@ -4324,6 +4324,7 @@ export type Database = {
           balance_after: number
           balance_before: number
           created_at: string
+          debt_category: string
           description: string | null
           driver_id: string
           id: string
@@ -4338,6 +4339,7 @@ export type Database = {
           balance_after: number
           balance_before: number
           created_at?: string
+          debt_category?: string
           description?: string | null
           driver_id: string
           id?: string
@@ -4352,6 +4354,7 @@ export type Database = {
           balance_after?: number
           balance_before?: number
           created_at?: string
+          debt_category?: string
           description?: string | null
           driver_id?: string
           id?: string

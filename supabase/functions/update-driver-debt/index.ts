@@ -192,6 +192,7 @@ serve(async (req) => {
             period_from: settlement.period_from,
             period_to: settlement.period_to,
             description: `Dług z okresu ${settlement.period_from} - ${settlement.period_to}`,
+            debt_category: "settlement",
           });
 
           if (txError) {
@@ -209,6 +210,7 @@ serve(async (req) => {
             period_from: settlement.period_from,
             period_to: settlement.period_to,
             description: `Spłata długu z okresu ${settlement.period_from} - ${settlement.period_to}`,
+            debt_category: "settlement",
           });
 
           if (txError) {
@@ -527,7 +529,8 @@ serve(async (req) => {
         balance_after: remainingDebt,
         period_from,
         period_to,
-        description: `Dług z okresu ${period_from} - ${period_to}`
+        description: `Dług z okresu ${period_from} - ${period_to}`,
+        debt_category: "settlement",
       });
 
       if (txError) {
@@ -545,7 +548,8 @@ serve(async (req) => {
         balance_after: remainingDebt,
         period_from,
         period_to,
-        description: `Spłata długu z okresu ${period_from} - ${period_to}`
+        description: `Spłata długu z okresu ${period_from} - ${period_to}`,
+        debt_category: "settlement",
       });
 
       if (txError) {
