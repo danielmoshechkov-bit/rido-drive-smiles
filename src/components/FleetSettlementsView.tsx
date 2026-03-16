@@ -833,8 +833,13 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const getWyplata1 = (settlement: DriverSettlement): number => {
     const effective = getEffectiveSettlement(settlement);
     const payoutNoRental = calculatePayoutWithoutRental(effective);
-    const debtBefore = settlement.debt_previous ?? 0;
-    return round2(payoutNoRental - debtBefore);
+    const snapshotSettlementDebtAfter = round2(Math.max(0, settlement.snapshot_settlement_debt_after ?? 0));
+    const liveSettlementDebt = round2(Math.max(0, settlement.debt_previous ?? 0));
+    const baseDisplay = snapshotSettlementDebtAfter > 0
+      ? -snapshotSettlementDebtAfter
+      : round2(Number(settlement.snapshot_actual_payout ?? Math.max(0, payoutNoRental)));
+
+    return round2(baseDisplay - (liveSettlementDebt - snapshotSettlementDebtAfter));
   };
 
   // Dług wynajmu (kolumna wejściowa tygodnia): tylko zaległość z wynajmu z poprzednich tygodni
