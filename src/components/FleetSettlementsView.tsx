@@ -1776,15 +1776,18 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         // Czy przeglądamy najnowszy (bieżący) tydzień?
         const isLatestWeek = weeks.length > 0 && selectedWeek === weeks[0].number;
 
-        // Dług po rozliczeniu: dla bieżącego tygodnia bierz live balance (driver_debts) bo uwzględnia ręczne wpłaty
-        // Fallback na snapshot jeśli live balance nie istnieje
-        const liveBalance = debtsMap[driver.id];
+        const liveCategoryDebt = liveDebtByDriver.get(driver.id) || { settlement: 0, rental: 0 };
+        const liveTotalBalance = round2(liveCategoryDebt.settlement + liveCategoryDebt.rental);
+
+        // Dług po rozliczeniu: dla bieżącego tygodnia bierz live balance z ledgera
         const snapshotDebtAfter = debtAfterFromSettlement >= 0 ? debtAfterFromSettlement : 0;
         const currentDebtForDisplay = isLatestWeek
-          ? (liveBalance !== undefined ? liveBalance : snapshotDebtAfter)
+          ? (liveTotalBalance > 0 || (liveCategoryDebt.settlement > 0 || liveCategoryDebt.rental > 0)
+              ? liveTotalBalance
+              : (liveBalance !== undefined ? liveBalance : snapshotDebtAfter))
           : snapshotDebtAfter;
 
-        // Dług przed rozliczeniem: snapshot jeśli istnieje, w przeciwnym razie 0 (nie live balance!)
+        // Dług przed rozliczeniem: snapshot historyczny, ale dla bieżącego tygodnia pokazuj live split
         const debtBeforeForDisplay = hasDebtBeforeSnapshot
           ? debtBeforeFromSettlement
           : 0;
@@ -1792,8 +1795,12 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         const rowPeriodFrom = (settlementSnapshot as any)?.period_from || currentWeek?.start || periodFrom || '';
         const rowPeriodTo = (settlementSnapshot as any)?.period_to || currentWeek?.end || periodTo || '';
         const splitDebt = splitDebtByWeek.get(`${driver.id}|${rowPeriodFrom}|${rowPeriodTo}`);
-        const settlementDebtBeforeForDisplay = splitDebt?.settlementDebtBefore ?? debtBeforeForDisplay;
-        const rentalDebtBeforeForDisplay = splitDebt?.rentalDebtBefore ?? 0;
+        const settlementDebtBeforeForDisplay = isLatestWeek
+          ? liveCategoryDebt.settlement
+          : (splitDebt?.settlementDebtBefore ?? debtBeforeForDisplay);
+        const rentalDebtBeforeForDisplay = isLatestWeek
+          ? liveCategoryDebt.rental
+          : (splitDebt?.rentalDebtBefore ?? 0);
 
         // ⚠️ OCHRONA ZEROWYCH ZAROBKÓW
         // Jeśli kierowca nie jeździł (suma zarobków = 0) I nie ma ujemnego salda
