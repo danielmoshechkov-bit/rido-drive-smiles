@@ -3632,17 +3632,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         />
       )}
 
-      {/* Driver Info Modal */}
-      {infoDriver && (
-        <DriverInfoModal
-          open={infoModalOpen}
-          onOpenChange={setInfoModalOpen}
-          driverId={infoDriver.id}
-          driverName={infoDriver.name}
-          fleetId={fleetId}
-          onComplete={() => fetchSettlements()}
-        />
-      )}
+      {/* Driver Info is now inline Popover - no separate modal needed */}
     </Card>
 
       {/* Unmapped Drivers Modal */}
