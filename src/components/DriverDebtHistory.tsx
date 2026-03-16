@@ -215,7 +215,9 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
 
     setSaving(true);
     try {
-      const newBalance = currentDebt + amount;
+      const newTotalBalance = round2(currentDebt + amount);
+      const categoryBalanceBefore = activeTab === 'settlement' ? settlementDebt : rentalDebt;
+      const categoryBalanceAfter = round2(categoryBalanceBefore + amount);
 
       const { data: existing } = await supabase
         .from('driver_debts')
@@ -224,37 +226,43 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
         .maybeSingle();
 
       if (existing) {
-        await supabase
+        const { error: updateDebtError } = await supabase
           .from('driver_debts')
-          .update({ current_balance: newBalance, updated_at: new Date().toISOString() })
+          .update({ current_balance: newTotalBalance, updated_at: new Date().toISOString() })
           .eq('driver_id', driverId);
+
+        if (updateDebtError) throw updateDebtError;
       } else {
-        await supabase
+        const { error: insertDebtError } = await supabase
           .from('driver_debts')
-          .insert({ driver_id: driverId, current_balance: newBalance });
+          .insert({ driver_id: driverId, current_balance: newTotalBalance } as any);
+
+        if (insertDebtError) throw insertDebtError;
       }
 
       const dateVal = new Date().toISOString().split('T')[0];
-      await supabase
+      const { error: transactionError } = await supabase
         .from('driver_debt_transactions')
         .insert({
           driver_id: driverId,
-          type: 'debt_increase',
+          type: 'manual_add',
           amount: amount,
-          balance_before: currentDebt,
-          balance_after: newBalance,
+          balance_before: categoryBalanceBefore,
+          balance_after: categoryBalanceAfter,
           period_from: dateVal,
           period_to: dateVal,
           description: debtNote || 'Dług dodany ręcznie',
           debt_category: activeTab,
         } as any);
 
+      if (transactionError) throw transactionError;
+
       toast.success(`Dług ${amount.toFixed(2)} zł dodany`);
       setDebtAmount('');
       setDebtNote('');
       setShowAddDebtForm(false);
       await fetchDebtData();
-      onDebtChanged?.();
+      await onDebtChanged?.();
     } catch (err) {
       console.error('Error adding debt:', err);
       toast.error('Błąd dodawania długu');
