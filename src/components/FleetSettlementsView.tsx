@@ -39,6 +39,7 @@ import { DriverDebtHistory } from './DriverDebtHistory';
 import { UnmappedDriversModal } from './fleet/UnmappedDriversModal';
 import { BankTransferExportDialog } from './fleet/BankTransferExportDialog';
 import { AddDriverChargeModal } from './fleet/AddDriverChargeModal';
+import { DriverInfoModal } from './fleet/DriverInfoModal';
 import { useUserRole } from '@/hooks/useUserRole';
 import { getAvailableWeeks, getCurrentWeekNumber, getWeekDates } from '@/lib/utils';
 
@@ -161,6 +162,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const [editValue, setEditValue] = useState('');
   const [chargeModalOpen, setChargeModalOpen] = useState(false);
   const [chargeDriver, setChargeDriver] = useState<{id: string, name: string} | null>(null);
+  const [infoModalOpen, setInfoModalOpen] = useState(false);
+  const [infoDriver, setInfoDriver] = useState<{id: string, name: string} | null>(null);
   // Payment status tracking (green check = paid, red X = unpaid)
   const [paidDrivers, setPaidDrivers] = useState<Set<string>>(new Set());
   // Fleet settings for display in headers
@@ -206,6 +209,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     { key: 'freenow', label: 'FreeNow' },
     { key: 'freenow_cash', label: 'FN got.' },
     { key: 'freenow_commission', label: 'FN prow.' },
+    { key: 'brutto', label: 'Brutto' },
     { key: 'total_cash', label: 'Razem got.' },
     { key: 'total_commission', label: 'Razem prow.' },
     ...(fleetSettlementModeState === 'dual_tax' ? [
@@ -1743,10 +1747,10 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         // Czy przeglądamy najnowszy (bieżący) tydzień?
         const isLatestWeek = weeks.length > 0 && selectedWeek === weeks[0].number;
 
-        // Dług po rozliczeniu: snapshot jeśli istnieje, live balance TYLKO dla bieżącego tygodnia, w przeciwnym razie 0
-        const currentDebtForDisplay = debtAfterFromSettlement >= 0
-          ? debtAfterFromSettlement
-          : (isLatestWeek ? (debtsMap[driver.id] ?? 0) : 0);
+        // Dług po rozliczeniu: dla bieżącego tygodnia bierz MAX(snapshot, live balance) - manual adds update live balance
+        const currentDebtForDisplay = isLatestWeek
+          ? Math.max(debtAfterFromSettlement >= 0 ? debtAfterFromSettlement : 0, debtsMap[driver.id] ?? 0)
+          : (debtAfterFromSettlement >= 0 ? debtAfterFromSettlement : 0);
 
         // Dług przed rozliczeniem: snapshot jeśli istnieje, w przeciwnym razie 0 (nie live balance!)
         const debtBeforeForDisplay = hasDebtBeforeSnapshot
@@ -3094,6 +3098,9 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                       {isColVisible('freenow') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">FreeNow</TableHead>}
                       {isColVisible('freenow_cash') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">FN got.</TableHead>}
                       {isColVisible('freenow_commission') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">FN prow.</TableHead>}
+                      {isColVisible('brutto') && <TableHead className="text-right px-2 py-1.5 text-xs font-bold whitespace-nowrap bg-blue-50 cursor-pointer select-none hover:bg-blue-100" onClick={() => handleSort('brutto')}>
+                        <span className="inline-flex items-center justify-end w-full">Brutto{getSortIcon('brutto')}</span>
+                      </TableHead>}
                       {isColVisible('total_cash') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">Razem got.</TableHead>}
                       {isColVisible('total_commission') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-orange-600 whitespace-nowrap">Razem prow.</TableHead>}
                       {fleetSettlementModeState === 'dual_tax' && isColVisible('netto') && (
@@ -3167,6 +3174,17 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                           <span className="flex items-center gap-1">
                             {settlement.driver_name}
                             <button
+                              className="inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors border border-border hover:border-primary"
+                              title="Informacje o kierowcy"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setInfoDriver({ id: settlement.driver_id, name: settlement.driver_name });
+                                setInfoModalOpen(true);
+                              }}
+                            >
+                              i
+                            </button>
+                            <button
                               className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors border border-transparent hover:border-border"
                               title="Dodaj opłatę lub wpłatę dla tego kierowcy"
                               onClick={() => {
@@ -3202,6 +3220,9 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                         </TableCell>}
                         {isColVisible('freenow_commission') && <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
                           {displayValue(settlement.freenow_commission, hasFreenowActivity, true)}
+                        </TableCell>}
+                        {isColVisible('brutto') && <TableCell className="text-right px-2 py-1.5 text-xs font-bold tabular-nums whitespace-nowrap bg-blue-50">
+                          {hasAnyActivity ? formatCurrency(settlement.total_base) : '-'}
                         </TableCell>}
                         {isColVisible('total_cash') && <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 font-semibold tabular-nums whitespace-nowrap">
                           {displayValue(settlement.total_cash, hasAnyActivity, true)}
@@ -3403,6 +3424,9 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                       {isColVisible('freenow_commission') && <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
                         -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.freenow_commission, 0))}
                       </TableCell>}
+                      {isColVisible('brutto') && <TableCell className="text-right px-2 py-1.5 text-xs font-bold tabular-nums whitespace-nowrap bg-blue-50">
+                        {formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.total_base, 0))}
+                      </TableCell>}
                       {isColVisible('total_cash') && <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 font-semibold tabular-nums whitespace-nowrap">
                         -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.total_cash, 0))}
                       </TableCell>}
@@ -3583,6 +3607,17 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           onComplete={() => {
             fetchSettlements();
           }}
+        />
+      )}
+
+      {/* Driver Info Modal */}
+      {infoDriver && (
+        <DriverInfoModal
+          open={infoModalOpen}
+          onOpenChange={setInfoModalOpen}
+          driverId={infoDriver.id}
+          driverName={infoDriver.name}
+          onComplete={() => fetchSettlements()}
         />
       )}
     </Card>
