@@ -113,7 +113,7 @@ interface BankFormat {
   name: string;
   shortName: string;
   extension: string;
-  generate: (rows: TransferRow[], senderAccount: string, date: string) => string;
+  generate: (rows: TransferRow[], senderAccount: string, executionDate: Date) => string;
 }
 
 const POLISH_BANKS: BankFormat[] = [
@@ -122,9 +122,9 @@ const POLISH_BANKS: BankFormat[] = [
     name: 'Santander Bank Polska (Elixir-0)',
     shortName: 'Santander',
     extension: 'txt',
-    generate: (rows, sender) => {
-      const d = format(new Date(), 'dd-MM-yyyy');
-      return generateElixir0(rows, sender, d);
+    generate: (rows, sender, executionDate) => {
+      const dateStr = format(executionDate, 'dd-MM-yyyy');
+      return generateElixir0(rows, sender, dateStr);
     },
   },
   {
@@ -162,10 +162,10 @@ const POLISH_BANKS: BankFormat[] = [
     name: 'Alior Bank (Elixir PLI)',
     shortName: 'Alior',
     extension: 'pli',
-    generate: (rows, senderAccount) => {
+    generate: (rows, senderAccount, executionDate) => {
       const cleanSender = senderAccount.replace(/\s/g, '').replace(/^PL/i, '');
       const senderBankCode = cleanSender.substring(2, 10); // NRB positions 3-10
-      const dateStr = format(new Date(), 'yyyyMMdd');
+      const dateStr = format(executionDate, 'yyyyMMdd');
       return rows.map(r => {
         const recipientAccount = r.iban.replace(/\s/g, '').replace(/^PL/i, '');
         const recipientBankCode = recipientAccount.substring(2, 10);
