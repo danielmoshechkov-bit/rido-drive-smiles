@@ -53,59 +53,75 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
   const [debtNote, setDebtNote] = useState('');
   const [saving, setSaving] = useState(false);
 
+  const round2 = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+
+  const getTransactionCategory = (tx: DebtTransaction): 'settlement' | 'rental' => {
+    if (tx.debt_category === 'rental') return 'rental';
+    if (tx.debt_category === 'settlement') return 'settlement';
+
+    const description = tx.description?.toLowerCase() || '';
+    return description.includes('wynajem') || description.includes('rental') || description.includes('auto')
+      ? 'rental'
+      : 'settlement';
+  };
+
+  const getTransactionDelta = (tx: DebtTransaction) => {
+    const amount = Math.abs(Number(tx.amount) || 0);
+    return tx.type === 'debt_increase' || tx.type === 'manual_add' ? amount : -amount;
+  };
+
+  const calculateDebtBalance = (txs: DebtTransaction[]) => {
+    return Math.max(0, round2(txs.reduce((sum, tx) => sum + getTransactionDelta(tx), 0)));
+  };
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+    setShowPaymentForm(false);
+    setShowAddDebtForm(false);
+  }, [initialTab, driverId]);
+
   useEffect(() => {
     fetchDebtData();
   }, [driverId]);
 
   const fetchDebtData = async () => {
     setLoading(true);
-    
-    const { data: debtData } = await supabase
-      .from('driver_debts')
-      .select('current_balance')
-      .eq('driver_id', driverId)
-      .maybeSingle();
-    
-    if (debtData) {
-      setCurrentDebt(debtData.current_balance);
-    }
 
-    const { data: txData } = await supabase
-      .from('driver_debt_transactions')
-      .select('*')
-      .eq('driver_id', driverId)
-      .order('created_at', { ascending: false });
-    
-    if (txData) {
-      setTransactions(txData as DebtTransaction[]);
+    try {
+      const [{ data: debtData }, { data: txData }] = await Promise.all([
+        supabase
+          .from('driver_debts')
+          .select('current_balance')
+          .eq('driver_id', driverId)
+          .maybeSingle(),
+        supabase
+          .from('driver_debt_transactions')
+          .select('*')
+          .eq('driver_id', driverId)
+          .order('created_at', { ascending: false }),
+      ]);
+
+      const nextTransactions = (txData || []) as DebtTransaction[];
+      setTransactions(nextTransactions);
+
+      const ledgerBalance = nextTransactions.length > 0
+        ? calculateDebtBalance(nextTransactions)
+        : round2(Number(debtData?.current_balance || 0));
+
+      setCurrentDebt(ledgerBalance);
+    } finally {
+      setLoading(false);
     }
-    
-    setLoading(false);
   };
 
   // Filter transactions by category
   const getFilteredTransactions = (category: string): DebtTransaction[] => {
-    return transactions.filter(tx => {
-      const cat = (tx as any).debt_category;
-      if (cat) return cat === category;
-      // Fallback heuristic for old transactions without category
-      if (category === 'settlement') {
-        return !tx.description?.toLowerCase().includes('wynajem') && !tx.description?.toLowerCase().includes('rental');
-      }
-      return tx.description?.toLowerCase().includes('wynajem') || tx.description?.toLowerCase().includes('rental');
-    });
+    return transactions.filter(tx => getTransactionCategory(tx) === category);
   };
 
   // Calculate category-specific debt totals
   const getCategoryDebt = (category: string): number => {
-    const txs = getFilteredTransactions(category);
-    let balance = 0;
-    // Sort ascending by created_at to compute running total
-    const sorted = [...txs].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-    for (const tx of sorted) {
-      balance += tx.amount;
-    }
-    return Math.max(0, balance);
+    return calculateDebtBalance(getFilteredTransactions(category));
   };
 
   const settlementDebt = getCategoryDebt('settlement');
