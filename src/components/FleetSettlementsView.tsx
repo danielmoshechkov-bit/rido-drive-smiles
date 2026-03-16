@@ -1473,7 +1473,12 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
       const { data: settlementHistoryData } = await settlementHistoryQuery;
 
-      const splitDebtByWeek = new Map<string, { settlementDebtBefore: number; rentalDebtBefore: number }>();
+      const splitDebtByWeek = new Map<string, {
+        settlementDebtBefore: number;
+        rentalDebtBefore: number;
+        settlementDebtAfter: number;
+        rentalDebtAfter: number;
+      }>();
 
       const fallbackRentalByDriver = new Map<string, { weeklyRate: number; assignedAt: string }>();
       (assignmentsData || []).forEach((assignment: any) => {
@@ -1514,7 +1519,6 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           if (manualRentalFee !== null && manualRentalFee !== undefined) {
             rentalFee = Number(manualRentalFee || 0);
           } else if (rentalFee <= 0 && hasAnyActivity) {
-            // Use proportional rental based on assignment date
             const fallback = fallbackRentalByDriver.get(driverId);
             if (fallback && fallback.assignedAt && periodFromKey && periodToKey) {
               rentalFee = calculateProportionalRentForSettlement(
@@ -1543,7 +1547,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         });
 
         const sortedWeeks = [...weeklyRollup.values()].sort(
-          (a, b) => new Date(a.periodFrom).getTime() - new Date(b.periodFrom).getTime()
+          (a, b) => new Date(a.periodFrom).getTime() - new Date(a.periodFrom).getTime()
         );
 
         if (sortedWeeks.length === 0) continue;
@@ -1553,20 +1557,27 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
         for (const week of sortedWeeks) {
           const weekKey = `${week.periodFrom}|${week.periodTo}`;
-          splitDebtByWeek.set(`${driverId}|${weekKey}`, {
-            settlementDebtBefore: runningSettlementDebt,
-            rentalDebtBefore: runningRentalDebt,
-          });
+          const settlementDebtBefore = runningSettlementDebt;
+          const rentalDebtBefore = runningRentalDebt;
 
-          const wyplata1 = round2(week.payoutNoRental - runningSettlementDebt);
-          runningSettlementDebt = round2(Math.max(0, -wyplata1));
+          const wyplata1 = round2(week.payoutNoRental - settlementDebtBefore);
+          const settlementDebtAfter = round2(Math.max(0, -wyplata1));
 
           const availableForRental = Math.max(0, wyplata1);
-          const remainingPreviousRentalDebt = Math.max(0, runningRentalDebt - availableForRental);
-          const availableAfterPreviousRentalDebt = Math.max(0, availableForRental - runningRentalDebt);
+          const remainingPreviousRentalDebt = Math.max(0, rentalDebtBefore - availableForRental);
+          const availableAfterPreviousRentalDebt = Math.max(0, availableForRental - rentalDebtBefore);
           const currentRentalDebt = Math.max(0, week.rental - availableAfterPreviousRentalDebt);
+          const rentalDebtAfter = round2(remainingPreviousRentalDebt + currentRentalDebt);
 
-          runningRentalDebt = round2(remainingPreviousRentalDebt + currentRentalDebt);
+          splitDebtByWeek.set(`${driverId}|${weekKey}`, {
+            settlementDebtBefore,
+            rentalDebtBefore,
+            settlementDebtAfter,
+            rentalDebtAfter,
+          });
+
+          runningSettlementDebt = settlementDebtAfter;
+          runningRentalDebt = rentalDebtAfter;
         }
       }
 
