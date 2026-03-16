@@ -123,8 +123,8 @@ export function DriverInfoModal({
         .from('drivers')
         .update({
           notes,
-          payment_method: paymentMethod,
-          b2b_enabled: b2bEnabled,
+          payment_method: paymentMethod === 'b2b' ? 'b2b' : paymentMethod,
+          b2b_enabled: paymentMethod === 'b2b' || b2bEnabled,
         } as any)
         .eq('id', driverId);
 
