@@ -3609,6 +3609,17 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           }}
         />
       )}
+
+      {/* Driver Info Modal */}
+      {infoDriver && (
+        <DriverInfoModal
+          open={infoModalOpen}
+          onOpenChange={setInfoModalOpen}
+          driverId={infoDriver.id}
+          driverName={infoDriver.name}
+          onComplete={() => fetchSettlements()}
+        />
+      )}
     </Card>
 
       {/* Unmapped Drivers Modal */}
