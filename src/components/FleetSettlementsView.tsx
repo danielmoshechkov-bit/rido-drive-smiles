@@ -3417,6 +3417,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                               debtAfter,
                               periodFrom: settlement.period_from,
                               periodTo: settlement.period_to,
+                              initialTab: 'rental',
                             });
                             setDebtDialogOpen(true);
                           };
