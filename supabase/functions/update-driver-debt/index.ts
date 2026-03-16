@@ -184,22 +184,51 @@ serve(async (req) => {
         }
 
         if (rawPayout < -0.01) {
-          const { error: txError } = await supabase.from("driver_debt_transactions").insert({
-            driver_id,
-            settlement_id: settlement.id,
-            type: "debt_increase",
-            amount: Math.abs(rawPayout),
-            balance_before: computed.debtBefore,
-            balance_after: computed.remainingDebt,
-            period_from: settlement.period_from,
-            period_to: settlement.period_to,
-            description: `Dług z okresu ${settlement.period_from} - ${settlement.period_to}`,
-            debt_category: "settlement",
-          });
+          // For chain recalc, try to get rental_fee from settlement to split properly
+          const { data: settlementDetail } = await supabase
+            .from("settlements")
+            .select("rental_fee, amounts")
+            .eq("id", settlement.id)
+            .maybeSingle();
+          
+          const rentalFeeFromRecord = Number(settlementDetail?.rental_fee || 0);
+          const manualRentalFee = (settlementDetail?.amounts as any)?.manual_rental_fee;
+          const effectiveRentalFee = (manualRentalFee !== null && manualRentalFee !== undefined) 
+            ? Number(manualRentalFee) : rentalFeeFromRecord;
+          
+          const totalDeficit = Math.abs(rawPayout);
+          const payoutWithoutRental = round2(rawPayout + effectiveRentalFee);
+          const settlementDeficit = payoutWithoutRental < 0 ? round2(Math.abs(payoutWithoutRental)) : 0;
+          const rentalDeficit = round2(Math.max(0, totalDeficit - settlementDeficit));
 
-          if (txError) {
-            console.error("Error creating debt increase transaction during chain recalculation:", txError);
-            throw txError;
+          if (settlementDeficit > 0.01) {
+            await supabase.from("driver_debt_transactions").insert({
+              driver_id,
+              settlement_id: settlement.id,
+              type: "debt_increase",
+              amount: settlementDeficit,
+              balance_before: computed.debtBefore,
+              balance_after: round2(computed.debtBefore + settlementDeficit),
+              period_from: settlement.period_from,
+              period_to: settlement.period_to,
+              description: `Dług rozliczenia z okresu ${settlement.period_from} - ${settlement.period_to}`,
+              debt_category: "settlement",
+            });
+          }
+
+          if (rentalDeficit > 0.01) {
+            await supabase.from("driver_debt_transactions").insert({
+              driver_id,
+              settlement_id: settlement.id,
+              type: "debt_increase",
+              amount: rentalDeficit,
+              balance_before: round2(computed.debtBefore + settlementDeficit),
+              balance_after: computed.remainingDebt,
+              period_from: settlement.period_from,
+              period_to: settlement.period_to,
+              description: `Dług wynajmu z okresu ${settlement.period_from} - ${settlement.period_to}`,
+              debt_category: "rental",
+            });
           }
         } else if (computed.debtPayment > 0.01) {
           const { error: txError } = await supabase.from("driver_debt_transactions").insert({
