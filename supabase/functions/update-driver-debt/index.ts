@@ -192,6 +192,7 @@ serve(async (req) => {
             period_from: settlement.period_from,
             period_to: settlement.period_to,
             description: `Dług z okresu ${settlement.period_from} - ${settlement.period_to}`,
+            debt_category: "settlement",
           });
 
           if (txError) {
