@@ -1423,17 +1423,40 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         (b2bProfiles || []).map(p => [p.driver_user_id, p])
       );
 
-      // Pobierz aktualne długi kierowców (łączny dług systemowy)
-      const { data: debtsData } = await supabase
-        .from('driver_debts')
-        .select('driver_id, current_balance')
-        .in('driver_id', driverIds);
+      // Pobierz aktualne długi kierowców (fallback) + ledger transakcji do live podziału settlement/rental
+      const [{ data: debtsData }, { data: debtTransactionsData }] = await Promise.all([
+        supabase
+          .from('driver_debts')
+          .select('driver_id, current_balance')
+          .in('driver_id', driverIds),
+        supabase
+          .from('driver_debt_transactions')
+          .select('driver_id, type, amount, debt_category')
+          .in('driver_id', driverIds),
+      ]);
       
       const debtsMap: Record<string, number> = {};
       (debtsData || []).forEach(d => {
         debtsMap[d.driver_id] = d.current_balance || 0;
       });
       setDriverDebts(debtsMap);
+
+      const liveDebtByDriver = new Map<string, { settlement: number; rental: number }>();
+      (debtTransactionsData || []).forEach((tx: any) => {
+        const category = tx.debt_category === 'rental' ? 'rental' : 'settlement';
+        const amount = Math.abs(Number(tx.amount) || 0);
+        const delta = tx.type === 'debt_increase' || tx.type === 'manual_add' ? amount : -amount;
+        const current = liveDebtByDriver.get(tx.driver_id) || { settlement: 0, rental: 0 };
+        current[category] = round2(current[category] + delta);
+        liveDebtByDriver.set(tx.driver_id, current);
+      });
+
+      liveDebtByDriver.forEach((value, key) => {
+        liveDebtByDriver.set(key, {
+          settlement: Math.max(0, round2(value.settlement)),
+          rental: Math.max(0, round2(value.rental)),
+        });
+      });
 
       // Rozdzielenie długu na 2 strumienie: rozliczenie vs wynajem (łańcuch tygodniowy)
       const selectedPeriodTo = currentWeek?.end || periodTo;
