@@ -521,23 +521,49 @@ serve(async (req) => {
 
     // 4. Zapisz transakcję
     if (calculated_payout < 0) {
-      // Narastanie długu
-      const { error: txError } = await supabase.from("driver_debt_transactions").insert({
-        driver_id,
-        settlement_id,
-        type: "debt_increase",
-        amount: Math.abs(calculated_payout),
-        balance_before: currentDebt,
-        balance_after: remainingDebt,
-        period_from,
-        period_to,
-        description: `Dług z okresu ${period_from} - ${period_to}`,
-        debt_category: "settlement",
-      });
+      // Narastanie długu — split into settlement vs rental categories
+      const totalDeficit = Math.abs(calculated_payout);
+      const payoutWithoutRental = calculated_payout_without_rental ?? (calculated_payout + (rental_fee || 0));
+      const effectiveRental = rental_fee || 0;
 
-      if (txError) {
-        console.error("Error creating debt transaction:", txError);
-        throw txError;
+      // Settlement deficit: if payout without rental is already negative
+      const settlementDeficit = payoutWithoutRental < 0 ? round2(Math.abs(payoutWithoutRental)) : 0;
+      // Rental deficit: whatever is left after settlement deficit
+      const rentalDeficit = round2(Math.max(0, totalDeficit - settlementDeficit));
+
+      console.log(`Debt split: total=${totalDeficit}, settlement=${settlementDeficit}, rental=${rentalDeficit}`);
+
+      if (settlementDeficit > 0.01) {
+        const { error: txError } = await supabase.from("driver_debt_transactions").insert({
+          driver_id,
+          settlement_id,
+          type: "debt_increase",
+          amount: settlementDeficit,
+          balance_before: currentDebt,
+          balance_after: round2(currentDebt + settlementDeficit),
+          period_from,
+          period_to,
+          description: `Dług rozliczenia z okresu ${period_from} - ${period_to}`,
+          debt_category: "settlement",
+        });
+        if (txError) { console.error("Error creating settlement debt tx:", txError); throw txError; }
+      }
+
+      if (rentalDeficit > 0.01) {
+        const balBefore = round2(currentDebt + settlementDeficit);
+        const { error: txError } = await supabase.from("driver_debt_transactions").insert({
+          driver_id,
+          settlement_id,
+          type: "debt_increase",
+          amount: rentalDeficit,
+          balance_before: balBefore,
+          balance_after: remainingDebt,
+          period_from,
+          period_to,
+          description: `Dług wynajmu z okresu ${period_from} - ${period_to}`,
+          debt_category: "rental",
+        });
+        if (txError) { console.error("Error creating rental debt tx:", txError); throw txError; }
       }
     } else if (debtPayment > 0) {
       // Spłata długu
