@@ -434,7 +434,7 @@ export function BankTransferExportDialog({
   };
 
   // ── EXPORT: cash list (KW) ──
-  const handleExportCashList = () => {
+  const handleExportCashList = async () => {
     if (selectedCash.length === 0) {
       toast.info('Zaznacz kierowców do listy gotówkowej');
       return;
