@@ -39,7 +39,7 @@ import { DriverDebtHistory } from './DriverDebtHistory';
 import { UnmappedDriversModal } from './fleet/UnmappedDriversModal';
 import { BankTransferExportDialog } from './fleet/BankTransferExportDialog';
 import { AddDriverChargeModal } from './fleet/AddDriverChargeModal';
-import { DriverInfoModal } from './fleet/DriverInfoModal';
+import { DriverInfoPopover } from './fleet/DriverInfoModal';
 import { useUserRole } from '@/hooks/useUserRole';
 import { getAvailableWeeks, getCurrentWeekNumber, getWeekDates } from '@/lib/utils';
 
@@ -162,8 +162,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const [editValue, setEditValue] = useState('');
   const [chargeModalOpen, setChargeModalOpen] = useState(false);
   const [chargeDriver, setChargeDriver] = useState<{id: string, name: string} | null>(null);
-  const [infoModalOpen, setInfoModalOpen] = useState(false);
-  const [infoDriver, setInfoDriver] = useState<{id: string, name: string} | null>(null);
+  // Info popover is now inline - no separate state needed
   // Payment status tracking (green check = paid, red X = unpaid)
   const [paidDrivers, setPaidDrivers] = useState<Set<string>>(new Set());
   // Fleet settings for display in headers
@@ -3173,17 +3172,20 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                         <TableCell className="font-medium px-2 py-1.5 text-xs whitespace-nowrap">
                           <span className="flex items-center gap-1">
                             {settlement.driver_name}
-                            <button
-                              className="inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold bg-primary text-primary-foreground hover:bg-primary/80 transition-colors shadow-sm"
-                              title="Informacje o kierowcy"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setInfoDriver({ id: settlement.driver_id, name: settlement.driver_name });
-                                setInfoModalOpen(true);
-                              }}
+                            <DriverInfoPopover
+                              driverId={settlement.driver_id}
+                              driverName={settlement.driver_name}
+                              fleetId={fleetId}
+                              onComplete={() => fetchSettlements()}
                             >
-                              i
-                            </button>
+                              <button
+                                className="inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold bg-primary text-primary-foreground hover:bg-primary/80 transition-colors shadow-sm"
+                                title="Informacje o kierowcy"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                i
+                              </button>
+                            </DriverInfoPopover>
                             <button
                               className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors border border-transparent hover:border-border"
                               title="Dodaj opłatę lub wpłatę dla tego kierowcy"
@@ -3629,17 +3631,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         />
       )}
 
-      {/* Driver Info Modal */}
-      {infoDriver && (
-        <DriverInfoModal
-          open={infoModalOpen}
-          onOpenChange={setInfoModalOpen}
-          driverId={infoDriver.id}
-          driverName={infoDriver.name}
-          fleetId={fleetId}
-          onComplete={() => fetchSettlements()}
-        />
-      )}
+      {/* Driver Info is now inline Popover - no separate modal needed */}
     </Card>
 
       {/* Unmapped Drivers Modal */}
