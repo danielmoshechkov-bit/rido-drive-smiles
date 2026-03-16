@@ -2,12 +2,12 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Upload, FileText, Loader2 } from "lucide-react";
 import { format } from "date-fns";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { getAvailableWeeks } from "@/lib/utils";
 
 interface FuelCSVUploadProps {
   onUploadComplete?: () => void;
@@ -15,20 +15,20 @@ interface FuelCSVUploadProps {
 
 export const FuelCSVUpload = ({ onUploadComplete }: FuelCSVUploadProps) => {
   const [file, setFile] = useState<File | null>(null);
-  const [periodFrom, setPeriodFrom] = useState<Date>();
-  const [periodTo, setPeriodTo] = useState<Date>();
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedWeek, setSelectedWeek] = useState<string>('');
   const [isUploading, setIsUploading] = useState(false);
   const [stats, setStats] = useState<any>(null);
   const { toast } = useToast();
 
-  const disableCurrentAndFuture = (date: Date) => {
-    const now = new Date();
-    const dow = now.getDay();
-    const currentMonday = new Date(now);
-    currentMonday.setDate(now.getDate() - (dow === 0 ? 6 : dow - 1));
-    currentMonday.setHours(0,0,0,0);
-    return date >= currentMonday;
-  };
+  const weeks = getAvailableWeeks(selectedYear);
+
+  // Auto-select newest week on year change
+  useState(() => {
+    if (weeks.length && !selectedWeek) {
+      setSelectedWeek(weeks[0].number.toString());
+    }
+  });
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -46,7 +46,8 @@ export const FuelCSVUpload = ({ onUploadComplete }: FuelCSVUploadProps) => {
   };
 
   const handleImport = async () => {
-    if (!file || !periodFrom || !periodTo) {
+    const weekData = weeks.find(w => w.number.toString() === selectedWeek);
+    if (!file || !weekData) {
       toast({
         title: "Błąd",
         description: "Wybierz plik CSV i okres rozliczeniowy",
@@ -59,15 +60,13 @@ export const FuelCSVUpload = ({ onUploadComplete }: FuelCSVUploadProps) => {
     setStats(null);
 
     try {
-      // Read file content
       const csvText = await file.text();
 
-      // Call edge function
       const { data, error } = await supabase.functions.invoke('fuel-import', {
         body: {
           csv_text: csvText,
-          period_from: format(periodFrom, 'yyyy-MM-dd'),
-          period_to: format(periodTo, 'yyyy-MM-dd'),
+          period_from: weekData.start,
+          period_to: weekData.end,
         },
       });
 
@@ -131,51 +130,44 @@ export const FuelCSVUpload = ({ onUploadComplete }: FuelCSVUploadProps) => {
         </label>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="text-sm font-medium mb-2 block">Okres od</label>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="w-full justify-start">
-                {periodFrom ? format(periodFrom, 'dd.MM.yyyy') : 'Wybierz datę'}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0">
-              <Calendar
-                mode="single"
-                selected={periodFrom}
-                onSelect={setPeriodFrom}
-                className="p-3 pointer-events-auto"
-                disabled={disableCurrentAndFuture}
-              />
-            </PopoverContent>
-          </Popover>
+      <div className="flex gap-3 items-end">
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium">Rok</label>
+          <Select value={selectedYear.toString()} onValueChange={(v) => {
+            setSelectedYear(parseInt(v));
+            setSelectedWeek('');
+          }}>
+            <SelectTrigger className="w-[100px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {[2024, 2025, 2026].map(year => (
+                <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
-        <div>
-          <label className="text-sm font-medium mb-2 block">Okres do</label>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="w-full justify-start">
-                {periodTo ? format(periodTo, 'dd.MM.yyyy') : 'Wybierz datę'}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0">
-              <Calendar
-                mode="single"
-                selected={periodTo}
-                onSelect={setPeriodTo}
-                className="p-3 pointer-events-auto"
-                disabled={disableCurrentAndFuture}
-              />
-            </PopoverContent>
-          </Popover>
+        <div className="space-y-1.5 flex-1">
+          <label className="text-sm font-medium">Okres rozliczeniowy (tydzień)</label>
+          <Select value={selectedWeek} onValueChange={setSelectedWeek}>
+            <SelectTrigger>
+              <SelectValue placeholder="Wybierz tydzień" />
+            </SelectTrigger>
+            <SelectContent>
+              {weeks.map(week => (
+                <SelectItem key={week.number} value={week.number.toString()}>
+                  {week.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
       <Button
         onClick={handleImport}
-        disabled={!file || !periodFrom || !periodTo || isUploading}
+        disabled={!file || !selectedWeek || isUploading}
         className="w-full"
       >
         {isUploading ? (
