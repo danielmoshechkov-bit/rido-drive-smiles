@@ -2146,7 +2146,10 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           const syncResults = await Promise.all(
             settlementsNeedingDebtSync.map(async (row) => {
               try {
-                const currentRawPayout = round2(getEffectiveSettlement(row).final_payout);
+                const effectiveRow = getEffectiveSettlement(row);
+                const currentRawPayout = round2(effectiveRow.final_payout);
+                const currentPayoutWithoutRental = round2(calculatePayoutWithoutRental(effectiveRow));
+                const effectiveRentalForDebt = effectiveRow.rental || 0;
                 const { error } = await supabase.functions.invoke('update-driver-debt', {
                   body: {
                     driver_id: row.driver_id,
@@ -2154,6 +2157,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                     period_from: row.period_from,
                     period_to: row.period_to,
                     calculated_payout: currentRawPayout,
+                    calculated_payout_without_rental: currentPayoutWithoutRental,
+                    rental_fee: effectiveRentalForDebt,
                     force_recalculate_chain: true,
                   },
                 });
