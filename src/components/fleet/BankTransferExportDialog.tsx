@@ -35,6 +35,7 @@ import {
   Coins,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { getSettlementExecutionDate } from '@/lib/utils';
 
 interface BankTransferExportDialogProps {
   open: boolean;
@@ -46,7 +47,7 @@ interface BankTransferExportDialogProps {
     final_payout: number;
   }>;
   periodLabel: string;
-  weekStart?: string;
+  periodEnd?: string;
 }
 
 interface TransferRow {

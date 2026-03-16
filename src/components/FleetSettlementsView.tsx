@@ -41,7 +41,7 @@ import { BankTransferExportDialog } from './fleet/BankTransferExportDialog';
 import { AddDriverChargeModal } from './fleet/AddDriverChargeModal';
 import { DriverInfoPopover } from './fleet/DriverInfoModal';
 import { useUserRole } from '@/hooks/useUserRole';
-import { getAvailableWeeks, getCurrentWeekNumber, getWeekDates } from '@/lib/utils';
+import { getAvailableWeeks, getCurrentWeekNumber, getSettlementExecutionDate, getWeekDates } from '@/lib/utils';
 
 interface FleetSettlementsViewProps {
   fleetId: string;
