@@ -313,6 +313,14 @@ export function DriverInfoPopover({
       setDebtAmount('');
       setDebtReason('');
       setDebtAction(null);
+      // Refresh debt history
+      const { data: txData } = await supabase
+        .from('driver_debt_transactions')
+        .select('*')
+        .eq('driver_id', driverId)
+        .order('created_at', { ascending: false })
+        .limit(50);
+      setDebtHistory((txData as DebtTransaction[]) || []);
       onComplete?.();
     } catch (err) {
       console.error('Error managing debt:', err);
