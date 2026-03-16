@@ -3627,6 +3627,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           {selectedDriverForDebt && (
             <DriverDebtHistory 
               driverId={selectedDriverForDebt.id}
+              initialTab={selectedDriverForDebt.initialTab}
               weekDebtContext={{
                 settlementDebtBefore: selectedDriverForDebt.settlementDebtBefore,
                 rentalDebtBefore: selectedDriverForDebt.rentalDebtBefore,
@@ -3636,8 +3637,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                 periodTo: selectedDriverForDebt.periodTo,
               }}
               onDebtChanged={async () => {
-                // Refresh the entire settlements table to reflect debt changes immediately
-                await fetchSettlements({ skipDebtSync: true });
+                await fetchSettlements({ skipDebtSync: true, silent: true });
               }}
             />
           )}

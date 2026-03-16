@@ -7,7 +7,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { pl } from "date-fns/locale";
-import { ArrowDown, ArrowUp, TrendingDown, TrendingUp, Plus } from "lucide-react";
+import { ArrowDown, ArrowUp, TrendingDown, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 
 interface DebtTransaction {
