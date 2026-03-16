@@ -1747,10 +1747,10 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         // Czy przeglądamy najnowszy (bieżący) tydzień?
         const isLatestWeek = weeks.length > 0 && selectedWeek === weeks[0].number;
 
-        // Dług po rozliczeniu: snapshot jeśli istnieje, live balance TYLKO dla bieżącego tygodnia, w przeciwnym razie 0
-        const currentDebtForDisplay = debtAfterFromSettlement >= 0
-          ? debtAfterFromSettlement
-          : (isLatestWeek ? (debtsMap[driver.id] ?? 0) : 0);
+        // Dług po rozliczeniu: dla bieżącego tygodnia bierz MAX(snapshot, live balance) - manual adds update live balance
+        const currentDebtForDisplay = isLatestWeek
+          ? Math.max(debtAfterFromSettlement >= 0 ? debtAfterFromSettlement : 0, debtsMap[driver.id] ?? 0)
+          : (debtAfterFromSettlement >= 0 ? debtAfterFromSettlement : 0);
 
         // Dług przed rozliczeniem: snapshot jeśli istnieje, w przeciwnym razie 0 (nie live balance!)
         const debtBeforeForDisplay = hasDebtBeforeSnapshot
