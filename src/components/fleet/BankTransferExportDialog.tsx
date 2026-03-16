@@ -206,7 +206,7 @@ export function BankTransferExportDialog({
   fleetId,
   settlements,
   periodLabel,
-  weekStart,
+  periodEnd,
 }: BankTransferExportDialogProps) {
   const [selectedBank, setSelectedBank] = useState('santander');
   const [senderAccount, setSenderAccount] = useState('');
