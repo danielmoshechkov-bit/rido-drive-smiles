@@ -191,8 +191,8 @@ export function WorkshopOrderBasicTab({ order, providerId }: Props) {
             />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Opis dla mechanika</Label>
-            <Textarea value={form.mechanic_notes} onChange={e => set('mechanic_notes', e.target.value)} placeholder="Opis dla mechanika" rows={2} />
+            <Label className="text-xs">Opis dla pracownika</Label>
+            <Textarea value={form.mechanic_notes} onChange={e => set('mechanic_notes', e.target.value)} placeholder="Opis dla pracownika" rows={2} />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Uwagi po wykonaniu zlecenia</Label>

@@ -54,6 +54,8 @@ import tileCars from "@/assets/tile-cars.jpg";
 import tileFleet from "@/assets/tile-fleet.jpg";
 import tileDriver from "@/assets/tile-driver.jpg";
 import tileRealEstate from "@/assets/tile-realestate.jpg";
+import tileAutoMarketplace from "@/assets/tile-auto-marketplace.jpg";
+import tileRealEstatePortal from "@/assets/tile-realestate-portal.jpg";
 import tileMaps from "@/assets/tile-maps.jpg";
 import tileServices from "@/assets/tile-services-tools.jpg";
 import tileInvoicing from "@/assets/tile-invoicing.jpg";
@@ -127,7 +129,7 @@ const motoryzacjaSubTiles: MarketplaceTile[] = [
     title: 'Portal Ogłoszeń',
     description: 'Kupuj, sprzedawaj, wymieniaj',
     icon: ShoppingCart,
-    image: tileCars,
+    image: tileAutoMarketplace,
     link: '/gielda',
     available: true
   },
@@ -176,7 +178,7 @@ const nieruchomosciSubTiles: MarketplaceTile[] = [
     title: 'Portal Ogłoszeń',
     description: 'Mieszkania, domy, działki',
     icon: Home,
-    image: tileRealEstate,
+    image: tileRealEstatePortal,
     link: '/nieruchomosci',
     available: true
   },

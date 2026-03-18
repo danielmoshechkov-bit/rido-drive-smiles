@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useCreateWorkshopOrderItem, useUpdateWorkshopOrder } from '@/hooks/useWorkshop';
-import { Plus, Trash2, Package, Wrench, Clock, Play, CheckCircle2, Search } from 'lucide-react';
+import { Plus, Trash2, Package, Wrench, Play, CheckCircle2, Search, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -17,6 +17,33 @@ interface Props {
 
 const VAT_RATE = 1.23;
 
+type DiscountType = 'percent' | 'amount';
+
+interface TaskRow {
+  name: string;
+  mechanic: string;
+  quantity: number;
+  price_net: number;
+  price_gross: number;
+  cost_net: number;
+  cost_gross: number;
+  discount: number;
+  discountType: DiscountType;
+}
+
+interface GoodsRow {
+  name: string;
+  quantity: number;
+  unit: string;
+  price_net: number;
+  price_gross: number;
+  cost_net: number;
+  cost_gross: number;
+  discount: number;
+  discountType: DiscountType;
+  task_name: string;
+}
+
 export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   const createItem = useCreateWorkshopOrderItem();
   const [priceMode, setPriceMode] = useState<'net' | 'gross'>(order.price_mode || 'gross');
@@ -26,88 +53,123 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
 
   const isGross = priceMode === 'gross';
 
-  // New task inline row
-  const emptyTask = { name: '', mechanic: '', quantity: 1, price_net: 0, price_gross: 0, cost_net: 0, cost_gross: 0, discount: 0 };
-  const [newTask, setNewTask] = useState(emptyTask);
+  const emptyTask: TaskRow = { name: '', mechanic: '', quantity: 1, price_net: 0, price_gross: 0, cost_net: 0, cost_gross: 0, discount: 0, discountType: 'percent' };
+  const [taskRows, setTaskRows] = useState<TaskRow[]>([{ ...emptyTask }]);
   const [taskSearch, setTaskSearch] = useState('');
 
-  // New goods inline row
-  const emptyGoods = { name: '', quantity: 1, unit: 'szt', price_net: 0, price_gross: 0, cost_net: 0, cost_gross: 0, discount: 0, task_name: '' };
-  const [newGoods, setNewGoods] = useState(emptyGoods);
+  const emptyGoods: GoodsRow = { name: '', quantity: 1, unit: 'szt', price_net: 0, price_gross: 0, cost_net: 0, cost_gross: 0, discount: 0, discountType: 'percent', task_name: '' };
+  const [goodsRows, setGoodsRows] = useState<GoodsRow[]>([{ ...emptyGoods }]);
   const [goodsSearch, setGoodsSearch] = useState('');
 
-  // Sync net<->gross helper
   const syncPrice = (val: number, field: 'net' | 'gross') => {
     if (field === 'net') return { net: val, gross: Math.round(val * VAT_RATE * 100) / 100 };
     return { net: Math.round(val / VAT_RATE * 100) / 100, gross: val };
   };
 
-  const updateTaskPrice = (val: number) => {
-    const { net, gross } = syncPrice(val, isGross ? 'gross' : 'net');
-    setNewTask(p => ({ ...p, price_net: net, price_gross: gross }));
-  };
-
-  const updateTaskCost = (val: number) => {
-    const { net, gross } = syncPrice(val, isGross ? 'gross' : 'net');
-    setNewTask(p => ({ ...p, cost_net: net, cost_gross: gross }));
-  };
-
-  const updateGoodsPrice = (val: number) => {
-    const { net, gross } = syncPrice(val, isGross ? 'gross' : 'net');
-    setNewGoods(p => ({ ...p, price_net: net, price_gross: gross }));
-  };
-
-  const updateGoodsCost = (val: number) => {
-    const { net, gross } = syncPrice(val, isGross ? 'gross' : 'net');
-    setNewGoods(p => ({ ...p, cost_net: net, cost_gross: gross }));
-  };
-
-  const calcTotal = (qty: number, priceGross: number, priceNet: number, discount: number) => {
+  const calcTotal = (qty: number, priceGross: number, priceNet: number, discount: number, discountType: DiscountType) => {
     const base = isGross ? qty * priceGross : qty * priceNet;
-    return base - (base * discount / 100);
+    if (discountType === 'percent') return base - (base * discount / 100);
+    return base - discount;
   };
 
-  const addTask = async () => {
-    if (!newTask.name) return;
-    const totalGross = calcTotal(newTask.quantity, newTask.price_gross, newTask.price_net, newTask.discount);
-    const totalNet = calcTotal(newTask.quantity, newTask.price_net, newTask.price_net, newTask.discount);
+  const calcAfterDiscount = (total: number, discount: number, discountType: DiscountType) => {
+    if (discount <= 0) return total;
+    if (discountType === 'percent') return total - (total * discount / 100);
+    return total - discount;
+  };
+
+  // Task row handlers
+  const updateTaskRow = (idx: number, updates: Partial<TaskRow>) => {
+    setTaskRows(prev => prev.map((r, i) => i === idx ? { ...r, ...updates } : r));
+  };
+
+  const updateTaskRowPrice = (idx: number, val: number) => {
+    const { net, gross } = syncPrice(val, isGross ? 'gross' : 'net');
+    updateTaskRow(idx, { price_net: net, price_gross: gross });
+  };
+
+  const addTaskRow = () => setTaskRows(prev => [...prev, { ...emptyTask }]);
+
+  const removeTaskRow = (idx: number) => {
+    if (taskRows.length <= 1) return;
+    setTaskRows(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const submitTask = async (row: TaskRow, idx: number) => {
+    if (!row.name) return;
+    const rawTotal = isGross ? row.quantity * row.price_gross : row.quantity * row.price_net;
+    const totalAfterDiscount = row.discountType === 'percent'
+      ? rawTotal - (rawTotal * row.discount / 100)
+      : rawTotal - row.discount;
+    const discountPercent = rawTotal > 0 ? ((rawTotal - totalAfterDiscount) / rawTotal) * 100 : 0;
+
     await createItem.mutateAsync({
       order_id: order.id,
       item_type: 'task',
-      name: newTask.name,
-      mechanic: newTask.mechanic || null,
+      name: row.name,
+      mechanic: row.mechanic || null,
       unit: 'oper',
-      quantity: newTask.quantity,
-      unit_price_gross: newTask.price_gross,
-      unit_price_net: newTask.price_net,
-      unit_cost_net: newTask.cost_net,
-      unit_cost_gross: newTask.cost_gross,
-      discount_percent: newTask.discount,
-      total_gross: isGross ? totalGross : totalGross * VAT_RATE,
-      total_net: isGross ? totalGross / VAT_RATE : totalGross,
+      quantity: row.quantity,
+      unit_price_gross: row.price_gross,
+      unit_price_net: row.price_net,
+      unit_cost_net: row.cost_net,
+      unit_cost_gross: row.cost_gross,
+      discount_percent: discountPercent,
+      total_gross: isGross ? totalAfterDiscount : totalAfterDiscount * VAT_RATE,
+      total_net: isGross ? totalAfterDiscount / VAT_RATE : totalAfterDiscount,
     } as any);
-    setNewTask(emptyTask);
+
+    // Reset this row and keep it
+    setTaskRows(prev => prev.map((r, i) => i === idx ? { ...emptyTask } : r));
     toast.success('Usługa dodana');
   };
 
-  const addGoodsItem = async () => {
-    if (!newGoods.name) return;
-    const totalGross = calcTotal(newGoods.quantity, newGoods.price_gross, newGoods.price_net, newGoods.discount);
+  // Goods row handlers
+  const updateGoodsRow = (idx: number, updates: Partial<GoodsRow>) => {
+    setGoodsRows(prev => prev.map((r, i) => i === idx ? { ...r, ...updates } : r));
+  };
+
+  const updateGoodsRowPrice = (idx: number, val: number) => {
+    const { net, gross } = syncPrice(val, isGross ? 'gross' : 'net');
+    updateGoodsRow(idx, { price_net: net, price_gross: gross });
+  };
+
+  const updateGoodsRowCost = (idx: number, val: number) => {
+    const { net, gross } = syncPrice(val, isGross ? 'gross' : 'net');
+    updateGoodsRow(idx, { cost_net: net, cost_gross: gross });
+  };
+
+  const addGoodsRow = () => setGoodsRows(prev => [...prev, { ...emptyGoods }]);
+
+  const removeGoodsRow = (idx: number) => {
+    if (goodsRows.length <= 1) return;
+    setGoodsRows(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const submitGoods = async (row: GoodsRow, idx: number) => {
+    if (!row.name) return;
+    const rawTotal = isGross ? row.quantity * row.price_gross : row.quantity * row.price_net;
+    const totalAfterDiscount = row.discountType === 'percent'
+      ? rawTotal - (rawTotal * row.discount / 100)
+      : rawTotal - row.discount;
+    const discountPercent = rawTotal > 0 ? ((rawTotal - totalAfterDiscount) / rawTotal) * 100 : 0;
+
     await createItem.mutateAsync({
       order_id: order.id,
       item_type: 'goods',
-      name: newGoods.name,
-      unit: newGoods.unit,
-      quantity: newGoods.quantity,
-      unit_price_gross: newGoods.price_gross,
-      unit_price_net: newGoods.price_net,
-      unit_cost_net: newGoods.cost_net,
-      unit_cost_gross: newGoods.cost_gross,
-      discount_percent: newGoods.discount,
-      total_gross: isGross ? totalGross : totalGross * VAT_RATE,
-      total_net: isGross ? totalGross / VAT_RATE : totalGross,
+      name: row.name,
+      unit: row.unit,
+      quantity: row.quantity,
+      unit_price_gross: row.price_gross,
+      unit_price_net: row.price_net,
+      unit_cost_net: row.cost_net,
+      unit_cost_gross: row.cost_gross,
+      discount_percent: discountPercent,
+      total_gross: isGross ? totalAfterDiscount : totalAfterDiscount * VAT_RATE,
+      total_net: isGross ? totalAfterDiscount / VAT_RATE : totalAfterDiscount,
     });
-    setNewGoods(emptyGoods);
+
+    setGoodsRows(prev => prev.map((r, i) => i === idx ? { ...emptyGoods } : r));
     toast.success('Część dodana');
   };
 
@@ -145,22 +207,8 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
           )}
         </div>
         <div className="flex items-center gap-1 bg-muted rounded-lg p-0.5">
-          <Button
-            variant={priceMode === 'net' ? 'default' : 'ghost'}
-            size="sm"
-            className="text-xs h-7"
-            onClick={() => setPriceMode('net')}
-          >
-            NETTO
-          </Button>
-          <Button
-            variant={priceMode === 'gross' ? 'default' : 'ghost'}
-            size="sm"
-            className="text-xs h-7"
-            onClick={() => setPriceMode('gross')}
-          >
-            BRUTTO
-          </Button>
+          <Button variant={priceMode === 'net' ? 'default' : 'ghost'} size="sm" className="text-xs h-7" onClick={() => setPriceMode('net')}>NETTO</Button>
+          <Button variant={priceMode === 'gross' ? 'default' : 'ghost'} size="sm" className="text-xs h-7" onClick={() => setPriceMode('gross')}>BRUTTO</Button>
         </div>
       </div>
 
@@ -179,129 +227,124 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
             </div>
           </div>
 
-          {/* Table header */}
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b bg-muted/10">
                   <th className="w-10 p-2 text-center font-medium text-muted-foreground">LP</th>
-                  <th className="p-2 text-left font-medium text-muted-foreground min-w-[200px]">ZADANIE</th>
-                  <th className="p-2 text-left font-medium text-muted-foreground w-28">MECHANIK</th>
-                  <th className="p-2 text-center font-medium text-muted-foreground w-16">ILOŚĆ</th>
-                  <th className="p-2 text-right font-medium text-muted-foreground w-24">
-                    CENA {isGross ? 'BR.' : 'NT.'}
-                  </th>
-                  <th className="p-2 text-right font-medium text-muted-foreground w-16">RABAT</th>
-                  <th className="p-2 text-right font-medium text-muted-foreground w-24">
-                    KOSZT {isGross ? 'BR.' : 'NT.'}
-                  </th>
-                  <th className="p-2 text-right font-medium text-muted-foreground w-24">WARTOŚĆ</th>
+                  <th className="p-2 text-left font-medium text-muted-foreground min-w-[200px]">USŁUGA</th>
+                  <th className="p-2 text-left font-medium text-muted-foreground w-28">PRACOWNIK</th>
+                  <th className="p-2 text-right font-medium text-muted-foreground w-24">KOSZT USŁ.</th>
+                  <th className="p-2 text-right font-medium text-muted-foreground w-28">RABAT</th>
+                  <th className="p-2 text-right font-medium text-muted-foreground w-24">PO RABACIE</th>
                   <th className="w-10 p-2"></th>
                 </tr>
               </thead>
               <tbody>
-                {tasks.map((t: any, i: number) => (
-                  <tr key={t.id} className="border-b hover:bg-accent/30 transition-colors text-sm">
-                    <td className="p-2 text-center text-muted-foreground">{i + 1}</td>
-                    <td className="p-2 font-medium">{t.name}</td>
-                    <td className="p-2 text-muted-foreground">{t.mechanic || '—'}</td>
-                    <td className="p-2 text-center">{t.quantity}</td>
-                    <td className="p-2 text-right tabular-nums">{fmt(getItemPrice(t))}</td>
-                    <td className="p-2 text-right">{t.discount_percent || 0}%</td>
-                    <td className="p-2 text-right text-muted-foreground tabular-nums">{fmt(getItemCost(t))}</td>
-                    <td className="p-2 text-right font-semibold tabular-nums">{fmt(getItemTotal(t))}</td>
-                    <td className="p-2 text-center">
-                      <Play className="h-4 w-4 text-primary cursor-pointer hover:scale-110 transition-transform" />
-                    </td>
-                  </tr>
-                ))}
-                {tasks.length === 0 && (
-                  <tr>
-                    <td colSpan={10} className="p-6 text-center text-muted-foreground">
-                      Brak usług — dodaj pierwszą pozycję poniżej
-                    </td>
-                  </tr>
-                )}
+                {tasks.map((t: any, i: number) => {
+                  const price = getItemPrice(t) * (t.quantity || 1);
+                  const total = getItemTotal(t);
+                  const hasDiscount = (t.discount_percent || 0) > 0;
+                  return (
+                    <tr key={t.id} className="border-b hover:bg-accent/30 transition-colors text-sm">
+                      <td className="p-2 text-center text-muted-foreground">{i + 1}</td>
+                      <td className="p-2 font-medium">{t.name}</td>
+                      <td className="p-2 text-muted-foreground">{t.mechanic || '—'}</td>
+                      <td className="p-2 text-right tabular-nums">{fmt(price)}</td>
+                      <td className="p-2 text-right">{t.discount_percent ? `${Math.round(t.discount_percent)}%` : '—'}</td>
+                      <td className="p-2 text-right font-semibold tabular-nums">{hasDiscount ? fmt(total) : '—'}</td>
+                      <td className="p-2 text-center">
+                        <Play className="h-4 w-4 text-primary cursor-pointer hover:scale-110 transition-transform" />
+                      </td>
+                    </tr>
+                  );
+                })}
+
                 {/* Sum row */}
                 <tr className="bg-muted/30 font-semibold text-sm border-b">
                   <td className="p-2"></td>
-                  <td className="p-2" colSpan={3}>Razem usługi</td>
-                  <td className="p-2"></td>
-                  <td className="p-2 text-right text-muted-foreground tabular-nums">{fmt(tasksCost)}</td>
+                  <td className="p-2" colSpan={2}>Razem usługi</td>
                   <td className="p-2 text-right tabular-nums">{fmt(tasksTotal)}</td>
                   <td className="p-2"></td>
+                  <td className="p-2"></td>
+                  <td className="p-2"></td>
                 </tr>
-                {/* Add new row - inline like invoice */}
+
+                {/* Input rows */}
+                {taskRows.map((row, idx) => {
+                  const rowTotal = isGross ? row.quantity * row.price_gross : row.quantity * row.price_net;
+                  const hasDiscount = row.discount > 0;
+                  const afterDiscount = row.discountType === 'percent'
+                    ? rowTotal - (rowTotal * row.discount / 100)
+                    : rowTotal - row.discount;
+                  return (
+                    <tr key={`new-task-${idx}`} className="bg-primary/5">
+                      <td className="p-2 text-center">
+                        <Button onClick={() => submitTask(row, idx)} size="sm" className="h-8 w-8 p-0" disabled={!row.name}>
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </td>
+                      <td className="p-1.5">
+                        <Input
+                          placeholder="Wpisz nazwę usługi..."
+                          value={row.name}
+                          onChange={e => updateTaskRow(idx, { name: e.target.value })}
+                          className="h-9 text-sm"
+                          onKeyDown={e => e.key === 'Enter' && submitTask(row, idx)}
+                        />
+                      </td>
+                      <td className="p-1.5">
+                        <Input
+                          placeholder="Pracownik"
+                          value={row.mechanic}
+                          onChange={e => updateTaskRow(idx, { mechanic: e.target.value })}
+                          className="h-9 text-sm"
+                        />
+                      </td>
+                      <td className="p-1.5">
+                        <Input
+                          type="number"
+                          placeholder={isGross ? 'Brutto' : 'Netto'}
+                          value={isGross ? (row.price_gross || '') : (row.price_net || '')}
+                          onChange={e => updateTaskRowPrice(idx, Number(e.target.value))}
+                          className="h-9 text-sm text-right"
+                        />
+                      </td>
+                      <td className="p-1.5">
+                        <div className="flex items-center gap-1">
+                          <Select value={row.discountType} onValueChange={(v: DiscountType) => updateTaskRow(idx, { discountType: v })}>
+                            <SelectTrigger className="h-9 text-xs w-16"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="percent">%</SelectItem>
+                              <SelectItem value="amount">zł</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Input
+                            type="number"
+                            placeholder="0"
+                            value={row.discount || ''}
+                            onChange={e => updateTaskRow(idx, { discount: Number(e.target.value) })}
+                            className="h-9 text-sm text-right w-16"
+                          />
+                        </div>
+                      </td>
+                      <td className="p-1.5 text-right text-sm font-semibold tabular-nums">
+                        {hasDiscount ? fmt(afterDiscount) : fmt(rowTotal)}
+                      </td>
+                      <td className="p-1.5 text-center">
+                        {taskRows.length > 1 && (
+                          <Button onClick={() => removeTaskRow(idx)} size="sm" variant="ghost" className="h-8 w-8 p-0">
+                            <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
                 <tr className="bg-primary/5">
-                  <td className="p-2 text-center">
-                    <Button onClick={addTask} size="sm" className="h-8 w-8 p-0" disabled={!newTask.name}>
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </td>
-                  <td className="p-1.5">
-                    <Input
-                      placeholder="Wpisz nazwę usługi..."
-                      value={newTask.name}
-                      onChange={e => setNewTask(p => ({ ...p, name: e.target.value }))}
-                      className="h-9 text-sm"
-                      onKeyDown={e => e.key === 'Enter' && addTask()}
-                    />
-                  </td>
-                  <td className="p-1.5">
-                    <Input
-                      placeholder="Pracownik"
-                      value={newTask.mechanic}
-                      onChange={e => setNewTask(p => ({ ...p, mechanic: e.target.value }))}
-                      className="h-9 text-sm"
-                    />
-                  </td>
-                  <td className="p-1.5">
-                    <Input
-                      type="number"
-                      min={1}
-                      value={newTask.quantity}
-                      onChange={e => setNewTask(p => ({ ...p, quantity: Number(e.target.value) }))}
-                      className="h-9 text-sm text-center"
-                    />
-                  </td>
-                  <td className="p-1.5">
-                    <Input
-                      type="number"
-                      placeholder={isGross ? 'Brutto' : 'Netto'}
-                      value={isGross ? (newTask.price_gross || '') : (newTask.price_net || '')}
-                      onChange={e => updateTaskPrice(Number(e.target.value))}
-                      className="h-9 text-sm text-right"
-                    />
-                  </td>
-                  <td className="p-1.5">
-                    <Input
-                      type="number"
-                      placeholder="0%"
-                      value={newTask.discount || ''}
-                      onChange={e => setNewTask(p => ({ ...p, discount: Number(e.target.value) }))}
-                      className="h-9 text-sm text-right"
-                    />
-                  </td>
-                  <td className="p-1.5">
-                    <Input
-                      type="number"
-                      placeholder={isGross ? 'Koszt br.' : 'Koszt nt.'}
-                      value={isGross ? (newTask.cost_gross || '') : (newTask.cost_net || '')}
-                      onChange={e => updateTaskCost(Number(e.target.value))}
-                      className="h-9 text-sm text-right"
-                    />
-                  </td>
-                  <td className="p-1.5 text-right text-sm font-semibold tabular-nums">
-                    {fmt(calcTotal(
-                      newTask.quantity,
-                      newTask.price_gross,
-                      newTask.price_net,
-                      newTask.discount
-                    ))}
-                  </td>
-                  <td className="p-1.5">
-                    <Button onClick={addTask} size="sm" className="h-8 w-8 p-0" variant="ghost" disabled={!newTask.name}>
-                      <CheckCircle2 className="h-4 w-4" />
+                  <td colSpan={7} className="p-1.5">
+                    <Button onClick={addTaskRow} variant="ghost" size="sm" className="gap-1 text-xs text-primary">
+                      <Plus className="h-3.5 w-3.5" /> Dodaj kolejną usługę
                     </Button>
                   </td>
                 </tr>
@@ -336,144 +379,153 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
               <thead>
                 <tr className="border-b bg-muted/10">
                   <th className="w-10 p-2 text-center font-medium text-muted-foreground">LP</th>
-                  <th className="p-2 text-left font-medium text-muted-foreground min-w-[200px]">TOWAR</th>
-                  <th className="p-2 text-left font-medium text-muted-foreground w-28">DO USŁUGI</th>
+                  <th className="p-2 text-left font-medium text-muted-foreground min-w-[180px]">NAZWA</th>
                   <th className="p-2 text-center font-medium text-muted-foreground w-16">ILOŚĆ</th>
                   <th className="p-2 text-center font-medium text-muted-foreground w-14">J.M.</th>
-                  <th className="p-2 text-right font-medium text-muted-foreground w-24">
-                    CENA {isGross ? 'BR.' : 'NT.'}
+                  <th className="p-2 text-right font-medium text-muted-foreground w-24">CENA</th>
+                  <th className="p-2 text-right font-medium text-muted-foreground w-28">
+                    <div className="flex items-center justify-end gap-1">
+                      <EyeOff className="h-3 w-3" />
+                      <span>KOSZT ZAKUPU</span>
+                    </div>
                   </th>
-                  <th className="p-2 text-right font-medium text-muted-foreground w-24">
-                    KOSZT {isGross ? 'BR.' : 'NT.'}
-                  </th>
-                  <th className="p-2 text-right font-medium text-muted-foreground w-16">RABAT</th>
-                  <th className="p-2 text-right font-medium text-muted-foreground w-24">MARŻA</th>
-                  <th className="p-2 text-right font-medium text-muted-foreground w-24">WARTOŚĆ</th>
+                  <th className="p-2 text-right font-medium text-muted-foreground w-24">RAZEM</th>
+                  <th className="p-2 text-right font-medium text-muted-foreground w-28">RABAT</th>
+                  <th className="p-2 text-right font-medium text-muted-foreground w-24">PO RABACIE</th>
+                  <th className="w-8 p-2"></th>
                 </tr>
               </thead>
               <tbody>
                 {goods.map((g: any, i: number) => {
-                  const itemCost = getItemCost(g) * (g.quantity || 1);
-                  const itemValue = getItemTotal(g);
-                  const itemMargin = itemValue - itemCost;
+                  const itemPrice = getItemPrice(g);
+                  const rawTotal = itemPrice * (g.quantity || 1);
+                  const itemTotal = getItemTotal(g);
+                  const itemCost = getItemCost(g);
+                  const hasDiscount = (g.discount_percent || 0) > 0;
                   return (
                     <tr key={g.id} className="border-b hover:bg-accent/30 transition-colors text-sm">
                       <td className="p-2 text-center text-muted-foreground">{i + 1}</td>
                       <td className="p-2 font-medium">{g.name}</td>
-                      <td className="p-2 text-muted-foreground">—</td>
                       <td className="p-2 text-center">{g.quantity}</td>
                       <td className="p-2 text-center">{g.unit}</td>
-                      <td className="p-2 text-right tabular-nums">{fmt(getItemPrice(g))}</td>
-                      <td className="p-2 text-right text-muted-foreground tabular-nums">{fmt(getItemCost(g))}</td>
-                      <td className="p-2 text-right">{g.discount_percent || 0}%</td>
-                      <td className={`p-2 text-right tabular-nums ${itemMargin >= 0 ? 'text-green-600' : 'text-destructive'}`}>
-                        {fmt(itemMargin)}
-                      </td>
-                      <td className="p-2 text-right font-semibold tabular-nums">{fmt(itemValue)}</td>
+                      <td className="p-2 text-right tabular-nums">{fmt(itemPrice)}</td>
+                      <td className="p-2 text-right text-muted-foreground tabular-nums">{fmt(itemCost)}</td>
+                      <td className="p-2 text-right tabular-nums">{fmt(rawTotal)}</td>
+                      <td className="p-2 text-right">{g.discount_percent ? `${Math.round(g.discount_percent)}%` : '—'}</td>
+                      <td className="p-2 text-right font-semibold tabular-nums">{hasDiscount ? fmt(itemTotal) : '—'}</td>
+                      <td className="p-2"></td>
                     </tr>
                   );
                 })}
-                {goods.length === 0 && (
-                  <tr>
-                    <td colSpan={10} className="p-6 text-center text-muted-foreground">
-                      Brak części — dodaj pozycję poniżej lub pobierz z magazynu
-                    </td>
-                  </tr>
-                )}
+
                 {/* Sum row */}
                 <tr className="bg-muted/30 font-semibold text-sm border-b">
                   <td className="p-2"></td>
-                  <td className="p-2" colSpan={4}>Razem części</td>
-                  <td className="p-2"></td>
-                  <td className="p-2 text-right text-muted-foreground tabular-nums">{fmt(goodsCost)}</td>
-                  <td className="p-2"></td>
-                  <td className={`p-2 text-right tabular-nums ${goodsTotal - goodsCost >= 0 ? 'text-green-600' : 'text-destructive'}`}>
-                    {fmt(goodsTotal - goodsCost)}
-                  </td>
+                  <td className="p-2" colSpan={5}>Razem części</td>
                   <td className="p-2 text-right tabular-nums">{fmt(goodsTotal)}</td>
+                  <td className="p-2"></td>
+                  <td className="p-2"></td>
+                  <td className="p-2"></td>
                 </tr>
-                {/* Add new part inline */}
+
+                {/* Input rows */}
+                {goodsRows.map((row, idx) => {
+                  const rowTotal = isGross ? row.quantity * row.price_gross : row.quantity * row.price_net;
+                  const hasDiscount = row.discount > 0;
+                  const afterDiscount = row.discountType === 'percent'
+                    ? rowTotal - (rowTotal * row.discount / 100)
+                    : rowTotal - row.discount;
+                  return (
+                    <tr key={`new-goods-${idx}`} className="bg-amber-500/5">
+                      <td className="p-2 text-center">
+                        <Button onClick={() => submitGoods(row, idx)} size="sm" className="h-8 w-8 p-0 bg-amber-500 hover:bg-amber-600" disabled={!row.name}>
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </td>
+                      <td className="p-1.5">
+                        <Input
+                          placeholder="Wpisz nazwę części..."
+                          value={row.name}
+                          onChange={e => updateGoodsRow(idx, { name: e.target.value })}
+                          className="h-9 text-sm"
+                          onKeyDown={e => e.key === 'Enter' && submitGoods(row, idx)}
+                        />
+                      </td>
+                      <td className="p-1.5">
+                        <Input
+                          type="number"
+                          min={1}
+                          value={row.quantity}
+                          onChange={e => updateGoodsRow(idx, { quantity: Number(e.target.value) })}
+                          className="h-9 text-sm text-center"
+                        />
+                      </td>
+                      <td className="p-1.5">
+                        <Input
+                          placeholder="szt."
+                          value={row.unit}
+                          onChange={e => updateGoodsRow(idx, { unit: e.target.value })}
+                          className="h-9 text-sm text-center"
+                        />
+                      </td>
+                      <td className="p-1.5">
+                        <Input
+                          type="number"
+                          placeholder={isGross ? 'Brutto' : 'Netto'}
+                          value={isGross ? (row.price_gross || '') : (row.price_net || '')}
+                          onChange={e => updateGoodsRowPrice(idx, Number(e.target.value))}
+                          className="h-9 text-sm text-right"
+                        />
+                      </td>
+                      <td className="p-1.5">
+                        <Input
+                          type="number"
+                          placeholder="Tylko serwis"
+                          title="Koszt zakupu — widoczne tylko dla serwisu, klient nie widzi tej wartości"
+                          value={isGross ? (row.cost_gross || '') : (row.cost_net || '')}
+                          onChange={e => updateGoodsRowCost(idx, Number(e.target.value))}
+                          className="h-9 text-sm text-right"
+                        />
+                      </td>
+                      <td className="p-1.5 text-right text-sm tabular-nums">
+                        {fmt(rowTotal)}
+                      </td>
+                      <td className="p-1.5">
+                        <div className="flex items-center gap-1">
+                          <Select value={row.discountType} onValueChange={(v: DiscountType) => updateGoodsRow(idx, { discountType: v })}>
+                            <SelectTrigger className="h-9 text-xs w-16"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="percent">%</SelectItem>
+                              <SelectItem value="amount">zł</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Input
+                            type="number"
+                            placeholder="0"
+                            value={row.discount || ''}
+                            onChange={e => updateGoodsRow(idx, { discount: Number(e.target.value) })}
+                            className="h-9 text-sm text-right w-16"
+                          />
+                        </div>
+                      </td>
+                      <td className="p-1.5 text-right text-sm font-semibold tabular-nums">
+                        {hasDiscount ? fmt(afterDiscount) : '—'}
+                      </td>
+                      <td className="p-1.5 text-center">
+                        {goodsRows.length > 1 && (
+                          <Button onClick={() => removeGoodsRow(idx)} size="sm" variant="ghost" className="h-8 w-8 p-0">
+                            <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
                 <tr className="bg-amber-500/5">
-                  <td className="p-2 text-center">
-                    <Button onClick={addGoodsItem} size="sm" className="h-8 w-8 p-0 bg-amber-500 hover:bg-amber-600" disabled={!newGoods.name}>
-                      <Plus className="h-4 w-4" />
+                  <td colSpan={10} className="p-1.5">
+                    <Button onClick={addGoodsRow} variant="ghost" size="sm" className="gap-1 text-xs text-amber-600">
+                      <Plus className="h-3.5 w-3.5" /> Dodaj kolejną część
                     </Button>
-                  </td>
-                  <td className="p-1.5">
-                    <Input
-                      placeholder="Wpisz nazwę części..."
-                      value={newGoods.name}
-                      onChange={e => setNewGoods(p => ({ ...p, name: e.target.value }))}
-                      className="h-9 text-sm"
-                      onKeyDown={e => e.key === 'Enter' && addGoodsItem()}
-                    />
-                  </td>
-                  <td className="p-1.5">
-                    <Select value={newGoods.task_name} onValueChange={v => setNewGoods(p => ({ ...p, task_name: v }))}>
-                      <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Usługa" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">—</SelectItem>
-                        {tasks.map((t: any) => (
-                          <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </td>
-                  <td className="p-1.5">
-                    <Input
-                      type="number"
-                      min={1}
-                      value={newGoods.quantity}
-                      onChange={e => setNewGoods(p => ({ ...p, quantity: Number(e.target.value) }))}
-                      className="h-9 text-sm text-center"
-                    />
-                  </td>
-                  <td className="p-1.5">
-                    <Select value={newGoods.unit} onValueChange={v => setNewGoods(p => ({ ...p, unit: v }))}>
-                      <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="szt">szt.</SelectItem>
-                        <SelectItem value="kpl">kpl.</SelectItem>
-                        <SelectItem value="l">l</SelectItem>
-                        <SelectItem value="m">m</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </td>
-                  <td className="p-1.5">
-                    <Input
-                      type="number"
-                      placeholder={isGross ? 'Brutto' : 'Netto'}
-                      value={isGross ? (newGoods.price_gross || '') : (newGoods.price_net || '')}
-                      onChange={e => updateGoodsPrice(Number(e.target.value))}
-                      className="h-9 text-sm text-right"
-                    />
-                  </td>
-                  <td className="p-1.5">
-                    <Input
-                      type="number"
-                      placeholder={isGross ? 'Koszt br.' : 'Koszt nt.'}
-                      value={isGross ? (newGoods.cost_gross || '') : (newGoods.cost_net || '')}
-                      onChange={e => updateGoodsCost(Number(e.target.value))}
-                      className="h-9 text-sm text-right"
-                    />
-                  </td>
-                  <td className="p-1.5">
-                    <Input
-                      type="number"
-                      placeholder="0%"
-                      value={newGoods.discount || ''}
-                      onChange={e => setNewGoods(p => ({ ...p, discount: Number(e.target.value) }))}
-                      className="h-9 text-sm text-right"
-                    />
-                  </td>
-                  <td className="p-1.5"></td>
-                  <td className="p-1.5 text-right text-sm font-semibold tabular-nums">
-                    {fmt(calcTotal(
-                      newGoods.quantity,
-                      newGoods.price_gross,
-                      newGoods.price_net,
-                      newGoods.discount
-                    ))}
                   </td>
                 </tr>
               </tbody>
