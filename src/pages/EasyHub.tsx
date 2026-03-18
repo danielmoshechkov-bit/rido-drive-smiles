@@ -54,6 +54,8 @@ import tileCars from "@/assets/tile-cars.jpg";
 import tileFleet from "@/assets/tile-fleet.jpg";
 import tileDriver from "@/assets/tile-driver.jpg";
 import tileRealEstate from "@/assets/tile-realestate.jpg";
+import tileAutoMarketplace from "@/assets/tile-auto-marketplace.jpg";
+import tileRealEstatePortal from "@/assets/tile-realestate-portal.jpg";
 import tileMaps from "@/assets/tile-maps.jpg";
 import tileServices from "@/assets/tile-services-tools.jpg";
 import tileInvoicing from "@/assets/tile-invoicing.jpg";
