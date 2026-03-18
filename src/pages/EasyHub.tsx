@@ -129,7 +129,7 @@ const motoryzacjaSubTiles: MarketplaceTile[] = [
     title: 'Portal Ogłoszeń',
     description: 'Kupuj, sprzedawaj, wymieniaj',
     icon: ShoppingCart,
-    image: tileCars,
+    image: tileAutoMarketplace,
     link: '/gielda',
     available: true
   },
