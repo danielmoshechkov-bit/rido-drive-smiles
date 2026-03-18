@@ -178,7 +178,7 @@ const nieruchomosciSubTiles: MarketplaceTile[] = [
     title: 'Portal Ogłoszeń',
     description: 'Mieszkania, domy, działki',
     icon: Home,
-    image: tileRealEstate,
+    image: tileRealEstatePortal,
     link: '/nieruchomosci',
     available: true
   },

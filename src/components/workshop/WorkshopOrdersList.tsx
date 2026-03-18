@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -11,8 +11,8 @@ import {
 } from '@/hooks/useWorkshop';
 import { WorkshopNewOrderDialog } from './WorkshopNewOrderDialog';
 import {
-  Plus, Search, CheckCircle, Calendar, Wallet, Users, Car, Trash2,
-  Phone, Wrench, Filter, Loader2
+  Plus, Search, CheckCircle, Car, Trash2,
+  Wrench, Filter, Loader2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -96,7 +96,6 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
 
         <div className="flex-1" />
 
-        {/* Filter icons */}
         <Button
           variant={completedOnly ? 'secondary' : 'ghost'}
           size="icon"
@@ -143,13 +142,11 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                 <TableRow>
                   <TableHead className="w-10"></TableHead>
                   <TableHead>Numer zlecenia</TableHead>
-                  <TableHead>Utworzone</TableHead>
-                  <TableHead>Zakończone</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Klient</TableHead>
-                  <TableHead>Przyjęcie</TableHead>
                   <TableHead className="text-right">Razem</TableHead>
                   <TableHead>Pojazd</TableHead>
+                  <TableHead>Klient</TableHead>
+                  <TableHead>Przyjęcie</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -167,8 +164,6 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                         <span className="font-medium">{order.order_number}</span>
                       </div>
                     </TableCell>
-                    <TableCell>{format(new Date(order.created_at), 'yyyy-MM-dd')}</TableCell>
-                    <TableCell>{order.completed_at ? format(new Date(order.completed_at), 'yyyy-MM-dd') : ''}</TableCell>
                     <TableCell onClick={e => e.stopPropagation()}>
                       <div className="relative">
                         <button
@@ -197,19 +192,6 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1.5">
-                        {order.client && <Users className="h-3.5 w-3.5 text-muted-foreground" />}
-                        <span className="text-sm">{getClientName(order)}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {order.client?.phone && (
-                        <button title="Pokaż dane do kontaktu">
-                          <Phone className="h-4 w-4 text-muted-foreground hover:text-primary" />
-                        </button>
-                      )}
-                    </TableCell>
                     <TableCell className="text-right font-medium">
                       {(order.total_gross || 0).toLocaleString('pl-PL', { minimumFractionDigits: 2 })}
                     </TableCell>
@@ -219,22 +201,28 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                         <span className="text-sm truncate max-w-[180px]">{getVehicleName(order)}</span>
                       </div>
                     </TableCell>
+                    <TableCell>
+                      <span className="text-sm">{getClientName(order)}</span>
+                    </TableCell>
+                    <TableCell>
+                      {format(new Date(order.created_at), 'yyyy-MM-dd')}
+                    </TableCell>
                   </TableRow>
                 ))}
                 {filteredOrders.length === 0 && !isLoading && (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       Brak zleceń
                     </TableCell>
                   </TableRow>
                 )}
                 {filteredOrders.length > 0 && (
                   <TableRow className="font-semibold bg-muted/50">
-                    <TableCell colSpan={7}>Suma</TableCell>
+                    <TableCell colSpan={3}>Suma</TableCell>
                     <TableCell className="text-right">
                       {totalSum.toLocaleString('pl-PL', { minimumFractionDigits: 2 })}
                     </TableCell>
-                    <TableCell></TableCell>
+                    <TableCell colSpan={3}></TableCell>
                   </TableRow>
                 )}
               </TableBody>

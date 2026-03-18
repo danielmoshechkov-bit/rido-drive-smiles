@@ -175,10 +175,10 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="basic">Podstawowe</TabsTrigger>
-          <TabsTrigger value="files">Pliki</TabsTrigger>
-          <TabsTrigger value="tasks">Zadania i towary</TabsTrigger>
-          <TabsTrigger value="schedule">Terminarz</TabsTrigger>
+          <TabsTrigger value="tasks">Wycena zlecenia</TabsTrigger>
           <TabsTrigger value="summary">Podsumowanie</TabsTrigger>
+          <TabsTrigger value="schedule">Terminarz</TabsTrigger>
+          <TabsTrigger value="files">Pliki</TabsTrigger>
           <TabsTrigger value="repair-data">Dane naprawcze</TabsTrigger>
         </TabsList>
 
