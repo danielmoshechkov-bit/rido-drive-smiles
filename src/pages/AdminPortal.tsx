@@ -88,9 +88,7 @@ export default function AdminPortal() {
   const tabs = [
     { value: 'ai-assistant', label: 'AI Asystent', icon: Bot },
     { value: 'tickets', label: 'Zgłoszenia', icon: TicketCheck },
-    { value: 'security', label: 'Zabezpieczenia', icon: Shield },
-    { value: 'email', label: 'Poczta email', icon: Mail },
-    { value: 'registries', label: 'Rejestry', icon: Building2 },
+    { value: 'api', label: 'Klucze API', icon: Key },
     { value: 'accounting', label: 'Księgowość', icon: Calculator },
     { value: 'features', label: 'Funkcje', icon: Wrench },
     { value: 'portals', label: 'Portale', icon: LayoutGrid },
