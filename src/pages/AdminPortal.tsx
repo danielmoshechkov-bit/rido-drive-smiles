@@ -6,16 +6,14 @@ import { AdminPortalSwitcher } from '@/components/admin/AdminPortalSwitcher';
 
 import { FeatureTogglesManagement } from '@/components/FeatureTogglesManagement';
 import { UserRolesManager } from '@/components/UserRolesManager';
-import { RegistryIntegrationsPanel } from '@/components/admin/RegistryIntegrationsPanel';
 
 import { AccountingModuleSettings } from '@/components/admin/AccountingModuleSettings';
 import { PortalCategoriesManager } from '@/components/admin/PortalCategoriesManager';
 import { AdminAIAssistant } from '@/components/admin/AdminAIAssistant';
 import { WorkspaceManagement } from '@/components/admin/WorkspaceManagement';
 import { SupportTicketsPanel } from '@/components/admin/SupportTicketsPanel';
-import { EmailSettings } from '@/components/EmailSettings';
 import { AdminAuthUsersPanel } from '@/components/admin/AdminAuthUsersPanel';
-import { SecurityApiKeysPanel } from '@/components/admin/SecurityApiKeysPanel';
+import { AdminApiKeysTab } from '@/components/admin/AdminApiKeysTab';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { UserDropdown } from '@/components/UserDropdown';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
