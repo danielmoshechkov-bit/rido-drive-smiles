@@ -17,7 +17,7 @@ import { AdminApiKeysTab } from '@/components/admin/AdminApiKeysTab';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { UserDropdown } from '@/components/UserDropdown';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Settings, Palette, Users, Wrench, Building2, Calculator, LayoutGrid, Bot, Key, TicketCheck, Briefcase } from 'lucide-react';
+import { Loader2, Palette, Users, Wrench, Calculator, LayoutGrid, Bot, Key, TicketCheck, Briefcase } from 'lucide-react';
 
 export default function AdminPortal() {
   const navigate = useNavigate();
