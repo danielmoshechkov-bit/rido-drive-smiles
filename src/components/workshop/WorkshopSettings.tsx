@@ -464,7 +464,7 @@ function WorkerSettings({ providerId }: { providerId: string }) {
     <Card>
       <CardContent className="py-6 space-y-4">
         <p className="text-sm text-muted-foreground">
-          Lista mechaników i pracowników warsztatu. Przypisywanie do zleceń i stanowisk.
+          Lista pracowników serwisu. Przypisywanie do zleceń i stanowisk.
         </p>
         {isLoading ? (
           <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
