@@ -212,44 +212,9 @@ export default function AdminPortal() {
           </TabsContent>
 
 
-          <TabsContent value="security">
-            <SecurityApiKeysPanel />
-          </TabsContent>
-
-          {/* Email Settings Tab */}
-          <TabsContent value="email">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Mail className="h-5 w-5" />
-                  Ustawienia poczty email
-                </CardTitle>
-                <CardDescription>
-                  Konfiguracja serwera SMTP i szablonów wiadomości
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-0">
-                <EmailSettings />
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* External Registries Tab */}
-          <TabsContent value="registries">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Building2 className="h-5 w-5" />
-                  Rejestry zewnętrzne
-                </CardTitle>
-                <CardDescription>
-                  Integracje z GUS REGON, Białą Listą VAT i KSeF
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <RegistryIntegrationsPanel />
-              </CardContent>
-            </Card>
+          {/* API Keys Tab */}
+          <TabsContent value="api">
+            <AdminApiKeysTab />
           </TabsContent>
 
           {/* Accounting Module Tab */}
