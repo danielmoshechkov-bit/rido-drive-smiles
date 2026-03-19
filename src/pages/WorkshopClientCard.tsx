@@ -168,7 +168,7 @@ export default function WorkshopClientCard() {
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-4 md:px-8 -mt-4">
+      <div className="max-w-5xl mx-auto px-4 md:px-8 mt-6">
         {/* Client & Vehicle cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <Card className="shadow-md border-0">
