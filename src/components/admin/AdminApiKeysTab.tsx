@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Key, Map, MessageSquare, Mail, Building2, Database } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+
 import { SecurityApiKeysPanel } from './SecurityApiKeysPanel';
 import { LocationIntegrationsPanel } from './LocationIntegrationsPanel';
 import { SMSIntegrationsPanel } from './SMSIntegrationsPanel';

@@ -18,7 +18,6 @@ import { AdminIntegrationsTab } from '@/components/admin/AdminIntegrationsTab';
 import { AdminPaymentsTab } from '@/components/admin/AdminPaymentsTab';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { UserDropdown } from '@/components/UserDropdown';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, Palette, Users, Wrench, Calculator, LayoutGrid, Bot, Key, TicketCheck, Briefcase, Plug, Wallet } from 'lucide-react';
 
 export default function AdminPortal() {
