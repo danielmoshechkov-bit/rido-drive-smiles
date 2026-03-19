@@ -185,19 +185,19 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
         <TabsContent value="basic">
           <WorkshopOrderBasicTab order={order} providerId={providerId} />
         </TabsContent>
-        <TabsContent value="files">
-          <WorkshopOrderFilesTab order={order} />
-        </TabsContent>
         <TabsContent value="tasks">
           <WorkshopOrderTasksTab order={order} providerId={providerId} />
+        </TabsContent>
+        <TabsContent value="summary">
+          <WorkshopOrderSummaryTab order={order} />
         </TabsContent>
         <TabsContent value="schedule">
           <div className="text-center py-12 text-muted-foreground">
             Terminarz zlecenia — wkrótce dostępny
           </div>
         </TabsContent>
-        <TabsContent value="summary">
-          <WorkshopOrderSummaryTab order={order} />
+        <TabsContent value="files">
+          <WorkshopOrderFilesTab order={order} />
         </TabsContent>
         <TabsContent value="repair-data">
           <div className="text-center py-12 text-muted-foreground">
