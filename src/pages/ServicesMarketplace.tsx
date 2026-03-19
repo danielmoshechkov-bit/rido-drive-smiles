@@ -203,6 +203,14 @@ export default function ServicesMarketplace() {
     if (selectedCategorySlug && provider.category?.slug !== selectedCategorySlug) {
       return false;
     }
+
+    // Group filter - match any slug in the group
+    if (selectedGroupId && !selectedCategorySlug) {
+      const group = CATEGORY_GROUPS.find(g => g.id === selectedGroupId);
+      if (group && group.slugs.length > 0 && !group.slugs.includes(provider.category?.slug || '')) {
+        return false;
+      }
+    }
     
     // Search filter
     if (searchQuery) {
