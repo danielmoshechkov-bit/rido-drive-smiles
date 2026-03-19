@@ -268,7 +268,7 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz' }: P
 
   return (
     <div className="space-y-4">
-      <h2 className="text-2xl font-bold tracking-tight">{title}</h2>
+      {title && <h2 className="text-2xl font-bold tracking-tight">{title}</h2>}
 
       {/* Unplanned orders */}
       <Card

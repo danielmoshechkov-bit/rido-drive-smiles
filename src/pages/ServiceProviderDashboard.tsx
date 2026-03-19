@@ -560,17 +560,16 @@ export default function ServiceProviderDashboard() {
           {/* Calendar Tab */}
           <TabsContent value="calendar" className="mt-6">
             {providerId ? (
-              <WorkshopScheduler providerId={providerId} onBack={() => setActiveTab('dashboard')} title="Kalendarz" />
+              <WorkshopScheduler providerId={providerId} onBack={() => setActiveTab('dashboard')} title="" />
             ) : (
               <CalendarView />
             )}
           </TabsContent>
 
           {/* Bookings Tab */}
-          <TabsContent value="bookings" className="mt-6">
+           <TabsContent value="bookings" className="mt-6">
             <Card>
-              <CardHeader><CardTitle>Rezerwacje</CardTitle><CardDescription>Nadchodzące i zakończone zlecenia</CardDescription></CardHeader>
-              <CardContent><p className="text-muted-foreground text-center py-8">Brak aktywnych rezerwacji</p></CardContent>
+              <CardContent className="pt-6"><p className="text-muted-foreground text-center py-8">Brak aktywnych rezerwacji</p></CardContent>
             </Card>
           </TabsContent>
 
