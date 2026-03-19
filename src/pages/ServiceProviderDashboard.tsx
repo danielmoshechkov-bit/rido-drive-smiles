@@ -567,10 +567,9 @@ export default function ServiceProviderDashboard() {
           </TabsContent>
 
           {/* Bookings Tab */}
-          <TabsContent value="bookings" className="mt-6">
+           <TabsContent value="bookings" className="mt-6">
             <Card>
-              <CardHeader><CardTitle>Rezerwacje</CardTitle><CardDescription>Nadchodzące i zakończone zlecenia</CardDescription></CardHeader>
-              <CardContent><p className="text-muted-foreground text-center py-8">Brak aktywnych rezerwacji</p></CardContent>
+              <CardContent className="pt-6"><p className="text-muted-foreground text-center py-8">Brak aktywnych rezerwacji</p></CardContent>
             </Card>
           </TabsContent>
 
