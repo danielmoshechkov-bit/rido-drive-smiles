@@ -225,20 +225,7 @@ export default function AdminPortal() {
 
           {/* Feature Toggles Tab */}
           <TabsContent value="features">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Wrench className="h-5 w-5" />
-                  Funkcje portalu
-                </CardTitle>
-                <CardDescription>
-                  Włączanie i wyłączanie modułów portalu
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <FeatureTogglesManagement />
-              </CardContent>
-            </Card>
+            <FeatureTogglesManagement />
           </TabsContent>
 
           {/* Portals Tab */}
