@@ -193,13 +193,13 @@ export default function WorkshopClientCard() {
                 <Car className="h-5 w-5 text-primary" />
                 <h3 className="font-semibold text-primary">Dane pojazdu</h3>
               </div>
-              <div className="space-y-1 text-sm">
-                <p><span className="text-muted-foreground">Marka i model:</span> <strong>{order.vehicle?.brand} {order.vehicle?.model}</strong></p>
-                <p><span className="text-muted-foreground">Nr rejestracyjny:</span> {order.vehicle?.plate || '---'}</p>
-                <p><span className="text-muted-foreground">VIN:</span> {order.vehicle?.vin || '---'}</p>
-                <p><span className="text-muted-foreground">Rocznik:</span> {order.vehicle?.year || '---'}</p>
-                <p><span className="text-muted-foreground">Poziom paliwa:</span> {order.fuel_level || '---'}</p>
-                {order.mileage && <p><span className="text-muted-foreground">Przebieg:</span> {order.mileage} km</p>}
+              <div className="space-y-1.5 text-sm">
+                <p><span className="text-muted-foreground">Marka i model:</span> <span className="font-semibold">{order.vehicle?.brand} {order.vehicle?.model}</span></p>
+                <p><span className="text-muted-foreground">Nr rejestracyjny:</span> <span className="font-medium">{order.vehicle?.plate || '---'}</span></p>
+                <p><span className="text-muted-foreground">VIN:</span> <span className="font-medium">{order.vehicle?.vin || '---'}</span></p>
+                <p><span className="text-muted-foreground">Rocznik:</span> <span className="font-medium">{order.vehicle?.year || '---'}</span></p>
+                <p><span className="text-muted-foreground">Poziom paliwa:</span> <span className="font-medium">{order.fuel_level || '---'}</span></p>
+                {order.mileage && <p><span className="text-muted-foreground">Przebieg:</span> <span className="font-medium">{order.mileage} km</span></p>}
               </div>
             </CardContent>
           </Card>
