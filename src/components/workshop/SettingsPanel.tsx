@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -168,11 +168,7 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm }: Set
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Ustawienia</CardTitle>
-        <CardDescription>Zarządzaj kontem, firmą i zespołem</CardDescription>
-      </CardHeader>
-      <CardContent>
+      <CardContent className="pt-6">
         <Tabs value={settingsTab} onValueChange={setSettingsTab}>
           <TabsList className="mb-6">
             <TabsTrigger value="konto" className="gap-1.5">

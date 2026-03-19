@@ -402,20 +402,15 @@ export default function ServiceProviderDashboard() {
           </TabsContent>
 
           {/* Services Tab */}
-          <TabsContent value="services" className="mt-6">
+          <TabsContent value="services" className="mt-6 space-y-4">
+            <div className="flex items-center justify-end">
+              <Button onClick={() => { resetServiceForm(); setServiceDialog(true); }} className="gap-2">
+                <Plus className="h-4 w-4" /> Dodaj usługę
+              </Button>
+            </div>
+
             <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>Moje usługi</CardTitle>
-                    <CardDescription>Zarządzaj listą świadczonych usług — widoczne w portalu dla klientów</CardDescription>
-                  </div>
-                  <Button onClick={() => { resetServiceForm(); setServiceDialog(true); }} className="gap-2">
-                    <Plus className="h-4 w-4" /> Dodaj usługę
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
+              <CardContent className="pt-6">
                 {services.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">
                     <Wrench className="h-12 w-12 mx-auto mb-4 opacity-30" />
