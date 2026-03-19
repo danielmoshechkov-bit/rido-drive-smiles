@@ -16,70 +16,59 @@ export function AdminPaymentsTab() {
   const [activeTab, setActiveTab] = useState('gateways');
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Wallet className="h-5 w-5" />
-          Płatności
-        </CardTitle>
-        <CardDescription>Bramki płatnicze, subskrypcje i jednorazowe zakupy</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="bg-gradient-hero text-primary-foreground rounded-lg p-1 shadow-purple h-10 w-full mb-4">
-            <TabsTrigger value="gateways" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm hover:bg-accent/20 rounded-md transition-colors px-2.5 py-1.5 text-sm font-medium flex-1">
-              <div className="flex items-center gap-1.5 justify-center">
-                <CreditCard className="h-3.5 w-3.5" /> Bramki płatnicze
-              </div>
-            </TabsTrigger>
-            <TabsTrigger value="assign-credits" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm hover:bg-accent/20 rounded-md transition-colors px-2.5 py-1.5 text-sm font-medium flex-1">
-              <div className="flex items-center gap-1.5 justify-center">
-                <Gift className="h-3.5 w-3.5" /> Przyznaj kredyty
-              </div>
-            </TabsTrigger>
-            <TabsTrigger value="subscriptions" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm hover:bg-accent/20 rounded-md transition-colors px-2.5 py-1.5 text-sm font-medium flex-1">
-              <div className="flex items-center gap-1.5 justify-center">
-                <RefreshCw className="h-3.5 w-3.5" /> Subskrypcje
-              </div>
-            </TabsTrigger>
-            <TabsTrigger value="onetime" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm hover:bg-accent/20 rounded-md transition-colors px-2.5 py-1.5 text-sm font-medium flex-1">
-              <div className="flex items-center gap-1.5 justify-center">
-                <ShoppingCart className="h-3.5 w-3.5" /> Jednorazowe zakupy
-              </div>
-            </TabsTrigger>
-            <TabsTrigger value="history" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm hover:bg-accent/20 rounded-md transition-colors px-2.5 py-1.5 text-sm font-medium flex-1">
-              <div className="flex items-center gap-1.5 justify-center">
-                <History className="h-3.5 w-3.5" /> Historia płatności
-              </div>
-            </TabsTrigger>
-          </TabsList>
+    <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <TabsList className="bg-gradient-hero text-primary-foreground rounded-lg p-1 shadow-purple h-10 w-full mb-4">
+        <TabsTrigger value="gateways" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm hover:bg-accent/20 rounded-md transition-colors px-2.5 py-1.5 text-sm font-medium flex-1">
+          <div className="flex items-center gap-1.5 justify-center">
+            <CreditCard className="h-3.5 w-3.5" /> Bramki płatnicze
+          </div>
+        </TabsTrigger>
+        <TabsTrigger value="assign-credits" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm hover:bg-accent/20 rounded-md transition-colors px-2.5 py-1.5 text-sm font-medium flex-1">
+          <div className="flex items-center gap-1.5 justify-center">
+            <Gift className="h-3.5 w-3.5" /> Przyznaj kredyty
+          </div>
+        </TabsTrigger>
+        <TabsTrigger value="subscriptions" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm hover:bg-accent/20 rounded-md transition-colors px-2.5 py-1.5 text-sm font-medium flex-1">
+          <div className="flex items-center gap-1.5 justify-center">
+            <RefreshCw className="h-3.5 w-3.5" /> Subskrypcje
+          </div>
+        </TabsTrigger>
+        <TabsTrigger value="onetime" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm hover:bg-accent/20 rounded-md transition-colors px-2.5 py-1.5 text-sm font-medium flex-1">
+          <div className="flex items-center gap-1.5 justify-center">
+            <ShoppingCart className="h-3.5 w-3.5" /> Jednorazowe zakupy
+          </div>
+        </TabsTrigger>
+        <TabsTrigger value="history" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm hover:bg-accent/20 rounded-md transition-colors px-2.5 py-1.5 text-sm font-medium flex-1">
+          <div className="flex items-center gap-1.5 justify-center">
+            <History className="h-3.5 w-3.5" /> Historia płatności
+          </div>
+        </TabsTrigger>
+      </TabsList>
 
-          <TabsContent value="gateways">
-            <PaymentGatewayConfig />
-          </TabsContent>
-          <TabsContent value="assign-credits">
-            <AssignCreditsPanel />
-          </TabsContent>
-          <TabsContent value="subscriptions">
-            <div className="text-center py-8 text-muted-foreground">
-              <RefreshCw className="h-12 w-12 mx-auto mb-4 opacity-30" />
-              <p className="font-medium">Subskrypcje miesięczne</p>
-              <p className="text-sm mt-1">Architektura gotowa – konfiguracja wkrótce</p>
-            </div>
-          </TabsContent>
-          <TabsContent value="onetime">
-            <div className="text-center py-8 text-muted-foreground">
-              <ShoppingCart className="h-12 w-12 mx-auto mb-4 opacity-30" />
-              <p className="font-medium">Jednorazowe zakupy</p>
-              <p className="text-sm mt-1">Kredyty pojazdowe – aktywne. Kolejne produkty wkrótce.</p>
-            </div>
-          </TabsContent>
-          <TabsContent value="history">
-            <PaymentHistory />
-          </TabsContent>
-        </Tabs>
-      </CardContent>
-    </Card>
+      <TabsContent value="gateways">
+        <PaymentGatewayConfig />
+      </TabsContent>
+      <TabsContent value="assign-credits">
+        <AssignCreditsPanel />
+      </TabsContent>
+      <TabsContent value="subscriptions">
+        <div className="text-center py-8 text-muted-foreground">
+          <RefreshCw className="h-12 w-12 mx-auto mb-4 opacity-30" />
+          <p className="font-medium">Subskrypcje miesięczne</p>
+          <p className="text-sm mt-1">Architektura gotowa – konfiguracja wkrótce</p>
+        </div>
+      </TabsContent>
+      <TabsContent value="onetime">
+        <div className="text-center py-8 text-muted-foreground">
+          <ShoppingCart className="h-12 w-12 mx-auto mb-4 opacity-30" />
+          <p className="font-medium">Jednorazowe zakupy</p>
+          <p className="text-sm mt-1">Kredyty pojazdowe – aktywne. Kolejne produkty wkrótce.</p>
+        </div>
+      </TabsContent>
+      <TabsContent value="history">
+        <PaymentHistory />
+      </TabsContent>
+    </Tabs>
   );
 }
 
