@@ -4,17 +4,25 @@ import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Search, MapPin, Wrench, Sparkles, Home, Hammer, Droplets, Zap, Flower, Truck, Star, Filter, ArrowLeft, Shield, PenTool, HardHat, Grid3X3, LayoutList, List } from 'lucide-react';
+import { Loader2, Search, MapPin, Wrench, Sparkles, Home, Hammer, Droplets, Zap, Flower, Truck, Star, Filter, ArrowLeft, Shield, PenTool, HardHat, Grid3X3, LayoutList, List, Car, Scissors, Heart, Briefcase, Package } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { ServiceCategoryTile, categoryImages } from '@/components/services/ServiceCategoryTile';
 import { ServiceListingCard } from '@/components/services/ServiceListingCard';
 import { ServiceProviderDetailModal } from '@/components/services/ServiceProviderDetailModal';
 import { MyGetRidoButton } from '@/components/MyGetRidoButton';
 import { UniversalHomeButton } from '@/components/UniversalHomeButton';
 import LanguageSelector from '@/components/LanguageSelector';
-import { PortalCategoryGrid } from '@/components/portal/PortalCategoryGrid';
+import { Card, CardContent } from '@/components/ui/card';
 import { User } from '@supabase/supabase-js';
 import { SEOHead, seoConfigs } from '@/components/SEOHead';
+
+// Category group images
+import categoryAuto from '@/assets/category-auto.jpg';
+import categoryDom from '@/assets/category-dom.jpg';
+import categoryBeauty from '@/assets/category-beauty.jpg';
+import categoryZdrowie from '@/assets/category-zdrowie.jpg';
+import categoryEkspert from '@/assets/category-ekspert.jpg';
+import categoryDostawy from '@/assets/category-dostawy.jpg';
+import categoryFachowiec from '@/assets/category-fachowiec.jpg';
 
 interface ServiceCategory {
   id: string;
@@ -42,6 +50,66 @@ interface ServiceProvider {
   services?: { id: string; name: string; price: number; price_type: string }[];
 }
 
+// Main category groups with subcategories and mapped slugs
+const CATEGORY_GROUPS = [
+  {
+    id: 'auto',
+    name: 'Auto',
+    image: categoryAuto,
+    icon: Car,
+    subcategories: ['Warsztaty', 'Detailing', 'Myjnie', 'Flota', 'PPF'],
+    slugs: ['warsztat', 'detailing', 'ppf'],
+  },
+  {
+    id: 'dom',
+    name: 'Dom',
+    image: categoryDom,
+    icon: Home,
+    subcategories: ['Sprzątanie', 'Remonty', 'Wykończenia', 'Budowlanka', 'Meble i wyposażenie'],
+    slugs: ['sprzatanie', 'remonty', 'budowlanka', 'projektanci'],
+  },
+  {
+    id: 'beauty',
+    name: 'Beauty',
+    image: categoryBeauty,
+    icon: Scissors,
+    subcategories: ['Fryzjerzy', 'Kosmetyczki', 'Paznokcie', 'Rzęsy', 'Spa i masaże'],
+    slugs: [],
+  },
+  {
+    id: 'zdrowie',
+    name: 'Zdrowie',
+    image: categoryZdrowie,
+    icon: Heart,
+    subcategories: ['Lekarze', 'Dentyści', 'Fizjoterapeuci', 'Psycholodzy', 'Dietetycy'],
+    slugs: [],
+  },
+  {
+    id: 'ekspert',
+    name: 'Ekspert',
+    image: categoryEkspert,
+    icon: Briefcase,
+    subcategories: ['Prawnicy', 'Księgowi', 'Doradcy finansowi', 'Notariusze', 'Tłumacze'],
+    slugs: [],
+  },
+  {
+    id: 'dostawy',
+    name: 'Dostawy',
+    image: categoryDostawy,
+    icon: Package,
+    subcategories: ['Kurierzy', 'Transport', 'Przeprowadzki', 'Przewóz osób'],
+    slugs: ['przeprowadzki'],
+  },
+  {
+    id: 'fachowiec',
+    name: 'Fachowiec',
+    image: categoryFachowiec,
+    icon: Wrench,
+    subcategories: ['Hydraulicy', 'Elektrycy', 'Stolarze', 'Malarze', 'Złota rączka'],
+    slugs: ['hydraulik', 'elektryk', 'zlota-raczka', 'ogrodnik'],
+  },
+];
+
 const categoryIcons: Record<string, any> = {
   'wrench': Wrench,
   'sparkles': Sparkles,
@@ -54,21 +122,6 @@ const categoryIcons: Record<string, any> = {
   'shield': Shield,
   'pen-tool': PenTool,
   'hard-hat': HardHat,
-};
-
-const categoryDescriptions: Record<string, string> = {
-  'sprzatanie': 'Profesjonalne sprzątanie mieszkań, biur i lokali',
-  'warsztat': 'Naprawy, przeglądy i serwis samochodowy',
-  'detailing': 'Polerowanie, ceramika i pielęgnacja lakieru',
-  'zlota-raczka': 'Drobne naprawy domowe i montaż',
-  'hydraulik': 'Instalacje wodne i usuwanie awarii',
-  'elektryk': 'Instalacje elektryczne i naprawy',
-  'ogrodnik': 'Pielęgnacja ogrodów i terenów zielonych',
-  'przeprowadzki': 'Transport mebli i przeprowadzki',
-  'ppf': 'Folie ochronne PPF, ceramika i zabezpieczenia lakieru',
-  'projektanci': 'Projekty wnętrz, aranżacje i wizualizacje 3D',
-  'remonty': 'Kompleksowe wykończenia mieszkań i domów',
-  'budowlanka': 'Prace budowlane, konstrukcyjne i ziemne',
 };
 
 export default function ServicesMarketplace() {
@@ -86,6 +139,20 @@ export default function ServicesMarketplace() {
   const [viewMode, setViewMode] = useState<'grid' | 'compact' | 'list'>('grid');
 
   const selectedCategorySlug = searchParams.get('kategoria');
+  const selectedGroupId = searchParams.get('grupa');
+  const selectedGroup = CATEGORY_GROUPS.find(g => g.id === selectedGroupId);
+
+  const handleBackToCategories = () => {
+    setSearchParams({});
+    setSearchQuery('');
+    setCityFilter('');
+  };
+
+  const handleBackToGroups = () => {
+    setSearchParams({});
+    setSearchQuery('');
+    setCityFilter('');
+  };
 
   useEffect(() => {
     loadData();
@@ -136,6 +203,14 @@ export default function ServicesMarketplace() {
     if (selectedCategorySlug && provider.category?.slug !== selectedCategorySlug) {
       return false;
     }
+
+    // Group filter - match any slug in the group
+    if (selectedGroupId && !selectedCategorySlug) {
+      const group = CATEGORY_GROUPS.find(g => g.id === selectedGroupId);
+      if (group && group.slugs.length > 0 && !group.slugs.includes(provider.category?.slug || '')) {
+        return false;
+      }
+    }
     
     // Search filter
     if (searchQuery) {
@@ -160,10 +235,8 @@ export default function ServicesMarketplace() {
     setSearchParams({ kategoria: slug });
   };
 
-  const handleBackToCategories = () => {
-    setSearchParams({});
-    setSearchQuery('');
-    setCityFilter('');
+  const handleGroupClick = (groupId: string) => {
+    setSearchParams({ grupa: groupId });
   };
 
   const handleProviderClick = (provider: ServiceProvider) => {
@@ -179,11 +252,10 @@ export default function ServicesMarketplace() {
     );
   }
 
-  // View: Category Selection (Landing) - unified with EasyHub sub-menu style
-  if (!selectedCategorySlug) {
+  // View: Category Group Selection (Landing)
+  if (!selectedCategorySlug && !selectedGroupId) {
     return (
       <div className="min-h-screen bg-background">
-        {/* SEO */}
         <SEOHead 
           title={seoConfigs.uslugi.title}
           description={seoConfigs.uslugi.description}
@@ -194,11 +266,10 @@ export default function ServicesMarketplace() {
             '@context': 'https://schema.org',
             '@type': 'ItemList',
             name: 'Portal Usług GetRido',
-            description: 'Znajdź fachowców i usługodawców: hydraulik, elektryk, sprzątanie, remonty i więcej',
+            description: 'Znajdź fachowców i usługodawców w każdej kategorii',
             url: 'https://getrido.pl/uslugi'
           }}
         />
-        {/* Header - unified with Nieruchomości */}
         <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b">
           <div className="container mx-auto px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -206,7 +277,6 @@ export default function ServicesMarketplace() {
               <span className="text-muted-foreground">/</span>
               <span className="font-semibold text-foreground">Usługi</span>
             </div>
-            
             <div className="flex items-center gap-2">
               <LanguageSelector />
               <MyGetRidoButton user={user} />
@@ -214,23 +284,21 @@ export default function ServicesMarketplace() {
           </div>
         </header>
 
-        {/* Hero Section - unified style */}
         <section className="py-8 md:py-12">
           <div className="container mx-auto px-4 text-center">
             <h1 className="text-3xl md:text-5xl font-bold mb-2">
-              GetRido <span className="text-primary">Easy</span>
+              Znajdź <span className="text-primary">usługę</span>
             </h1>
-            <p className="text-muted-foreground text-lg max-w-2xl mx-auto mb-6">
-              Wszystko, czego potrzebujesz – łatwo i w jednym miejscu.
+            <p className="text-muted-foreground text-lg max-w-2xl mx-auto mb-8">
+              Wybierz kategorię usługi, której szukasz
             </p>
-            
-            {/* AI Search Bar */}
+
             <div className="max-w-2xl mx-auto mb-8">
               <div className="relative">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <input
                   type="text"
-                  placeholder="AI, które znajdzie to za Ciebie…"
+                  placeholder="Szukaj usługi, np. mechanik, fryzjer, prawnik..."
                   className="w-full pl-12 pr-24 h-12 md:h-14 text-base md:text-lg rounded-full border-2 border-primary/20 focus:border-primary shadow-lg bg-background focus:outline-none"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && (e.target as HTMLInputElement).value.trim()) {
@@ -251,16 +319,11 @@ export default function ServicesMarketplace() {
                   Szukaj
                 </Button>
               </div>
-              <p className="text-center text-xs text-muted-foreground mt-2">
-                Powered by <span className="text-primary font-medium">Rido AI</span>
-              </p>
             </div>
           </div>
         </section>
 
-        {/* Back button + Category Tiles Grid - unified with Nieruchomości */}
-        <main className="container mx-auto px-4 pb-8">
-          {/* Back button */}
+        <main className="container mx-auto px-4 pb-12">
           <button
             onClick={() => navigate('/')}
             className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 transition-colors"
@@ -268,39 +331,50 @@ export default function ServicesMarketplace() {
             <ArrowLeft className="h-4 w-4" />
             Wróć do głównej
           </button>
-          
-          {/* Grid with unified tile size */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {categories.map(cat => {
-              const IconComponent = categoryIcons[cat.icon];
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            {CATEGORY_GROUPS.map(group => {
+              const IconComp = group.icon;
               return (
-                <ServiceCategoryTile
-                  key={cat.id}
-                  slug={cat.slug}
-                  name={cat.name}
-                  description={categoryDescriptions[cat.slug] || cat.description}
-                  icon={IconComponent}
-                  onClick={() => handleCategoryClick(cat.slug)}
-                />
+                <Card
+                  key={group.id}
+                  className={cn(
+                    "group relative overflow-hidden cursor-pointer transition-all duration-300",
+                    "hover:shadow-xl hover:scale-[1.02] hover:-translate-y-1",
+                    "border-0 shadow-md"
+                  )}
+                  onClick={() => handleGroupClick(group.id)}
+                >
+                  <div 
+                    className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110"
+                    style={{ backgroundImage: `url(${group.image})` }}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/20" />
+                  </div>
+                  
+                  <CardContent className="relative z-10 p-4 h-40 md:h-48 flex flex-col justify-end">
+                    <div className="flex items-center gap-2 mb-1">
+                      <IconComp className="h-5 w-5 text-white" />
+                      <h3 className="font-bold text-lg md:text-xl text-white">
+                        {group.name}
+                      </h3>
+                    </div>
+                    <p className="text-[11px] md:text-xs text-white/70 line-clamp-2">
+                      {group.subcategories.join(' · ')}
+                    </p>
+                  </CardContent>
+                </Card>
               );
             })}
           </div>
-
-          {categories.length === 0 && (
-            <div className="text-center py-16">
-              <Wrench className="h-16 w-16 mx-auto mb-4 text-muted-foreground/30" />
-              <h2 className="text-xl font-semibold mb-2">Brak kategorii</h2>
-              <p className="text-muted-foreground">
-                Moduł usług jest w trakcie uruchamiania. Wkrótce pojawią się tutaj kategorie!
-              </p>
-            </div>
-          )}
         </main>
       </div>
     );
   }
 
-  // View: Category Listings
+  // View: Group or Category Listings
+  const activeGroup = selectedGroup;
+  const displayTitle = selectedCategory?.name || activeGroup?.name || 'Usługi';
   return (
     <div className="min-h-screen bg-background">
         {/* Header */}
@@ -310,14 +384,14 @@ export default function ServicesMarketplace() {
               <Button 
                 variant="ghost" 
                 size="icon" 
-                onClick={handleBackToCategories}
+                onClick={handleBackToGroups}
                 className="mr-2"
               >
                 <ArrowLeft className="h-5 w-5" />
               </Button>
               <UniversalHomeButton />
               <span className="font-bold text-lg hidden sm:block">
-                {selectedCategory?.name || 'Usługi'}
+                {displayTitle}
               </span>
             </div>
             
@@ -365,12 +439,21 @@ export default function ServicesMarketplace() {
             <Badge
               variant={!selectedCategorySlug ? "default" : "outline"}
               className="cursor-pointer px-4 py-2 text-sm"
-              onClick={handleBackToCategories}
+              onClick={() => {
+                if (activeGroup) {
+                  setSearchParams({ grupa: activeGroup.id });
+                } else {
+                  handleBackToGroups();
+                }
+              }}
             >
               <Filter className="h-4 w-4 mr-1" />
               Wszystkie
             </Badge>
-            {categories.map(cat => {
+            {(activeGroup
+              ? categories.filter(c => activeGroup.slugs.includes(c.slug))
+              : categories
+            ).map(cat => {
               const IconComponent = categoryIcons[cat.icon];
               return (
                 <Badge
