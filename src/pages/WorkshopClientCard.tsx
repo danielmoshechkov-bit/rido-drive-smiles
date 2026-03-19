@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter
+  Dialog, DialogContent, DialogHeader, DialogTitle
 } from '@/components/ui/dialog';
 import { CheckCircle2, FileSignature, Loader2, Car, User, Wrench, Lock, Shield } from 'lucide-react';
 import { toast } from 'sonner';
@@ -137,31 +137,29 @@ export default function WorkshopClientCard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
-      {/* Company Header */}
-      <div className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground">
-        <div className="max-w-5xl mx-auto px-4 py-6 md:px-8">
+      {/* Company Header — clean, no heavy gradient */}
+      <div className="border-b bg-background">
+        <div className="max-w-5xl mx-auto px-4 py-5 md:px-8">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div className="flex items-center gap-4">
               {provider?.logo_url ? (
-                <img src={provider.logo_url} alt="Logo" className="h-14 w-14 rounded-xl bg-white p-1 object-contain" />
+                <img src={provider.logo_url} alt="Logo" className="h-12 w-12 rounded-xl border object-contain" />
               ) : (
-                <div className="h-14 w-14 rounded-xl bg-white/20 flex items-center justify-center text-2xl font-bold">
+                <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center text-xl font-bold text-primary">
                   {provider?.company_name?.charAt(0) || 'W'}
                 </div>
               )}
               <div>
-                <h1 className="text-xl md:text-2xl font-bold">{provider?.company_name || 'Serwis'}</h1>
-                <p className="text-sm text-primary-foreground/80">
+                <h1 className="text-lg md:text-xl font-bold text-foreground">{provider?.company_name || 'Serwis'}</h1>
+                <p className="text-sm text-muted-foreground">
                   {[provider?.company_address, provider?.company_city].filter(Boolean).join(', ')}
+                  {provider?.company_nip && ` · NIP: ${provider.company_nip}`}
                 </p>
-                {provider?.company_nip && (
-                  <p className="text-xs text-primary-foreground/60">NIP: {provider.company_nip}</p>
-                )}
               </div>
             </div>
             <div className="text-right space-y-1">
-              <p className="text-lg font-bold">{order.order_number}</p>
-              <p className="text-sm text-primary-foreground/80">
+              <p className="text-lg font-bold text-foreground">{order.order_number}</p>
+              <p className="text-sm text-muted-foreground">
                 {order.created_at ? format(new Date(order.created_at), 'dd.MM.yyyy') : '---'}
               </p>
               <Badge className={`${status.color} border-0`}>{status.label}</Badge>
@@ -170,7 +168,7 @@ export default function WorkshopClientCard() {
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-4 md:px-8 -mt-4">
+      <div className="max-w-5xl mx-auto px-4 md:px-8 mt-6">
         {/* Client & Vehicle cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <Card className="shadow-md border-0">
@@ -179,12 +177,12 @@ export default function WorkshopClientCard() {
                 <User className="h-5 w-5 text-primary" />
                 <h3 className="font-semibold text-primary">Dane klienta</h3>
               </div>
-              <div className="space-y-1 text-sm">
-                <p><span className="text-muted-foreground">Imię i nazwisko:</span> <strong>{clientName || '---'}</strong></p>
-                {order.client?.phone && <p><span className="text-muted-foreground">Telefon:</span> {order.client.phone}</p>}
-                {order.client?.email && <p><span className="text-muted-foreground">Email:</span> {order.client.email}</p>}
-                {order.client?.address && <p><span className="text-muted-foreground">Adres:</span> {order.client.address}</p>}
-                {order.client?.nip && <p><span className="text-muted-foreground">NIP:</span> {order.client.nip}</p>}
+              <div className="space-y-1.5 text-sm">
+                <p><span className="text-muted-foreground">Imię i nazwisko:</span> <span className="font-semibold">{clientName || '---'}</span></p>
+                {order.client?.phone && <p><span className="text-muted-foreground">Telefon:</span> <span className="font-medium">{order.client.phone}</span></p>}
+                {order.client?.email && <p><span className="text-muted-foreground">Email:</span> <span className="font-medium">{order.client.email}</span></p>}
+                {order.client?.address && <p><span className="text-muted-foreground">Adres:</span> <span className="font-medium">{order.client.address}</span></p>}
+                {order.client?.nip && <p><span className="text-muted-foreground">NIP:</span> <span className="font-medium">{order.client.nip}</span></p>}
               </div>
             </CardContent>
           </Card>
@@ -195,13 +193,13 @@ export default function WorkshopClientCard() {
                 <Car className="h-5 w-5 text-primary" />
                 <h3 className="font-semibold text-primary">Dane pojazdu</h3>
               </div>
-              <div className="space-y-1 text-sm">
-                <p><span className="text-muted-foreground">Marka i model:</span> <strong>{order.vehicle?.brand} {order.vehicle?.model}</strong></p>
-                <p><span className="text-muted-foreground">Nr rejestracyjny:</span> {order.vehicle?.plate || '---'}</p>
-                <p><span className="text-muted-foreground">VIN:</span> {order.vehicle?.vin || '---'}</p>
-                <p><span className="text-muted-foreground">Rocznik:</span> {order.vehicle?.year || '---'}</p>
-                <p><span className="text-muted-foreground">Poziom paliwa:</span> {order.fuel_level || '---'}</p>
-                {order.mileage && <p><span className="text-muted-foreground">Przebieg:</span> {order.mileage} km</p>}
+              <div className="space-y-1.5 text-sm">
+                <p><span className="text-muted-foreground">Marka i model:</span> <span className="font-semibold">{order.vehicle?.brand} {order.vehicle?.model}</span></p>
+                <p><span className="text-muted-foreground">Nr rejestracyjny:</span> <span className="font-medium">{order.vehicle?.plate || '---'}</span></p>
+                <p><span className="text-muted-foreground">VIN:</span> <span className="font-medium">{order.vehicle?.vin || '---'}</span></p>
+                <p><span className="text-muted-foreground">Rocznik:</span> <span className="font-medium">{order.vehicle?.year || '---'}</span></p>
+                <p><span className="text-muted-foreground">Poziom paliwa:</span> <span className="font-medium">{order.fuel_level || '---'}</span></p>
+                {order.mileage && <p><span className="text-muted-foreground">Przebieg:</span> <span className="font-medium">{order.mileage} km</span></p>}
               </div>
             </CardContent>
           </Card>
@@ -244,16 +242,16 @@ export default function WorkshopClientCard() {
                 {/* Order description */}
                 {order.description && (
                   <div>
-                    <h4 className="text-sm font-semibold text-primary mb-1">Opis zlecenia:</h4>
-                    <p className="text-sm bg-muted/30 rounded-lg p-3 whitespace-pre-line">{order.description}</p>
+                    <h4 className="text-sm font-bold text-primary mb-1">Opis zlecenia:</h4>
+                    <p className="text-sm font-medium bg-muted/30 rounded-lg p-3 whitespace-pre-line">{order.description}</p>
                   </div>
                 )}
 
                 {/* Damage */}
                 {order.damage_description && (
                   <div>
-                    <h4 className="text-sm font-semibold text-primary mb-1">Opis uszkodzeń:</h4>
-                    <p className="text-sm bg-muted/30 rounded-lg p-3 whitespace-pre-line">{order.damage_description}</p>
+                    <h4 className="text-sm font-bold text-primary mb-1">Opis uszkodzeń:</h4>
+                    <p className="text-sm font-medium bg-muted/30 rounded-lg p-3 whitespace-pre-line">{order.damage_description}</p>
                   </div>
                 )}
 
@@ -505,59 +503,66 @@ export default function WorkshopClientCard() {
         </div>
       </div>
 
-      {/* Signing dialog */}
+      {/* Signing dialog — compact, collapsible legal text */}
       <Dialog open={!!signingDoc} onOpenChange={() => { setSigningDoc(null); setAccepted(false); }}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="text-lg">
               Podpisz dokument — {signingDoc === 'reception_protocol' ? 'Protokół przyjęcia' :
                 signingDoc === 'cost_estimate' ? 'Kosztorys' : 'Protokół wydania'}
             </DialogTitle>
           </DialogHeader>
 
           <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
-            <p className="flex items-center gap-2 text-primary font-medium text-sm">
+            <p className="flex items-center gap-2 text-primary font-semibold text-sm">
               <CheckCircle2 className="h-5 w-5" />
-              Zapoznaj się z treścią i kliknij przycisk, aby zaakceptować
+              Kliknij przycisk poniżej, aby podpisać dokument
             </p>
           </div>
 
-          <div className="text-xs text-muted-foreground space-y-3 max-h-48 overflow-y-auto border rounded-xl p-4 bg-muted/10">
-            <div>
-              <p className="font-semibold text-foreground">Dane osobowe</p>
-              <p>Administrator Państwa danych osobowych i sposoby kontaktu z nim określono na wstępie karty zlecenia. Podanie danych jest konieczne dla realizacji zamówienia. Administrator może przetwarzać te dane (w szczególności: imię i nazwisko, nazwę, adresy, NIP, PESEL, REGON, nr telefonu, adres e-mail, dane dotyczące wykonanych dla Państwa usług i informacje o Państwa płatnościach).</p>
-            </div>
-            <div>
-              <p className="font-semibold text-foreground">Prawo zatrzymania</p>
-              <p>Informujemy, że zgodnie z art. 461 Kodeksu cywilnego przysługuje nam prawo zatrzymania pojazdu i innych powierzonych nam rzeczy do chwili zaspokojenia lub zabezpieczenia przysługujących nam roszczeń o zwrot nakładów na te rzeczy lub o naprawienie szkody przez nie wyrządzonej.</p>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-3 pt-1">
+          <div className="flex items-start gap-3">
             <Checkbox
               checked={accepted}
               onCheckedChange={(v) => setAccepted(!!v)}
               id="accept-terms"
+              className="mt-0.5"
             />
-            <label htmlFor="accept-terms" className="text-sm leading-relaxed cursor-pointer">
-              Oświadczam, że zapoznałem/am się z powyższą treścią i akceptuję ją
-            </label>
+            <div>
+              <label htmlFor="accept-terms" className="text-sm font-medium leading-relaxed cursor-pointer">
+                Oświadczam, że zapoznałem/am się z poniższą treścią i akceptuję ją
+              </label>
+              <details className="mt-2 text-xs text-muted-foreground">
+                <summary className="cursor-pointer text-primary font-medium hover:underline">Rozwiń treść oświadczenia</summary>
+                <div className="mt-2 space-y-2 border-l-2 border-primary/20 pl-3">
+                  <div>
+                    <p className="font-semibold text-foreground">Dane osobowe</p>
+                    <p>Administrator Państwa danych osobowych i sposoby kontaktu z nim określono na wstępie karty zlecenia. Podanie danych jest konieczne dla realizacji zamówienia. Administrator może przetwarzać te dane (w szczególności: imię i nazwisko, nazwę, adresy, NIP, PESEL, REGON, nr telefonu, adres e-mail, dane dotyczące wykonanych dla Państwa usług i informacje o Państwa płatnościach).</p>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-foreground">Prawo zatrzymania</p>
+                    <p>Informujemy, że zgodnie z art. 461 Kodeksu cywilnego przysługuje nam prawo zatrzymania pojazdu i innych powierzonych nam rzeczy do chwili zaspokojenia lub zabezpieczenia przysługujących nam roszczeń o zwrot nakładów na te rzeczy lub o naprawienie szkody przez nie wyrządzonej.</p>
+                  </div>
+                </div>
+              </details>
+            </div>
           </div>
 
-          <DialogFooter className="flex justify-between sm:justify-between gap-2 pt-2">
-            <Button variant="outline" onClick={() => { setSigningDoc(null); setAccepted(false); }}>
-              Zamknij
-            </Button>
-            <Button
-              onClick={() => signingDoc && handleSign(signingDoc)}
-              disabled={!accepted || signing}
-              className="gap-2"
-              size="lg"
-            >
-              <CheckCircle2 className="h-4 w-4" />
-              {signing ? 'Podpisywanie...' : 'Akceptuję dokument'}
-            </Button>
-          </DialogFooter>
+          <Button
+            onClick={() => signingDoc && handleSign(signingDoc)}
+            disabled={!accepted || signing}
+            className="w-full gap-2 h-12 text-base font-semibold"
+            size="lg"
+          >
+            <CheckCircle2 className="h-5 w-5" />
+            {signing ? 'Podpisywanie...' : 'Akceptuję dokument'}
+          </Button>
+
+          <button
+            onClick={() => { setSigningDoc(null); setAccepted(false); }}
+            className="text-sm text-muted-foreground hover:text-foreground text-center transition-colors"
+          >
+            Zamknij
+          </button>
         </DialogContent>
       </Dialog>
     </div>

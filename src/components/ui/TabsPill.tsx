@@ -50,7 +50,7 @@ export function TabsPill(props: React.ComponentProps<typeof Tabs>) {
               return React.cloneElement(child as React.ReactElement<{ className?: string }>, {
                 key: idx,
                 className:
-                  "px-5 h-10 flex items-center gap-2 rounded-full text-white/80 text-sm whitespace-nowrap transition-colors " +
+                  "px-5 h-10 flex items-center gap-2 rounded-full text-white text-sm whitespace-nowrap transition-colors " +
                   "data-[state=active]:bg-white data-[state=active]:text-foreground data-[state=active]:font-semibold data-[state=active]:shadow-sm " +
                   "hover:bg-accent hover:text-accent-foreground focus-visible:outline-none",
               });
