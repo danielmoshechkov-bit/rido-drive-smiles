@@ -220,20 +220,7 @@ export default function AdminPortal() {
 
           {/* Accounting Module Tab */}
           <TabsContent value="accounting">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calculator className="h-5 w-5" />
-                  Moduł księgowy
-                </CardTitle>
-                <CardDescription>
-                  Ustawienia fakturowania, integracje GUS, biała lista VAT i KSeF
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <AccountingModuleSettings />
-              </CardContent>
-            </Card>
+            <AccountingModuleSettings />
           </TabsContent>
 
           {/* Feature Toggles Tab */}
