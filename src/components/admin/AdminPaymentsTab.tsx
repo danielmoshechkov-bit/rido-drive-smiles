@@ -92,28 +92,18 @@ function AssignCreditsPanel() {
     setFoundUser(null);
     setNotFound(false);
 
-    // Search in auth users via profiles or direct
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('id, display_name')
-      .ilike('display_name', `%${email.trim()}%`)
-      .limit(1)
-      .maybeSingle();
-
-    // Also try by auth - we'll use a different approach: query by email in RPC or check
-    // Since we can't query auth.users directly, let's check vehicle_lookup_credits
-    // Actually, the simplest: use supabase admin list users - but from client we can't
-    // Let's search by checking if we have any data for this email
-    
-    // Try to find user by email using the profiles approach or just store the email
-    // For admin usage, let's use a simple approach: look up by email
-    const { data: authData } = await supabase.rpc('admin_find_user_by_email', { p_email: email.trim() }).maybeSingle();
-    
-    if (authData) {
-      setFoundUser({ id: authData.id, email: authData.email || email.trim() });
-      await loadUserCredits(authData.id);
-    } else {
-      // Fallback: try to find in profiles by display_name containing email
+    try {
+      const { data, error } = await supabase.rpc('admin_find_user_by_email', { p_email: email.trim() });
+      
+      const result = Array.isArray(data) ? data[0] : data;
+      
+      if (result && result.id) {
+        setFoundUser({ id: result.id as string, email: (result.email as string) || email.trim() });
+        await loadUserCredits(result.id as string);
+      } else {
+        setNotFound(true);
+      }
+    } catch {
       setNotFound(true);
     }
     setSearching(false);
