@@ -201,6 +201,7 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId, fleetId, f
   };
 
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] flex flex-col p-0">
         <DialogHeader className="p-4 sm:p-6 pb-0">
