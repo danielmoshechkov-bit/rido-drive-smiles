@@ -242,8 +242,8 @@ export default function WorkshopClientCard() {
                 {/* Order description */}
                 {order.description && (
                   <div>
-                    <h4 className="text-sm font-semibold text-primary mb-1">Opis zlecenia:</h4>
-                    <p className="text-sm bg-muted/30 rounded-lg p-3 whitespace-pre-line">{order.description}</p>
+                    <h4 className="text-sm font-bold text-primary mb-1">Opis zlecenia:</h4>
+                    <p className="text-sm font-medium bg-muted/30 rounded-lg p-3 whitespace-pre-line">{order.description}</p>
                   </div>
                 )}
 
