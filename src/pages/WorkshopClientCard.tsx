@@ -177,12 +177,12 @@ export default function WorkshopClientCard() {
                 <User className="h-5 w-5 text-primary" />
                 <h3 className="font-semibold text-primary">Dane klienta</h3>
               </div>
-              <div className="space-y-1 text-sm">
-                <p><span className="text-muted-foreground">Imię i nazwisko:</span> <strong>{clientName || '---'}</strong></p>
-                {order.client?.phone && <p><span className="text-muted-foreground">Telefon:</span> {order.client.phone}</p>}
-                {order.client?.email && <p><span className="text-muted-foreground">Email:</span> {order.client.email}</p>}
-                {order.client?.address && <p><span className="text-muted-foreground">Adres:</span> {order.client.address}</p>}
-                {order.client?.nip && <p><span className="text-muted-foreground">NIP:</span> {order.client.nip}</p>}
+              <div className="space-y-1.5 text-sm">
+                <p><span className="text-muted-foreground">Imię i nazwisko:</span> <span className="font-semibold">{clientName || '---'}</span></p>
+                {order.client?.phone && <p><span className="text-muted-foreground">Telefon:</span> <span className="font-medium">{order.client.phone}</span></p>}
+                {order.client?.email && <p><span className="text-muted-foreground">Email:</span> <span className="font-medium">{order.client.email}</span></p>}
+                {order.client?.address && <p><span className="text-muted-foreground">Adres:</span> <span className="font-medium">{order.client.address}</span></p>}
+                {order.client?.nip && <p><span className="text-muted-foreground">NIP:</span> <span className="font-medium">{order.client.nip}</span></p>}
               </div>
             </CardContent>
           </Card>
