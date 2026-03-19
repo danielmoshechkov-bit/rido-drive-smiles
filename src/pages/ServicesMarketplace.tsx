@@ -213,10 +213,8 @@ export default function ServicesMarketplace() {
     setSearchParams({ kategoria: slug });
   };
 
-  const handleBackToCategories = () => {
-    setSearchParams({});
-    setSearchQuery('');
-    setCityFilter('');
+  const handleGroupClick = (groupId: string) => {
+    setSearchParams({ grupa: groupId });
   };
 
   const handleProviderClick = (provider: ServiceProvider) => {
