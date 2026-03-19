@@ -520,9 +520,14 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                 })}
                 <tr className="bg-amber-500/5">
                   <td colSpan={10} className="p-1.5">
-                    <Button onClick={addGoodsRow} variant="ghost" size="sm" className="gap-1 text-xs text-amber-600">
-                      <Plus className="h-3.5 w-3.5" /> Dodaj pozycję ręcznie
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button onClick={addGoodsRow} variant="ghost" size="sm" className="gap-1 text-xs text-amber-600">
+                        <Plus className="h-3.5 w-3.5" /> Dodaj pozycję ręcznie
+                      </Button>
+                      <Button variant="outline" size="sm" className="gap-1 h-7 text-xs">
+                        <Package className="h-3.5 w-3.5" /> Dodaj z magazynu
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               </tbody>
