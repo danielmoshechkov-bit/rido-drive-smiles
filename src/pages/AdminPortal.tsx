@@ -87,7 +87,7 @@ export default function AdminPortal() {
     return null;
   }
 
-  const tabs = [
+  const tabs: { value: string; label: string; icon: React.ComponentType<any> }[] = [
     { value: 'ai-assistant', label: 'AI Asystent', icon: Bot },
     { value: 'tickets', label: 'Zgłoszenia', icon: TicketCheck },
     { value: 'api', label: 'Klucze API', icon: Key },
