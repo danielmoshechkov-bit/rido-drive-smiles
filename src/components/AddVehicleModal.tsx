@@ -47,6 +47,16 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId, fleetId, f
   const isRentalVariant = variant === 'rental';
   const [loading, setLoading] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Set<string>>(new Set());
+  const [userId, setUserId] = useState<string | undefined>();
+  const [showCreditsModal, setShowCreditsModal] = useState(false);
+
+  const { credits, loading: lookupLoading, checkRegistration, checkVin, purchaseCredits } = useVehicleLookup(userId);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data?.user) setUserId(data.user.id);
+    });
+  }, []);
 
   const [plate, setPlate] = useState("");
   const [vin, setVin] = useState("");
@@ -64,6 +74,39 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId, fleetId, f
   const [hasAC, setHasAC] = useState(false);
   const [acValidTo, setAcValidTo] = useState<string>("");
   const [acPremium, setAcPremium] = useState<number | "">("");
+
+  const applyVehicleData = (data: any) => {
+    if (data.make) setBrand(data.make);
+    if (data.model) setModel(data.model);
+    if (data.body_style) setBodyType(data.body_style);
+    if (data.color) setColor(data.color);
+    if (data.registration_year) setYear(data.registration_year);
+    if (data.fuel_type) setFuelType(data.fuel_type.toLowerCase());
+    if (data.engine_size) { /* engine size handled if field exists */ }
+    if (data.vin && !vin) setVin(data.vin);
+    if (data.registration_number && !plate) setPlate(data.registration_number);
+  };
+
+  const handleSearchPlate = async () => {
+    if (!plate || plate.length < 3) { toast.error('Wpisz numer rejestracyjny'); return; }
+    if (!credits || credits.remaining_credits < 1) { setShowCreditsModal(true); return; }
+    const data = await checkRegistration(plate);
+    if (!data && credits && credits.remaining_credits < 1) setShowCreditsModal(true);
+    else if (data) applyVehicleData(data);
+  };
+
+  const handleSearchVin = async () => {
+    if (!vin || vin.length < 5) { toast.error('Wpisz numer VIN'); return; }
+    if (!credits || credits.remaining_credits < 1) { setShowCreditsModal(true); return; }
+    const data = await checkVin(vin);
+    if (!data && credits && credits.remaining_credits < 1) setShowCreditsModal(true);
+    else if (data) applyVehicleData(data);
+  };
+
+  const handlePurchaseCredits = async (amount: number, priceNet: number) => {
+    const ok = await purchaseCredits(amount, priceNet);
+    if (ok) setShowCreditsModal(false);
+  };
 
   const handleSave = async () => {
     const errors = new Set<string>();
