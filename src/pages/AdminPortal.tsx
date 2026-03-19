@@ -243,24 +243,8 @@ export default function AdminPortal() {
 
           {/* Users Tab */}
           <TabsContent value="users" className="space-y-6">
-            {/* All Auth Users Panel */}
             <AdminAuthUsersPanel />
-            
-            {/* Admin Roles Manager */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  Administratorzy systemu
-                </CardTitle>
-                <CardDescription>
-                  Zarządzanie uprawnieniami administratorów
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <UserRolesManager />
-              </CardContent>
-            </Card>
+            <UserRolesManager />
           </TabsContent>
 
           {/* Workspace Tab */}
