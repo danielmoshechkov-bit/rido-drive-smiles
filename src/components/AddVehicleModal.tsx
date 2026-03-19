@@ -211,11 +211,21 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId, fleetId, f
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <Label className={validationErrors.has('plate') ? 'text-destructive' : ''}>Nr rejestracyjny *</Label>
-            <Input value={plate} onChange={(e) => { setPlate(e.target.value.toUpperCase()); setValidationErrors(prev => { const n = new Set(prev); n.delete('plate'); return n; }); }} placeholder="np. WX1234A" className={`uppercase ${validationErrors.has('plate') ? 'border-destructive ring-1 ring-destructive' : ''}`} />
+            <div className="relative">
+              <Input value={plate} onChange={(e) => { setPlate(e.target.value.toUpperCase()); setValidationErrors(prev => { const n = new Set(prev); n.delete('plate'); return n; }); }} placeholder="np. WX1234A" className={`uppercase pr-10 ${validationErrors.has('plate') ? 'border-destructive ring-1 ring-destructive' : ''}`} />
+              <button type="button" onClick={handleSearchPlate} disabled={lookupLoading} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-accent transition-colors">
+                {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : <Search className="h-4 w-4 text-muted-foreground hover:text-primary cursor-pointer" />}
+              </button>
+            </div>
           </div>
           <div>
             <Label>VIN</Label>
-            <Input value={vin} onChange={(e) => setVin(e.target.value.toUpperCase())} placeholder="17 znaków" className="uppercase" />
+            <div className="relative">
+              <Input value={vin} onChange={(e) => setVin(e.target.value.toUpperCase())} placeholder="17 znaków" className="uppercase pr-10" />
+              <button type="button" onClick={handleSearchVin} disabled={lookupLoading} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-accent transition-colors">
+                {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : <Search className="h-4 w-4 text-muted-foreground hover:text-primary cursor-pointer" />}
+              </button>
+            </div>
           </div>
           
           {/* Car Brand/Model Selector - spans full width */}
