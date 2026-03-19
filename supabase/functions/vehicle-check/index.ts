@@ -249,20 +249,30 @@ async function handleCheckRegistration(supabase: any, supabaseAdmin: any, userId
     }
 
     // Map API response to our schema
+    // Extract engine power from EngineSize if it contains "kW" or from Description
+    const engineSizeRaw = extractCurrentText(vehicleData, "EngineSize") || extractValue(vehicleData, "EngineSize") || "";
+    const descriptionRaw = extractValue(vehicleData, "Description") || "";
+    
+    // Try to extract kW from description (e.g. "150kW" or "150 kW")
+    let enginePowerKw: string | null = null;
+    const kwMatch = descriptionRaw.match(/(\d+)\s*kW/i);
+    if (kwMatch) enginePowerKw = kwMatch[1];
+
     const mapped = {
       registration_number: regNumber,
       vin: extractValue(vehicleData, "Vin") || null,
       make: extractCurrentText(vehicleData, "CarMake") || null,
       model: extractValue(vehicleData, "CarModel") || null,
-      body_style: extractCurrentText(vehicleData, "BodyStyle") || null,
-      color: extractCurrentText(vehicleData, "Colour") || null,
+      body_style: extractCurrentText(vehicleData, "BodyStyle") || extractValue(vehicleData, "BodyStyle") || null,
+      color: extractCurrentText(vehicleData, "Colour") || extractValue(vehicleData, "Colour") || null,
       registration_year: parseInt(extractValue(vehicleData, "RegistrationYear")) || null,
-      fuel_type: extractCurrentText(vehicleData, "FuelType") || null,
-      engine_size: extractCurrentText(vehicleData, "EngineSize") || null,
+      fuel_type: extractCurrentText(vehicleData, "FuelType") || extractValue(vehicleData, "FuelType") || null,
+      engine_size: engineSizeRaw || null,
+      engine_power_kw: enginePowerKw,
       transmission: extractCurrentText(vehicleData, "Transmission") || null,
       number_of_doors: extractCurrentText(vehicleData, "NumberOfDoors") || null,
       number_of_seats: extractCurrentText(vehicleData, "NumberOfSeats") || null,
-      description: extractValue(vehicleData, "Description") || null,
+      description: descriptionRaw || null,
       source: "regcheck",
       source_payload: vehicleData,
     };
