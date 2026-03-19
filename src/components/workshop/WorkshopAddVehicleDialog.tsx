@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -8,8 +8,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useCreateWorkshopVehicle, useWorkshopClients } from '@/hooks/useWorkshop';
 import { WorkshopAddClientDialog } from './WorkshopAddClientDialog';
+import { VehicleLookupCreditsModal } from '@/components/vehicle/VehicleLookupCreditsModal';
+import { useVehicleLookup } from '@/hooks/useVehicleLookup';
 import { Car, Search, Loader2, Plus, Users } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Props {
   open: boolean;
@@ -19,23 +22,86 @@ interface Props {
 }
 
 const fuelTypes = ['Benzyna', 'Diesel', 'LPG', 'Elektryczny', 'Hybryda', 'Wodór', 'CNG'];
+const bodyTypes = ['sedan', 'kombi', 'hatchback', 'suv', 'coupe', 'van', 'pickup', 'cabrio'];
 
 export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCreated }: Props) {
   const create = useCreateWorkshopVehicle();
   const qc = useQueryClient();
   const { data: clients = [] } = useWorkshopClients(providerId);
+  const [userId, setUserId] = useState<string | undefined>();
   const [form, setForm] = useState({
     brand: '', model: '', color: '', vin: '', plate: '', year: '',
     first_registration_date: '', fuel_type: '', engine_number: '',
     engine_capacity_cm3: '', engine_power_kw: '', mileage_unit: 'km', description: '',
-    owner_client_id: '',
+    owner_client_id: '', body_style: '',
   });
   const [ownerSearch, setOwnerSearch] = useState('');
   const [showOwnerList, setShowOwnerList] = useState(false);
   const [showAddOwner, setShowAddOwner] = useState(false);
   const [createdOwner, setCreatedOwner] = useState<any>(null);
+  const [showCreditsModal, setShowCreditsModal] = useState(false);
+
+  const { credits, loading: lookupLoading, checkRegistration, checkVin, purchaseCredits } = useVehicleLookup(userId);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data?.user) setUserId(data.user.id);
+    });
+  }, []);
 
   const set = (key: string, val: string) => setForm(p => ({ ...p, [key]: val }));
+
+  const applyVehicleData = (data: any) => {
+    if (data.make) set('brand', data.make);
+    if (data.model) set('model', data.model);
+    if (data.body_style) set('body_style', data.body_style);
+    if (data.color) set('color', data.color);
+    if (data.registration_year) set('year', String(data.registration_year));
+    if (data.fuel_type) set('fuel_type', data.fuel_type);
+    if (data.engine_size) set('engine_capacity_cm3', data.engine_size.replace(/[^0-9]/g, ''));
+    if (data.description) set('description', data.description);
+    if (data.vin && !form.vin) set('vin', data.vin);
+    if (data.registration_number && !form.plate) set('plate', data.registration_number);
+  };
+
+  const handleSearchPlate = async () => {
+    if (!form.plate || form.plate.length < 3) {
+      toast.error('Wpisz numer rejestracyjny');
+      return;
+    }
+    if (!credits || credits.remaining_credits < 1) {
+      setShowCreditsModal(true);
+      return;
+    }
+    const data = await checkRegistration(form.plate);
+    if (!data && credits && credits.remaining_credits < 1) {
+      setShowCreditsModal(true);
+    } else if (data) {
+      applyVehicleData(data);
+    }
+  };
+
+  const handleSearchVin = async () => {
+    if (!form.vin || form.vin.length < 5) {
+      toast.error('Wpisz numer VIN');
+      return;
+    }
+    if (!credits || credits.remaining_credits < 1) {
+      setShowCreditsModal(true);
+      return;
+    }
+    const data = await checkVin(form.vin);
+    if (!data && credits && credits.remaining_credits < 1) {
+      setShowCreditsModal(true);
+    } else if (data) {
+      applyVehicleData(data);
+    }
+  };
+
+  const handlePurchaseCredits = async (amount: number, priceNet: number) => {
+    const ok = await purchaseCredits(amount, priceNet);
+    if (ok) setShowCreditsModal(false);
+  };
 
   const allClients = useMemo(() => {
     if (createdOwner && !clients.find((c: any) => c.id === createdOwner.id)) {
@@ -82,13 +148,10 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
         owner_client_id: form.owner_client_id || null,
       });
       onCreated?.(vehicle);
-      setForm({ brand: '', model: '', color: '', vin: '', plate: '', year: '', first_registration_date: '', fuel_type: '', engine_number: '', engine_capacity_cm3: '', engine_power_kw: '', mileage_unit: 'km', description: '', owner_client_id: '' });
+      setForm({ brand: '', model: '', color: '', vin: '', plate: '', year: '', first_registration_date: '', fuel_type: '', engine_number: '', engine_capacity_cm3: '', engine_power_kw: '', mileage_unit: 'km', description: '', owner_client_id: '', body_style: '' });
       setCreatedOwner(null);
       onOpenChange(false);
-      // Refresh in background after dialog is closed
-      setTimeout(() => {
-        qc.invalidateQueries({ queryKey: ['workshop-vehicles'] });
-      }, 100);
+      setTimeout(() => { qc.invalidateQueries({ queryKey: ['workshop-vehicles'] }); }, 100);
     } catch (e: any) {
       console.error('Vehicle save error:', e);
       toast.error('Błąd zapisu pojazdu: ' + (e?.message || 'Nieznany błąd'));
@@ -102,6 +165,11 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Car className="h-5 w-5" /> Dodaj nowy pojazd
+              {credits && (
+                <span className="ml-auto text-xs font-normal text-muted-foreground">
+                  Kredyty: <span className="font-semibold text-primary">{credits.remaining_credits}</span>
+                </span>
+              )}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
@@ -111,14 +179,28 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
                 <Label>Numer VIN</Label>
                 <div className="relative">
                   <Input value={form.vin} onChange={e => set('vin', e.target.value.toUpperCase())} placeholder="VIN" className="pr-10" />
-                  <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground cursor-pointer hover:text-primary transition-colors" />
+                  <button
+                    type="button"
+                    onClick={handleSearchVin}
+                    disabled={lookupLoading}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-accent transition-colors"
+                  >
+                    {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : <Search className="h-4 w-4 text-muted-foreground hover:text-primary transition-colors cursor-pointer" />}
+                  </button>
                 </div>
               </div>
               <div className="space-y-1.5">
                 <Label>Numer rejestracyjny</Label>
                 <div className="relative">
                   <Input value={form.plate} onChange={e => set('plate', e.target.value.toUpperCase())} placeholder="Nr rejestracyjny" className="pr-10" />
-                  <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground cursor-pointer hover:text-primary transition-colors" />
+                  <button
+                    type="button"
+                    onClick={handleSearchPlate}
+                    disabled={lookupLoading}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-accent transition-colors"
+                  >
+                    {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : <Search className="h-4 w-4 text-muted-foreground hover:text-primary transition-colors cursor-pointer" />}
+                  </button>
                 </div>
               </div>
             </div>
@@ -139,7 +221,7 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
               </div>
             </div>
 
-            {/* Owner - inline with title */}
+            {/* Owner */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-semibold">Właściciel pojazdu</Label>
@@ -200,8 +282,9 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
                 </Select>
               </div>
             </div>
-            {/* Engine details */}
-            <div className="grid grid-cols-3 gap-4">
+
+            {/* Engine details + Body style */}
+            <div className="grid grid-cols-4 gap-4">
               <div className="space-y-1.5">
                 <Label>Pojemność (cm³)</Label>
                 <Input type="number" value={form.engine_capacity_cm3} onChange={e => set('engine_capacity_cm3', e.target.value)} placeholder="cm³" />
@@ -214,7 +297,17 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
                 <Label>Nr silnika</Label>
                 <Input value={form.engine_number} onChange={e => set('engine_number', e.target.value)} placeholder="Nr silnika" />
               </div>
+              <div className="space-y-1.5">
+                <Label>Typ nadwozia</Label>
+                <Select value={form.body_style} onValueChange={v => set('body_style', v)}>
+                  <SelectTrigger><SelectValue placeholder="Wybierz..." /></SelectTrigger>
+                  <SelectContent>
+                    {bodyTypes.map(b => <SelectItem key={b} value={b}>{b.charAt(0).toUpperCase() + b.slice(1)}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+
             {/* Description */}
             <div className="space-y-1.5">
               <Label>Opis pojazdu</Label>
@@ -239,6 +332,12 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
           setCreatedOwner(c);
           set('owner_client_id', c.id);
         }}
+      />
+
+      <VehicleLookupCreditsModal
+        open={showCreditsModal}
+        onOpenChange={setShowCreditsModal}
+        onPurchase={handlePurchaseCredits}
       />
     </>
   );

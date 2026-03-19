@@ -36,7 +36,7 @@ export function AdminIntegrationsTab() {
     if (data) {
       setIntegration(data);
       setIsEnabled(data.is_enabled || false);
-      const cfg = data.config_json || {};
+      const cfg = (data.config_json || {}) as Record<string, any>;
       setConfig({
         endpoint_url: cfg.endpoint_url || 'https://www.regcheck.org.uk/api/reg.asmx/CheckPoland',
         username: cfg.username || '',

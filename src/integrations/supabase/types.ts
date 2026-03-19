@@ -15963,6 +15963,10 @@ export type Database = {
         Args: { _driver_id: string; _user_id: string }
         Returns: Json
       }
+      deduct_vehicle_lookup_credit: {
+        Args: { p_user_id: string }
+        Returns: undefined
+      }
       driver_has_vehicle_access: {
         Args: { p_vehicle_id: string }
         Returns: boolean
