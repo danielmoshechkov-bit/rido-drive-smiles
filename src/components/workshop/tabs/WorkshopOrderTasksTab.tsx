@@ -364,9 +364,6 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
               <Badge variant="secondary" className="text-xs">{goods.length}</Badge>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" className="gap-1 h-8 text-xs">
-                <Package className="h-3.5 w-3.5" /> Z magazynu
-              </Button>
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input value={goodsSearch} onChange={e => setGoodsSearch(e.target.value)} placeholder="Szukaj części..." className="pl-8 h-8 w-40 text-xs" />
@@ -523,9 +520,14 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                 })}
                 <tr className="bg-amber-500/5">
                   <td colSpan={10} className="p-1.5">
-                    <Button onClick={addGoodsRow} variant="ghost" size="sm" className="gap-1 text-xs text-amber-600">
-                      <Plus className="h-3.5 w-3.5" /> Dodaj kolejną część
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button onClick={addGoodsRow} variant="ghost" size="sm" className="gap-1 text-xs text-amber-600">
+                        <Plus className="h-3.5 w-3.5" /> Dodaj pozycję ręcznie
+                      </Button>
+                      <Button variant="outline" size="sm" className="gap-1 h-7 text-xs">
+                        <Package className="h-3.5 w-3.5" /> Dodaj z magazynu
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               </tbody>

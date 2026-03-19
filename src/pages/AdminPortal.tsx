@@ -18,7 +18,6 @@ import { AdminIntegrationsTab } from '@/components/admin/AdminIntegrationsTab';
 import { AdminPaymentsTab } from '@/components/admin/AdminPaymentsTab';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { UserDropdown } from '@/components/UserDropdown';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, Palette, Users, Wrench, Calculator, LayoutGrid, Bot, Key, TicketCheck, Briefcase, Plug, Wallet } from 'lucide-react';
 
 export default function AdminPortal() {
@@ -199,20 +198,7 @@ export default function AdminPortal() {
 
           {/* Tickets Tab */}
           <TabsContent value="tickets">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TicketCheck className="h-5 w-5" />
-                  Zgłoszenia i naprawy
-                </CardTitle>
-                <CardDescription>
-                  Zgłoszenia od użytkowników, generowanie promptów naprawczych AI
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <SupportTicketsPanel />
-              </CardContent>
-            </Card>
+            <SupportTicketsPanel />
           </TabsContent>
 
 
@@ -233,99 +219,31 @@ export default function AdminPortal() {
 
           {/* Accounting Module Tab */}
           <TabsContent value="accounting">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calculator className="h-5 w-5" />
-                  Moduł księgowy
-                </CardTitle>
-                <CardDescription>
-                  Ustawienia fakturowania, integracje GUS, biała lista VAT i KSeF
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <AccountingModuleSettings />
-              </CardContent>
-            </Card>
+            <AccountingModuleSettings />
           </TabsContent>
 
           {/* Feature Toggles Tab */}
           <TabsContent value="features">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Wrench className="h-5 w-5" />
-                  Funkcje portalu
-                </CardTitle>
-                <CardDescription>
-                  Włączanie i wyłączanie modułów portalu
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <FeatureTogglesManagement />
-              </CardContent>
-            </Card>
+            <FeatureTogglesManagement />
           </TabsContent>
 
           {/* Portals Tab */}
           <TabsContent value="portals">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <LayoutGrid className="h-5 w-5" />
-                  Zarządzanie portalami
-                </CardTitle>
-                <CardDescription>
-                  Konfiguracja kafelków i kategorii na stronach portali (Motoryzacja, Nieruchomości, Usługi)
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <PortalCategoriesManager />
-              </CardContent>
-            </Card>
+            <PortalCategoriesManager />
           </TabsContent>
 
           {/* Branding Tab */}
           <TabsContent value="branding">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Palette className="h-5 w-5" />
-                  Wygląd portalu
-                </CardTitle>
-                <CardDescription>
-                  Personalizacja logo, kolorów i brandingu
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-8 text-muted-foreground">
-                  <Palette className="h-12 w-12 mx-auto mb-4 opacity-30" />
-                  <p>Ustawienia wyglądu wkrótce</p>
-                </div>
-              </CardContent>
-            </Card>
+            <div className="text-center py-8 text-muted-foreground">
+              <Palette className="h-12 w-12 mx-auto mb-4 opacity-30" />
+              <p>Ustawienia wyglądu wkrótce</p>
+            </div>
           </TabsContent>
 
           {/* Users Tab */}
           <TabsContent value="users" className="space-y-6">
-            {/* All Auth Users Panel */}
             <AdminAuthUsersPanel />
-            
-            {/* Admin Roles Manager */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  Administratorzy systemu
-                </CardTitle>
-                <CardDescription>
-                  Zarządzanie uprawnieniami administratorów
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <UserRolesManager />
-              </CardContent>
-            </Card>
+            <UserRolesManager />
           </TabsContent>
 
           {/* Workspace Tab */}

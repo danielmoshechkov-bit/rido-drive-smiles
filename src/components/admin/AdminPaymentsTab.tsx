@@ -196,17 +196,39 @@ function AssignCreditsPanel() {
           <CardDescription>Zacznij wpisywać adres e-mail — wyniki pojawią się automatycznie</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="relative">
-            <div className="relative">
-              <Input
-                placeholder="np. warsztat@test.pl"
-                value={email}
-                onChange={e => { setEmail(e.target.value); setFoundUser(null); }}
-                className="pr-10"
-              />
-              {searching && (
-                <Loader2 className="h-4 w-4 animate-spin absolute right-3 top-3 text-muted-foreground" />
-              )}
+          <div className="relative max-w-md">
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Input
+                  placeholder="np. warsztat@test.pl"
+                  value={email}
+                  onChange={e => { setEmail(e.target.value); setFoundUser(null); }}
+                  className="pr-10"
+                />
+                {searching && (
+                  <Loader2 className="h-4 w-4 animate-spin absolute right-3 top-3 text-muted-foreground" />
+                )}
+              </div>
+              <Button
+                onClick={async () => {
+                  if (email.trim().length < 2) return;
+                  setSearching(true);
+                  try {
+                    const { data } = await supabase.rpc('admin_find_user_by_email', { p_email: email.trim() });
+                    const results = Array.isArray(data) ? data : data ? [data] : [];
+                    setSearchResults(results.filter((r: any) => r?.id).map((r: any) => ({ id: r.id as string, email: (r.email as string) || '' })));
+                  } catch {
+                    setSearchResults([]);
+                  }
+                  setSearching(false);
+                }}
+                disabled={searching || email.trim().length < 2}
+                size="sm"
+                className="gap-1"
+              >
+                <Search className="h-4 w-4" />
+                Szukaj
+              </Button>
             </div>
 
             {/* Dropdown with results */}
