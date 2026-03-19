@@ -42,13 +42,18 @@ serve(async (req) => {
     const body = await req.json();
     const { registrationNumber, vin, action } = body;
 
+    // Handle test-connection action (no credits needed)
+    if (action === "test-connection") {
+      return await handleTestConnection(supabaseAdmin);
+    }
+
     // Handle action: check-registration or check-vin
     if (action === "check-registration" && registrationNumber) {
       return await handleCheckRegistration(supabase, supabaseAdmin, user.id, registrationNumber.trim().toUpperCase());
     } else if (action === "check-vin" && vin) {
       return await handleCheckVin(supabase, supabaseAdmin, user.id, vin.trim().toUpperCase());
     } else {
-      return new Response(JSON.stringify({ error: "Podaj action: check-registration lub check-vin" }), {
+      return new Response(JSON.stringify({ error: "Podaj action: check-registration, check-vin lub test-connection" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
