@@ -75,9 +75,10 @@ export function AdminIntegrationsTab() {
     }
     setTesting(true);
     try {
-      // Test with a simple request via edge function
+      // First save, then test with a dedicated test-connection action
+      await handleSave();
       const { data, error } = await supabase.functions.invoke('vehicle-check', {
-        body: { action: 'check-registration', registrationNumber: 'TEST123' },
+        body: { action: 'test-connection' },
       });
 
       const status = error ? 'error' : (data?.error ? 'error' : 'ok');
