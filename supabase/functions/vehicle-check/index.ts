@@ -42,13 +42,18 @@ serve(async (req) => {
     const body = await req.json();
     const { registrationNumber, vin, action } = body;
 
+    // Handle test-connection action (no credits needed)
+    if (action === "test-connection") {
+      return await handleTestConnection(supabaseAdmin);
+    }
+
     // Handle action: check-registration or check-vin
     if (action === "check-registration" && registrationNumber) {
       return await handleCheckRegistration(supabase, supabaseAdmin, user.id, registrationNumber.trim().toUpperCase());
     } else if (action === "check-vin" && vin) {
       return await handleCheckVin(supabase, supabaseAdmin, user.id, vin.trim().toUpperCase());
     } else {
-      return new Response(JSON.stringify({ error: "Podaj action: check-registration lub check-vin" }), {
+      return new Response(JSON.stringify({ error: "Podaj action: check-registration, check-vin lub test-connection" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -61,6 +66,55 @@ serve(async (req) => {
     });
   }
 });
+
+async function handleTestConnection(supabaseAdmin: any) {
+  const { data: integration } = await supabaseAdmin
+    .from("portal_integrations")
+    .select("*")
+    .eq("key", "regcheck_poland")
+    .single();
+
+  if (!integration) {
+    return new Response(JSON.stringify({ error: "NO_CONFIG", message: "Integracja nie jest skonfigurowana" }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  const config = integration.config_json || {};
+  const username = config.username || "";
+  const endpoint = config.endpoint_url || "https://www.regcheck.org.uk/api/reg.asmx/CheckPoland";
+
+  if (!username) {
+    return new Response(JSON.stringify({ error: "NO_USERNAME", message: "Brak loginu do API. Wpisz username i zapisz." }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  try {
+    // Make a simple test call - use a dummy plate to check if the API responds
+    const apiUrl = `${endpoint}?RegistrationNumber=TEST&username=${encodeURIComponent(username)}`;
+    const apiResp = await fetch(apiUrl);
+    const responseText = await apiResp.text();
+
+    if (apiResp.ok) {
+      return new Response(JSON.stringify({ status: "ok", message: "Połączenie z RegCheck Poland udane. API odpowiedziało poprawnie." }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    } else {
+      return new Response(JSON.stringify({ status: "error", message: `API zwróciło status ${apiResp.status}` }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+  } catch (e) {
+    return new Response(JSON.stringify({ status: "error", message: `Błąd połączenia: ${e.message}` }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+}
 
 async function checkCredits(supabaseAdmin: any, userId: string): Promise<{ hasCredits: boolean; remaining: number }> {
   const { data } = await supabaseAdmin
