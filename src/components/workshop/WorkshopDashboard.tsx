@@ -109,11 +109,16 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
 
   if (selectedOrder) {
     return (
-      <WorkshopOrderDetail
-        order={selectedOrder}
-        providerId={providerId}
-        onBack={() => setSelectedOrder(null)}
-      />
+      <div className="flex gap-0 min-h-[calc(100vh-200px)]">
+        <WorkshopSidebar activeModule="zlecenia" onNavigate={(key) => { setSelectedOrder(null); setActiveModule(key); }} />
+        <div className="flex-1 pl-3 min-w-0">
+          <WorkshopOrderDetail
+            order={selectedOrder}
+            providerId={providerId}
+            onBack={() => setSelectedOrder(null)}
+          />
+        </div>
+      </div>
     );
   }
 
