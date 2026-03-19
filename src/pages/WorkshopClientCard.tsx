@@ -6,22 +6,24 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { 
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter 
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter
 } from '@/components/ui/dialog';
-import { CheckCircle2, FileSignature, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
+import { CheckCircle2, FileSignature, Loader2, Car, User, Wrench, Lock, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 
-const statusColors: Record<string, string> = {
-  'Przyjęcie do serwisu': 'bg-red-500 text-white',
-  'Nowe zlecenie': 'bg-amber-400 text-black',
-  'Akceptacja klienta': 'bg-amber-400 text-black',
-  'W trakcie naprawy': 'bg-amber-400 text-black',
-  'Zadania wykonane': 'bg-green-500 text-white',
-  'Gotowy do odbioru': 'bg-green-500 text-white',
-  'Zakończone': 'bg-gray-800 text-white',
+const statusLabels: Record<string, { label: string; color: string }> = {
+  'Przyjęcie do serwisu': { label: 'Przyjęcie do serwisu', color: 'bg-red-500 text-white' },
+  'Nowe zlecenie': { label: 'Nowe zlecenie', color: 'bg-amber-400 text-black' },
+  'Akceptacja klienta': { label: 'Oczekuje na akceptację', color: 'bg-amber-400 text-black' },
+  'W trakcie naprawy': { label: 'W trakcie naprawy', color: 'bg-blue-500 text-white' },
+  'Zadania wykonane': { label: 'Zadania wykonane', color: 'bg-green-500 text-white' },
+  'Gotowy do odbioru': { label: 'Gotowy do odbioru', color: 'bg-green-600 text-white' },
+  'Zakończone': { label: 'Zakończone', color: 'bg-gray-700 text-white' },
 };
+
+type TabKey = 'reception' | 'estimate' | 'release';
 
 export default function WorkshopClientCard() {
   const { code } = useParams<{ code: string }>();
@@ -32,17 +34,9 @@ export default function WorkshopClientCard() {
   const [signingDoc, setSigningDoc] = useState<string | null>(null);
   const [accepted, setAccepted] = useState(false);
   const [signing, setSigning] = useState(false);
-  
-  // Section expand state
-  const [expandedSections, setExpandedSections] = useState({
-    reception: true,
-    estimate: false,
-    release: false,
-  });
+  const [activeTab, setActiveTab] = useState<TabKey>('reception');
 
-  useEffect(() => {
-    loadOrder();
-  }, [code]);
+  useEffect(() => { loadOrder(); }, [code]);
 
   const loadOrder = async () => {
     if (!code) return;
@@ -51,18 +45,16 @@ export default function WorkshopClientCard() {
       .select('*, client:workshop_clients(*), vehicle:workshop_vehicles(*), items:workshop_order_items(*)')
       .eq('client_code', code)
       .single();
-    
+
     if (data) {
       setOrder(data);
-      // Load provider info
       const { data: prov } = await (supabase as any)
         .from('service_providers')
         .select('*')
         .eq('id', data.provider_id)
         .single();
       setProvider(prov);
-      
-      // Load signatures
+
       const { data: sigs } = await (supabase as any)
         .from('workshop_order_signatures')
         .select('*')
@@ -73,7 +65,7 @@ export default function WorkshopClientCard() {
   };
 
   const hasSigned = (docType: string) => signatures.some(s => s.document_type === docType);
-  
+
   const handleSign = async (docType: string) => {
     setSigning(true);
     try {
@@ -86,16 +78,12 @@ export default function WorkshopClientCard() {
         fingerprint: null,
         signature_method: 'button',
       });
-
-      // Update order flags
       const updates: any = {};
       if (docType === 'reception_protocol') updates.client_acceptance_confirmed = true;
       if (docType === 'cost_estimate') updates.quote_accepted = true;
-      
       if (Object.keys(updates).length > 0) {
         await (supabase as any).from('workshop_orders').update(updates).eq('id', order.id);
       }
-
       toast.success('Dokument został podpisany');
       setSigningDoc(null);
       setAccepted(false);
@@ -107,22 +95,20 @@ export default function WorkshopClientCard() {
     }
   };
 
-  const toggleSection = (section: keyof typeof expandedSections) => {
-    setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
-  };
-
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin" />
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
       </div>
     );
   }
 
   if (!order) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <p className="text-lg text-muted-foreground">Nie znaleziono zlecenia</p>
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+        <Card className="p-8 text-center">
+          <p className="text-lg text-muted-foreground">Nie znaleziono zlecenia</p>
+        </Card>
       </div>
     );
   }
@@ -141,353 +127,432 @@ export default function WorkshopClientCard() {
 
   const receptionSigned = hasSigned('reception_protocol');
   const estimateSigned = hasSigned('cost_estimate');
+  const status = statusLabels[order.status_name] || { label: order.status_name, color: 'bg-muted' };
+
+  const tabs: { key: TabKey; label: string; icon: React.ReactNode; locked?: boolean }[] = [
+    { key: 'reception', label: 'Protokół przyjęcia', icon: <Wrench className="h-4 w-4" /> },
+    { key: 'estimate', label: 'Kosztorys', icon: <FileSignature className="h-4 w-4" />, locked: !receptionSigned },
+    { key: 'release', label: 'Protokół wydania', icon: <Shield className="h-4 w-4" />, locked: !estimateSigned },
+  ];
 
   return (
-    <div className="max-w-4xl mx-auto p-4 md:p-8 space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-        <div>
-          {provider?.business_name && (
-            <h1 className="text-xl font-bold text-primary">{provider.business_name}</h1>
-          )}
-          {provider?.address && <p className="text-sm text-muted-foreground">{provider.address}</p>}
-          {provider?.nip && <p className="text-sm text-muted-foreground">NIP: {provider.nip}</p>}
-          {provider?.phone && <p className="text-sm text-muted-foreground">Telefon: {provider.phone}</p>}
-        </div>
-        <div className="text-right space-y-1">
-          <p className="text-lg font-bold text-primary">{order.order_number}</p>
-          <p className="text-sm text-muted-foreground">
-            Data utworzenia: {order.created_at ? format(new Date(order.created_at), 'yyyy-MM-dd') : '---'}
-          </p>
-          <Badge className={statusColors[order.status_name] || 'bg-muted'}>{order.status_name}</Badge>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
+      {/* Company Header */}
+      <div className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground">
+        <div className="max-w-5xl mx-auto px-4 py-6 md:px-8">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="flex items-center gap-4">
+              {provider?.logo_url ? (
+                <img src={provider.logo_url} alt="Logo" className="h-14 w-14 rounded-xl bg-white p-1 object-contain" />
+              ) : (
+                <div className="h-14 w-14 rounded-xl bg-white/20 flex items-center justify-center text-2xl font-bold">
+                  {provider?.company_name?.charAt(0) || 'W'}
+                </div>
+              )}
+              <div>
+                <h1 className="text-xl md:text-2xl font-bold">{provider?.company_name || 'Serwis'}</h1>
+                <p className="text-sm text-primary-foreground/80">
+                  {[provider?.company_address, provider?.company_city].filter(Boolean).join(', ')}
+                </p>
+                {provider?.company_nip && (
+                  <p className="text-xs text-primary-foreground/60">NIP: {provider.company_nip}</p>
+                )}
+              </div>
+            </div>
+            <div className="text-right space-y-1">
+              <p className="text-lg font-bold">{order.order_number}</p>
+              <p className="text-sm text-primary-foreground/80">
+                {order.created_at ? format(new Date(order.created_at), 'dd.MM.yyyy') : '---'}
+              </p>
+              <Badge className={`${status.color} border-0`}>{status.label}</Badge>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Client & Vehicle info */}
-      <Card>
-        <CardContent className="pt-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <h3 className="font-semibold text-primary mb-2">Dane klienta:</h3>
-              <p><strong>Imię i nazwisko:</strong> {clientName}</p>
-              {order.client?.phone && <p><strong>Numer telefonu:</strong> {order.client.phone}</p>}
-              {order.client?.email && <p><strong>Email:</strong> {order.client.email}</p>}
-              {order.client?.address && <p><strong>Adres:</strong> {order.client.address}</p>}
-            </div>
-            <div>
-              <h3 className="font-semibold text-primary mb-2">Dane pojazdu:</h3>
-              <p><strong>Marka i model:</strong> {order.vehicle?.brand} {order.vehicle?.model}</p>
-              <p><strong>Numer rejestracyjny:</strong> {order.vehicle?.plate || '---'}</p>
-              <p><strong>VIN:</strong> {order.vehicle?.vin || '---'}</p>
-              <p><strong>Poziom paliwa:</strong> {order.fuel_level || '---'}</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Protokół przyjęcia */}
-      <Card>
-        <CardContent className="pt-4 space-y-4">
-          <button 
-            onClick={() => toggleSection('reception')} 
-            className="flex items-center gap-2 w-full text-left"
-          >
-            {receptionSigned 
-              ? <CheckCircle2 className="h-5 w-5 text-green-500" /> 
-              : <FileSignature className="h-5 w-5 text-muted-foreground" />}
-            <span className="font-semibold flex-1">Protokół przyjęcia</span>
-            {expandedSections.reception ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          </button>
-
-          {expandedSections.reception && (
-            <div className="space-y-4">
-              <div>
-                <h4 className="text-sm font-semibold text-primary">Opis zlecenia:</h4>
-                <p className="text-sm">{order.description || 'Brak opisu'}</p>
+      <div className="max-w-5xl mx-auto px-4 md:px-8 -mt-4">
+        {/* Client & Vehicle cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <Card className="shadow-md border-0">
+            <CardContent className="pt-5 pb-4">
+              <div className="flex items-center gap-2 mb-3">
+                <User className="h-5 w-5 text-primary" />
+                <h3 className="font-semibold text-primary">Dane klienta</h3>
               </div>
-
-              {order.damage_description && (
-                <div>
-                  <h4 className="text-sm font-semibold text-primary">Opis uszkodzeń:</h4>
-                  <p className="text-sm">{order.damage_description}</p>
-                </div>
-              )}
-
-              {/* Additional info toggles */}
-              <div>
-                <h4 className="text-sm font-semibold text-primary mb-2">Dodatkowe informacje:</h4>
-                <div className="space-y-1">
-                  {[
-                    { label: 'Jazda testowa', val: order.test_drive_consent },
-                    { label: 'Zwrot części do klienta', val: order.return_parts_to_client },
-                    { label: 'Dowód rejestracyjny', val: order.registration_document },
-                    { label: 'Uzupełnić płyny', val: order.top_up_fluids },
-                    { label: 'Uzupełnić oświetlenie', val: order.top_up_lights },
-                  ].map(item => (
-                    <div key={item.label} className="flex items-center justify-between py-1 border-b last:border-0">
-                      <span className="text-sm">{item.label}</span>
-                      <Badge variant={item.val ? 'default' : 'destructive'} className={item.val ? 'bg-green-500' : 'bg-red-500'}>
-                        {item.val ? 'TAK' : 'NIE'}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
+              <div className="space-y-1 text-sm">
+                <p><span className="text-muted-foreground">Imię i nazwisko:</span> <strong>{clientName || '---'}</strong></p>
+                {order.client?.phone && <p><span className="text-muted-foreground">Telefon:</span> {order.client.phone}</p>}
+                {order.client?.email && <p><span className="text-muted-foreground">Email:</span> {order.client.email}</p>}
+                {order.client?.address && <p><span className="text-muted-foreground">Adres:</span> {order.client.address}</p>}
+                {order.client?.nip && <p><span className="text-muted-foreground">NIP:</span> {order.client.nip}</p>}
               </div>
+            </CardContent>
+          </Card>
 
-              {/* Service scope */}
-              {tasks.length > 0 && (
+          <Card className="shadow-md border-0">
+            <CardContent className="pt-5 pb-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Car className="h-5 w-5 text-primary" />
+                <h3 className="font-semibold text-primary">Dane pojazdu</h3>
+              </div>
+              <div className="space-y-1 text-sm">
+                <p><span className="text-muted-foreground">Marka i model:</span> <strong>{order.vehicle?.brand} {order.vehicle?.model}</strong></p>
+                <p><span className="text-muted-foreground">Nr rejestracyjny:</span> {order.vehicle?.plate || '---'}</p>
+                <p><span className="text-muted-foreground">VIN:</span> {order.vehicle?.vin || '---'}</p>
+                <p><span className="text-muted-foreground">Rocznik:</span> {order.vehicle?.year || '---'}</p>
+                <p><span className="text-muted-foreground">Poziom paliwa:</span> {order.fuel_level || '---'}</p>
+                {order.mileage && <p><span className="text-muted-foreground">Przebieg:</span> {order.mileage} km</p>}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Tab navigation */}
+        <div className="flex gap-1 mb-4 bg-muted/50 p-1 rounded-xl overflow-x-auto">
+          {tabs.map(tab => {
+            const isActive = activeTab === tab.key;
+            const isLocked = tab.locked;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => !isLocked && setActiveTab(tab.key)}
+                className={`
+                  flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap flex-1 justify-center
+                  ${isActive
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : isLocked
+                      ? 'text-muted-foreground/50 cursor-not-allowed'
+                      : 'text-foreground hover:bg-accent hover:text-accent-foreground cursor-pointer'
+                  }
+                `}
+              >
+                {isLocked ? <Lock className="h-3.5 w-3.5" /> : tab.icon}
+                {tab.label}
+                {hasSigned(tab.key === 'reception' ? 'reception_protocol' : tab.key === 'estimate' ? 'cost_estimate' : 'release_protocol') && (
+                  <CheckCircle2 className="h-4 w-4 text-green-400" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Tab content */}
+        <Card className="shadow-md border-0 mb-8">
+          <CardContent className="pt-6 pb-6">
+            {activeTab === 'reception' && (
+              <div className="space-y-6">
+                {/* Order description */}
+                {order.description && (
+                  <div>
+                    <h4 className="text-sm font-semibold text-primary mb-1">Opis zlecenia:</h4>
+                    <p className="text-sm bg-muted/30 rounded-lg p-3 whitespace-pre-line">{order.description}</p>
+                  </div>
+                )}
+
+                {/* Damage */}
+                {order.damage_description && (
+                  <div>
+                    <h4 className="text-sm font-semibold text-primary mb-1">Opis uszkodzeń:</h4>
+                    <p className="text-sm bg-muted/30 rounded-lg p-3 whitespace-pre-line">{order.damage_description}</p>
+                  </div>
+                )}
+
+                {/* Checklist */}
                 <div>
-                  <h4 className="text-sm font-semibold text-primary mb-2">Zakres usług:</h4>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Nazwa</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {tasks.map((t: any) => (
-                        <TableRow key={t.id}>
-                          <TableCell>{t.name}</TableCell>
-                        </TableRow>
+                  <h4 className="text-sm font-semibold text-primary mb-2">Dodatkowe informacje:</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {[
+                      { label: 'Jazda testowa', val: order.test_drive_consent },
+                      { label: 'Zwrot części do klienta', val: order.return_parts_to_client },
+                      { label: 'Dowód rejestracyjny', val: order.registration_document },
+                      { label: 'Uzupełnić płyny', val: order.top_up_fluids },
+                      { label: 'Uzupełnić oświetlenie', val: order.top_up_lights },
+                    ].map(item => (
+                      <div key={item.label} className="flex items-center justify-between py-2 px-3 bg-muted/20 rounded-lg">
+                        <span className="text-sm">{item.label}</span>
+                        <Badge variant="outline" className={item.val ? 'border-green-500 text-green-600 bg-green-50' : 'border-red-400 text-red-500 bg-red-50'}>
+                          {item.val ? 'TAK' : 'NIE'}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Photos */}
+                {order.reception_photos && Array.isArray(JSON.parse(order.reception_photos || '[]')) && JSON.parse(order.reception_photos || '[]').length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold text-primary mb-2">Zdjęcia z przyjęcia:</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      {JSON.parse(order.reception_photos).map((photo: any, idx: number) => (
+                        <div key={idx} className="rounded-xl overflow-hidden border aspect-[4/3]">
+                          <img
+                            src={photo.url || photo}
+                            alt={photo.label || `Zdjęcie ${idx + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
                       ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
+                    </div>
+                  </div>
+                )}
 
-              {!receptionSigned && (
-                <div className="flex justify-end">
-                  <Button onClick={() => setSigningDoc('reception_protocol')} className="gap-2">
-                    <FileSignature className="h-4 w-4" /> Podpisz dokument
-                  </Button>
-                </div>
-              )}
-
-              {receptionSigned && (
-                <div className="border rounded-lg p-3 bg-muted/50 text-center text-sm text-muted-foreground space-y-1">
-                  <p>Dokument został podpisany przyciskiem akceptacji</p>
-                  {signatures.find(s => s.document_type === 'reception_protocol') && (
-                    <>
-                      <p><strong>Data podpisu:</strong> {format(new Date(signatures.find(s => s.document_type === 'reception_protocol')!.signed_at), 'yyyy-MM-dd HH:mm:ss')}</p>
-                      <p><strong>Przeglądarka:</strong> {signatures.find(s => s.document_type === 'reception_protocol')!.user_agent?.substring(0, 80)}</p>
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Kosztorys */}
-      <Card>
-        <CardContent className="pt-4 space-y-4">
-          <button 
-            onClick={() => toggleSection('estimate')} 
-            className="flex items-center gap-2 w-full text-left"
-          >
-            {estimateSigned 
-              ? <CheckCircle2 className="h-5 w-5 text-green-500" /> 
-              : <FileSignature className="h-5 w-5 text-muted-foreground" />}
-            <span className="font-semibold flex-1">Kosztorys</span>
-            {expandedSections.estimate ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          </button>
-
-          {expandedSections.estimate && (
-            !receptionSigned ? (
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-center text-amber-700">
-                Aby zobaczyć kosztorys musisz podpisać protokół przyjęcia
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div>
-                  <h4 className="text-sm font-semibold text-primary">Opis zlecenia:</h4>
-                  <p className="text-sm">{order.description || 'Brak opisu'}</p>
-                </div>
-
+                {/* Service scope */}
                 {tasks.length > 0 && (
                   <div>
-                    <h4 className="text-sm font-semibold text-primary mb-2">Usługi:</h4>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Lp.</TableHead>
-                          <TableHead>Nazwa</TableHead>
-                          <TableHead className="text-right">Koszt netto</TableHead>
-                          <TableHead className="text-right">Koszt brutto</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {tasks.map((t: any, i: number) => (
-                          <TableRow key={t.id}>
-                            <TableCell>{i + 1}</TableCell>
-                            <TableCell>{t.name}</TableCell>
-                            <TableCell className="text-right">{fmt(t.total_net || 0)} zł</TableCell>
-                            <TableCell className="text-right">{fmt(t.total_gross || 0)} zł</TableCell>
-                          </TableRow>
-                        ))}
-                        <TableRow className="font-bold">
-                          <TableCell colSpan={2}>RAZEM</TableCell>
-                          <TableCell className="text-right text-primary">{fmt(tasksNetTotal)} zł</TableCell>
-                          <TableCell className="text-right text-primary">{fmt(tasksTotal)} zł</TableCell>
-                        </TableRow>
-                      </TableBody>
-                    </Table>
+                    <h4 className="text-sm font-semibold text-primary mb-2">Zakres usług:</h4>
+                    <div className="space-y-1">
+                      {tasks.map((t: any, i: number) => (
+                        <div key={t.id} className="flex items-center gap-2 py-1.5 px-3 bg-muted/20 rounded-lg text-sm">
+                          <span className="text-muted-foreground font-medium">{i + 1}.</span>
+                          <span>{t.name}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
 
-                {goods.length > 0 && (
-                  <div>
-                    <h4 className="text-sm font-semibold text-primary mb-2">Towary:</h4>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Lp.</TableHead>
-                          <TableHead>Nazwa</TableHead>
-                          <TableHead className="text-right">Ilość</TableHead>
-                          <TableHead>J.m.</TableHead>
-                          <TableHead className="text-right">Koszt netto</TableHead>
-                          <TableHead className="text-right">Koszt brutto</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {goods.map((g: any, i: number) => (
-                          <TableRow key={g.id}>
-                            <TableCell>{i + 1}</TableCell>
-                            <TableCell>{g.name}</TableCell>
-                            <TableCell className="text-right">{g.quantity}</TableCell>
-                            <TableCell>{g.unit}</TableCell>
-                            <TableCell className="text-right">{fmt(g.total_net || 0)} zł</TableCell>
-                            <TableCell className="text-right">{fmt(g.total_gross || 0)} zł</TableCell>
-                          </TableRow>
-                        ))}
-                        <TableRow className="font-bold">
-                          <TableCell colSpan={4}>RAZEM</TableCell>
-                          <TableCell className="text-right text-primary">{fmt(goodsNetTotal)} zł</TableCell>
-                          <TableCell className="text-right text-primary">{fmt(goodsTotal)} zł</TableCell>
-                        </TableRow>
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-
-                <div className="border-t pt-3">
-                  <div className="flex justify-end gap-8 font-bold text-lg">
-                    <span>Łącznie</span>
-                    <span>{fmt(tasksNetTotal + goodsNetTotal)} zł</span>
-                    <span>{fmt(tasksTotal + goodsTotal)} zł</span>
-                  </div>
-                </div>
-
-                {!estimateSigned && (
-                  <div className="flex justify-end">
-                    <Button onClick={() => setSigningDoc('cost_estimate')} className="gap-2">
-                      <FileSignature className="h-4 w-4" /> Podpisz dokument
+                {/* Sign button or status */}
+                {!receptionSigned ? (
+                  <div className="flex justify-end pt-2">
+                    <Button onClick={() => setSigningDoc('reception_protocol')} size="lg" className="gap-2 shadow-lg">
+                      <FileSignature className="h-5 w-5" /> Podpisz protokół przyjęcia
                     </Button>
                   </div>
-                )}
-
-                {estimateSigned && (
-                  <div className="border rounded-lg p-3 bg-muted/50 text-center text-sm text-muted-foreground">
-                    <p>Kosztorys zaakceptowany</p>
-                    {signatures.find(s => s.document_type === 'cost_estimate') && (
-                      <p><strong>Data podpisu:</strong> {format(new Date(signatures.find(s => s.document_type === 'cost_estimate')!.signed_at), 'yyyy-MM-dd HH:mm:ss')}</p>
+                ) : (
+                  <div className="rounded-xl bg-green-50 border border-green-200 p-4 text-center space-y-1">
+                    <p className="flex items-center justify-center gap-2 text-green-700 font-medium">
+                      <CheckCircle2 className="h-5 w-5" /> Protokół przyjęcia zaakceptowany
+                    </p>
+                    {signatures.find(s => s.document_type === 'reception_protocol') && (
+                      <p className="text-xs text-green-600">
+                        Data podpisu: {format(new Date(signatures.find(s => s.document_type === 'reception_protocol')!.signed_at), 'dd.MM.yyyy HH:mm')}
+                      </p>
                     )}
                   </div>
                 )}
               </div>
-            )
-          )}
-        </CardContent>
-      </Card>
+            )}
 
-      {/* Protokół wydania */}
-      <Card>
-        <CardContent className="pt-4">
-          <button 
-            onClick={() => toggleSection('release')} 
-            className="flex items-center gap-2 w-full text-left"
-          >
-            {hasSigned('release_protocol')
-              ? <CheckCircle2 className="h-5 w-5 text-green-500" />
-              : <FileSignature className="h-5 w-5 text-muted-foreground" />}
-            <span className="font-semibold flex-1">Protokół wydania</span>
-            {expandedSections.release ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          </button>
-        </CardContent>
-      </Card>
+            {activeTab === 'estimate' && (
+              !receptionSigned ? (
+                <div className="py-12 text-center">
+                  <Lock className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
+                  <p className="text-muted-foreground font-medium">Najpierw zaakceptuj protokół przyjęcia</p>
+                  <p className="text-sm text-muted-foreground/60 mt-1">Kosztorys będzie dostępny po podpisaniu protokołu.</p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {order.description && (
+                    <div>
+                      <h4 className="text-sm font-semibold text-primary mb-1">Opis zlecenia:</h4>
+                      <p className="text-sm bg-muted/30 rounded-lg p-3 whitespace-pre-line">{order.description}</p>
+                    </div>
+                  )}
 
-      {/* Historia podpisów */}
-      {signatures.length > 0 && (
-        <div className="space-y-2">
-          <h3 className="font-semibold text-primary">Historia podpisów:</h3>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Rodzaj dokumentu</TableHead>
-                <TableHead>Data podpisu</TableHead>
-                <TableHead>Rodzaj podpisu</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {signatures.map(sig => (
-                <TableRow key={sig.id}>
-                  <TableCell>
-                    {sig.document_type === 'reception_protocol' ? 'Protokół przyjęcia' :
-                     sig.document_type === 'cost_estimate' ? 'Kosztorys' : 'Protokół wydania'}
-                  </TableCell>
-                  <TableCell>{sig.signed_at ? format(new Date(sig.signed_at), 'yyyy-MM-dd HH:mm:ss') : '---'}</TableCell>
-                  <TableCell>Przycisk potwierdzenia</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                  {tasks.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-semibold text-primary mb-2">Usługi:</h4>
+                      <div className="border rounded-xl overflow-hidden">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="bg-muted/30">
+                              <TableHead className="w-12">Lp.</TableHead>
+                              <TableHead>Nazwa</TableHead>
+                              <TableHead className="text-right">Netto</TableHead>
+                              <TableHead className="text-right">Brutto</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {tasks.map((t: any, i: number) => (
+                              <TableRow key={t.id}>
+                                <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                                <TableCell className="font-medium">{t.name}</TableCell>
+                                <TableCell className="text-right">{fmt(t.total_net || 0)} zł</TableCell>
+                                <TableCell className="text-right font-medium">{fmt(t.total_gross || 0)} zł</TableCell>
+                              </TableRow>
+                            ))}
+                            <TableRow className="font-bold bg-muted/20">
+                              <TableCell colSpan={2}>Razem usługi</TableCell>
+                              <TableCell className="text-right text-primary">{fmt(tasksNetTotal)} zł</TableCell>
+                              <TableCell className="text-right text-primary">{fmt(tasksTotal)} zł</TableCell>
+                            </TableRow>
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </div>
+                  )}
+
+                  {goods.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-semibold text-primary mb-2">Części i materiały:</h4>
+                      <div className="border rounded-xl overflow-hidden">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="bg-muted/30">
+                              <TableHead className="w-12">Lp.</TableHead>
+                              <TableHead>Nazwa</TableHead>
+                              <TableHead className="text-right">Ilość</TableHead>
+                              <TableHead>J.m.</TableHead>
+                              <TableHead className="text-right">Netto</TableHead>
+                              <TableHead className="text-right">Brutto</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {goods.map((g: any, i: number) => (
+                              <TableRow key={g.id}>
+                                <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                                <TableCell className="font-medium">{g.name}</TableCell>
+                                <TableCell className="text-right">{g.quantity}</TableCell>
+                                <TableCell>{g.unit}</TableCell>
+                                <TableCell className="text-right">{fmt(g.total_net || 0)} zł</TableCell>
+                                <TableCell className="text-right font-medium">{fmt(g.total_gross || 0)} zł</TableCell>
+                              </TableRow>
+                            ))}
+                            <TableRow className="font-bold bg-muted/20">
+                              <TableCell colSpan={4}>Razem części</TableCell>
+                              <TableCell className="text-right text-primary">{fmt(goodsNetTotal)} zł</TableCell>
+                              <TableCell className="text-right text-primary">{fmt(goodsTotal)} zł</TableCell>
+                            </TableRow>
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Grand total */}
+                  <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
+                    <div className="flex justify-between items-center">
+                      <span className="font-bold text-lg">Łącznie do zapłaty</span>
+                      <div className="text-right">
+                        <p className="text-sm text-muted-foreground">Netto: {fmt(tasksNetTotal + goodsNetTotal)} zł</p>
+                        <p className="text-xl font-bold text-primary">{fmt(tasksTotal + goodsTotal)} zł brutto</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {!estimateSigned ? (
+                    <div className="flex justify-end pt-2">
+                      <Button onClick={() => setSigningDoc('cost_estimate')} size="lg" className="gap-2 shadow-lg">
+                        <FileSignature className="h-5 w-5" /> Akceptuję kosztorys
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="rounded-xl bg-green-50 border border-green-200 p-4 text-center space-y-1">
+                      <p className="flex items-center justify-center gap-2 text-green-700 font-medium">
+                        <CheckCircle2 className="h-5 w-5" /> Kosztorys zaakceptowany
+                      </p>
+                      {signatures.find(s => s.document_type === 'cost_estimate') && (
+                        <p className="text-xs text-green-600">
+                          Data podpisu: {format(new Date(signatures.find(s => s.document_type === 'cost_estimate')!.signed_at), 'dd.MM.yyyy HH:mm')}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            )}
+
+            {activeTab === 'release' && (
+              !estimateSigned ? (
+                <div className="py-12 text-center">
+                  <Lock className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
+                  <p className="text-muted-foreground font-medium">Protokół wydania będzie dostępny po akceptacji kosztorysu</p>
+                </div>
+              ) : (
+                <div className="py-12 text-center text-muted-foreground">
+                  Protokół wydania — wkrótce dostępny
+                </div>
+              )
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Signature history */}
+        {signatures.length > 0 && (
+          <Card className="shadow-md border-0 mb-8">
+            <CardContent className="pt-5 pb-4">
+              <h3 className="font-semibold text-primary mb-3">Historia podpisów</h3>
+              <div className="border rounded-xl overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/30">
+                      <TableHead>Rodzaj dokumentu</TableHead>
+                      <TableHead>Data podpisu</TableHead>
+                      <TableHead>Metoda</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {signatures.map(sig => (
+                      <TableRow key={sig.id}>
+                        <TableCell className="font-medium">
+                          {sig.document_type === 'reception_protocol' ? 'Protokół przyjęcia' :
+                           sig.document_type === 'cost_estimate' ? 'Kosztorys' : 'Protokół wydania'}
+                        </TableCell>
+                        <TableCell>{sig.signed_at ? format(new Date(sig.signed_at), 'dd.MM.yyyy HH:mm') : '---'}</TableCell>
+                        <TableCell>Przycisk potwierdzenia</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Footer */}
+        <div className="text-center text-xs text-muted-foreground pb-8">
+          <p>Powered by <strong>GetRido</strong></p>
         </div>
-      )}
+      </div>
 
       {/* Signing dialog */}
       <Dialog open={!!signingDoc} onOpenChange={() => { setSigningDoc(null); setAccepted(false); }}>
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>
-              Podpisz dokument {signingDoc === 'reception_protocol' ? 'Protokół przyjęcia' : 
+              Podpisz dokument — {signingDoc === 'reception_protocol' ? 'Protokół przyjęcia' :
                 signingDoc === 'cost_estimate' ? 'Kosztorys' : 'Protokół wydania'}
             </DialogTitle>
           </DialogHeader>
-          
-          <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
-            <p className="flex items-center gap-2 text-primary font-medium">
+
+          <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
+            <p className="flex items-center gap-2 text-primary font-medium text-sm">
               <CheckCircle2 className="h-5 w-5" />
-              Kliknij przycisk poniżej, aby podpisać dokument
+              Zapoznaj się z treścią i kliknij przycisk, aby zaakceptować
             </p>
           </div>
 
-          <div className="flex items-start gap-3">
-            <Checkbox 
-              checked={accepted} 
-              onCheckedChange={(v) => setAccepted(!!v)} 
+          <div className="text-xs text-muted-foreground space-y-3 max-h-48 overflow-y-auto border rounded-xl p-4 bg-muted/10">
+            <div>
+              <p className="font-semibold text-foreground">Dane osobowe</p>
+              <p>Administrator Państwa danych osobowych i sposoby kontaktu z nim określono na wstępie karty zlecenia. Podanie danych jest konieczne dla realizacji zamówienia. Administrator może przetwarzać te dane (w szczególności: imię i nazwisko, nazwę, adresy, NIP, PESEL, REGON, nr telefonu, adres e-mail, dane dotyczące wykonanych dla Państwa usług i informacje o Państwa płatnościach).</p>
+            </div>
+            <div>
+              <p className="font-semibold text-foreground">Prawo zatrzymania</p>
+              <p>Informujemy, że zgodnie z art. 461 Kodeksu cywilnego przysługuje nam prawo zatrzymania pojazdu i innych powierzonych nam rzeczy do chwili zaspokojenia lub zabezpieczenia przysługujących nam roszczeń o zwrot nakładów na te rzeczy lub o naprawienie szkody przez nie wyrządzonej.</p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3 pt-1">
+            <Checkbox
+              checked={accepted}
+              onCheckedChange={(v) => setAccepted(!!v)}
               id="accept-terms"
             />
             <label htmlFor="accept-terms" className="text-sm leading-relaxed cursor-pointer">
-              Oświadczam, że zapoznałem/am się z poniższą treścią i akceptuję ją
+              Oświadczam, że zapoznałem/am się z powyższą treścią i akceptuję ją
             </label>
           </div>
 
-          <div className="text-xs text-muted-foreground space-y-2 max-h-40 overflow-y-auto border rounded p-3">
-            <p className="font-semibold">Dane osobowe</p>
-            <p>Administrator Państwa danych osobowych i sposoby kontaktu z nim określono na wstępie karty zlecenia. Podanie danych jest konieczne dla realizacji zamówienia.</p>
-            <p className="font-semibold">Prawo zatrzymania</p>
-            <p>Informujemy, że zgodnie z art. 461 Kodeksu cywilnego przysługuje nam prawo zatrzymania pojazdu i innych powierzonych nam rzeczy do chwili zaspokojenia lub zabezpieczenia przysługujących nam roszczeń o zwrot nakładów na te rzeczy lub o naprawienie szkody przez nie wyrządzonej.</p>
-          </div>
-
-          <DialogFooter className="flex justify-between sm:justify-between">
+          <DialogFooter className="flex justify-between sm:justify-between gap-2 pt-2">
             <Button variant="outline" onClick={() => { setSigningDoc(null); setAccepted(false); }}>
               Zamknij
             </Button>
-            <Button 
-              onClick={() => signingDoc && handleSign(signingDoc)} 
+            <Button
+              onClick={() => signingDoc && handleSign(signingDoc)}
               disabled={!accepted || signing}
               className="gap-2"
+              size="lg"
             >
               <CheckCircle2 className="h-4 w-4" />
               {signing ? 'Podpisywanie...' : 'Akceptuję dokument'}

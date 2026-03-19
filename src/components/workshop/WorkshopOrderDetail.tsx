@@ -125,7 +125,18 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
             </SelectContent>
           </Select>
 
-          <Button variant="outline" size="sm" className="gap-1">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1"
+            onClick={() => {
+              if (order.client_code) {
+                window.open(`/warsztat/klient/${order.client_code}`, '_blank');
+              } else {
+                toast.info('Brak kodu klienta — utwórz zlecenie ponownie');
+              }
+            }}
+          >
             <FileText className="h-4 w-4" /> Karta zlecenia
           </Button>
 
