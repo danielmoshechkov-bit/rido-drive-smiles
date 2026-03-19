@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -24,6 +24,14 @@ interface Props {
 const fuelTypes = ['Benzyna', 'Diesel', 'LPG', 'Elektryczny', 'Hybryda', 'Wodór', 'CNG'];
 const bodyTypes = ['sedan', 'kombi', 'hatchback', 'suv', 'coupe', 'van', 'pickup', 'cabrio'];
 
+/** Trim model name: "X5 (G05) xDrive50e 3.0 24V" → "X5 (G05) xDrive50e" */
+function trimModelName(raw: string): string {
+  if (!raw) return raw;
+  // Remove trailing engine specs like "3.0 24V", "2.0 TDI 16V", "1.6 HDi" etc.
+  // Pattern: remove trailing " N.N" followed by optional alphanumeric specs
+  return raw.replace(/\s+\d+\.\d+(\s+\S+)*$/, '').trim();
+}
+
 export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCreated }: Props) {
   const create = useCreateWorkshopVehicle();
   const qc = useQueryClient();
@@ -40,6 +48,7 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
   const [showAddOwner, setShowAddOwner] = useState(false);
   const [createdOwner, setCreatedOwner] = useState<any>(null);
   const [showCreditsModal, setShowCreditsModal] = useState(false);
+  const ownerDropdownRef = useRef<HTMLDivElement>(null);
 
   const { credits, loading: lookupLoading, checkRegistration, checkVin, purchaseCredits } = useVehicleLookup(userId);
 
@@ -49,19 +58,41 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
     });
   }, []);
 
+  // Close owner dropdown on outside click
+  useEffect(() => {
+    if (!showOwnerList) return;
+    const handler = (e: MouseEvent) => {
+      if (ownerDropdownRef.current && !ownerDropdownRef.current.contains(e.target as Node)) {
+        setShowOwnerList(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showOwnerList]);
+
   const set = (key: string, val: string) => setForm(p => ({ ...p, [key]: val }));
 
   const applyVehicleData = (data: any) => {
-    if (data.make) set('brand', data.make);
-    if (data.model) set('model', data.model);
-    if (data.body_style) set('body_style', data.body_style);
-    if (data.color) set('color', data.color);
-    if (data.registration_year) set('year', String(data.registration_year));
-    if (data.fuel_type) set('fuel_type', data.fuel_type);
-    if (data.engine_size) set('engine_capacity_cm3', data.engine_size.replace(/[^0-9]/g, ''));
-    if (data.description) set('description', data.description);
-    if (data.vin && !form.vin) set('vin', data.vin);
-    if (data.registration_number && !form.plate) set('plate', data.registration_number);
+    setForm(prev => {
+      const updated = { ...prev };
+      if (data.make) updated.brand = data.make;
+      if (data.model) updated.model = trimModelName(data.model);
+      if (data.body_style) updated.body_style = data.body_style.toLowerCase();
+      if (data.color) updated.color = data.color;
+      if (data.registration_year) updated.year = String(data.registration_year);
+      if (data.fuel_type) updated.fuel_type = data.fuel_type;
+      if (data.engine_size) {
+        const num = data.engine_size.replace(/[^0-9]/g, '');
+        if (num) updated.engine_capacity_cm3 = num;
+      }
+      if (data.engine_power_kw) updated.engine_power_kw = String(data.engine_power_kw);
+      if (data.vin && !prev.vin) updated.vin = data.vin;
+      if (data.registration_number && !prev.plate) updated.plate = data.registration_number;
+      // Build description from make + model
+      const desc = [data.make, data.model].filter(Boolean).join(' ');
+      if (desc) updated.description = desc;
+      return updated;
+    });
   };
 
   const handleSearchPlate = async () => {
@@ -173,58 +204,11 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            {/* VIN & Plate row */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label>Numer VIN</Label>
-                <div className="relative">
-                  <Input value={form.vin} onChange={e => set('vin', e.target.value.toUpperCase())} placeholder="VIN" className="pr-10" />
-                  <button
-                    type="button"
-                    onClick={handleSearchVin}
-                    disabled={lookupLoading}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-accent transition-colors"
-                  >
-                    {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : <Search className="h-4 w-4 text-muted-foreground hover:text-primary transition-colors cursor-pointer" />}
-                  </button>
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Numer rejestracyjny</Label>
-                <div className="relative">
-                  <Input value={form.plate} onChange={e => set('plate', e.target.value.toUpperCase())} placeholder="Nr rejestracyjny" className="pr-10" />
-                  <button
-                    type="button"
-                    onClick={handleSearchPlate}
-                    disabled={lookupLoading}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-accent transition-colors"
-                  >
-                    {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : <Search className="h-4 w-4 text-muted-foreground hover:text-primary transition-colors cursor-pointer" />}
-                  </button>
-                </div>
-              </div>
-            </div>
 
-            {/* Brand, Model, Color */}
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-1.5">
-                <Label>Marka</Label>
-                <Input value={form.brand} onChange={e => set('brand', e.target.value)} placeholder="Marka" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Model</Label>
-                <Input value={form.model} onChange={e => set('model', e.target.value)} placeholder="Model" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Kolor</Label>
-                <Input value={form.color} onChange={e => set('color', e.target.value)} placeholder="Kolor" />
-              </div>
-            </div>
-
-            {/* Owner */}
+            {/* === SECTION: Dane klienta === */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <Label className="text-sm font-semibold">Właściciel pojazdu</Label>
+                <Label className="text-sm font-semibold">Dane klienta</Label>
                 <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => setShowAddOwner(true)}>
                   <Plus className="h-3 w-3" /> Dodaj właściciela
                 </Button>
@@ -236,11 +220,11 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
                   <Button variant="ghost" size="sm" onClick={() => { set('owner_client_id', ''); setShowOwnerList(true); }}>Zmień</Button>
                 </div>
               ) : (
-                <div className="relative">
+                <div className="relative" ref={ownerDropdownRef}>
                   <Input
                     value={ownerSearch}
                     onChange={e => { setOwnerSearch(e.target.value); setShowOwnerList(true); }}
-                    onFocus={() => setShowOwnerList(true)}
+                    onClick={() => setShowOwnerList(true)}
                     placeholder="Wyszukaj właściciela z listy klientów..."
                   />
                   {showOwnerList && (
@@ -262,29 +246,55 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
               )}
             </div>
 
-            {/* Year, Registration date, Fuel */}
+            {/* === SECTION: Dane pojazdu === */}
+            <div className="border-t pt-4">
+              <Label className="text-sm font-semibold">Dane pojazdu</Label>
+            </div>
+
+            {/* Nr rejestracyjny | VIN */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>Numer rejestracyjny</Label>
+                <div className="relative">
+                  <Input value={form.plate} onChange={e => set('plate', e.target.value.toUpperCase())} placeholder="Nr rejestracyjny" className="pr-10" />
+                  <button type="button" onClick={handleSearchPlate} disabled={lookupLoading} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-accent transition-colors">
+                    {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : <Search className="h-4 w-4 text-muted-foreground hover:text-primary transition-colors cursor-pointer" />}
+                  </button>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Numer VIN</Label>
+                <div className="relative">
+                  <Input value={form.vin} onChange={e => set('vin', e.target.value.toUpperCase())} placeholder="VIN" className="pr-10" />
+                  <button type="button" onClick={handleSearchVin} disabled={lookupLoading} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-accent transition-colors">
+                    {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : <Search className="h-4 w-4 text-muted-foreground hover:text-primary transition-colors cursor-pointer" />}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Marka | Model | Kolor */}
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-1.5">
+                <Label>Marka</Label>
+                <Input value={form.brand} onChange={e => set('brand', e.target.value)} placeholder="Marka" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Model</Label>
+                <Input value={form.model} onChange={e => set('model', e.target.value)} placeholder="Model" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Kolor</Label>
+                <Input value={form.color} onChange={e => set('color', e.target.value)} placeholder="Kolor" />
+              </div>
+            </div>
+
+            {/* Rok produkcji | Pojemność | Moc */}
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-1.5">
                 <Label>Rok produkcji</Label>
                 <Input type="number" value={form.year} onChange={e => set('year', e.target.value)} placeholder="Rok" />
               </div>
-              <div className="space-y-1.5">
-                <Label>Data pierwszej rejestracji</Label>
-                <Input type="date" value={form.first_registration_date} onChange={e => set('first_registration_date', e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Rodzaj paliwa</Label>
-                <Select value={form.fuel_type} onValueChange={v => set('fuel_type', v)}>
-                  <SelectTrigger><SelectValue placeholder="Wybierz..." /></SelectTrigger>
-                  <SelectContent>
-                    {fuelTypes.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* Engine details + Body style */}
-            <div className="grid grid-cols-4 gap-4">
               <div className="space-y-1.5">
                 <Label>Pojemność (cm³)</Label>
                 <Input type="number" value={form.engine_capacity_cm3} onChange={e => set('engine_capacity_cm3', e.target.value)} placeholder="cm³" />
@@ -293,9 +303,18 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
                 <Label>Moc silnika (kW)</Label>
                 <Input type="number" value={form.engine_power_kw} onChange={e => set('engine_power_kw', e.target.value)} placeholder="kW" />
               </div>
+            </div>
+
+            {/* Rodzaj paliwa | Typ nadwozia | Data pierwszej rejestracji */}
+            <div className="grid grid-cols-3 gap-4">
               <div className="space-y-1.5">
-                <Label>Nr silnika</Label>
-                <Input value={form.engine_number} onChange={e => set('engine_number', e.target.value)} placeholder="Nr silnika" />
+                <Label>Rodzaj paliwa</Label>
+                <Select value={form.fuel_type} onValueChange={v => set('fuel_type', v)}>
+                  <SelectTrigger><SelectValue placeholder="Wybierz..." /></SelectTrigger>
+                  <SelectContent>
+                    {fuelTypes.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1.5">
                 <Label>Typ nadwozia</Label>
@@ -306,13 +325,18 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-1.5">
+                <Label>Data pierwszej rejestracji</Label>
+                <Input type="date" value={form.first_registration_date} onChange={e => set('first_registration_date', e.target.value)} />
+              </div>
             </div>
 
-            {/* Description */}
+            {/* Opis pojazdu */}
             <div className="space-y-1.5">
               <Label>Opis pojazdu</Label>
               <Textarea value={form.description} onChange={e => set('description', e.target.value)} placeholder="Opis pojazdu" rows={2} />
             </div>
+
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={() => onOpenChange(false)}>Anuluj</Button>
               <Button onClick={handleSubmit} disabled={create.isPending}>
