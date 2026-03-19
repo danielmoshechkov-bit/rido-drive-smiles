@@ -317,7 +317,10 @@ export default function ServiceProviderDashboard() {
               </p>
             </div>
           </div>
-          <MyGetRidoButton user={user} />
+          <div className="flex items-center gap-3">
+            <TopBarCredits />
+            <MyGetRidoButton user={user} />
+          </div>
         </div>
       </header>
 
