@@ -26,21 +26,31 @@ export function AdminPaymentsTab() {
       </CardHeader>
       <CardContent>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="mb-4">
-            <TabsTrigger value="gateways" className="gap-1.5">
-              <CreditCard className="h-3.5 w-3.5" /> Bramki płatnicze
+          <TabsList className="bg-gradient-hero text-primary-foreground rounded-lg p-1 shadow-purple h-10 w-full mb-4">
+            <TabsTrigger value="gateways" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm hover:bg-accent/20 rounded-md transition-colors px-2.5 py-1.5 text-sm font-medium flex-1">
+              <div className="flex items-center gap-1.5 justify-center">
+                <CreditCard className="h-3.5 w-3.5" /> Bramki płatnicze
+              </div>
             </TabsTrigger>
-            <TabsTrigger value="assign-credits" className="gap-1.5">
-              <Gift className="h-3.5 w-3.5" /> Przyznaj kredyty
+            <TabsTrigger value="assign-credits" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm hover:bg-accent/20 rounded-md transition-colors px-2.5 py-1.5 text-sm font-medium flex-1">
+              <div className="flex items-center gap-1.5 justify-center">
+                <Gift className="h-3.5 w-3.5" /> Przyznaj kredyty
+              </div>
             </TabsTrigger>
-            <TabsTrigger value="subscriptions" className="gap-1.5">
-              <RefreshCw className="h-3.5 w-3.5" /> Subskrypcje
+            <TabsTrigger value="subscriptions" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm hover:bg-accent/20 rounded-md transition-colors px-2.5 py-1.5 text-sm font-medium flex-1">
+              <div className="flex items-center gap-1.5 justify-center">
+                <RefreshCw className="h-3.5 w-3.5" /> Subskrypcje
+              </div>
             </TabsTrigger>
-            <TabsTrigger value="onetime" className="gap-1.5">
-              <ShoppingCart className="h-3.5 w-3.5" /> Jednorazowe zakupy
+            <TabsTrigger value="onetime" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm hover:bg-accent/20 rounded-md transition-colors px-2.5 py-1.5 text-sm font-medium flex-1">
+              <div className="flex items-center gap-1.5 justify-center">
+                <ShoppingCart className="h-3.5 w-3.5" /> Jednorazowe zakupy
+              </div>
             </TabsTrigger>
-            <TabsTrigger value="history" className="gap-1.5">
-              <History className="h-3.5 w-3.5" /> Historia płatności
+            <TabsTrigger value="history" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm hover:bg-accent/20 rounded-md transition-colors px-2.5 py-1.5 text-sm font-medium flex-1">
+              <div className="flex items-center gap-1.5 justify-center">
+                <History className="h-3.5 w-3.5" /> Historia płatności
+              </div>
             </TabsTrigger>
           </TabsList>
 
