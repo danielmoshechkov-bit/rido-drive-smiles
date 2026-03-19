@@ -9098,6 +9098,48 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_gateway_config: {
+        Row: {
+          api_key_secret_name: string | null
+          config_json: Json | null
+          created_at: string | null
+          id: string
+          is_enabled: boolean | null
+          is_test_mode: boolean | null
+          merchant_id: string | null
+          name: string
+          provider: string
+          updated_at: string | null
+          webhook_url: string | null
+        }
+        Insert: {
+          api_key_secret_name?: string | null
+          config_json?: Json | null
+          created_at?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          is_test_mode?: boolean | null
+          merchant_id?: string | null
+          name: string
+          provider: string
+          updated_at?: string | null
+          webhook_url?: string | null
+        }
+        Update: {
+          api_key_secret_name?: string | null
+          config_json?: Json | null
+          created_at?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          is_test_mode?: boolean | null
+          merchant_id?: string | null
+          name?: string
+          provider?: string
+          updated_at?: string | null
+          webhook_url?: string | null
+        }
+        Relationships: []
+      }
       pending_service_reviews: {
         Row: {
           booking_id: string | null
@@ -9219,6 +9261,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      portal_integrations: {
+        Row: {
+          config_json: Json | null
+          created_at: string | null
+          id: string
+          is_enabled: boolean | null
+          key: string
+          last_test_date: string | null
+          last_test_status: string | null
+          name: string
+          provider: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          config_json?: Json | null
+          created_at?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          key: string
+          last_test_date?: string | null
+          last_test_status?: string | null
+          name: string
+          provider?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          config_json?: Json | null
+          created_at?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          key?: string
+          last_test_date?: string | null
+          last_test_status?: string | null
+          name?: string
+          provider?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       price_change_notifications: {
         Row: {
@@ -13370,6 +13451,45 @@ export type Database = {
           },
         ]
       }
+      vehicle_integration_logs: {
+        Row: {
+          created_at: string | null
+          error_message: string | null
+          id: string
+          integration_key: string | null
+          registration_number: string | null
+          request_type: string | null
+          response_snapshot: Json | null
+          status: string | null
+          user_id: string | null
+          vin: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          integration_key?: string | null
+          registration_number?: string | null
+          request_type?: string | null
+          response_snapshot?: Json | null
+          status?: string | null
+          user_id?: string | null
+          vin?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          integration_key?: string | null
+          registration_number?: string | null
+          request_type?: string | null
+          response_snapshot?: Json | null
+          status?: string | null
+          user_id?: string | null
+          vin?: string | null
+        }
+        Relationships: []
+      }
       vehicle_listings: {
         Row: {
           ai_enhanced_photos: string[] | null
@@ -13604,6 +13724,99 @@ export type Database = {
           },
         ]
       }
+      vehicle_lookup_credit_transactions: {
+        Row: {
+          created_at: string | null
+          created_by_admin_id: string | null
+          credits: number
+          id: string
+          note: string | null
+          price_net: number | null
+          source: string | null
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by_admin_id?: string | null
+          credits: number
+          id?: string
+          note?: string | null
+          price_net?: number | null
+          source?: string | null
+          type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by_admin_id?: string | null
+          credits?: number
+          id?: string
+          note?: string | null
+          price_net?: number | null
+          source?: string | null
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      vehicle_lookup_credits: {
+        Row: {
+          created_at: string | null
+          id: string
+          remaining_credits: number | null
+          total_credits_purchased: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          remaining_credits?: number | null
+          total_credits_purchased?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          remaining_credits?: number | null
+          total_credits_purchased?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      vehicle_lookup_usage: {
+        Row: {
+          created_at: string | null
+          credits_used: number | null
+          id: string
+          registration_number: string | null
+          source_type: string
+          user_id: string
+          vin: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          credits_used?: number | null
+          id?: string
+          registration_number?: string | null
+          source_type: string
+          user_id: string
+          vin?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          credits_used?: number | null
+          id?: string
+          registration_number?: string | null
+          source_type?: string
+          user_id?: string
+          vin?: string | null
+        }
+        Relationships: []
+      }
       vehicle_owner_charges: {
         Row: {
           adjustment: number
@@ -13773,6 +13986,75 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      vehicle_registry_cache: {
+        Row: {
+          body_style: string | null
+          color: string | null
+          created_at: string | null
+          description: string | null
+          engine_size: string | null
+          fuel_type: string | null
+          id: string
+          make: string | null
+          manufacture_year_from: number | null
+          manufacture_year_to: number | null
+          model: string | null
+          number_of_doors: string | null
+          number_of_seats: string | null
+          registration_number: string | null
+          registration_year: number | null
+          source: string | null
+          source_payload: Json | null
+          transmission: string | null
+          updated_at: string | null
+          vin: string | null
+        }
+        Insert: {
+          body_style?: string | null
+          color?: string | null
+          created_at?: string | null
+          description?: string | null
+          engine_size?: string | null
+          fuel_type?: string | null
+          id?: string
+          make?: string | null
+          manufacture_year_from?: number | null
+          manufacture_year_to?: number | null
+          model?: string | null
+          number_of_doors?: string | null
+          number_of_seats?: string | null
+          registration_number?: string | null
+          registration_year?: number | null
+          source?: string | null
+          source_payload?: Json | null
+          transmission?: string | null
+          updated_at?: string | null
+          vin?: string | null
+        }
+        Update: {
+          body_style?: string | null
+          color?: string | null
+          created_at?: string | null
+          description?: string | null
+          engine_size?: string | null
+          fuel_type?: string | null
+          id?: string
+          make?: string | null
+          manufacture_year_from?: number | null
+          manufacture_year_to?: number | null
+          model?: string | null
+          number_of_doors?: string | null
+          number_of_seats?: string | null
+          registration_number?: string | null
+          registration_year?: number | null
+          source?: string | null
+          source_payload?: Json | null
+          transmission?: string | null
+          updated_at?: string | null
+          vin?: string | null
+        }
+        Relationships: []
       }
       vehicle_rentals: {
         Row: {
@@ -15680,6 +15962,10 @@ export type Database = {
       can_change_settlement_plan: {
         Args: { _driver_id: string; _user_id: string }
         Returns: Json
+      }
+      deduct_vehicle_lookup_credit: {
+        Args: { p_user_id: string }
+        Returns: undefined
       }
       driver_has_vehicle_access: {
         Args: { p_vehicle_id: string }

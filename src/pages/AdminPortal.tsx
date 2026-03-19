@@ -14,10 +14,12 @@ import { WorkspaceManagement } from '@/components/admin/WorkspaceManagement';
 import { SupportTicketsPanel } from '@/components/admin/SupportTicketsPanel';
 import { AdminAuthUsersPanel } from '@/components/admin/AdminAuthUsersPanel';
 import { AdminApiKeysTab } from '@/components/admin/AdminApiKeysTab';
+import { AdminIntegrationsTab } from '@/components/admin/AdminIntegrationsTab';
+import { AdminPaymentsTab } from '@/components/admin/AdminPaymentsTab';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { UserDropdown } from '@/components/UserDropdown';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Palette, Users, Wrench, Calculator, LayoutGrid, Bot, Key, TicketCheck, Briefcase } from 'lucide-react';
+import { Loader2, Palette, Users, Wrench, Calculator, LayoutGrid, Bot, Key, TicketCheck, Briefcase, Plug, Wallet } from 'lucide-react';
 
 export default function AdminPortal() {
   const navigate = useNavigate();
@@ -89,6 +91,8 @@ export default function AdminPortal() {
     { value: 'ai-assistant', label: 'AI Asystent', icon: Bot },
     { value: 'tickets', label: 'Zgłoszenia', icon: TicketCheck },
     { value: 'api', label: 'Klucze API', icon: Key },
+    { value: 'integrations', label: 'Integracje', icon: Plug },
+    { value: 'payments', label: 'Płatności', icon: Wallet },
     { value: 'accounting', label: 'Księgowość', icon: Calculator },
     { value: 'features', label: 'Funkcje', icon: Wrench },
     { value: 'portals', label: 'Portale', icon: LayoutGrid },
@@ -215,6 +219,16 @@ export default function AdminPortal() {
           {/* API Keys Tab */}
           <TabsContent value="api">
             <AdminApiKeysTab />
+          </TabsContent>
+
+          {/* Integrations Tab */}
+          <TabsContent value="integrations">
+            <AdminIntegrationsTab />
+          </TabsContent>
+
+          {/* Payments Tab */}
+          <TabsContent value="payments">
+            <AdminPaymentsTab />
           </TabsContent>
 
           {/* Accounting Module Tab */}

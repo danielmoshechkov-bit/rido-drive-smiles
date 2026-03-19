@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,6 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { CarBrandModelSelector } from "@/components/CarBrandModelSelector";
+import { useVehicleLookup } from "@/hooks/useVehicleLookup";
+import { VehicleLookupCreditsModal } from "@/components/vehicle/VehicleLookupCreditsModal";
+import { Search, Loader2 } from "lucide-react";
 
 type Props = {
   isOpen: boolean;
@@ -44,6 +47,16 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId, fleetId, f
   const isRentalVariant = variant === 'rental';
   const [loading, setLoading] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Set<string>>(new Set());
+  const [userId, setUserId] = useState<string | undefined>();
+  const [showCreditsModal, setShowCreditsModal] = useState(false);
+
+  const { credits, loading: lookupLoading, checkRegistration, checkVin, purchaseCredits } = useVehicleLookup(userId);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data?.user) setUserId(data.user.id);
+    });
+  }, []);
 
   const [plate, setPlate] = useState("");
   const [vin, setVin] = useState("");
@@ -61,6 +74,39 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId, fleetId, f
   const [hasAC, setHasAC] = useState(false);
   const [acValidTo, setAcValidTo] = useState<string>("");
   const [acPremium, setAcPremium] = useState<number | "">("");
+
+  const applyVehicleData = (data: any) => {
+    if (data.make) setBrand(data.make);
+    if (data.model) setModel(data.model);
+    if (data.body_style) setBodyType(data.body_style);
+    if (data.color) setColor(data.color);
+    if (data.registration_year) setYear(data.registration_year);
+    if (data.fuel_type) setFuelType(data.fuel_type.toLowerCase());
+    if (data.engine_size) { /* engine size handled if field exists */ }
+    if (data.vin && !vin) setVin(data.vin);
+    if (data.registration_number && !plate) setPlate(data.registration_number);
+  };
+
+  const handleSearchPlate = async () => {
+    if (!plate || plate.length < 3) { toast.error('Wpisz numer rejestracyjny'); return; }
+    if (!credits || credits.remaining_credits < 1) { setShowCreditsModal(true); return; }
+    const data = await checkRegistration(plate);
+    if (!data && credits && credits.remaining_credits < 1) setShowCreditsModal(true);
+    else if (data) applyVehicleData(data);
+  };
+
+  const handleSearchVin = async () => {
+    if (!vin || vin.length < 5) { toast.error('Wpisz numer VIN'); return; }
+    if (!credits || credits.remaining_credits < 1) { setShowCreditsModal(true); return; }
+    const data = await checkVin(vin);
+    if (!data && credits && credits.remaining_credits < 1) setShowCreditsModal(true);
+    else if (data) applyVehicleData(data);
+  };
+
+  const handlePurchaseCredits = async (amount: number, priceNet: number) => {
+    const ok = await purchaseCredits(amount, priceNet);
+    if (ok) setShowCreditsModal(false);
+  };
 
   const handleSave = async () => {
     const errors = new Set<string>();
@@ -155,6 +201,7 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId, fleetId, f
   };
 
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] flex flex-col p-0">
         <DialogHeader className="p-4 sm:p-6 pb-0">
@@ -165,11 +212,21 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId, fleetId, f
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <Label className={validationErrors.has('plate') ? 'text-destructive' : ''}>Nr rejestracyjny *</Label>
-            <Input value={plate} onChange={(e) => { setPlate(e.target.value.toUpperCase()); setValidationErrors(prev => { const n = new Set(prev); n.delete('plate'); return n; }); }} placeholder="np. WX1234A" className={`uppercase ${validationErrors.has('plate') ? 'border-destructive ring-1 ring-destructive' : ''}`} />
+            <div className="relative">
+              <Input value={plate} onChange={(e) => { setPlate(e.target.value.toUpperCase()); setValidationErrors(prev => { const n = new Set(prev); n.delete('plate'); return n; }); }} placeholder="np. WX1234A" className={`uppercase pr-10 ${validationErrors.has('plate') ? 'border-destructive ring-1 ring-destructive' : ''}`} />
+              <button type="button" onClick={handleSearchPlate} disabled={lookupLoading} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-accent transition-colors">
+                {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : <Search className="h-4 w-4 text-muted-foreground hover:text-primary cursor-pointer" />}
+              </button>
+            </div>
           </div>
           <div>
             <Label>VIN</Label>
-            <Input value={vin} onChange={(e) => setVin(e.target.value.toUpperCase())} placeholder="17 znaków" className="uppercase" />
+            <div className="relative">
+              <Input value={vin} onChange={(e) => setVin(e.target.value.toUpperCase())} placeholder="17 znaków" className="uppercase pr-10" />
+              <button type="button" onClick={handleSearchVin} disabled={lookupLoading} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-accent transition-colors">
+                {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : <Search className="h-4 w-4 text-muted-foreground hover:text-primary cursor-pointer" />}
+              </button>
+            </div>
           </div>
           
           {/* Car Brand/Model Selector - spans full width */}
@@ -311,5 +368,12 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId, fleetId, f
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <VehicleLookupCreditsModal
+      open={showCreditsModal}
+      onOpenChange={setShowCreditsModal}
+      onPurchase={handlePurchaseCredits}
+    />
+    </>
   );
 }
