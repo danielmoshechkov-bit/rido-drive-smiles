@@ -250,8 +250,8 @@ export default function WorkshopClientCard() {
                 {/* Damage */}
                 {order.damage_description && (
                   <div>
-                    <h4 className="text-sm font-semibold text-primary mb-1">Opis uszkodzeń:</h4>
-                    <p className="text-sm bg-muted/30 rounded-lg p-3 whitespace-pre-line">{order.damage_description}</p>
+                    <h4 className="text-sm font-bold text-primary mb-1">Opis uszkodzeń:</h4>
+                    <p className="text-sm font-medium bg-muted/30 rounded-lg p-3 whitespace-pre-line">{order.damage_description}</p>
                   </div>
                 )}
 
