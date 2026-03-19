@@ -439,12 +439,21 @@ export default function ServicesMarketplace() {
             <Badge
               variant={!selectedCategorySlug ? "default" : "outline"}
               className="cursor-pointer px-4 py-2 text-sm"
-              onClick={handleBackToCategories}
+              onClick={() => {
+                if (activeGroup) {
+                  setSearchParams({ grupa: activeGroup.id });
+                } else {
+                  handleBackToGroups();
+                }
+              }}
             >
               <Filter className="h-4 w-4 mr-1" />
               Wszystkie
             </Badge>
-            {categories.map(cat => {
+            {(activeGroup
+              ? categories.filter(c => activeGroup.slugs.includes(c.slug))
+              : categories
+            ).map(cat => {
               const IconComponent = categoryIcons[cat.icon];
               return (
                 <Badge
