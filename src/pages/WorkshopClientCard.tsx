@@ -137,31 +137,29 @@ export default function WorkshopClientCard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
-      {/* Company Header */}
-      <div className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground">
-        <div className="max-w-5xl mx-auto px-4 py-6 md:px-8">
+      {/* Company Header — clean, no heavy gradient */}
+      <div className="border-b bg-background">
+        <div className="max-w-5xl mx-auto px-4 py-5 md:px-8">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div className="flex items-center gap-4">
               {provider?.logo_url ? (
-                <img src={provider.logo_url} alt="Logo" className="h-14 w-14 rounded-xl bg-white p-1 object-contain" />
+                <img src={provider.logo_url} alt="Logo" className="h-12 w-12 rounded-xl border object-contain" />
               ) : (
-                <div className="h-14 w-14 rounded-xl bg-white/20 flex items-center justify-center text-2xl font-bold">
+                <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center text-xl font-bold text-primary">
                   {provider?.company_name?.charAt(0) || 'W'}
                 </div>
               )}
               <div>
-                <h1 className="text-xl md:text-2xl font-bold">{provider?.company_name || 'Serwis'}</h1>
-                <p className="text-sm text-primary-foreground/80">
+                <h1 className="text-lg md:text-xl font-bold text-foreground">{provider?.company_name || 'Serwis'}</h1>
+                <p className="text-sm text-muted-foreground">
                   {[provider?.company_address, provider?.company_city].filter(Boolean).join(', ')}
+                  {provider?.company_nip && ` · NIP: ${provider.company_nip}`}
                 </p>
-                {provider?.company_nip && (
-                  <p className="text-xs text-primary-foreground/60">NIP: {provider.company_nip}</p>
-                )}
               </div>
             </div>
             <div className="text-right space-y-1">
-              <p className="text-lg font-bold">{order.order_number}</p>
-              <p className="text-sm text-primary-foreground/80">
+              <p className="text-lg font-bold text-foreground">{order.order_number}</p>
+              <p className="text-sm text-muted-foreground">
                 {order.created_at ? format(new Date(order.created_at), 'dd.MM.yyyy') : '---'}
               </p>
               <Badge className={`${status.color} border-0`}>{status.label}</Badge>
