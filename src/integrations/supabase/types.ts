@@ -15950,6 +15950,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_find_user_by_email: {
+        Args: { p_email: string }
+        Returns: {
+          email: string
+          id: string
+        }[]
+      }
       calculate_driver_payout_with_debt: {
         Args: { p_calculated_payout: number; p_driver_id: string }
         Returns: {
