@@ -7,7 +7,8 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, CreditCard, Save, Wallet, History, ShoppingCart, RefreshCw } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Loader2, CreditCard, Save, Wallet, History, ShoppingCart, RefreshCw, Gift, Search, Car, MessageSquare, Plus, Minus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -29,6 +30,9 @@ export function AdminPaymentsTab() {
             <TabsTrigger value="gateways" className="gap-1.5">
               <CreditCard className="h-3.5 w-3.5" /> Bramki płatnicze
             </TabsTrigger>
+            <TabsTrigger value="assign-credits" className="gap-1.5">
+              <Gift className="h-3.5 w-3.5" /> Przyznaj kredyty
+            </TabsTrigger>
             <TabsTrigger value="subscriptions" className="gap-1.5">
               <RefreshCw className="h-3.5 w-3.5" /> Subskrypcje
             </TabsTrigger>
@@ -42,6 +46,9 @@ export function AdminPaymentsTab() {
 
           <TabsContent value="gateways">
             <PaymentGatewayConfig />
+          </TabsContent>
+          <TabsContent value="assign-credits">
+            <AssignCreditsPanel />
           </TabsContent>
           <TabsContent value="subscriptions">
             <div className="text-center py-8 text-muted-foreground">
@@ -65,6 +72,255 @@ export function AdminPaymentsTab() {
     </Card>
   );
 }
+
+// ==================== Assign Credits Panel ====================
+
+function AssignCreditsPanel() {
+  const [email, setEmail] = useState('');
+  const [searching, setSearching] = useState(false);
+  const [foundUser, setFoundUser] = useState<{ id: string; email: string } | null>(null);
+  const [notFound, setNotFound] = useState(false);
+  const [creditType, setCreditType] = useState<'vehicle' | 'sms'>('vehicle');
+  const [amount, setAmount] = useState(10);
+  const [note, setNote] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [userCredits, setUserCredits] = useState<{ vehicle: number; sms: number }>({ vehicle: 0, sms: 0 });
+
+  const searchUser = async () => {
+    if (!email.trim()) return;
+    setSearching(true);
+    setFoundUser(null);
+    setNotFound(false);
+
+    // Search in auth users via profiles or direct
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, display_name')
+      .ilike('display_name', `%${email.trim()}%`)
+      .limit(1)
+      .maybeSingle();
+
+    // Also try by auth - we'll use a different approach: query by email in RPC or check
+    // Since we can't query auth.users directly, let's check vehicle_lookup_credits
+    // Actually, the simplest: use supabase admin list users - but from client we can't
+    // Let's search by checking if we have any data for this email
+    
+    // Try to find user by email using the profiles approach or just store the email
+    // For admin usage, let's use a simple approach: look up by email
+    const { data: authData } = await supabase.rpc('admin_find_user_by_email', { p_email: email.trim() }).maybeSingle();
+    
+    if (authData) {
+      setFoundUser({ id: authData.id, email: authData.email || email.trim() });
+      await loadUserCredits(authData.id);
+    } else {
+      // Fallback: try to find in profiles by display_name containing email
+      setNotFound(true);
+    }
+    setSearching(false);
+  };
+
+  const loadUserCredits = async (userId: string) => {
+    const { data: vehicleData } = await supabase
+      .from('vehicle_lookup_credits')
+      .select('remaining_credits')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    setUserCredits({
+      vehicle: vehicleData?.remaining_credits ?? 0,
+      sms: 0, // TODO: when SMS credits table exists
+    });
+  };
+
+  const handleAssign = async () => {
+    if (!foundUser || amount <= 0) return;
+    setSaving(true);
+
+    try {
+      const { data: { user: adminUser } } = await supabase.auth.getUser();
+
+      if (creditType === 'vehicle') {
+        // Check if user has a credits record
+        const { data: existing } = await supabase
+          .from('vehicle_lookup_credits')
+          .select('id, remaining_credits, total_credits_purchased')
+          .eq('user_id', foundUser.id)
+          .maybeSingle();
+
+        if (existing) {
+          await supabase
+            .from('vehicle_lookup_credits')
+            .update({
+              remaining_credits: existing.remaining_credits + amount,
+              total_credits_purchased: existing.total_credits_purchased + amount,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', existing.id);
+        } else {
+          await supabase
+            .from('vehicle_lookup_credits')
+            .insert({
+              user_id: foundUser.id,
+              remaining_credits: amount,
+              total_credits_purchased: amount,
+            });
+        }
+
+        // Log transaction
+        await supabase.from('vehicle_lookup_credit_transactions').insert({
+          user_id: foundUser.id,
+          type: 'manual_add',
+          credits: amount,
+          source: 'admin',
+          note: note || `Przyznano przez admina`,
+          created_by_admin_id: adminUser?.id || null,
+        });
+
+        toast.success(`Przyznano ${amount} kredytów sprawdzeń pojazdów dla ${foundUser.email}`);
+      } else {
+        // SMS credits - placeholder for now
+        toast.info(`Kredyty SMS zostaną dodane po wdrożeniu modułu SMS`);
+      }
+
+      await loadUserCredits(foundUser.id);
+      setAmount(10);
+      setNote('');
+    } catch (e: any) {
+      toast.error('Błąd: ' + (e?.message || 'Nieznany błąd'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Search user */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Search className="h-4 w-4" />
+            Znajdź użytkownika
+          </CardTitle>
+          <CardDescription>Wpisz adres e-mail konta, któremu chcesz przyznać kredyty</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-2">
+            <Input
+              placeholder="np. warsztat@test.pl"
+              value={email}
+              onChange={e => { setEmail(e.target.value); setNotFound(false); setFoundUser(null); }}
+              onKeyDown={e => e.key === 'Enter' && searchUser()}
+              className="flex-1"
+            />
+            <Button onClick={searchUser} disabled={searching || !email.trim()} className="gap-2">
+              {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+              Szukaj
+            </Button>
+          </div>
+
+          {notFound && (
+            <p className="text-sm text-destructive mt-2">Nie znaleziono użytkownika o podanym adresie e-mail</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* User found - assign credits */}
+      {foundUser && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Gift className="h-4 w-4" />
+              Przyznaj kredyty
+            </CardTitle>
+            <CardDescription>
+              Użytkownik: <span className="font-semibold text-foreground">{foundUser.email}</span>
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Current balances */}
+            <div className="flex gap-4">
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-destructive/10">
+                <Car className="h-4 w-4 text-destructive" />
+                <span className="text-sm font-medium">Sprawdzenia pojazdów: <span className="font-bold">{userCredits.vehicle}</span></span>
+              </div>
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted">
+                <MessageSquare className="h-4 w-4" />
+                <span className="text-sm font-medium">SMS: <span className="font-bold">{userCredits.sms}</span></span>
+              </div>
+            </div>
+
+            {/* Credit type */}
+            <div className="space-y-2">
+              <Label>Typ kredytów</Label>
+              <Select value={creditType} onValueChange={(v: 'vehicle' | 'sms') => setCreditType(v)}>
+                <SelectTrigger className="w-full max-w-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="vehicle">
+                    <span className="flex items-center gap-2"><Car className="h-4 w-4" /> Sprawdzenia pojazdów</span>
+                  </SelectItem>
+                  <SelectItem value="sms">
+                    <span className="flex items-center gap-2"><MessageSquare className="h-4 w-4" /> Pakiet SMS</span>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Amount */}
+            <div className="space-y-2">
+              <Label>Liczba kredytów do przyznania</Label>
+              <div className="flex items-center gap-0 border rounded-lg overflow-hidden w-fit">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-10 w-10 rounded-none border-r"
+                  onClick={() => setAmount(prev => Math.max(1, prev - 10))}
+                  disabled={amount <= 1}
+                >
+                  <Minus className="h-4 w-4" />
+                </Button>
+                <Input
+                  type="number"
+                  value={amount}
+                  onChange={e => setAmount(Math.max(1, parseInt(e.target.value) || 1))}
+                  className="w-20 text-center border-0 rounded-none"
+                  min={1}
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-10 w-10 rounded-none border-l"
+                  onClick={() => setAmount(prev => prev + 10)}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Note */}
+            <div className="space-y-2">
+              <Label>Notatka (opcjonalnie)</Label>
+              <Input
+                value={note}
+                onChange={e => setNote(e.target.value)}
+                placeholder="np. Bonus powitalny, rekompensata..."
+              />
+            </div>
+
+            {/* Submit */}
+            <Button onClick={handleAssign} disabled={saving} className="gap-2">
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Gift className="h-4 w-4" />}
+              Przyznaj {amount} kredytów
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+// ==================== Payment Gateway Config ====================
 
 function PaymentGatewayConfig() {
   const [configs, setConfigs] = useState<any[]>([]);
@@ -108,6 +364,8 @@ function PaymentGatewayConfig() {
     </div>
   );
 }
+
+// ==================== Payment History ====================
 
 function PaymentHistory() {
   const [transactions, setTransactions] = useState<any[]>([]);
