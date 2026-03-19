@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter
+  Dialog, DialogContent, DialogHeader, DialogTitle
 } from '@/components/ui/dialog';
 import { CheckCircle2, FileSignature, Loader2, Car, User, Wrench, Lock, Shield } from 'lucide-react';
 import { toast } from 'sonner';
