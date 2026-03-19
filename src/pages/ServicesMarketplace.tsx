@@ -139,6 +139,20 @@ export default function ServicesMarketplace() {
   const [viewMode, setViewMode] = useState<'grid' | 'compact' | 'list'>('grid');
 
   const selectedCategorySlug = searchParams.get('kategoria');
+  const selectedGroupId = searchParams.get('grupa');
+  const selectedGroup = CATEGORY_GROUPS.find(g => g.id === selectedGroupId);
+
+  const handleBackToCategories = () => {
+    setSearchParams({});
+    setSearchQuery('');
+    setCityFilter('');
+  };
+
+  const handleBackToGroups = () => {
+    setSearchParams({});
+    setSearchQuery('');
+    setCityFilter('');
+  };
 
   useEffect(() => {
     loadData();
