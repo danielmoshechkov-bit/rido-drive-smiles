@@ -77,35 +77,41 @@ export function AdminPaymentsTab() {
 function AssignCreditsPanel() {
   const [email, setEmail] = useState('');
   const [searching, setSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState<{ id: string; email: string }[]>([]);
   const [foundUser, setFoundUser] = useState<{ id: string; email: string } | null>(null);
-  const [notFound, setNotFound] = useState(false);
   const [creditType, setCreditType] = useState<'vehicle' | 'sms'>('vehicle');
-  const [amount, setAmount] = useState(10);
+  const [amount, setAmount] = useState<number | ''>('');
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
   const [userCredits, setUserCredits] = useState<{ vehicle: number; sms: number }>({ vehicle: 0, sms: 0 });
 
-  const searchUser = async () => {
-    if (!email.trim()) return;
-    setSearching(true);
-    setFoundUser(null);
-    setNotFound(false);
-
-    try {
-      const { data, error } = await supabase.rpc('admin_find_user_by_email', { p_email: email.trim() });
-      
-      const result = Array.isArray(data) ? data[0] : data;
-      
-      if (result && result.id) {
-        setFoundUser({ id: result.id as string, email: (result.email as string) || email.trim() });
-        await loadUserCredits(result.id as string);
-      } else {
-        setNotFound(true);
-      }
-    } catch {
-      setNotFound(true);
+  // Live search with debounce
+  useEffect(() => {
+    if (email.trim().length < 2) {
+      setSearchResults([]);
+      return;
     }
-    setSearching(false);
+
+    const timer = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const { data } = await supabase.rpc('admin_find_user_by_email', { p_email: email.trim() });
+        const results = Array.isArray(data) ? data : data ? [data] : [];
+        setSearchResults(results.filter((r: any) => r?.id).map((r: any) => ({ id: r.id as string, email: (r.email as string) || '' })));
+      } catch {
+        setSearchResults([]);
+      }
+      setSearching(false);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [email]);
+
+  const selectUser = async (user: { id: string; email: string }) => {
+    setFoundUser(user);
+    setEmail(user.email);
+    setSearchResults([]);
+    await loadUserCredits(user.id);
   };
 
   const loadUserCredits = async (userId: string) => {
@@ -117,19 +123,18 @@ function AssignCreditsPanel() {
 
     setUserCredits({
       vehicle: vehicleData?.remaining_credits ?? 0,
-      sms: 0, // TODO: when SMS credits table exists
+      sms: 0,
     });
   };
 
   const handleAssign = async () => {
-    if (!foundUser || amount <= 0) return;
+    if (!foundUser || !amount || amount <= 0) return;
     setSaving(true);
 
     try {
       const { data: { user: adminUser } } = await supabase.auth.getUser();
 
       if (creditType === 'vehicle') {
-        // Check if user has a credits record
         const { data: existing } = await supabase
           .from('vehicle_lookup_credits')
           .select('id, remaining_credits, total_credits_purchased')
@@ -155,7 +160,6 @@ function AssignCreditsPanel() {
             });
         }
 
-        // Log transaction
         await supabase.from('vehicle_lookup_credit_transactions').insert({
           user_id: foundUser.id,
           type: 'manual_add',
@@ -167,12 +171,11 @@ function AssignCreditsPanel() {
 
         toast.success(`Przyznano ${amount} kredytów sprawdzeń pojazdów dla ${foundUser.email}`);
       } else {
-        // SMS credits - placeholder for now
         toast.info(`Kredyty SMS zostaną dodane po wdrożeniu modułu SMS`);
       }
 
       await loadUserCredits(foundUser.id);
-      setAmount(10);
+      setAmount('');
       setNote('');
     } catch (e: any) {
       toast.error('Błąd: ' + (e?.message || 'Nieznany błąd'));
@@ -183,32 +186,50 @@ function AssignCreditsPanel() {
 
   return (
     <div className="space-y-6">
-      {/* Search user */}
+      {/* Search user - live */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <Search className="h-4 w-4" />
             Znajdź użytkownika
           </CardTitle>
-          <CardDescription>Wpisz adres e-mail konta, któremu chcesz przyznać kredyty</CardDescription>
+          <CardDescription>Zacznij wpisywać adres e-mail — wyniki pojawią się automatycznie</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-2">
-            <Input
-              placeholder="np. warsztat@test.pl"
-              value={email}
-              onChange={e => { setEmail(e.target.value); setNotFound(false); setFoundUser(null); }}
-              onKeyDown={e => e.key === 'Enter' && searchUser()}
-              className="flex-1"
-            />
-            <Button onClick={searchUser} disabled={searching || !email.trim()} className="gap-2">
-              {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-              Szukaj
-            </Button>
+          <div className="relative">
+            <div className="relative">
+              <Input
+                placeholder="np. warsztat@test.pl"
+                value={email}
+                onChange={e => { setEmail(e.target.value); setFoundUser(null); }}
+                className="pr-10"
+              />
+              {searching && (
+                <Loader2 className="h-4 w-4 animate-spin absolute right-3 top-3 text-muted-foreground" />
+              )}
+            </div>
+
+            {/* Dropdown with results */}
+            {searchResults.length > 0 && !foundUser && (
+              <div className="absolute z-10 w-full mt-1 bg-background border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                {searchResults.map(user => (
+                  <button
+                    key={user.id}
+                    onClick={() => selectUser(user)}
+                    className="w-full text-left px-4 py-2.5 hover:bg-muted transition-colors text-sm flex items-center gap-2"
+                  >
+                    <Search className="h-3.5 w-3.5 text-muted-foreground" />
+                    {user.email}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
-          {notFound && (
-            <p className="text-sm text-destructive mt-2">Nie znaleziono użytkownika o podanym adresie e-mail</p>
+          {foundUser && (
+            <p className="text-sm text-green-600 mt-2 flex items-center gap-1">
+              ✓ Wybrany użytkownik: <span className="font-semibold">{foundUser.email}</span>
+            </p>
           )}
         </CardContent>
       </Card>
@@ -256,35 +277,17 @@ function AssignCreditsPanel() {
               </Select>
             </div>
 
-            {/* Amount */}
+            {/* Amount - free input */}
             <div className="space-y-2">
               <Label>Liczba kredytów do przyznania</Label>
-              <div className="flex items-center gap-0 border rounded-lg overflow-hidden w-fit">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-10 w-10 rounded-none border-r"
-                  onClick={() => setAmount(prev => Math.max(1, prev - 10))}
-                  disabled={amount <= 1}
-                >
-                  <Minus className="h-4 w-4" />
-                </Button>
-                <Input
-                  type="number"
-                  value={amount}
-                  onChange={e => setAmount(Math.max(1, parseInt(e.target.value) || 1))}
-                  className="w-20 text-center border-0 rounded-none"
-                  min={1}
-                />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-10 w-10 rounded-none border-l"
-                  onClick={() => setAmount(prev => prev + 10)}
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
+              <Input
+                type="number"
+                value={amount}
+                onChange={e => setAmount(e.target.value === '' ? '' : Math.max(1, parseInt(e.target.value) || 1))}
+                placeholder="Wpisz dowolną liczbę, np. 5, 15, 100..."
+                className="max-w-xs"
+                min={1}
+              />
             </div>
 
             {/* Note */}
@@ -298,9 +301,9 @@ function AssignCreditsPanel() {
             </div>
 
             {/* Submit */}
-            <Button onClick={handleAssign} disabled={saving} className="gap-2">
+            <Button onClick={handleAssign} disabled={saving || !amount || amount <= 0} className="gap-2">
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Gift className="h-4 w-4" />}
-              Przyznaj {amount} kredytów
+              Przyznaj {amount || 0} kredytów
             </Button>
           </CardContent>
         </Card>
