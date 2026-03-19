@@ -4,17 +4,25 @@ import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Search, MapPin, Wrench, Sparkles, Home, Hammer, Droplets, Zap, Flower, Truck, Star, Filter, ArrowLeft, Shield, PenTool, HardHat, Grid3X3, LayoutList, List } from 'lucide-react';
+import { Loader2, Search, MapPin, Wrench, Sparkles, Home, Hammer, Droplets, Zap, Flower, Truck, Star, Filter, ArrowLeft, Shield, PenTool, HardHat, Grid3X3, LayoutList, List, Car, Scissors, Heart, Briefcase, Package } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { ServiceCategoryTile, categoryImages } from '@/components/services/ServiceCategoryTile';
 import { ServiceListingCard } from '@/components/services/ServiceListingCard';
 import { ServiceProviderDetailModal } from '@/components/services/ServiceProviderDetailModal';
 import { MyGetRidoButton } from '@/components/MyGetRidoButton';
 import { UniversalHomeButton } from '@/components/UniversalHomeButton';
 import LanguageSelector from '@/components/LanguageSelector';
-import { PortalCategoryGrid } from '@/components/portal/PortalCategoryGrid';
+import { Card, CardContent } from '@/components/ui/card';
 import { User } from '@supabase/supabase-js';
 import { SEOHead, seoConfigs } from '@/components/SEOHead';
+
+// Category group images
+import categoryAuto from '@/assets/category-auto.jpg';
+import categoryDom from '@/assets/category-dom.jpg';
+import categoryBeauty from '@/assets/category-beauty.jpg';
+import categoryZdrowie from '@/assets/category-zdrowie.jpg';
+import categoryEkspert from '@/assets/category-ekspert.jpg';
+import categoryDostawy from '@/assets/category-dostawy.jpg';
+import categoryFachowiec from '@/assets/category-fachowiec.jpg';
 
 interface ServiceCategory {
   id: string;
@@ -42,6 +50,66 @@ interface ServiceProvider {
   services?: { id: string; name: string; price: number; price_type: string }[];
 }
 
+// Main category groups with subcategories and mapped slugs
+const CATEGORY_GROUPS = [
+  {
+    id: 'auto',
+    name: 'Auto',
+    image: categoryAuto,
+    icon: Car,
+    subcategories: ['Warsztaty', 'Detailing', 'Myjnie', 'Flota', 'PPF'],
+    slugs: ['warsztat', 'detailing', 'ppf'],
+  },
+  {
+    id: 'dom',
+    name: 'Dom',
+    image: categoryDom,
+    icon: Home,
+    subcategories: ['Sprzątanie', 'Remonty', 'Wykończenia', 'Budowlanka', 'Meble i wyposażenie'],
+    slugs: ['sprzatanie', 'remonty', 'budowlanka', 'projektanci'],
+  },
+  {
+    id: 'beauty',
+    name: 'Beauty',
+    image: categoryBeauty,
+    icon: Scissors,
+    subcategories: ['Fryzjerzy', 'Kosmetyczki', 'Paznokcie', 'Rzęsy', 'Spa i masaże'],
+    slugs: [],
+  },
+  {
+    id: 'zdrowie',
+    name: 'Zdrowie',
+    image: categoryZdrowie,
+    icon: Heart,
+    subcategories: ['Lekarze', 'Dentyści', 'Fizjoterapeuci', 'Psycholodzy', 'Dietetycy'],
+    slugs: [],
+  },
+  {
+    id: 'ekspert',
+    name: 'Ekspert',
+    image: categoryEkspert,
+    icon: Briefcase,
+    subcategories: ['Prawnicy', 'Księgowi', 'Doradcy finansowi', 'Notariusze', 'Tłumacze'],
+    slugs: [],
+  },
+  {
+    id: 'dostawy',
+    name: 'Dostawy',
+    image: categoryDostawy,
+    icon: Package,
+    subcategories: ['Kurierzy', 'Transport', 'Przeprowadzki', 'Przewóz osób'],
+    slugs: ['przeprowadzki'],
+  },
+  {
+    id: 'fachowiec',
+    name: 'Fachowiec',
+    image: categoryFachowiec,
+    icon: Wrench,
+    subcategories: ['Hydraulicy', 'Elektrycy', 'Stolarze', 'Malarze', 'Złota rączka'],
+    slugs: ['hydraulik', 'elektryk', 'zlota-raczka', 'ogrodnik'],
+  },
+];
+
 const categoryIcons: Record<string, any> = {
   'wrench': Wrench,
   'sparkles': Sparkles,
@@ -54,21 +122,6 @@ const categoryIcons: Record<string, any> = {
   'shield': Shield,
   'pen-tool': PenTool,
   'hard-hat': HardHat,
-};
-
-const categoryDescriptions: Record<string, string> = {
-  'sprzatanie': 'Profesjonalne sprzątanie mieszkań, biur i lokali',
-  'warsztat': 'Naprawy, przeglądy i serwis samochodowy',
-  'detailing': 'Polerowanie, ceramika i pielęgnacja lakieru',
-  'zlota-raczka': 'Drobne naprawy domowe i montaż',
-  'hydraulik': 'Instalacje wodne i usuwanie awarii',
-  'elektryk': 'Instalacje elektryczne i naprawy',
-  'ogrodnik': 'Pielęgnacja ogrodów i terenów zielonych',
-  'przeprowadzki': 'Transport mebli i przeprowadzki',
-  'ppf': 'Folie ochronne PPF, ceramika i zabezpieczenia lakieru',
-  'projektanci': 'Projekty wnętrz, aranżacje i wizualizacje 3D',
-  'remonty': 'Kompleksowe wykończenia mieszkań i domów',
-  'budowlanka': 'Prace budowlane, konstrukcyjne i ziemne',
 };
 
 export default function ServicesMarketplace() {
