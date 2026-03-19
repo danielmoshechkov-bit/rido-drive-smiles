@@ -367,5 +367,12 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId, fleetId, f
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <VehicleLookupCreditsModal
+      open={showCreditsModal}
+      onOpenChange={setShowCreditsModal}
+      onPurchase={handlePurchaseCredits}
+    />
+    </>
   );
 }
