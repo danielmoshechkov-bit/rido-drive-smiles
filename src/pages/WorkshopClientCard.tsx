@@ -503,59 +503,66 @@ export default function WorkshopClientCard() {
         </div>
       </div>
 
-      {/* Signing dialog */}
+      {/* Signing dialog — compact, collapsible legal text */}
       <Dialog open={!!signingDoc} onOpenChange={() => { setSigningDoc(null); setAccepted(false); }}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="text-lg">
               Podpisz dokument — {signingDoc === 'reception_protocol' ? 'Protokół przyjęcia' :
                 signingDoc === 'cost_estimate' ? 'Kosztorys' : 'Protokół wydania'}
             </DialogTitle>
           </DialogHeader>
 
           <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
-            <p className="flex items-center gap-2 text-primary font-medium text-sm">
+            <p className="flex items-center gap-2 text-primary font-semibold text-sm">
               <CheckCircle2 className="h-5 w-5" />
-              Zapoznaj się z treścią i kliknij przycisk, aby zaakceptować
+              Kliknij przycisk poniżej, aby podpisać dokument
             </p>
           </div>
 
-          <div className="text-xs text-muted-foreground space-y-3 max-h-48 overflow-y-auto border rounded-xl p-4 bg-muted/10">
-            <div>
-              <p className="font-semibold text-foreground">Dane osobowe</p>
-              <p>Administrator Państwa danych osobowych i sposoby kontaktu z nim określono na wstępie karty zlecenia. Podanie danych jest konieczne dla realizacji zamówienia. Administrator może przetwarzać te dane (w szczególności: imię i nazwisko, nazwę, adresy, NIP, PESEL, REGON, nr telefonu, adres e-mail, dane dotyczące wykonanych dla Państwa usług i informacje o Państwa płatnościach).</p>
-            </div>
-            <div>
-              <p className="font-semibold text-foreground">Prawo zatrzymania</p>
-              <p>Informujemy, że zgodnie z art. 461 Kodeksu cywilnego przysługuje nam prawo zatrzymania pojazdu i innych powierzonych nam rzeczy do chwili zaspokojenia lub zabezpieczenia przysługujących nam roszczeń o zwrot nakładów na te rzeczy lub o naprawienie szkody przez nie wyrządzonej.</p>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-3 pt-1">
+          <div className="flex items-start gap-3">
             <Checkbox
               checked={accepted}
               onCheckedChange={(v) => setAccepted(!!v)}
               id="accept-terms"
+              className="mt-0.5"
             />
-            <label htmlFor="accept-terms" className="text-sm leading-relaxed cursor-pointer">
-              Oświadczam, że zapoznałem/am się z powyższą treścią i akceptuję ją
-            </label>
+            <div>
+              <label htmlFor="accept-terms" className="text-sm font-medium leading-relaxed cursor-pointer">
+                Oświadczam, że zapoznałem/am się z poniższą treścią i akceptuję ją
+              </label>
+              <details className="mt-2 text-xs text-muted-foreground">
+                <summary className="cursor-pointer text-primary font-medium hover:underline">Rozwiń treść oświadczenia</summary>
+                <div className="mt-2 space-y-2 border-l-2 border-primary/20 pl-3">
+                  <div>
+                    <p className="font-semibold text-foreground">Dane osobowe</p>
+                    <p>Administrator Państwa danych osobowych i sposoby kontaktu z nim określono na wstępie karty zlecenia. Podanie danych jest konieczne dla realizacji zamówienia. Administrator może przetwarzać te dane (w szczególności: imię i nazwisko, nazwę, adresy, NIP, PESEL, REGON, nr telefonu, adres e-mail, dane dotyczące wykonanych dla Państwa usług i informacje o Państwa płatnościach).</p>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-foreground">Prawo zatrzymania</p>
+                    <p>Informujemy, że zgodnie z art. 461 Kodeksu cywilnego przysługuje nam prawo zatrzymania pojazdu i innych powierzonych nam rzeczy do chwili zaspokojenia lub zabezpieczenia przysługujących nam roszczeń o zwrot nakładów na te rzeczy lub o naprawienie szkody przez nie wyrządzonej.</p>
+                  </div>
+                </div>
+              </details>
+            </div>
           </div>
 
-          <DialogFooter className="flex justify-between sm:justify-between gap-2 pt-2">
-            <Button variant="outline" onClick={() => { setSigningDoc(null); setAccepted(false); }}>
-              Zamknij
-            </Button>
-            <Button
-              onClick={() => signingDoc && handleSign(signingDoc)}
-              disabled={!accepted || signing}
-              className="gap-2"
-              size="lg"
-            >
-              <CheckCircle2 className="h-4 w-4" />
-              {signing ? 'Podpisywanie...' : 'Akceptuję dokument'}
-            </Button>
-          </DialogFooter>
+          <Button
+            onClick={() => signingDoc && handleSign(signingDoc)}
+            disabled={!accepted || signing}
+            className="w-full gap-2 h-12 text-base font-semibold"
+            size="lg"
+          >
+            <CheckCircle2 className="h-5 w-5" />
+            {signing ? 'Podpisywanie...' : 'Akceptuję dokument'}
+          </Button>
+
+          <button
+            onClick={() => { setSigningDoc(null); setAccepted(false); }}
+            className="text-sm text-muted-foreground hover:text-foreground text-center transition-colors"
+          >
+            Zamknij
+          </button>
         </DialogContent>
       </Dialog>
     </div>
