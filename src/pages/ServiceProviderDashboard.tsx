@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { UniversalHomeButton } from '@/components/UniversalHomeButton';
 import { MyGetRidoButton } from '@/components/MyGetRidoButton';
 import { AccountSwitcherPanel } from '@/components/AccountSwitcherPanel';
+import { TopBarCredits } from '@/components/TopBarCredits';
 import { WorkspaceView } from '@/components/workspace/WorkspaceView';
 import { TabsPill } from '@/components/ui/TabsPill';
 import { TabsContent, TabsTrigger } from '@/components/ui/tabs';
