@@ -221,6 +221,16 @@ export default function AdminPortal() {
             <AdminApiKeysTab />
           </TabsContent>
 
+          {/* Integrations Tab */}
+          <TabsContent value="integrations">
+            <AdminIntegrationsTab />
+          </TabsContent>
+
+          {/* Payments Tab */}
+          <TabsContent value="payments">
+            <AdminPaymentsTab />
+          </TabsContent>
+
           {/* Accounting Module Tab */}
           <TabsContent value="accounting">
             <Card>
