@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,6 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { CarBrandModelSelector } from "@/components/CarBrandModelSelector";
+import { useVehicleLookup } from "@/hooks/useVehicleLookup";
+import { VehicleLookupCreditsModal } from "@/components/vehicle/VehicleLookupCreditsModal";
+import { Search, Loader2 } from "lucide-react";
 
 type Props = {
   isOpen: boolean;
