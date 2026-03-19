@@ -252,11 +252,10 @@ export default function ServicesMarketplace() {
     );
   }
 
-  // View: Category Selection (Landing) - unified with EasyHub sub-menu style
-  if (!selectedCategorySlug) {
+  // View: Category Group Selection (Landing)
+  if (!selectedCategorySlug && !selectedGroupId) {
     return (
       <div className="min-h-screen bg-background">
-        {/* SEO */}
         <SEOHead 
           title={seoConfigs.uslugi.title}
           description={seoConfigs.uslugi.description}
@@ -267,11 +266,10 @@ export default function ServicesMarketplace() {
             '@context': 'https://schema.org',
             '@type': 'ItemList',
             name: 'Portal Usług GetRido',
-            description: 'Znajdź fachowców i usługodawców: hydraulik, elektryk, sprzątanie, remonty i więcej',
+            description: 'Znajdź fachowców i usługodawców w każdej kategorii',
             url: 'https://getrido.pl/uslugi'
           }}
         />
-        {/* Header - unified with Nieruchomości */}
         <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b">
           <div className="container mx-auto px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -279,7 +277,6 @@ export default function ServicesMarketplace() {
               <span className="text-muted-foreground">/</span>
               <span className="font-semibold text-foreground">Usługi</span>
             </div>
-            
             <div className="flex items-center gap-2">
               <LanguageSelector />
               <MyGetRidoButton user={user} />
@@ -287,23 +284,21 @@ export default function ServicesMarketplace() {
           </div>
         </header>
 
-        {/* Hero Section - unified style */}
         <section className="py-8 md:py-12">
           <div className="container mx-auto px-4 text-center">
             <h1 className="text-3xl md:text-5xl font-bold mb-2">
-              GetRido <span className="text-primary">Easy</span>
+              Znajdź <span className="text-primary">usługę</span>
             </h1>
-            <p className="text-muted-foreground text-lg max-w-2xl mx-auto mb-6">
-              Wszystko, czego potrzebujesz – łatwo i w jednym miejscu.
+            <p className="text-muted-foreground text-lg max-w-2xl mx-auto mb-8">
+              Wybierz kategorię usługi, której szukasz
             </p>
-            
-            {/* AI Search Bar */}
+
             <div className="max-w-2xl mx-auto mb-8">
               <div className="relative">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <input
                   type="text"
-                  placeholder="AI, które znajdzie to za Ciebie…"
+                  placeholder="Szukaj usługi, np. mechanik, fryzjer, prawnik..."
                   className="w-full pl-12 pr-24 h-12 md:h-14 text-base md:text-lg rounded-full border-2 border-primary/20 focus:border-primary shadow-lg bg-background focus:outline-none"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && (e.target as HTMLInputElement).value.trim()) {
@@ -324,16 +319,11 @@ export default function ServicesMarketplace() {
                   Szukaj
                 </Button>
               </div>
-              <p className="text-center text-xs text-muted-foreground mt-2">
-                Powered by <span className="text-primary font-medium">Rido AI</span>
-              </p>
             </div>
           </div>
         </section>
 
-        {/* Back button + Category Tiles Grid - unified with Nieruchomości */}
-        <main className="container mx-auto px-4 pb-8">
-          {/* Back button */}
+        <main className="container mx-auto px-4 pb-12">
           <button
             onClick={() => navigate('/')}
             className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 transition-colors"
@@ -341,39 +331,50 @@ export default function ServicesMarketplace() {
             <ArrowLeft className="h-4 w-4" />
             Wróć do głównej
           </button>
-          
-          {/* Grid with unified tile size */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {categories.map(cat => {
-              const IconComponent = categoryIcons[cat.icon];
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            {CATEGORY_GROUPS.map(group => {
+              const IconComp = group.icon;
               return (
-                <ServiceCategoryTile
-                  key={cat.id}
-                  slug={cat.slug}
-                  name={cat.name}
-                  description={categoryDescriptions[cat.slug] || cat.description}
-                  icon={IconComponent}
-                  onClick={() => handleCategoryClick(cat.slug)}
-                />
+                <Card
+                  key={group.id}
+                  className={cn(
+                    "group relative overflow-hidden cursor-pointer transition-all duration-300",
+                    "hover:shadow-xl hover:scale-[1.02] hover:-translate-y-1",
+                    "border-0 shadow-md"
+                  )}
+                  onClick={() => handleGroupClick(group.id)}
+                >
+                  <div 
+                    className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110"
+                    style={{ backgroundImage: `url(${group.image})` }}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/20" />
+                  </div>
+                  
+                  <CardContent className="relative z-10 p-4 h-40 md:h-48 flex flex-col justify-end">
+                    <div className="flex items-center gap-2 mb-1">
+                      <IconComp className="h-5 w-5 text-white" />
+                      <h3 className="font-bold text-lg md:text-xl text-white">
+                        {group.name}
+                      </h3>
+                    </div>
+                    <p className="text-[11px] md:text-xs text-white/70 line-clamp-2">
+                      {group.subcategories.join(' · ')}
+                    </p>
+                  </CardContent>
+                </Card>
               );
             })}
           </div>
-
-          {categories.length === 0 && (
-            <div className="text-center py-16">
-              <Wrench className="h-16 w-16 mx-auto mb-4 text-muted-foreground/30" />
-              <h2 className="text-xl font-semibold mb-2">Brak kategorii</h2>
-              <p className="text-muted-foreground">
-                Moduł usług jest w trakcie uruchamiania. Wkrótce pojawią się tutaj kategorie!
-              </p>
-            </div>
-          )}
         </main>
       </div>
     );
   }
 
-  // View: Category Listings
+  // View: Group or Category Listings
+  const activeGroup = selectedGroup;
+  const displayTitle = selectedCategory?.name || activeGroup?.name || 'Usługi';
   return (
     <div className="min-h-screen bg-background">
         {/* Header */}
