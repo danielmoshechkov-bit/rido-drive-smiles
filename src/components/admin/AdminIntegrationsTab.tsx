@@ -108,76 +108,67 @@ export function AdminIntegrationsTab() {
   if (loading) return <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Plug className="h-5 w-5" />
-          Integracje
-        </CardTitle>
-        <CardDescription>Zewnętrzne integracje portalu</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Car className="h-5 w-5 text-primary" />
-                <div>
-                  <CardTitle className="text-base">Integracja pojazdów – RegCheck Poland</CardTitle>
-                  <CardDescription>Pobieranie danych pojazdu po numerze rejestracyjnym</CardDescription>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {integration?.last_test_status && (
-                  <Badge variant={integration.last_test_status === 'ok' ? 'default' : 'secondary'}>
-                    {integration.last_test_status === 'ok' ? 'Połączony' : 'Błąd'}
-                  </Badge>
-                )}
-                <Switch checked={isEnabled} onCheckedChange={setIsEnabled} />
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Car className="h-5 w-5 text-primary" />
+              <div>
+                <CardTitle className="text-base">Integracja pojazdów – RegCheck Poland</CardTitle>
+                <CardDescription>Pobieranie danych pojazdu po numerze rejestracyjnym</CardDescription>
               </div>
             </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Endpoint URL</Label>
-                <Input
-                  value={config.endpoint_url}
-                  onChange={e => setConfig(p => ({ ...p, endpoint_url: e.target.value }))}
-                  placeholder="https://www.regcheck.org.uk/api/reg.asmx/CheckPoland"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Login / Username do API</Label>
-                <Input
-                  value={config.username}
-                  onChange={e => setConfig(p => ({ ...p, username: e.target.value }))}
-                  placeholder="Twój login RegCheck"
-                />
-              </div>
-            </div>
-
             <div className="flex items-center gap-2">
-              <Switch
-                checked={config.test_mode}
-                onCheckedChange={v => setConfig(p => ({ ...p, test_mode: v }))}
+              {integration?.last_test_status && (
+                <Badge variant={integration.last_test_status === 'ok' ? 'default' : 'secondary'}>
+                  {integration.last_test_status === 'ok' ? 'Połączony' : 'Błąd'}
+                </Badge>
+              )}
+              <Switch checked={isEnabled} onCheckedChange={setIsEnabled} />
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Endpoint URL</Label>
+              <Input
+                value={config.endpoint_url}
+                onChange={e => setConfig(p => ({ ...p, endpoint_url: e.target.value }))}
+                placeholder="https://www.regcheck.org.uk/api/reg.asmx/CheckPoland"
               />
-              <Label>Tryb testowy</Label>
             </div>
+            <div className="space-y-2">
+              <Label>Login / Username do API</Label>
+              <Input
+                value={config.username}
+                onChange={e => setConfig(p => ({ ...p, username: e.target.value }))}
+                placeholder="Twój login RegCheck"
+              />
+            </div>
+          </div>
 
-            <div className="flex gap-2 pt-2">
-              <Button onClick={handleSave} disabled={saving} className="gap-2">
-                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                Zapisz
-              </Button>
-              <Button variant="outline" onClick={handleTest} disabled={testing} className="gap-2">
-                {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <TestTube className="h-4 w-4" />}
-                Testuj połączenie
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </CardContent>
-    </Card>
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={config.test_mode}
+              onCheckedChange={v => setConfig(p => ({ ...p, test_mode: v }))}
+            />
+            <Label>Tryb testowy</Label>
+          </div>
+
+          <div className="flex gap-2 pt-2">
+            <Button onClick={handleSave} disabled={saving} className="gap-2">
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Zapisz
+            </Button>
+            <Button variant="outline" onClick={handleTest} disabled={testing} className="gap-2">
+              {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <TestTube className="h-4 w-4" />}
+              Testuj połączenie
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
