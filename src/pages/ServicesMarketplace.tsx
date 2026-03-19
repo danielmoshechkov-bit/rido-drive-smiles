@@ -384,14 +384,14 @@ export default function ServicesMarketplace() {
               <Button 
                 variant="ghost" 
                 size="icon" 
-                onClick={handleBackToCategories}
+                onClick={handleBackToGroups}
                 className="mr-2"
               >
                 <ArrowLeft className="h-5 w-5" />
               </Button>
               <UniversalHomeButton />
               <span className="font-bold text-lg hidden sm:block">
-                {selectedCategory?.name || 'Usługi'}
+                {displayTitle}
               </span>
             </div>
             
