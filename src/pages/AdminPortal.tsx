@@ -199,20 +199,7 @@ export default function AdminPortal() {
 
           {/* Tickets Tab */}
           <TabsContent value="tickets">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TicketCheck className="h-5 w-5" />
-                  Zgłoszenia i naprawy
-                </CardTitle>
-                <CardDescription>
-                  Zgłoszenia od użytkowników, generowanie promptów naprawczych AI
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <SupportTicketsPanel />
-              </CardContent>
-            </Card>
+            <SupportTicketsPanel />
           </TabsContent>
 
 
