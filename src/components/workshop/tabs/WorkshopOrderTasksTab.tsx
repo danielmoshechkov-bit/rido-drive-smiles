@@ -524,7 +524,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                 <tr className="bg-amber-500/5">
                   <td colSpan={10} className="p-1.5">
                     <Button onClick={addGoodsRow} variant="ghost" size="sm" className="gap-1 text-xs text-amber-600">
-                      <Plus className="h-3.5 w-3.5" /> Dodaj kolejną część
+                      <Plus className="h-3.5 w-3.5" /> Dodaj pozycję ręcznie
                     </Button>
                   </td>
                 </tr>
