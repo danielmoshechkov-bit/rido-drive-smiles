@@ -230,20 +230,7 @@ export default function AdminPortal() {
 
           {/* Portals Tab */}
           <TabsContent value="portals">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <LayoutGrid className="h-5 w-5" />
-                  Zarządzanie portalami
-                </CardTitle>
-                <CardDescription>
-                  Konfiguracja kafelków i kategorii na stronach portali (Motoryzacja, Nieruchomości, Usługi)
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <PortalCategoriesManager />
-              </CardContent>
-            </Card>
+            <PortalCategoriesManager />
           </TabsContent>
 
           {/* Branding Tab */}
