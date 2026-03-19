@@ -235,23 +235,10 @@ export default function AdminPortal() {
 
           {/* Branding Tab */}
           <TabsContent value="branding">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Palette className="h-5 w-5" />
-                  Wygląd portalu
-                </CardTitle>
-                <CardDescription>
-                  Personalizacja logo, kolorów i brandingu
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-8 text-muted-foreground">
-                  <Palette className="h-12 w-12 mx-auto mb-4 opacity-30" />
-                  <p>Ustawienia wyglądu wkrótce</p>
-                </div>
-              </CardContent>
-            </Card>
+            <div className="text-center py-8 text-muted-foreground">
+              <Palette className="h-12 w-12 mx-auto mb-4 opacity-30" />
+              <p>Ustawienia wyglądu wkrótce</p>
+            </div>
           </TabsContent>
 
           {/* Users Tab */}
