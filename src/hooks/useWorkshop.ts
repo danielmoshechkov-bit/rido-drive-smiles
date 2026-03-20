@@ -225,3 +225,40 @@ export function useCreateWorkshopOrderItem() {
     onError: (e: any) => toast.error(e.message),
   });
 }
+
+export function useUpdateWorkshopOrderItem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: any) => {
+      const { data, error } = await (supabase as any)
+        .from('workshop_order_items')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['workshop-orders'] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+}
+
+export function useDeleteWorkshopOrderItem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await (supabase as any)
+        .from('workshop_order_items')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['workshop-orders'] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+}
