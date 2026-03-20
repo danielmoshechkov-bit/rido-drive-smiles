@@ -4,11 +4,14 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useCreateWorkshopOrderItem, useUpdateWorkshopOrder } from '@/hooks/useWorkshop';
-import { Plus, Trash2, Package, Wrench, Play, CheckCircle2, Search, Eye, EyeOff } from 'lucide-react';
+import { usePartsIntegrations } from '@/hooks/useWorkshopParts';
+import { Plus, Trash2, Package, Wrench, Play, CheckCircle2, Search, Eye, EyeOff, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { RidoPartsSearchModal } from '../parts/RidoPartsSearchModal';
+import { RidoPartsConfigModal } from '../parts/RidoPartsConfigModal';
 
 interface Props {
   order: any;
