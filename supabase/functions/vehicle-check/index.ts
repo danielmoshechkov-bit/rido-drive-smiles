@@ -248,27 +248,26 @@ async function handleCheckRegistration(supabase: any, supabaseAdmin: any, userId
       }
     }
 
-    // Map API response to our schema
-    // Extract engine power from EngineSize if it contains "kW" or from Description
-    const engineSizeRaw = extractCurrentText(vehicleData, "EngineSize") || extractValue(vehicleData, "EngineSize") || "";
+    // Map API response to our schema using documented field names
     const descriptionRaw = extractValue(vehicleData, "Description") || "";
     
-    // Try to extract kW from description (e.g. "150kW" or "150 kW")
-    let enginePowerKw: string | null = null;
-    const kwMatch = descriptionRaw.match(/(\d+)\s*kW/i);
-    if (kwMatch) enginePowerKw = kwMatch[1];
+    // EngineSize and Power are top-level numeric fields per API docs
+    const engineSizeNum = vehicleData?.EngineSize ?? null;
+    const powerNum = vehicleData?.Power ?? null;
+    const mileageNum = vehicleData?.Mileage ?? null;
 
     const mapped = {
       registration_number: regNumber,
-      vin: extractValue(vehicleData, "Vin") || null,
+      vin: vehicleData?.VehicleIdentificationNumber || extractValue(vehicleData, "Vin") || null,
       make: extractCurrentText(vehicleData, "CarMake") || null,
-      model: extractValue(vehicleData, "CarModel") || null,
+      model: extractCurrentText(vehicleData, "CarModel") || extractValue(vehicleData, "CarModel") || null,
       body_style: extractCurrentText(vehicleData, "BodyStyle") || extractValue(vehicleData, "BodyStyle") || null,
       color: extractCurrentText(vehicleData, "Colour") || extractValue(vehicleData, "Colour") || null,
-      registration_year: parseInt(extractValue(vehicleData, "RegistrationYear")) || null,
-      fuel_type: extractCurrentText(vehicleData, "FuelType") || extractValue(vehicleData, "FuelType") || null,
-      engine_size: engineSizeRaw || null,
-      engine_power_kw: enginePowerKw,
+      registration_year: vehicleData?.ManufacturingYear || parseInt(extractValue(vehicleData, "RegistrationYear")) || null,
+      fuel_type: vehicleData?.FuelType || extractCurrentText(vehicleData, "FuelType") || null,
+      engine_size: engineSizeNum !== null ? String(engineSizeNum) : null,
+      engine_power_kw: powerNum !== null ? String(powerNum) : null,
+      mileage: mileageNum !== null ? String(mileageNum) : null,
       transmission: extractCurrentText(vehicleData, "Transmission") || null,
       number_of_doors: extractCurrentText(vehicleData, "NumberOfDoors") || null,
       number_of_seats: extractCurrentText(vehicleData, "NumberOfSeats") || null,
