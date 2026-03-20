@@ -48,8 +48,8 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   const createItem = useCreateWorkshopOrderItem();
   const [priceMode, setPriceMode] = useState<'net' | 'gross'>(order.price_mode || 'gross');
 
-  const tasks = (order.items || []).filter((i: any) => i.item_type !== 'goods');
-  const goods = (order.items || []).filter((i: any) => i.item_type === 'goods');
+  const tasks = (order.items || []).filter((i: any) => i.item_type === 'service' || i.item_type === 'task' || (i.item_type !== 'part' && i.item_type !== 'goods' && i.item_type !== 'other'));
+  const goods = (order.items || []).filter((i: any) => i.item_type === 'part' || i.item_type === 'goods' || i.item_type === 'other');
 
   const isGross = priceMode === 'gross';
 
@@ -105,7 +105,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
 
     await createItem.mutateAsync({
       order_id: order.id,
-      item_type: 'task',
+      item_type: 'service',
       name: row.name,
       mechanic: row.mechanic || null,
       unit: 'oper',
@@ -156,7 +156,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
 
     await createItem.mutateAsync({
       order_id: order.id,
-      item_type: 'goods',
+      item_type: 'part',
       name: row.name,
       unit: row.unit,
       quantity: row.quantity,
@@ -364,6 +364,10 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
               <Badge variant="secondary" className="text-xs">{goods.length}</Badge>
             </div>
             <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 bg-muted rounded-lg p-0.5">
+                <Button variant={priceMode === 'net' ? 'default' : 'ghost'} size="sm" className="text-xs h-7" onClick={() => setPriceMode('net')}>NETTO</Button>
+                <Button variant={priceMode === 'gross' ? 'default' : 'ghost'} size="sm" className="text-xs h-7" onClick={() => setPriceMode('gross')}>BRUTTO</Button>
+              </div>
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input value={goodsSearch} onChange={e => setGoodsSearch(e.target.value)} placeholder="Szukaj części..." className="pl-8 h-8 w-40 text-xs" />
