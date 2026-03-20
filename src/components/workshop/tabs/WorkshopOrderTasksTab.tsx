@@ -4,11 +4,14 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useCreateWorkshopOrderItem, useUpdateWorkshopOrder } from '@/hooks/useWorkshop';
-import { Plus, Trash2, Package, Wrench, Play, CheckCircle2, Search, Eye, EyeOff } from 'lucide-react';
+import { usePartsIntegrations } from '@/hooks/useWorkshopParts';
+import { Plus, Trash2, Package, Wrench, Play, CheckCircle2, Search, Eye, EyeOff, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { RidoPartsSearchModal } from '../parts/RidoPartsSearchModal';
+import { RidoPartsConfigModal } from '../parts/RidoPartsConfigModal';
 
 interface Props {
   order: any;
@@ -46,7 +49,10 @@ interface GoodsRow {
 
 export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   const createItem = useCreateWorkshopOrderItem();
+  const { data: partsIntegrations = [] } = usePartsIntegrations(providerId);
   const [priceMode, setPriceMode] = useState<'net' | 'gross'>(order.price_mode || 'gross');
+  const [ridoSearchOpen, setRidoSearchOpen] = useState(false);
+  const [ridoConfigOpen, setRidoConfigOpen] = useState(false);
 
   const tasks = (order.items || []).filter((i: any) => i.item_type === 'service' || i.item_type === 'task' || (i.item_type !== 'part' && i.item_type !== 'goods' && i.item_type !== 'other'));
   const goods = (order.items || []).filter((i: any) => i.item_type === 'part' || i.item_type === 'goods' || i.item_type === 'other');
@@ -531,6 +537,21 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                       <Button variant="outline" size="sm" className="gap-1 h-7 text-xs">
                         <Package className="h-3.5 w-3.5" /> Dodaj z magazynu
                       </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1 h-7 text-xs border-primary text-primary hover:bg-primary/10"
+                        onClick={() => {
+                          const hasEnabledIntegration = partsIntegrations.some((i: any) => i.is_enabled && i.api_username);
+                          if (hasEnabledIntegration) {
+                            setRidoSearchOpen(true);
+                          } else {
+                            setRidoConfigOpen(true);
+                          }
+                        }}
+                      >
+                        <Sparkles className="h-3.5 w-3.5" /> Znajdź z Rido
+                      </Button>
                     </div>
                   </td>
                 </tr>
@@ -564,6 +585,24 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Rido Parts Modals */}
+      <RidoPartsSearchModal
+        open={ridoSearchOpen}
+        onOpenChange={setRidoSearchOpen}
+        providerId={providerId}
+        orderId={order.id}
+        vehicleName={order.vehicle ? `${order.vehicle.brand || ''} ${order.vehicle.model || ''} ${order.vehicle.year || ''}`.trim() : undefined}
+        margin={partsIntegrations.find((i: any) => i.is_enabled)?.sales_margin_percent || 30}
+      />
+      <RidoPartsConfigModal
+        open={ridoConfigOpen}
+        onOpenChange={setRidoConfigOpen}
+        onGoToSettings={() => {
+          setRidoConfigOpen(false);
+          toast.info('Przejdź do Ustawienia → Integracje w menu bocznym');
+        }}
+      />
     </div>
   );
 }

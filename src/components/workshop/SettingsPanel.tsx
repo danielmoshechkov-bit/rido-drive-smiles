@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Save, Plus, Trash2, Users, Building2, Monitor, UserPlus } from 'lucide-react';
+import { WorkshopPartsIntegrationsSettings } from './parts/WorkshopPartsIntegrationsSettings';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -180,6 +181,9 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm }: Set
             <TabsTrigger value="stanowiska" className="gap-1.5">
               <Monitor className="h-4 w-4" /> Stanowiska
             </TabsTrigger>
+            <TabsTrigger value="integracje" className="gap-1.5">
+              <Building2 className="h-4 w-4" /> Integracje
+            </TabsTrigger>
           </TabsList>
 
           {/* Account & Company */}
@@ -334,6 +338,15 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm }: Set
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+          </TabsContent>
+
+          {/* Integrations Tab */}
+          <TabsContent value="integracje" className="space-y-6">
+            {providerId ? (
+              <WorkshopPartsIntegrationsSettings providerId={providerId} />
+            ) : (
+              <p className="text-center py-8 text-muted-foreground">Brak providera</p>
+            )}
           </TabsContent>
         </Tabs>
       </CardContent>

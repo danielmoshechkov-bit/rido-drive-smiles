@@ -8,6 +8,7 @@ import { WorkshopOrderFilesTab } from './tabs/WorkshopOrderFilesTab';
 import { WorkshopOrderTasksTab } from './tabs/WorkshopOrderTasksTab';
 import { WorkshopOrderSummaryTab } from './tabs/WorkshopOrderSummaryTab';
 import { WorkshopSmsDialog } from './WorkshopSmsDialog';
+import { RidoPartsCartButton } from './parts/RidoPartsCartButton';
 import {
   ArrowLeft, FileText, Send, Eye, Link2, MessageSquare, MoreVertical,
   Printer, Download, ClipboardList, Car, Users
@@ -167,6 +168,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
             <Button variant="ghost" size="icon" title="Link do zlecenia" onClick={copyClientLink}>
               <Link2 className="h-4 w-4" />
             </Button>
+            <RidoPartsCartButton providerId={providerId} />
           </div>
 
           <DropdownMenu>
