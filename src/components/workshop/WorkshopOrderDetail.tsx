@@ -8,6 +8,7 @@ import { WorkshopOrderFilesTab } from './tabs/WorkshopOrderFilesTab';
 import { WorkshopOrderTasksTab } from './tabs/WorkshopOrderTasksTab';
 import { WorkshopOrderSummaryTab } from './tabs/WorkshopOrderSummaryTab';
 import { WorkshopSmsDialog } from './WorkshopSmsDialog';
+import { RidoPartsCartButton } from './parts/RidoPartsCartButton';
 import {
   ArrowLeft, FileText, Send, Eye, Link2, MessageSquare, MoreVertical,
   Printer, Download, ClipboardList, Car, Users
