@@ -185,6 +185,9 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm }: Set
             <TabsTrigger value="integracje" className="gap-1.5">
               <Building2 className="h-4 w-4" /> Integracje
             </TabsTrigger>
+            <TabsTrigger value="rido-price" className="gap-1.5">
+              <Sparkles className="h-4 w-4" /> Rido Price
+            </TabsTrigger>
           </TabsList>
 
           {/* Account & Company */}
