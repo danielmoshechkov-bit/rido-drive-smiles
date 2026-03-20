@@ -546,7 +546,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           }
                         }}
                       >
-                        <Sparkles className="h-3.5 w-3.5" /> Znajdź z Rido
+                        <Search className="h-3.5 w-3.5" /> Znajdź z Rido
                       </Button>
                     </div>
                   </td>
