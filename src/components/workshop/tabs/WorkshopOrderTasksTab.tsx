@@ -48,8 +48,8 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   const createItem = useCreateWorkshopOrderItem();
   const [priceMode, setPriceMode] = useState<'net' | 'gross'>(order.price_mode || 'gross');
 
-  const tasks = (order.items || []).filter((i: any) => i.item_type !== 'goods');
-  const goods = (order.items || []).filter((i: any) => i.item_type === 'goods');
+  const tasks = (order.items || []).filter((i: any) => i.item_type === 'service' || i.item_type === 'task' || (i.item_type !== 'part' && i.item_type !== 'goods' && i.item_type !== 'other'));
+  const goods = (order.items || []).filter((i: any) => i.item_type === 'part' || i.item_type === 'goods' || i.item_type === 'other');
 
   const isGross = priceMode === 'gross';
 
