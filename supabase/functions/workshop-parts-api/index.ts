@@ -194,6 +194,9 @@ async function handleHart(
       const data = await dnRes.json();
       return json({ deliveryNotes: data });
     }
+
+    default:
+      return json({ error: `Unknown action: ${action}` }, 400);
   }
 }
 
