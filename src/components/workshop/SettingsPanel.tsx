@@ -339,6 +339,15 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm }: Set
               </DialogContent>
             </Dialog>
           </TabsContent>
+
+          {/* Integrations Tab */}
+          <TabsContent value="integracje" className="space-y-6">
+            {providerId ? (
+              <WorkshopPartsIntegrationsSettings providerId={providerId} />
+            ) : (
+              <p className="text-center py-8 text-muted-foreground">Brak providera</p>
+            )}
+          </TabsContent>
         </Tabs>
       </CardContent>
     </Card>
