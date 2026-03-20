@@ -105,7 +105,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
 
     await createItem.mutateAsync({
       order_id: order.id,
-      item_type: 'task',
+      item_type: 'service',
       name: row.name,
       mechanic: row.mechanic || null,
       unit: 'oper',
