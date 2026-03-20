@@ -366,16 +366,6 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
               <Wrench className="h-5 w-5 text-primary" />
               <h3 className="font-semibold text-base">Robocizna / Usługi</h3>
               <Badge variant="secondary" className="text-xs">{tasks.length}</Badge>
-              {(tasks.length > 0 || taskRows.some(r => r.name.trim())) && ridoPriceSettings?.ai_suggestions_enabled !== false && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1.5 h-7 text-xs border-primary text-primary hover:bg-primary/10"
-                  onClick={() => setRidoPriceOpen(true)}
-                >
-                  <Sparkles className="h-3.5 w-3.5" /> Rido Wycena
-                </Button>
-              )}
             </div>
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1 bg-muted rounded-lg p-0.5">
@@ -517,9 +507,21 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                 })}
                 <tr className="bg-primary/5">
                   <td colSpan={7} className="p-1.5">
-                    <Button onClick={addTaskRow} variant="ghost" size="sm" className="gap-1 text-xs text-primary">
-                      <Plus className="h-3.5 w-3.5" /> Dodaj kolejną usługę
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button onClick={addTaskRow} variant="ghost" size="sm" className="gap-1 text-xs text-primary">
+                        <Plus className="h-3.5 w-3.5" /> Dodaj kolejną usługę
+                      </Button>
+                      {(tasks.length > 0 || taskRows.some(r => r.name.trim())) && ridoPriceSettings?.ai_suggestions_enabled !== false && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5 h-7 text-xs border-primary text-primary hover:bg-primary/10"
+                          onClick={() => setRidoPriceOpen(true)}
+                        >
+                          <Sparkles className="h-3.5 w-3.5" /> Rido Wycena
+                        </Button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               </tbody>
@@ -732,7 +734,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           }
                         }}
                       >
-                        <Search className="h-3.5 w-3.5" /> Znajdź z Rido
+                        <Search className="h-3.5 w-3.5" /> Znajdź części z Rido
                       </Button>
                     </div>
                   </td>
