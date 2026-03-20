@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useCreateWorkshopOrderItem, useUpdateWorkshopOrder } from '@/hooks/useWorkshop';
 import { usePartsIntegrations } from '@/hooks/useWorkshopParts';
-import { Plus, Trash2, Package, Wrench, Play, CheckCircle2, Search, Eye, EyeOff, Sparkles } from 'lucide-react';
+import { Plus, Trash2, Package, Wrench, Play, CheckCircle2, Search, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -546,7 +546,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           }
                         }}
                       >
-                        <Sparkles className="h-3.5 w-3.5" /> Znajdź z Rido
+                        <Search className="h-3.5 w-3.5" /> Znajdź z Rido
                       </Button>
                     </div>
                   </td>

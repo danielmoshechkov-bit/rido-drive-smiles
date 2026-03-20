@@ -171,6 +171,30 @@ async function handleHart(
       return json({ invoices: data });
     }
 
+    case "get_invoice_corrections": {
+      const dateFrom = params?.dateFrom;
+      const dateTo = params?.dateTo;
+      const corrRes = await fetch(
+        `${baseUrl}/v1/documents/invoice-corrections?DateFrom=${dateFrom}&DateTo=${dateTo}`,
+        { headers }
+      );
+      if (!corrRes.ok) return json({ error: `Invoice corrections fetch failed: ${corrRes.status}` }, corrRes.status);
+      const data = await corrRes.json();
+      return json({ corrections: data });
+    }
+
+    case "get_delivery_notes": {
+      const dateFrom = params?.dateFrom;
+      const dateTo = params?.dateTo;
+      const dnRes = await fetch(
+        `${baseUrl}/v1/documents/delivery-notes?DateFrom=${dateFrom}&DateTo=${dateTo}`,
+        { headers }
+      );
+      if (!dnRes.ok) return json({ error: `Delivery notes fetch failed: ${dnRes.status}` }, dnRes.status);
+      const data = await dnRes.json();
+      return json({ deliveryNotes: data });
+    }
+
     default:
       return json({ error: `Unknown action: ${action}` }, 400);
   }

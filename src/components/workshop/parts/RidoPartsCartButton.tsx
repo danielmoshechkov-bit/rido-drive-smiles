@@ -1,9 +1,12 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ShoppingBag, X, Package } from 'lucide-react';
+import { ShoppingBag, Package, FileText, Loader2, RefreshCw } from 'lucide-react';
 import { usePartsOrders } from '@/hooks/useWorkshopParts';
-import { format } from 'date-fns';
+import { usePartsApi } from '@/hooks/useWorkshopParts';
+import { supabase } from '@/integrations/supabase/client';
+import { format, subDays } from 'date-fns';
+import { toast } from 'sonner';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger,
 } from '@/components/ui/sheet';
@@ -27,11 +30,125 @@ const statusColors: Record<string, string> = {
 };
 
 export function RidoPartsCartButton({ providerId }: Props) {
-  const { data: orders = [] } = usePartsOrders(providerId);
+  const { data: orders = [], refetch } = usePartsOrders(providerId);
+  const partsApi = usePartsApi();
+  const [isFetchingInvoices, setIsFetchingInvoices] = useState(false);
   const activeOrders = orders.filter((o: any) => o.status !== 'delivered' && o.status !== 'cancelled');
-  const allItems = orders.flatMap((o: any) => (o.items || []).map((item: any) => ({ ...item, order: o })));
 
   const fmt = (n: number) => n.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  const fetchInvoices = async () => {
+    setIsFetchingInvoices(true);
+    try {
+      const dateTo = format(new Date(), 'yyyy-MM-dd');
+      const dateFrom = format(subDays(new Date(), 7), 'yyyy-MM-dd');
+
+      // Fetch invoices
+      const invoicesRes = await partsApi.mutateAsync({
+        action: 'get_invoices',
+        provider_id: providerId,
+        supplier_code: 'hart',
+        params: { dateFrom, dateTo },
+      });
+
+      const invoices = invoicesRes.invoices?.items || invoicesRes.invoices || [];
+      let newInvoiceCount = 0;
+
+      // Process invoices - update matching orders
+      for (const inv of invoices) {
+        const invoiceNumber = inv.number || inv.invoiceNumber || inv.documentNumber;
+        if (!invoiceNumber) continue;
+
+        // Try to match with orders by supplier_order_id
+        const matchingOrder = orders.find((o: any) =>
+          o.supplier_code === 'hart' && o.supplier_order_id &&
+          (inv.orderNumber === o.supplier_order_id || inv.orderId === o.supplier_order_id)
+        );
+
+        if (matchingOrder) {
+          await (supabase as any)
+            .from('workshop_parts_orders')
+            .update({
+              invoice_number: invoiceNumber,
+              status: 'delivered',
+            })
+            .eq('id', matchingOrder.id);
+          newInvoiceCount++;
+        }
+      }
+
+      // Fetch delivery notes - mark orders as "in_delivery"
+      try {
+        const dnRes = await partsApi.mutateAsync({
+          action: 'get_delivery_notes',
+          provider_id: providerId,
+          supplier_code: 'hart',
+          params: { dateFrom, dateTo },
+        });
+
+        const deliveryNotes = dnRes.deliveryNotes?.items || dnRes.deliveryNotes || [];
+        for (const dn of deliveryNotes) {
+          const matchingOrder = orders.find((o: any) =>
+            o.supplier_code === 'hart' && o.status === 'ordered' &&
+            o.supplier_order_id && (dn.orderNumber === o.supplier_order_id || dn.orderId === o.supplier_order_id)
+          );
+
+          if (matchingOrder) {
+            await (supabase as any)
+              .from('workshop_parts_orders')
+              .update({ status: 'in_delivery' })
+              .eq('id', matchingOrder.id);
+          }
+        }
+      } catch (dnErr) {
+        console.warn('Delivery notes fetch failed:', dnErr);
+      }
+
+      // Fetch invoice corrections
+      try {
+        const corrRes = await partsApi.mutateAsync({
+          action: 'get_invoice_corrections',
+          provider_id: providerId,
+          supplier_code: 'hart',
+          params: { dateFrom, dateTo },
+        });
+
+        const corrections = corrRes.corrections?.items || corrRes.corrections || [];
+        for (const corr of corrections) {
+          const matchingOrder = orders.find((o: any) =>
+            o.supplier_code === 'hart' && o.invoice_number &&
+            (corr.originalInvoiceNumber === o.invoice_number)
+          );
+
+          if (matchingOrder && corr.totalNet) {
+            await (supabase as any)
+              .from('workshop_parts_orders')
+              .update({
+                total_net: corr.totalNet,
+                total_gross: corr.totalGross || corr.totalNet * 1.23,
+              })
+              .eq('id', matchingOrder.id);
+          }
+        }
+      } catch (corrErr) {
+        console.warn('Invoice corrections fetch failed:', corrErr);
+      }
+
+      await refetch();
+
+      if (newInvoiceCount > 0) {
+        toast.success(`📄 Pobrano ${newInvoiceCount} nowych faktur z Hart`);
+      } else if (invoices.length > 0) {
+        toast.info('Brak nowych faktur do przypisania');
+      } else {
+        toast.info('Brak faktur z ostatnich 7 dni');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Błąd pobierania faktur');
+    } finally {
+      setIsFetchingInvoices(false);
+    }
+  };
 
   return (
     <Sheet>
@@ -53,7 +170,25 @@ export function RidoPartsCartButton({ providerId }: Props) {
           </SheetTitle>
         </SheetHeader>
 
-        <div className="mt-6 space-y-4">
+        {/* Fetch invoices button */}
+        <div className="mt-4">
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full gap-2"
+            onClick={fetchInvoices}
+            disabled={isFetchingInvoices || orders.length === 0}
+          >
+            {isFetchingInvoices ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <FileText className="h-4 w-4" />
+            )}
+            Pobierz faktury z hurtowni
+          </Button>
+        </div>
+
+        <div className="mt-4 space-y-4">
           {orders.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <ShoppingBag className="h-12 w-12 mx-auto mb-4 opacity-30" />
@@ -97,8 +232,9 @@ export function RidoPartsCartButton({ providerId }: Props) {
                 </div>
 
                 {order.invoice_number && (
-                  <div className="text-xs text-muted-foreground">
-                    📄 Faktura: {order.invoice_number}
+                  <div className="text-xs text-muted-foreground flex items-center gap-1">
+                    <FileText className="h-3 w-3" />
+                    Faktura: {order.invoice_number}
                   </div>
                 )}
               </div>
