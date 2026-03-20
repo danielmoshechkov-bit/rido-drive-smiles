@@ -58,11 +58,23 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   const [priceMode, setPriceMode] = useState<'net' | 'gross'>(order.price_mode || 'gross');
   const [ridoSearchOpen, setRidoSearchOpen] = useState(false);
   const [ridoConfigOpen, setRidoConfigOpen] = useState(false);
+  const [ridoPriceOpen, setRidoPriceOpen] = useState(false);
+  const saveServicePrice = useSaveServicePrice(providerId);
+  const saveAnonymousPrice = useSaveAnonymousPrice();
 
-  const tasks = (order.items || []).filter((i: any) => i.item_type === 'service' || i.item_type === 'task' || (i.item_type !== 'part' && i.item_type !== 'goods' && i.item_type !== 'other'));
-  const goods = (order.items || []).filter((i: any) => i.item_type === 'part' || i.item_type === 'goods' || i.item_type === 'other');
-
-  const isGross = priceMode === 'gross';
+  // Load Rido Price settings
+  const { data: ridoPriceSettings } = useQuery({
+    queryKey: ['rido-price-settings', providerId],
+    enabled: !!providerId,
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from('rido_price_settings')
+        .select('*')
+        .eq('provider_id', providerId)
+        .maybeSingle();
+      return data;
+    },
+  });
 
   const emptyTask: TaskRow = { name: '', mechanic: '', quantity: 1, price_net: 0, price_gross: 0, cost_net: 0, cost_gross: 0, discount: 0, discountType: 'percent' };
   const [taskRows, setTaskRows] = useState<TaskRow[]>([{ ...emptyTask }]);
