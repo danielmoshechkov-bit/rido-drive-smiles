@@ -352,6 +352,15 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm }: Set
               <p className="text-center py-8 text-muted-foreground">Brak providera</p>
             )}
           </TabsContent>
+
+          {/* Rido Price Tab */}
+          <TabsContent value="rido-price" className="space-y-6">
+            {providerId ? (
+              <RidoPriceSettingsTab providerId={providerId} />
+            ) : (
+              <p className="text-center py-8 text-muted-foreground">Brak providera</p>
+            )}
+          </TabsContent>
         </Tabs>
       </CardContent>
     </Card>
