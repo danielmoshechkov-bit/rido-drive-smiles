@@ -146,6 +146,23 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       total_net: isGross ? totalAfterDiscount / VAT_RATE : totalAfterDiscount,
     } as any);
 
+    // Save to price history
+    saveServicePrice.mutate({ name: row.name, priceNet: row.price_net, priceGross: row.price_gross });
+
+    // Save anonymous data if enabled
+    if (ridoPriceSettings?.share_anonymous_data !== false) {
+      saveAnonymousPrice.mutate({
+        name: row.name,
+        priceNet: row.price_net,
+        priceGross: row.price_gross,
+        brand: order.vehicle?.brand,
+        model: order.vehicle?.model,
+        engineCapacity: order.vehicle?.engine_capacity,
+        city: order.client?.city,
+        industry: ridoPriceSettings?.industry || 'warsztat',
+      });
+    }
+
     // Reset this row and keep it
     setTaskRows(prev => prev.map((r, i) => i === idx ? { ...emptyTask } : r));
     toast.success('Usługa dodana');
