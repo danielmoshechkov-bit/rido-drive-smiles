@@ -15333,6 +15333,175 @@ export type Database = {
           },
         ]
       }
+      workshop_parts_integrations: {
+        Row: {
+          api_password: string | null
+          api_username: string | null
+          created_at: string
+          default_branch_id: string | null
+          environment: string
+          id: string
+          is_enabled: boolean
+          last_connection_at: string | null
+          last_connection_status: string | null
+          provider_id: string
+          sales_margin_percent: number
+          supplier_code: string
+          updated_at: string
+        }
+        Insert: {
+          api_password?: string | null
+          api_username?: string | null
+          created_at?: string
+          default_branch_id?: string | null
+          environment?: string
+          id?: string
+          is_enabled?: boolean
+          last_connection_at?: string | null
+          last_connection_status?: string | null
+          provider_id: string
+          sales_margin_percent?: number
+          supplier_code: string
+          updated_at?: string
+        }
+        Update: {
+          api_password?: string | null
+          api_username?: string | null
+          created_at?: string
+          default_branch_id?: string | null
+          environment?: string
+          id?: string
+          is_enabled?: boolean
+          last_connection_at?: string | null
+          last_connection_status?: string | null
+          provider_id?: string
+          sales_margin_percent?: number
+          supplier_code?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workshop_parts_integrations_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workshop_parts_order_items: {
+        Row: {
+          availability: string | null
+          created_at: string
+          delivery_time: string | null
+          id: string
+          manufacturer: string | null
+          parts_order_id: string
+          product_code: string
+          product_name: string
+          purchase_price_net: number
+          quantity: number
+          selling_price_gross: number
+          supplier_code: string
+        }
+        Insert: {
+          availability?: string | null
+          created_at?: string
+          delivery_time?: string | null
+          id?: string
+          manufacturer?: string | null
+          parts_order_id: string
+          product_code: string
+          product_name: string
+          purchase_price_net?: number
+          quantity?: number
+          selling_price_gross?: number
+          supplier_code: string
+        }
+        Update: {
+          availability?: string | null
+          created_at?: string
+          delivery_time?: string | null
+          id?: string
+          manufacturer?: string | null
+          parts_order_id?: string
+          product_code?: string
+          product_name?: string
+          purchase_price_net?: number
+          quantity?: number
+          selling_price_gross?: number
+          supplier_code?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workshop_parts_order_items_parts_order_id_fkey"
+            columns: ["parts_order_id"]
+            isOneToOne: false
+            referencedRelation: "workshop_parts_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workshop_parts_orders: {
+        Row: {
+          created_at: string
+          id: string
+          invoice_number: string | null
+          invoice_url: string | null
+          order_id: string | null
+          provider_id: string
+          status: string
+          supplier_code: string
+          supplier_order_id: string | null
+          total_gross: number
+          total_net: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          invoice_number?: string | null
+          invoice_url?: string | null
+          order_id?: string | null
+          provider_id: string
+          status?: string
+          supplier_code: string
+          supplier_order_id?: string | null
+          total_gross?: number
+          total_net?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          invoice_number?: string | null
+          invoice_url?: string | null
+          order_id?: string | null
+          provider_id?: string
+          status?: string
+          supplier_code?: string
+          supplier_order_id?: string | null
+          total_gross?: number
+          total_net?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workshop_parts_orders_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "workshop_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workshop_parts_orders_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workshop_tire_storage: {
         Row: {
           client_id: string | null
