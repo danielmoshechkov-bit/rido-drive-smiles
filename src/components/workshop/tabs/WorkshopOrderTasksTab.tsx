@@ -537,6 +537,21 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                       <Button variant="outline" size="sm" className="gap-1 h-7 text-xs">
                         <Package className="h-3.5 w-3.5" /> Dodaj z magazynu
                       </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1 h-7 text-xs border-primary text-primary hover:bg-primary/10"
+                        onClick={() => {
+                          const hasEnabledIntegration = partsIntegrations.some((i: any) => i.is_enabled && i.api_username);
+                          if (hasEnabledIntegration) {
+                            setRidoSearchOpen(true);
+                          } else {
+                            setRidoConfigOpen(true);
+                          }
+                        }}
+                      >
+                        <Sparkles className="h-3.5 w-3.5" /> Znajdź z Rido
+                      </Button>
                     </div>
                   </td>
                 </tr>
