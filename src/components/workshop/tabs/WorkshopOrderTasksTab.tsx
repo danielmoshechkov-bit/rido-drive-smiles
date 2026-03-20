@@ -285,10 +285,8 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                     : rowTotal - row.discount;
                   return (
                     <tr key={`new-task-${idx}`} className="bg-primary/5">
-                      <td className="p-2 text-center">
-                        <Button onClick={() => submitTask(row, idx)} size="sm" className="h-8 w-8 p-0" disabled={!row.name}>
-                          <Plus className="h-4 w-4" />
-                        </Button>
+                      <td className="p-2 text-center text-muted-foreground">
+                        {tasks.length + idx + 1}
                       </td>
                       <td className="p-1.5">
                         <Input
@@ -444,10 +442,8 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                     : rowTotal - row.discount;
                   return (
                     <tr key={`new-goods-${idx}`} className="bg-amber-500/5">
-                      <td className="p-2 text-center">
-                        <Button onClick={() => submitGoods(row, idx)} size="sm" className="h-8 w-8 p-0 bg-amber-500 hover:bg-amber-600" disabled={!row.name}>
-                          <Plus className="h-4 w-4" />
-                        </Button>
+                      <td className="p-2 text-center text-muted-foreground">
+                        {goods.length + idx + 1}
                       </td>
                       <td className="p-1.5">
                         <Input
