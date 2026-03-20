@@ -180,6 +180,9 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm }: Set
             <TabsTrigger value="stanowiska" className="gap-1.5">
               <Monitor className="h-4 w-4" /> Stanowiska
             </TabsTrigger>
+            <TabsTrigger value="integracje" className="gap-1.5">
+              <Building2 className="h-4 w-4" /> Integracje
+            </TabsTrigger>
           </TabsList>
 
           {/* Account & Company */}

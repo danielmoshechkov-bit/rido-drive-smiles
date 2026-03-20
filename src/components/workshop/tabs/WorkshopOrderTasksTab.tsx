@@ -585,6 +585,24 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Rido Parts Modals */}
+      <RidoPartsSearchModal
+        open={ridoSearchOpen}
+        onOpenChange={setRidoSearchOpen}
+        providerId={providerId}
+        orderId={order.id}
+        vehicleName={order.vehicle ? `${order.vehicle.brand || ''} ${order.vehicle.model || ''} ${order.vehicle.year || ''}`.trim() : undefined}
+        margin={partsIntegrations.find((i: any) => i.is_enabled)?.sales_margin_percent || 30}
+      />
+      <RidoPartsConfigModal
+        open={ridoConfigOpen}
+        onOpenChange={setRidoConfigOpen}
+        onGoToSettings={() => {
+          setRidoConfigOpen(false);
+          toast.info('Przejdź do Ustawienia → Integracje w menu bocznym');
+        }}
+      />
     </div>
   );
 }
