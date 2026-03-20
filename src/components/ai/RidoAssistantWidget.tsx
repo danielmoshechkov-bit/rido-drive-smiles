@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useLocation } from "react-router-dom";
 import { 
   MessageCircle, X, Send, Loader2, Upload, Image as ImageIcon, CheckCircle, Lock, ZoomIn
 } from "lucide-react";
@@ -14,6 +15,7 @@ interface RidoAssistantWidgetProps {
 }
 
 export function RidoAssistantWidget({ defaultOpen = false }: RidoAssistantWidgetProps) {
+  const location = useLocation();
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAllowed, setIsAllowed] = useState(false);
@@ -25,6 +27,9 @@ export function RidoAssistantWidget({ defaultOpen = false }: RidoAssistantWidget
   const [isDragging, setIsDragging] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Hide on public client-facing pages
+  const isPublicPage = location.pathname.startsWith('/warsztat/klient');
 
   useEffect(() => {
     const checkAccess = async () => {
@@ -90,6 +95,8 @@ export function RidoAssistantWidget({ defaultOpen = false }: RidoAssistantWidget
     const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
     setAttachedFiles(prev => [...prev, ...files].slice(0, 5));
   }, []);
+
+  if (isPublicPage) return null;
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
