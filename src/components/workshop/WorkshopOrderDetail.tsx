@@ -168,6 +168,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
             <Button variant="ghost" size="icon" title="Link do zlecenia" onClick={copyClientLink}>
               <Link2 className="h-4 w-4" />
             </Button>
+            <RidoPartsCartButton providerId={providerId} />
           </div>
 
           <DropdownMenu>
