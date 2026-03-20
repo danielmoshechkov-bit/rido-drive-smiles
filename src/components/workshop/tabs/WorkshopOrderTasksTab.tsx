@@ -337,10 +337,16 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                         {tasks.length + idx + 1}
                       </td>
                       <td className="p-1.5">
-                        <Input
-                          placeholder="Wpisz nazwę usługi..."
+                        <ServiceAutocomplete
                           value={row.name}
-                          onChange={e => updateTaskRow(idx, { name: e.target.value })}
+                          onChange={name => updateTaskRow(idx, { name })}
+                          onSelectSuggestion={(name, priceNet, priceGross) => {
+                            const { net, gross } = isGross
+                              ? { net: priceNet, gross: priceGross }
+                              : { net: priceNet, gross: priceGross };
+                            updateTaskRow(idx, { name, price_net: net, price_gross: gross });
+                          }}
+                          providerId={providerId}
                           className="h-9 text-sm"
                           onKeyDown={e => e.key === 'Enter' && submitTask(row, idx)}
                         />
