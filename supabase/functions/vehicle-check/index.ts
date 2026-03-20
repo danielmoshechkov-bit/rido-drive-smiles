@@ -315,7 +315,17 @@ async function handleCheckVin(supabase: any, supabaseAdmin: any, userId: string,
     });
   }
 
-  // Step 2: Search cache by VIN
+  // Step 2: Check portal's own vehicle database (workshop_vehicles from ALL providers)
+  const portalVehicle = await findInPortalDb(supabaseAdmin, null, vinNumber);
+  if (portalVehicle) {
+    await deductCredit(supabaseAdmin, userId, null, vinNumber, "portal_db");
+    await logIntegration(supabaseAdmin, userId, null, vinNumber, "vin", "portal_db_hit", null, null);
+    return new Response(JSON.stringify({ data: portalVehicle, source: "portal_db" }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  // Step 3: Search global cache by VIN
   const { data: cached } = await supabaseAdmin
     .from("vehicle_registry_cache")
     .select("*")
@@ -336,6 +346,40 @@ async function handleCheckVin(supabase: any, supabaseAdmin: any, userId: string,
     status: 404,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+// Search portal's own workshop_vehicles database across ALL providers
+async function findInPortalDb(supabaseAdmin: any, plate: string | null, vin: string | null) {
+  let query = supabaseAdmin
+    .from("workshop_vehicles")
+    .select("brand, model, color, vin, plate, year, fuel_type, engine_capacity_cm3, engine_power_kw, first_registration_date, description");
+
+  if (plate) {
+    query = query.ilike("plate", plate);
+  } else if (vin) {
+    query = query.ilike("vin", vin);
+  } else {
+    return null;
+  }
+
+  const { data } = await query.limit(1).maybeSingle();
+  if (!data || (!data.brand && !data.model)) return null;
+
+  // Map to the same format as cache/API response
+  return {
+    registration_number: data.plate || plate,
+    vin: data.vin || vin,
+    make: data.brand,
+    model: data.model,
+    color: data.color,
+    registration_year: data.year,
+    fuel_type: data.fuel_type,
+    engine_size: data.engine_capacity_cm3 ? String(data.engine_capacity_cm3) : null,
+    engine_power_kw: data.engine_power_kw ? String(data.engine_power_kw) : null,
+    first_registration_date: data.first_registration_date,
+    description: data.description,
+    source: "portal_db",
+  };
 }
 
 function extractValue(obj: any, key: string): string {
