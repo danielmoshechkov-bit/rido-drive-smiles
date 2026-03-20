@@ -5,13 +5,18 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useCreateWorkshopOrderItem, useUpdateWorkshopOrder } from '@/hooks/useWorkshop';
 import { usePartsIntegrations } from '@/hooks/useWorkshopParts';
-import { Plus, Trash2, Package, Wrench, Play, CheckCircle2, Search, Eye, EyeOff } from 'lucide-react';
+import { Plus, Trash2, Package, Wrench, Play, CheckCircle2, Search, Eye, EyeOff, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { RidoPartsSearchModal } from '../parts/RidoPartsSearchModal';
 import { RidoPartsConfigModal } from '../parts/RidoPartsConfigModal';
+import { ServiceAutocomplete } from '../pricing/ServiceAutocomplete';
+import { RidoPriceModal } from '../pricing/RidoPriceModal';
+import { useSaveServicePrice, useSaveAnonymousPrice } from '@/hooks/useServicePriceHistory';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Props {
   order: any;
@@ -53,10 +58,26 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   const [priceMode, setPriceMode] = useState<'net' | 'gross'>(order.price_mode || 'gross');
   const [ridoSearchOpen, setRidoSearchOpen] = useState(false);
   const [ridoConfigOpen, setRidoConfigOpen] = useState(false);
+  const [ridoPriceOpen, setRidoPriceOpen] = useState(false);
+  const saveServicePrice = useSaveServicePrice(providerId);
+  const saveAnonymousPrice = useSaveAnonymousPrice();
+
+  // Load Rido Price settings
+  const { data: ridoPriceSettings } = useQuery({
+    queryKey: ['rido-price-settings', providerId],
+    enabled: !!providerId,
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from('rido_price_settings')
+        .select('*')
+        .eq('provider_id', providerId)
+        .maybeSingle();
+      return data;
+    },
+  });
 
   const tasks = (order.items || []).filter((i: any) => i.item_type === 'service' || i.item_type === 'task' || (i.item_type !== 'part' && i.item_type !== 'goods' && i.item_type !== 'other'));
   const goods = (order.items || []).filter((i: any) => i.item_type === 'part' || i.item_type === 'goods' || i.item_type === 'other');
-
   const isGross = priceMode === 'gross';
 
   const emptyTask: TaskRow = { name: '', mechanic: '', quantity: 1, price_net: 0, price_gross: 0, cost_net: 0, cost_gross: 0, discount: 0, discountType: 'percent' };
@@ -124,6 +145,23 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       total_gross: isGross ? totalAfterDiscount : totalAfterDiscount * VAT_RATE,
       total_net: isGross ? totalAfterDiscount / VAT_RATE : totalAfterDiscount,
     } as any);
+
+    // Save to price history
+    saveServicePrice.mutate({ name: row.name, priceNet: row.price_net, priceGross: row.price_gross });
+
+    // Save anonymous data if enabled
+    if (ridoPriceSettings?.share_anonymous_data !== false) {
+      saveAnonymousPrice.mutate({
+        name: row.name,
+        priceNet: row.price_net,
+        priceGross: row.price_gross,
+        brand: order.vehicle?.brand,
+        model: order.vehicle?.model,
+        engineCapacity: order.vehicle?.engine_capacity,
+        city: order.client?.city,
+        industry: ridoPriceSettings?.industry || 'warsztat',
+      });
+    }
 
     // Reset this row and keep it
     setTaskRows(prev => prev.map((r, i) => i === idx ? { ...emptyTask } : r));
@@ -226,6 +264,16 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
               <Wrench className="h-5 w-5 text-primary" />
               <h3 className="font-semibold text-base">Robocizna / Usługi</h3>
               <Badge variant="secondary" className="text-xs">{tasks.length}</Badge>
+              {(tasks.length > 0 || taskRows.some(r => r.name.trim())) && ridoPriceSettings?.ai_suggestions_enabled !== false && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 h-7 text-xs border-primary text-primary hover:bg-primary/10"
+                  onClick={() => setRidoPriceOpen(true)}
+                >
+                  <Sparkles className="h-3.5 w-3.5" /> Rido Wycena
+                </Button>
+              )}
             </div>
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -289,10 +337,16 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                         {tasks.length + idx + 1}
                       </td>
                       <td className="p-1.5">
-                        <Input
-                          placeholder="Wpisz nazwę usługi..."
+                        <ServiceAutocomplete
                           value={row.name}
-                          onChange={e => updateTaskRow(idx, { name: e.target.value })}
+                          onChange={name => updateTaskRow(idx, { name })}
+                          onSelectSuggestion={(name, priceNet, priceGross) => {
+                            const { net, gross } = isGross
+                              ? { net: priceNet, gross: priceGross }
+                              : { net: priceNet, gross: priceGross };
+                            updateTaskRow(idx, { name, price_net: net, price_gross: gross });
+                          }}
+                          providerId={providerId}
                           className="h-9 text-sm"
                           onKeyDown={e => e.key === 'Enter' && submitTask(row, idx)}
                         />
@@ -597,6 +651,41 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
         onGoToSettings={() => {
           setRidoConfigOpen(false);
           toast.info('Przejdź do Ustawienia → Integracje w menu bocznym');
+        }}
+      />
+
+      {/* Rido Price Modal */}
+      <RidoPriceModal
+        open={ridoPriceOpen}
+        onOpenChange={setRidoPriceOpen}
+        services={[
+          ...tasks.map((t: any) => ({ name: t.name, currentPrice: isGross ? (t.unit_price_gross || 0) : (t.unit_price_net || 0) })),
+          ...taskRows.filter(r => r.name.trim()).map(r => ({
+            name: r.name,
+            currentPrice: isGross ? r.price_gross : r.price_net,
+          })),
+        ]}
+        vehicle={order.vehicle}
+        city={order.client?.city}
+        voivodeship={order.client?.voivodeship}
+        industry={ridoPriceSettings?.industry}
+        priceMode={priceMode}
+        onApplySuggestions={(prices) => {
+          // Apply to taskRows (only the new input rows, after saved tasks)
+          const savedCount = tasks.length;
+          setTaskRows(prev => {
+            const updated = [...prev];
+            prices.forEach(({ index, price }) => {
+              const rowIdx = index - savedCount;
+              if (rowIdx >= 0 && rowIdx < updated.length) {
+                const { net, gross } = isGross
+                  ? { net: Math.round((price / VAT_RATE) * 100) / 100, gross: price }
+                  : { net: price, gross: Math.round(price * VAT_RATE * 100) / 100 };
+                updated[rowIdx] = { ...updated[rowIdx], price_net: net, price_gross: gross };
+              }
+            });
+            return updated;
+          });
         }}
       />
     </div>

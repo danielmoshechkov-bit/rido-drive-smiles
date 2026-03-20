@@ -2307,6 +2307,51 @@ export type Database = {
         }
         Relationships: []
       }
+      anonymous_service_prices: {
+        Row: {
+          city: string | null
+          created_at: string
+          created_month: string
+          engine_capacity: number | null
+          id: string
+          industry: string | null
+          price_gross: number
+          price_net: number
+          service_name_normalized: string
+          vehicle_brand: string | null
+          vehicle_model: string | null
+          voivodeship: string | null
+        }
+        Insert: {
+          city?: string | null
+          created_at?: string
+          created_month: string
+          engine_capacity?: number | null
+          id?: string
+          industry?: string | null
+          price_gross: number
+          price_net: number
+          service_name_normalized: string
+          vehicle_brand?: string | null
+          vehicle_model?: string | null
+          voivodeship?: string | null
+        }
+        Update: {
+          city?: string | null
+          created_at?: string
+          created_month?: string
+          engine_capacity?: number | null
+          id?: string
+          industry?: string | null
+          price_gross?: number
+          price_net?: number
+          service_name_normalized?: string
+          vehicle_brand?: string | null
+          vehicle_model?: string | null
+          voivodeship?: string | null
+        }
+        Relationships: []
+      }
       audit_log: {
         Row: {
           action: string
@@ -10389,6 +10434,47 @@ export type Database = {
         }
         Relationships: []
       }
+      rido_price_settings: {
+        Row: {
+          ai_suggestions_enabled: boolean
+          created_at: string
+          default_parts_margin: number
+          id: string
+          industry: string
+          provider_id: string
+          share_anonymous_data: boolean
+          updated_at: string
+        }
+        Insert: {
+          ai_suggestions_enabled?: boolean
+          created_at?: string
+          default_parts_margin?: number
+          id?: string
+          industry?: string
+          provider_id: string
+          share_anonymous_data?: boolean
+          updated_at?: string
+        }
+        Update: {
+          ai_suggestions_enabled?: boolean
+          created_at?: string
+          default_parts_margin?: number
+          id?: string
+          industry?: string
+          provider_id?: string
+          share_anonymous_data?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rido_price_settings_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: true
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rido_settings: {
         Row: {
           created_at: string
@@ -11418,6 +11504,50 @@ export type Database = {
             columns: ["booking_id"]
             isOneToOne: false
             referencedRelation: "service_bookings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_price_history: {
+        Row: {
+          created_at: string
+          id: string
+          last_price_gross: number
+          last_price_net: number
+          last_used_at: string
+          provider_id: string
+          service_name: string
+          service_name_normalized: string
+          usage_count: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_price_gross?: number
+          last_price_net?: number
+          last_used_at?: string
+          provider_id: string
+          service_name: string
+          service_name_normalized: string
+          usage_count?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_price_gross?: number
+          last_price_net?: number
+          last_used_at?: string
+          provider_id?: string
+          service_name?: string
+          service_name_normalized?: string
+          usage_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_price_history_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
             referencedColumns: ["id"]
           },
         ]
