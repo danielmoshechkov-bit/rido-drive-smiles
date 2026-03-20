@@ -96,6 +96,8 @@ export function RidoAssistantWidget({ defaultOpen = false }: RidoAssistantWidget
     setAttachedFiles(prev => [...prev, ...files].slice(0, 5));
   }, []);
 
+  if (isPublicPage) return null;
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const files = Array.from(e.target.files).filter(f => f.type.startsWith('image/'));
