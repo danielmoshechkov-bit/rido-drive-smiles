@@ -156,7 +156,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
 
     await createItem.mutateAsync({
       order_id: order.id,
-      item_type: 'goods',
+      item_type: 'part',
       name: row.name,
       unit: row.unit,
       quantity: row.quantity,
