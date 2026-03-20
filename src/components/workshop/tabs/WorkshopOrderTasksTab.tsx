@@ -264,6 +264,16 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
               <Wrench className="h-5 w-5 text-primary" />
               <h3 className="font-semibold text-base">Robocizna / Usługi</h3>
               <Badge variant="secondary" className="text-xs">{tasks.length}</Badge>
+              {(tasks.length > 0 || taskRows.some(r => r.name.trim())) && ridoPriceSettings?.ai_suggestions_enabled !== false && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 h-7 text-xs border-primary text-primary hover:bg-primary/10"
+                  onClick={() => setRidoPriceOpen(true)}
+                >
+                  <Sparkles className="h-3.5 w-3.5" /> Rido Wycena
+                </Button>
+              )}
             </div>
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
