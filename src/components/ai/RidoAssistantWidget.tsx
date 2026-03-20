@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useLocation } from "react-router-dom";
 import { 
   MessageCircle, X, Send, Loader2, Upload, Image as ImageIcon, CheckCircle, Lock, ZoomIn
 } from "lucide-react";
