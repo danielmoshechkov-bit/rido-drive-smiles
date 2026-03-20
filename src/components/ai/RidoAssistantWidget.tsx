@@ -30,7 +30,6 @@ export function RidoAssistantWidget({ defaultOpen = false }: RidoAssistantWidget
 
   // Hide on public client-facing pages
   const isPublicPage = location.pathname.startsWith('/warsztat/klient');
-  if (isPublicPage) return null;
 
   useEffect(() => {
     const checkAccess = async () => {
