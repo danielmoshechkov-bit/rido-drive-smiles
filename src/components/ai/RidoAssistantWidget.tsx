@@ -17,11 +17,6 @@ interface RidoAssistantWidgetProps {
 export function RidoAssistantWidget({ defaultOpen = false }: RidoAssistantWidgetProps) {
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(defaultOpen);
-
-  // Hide on public client-facing pages
-  const isPublicPage = location.pathname.startsWith('/warsztat/klient');
-  if (isPublicPage) return null;
-
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAllowed, setIsAllowed] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
@@ -32,6 +27,10 @@ export function RidoAssistantWidget({ defaultOpen = false }: RidoAssistantWidget
   const [isDragging, setIsDragging] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Hide on public client-facing pages
+  const isPublicPage = location.pathname.startsWith('/warsztat/klient');
+  if (isPublicPage) return null;
 
   useEffect(() => {
     const checkAccess = async () => {
