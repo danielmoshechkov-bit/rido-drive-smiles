@@ -76,6 +76,10 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     },
   });
 
+  const tasks = (order.items || []).filter((i: any) => i.item_type === 'service' || i.item_type === 'task' || (i.item_type !== 'part' && i.item_type !== 'goods' && i.item_type !== 'other'));
+  const goods = (order.items || []).filter((i: any) => i.item_type === 'part' || i.item_type === 'goods' || i.item_type === 'other');
+  const isGross = priceMode === 'gross';
+
   const emptyTask: TaskRow = { name: '', mechanic: '', quantity: 1, price_net: 0, price_gross: 0, cost_net: 0, cost_gross: 0, discount: 0, discountType: 'percent' };
   const [taskRows, setTaskRows] = useState<TaskRow[]>([{ ...emptyTask }]);
   const [taskSearch, setTaskSearch] = useState('');
