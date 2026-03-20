@@ -5,13 +5,18 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useCreateWorkshopOrderItem, useUpdateWorkshopOrder } from '@/hooks/useWorkshop';
 import { usePartsIntegrations } from '@/hooks/useWorkshopParts';
-import { Plus, Trash2, Package, Wrench, Play, CheckCircle2, Search, Eye, EyeOff } from 'lucide-react';
+import { Plus, Trash2, Package, Wrench, Play, CheckCircle2, Search, Eye, EyeOff, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { RidoPartsSearchModal } from '../parts/RidoPartsSearchModal';
 import { RidoPartsConfigModal } from '../parts/RidoPartsConfigModal';
+import { ServiceAutocomplete } from '../pricing/ServiceAutocomplete';
+import { RidoPriceModal } from '../pricing/RidoPriceModal';
+import { useSaveServicePrice, useSaveAnonymousPrice } from '@/hooks/useServicePriceHistory';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Props {
   order: any;
