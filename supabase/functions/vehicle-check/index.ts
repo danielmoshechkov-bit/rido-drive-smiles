@@ -160,7 +160,17 @@ async function handleCheckRegistration(supabase: any, supabaseAdmin: any, userId
     });
   }
 
-  // Step 2: Check integration is enabled
+  // Step 2: Check portal's own vehicle database (workshop_vehicles from ALL providers)
+  const portalVehicle = await findInPortalDb(supabaseAdmin, regNumber, null);
+  if (portalVehicle) {
+    await deductCredit(supabaseAdmin, userId, regNumber, portalVehicle.vin, "portal_db");
+    await logIntegration(supabaseAdmin, userId, regNumber, portalVehicle.vin, "registration", "portal_db_hit", null, null);
+    return new Response(JSON.stringify({ data: portalVehicle, source: "portal_db" }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  // Step 3: Check integration is enabled
   const { data: integration } = await supabaseAdmin
     .from("portal_integrations")
     .select("*")
@@ -174,7 +184,7 @@ async function handleCheckRegistration(supabase: any, supabaseAdmin: any, userId
     });
   }
 
-  // Step 3: Check cache
+  // Step 4: Check global cache
   const { data: cached } = await supabaseAdmin
     .from("vehicle_registry_cache")
     .select("*")
