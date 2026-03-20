@@ -93,6 +93,59 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
     });
   };
 
+  // Auto-save vehicle to workshop_vehicles after successful API lookup (so user doesn't pay twice)
+  const autoSaveVehicle = async (data: any) => {
+    try {
+      // Check if vehicle already exists for this provider (by plate or VIN)
+      const plate = data.registration_number?.toUpperCase();
+      const vin = data.vin?.toUpperCase();
+
+      let exists = false;
+      if (plate) {
+        const { data: ex } = await supabase
+          .from('workshop_vehicles')
+          .select('id')
+          .eq('provider_id', providerId)
+          .ilike('plate', plate)
+          .limit(1)
+          .maybeSingle();
+        if (ex) exists = true;
+      }
+      if (!exists && vin) {
+        const { data: ex } = await supabase
+          .from('workshop_vehicles')
+          .select('id')
+          .eq('provider_id', providerId)
+          .ilike('vin', vin)
+          .limit(1)
+          .maybeSingle();
+        if (ex) exists = true;
+      }
+
+      if (!exists) {
+        const engineCap = data.engine_size ? parseInt(String(data.engine_size).replace(/[^0-9]/g, '')) || null : null;
+        const enginePow = data.engine_power_kw ? parseInt(String(data.engine_power_kw)) || null : null;
+
+        await supabase.from('workshop_vehicles').insert({
+          provider_id: providerId,
+          brand: data.make || null,
+          model: data.model ? trimModelName(data.model) : null,
+          vin: vin || null,
+          plate: plate || null,
+          year: data.registration_year || null,
+          fuel_type: data.fuel_type || null,
+          engine_capacity_cm3: engineCap,
+          engine_power_kw: enginePow,
+          color: data.color || null,
+        });
+        // Invalidate vehicle list cache
+        qc.invalidateQueries({ queryKey: ['workshop-vehicles'] });
+      }
+    } catch (e) {
+      console.error('Auto-save vehicle error:', e);
+    }
+  };
+
   const handleSearchPlate = async () => {
     if (!form.plate || form.plate.length < 3) {
       toast.error('Wpisz numer rejestracyjny');
@@ -107,6 +160,7 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
       setShowCreditsModal(true);
     } else if (data) {
       applyVehicleData(data);
+      await autoSaveVehicle(data);
     }
   };
 
@@ -124,6 +178,7 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
       setShowCreditsModal(true);
     } else if (data) {
       applyVehicleData(data);
+      await autoSaveVehicle(data);
     }
   };
 
