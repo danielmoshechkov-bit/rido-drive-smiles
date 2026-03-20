@@ -88,9 +88,7 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
       if (data.engine_power_kw) updated.engine_power_kw = String(data.engine_power_kw);
       if (data.vin && !prev.vin) updated.vin = data.vin;
       if (data.registration_number && !prev.plate) updated.plate = data.registration_number;
-      // Build description from make + model
-      const desc = [data.make, data.model].filter(Boolean).join(' ');
-      if (desc) updated.description = desc;
+      // Description left empty — not auto-filled from API
       return updated;
     });
   };
