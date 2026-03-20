@@ -507,9 +507,21 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                 })}
                 <tr className="bg-primary/5">
                   <td colSpan={7} className="p-1.5">
-                    <Button onClick={addTaskRow} variant="ghost" size="sm" className="gap-1 text-xs text-primary">
-                      <Plus className="h-3.5 w-3.5" /> Dodaj kolejną usługę
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button onClick={addTaskRow} variant="ghost" size="sm" className="gap-1 text-xs text-primary">
+                        <Plus className="h-3.5 w-3.5" /> Dodaj kolejną usługę
+                      </Button>
+                      {(tasks.length > 0 || taskRows.some(r => r.name.trim())) && ridoPriceSettings?.ai_suggestions_enabled !== false && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5 h-7 text-xs border-primary text-primary hover:bg-primary/10"
+                          onClick={() => setRidoPriceOpen(true)}
+                        >
+                          <Sparkles className="h-3.5 w-3.5" /> Rido Wycena
+                        </Button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               </tbody>
