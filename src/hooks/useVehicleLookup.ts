@@ -17,6 +17,8 @@ interface VehicleData {
   registration_year?: number;
   fuel_type?: string;
   engine_size?: string;
+  engine_power_kw?: string;
+  mileage?: string;
   transmission?: string;
   number_of_doors?: string;
   number_of_seats?: string;
