@@ -364,6 +364,10 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
               <Badge variant="secondary" className="text-xs">{goods.length}</Badge>
             </div>
             <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 bg-muted rounded-lg p-0.5">
+                <Button variant={priceMode === 'net' ? 'default' : 'ghost'} size="sm" className="text-xs h-7" onClick={() => setPriceMode('net')}>NETTO</Button>
+                <Button variant={priceMode === 'gross' ? 'default' : 'ghost'} size="sm" className="text-xs h-7" onClick={() => setPriceMode('gross')}>BRUTTO</Button>
+              </div>
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input value={goodsSearch} onChange={e => setGoodsSearch(e.target.value)} placeholder="Szukaj części..." className="pl-8 h-8 w-40 text-xs" />
