@@ -653,6 +653,41 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
           toast.info('Przejdź do Ustawienia → Integracje w menu bocznym');
         }}
       />
+
+      {/* Rido Price Modal */}
+      <RidoPriceModal
+        open={ridoPriceOpen}
+        onOpenChange={setRidoPriceOpen}
+        services={[
+          ...tasks.map((t: any) => ({ name: t.name, currentPrice: isGross ? (t.unit_price_gross || 0) : (t.unit_price_net || 0) })),
+          ...taskRows.filter(r => r.name.trim()).map(r => ({
+            name: r.name,
+            currentPrice: isGross ? r.price_gross : r.price_net,
+          })),
+        ]}
+        vehicle={order.vehicle}
+        city={order.client?.city}
+        voivodeship={order.client?.voivodeship}
+        industry={ridoPriceSettings?.industry}
+        priceMode={priceMode}
+        onApplySuggestions={(prices) => {
+          // Apply to taskRows (only the new input rows, after saved tasks)
+          const savedCount = tasks.length;
+          setTaskRows(prev => {
+            const updated = [...prev];
+            prices.forEach(({ index, price }) => {
+              const rowIdx = index - savedCount;
+              if (rowIdx >= 0 && rowIdx < updated.length) {
+                const { net, gross } = isGross
+                  ? { net: Math.round((price / VAT_RATE) * 100) / 100, gross: price }
+                  : { net: price, gross: Math.round(price * VAT_RATE * 100) / 100 };
+                updated[rowIdx] = { ...updated[rowIdx], price_net: net, price_gross: gross };
+              }
+            });
+            return updated;
+          });
+        }}
+      />
     </div>
   );
 }
