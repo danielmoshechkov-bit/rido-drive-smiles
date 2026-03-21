@@ -445,7 +445,7 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
       <div className="fixed inset-0 z-[60] bg-background flex flex-col">
         <div className="flex items-center justify-between px-5 py-3 border-b bg-background shadow-sm flex-shrink-0">
           <div className="flex items-center gap-3">
-            <img src={ridoMascot} alt="RidoAI" className="w-8 h-8 rounded-full object-cover bg-white border-2 border-foreground/10" />
+            <img src={ridoMascot} alt="RidoAI" className="w-9 h-9 object-contain flex-shrink-0" />
             <span className="font-bold text-sm">Edytor grafiki</span>
           </div>
           <div className="flex items-center gap-2">
@@ -545,7 +545,7 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
             {/* Sidebar header */}
             <div className="p-3 border-b">
               <div className="flex items-center gap-2.5 mb-3">
-                <img src={ridoMascot} alt="RidoAI" className="w-8 h-8 rounded-full object-cover bg-white border-2 border-foreground/10" />
+                <img src={ridoMascot} alt="RidoAI" className="w-9 h-9 object-contain flex-shrink-0" />
                 <div>
                   <h2 className="font-extrabold text-sm tracking-tight">RidoAI</h2>
                   <p className="text-[10px] font-semibold text-primary uppercase tracking-widest">Asystent GetRido</p>
@@ -634,7 +634,7 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
             {!sidebarOpen && (
               <>
                 <div className="relative">
-                  <img src={ridoMascot} alt="RidoAI" className="w-8 h-8 rounded-full object-cover bg-white border-2 border-foreground/10" />
+                  <img src={ridoMascot} alt="RidoAI" className="w-9 h-9 object-contain flex-shrink-0" />
                   <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-background" />
                 </div>
                 <div className="flex-1 min-w-0">
