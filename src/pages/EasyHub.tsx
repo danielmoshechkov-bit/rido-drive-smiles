@@ -309,6 +309,7 @@ export default function EasyHub() {
   const [showServicesComingSoon, setShowServicesComingSoon] = useState(false);
   const [showActivationModal, setShowActivationModal] = useState(false);
   const [activationPlatform, setActivationPlatform] = useState<'none' | 'android' | 'iphone'>('none');
+  const [showRidoAI, setShowRidoAI] = useState(false);
   const { isVisible: mapsVisible } = useModuleVisibility('maps');
   const { isAdmin } = useUserRole();
 
