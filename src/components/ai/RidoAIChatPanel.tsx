@@ -262,7 +262,7 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
       const result = await execute({ taskType: 'image', query: text, mode: 'rido_create', stream: false });
       const aMsg: Msg = { role: 'assistant', content: result?.result || '❌ Nie udało się wygenerować.', images: result?.images };
       setMessages(prev => { const u = [...prev]; u[u.length - 1] = aMsg; return u; });
-      await saveMsg(convId!, aMsg);
+      if (convId) await saveMsg(convId, aMsg);
       loadConversations();
       return;
     }
