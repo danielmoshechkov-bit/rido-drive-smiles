@@ -521,18 +521,18 @@ function ConvItem({ conv, active, onClick, onDelete }: { conv: Conv; active: boo
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       className={cn(
-        'flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer text-sm transition-colors',
-        active ? 'bg-muted font-medium text-foreground' : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+        'flex items-center gap-2 px-3 py-2.5 rounded-xl cursor-pointer text-sm transition-colors',
+        active ? 'bg-primary text-primary-foreground font-medium' : 'text-foreground hover:bg-accent hover:text-accent-foreground'
       )}
     >
-      <span className="flex-1 truncate">{conv.title || 'Nowa rozmowa'}</span>
-      {hovered && (
+      <span className="flex-1 truncate font-medium">{conv.title || 'Nowa rozmowa'}</span>
+      {(hovered || active) && (
         <button
           onClick={e => { e.preventDefault(); e.stopPropagation(); onDelete(); }}
-          className="p-1 hover:bg-destructive/10 rounded transition-colors flex-shrink-0"
+          className="p-1 hover:bg-destructive/20 rounded-lg transition-colors flex-shrink-0 opacity-70 hover:opacity-100"
           title="Usuń rozmowę"
         >
-          <Trash2 className="h-3 w-3 text-destructive" />
+          <Trash2 className="h-3.5 w-3.5 text-destructive" />
         </button>
       )}
     </div>
