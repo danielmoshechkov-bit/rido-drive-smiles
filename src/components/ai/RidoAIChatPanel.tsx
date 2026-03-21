@@ -152,6 +152,8 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
   const deleteConversation = async (convId: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    const confirmed = window.confirm('Czy na pewno chcesz usunąć tę rozmowę? Tej operacji nie można cofnąć.');
+    if (!confirmed) return;
     await (supabase as any).from('ai_messages').delete().eq('conversation_id', convId);
     await (supabase as any).from('ai_conversations').delete().eq('id', convId);
     if (currentConvId === convId) handleNewChat();
@@ -593,17 +595,17 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
                           key={conv.id}
                           onClick={() => loadConversation(conv.id)}
                           className={cn(
-                            'flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer transition-all',
+                            'group flex items-center gap-2.5 px-3 py-2.5 rounded-xl cursor-pointer transition-all',
                             currentConvId === conv.id
-                              ? 'bg-primary/10 text-foreground'
-                              : 'text-foreground/70 hover:bg-muted hover:text-foreground'
+                              ? 'bg-primary text-primary-foreground'
+                              : 'text-foreground hover:bg-accent hover:text-accent-foreground'
                           )}
                         >
-                          <MessageCircle className="h-3.5 w-3.5 flex-shrink-0 opacity-50" />
-                          <span className="flex-1 min-w-0 truncate text-[13px] font-semibold">{conv.title || 'Nowa rozmowa'}</span>
+                          <MessageCircle className="h-4 w-4 flex-shrink-0 opacity-60" />
+                          <span className="flex-1 min-w-0 truncate text-sm font-semibold">{conv.title || 'Nowa rozmowa'}</span>
                           <button
                             onClick={(e) => deleteConversation(conv.id, e)}
-                            className="p-1.5 hover:bg-destructive/20 rounded-md transition-all flex-shrink-0"
+                            className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-destructive/20 rounded-lg transition-all flex-shrink-0"
                             title="Usuń rozmowę"
                           >
                             <X className="h-4 w-4 text-destructive" />
