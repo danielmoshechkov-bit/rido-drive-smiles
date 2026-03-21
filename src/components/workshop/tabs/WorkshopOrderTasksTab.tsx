@@ -503,6 +503,15 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                     </tr>
                   );
                 })}
+                {/* Sum row */}
+                <tr className="bg-muted/30 font-semibold text-sm border-b">
+                  <td className="p-2"></td>
+                  <td className="p-2" colSpan={2}>Razem usługi</td>
+                  <td className="p-2 text-right tabular-nums">{fmt(tasksTotal)}</td>
+                  <td className="p-2"></td>
+                  <td className="p-2"></td>
+                  <td className="p-2"></td>
+                </tr>
                 <tr className="bg-primary/5">
                   <td colSpan={7} className="p-1.5">
                     <div className="flex items-center gap-2">
@@ -700,6 +709,15 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                     </tr>
                   );
                 })}
+                {/* Sum row */}
+                <tr className="bg-muted/30 font-semibold text-sm border-b">
+                  <td className="p-2"></td>
+                  <td className="p-2" colSpan={5}>Razem części</td>
+                  <td className="p-2 text-right tabular-nums">{fmt(goodsTotal)}</td>
+                  <td className="p-2"></td>
+                  <td className="p-2"></td>
+                  <td className="p-2"></td>
+                </tr>
                 <tr className="bg-amber-500/5">
                   <td colSpan={10} className="p-1.5">
                     <div className="flex items-center gap-2">
