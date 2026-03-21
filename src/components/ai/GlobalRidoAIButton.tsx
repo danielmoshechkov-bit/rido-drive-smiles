@@ -46,8 +46,8 @@ export function GlobalRidoAIButton() {
         <div className="bg-background border shadow-lg rounded-full px-4 py-2.5 text-sm font-medium text-foreground hidden sm:block">
           Zadaj pytanie RidoAI
         </div>
-        <div className="relative w-14 h-14 rounded-full bg-white shadow-lg flex items-center justify-center ring-2 ring-foreground/80 hover:ring-foreground transition-all">
-          <img src={ridoMascot} alt="RidoAI" className="w-11 h-11 rounded-full object-cover" />
+        <div className="relative w-14 h-14 flex items-center justify-center">
+          <img src={ridoMascot} alt="RidoAI" className="w-12 h-12 object-contain drop-shadow-lg" />
           <span className="absolute bottom-0.5 right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-background" />
         </div>
       </button>
