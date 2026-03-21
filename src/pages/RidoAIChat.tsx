@@ -497,21 +497,27 @@ export default function RidoAIChatPage() {
 
 /* Conversation list item component */
 function ConvItem({ conv, active, onClick, onDelete }: { conv: Conv; active: boolean; onClick: () => void; onDelete: () => void }) {
+  const [hovered, setHovered] = useState(false);
   return (
     <div
       onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       className={cn(
-        'group flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer text-sm transition-colors',
+        'flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer text-sm transition-colors',
         active ? 'bg-muted font-medium text-foreground' : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
       )}
     >
       <span className="flex-1 truncate">{conv.title || 'Nowa rozmowa'}</span>
-      <button
-        onClick={e => { e.stopPropagation(); onDelete(); }}
-        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-destructive/10 rounded transition-all flex-shrink-0"
-      >
-        <Trash2 className="h-3 w-3 text-destructive" />
-      </button>
+      {hovered && (
+        <button
+          onClick={e => { e.preventDefault(); e.stopPropagation(); onDelete(); }}
+          className="p-1 hover:bg-destructive/10 rounded transition-colors flex-shrink-0"
+          title="Usuń rozmowę"
+        >
+          <Trash2 className="h-3 w-3 text-destructive" />
+        </button>
+      )}
     </div>
   );
 }
