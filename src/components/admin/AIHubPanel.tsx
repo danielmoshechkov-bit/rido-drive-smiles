@@ -354,8 +354,14 @@ export function AIHubPanel() {
           <CardContent>
             <div className="space-y-4">
               {routing.map(rule => (
-                <div key={rule.id} className="flex flex-col sm:flex-row items-start sm:items-center gap-3 p-3 border rounded-lg">
-                  <Badge variant="outline" className="min-w-[100px] justify-center">{TASK_TYPE_LABELS[rule.task_type] || rule.task_type}</Badge>
+                 <div key={rule.id} className="flex flex-col gap-2 p-3 border rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="min-w-[100px] justify-center">{TASK_TYPE_LABELS[rule.task_type] || rule.task_type}</Badge>
+                    {TASK_TYPE_DESCRIPTIONS[rule.task_type] && (
+                      <span className="text-xs text-muted-foreground">{TASK_TYPE_DESCRIPTIONS[rule.task_type]}</span>
+                    )}
+                  </div>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
                   <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <div className="space-y-1">
                       <Label className="text-xs">Główny</Label>
@@ -386,7 +392,8 @@ export function AIHubPanel() {
                   </div>
                 </div>
               ))}
-            </div>
+                   </div>
+                 </div>
           </CardContent>
         </Card>
       )}
