@@ -182,6 +182,24 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
     setAttachedFiles(prev => prev.filter((_, i) => i !== idx));
   };
 
+  const readFileAsBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve((reader.result as string).split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const readFileAsText = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsText(file);
+    });
+  };
+
   const onDragOver = (e: DragEvent) => { e.preventDefault(); setIsDragging(true); };
   const onDragLeave = (e: DragEvent) => { e.preventDefault(); setIsDragging(false); };
   const onDrop = (e: DragEvent) => {
@@ -203,6 +221,26 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
     const newMsgs = [...messages, userMsg];
     setMessages(newMsgs);
     setInput('');
+
+    // Read file contents for AI
+    let fileContents: { name: string; type: string; data?: string; text?: string }[] = [];
+    for (const file of attachedFiles) {
+      try {
+        if (file.type.startsWith('image/')) {
+          const b64 = await readFileAsBase64(file);
+          fileContents.push({ name: file.name, type: file.type, data: b64 });
+        } else if (file.type === 'text/plain' || file.type === 'text/csv' || file.name.endsWith('.txt') || file.name.endsWith('.csv')) {
+          const txt = await readFileAsText(file);
+          fileContents.push({ name: file.name, type: file.type, text: txt });
+        } else {
+          // PDF, DOCX etc - send as base64
+          const b64 = await readFileAsBase64(file);
+          fileContents.push({ name: file.name, type: file.type, data: b64 });
+        }
+      } catch (err) {
+        console.error('[RidoAI] Error reading file:', file.name, err);
+      }
+    }
     setAttachedFiles([]);
 
     let convId = currentConvId;
@@ -220,7 +258,7 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
     const isImgMode = mainMode as string === 'grafika';
     const isImg = isImgMode || IMAGE_PATTERNS.test(text);
 
-    if (isImg) {
+    if (isImg && fileContents.length === 0) {
       setMessages(prev => [...prev, { role: 'assistant', content: '🎨 Generuję grafikę...' }]);
       const result = await execute({ taskType: 'image', query: text, mode: 'rido_create', stream: false });
       const aMsg: Msg = { role: 'assistant', content: result?.result || '❌ Nie udało się wygenerować.', images: result?.images };
