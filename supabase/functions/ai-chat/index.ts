@@ -117,34 +117,41 @@ serve(async (req) => {
       return jsonResp({ result: img ? '✨ Gotowe!' : '❌ Nie udało się edytować obrazu.', images: img ? [`data:image/png;base64,${img}`] : [] })
     }
 
-    // ── GENEROWANIE OBRAZÓW ─────────────────────────────────────
+    // ── GENEROWANIE OBRAZÓW (Nano Banana) ────────────────────────
     if (taskType === 'image') {
       const p = findGemini()
       if (!hasKey(p)) {
         return jsonResp({ result: '⚠️ Brak klucza Google Gemini. Wejdź w Centrum AI → Dostawcy & API.' })
       }
       usedProvider = p.provider_key
-      usedModel = 'imagen-4.0-fast-generate-001'
+      usedModel = 'gemini-2.5-flash-image'
+      console.log(`[ai-chat] Image generation using Nano Banana (gemini-2.5-flash-image)`)
 
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-fast-generate-001:predict?key=${p.api_key_encrypted}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            instances: [{ prompt: query }],
-            parameters: { sampleCount: 1 }
-          })
-        }
-      )
+      const res = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${p.api_key_encrypted}` },
+        body: JSON.stringify({
+          model: 'gemini-2.5-flash-preview-image-generation',
+          messages: [{ role: 'user', content: query }],
+          modalities: ['image', 'text']
+        })
+      })
+
+      if (!res.ok) {
+        const errText = await res.text()
+        console.error('[ai-chat] Image gen error:', res.status, errText)
+        await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'error', errorMessage: errText, ms: Date.now() - t0 })
+        return jsonResp({ result: mapError('Gemini Image', res.status, errText) })
+      }
+
       const d = await res.json()
-      const b64 = d?.predictions?.[0]?.bytesBase64Encoded
-      const mimeType = d?.predictions?.[0]?.mimeType || 'image/png'
-
-      await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: b64 ? 'success' : 'error', ms: Date.now() - t0 })
+      const imgData = d?.choices?.[0]?.message?.images?.[0]?.image_url?.url
+      const textReply = d?.choices?.[0]?.message?.content || ''
+      
+      await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: imgData ? 'success' : 'error', ms: Date.now() - t0 })
       return jsonResp({
-        result: b64 ? '🎨 Oto Twoja grafika (Imagen 4)!' : `❌ ${d?.error?.message || 'Brak obrazu'}`,
-        images: b64 ? [`data:${mimeType};base64,${b64}`] : []
+        result: imgData ? '🎨 Oto Twoja grafika!' : (textReply || '❌ Nie udało się wygenerować obrazu.'),
+        images: imgData ? [imgData] : []
       })
     }
 
