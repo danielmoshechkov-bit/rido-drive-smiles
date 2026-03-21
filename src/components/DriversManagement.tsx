@@ -595,12 +595,6 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
         <CardHeader className="space-y-4">
           {/* Mobile layout - stacked */}
           <div className="flex flex-col gap-4 md:hidden">
-            <div>
-              <CardTitle className="text-lg">Lista kierowców</CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">
-                Znaleziono {filteredDrivers.length} z {drivers.length} kierowców
-              </p>
-            </div>
             <div className="grid grid-cols-2 gap-2">
               {mode === 'fleet' && (
                 <Button 
@@ -651,13 +645,7 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
           
           {/* Desktop layout - inline */}
           <div className="hidden md:block">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Lista kierowców - {cityName}</CardTitle>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Znaleziono {filteredDrivers.length} z {drivers.length} kierowców
-                </p>
-              </div>
+            <div className="flex items-center justify-end">
               <div className="flex items-center gap-2">
                 {mode === 'admin' && (
                   <Button onClick={async () => {

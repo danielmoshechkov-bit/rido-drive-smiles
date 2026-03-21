@@ -236,6 +236,12 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     showQuoteWarningIfNeeded();
     setEditingItemId(itemId);
     setEditingField(field);
+    if (field === 'price') {
+      const normalized = String(currentValue).replace(',', '.');
+      const numericValue = Number(normalized);
+      setEditingValue(numericValue === 0 ? '' : normalized);
+      return;
+    }
     setEditingValue(String(currentValue));
   };
 
@@ -246,7 +252,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     if (editingField === 'name') {
       updates.name = editingValue;
     } else if (editingField === 'price') {
-      const val = parseFloat(editingValue) || 0;
+      const val = parseFloat(editingValue.replace(',', '.')) || 0;
       const isService = item.item_type === 'service' || item.item_type === 'task';
       const gross = isService ? isTaskGross : isGoodsGross;
       const synced = syncPrice(val, gross ? 'gross' : 'net');
@@ -302,13 +308,15 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
           autoFocus
           value={editingValue}
           onChange={e => setEditingValue(e.target.value)}
+          onFocus={e => e.currentTarget.select()}
           onBlur={() => saveEdit(item)}
           onKeyDown={e => {
             if (e.key === 'Enter') saveEdit(item);
             if (e.key === 'Escape') cancelEdit();
           }}
           className="h-7 text-sm"
-          type={field === 'price' ? 'number' : 'text'}
+          type="text"
+          inputMode={field === 'price' ? 'decimal' : undefined}
         />
       );
     }
