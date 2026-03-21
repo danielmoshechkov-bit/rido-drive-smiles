@@ -246,14 +246,13 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
     let convId = currentConvId;
     if (!convId) {
       convId = await createConv(text, mainMode);
-      if (!convId) {
-        console.error('[RidoAI] Failed to create conversation, aborting send');
-        setMessages(prev => [...prev, { role: 'assistant', content: '⚠️ Nie udało się zapisać rozmowy. Spróbuj odświeżyć stronę i zalogować się ponownie.' }]);
-        return;
+      if (convId) {
+        setCurrentConvId(convId);
+      } else {
+        console.warn('[RidoAI] Could not save conversation, continuing without persistence');
       }
-      setCurrentConvId(convId);
     }
-    await saveMsg(convId, userMsg);
+    if (convId) await saveMsg(convId, userMsg);
 
     const isImgMode = mainMode as string === 'grafika';
     const isImg = isImgMode || IMAGE_PATTERNS.test(text);
@@ -263,7 +262,7 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
       const result = await execute({ taskType: 'image', query: text, mode: 'rido_create', stream: false });
       const aMsg: Msg = { role: 'assistant', content: result?.result || '❌ Nie udało się wygenerować.', images: result?.images };
       setMessages(prev => { const u = [...prev]; u[u.length - 1] = aMsg; return u; });
-      await saveMsg(convId!, aMsg);
+      if (convId) await saveMsg(convId, aMsg);
       loadConversations();
       return;
     }
@@ -284,7 +283,7 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
       },
       async () => {
         const aMsg: Msg = { role: 'assistant', content: acc };
-        await saveMsg(convId!, aMsg);
+        if (convId) await saveMsg(convId, aMsg);
         const action = parseAction(acc);
         if (action) {
           const routes: Record<string, string> = {
