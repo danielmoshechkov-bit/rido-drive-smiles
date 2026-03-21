@@ -324,7 +324,7 @@ export default function RidoAIChatPage() {
         {/* TOP BAR with centered tabs */}
         <div className="flex items-center justify-center px-4 py-2 border-b bg-background relative">
           {/* Left: sidebar toggle + model name */}
-          <div className="absolute left-4 flex items-center gap-2">
+          <div className="absolute left-2 md:left-4 flex items-center gap-2">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
               className="p-1.5 rounded-lg hover:bg-muted transition-colors"
@@ -335,7 +335,7 @@ export default function RidoAIChatPage() {
                 <line x1="9" y1="3" x2="9" y2="21" />
               </svg>
             </button>
-            <div className="flex items-center gap-1.5">
+            <div className="hidden md:flex items-center gap-1.5">
               <img src={AVATAR} alt="RidoAI" className="w-6 h-6 rounded-full" />
               <span className="text-sm font-medium text-muted-foreground">RidoAI</span>
             </div>
@@ -350,7 +350,7 @@ export default function RidoAIChatPage() {
             ]).map(({ key, label, icon: Icon }) => (
               <button key={key} onClick={() => switchMode(key)}
                 className={cn(
-                  'flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-all',
+                  'flex items-center gap-1 md:gap-1.5 px-2.5 md:px-4 py-1.5 rounded-full text-xs md:text-sm font-medium transition-all',
                   mainMode === key
                     ? 'bg-background shadow-sm text-foreground'
                     : 'text-muted-foreground hover:text-foreground'
