@@ -418,7 +418,7 @@ export default function RidoAIChatPage() {
           </ScrollArea>
 
           {/* Input area */}
-          <div className="px-4 py-3 border-t bg-background">
+          <div className="px-4 py-3 border-t bg-background" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
             <div className="flex items-end gap-2 max-w-3xl mx-auto">
               <Textarea value={input} onChange={e => setInput(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
@@ -428,7 +428,8 @@ export default function RidoAIChatPage() {
                       : 'Napisz wiadomość...'
                 }
                 disabled={isLoading}
-                className="min-h-[44px] max-h-[120px] resize-none rounded-xl text-sm"
+                className="min-h-[44px] max-h-[120px] resize-none rounded-xl text-base md:text-sm"
+                style={{ fontSize: '16px' }}
                 rows={1}
               />
               <Button onClick={handleSend} disabled={!input.trim() || isLoading} size="icon" className="h-[44px] w-[44px] rounded-xl flex-shrink-0">
