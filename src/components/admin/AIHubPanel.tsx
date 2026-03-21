@@ -251,7 +251,7 @@ export function AIHubPanel() {
 
       {activeTab === "providers" && (
         <div className="space-y-4">
-          {providers.map(prov => (
+          {providers.filter(prov => !HIDDEN_PROVIDER_KEYS.includes(prov.provider_key)).map(prov => (
             (() => {
               const sharedOwner = getSharedKeyOwner(prov.provider_key);
               const usesSharedKey = !!sharedOwner && sharedOwner !== prov.provider_key;
@@ -272,18 +272,18 @@ export function AIHubPanel() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
-                {['claude_haiku','claude_sonnet','claude_opus'].includes(prov.provider_key) && (
-                  <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">
-                    <span>🔑</span>
-                    <span>Klucz API znajdziesz na <strong>console.anthropic.com → API Keys</strong>. Jeden klucz działa dla wszystkich modeli Claude — wpisujesz go tylko raz.</span>
-                  </div>
-                )}
-                {['imagen3','gemini_flash'].includes(prov.provider_key) && (
-                  <div className="flex items-start gap-2 p-3 rounded-lg bg-blue-50 border border-blue-200 text-sm text-blue-800">
-                    <span>🎨</span>
-                    <span>Używa tego samego klucza co Google Gemini — wpisujesz go tylko raz z <strong>aistudio.google.com</strong>.</span>
-                  </div>
-                )}
+                 {CLAUDE_PROVIDER_KEYS.includes(prov.provider_key) && (
+                   <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">
+                     <span>🔑</span>
+                     <span>Klucz API z <strong>console.anthropic.com → API Keys</strong>. Jeden klucz obsługuje wszystkie modele Claude (Haiku, Sonnet, Opus) — wpisujesz go tylko raz.</span>
+                   </div>
+                 )}
+                 {GEMINI_PROVIDER_KEYS.includes(prov.provider_key) && (
+                   <div className="flex items-start gap-2 p-3 rounded-lg bg-blue-50 border border-blue-200 text-sm text-blue-800">
+                     <span>🎨</span>
+                     <span>Klucz API z <strong>aistudio.google.com</strong>. Jeden klucz obsługuje chat Gemini + generowanie obrazów (Nano Banana) — wpisujesz go raz.</span>
+                   </div>
+                 )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {prov.provider_key !== "lovable" && !usesSharedKey && (
                     <div className="space-y-1">
