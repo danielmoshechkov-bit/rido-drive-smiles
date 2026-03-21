@@ -392,8 +392,7 @@ export function AIHubPanel() {
                   </div>
                 </div>
               ))}
-                   </div>
-                 </div>
+            </div>
           </CardContent>
         </Card>
       )}
