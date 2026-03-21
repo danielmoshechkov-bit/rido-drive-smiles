@@ -343,16 +343,7 @@ export const DocumentsManagement = ({ cityId, cityName, fleetId }: DocumentsMana
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Dokumenty - {cityName}
-            </CardTitle>
-          </div>
-        </CardHeader>
-
-        <CardContent>
+        <CardContent className="pt-6">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
             <TabsList className="bg-transparent w-full justify-center gap-1.5 h-auto p-0 flex-wrap">
               {[
