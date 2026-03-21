@@ -126,40 +126,52 @@ serve(async (req) => {
       usedProvider = p.provider_key
       const apiKey = p.api_key_encrypted
 
-      // Try Imagen 3 first (best quality)
-      console.log(`[ai-chat] Image gen: trying Imagen 3`)
-      usedModel = 'imagen-3.0-generate-001'
-      const imagenRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            instances: [{ prompt: query }],
-            parameters: { sampleCount: 1 }
-          })
-        }
-      )
+      // Try multiple image generation models
+      const imageModels = [
+        'gemini-2.5-flash-preview-04-17',
+        'gemini-2.0-flash-exp-image-generation', 
+        'gemini-2.0-flash',
+      ]
 
-      if (imagenRes.ok) {
-        const d = await imagenRes.json()
-        const b64 = d?.predictions?.[0]?.bytesBase64Encoded
-        if (b64) {
-          console.log(`[ai-chat] Imagen 3 success`)
-          await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'success', ms: Date.now() - t0 })
-          return jsonResp({ result: '🎨 Oto Twoja grafika!', images: [`data:image/png;base64,${b64}`] })
+      for (const model of imageModels) {
+        console.log(`[ai-chat] Image gen: trying ${model}`)
+        usedModel = model
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: `Generate an image: ${query}` }] }],
+              generationConfig: {
+                responseModalities: ['IMAGE', 'TEXT'],
+              }
+            })
+          }
+        )
+
+        if (res.ok) {
+          const d = await res.json()
+          const imgPart = d?.candidates?.[0]?.content?.parts?.find((x: any) => x.inline_data?.data)
+          if (imgPart) {
+            const b64 = imgPart.inline_data.data
+            const mime = imgPart.inline_data.mime_type || 'image/png'
+            console.log(`[ai-chat] ✅ Image gen success with ${model}`)
+            await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'success', ms: Date.now() - t0 })
+            return jsonResp({ result: '🎨 Oto Twoja grafika!', images: [`data:${mime};base64,${b64}`] })
+          }
+          console.log(`[ai-chat] ${model}: no image in response`)
+        } else {
+          const errText = await res.text()
+          console.log(`[ai-chat] ${model} failed ${res.status}: ${errText.substring(0, 150)}`)
         }
-        console.log(`[ai-chat] Imagen 3 returned no image, response:`, JSON.stringify(d).substring(0, 200))
-      } else {
-        const errText = await imagenRes.text()
-        console.log(`[ai-chat] Imagen 3 failed ${imagenRes.status}: ${errText.substring(0, 200)}`)
       }
 
-      // Fallback: Gemini with image generation
-      console.log(`[ai-chat] Image gen: trying Gemini 2.0 flash exp`)
-      usedModel = 'gemini-2.0-flash-exp'
+      // All models failed
+      console.log(`[ai-chat] Image gen: trying Gemini text fallback`)
+      usedModel = 'gemini-2.5-flash'
       const geminiRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/openai/chat/completions`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
