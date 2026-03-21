@@ -273,7 +273,7 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
     const activeMode = mainMode === 'cowork' ? 'cowork' : mainMode === 'grafika' ? 'rido_create' : 'rido_chat';
 
     await streamExecute(
-      { taskType: 'text', query: text, mode: activeMode, messages: newMsgs.map(m => ({ role: m.role, content: m.content })), stream: true },
+      { taskType: 'text', query: text, mode: activeMode, messages: newMsgs.map(m => ({ role: m.role, content: m.content })), stream: true, files: fileContents.length > 0 ? fileContents : undefined },
       delta => {
         acc += delta;
         setMessages(prev => {
