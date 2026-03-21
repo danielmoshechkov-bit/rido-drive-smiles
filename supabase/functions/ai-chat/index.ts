@@ -249,7 +249,7 @@ serve(async (req) => {
                        (isGemini ? 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions' : null)
 
       if (endpoint) {
-        if (isGemini) usedModel = 'gemini-2.0-flash'
+        if (isGemini) usedModel = 'gemini-2.5-flash'
         const res = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },

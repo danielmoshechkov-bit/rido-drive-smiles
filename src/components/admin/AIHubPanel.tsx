@@ -76,10 +76,25 @@ const TASK_TYPE_LABELS: Record<string, string> = {
   ocr: "OCR",
   search: "Wyszukiwanie",
   embeddings: "Embeddings",
+  tts: "TTS",
+  stt: "STT",
+};
+
+const TASK_TYPE_DESCRIPTIONS: Record<string, string> = {
+  text: "Główny model do chatu RidoAI — odpowiedzi tekstowe, porady, Cowork",
+  image: "Generowanie i edycja grafik (Nano Banana) — plakaty, loga, zdjęcia",
+  ocr: "Rozpoznawanie tekstu z dokumentów i faktur — skanowanie i analiza",
+  search: "Wyszukiwanie informacji w internecie i portalu — Kimi, Gemini itp.",
+  embeddings: "Wektory tekstu do semantycznego wyszukiwania — baza wiedzy AI",
+  tts: "Text-to-Speech — zamiana tekstu na mowę (czytanie wiadomości głosem)",
+  stt: "Speech-to-Text — zamiana mowy na tekst (dyktowanie, transkrypcja)",
 };
 
 const CLAUDE_PROVIDER_KEYS = ["claude_haiku", "claude_sonnet", "claude_opus"];
 const GEMINI_PROVIDER_KEYS = ["gemini", "google_gemini", "gemini_flash", "gemini_pro", "imagen3"];
+
+// Ukryj duplikaty w UI — pokaż tylko jednego reprezentanta z rodziny
+const HIDDEN_PROVIDER_KEYS = ["claude_sonnet", "claude_opus", "gemini_flash", "imagen3"];
 
 export function AIHubPanel() {
   const [activeTab, setActiveTab] = useState("providers");
@@ -236,7 +251,7 @@ export function AIHubPanel() {
 
       {activeTab === "providers" && (
         <div className="space-y-4">
-          {providers.map(prov => (
+          {providers.filter(prov => !HIDDEN_PROVIDER_KEYS.includes(prov.provider_key)).map(prov => (
             (() => {
               const sharedOwner = getSharedKeyOwner(prov.provider_key);
               const usesSharedKey = !!sharedOwner && sharedOwner !== prov.provider_key;
@@ -257,18 +272,18 @@ export function AIHubPanel() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
-                {['claude_haiku','claude_sonnet','claude_opus'].includes(prov.provider_key) && (
-                  <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">
-                    <span>🔑</span>
-                    <span>Klucz API znajdziesz na <strong>console.anthropic.com → API Keys</strong>. Jeden klucz działa dla wszystkich modeli Claude — wpisujesz go tylko raz.</span>
-                  </div>
-                )}
-                {['imagen3','gemini_flash'].includes(prov.provider_key) && (
-                  <div className="flex items-start gap-2 p-3 rounded-lg bg-blue-50 border border-blue-200 text-sm text-blue-800">
-                    <span>🎨</span>
-                    <span>Używa tego samego klucza co Google Gemini — wpisujesz go tylko raz z <strong>aistudio.google.com</strong>.</span>
-                  </div>
-                )}
+                 {CLAUDE_PROVIDER_KEYS.includes(prov.provider_key) && (
+                   <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">
+                     <span>🔑</span>
+                     <span>Klucz API z <strong>console.anthropic.com → API Keys</strong>. Jeden klucz obsługuje wszystkie modele Claude (Haiku, Sonnet, Opus) — wpisujesz go tylko raz.</span>
+                   </div>
+                 )}
+                 {GEMINI_PROVIDER_KEYS.includes(prov.provider_key) && (
+                   <div className="flex items-start gap-2 p-3 rounded-lg bg-blue-50 border border-blue-200 text-sm text-blue-800">
+                     <span>🎨</span>
+                     <span>Klucz API z <strong>aistudio.google.com</strong>. Jeden klucz obsługuje chat Gemini + generowanie obrazów (Nano Banana) — wpisujesz go raz.</span>
+                   </div>
+                 )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {prov.provider_key !== "lovable" && !usesSharedKey && (
                     <div className="space-y-1">
@@ -339,34 +354,41 @@ export function AIHubPanel() {
           <CardContent>
             <div className="space-y-4">
               {routing.map(rule => (
-                <div key={rule.id} className="flex flex-col sm:flex-row items-start sm:items-center gap-3 p-3 border rounded-lg">
-                  <Badge variant="outline" className="min-w-[100px] justify-center">{TASK_TYPE_LABELS[rule.task_type] || rule.task_type}</Badge>
-                  <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    <div className="space-y-1">
-                      <Label className="text-xs">Główny</Label>
-                      <Select value={rule.primary_provider_key || ""} onValueChange={v => setRouting(r => r.map(x => x.id === rule.id ? { ...x, primary_provider_key: v } : x))}>
-                        <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {providers.filter(p => p.is_enabled).map(p => <SelectItem key={p.provider_key} value={p.provider_key}>{p.display_name}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Zapasowy</Label>
-                      <Select value={rule.secondary_provider_key || "none"} onValueChange={v => setRouting(r => r.map(x => x.id === rule.id ? { ...x, secondary_provider_key: v === "none" ? null : v } : x))}>
-                        <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">Brak</SelectItem>
-                          {providers.filter(p => p.is_enabled).map(p => <SelectItem key={p.provider_key} value={p.provider_key}>{p.display_name}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="flex items-end gap-2">
-                      <div className="flex items-center gap-1">
-                        <Switch checked={rule.allow_fallback} onCheckedChange={v => setRouting(r => r.map(x => x.id === rule.id ? { ...x, allow_fallback: v } : x))} />
-                        <Label className="text-xs">Fallback</Label>
+                <div key={rule.id} className="flex flex-col gap-2 p-3 border rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="min-w-[100px] justify-center">{TASK_TYPE_LABELS[rule.task_type] || rule.task_type}</Badge>
+                    {TASK_TYPE_DESCRIPTIONS[rule.task_type] && (
+                      <span className="text-xs text-muted-foreground">{TASK_TYPE_DESCRIPTIONS[rule.task_type]}</span>
+                    )}
+                  </div>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                    <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Główny</Label>
+                        <Select value={rule.primary_provider_key || ""} onValueChange={v => setRouting(r => r.map(x => x.id === rule.id ? { ...x, primary_provider_key: v } : x))}>
+                          <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {providers.filter(p => p.is_enabled).map(p => <SelectItem key={p.provider_key} value={p.provider_key}>{p.display_name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
                       </div>
-                      <Button size="sm" onClick={() => saveRouting(rule)}><Save className="h-3 w-3" /></Button>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Zapasowy</Label>
+                        <Select value={rule.secondary_provider_key || "none"} onValueChange={v => setRouting(r => r.map(x => x.id === rule.id ? { ...x, secondary_provider_key: v === "none" ? null : v } : x))}>
+                          <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Brak</SelectItem>
+                            {providers.filter(p => p.is_enabled).map(p => <SelectItem key={p.provider_key} value={p.provider_key}>{p.display_name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex items-end gap-2">
+                        <div className="flex items-center gap-1">
+                          <Switch checked={rule.allow_fallback} onCheckedChange={v => setRouting(r => r.map(x => x.id === rule.id ? { ...x, allow_fallback: v } : x))} />
+                          <Label className="text-xs">Fallback</Label>
+                        </div>
+                        <Button size="sm" onClick={() => saveRouting(rule)}><Save className="h-3 w-3" /></Button>
+                      </div>
                     </div>
                   </div>
                 </div>
