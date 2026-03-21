@@ -1,7 +1,6 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, DragEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useGetRidoAI } from '@/hooks/useGetRidoAI';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,13 +8,13 @@ import ReactMarkdown from 'react-markdown';
 import {
   Loader2, Send, Plus, MessageCircle, Briefcase, Image,
   Sparkles, X, Search, PanelLeftOpen, PanelLeftClose, Lock,
-  Download, Paintbrush, RotateCcw
+  Download, Paintbrush, RotateCcw, Paperclip, FileText
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ridoMascot from '@/assets/rido-mascot.png';
 
 type MainMode = 'chat' | 'grafika' | 'cowork';
-interface Msg { id?: string; role: 'user' | 'assistant'; content: string; images?: string[]; }
+interface Msg { id?: string; role: 'user' | 'assistant'; content: string; images?: string[]; files?: { name: string; type: string }[]; }
 interface Conv { id: string; title: string; mode: string; updated_at: string; }
 
 const WELCOME: Record<string, string> = {
@@ -60,6 +59,9 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
   const [conversations, setConversations] = useState<Conv[]>([]);
   const [currentConvId, setCurrentConvId] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Image editor state
   const [editorImage, setEditorImage] = useState<string | null>(null);
@@ -67,11 +69,15 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
   const [isDrawing, setIsDrawing] = useState(false);
   const [editPrompt, setEditPrompt] = useState('');
   const [isEditing, setIsEditing] = useState(false);
+  const [showEditInput, setShowEditInput] = useState(false);
+  const [editInputPos, setEditInputPos] = useState({ x: 0, y: 0 });
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const maskCanvasRef = useRef<HTMLCanvasElement>(null);
+  const lastPoint = useRef<{ x: number; y: number } | null>(null);
 
   const { streamExecute, execute, isLoading } = useGetRidoAI();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => { if (data.user) setUserId(data.user.id); });
@@ -106,7 +112,9 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
   };
 
   const deleteConversation = async (convId: string, e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
+    await (supabase as any).from('ai_messages').delete().eq('conversation_id', convId);
     await (supabase as any).from('ai_conversations').delete().eq('id', convId);
     if (currentConvId === convId) handleNewChat();
     loadConversations();
@@ -118,20 +126,46 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
     setCurrentConvId(convId);
   };
 
-  const handleNewChat = () => { setMessages([]); setCurrentConvId(null); setInput(''); };
+  const handleNewChat = () => { setMessages([]); setCurrentConvId(null); setInput(''); setAttachedFiles([]); };
 
   const switchMode = (mode: MainMode) => {
     setMainMode(mode);
     if (mode !== 'cowork') handleNewChat();
   };
 
+  // File handling
+  const handleFileSelect = (files: FileList | null) => {
+    if (!files) return;
+    const newFiles = Array.from(files).slice(0, 5);
+    setAttachedFiles(prev => [...prev, ...newFiles].slice(0, 5));
+  };
+
+  const removeFile = (idx: number) => {
+    setAttachedFiles(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const onDragOver = (e: DragEvent) => { e.preventDefault(); setIsDragging(true); };
+  const onDragLeave = (e: DragEvent) => { e.preventDefault(); setIsDragging(false); };
+  const onDrop = (e: DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    handleFileSelect(e.dataTransfer.files);
+  };
+
   const handleSend = useCallback(async () => {
     const text = input.trim();
     if (!text || isLoading) return;
-    const userMsg: Msg = { role: 'user', content: text };
+
+    const fileNames = attachedFiles.map(f => f.name);
+    const contentWithFiles = fileNames.length > 0
+      ? `${text}\n\n📎 Załączniki: ${fileNames.join(', ')}`
+      : text;
+
+    const userMsg: Msg = { role: 'user', content: contentWithFiles, files: attachedFiles.map(f => ({ name: f.name, type: f.type })) };
     const newMsgs = [...messages, userMsg];
     setMessages(newMsgs);
     setInput('');
+    setAttachedFiles([]);
 
     let convId = currentConvId;
     if (!convId) { convId = await createConv(text, mainMode); setCurrentConvId(convId); }
@@ -179,7 +213,7 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
         loadConversations();
       }
     );
-  }, [input, isLoading, messages, mainMode, currentConvId, userId, streamExecute, execute, navigate, loadConversations]);
+  }, [input, isLoading, messages, mainMode, currentConvId, userId, streamExecute, execute, navigate, loadConversations, attachedFiles]);
 
   // ── Image Editor ──────────────────────────────────────────
   const openEditor = (imgSrc: string) => {
@@ -187,6 +221,8 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
     setBrushActive(false);
     setEditPrompt('');
     setIsDrawing(false);
+    setShowEditInput(false);
+    lastPoint.current = null;
   };
 
   const downloadImage = (imgSrc: string) => {
@@ -212,27 +248,68 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
     img.src = editorImage;
   }, [editorImage]);
 
-  const onDraw = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isDrawing || !brushActive || !maskCanvasRef.current) return;
-    const rect = maskCanvasRef.current.getBoundingClientRect();
-    const sx = maskCanvasRef.current.width / rect.width;
-    const sy = maskCanvasRef.current.height / rect.height;
+  // Smooth brush drawing with line interpolation
+  const getCanvasCoords = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const rect = maskCanvasRef.current!.getBoundingClientRect();
+    const sx = maskCanvasRef.current!.width / rect.width;
+    const sy = maskCanvasRef.current!.height / rect.height;
+    return { x: (e.clientX - rect.left) * sx, y: (e.clientY - rect.top) * sy };
+  };
+
+  const drawBrushStroke = (from: { x: number; y: number }, to: { x: number; y: number }) => {
+    if (!maskCanvasRef.current) return;
     const ctx = maskCanvasRef.current.getContext('2d')!;
-    ctx.fillStyle = 'rgba(108, 60, 240, 0.45)';
+    ctx.strokeStyle = 'rgba(108, 60, 240, 0.4)';
+    ctx.lineWidth = 36;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
     ctx.beginPath();
-    ctx.arc((e.clientX - rect.left) * sx, (e.clientY - rect.top) * sy, 22, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.moveTo(from.x, from.y);
+    ctx.lineTo(to.x, to.y);
+    ctx.stroke();
+  };
+
+  const onBrushDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!brushActive) return;
+    setIsDrawing(true);
+    setShowEditInput(false);
+    const pt = getCanvasCoords(e);
+    lastPoint.current = pt;
+    drawBrushStroke(pt, pt);
+  };
+
+  const onBrushMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isDrawing || !brushActive || !lastPoint.current) return;
+    const pt = getCanvasCoords(e);
+    drawBrushStroke(lastPoint.current, pt);
+    lastPoint.current = pt;
+  };
+
+  const onBrushUp = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isDrawing) return;
+    setIsDrawing(false);
+    lastPoint.current = null;
+    // Show edit input near mouse position
+    const rect = (e.target as HTMLElement).getBoundingClientRect();
+    setEditInputPos({
+      x: Math.min(e.clientX - rect.left, rect.width - 320),
+      y: Math.max(e.clientY - rect.top - 60, 10)
+    });
+    setShowEditInput(true);
   };
 
   const clearMask = () => {
     if (!maskCanvasRef.current) return;
     const ctx = maskCanvasRef.current.getContext('2d')!;
     ctx.clearRect(0, 0, maskCanvasRef.current.width, maskCanvasRef.current.height);
+    setShowEditInput(false);
+    setEditPrompt('');
   };
 
   const applyEdit = async () => {
     if (!editPrompt.trim() || !canvasRef.current || !maskCanvasRef.current || isEditing) return;
     setIsEditing(true);
+    setShowEditInput(false);
     try {
       const result = await execute({
         taskType: 'inpaint',
@@ -282,7 +359,6 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
   if (editorImage) {
     return (
       <div className="fixed inset-0 z-[60] bg-background flex flex-col">
-        {/* Editor top bar */}
         <div className="flex items-center justify-between px-5 py-3 border-b bg-background shadow-sm flex-shrink-0">
           <div className="flex items-center gap-3">
             <img src={ridoMascot} alt="RidoAI" className="w-8 h-8 rounded-full object-cover bg-white border-2 border-foreground/10" />
@@ -290,9 +366,9 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setBrushActive(!brushActive)}
+              onClick={() => { setBrushActive(!brushActive); setShowEditInput(false); }}
               className={cn(
-                'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border transition-all',
+                'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold border transition-all',
                 brushActive
                   ? 'bg-primary text-primary-foreground border-primary'
                   : 'hover:bg-muted border-border'
@@ -302,108 +378,100 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
               {brushActive ? 'Pędzel ON' : 'Pędzel'}
             </button>
             {brushActive && (
-              <button
-                onClick={clearMask}
-                className="p-2 rounded-lg hover:bg-muted border border-border"
-                title="Wyczyść zaznaczenie"
-              >
+              <button onClick={clearMask} className="p-2 rounded-lg hover:bg-muted border border-border" title="Wyczyść zaznaczenie">
                 <RotateCcw className="h-4 w-4" />
               </button>
             )}
-            <button
-              onClick={() => downloadImage(editorImage)}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium hover:bg-muted border border-border"
-            >
-              <Download className="h-4 w-4" />
-              Pobierz
+            <button onClick={() => downloadImage(editorImage)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold hover:bg-muted border border-border">
+              <Download className="h-4 w-4" /> Pobierz
             </button>
-            <button
-              onClick={() => setEditorImage(null)}
-              className="p-2 rounded-lg hover:bg-muted border border-border"
-            >
+            <button onClick={() => setEditorImage(null)} className="p-2 rounded-lg hover:bg-muted border border-border">
               <X className="h-4 w-4" />
             </button>
           </div>
         </div>
 
-        {/* Canvas area */}
         <div className="flex-1 overflow-auto flex items-center justify-center p-6 bg-muted/20">
           <div className="relative inline-block shadow-2xl rounded-2xl overflow-hidden border border-border">
             <canvas ref={canvasRef} className="block max-w-full max-h-[70vh]" />
             <canvas
               ref={maskCanvasRef}
-              className={cn(
-                'absolute inset-0 w-full h-full',
-                brushActive ? 'cursor-crosshair' : 'pointer-events-none'
-              )}
-              onMouseDown={() => setIsDrawing(true)}
-              onMouseUp={() => setIsDrawing(false)}
-              onMouseLeave={() => setIsDrawing(false)}
-              onMouseMove={onDraw}
+              className={cn('absolute inset-0 w-full h-full', brushActive ? 'cursor-crosshair' : 'pointer-events-none')}
+              onMouseDown={onBrushDown}
+              onMouseMove={onBrushMove}
+              onMouseUp={onBrushUp}
+              onMouseLeave={() => { setIsDrawing(false); lastPoint.current = null; }}
             />
-            {brushActive && (
-              <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-primary/90 text-primary-foreground text-xs px-3 py-1.5 rounded-full pointer-events-none font-medium">
+            {brushActive && !showEditInput && (
+              <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-primary/90 text-primary-foreground text-xs px-3 py-1.5 rounded-full pointer-events-none font-semibold">
                 Zamaluj obszar który chcesz zmienić
+              </div>
+            )}
+            {/* Floating edit input after brush stroke */}
+            {showEditInput && (
+              <div
+                className="absolute z-10 bg-background border-2 border-primary rounded-xl shadow-2xl p-3 w-[300px]"
+                style={{ left: editInputPos.x, top: editInputPos.y }}
+                onClick={e => e.stopPropagation()}
+              >
+                <p className="text-xs font-semibold text-primary mb-2">✏️ Co zmienić w tym obszarze?</p>
+                <input
+                  type="text"
+                  value={editPrompt}
+                  onChange={e => setEditPrompt(e.target.value)}
+                  placeholder='np. "zmień kolor na niebieski"'
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:border-primary focus:ring-1 focus:ring-primary/30 outline-none font-medium"
+                  autoFocus
+                  onKeyDown={e => { if (e.key === 'Enter') applyEdit(); }}
+                />
+                <div className="flex gap-2 mt-2">
+                  <Button size="sm" onClick={applyEdit} disabled={!editPrompt.trim() || isEditing} className="flex-1 rounded-lg text-xs font-semibold gap-1">
+                    {isEditing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                    Zastosuj
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => { setShowEditInput(false); clearMask(); }} className="rounded-lg text-xs font-semibold">
+                    Anuluj
+                  </Button>
+                </div>
               </div>
             )}
           </div>
         </div>
 
-        {/* Edit prompt bar */}
-        <div className="px-5 py-4 border-t bg-background flex-shrink-0">
-          <div className="max-w-2xl mx-auto flex items-end gap-3">
-            <div className="flex-1">
-              <p className="text-xs text-muted-foreground mb-1.5 font-medium">
-                {brushActive
-                  ? '✏️ Zamaluj obszar pędzlem i opisz co zmienić:'
-                  : '💡 Włącz pędzel → zamaluj fragment obrazu → opisz zmianę'}
-              </p>
-              <Textarea
-                value={editPrompt}
-                onChange={e => setEditPrompt(e.target.value)}
-                placeholder='np. "zmień kolor ściany na niebieski" lub "wstaw tutaj wazon z kwiatami"'
-                disabled={!brushActive || isEditing}
-                className="resize-none rounded-xl text-sm min-h-[44px]"
-                rows={1}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' && !e.shiftKey && brushActive) {
-                    e.preventDefault();
-                    applyEdit();
-                  }
-                }}
-              />
+        {isEditing && (
+          <div className="px-5 py-3 border-t bg-background flex-shrink-0">
+            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground font-medium">
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              Edytuję obraz...
             </div>
-            <Button
-              onClick={applyEdit}
-              disabled={!editPrompt.trim() || !brushActive || isEditing}
-              className="h-[44px] px-5 rounded-xl gap-2"
-            >
-              {isEditing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              Zastosuj
-            </Button>
           </div>
-        </div>
+        )}
       </div>
     );
   }
 
   return (
     <div className="fixed inset-0 z-50 flex">
-      {/* Backdrop */}
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
 
-      {/* Panel */}
-      <div className="relative ml-auto w-full max-w-[720px] h-full flex bg-background shadow-2xl animate-in slide-in-from-right duration-300">
-
+      <div className="relative ml-auto w-full max-w-[780px] h-full flex bg-background shadow-2xl animate-in slide-in-from-right duration-300">
         {/* Sidebar */}
         {sidebarOpen && (
-          <div className="w-[240px] flex flex-col border-r bg-muted/30 flex-shrink-0">
+          <div className="w-[260px] flex flex-col border-r bg-muted/20 flex-shrink-0">
+            {/* Sidebar header */}
             <div className="p-3 border-b">
+              <div className="flex items-center gap-2.5 mb-3">
+                <img src={ridoMascot} alt="RidoAI" className="w-8 h-8 rounded-full object-cover bg-white border-2 border-foreground/10" />
+                <div>
+                  <h2 className="font-extrabold text-sm tracking-tight">RidoAI</h2>
+                  <p className="text-[10px] font-semibold text-primary uppercase tracking-widest">Asystent GetRido</p>
+                </div>
+              </div>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleNewChat}
-                className="w-full justify-start gap-2 h-9 text-xs font-medium rounded-lg"
+                className="w-full justify-start gap-2 h-9 text-xs font-semibold rounded-lg"
               >
                 <Plus className="h-3.5 w-3.5" />
                 Nowa rozmowa
@@ -418,22 +486,22 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
                   placeholder="Szukaj rozmów..."
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
-                  className="w-full pl-8 pr-3 py-2 text-xs rounded-lg bg-background border border-border/50 outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 placeholder:text-muted-foreground/50 text-foreground transition-all"
+                  className="w-full pl-8 pr-3 py-2 text-xs font-medium rounded-lg bg-background border border-border/50 outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 placeholder:text-muted-foreground/50 text-foreground transition-all"
                 />
               </div>
             </div>
 
             <ScrollArea className="flex-1">
-              <div className="px-2 py-1 space-y-2">
+              <div className="px-2 py-1 space-y-1">
                 {groupedConvs.length === 0 && (
                   <div className="text-center py-12 px-4">
                     <MessageCircle className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-                    <p className="text-[11px] text-muted-foreground/60">Brak rozmów</p>
+                    <p className="text-xs text-muted-foreground/60 font-medium">Brak rozmów</p>
                   </div>
                 )}
                 {groupedConvs.map(group => (
                   <div key={group.label}>
-                    <p className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-wider">
+                    <p className="px-2 py-1.5 text-[10px] font-bold text-muted-foreground/60 uppercase tracking-wider">
                       {group.label}
                     </p>
                     <div className="space-y-0.5">
@@ -442,20 +510,20 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
                           key={conv.id}
                           onClick={() => loadConversation(conv.id)}
                           className={cn(
-                            'group flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer text-[13px] transition-all',
+                            'flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer transition-all',
                             currentConvId === conv.id
-                              ? 'bg-primary/10 text-foreground font-semibold'
+                              ? 'bg-primary/10 text-foreground'
                               : 'text-foreground/70 hover:bg-muted hover:text-foreground'
                           )}
                         >
-                          <MessageCircle className="h-3.5 w-3.5 flex-shrink-0 opacity-60" />
-                          <span className="flex-1 min-w-0 truncate font-medium">{conv.title || 'Nowa rozmowa'}</span>
+                          <MessageCircle className="h-3.5 w-3.5 flex-shrink-0 opacity-50" />
+                          <span className="flex-1 min-w-0 truncate text-[13px] font-semibold">{conv.title || 'Nowa rozmowa'}</span>
                           <button
                             onClick={(e) => deleteConversation(conv.id, e)}
-                            className="p-1 hover:bg-destructive/10 rounded transition-all flex-shrink-0"
+                            className="p-1.5 hover:bg-destructive/20 rounded-md transition-all flex-shrink-0"
                             title="Usuń rozmowę"
                           >
-                            <X className="h-3.5 w-3.5 text-destructive/70 hover:text-destructive" />
+                            <X className="h-4 w-4 text-destructive" />
                           </button>
                         </div>
                       ))}
@@ -468,50 +536,36 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
         )}
 
         {/* Main chat */}
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex-1 flex flex-col min-w-0" onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}>
           {/* Header */}
-          <div className="flex items-center gap-3 px-4 py-2.5 border-b bg-background/95 backdrop-blur-sm">
+          <div className="flex items-center gap-3 px-4 py-2.5 border-b bg-background">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
               className="p-1.5 rounded-lg hover:bg-muted transition-colors"
               title={sidebarOpen ? 'Ukryj historię' : 'Pokaż historię'}
             >
-              {sidebarOpen
-                ? <PanelLeftClose className="h-4 w-4 text-muted-foreground" />
-                : <PanelLeftOpen className="h-4 w-4 text-muted-foreground" />
-              }
+              {sidebarOpen ? <PanelLeftClose className="h-4 w-4 text-muted-foreground" /> : <PanelLeftOpen className="h-4 w-4 text-muted-foreground" />}
             </button>
 
-            <div className="relative">
-              <img
-                src={ridoMascot}
-                alt="RidoAI"
-                className="w-9 h-9 rounded-full object-cover bg-white border-2 border-foreground/10"
-              />
-              <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-background" />
-            </div>
+            {!sidebarOpen && (
+              <>
+                <div className="relative">
+                  <img src={ridoMascot} alt="RidoAI" className="w-8 h-8 rounded-full object-cover bg-white border-2 border-foreground/10" />
+                  <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-background" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-extrabold text-sm tracking-tight flex items-center gap-1.5">
+                    RidoAI <Sparkles className="h-3.5 w-3.5 text-primary" />
+                  </h3>
+                  <p className="text-[11px] text-muted-foreground font-semibold">Asystent AI portalu GetRido</p>
+                </div>
+              </>
+            )}
 
-            <div className="flex-1 min-w-0">
-              <h3 className="font-bold text-sm flex items-center gap-1.5 tracking-tight">
-                RidoAI
-                <Sparkles className="h-3.5 w-3.5 text-primary" />
-              </h3>
-              <p className="text-[11px] text-muted-foreground font-medium">Asystent AI portalu GetRido</p>
-            </div>
+            <div className="flex-1" />
 
-            <div className="flex items-center gap-0.5">
-              <button onClick={handleNewChat} className="p-2 rounded-lg hover:bg-muted transition-colors" title="Nowa rozmowa">
-                <Plus className="h-4 w-4 text-muted-foreground" />
-              </button>
-              <button onClick={onClose} className="p-2 rounded-lg hover:bg-muted transition-colors" title="Zamknij">
-                <X className="h-4 w-4 text-muted-foreground" />
-              </button>
-            </div>
-          </div>
-
-          {/* Mode tabs */}
-          <div className="flex items-center justify-center px-4 py-2 border-b">
-            <div className="flex items-center gap-1 bg-muted/50 rounded-xl p-1">
+            {/* Mode tabs inline */}
+            <div className="flex items-center gap-0.5 bg-muted/50 rounded-xl p-0.5">
               {([
                 { key: 'chat' as const, label: 'Chat', icon: MessageCircle },
                 { key: 'grafika' as const, label: 'Grafika', icon: Image },
@@ -521,7 +575,7 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
                   key={key}
                   onClick={() => !locked && switchMode(key)}
                   className={cn(
-                    'flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold transition-all',
+                    'flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all',
                     mainMode === key && !locked
                       ? 'bg-background shadow-sm text-foreground'
                       : locked
@@ -534,6 +588,15 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
                 </button>
               ))}
             </div>
+
+            <div className="flex items-center gap-0.5">
+              <button onClick={handleNewChat} className="p-2 rounded-lg hover:bg-muted transition-colors" title="Nowa rozmowa">
+                <Plus className="h-4 w-4 text-muted-foreground" />
+              </button>
+              <button onClick={onClose} className="p-2 rounded-lg hover:bg-muted transition-colors" title="Zamknij">
+                <X className="h-4 w-4 text-muted-foreground" />
+              </button>
+            </div>
           </div>
 
           {/* Cowork coming soon */}
@@ -544,49 +607,53 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
                   <Briefcase className="h-8 w-8 text-primary/50" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-lg">Cowork — wkrótce!</h3>
-                  <p className="text-sm text-muted-foreground mt-1 max-w-sm">
+                  <h3 className="font-extrabold text-lg">Cowork — wkrótce!</h3>
+                  <p className="text-sm text-muted-foreground mt-1 max-w-sm font-medium">
                     Tryb Cowork pozwoli Ci sterować portalem głosem i tekstem.
                     Wystawiaj faktury, szukaj usług, zarządzaj zadaniami — wszystko przez AI.
                   </p>
                 </div>
-                <Button variant="outline" size="sm" onClick={() => switchMode('chat')} className="rounded-lg">
+                <Button variant="outline" size="sm" onClick={() => switchMode('chat')} className="rounded-lg font-semibold">
                   Wróć do chatu
                 </Button>
               </div>
             </div>
           ) : (
             <>
+              {/* Drag overlay */}
+              {isDragging && (
+                <div className="absolute inset-0 z-20 bg-primary/10 border-2 border-dashed border-primary rounded-xl flex items-center justify-center pointer-events-none">
+                  <div className="text-center">
+                    <Paperclip className="h-10 w-10 text-primary mx-auto mb-2" />
+                    <p className="text-sm font-bold text-primary">Upuść pliki tutaj</p>
+                  </div>
+                </div>
+              )}
+
               {/* Messages */}
               <ScrollArea ref={scrollRef} className="flex-1 px-5 py-5">
-                <div className="space-y-5 max-w-lg mx-auto">
+                <div className="space-y-5 max-w-xl mx-auto">
                   {displayMsgs.map((msg, i) => {
                     if (msg.role === 'assistant' && msg.content === '' && isLoading && i === displayMsgs.length - 1) return null;
                     return (
                       <div key={i} className={cn('flex gap-3', msg.role === 'user' ? 'flex-row-reverse' : 'flex-row')}>
                         {msg.role === 'assistant' && (
-                          <img
-                            src={ridoMascot}
-                            alt="AI"
-                            className="w-8 h-8 rounded-full object-cover flex-shrink-0 mt-0.5 bg-white border-2 border-foreground/10"
-                          />
+                          <img src={ridoMascot} alt="AI" className="w-8 h-8 rounded-full object-cover flex-shrink-0 mt-0.5 bg-white border-2 border-foreground/10" />
                         )}
                         <div className={cn(
-                          'max-w-[85%] text-sm leading-relaxed',
+                          'max-w-[85%] leading-relaxed',
                           msg.role === 'user'
-                            ? 'bg-primary text-primary-foreground rounded-2xl rounded-br-sm px-4 py-2.5 shadow-sm font-medium'
-                            : 'bg-muted/50 rounded-2xl rounded-bl-sm px-4 py-3'
+                            ? 'bg-primary text-primary-foreground rounded-2xl rounded-br-sm px-4 py-2.5 shadow-sm'
+                            : 'bg-muted/60 rounded-2xl rounded-bl-sm px-4 py-3'
                         )}>
                           {msg.role === 'assistant' ? (
-                            <div className="prose prose-sm dark:prose-invert max-w-none [&>p]:mb-2 [&>p:last-child]:mb-0 [&>ul]:mb-2 [&>ol]:mb-2 [&>li]:mb-0.5 [&_strong]:text-foreground [&>p]:text-sm [&>p]:font-normal [&>li]:text-sm">
+                            <div className="prose prose-sm dark:prose-invert max-w-none [&>p]:mb-2 [&>p:last-child]:mb-0 [&>ul]:mb-2 [&>ol]:mb-2 [&>li]:mb-0.5 [&_strong]:text-foreground [&_strong]:font-bold [&>p]:text-[14px] [&>p]:leading-relaxed [&>p]:font-medium [&>li]:text-[14px] [&>li]:font-medium">
                               <ReactMarkdown>
                                 {(msg.content || '...')
                                   .replace(/ACTION:\{.*?\}/s, '')
                                   .replace(/IMAGE_REQUEST:true/g, '')
-                                  .replace(/\(Imagen \d+\)/gi, '')
                                   .trim()}
                               </ReactMarkdown>
-                              {/* Image thumbnails with action buttons */}
                               {msg.images?.map((img, idx) => (
                                 <div key={idx} className="relative group mt-3">
                                   <img
@@ -595,20 +662,11 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
                                     className="rounded-xl max-w-full shadow-lg border border-border/50 cursor-pointer hover:opacity-95 transition-opacity"
                                     onClick={() => openEditor(img)}
                                   />
-                                  {/* Overlay buttons top-left */}
                                   <div className="absolute top-2 left-2 flex items-center gap-1.5">
-                                    <button
-                                      onClick={(e) => { e.stopPropagation(); downloadImage(img); }}
-                                      className="bg-background/90 backdrop-blur-sm text-foreground p-2 rounded-lg shadow-md border border-border/50 hover:bg-background transition-colors"
-                                      title="Pobierz"
-                                    >
+                                    <button onClick={(e) => { e.stopPropagation(); downloadImage(img); }} className="bg-background/90 backdrop-blur-sm text-foreground p-2 rounded-lg shadow-md border border-border/50 hover:bg-background transition-colors" title="Pobierz">
                                       <Download className="h-4 w-4" />
                                     </button>
-                                    <button
-                                      onClick={(e) => { e.stopPropagation(); openEditor(img); }}
-                                      className="bg-background/90 backdrop-blur-sm text-foreground p-2 rounded-lg shadow-md border border-border/50 hover:bg-background transition-colors"
-                                      title="Edytuj pędzlem"
-                                    >
+                                    <button onClick={(e) => { e.stopPropagation(); openEditor(img); }} className="bg-background/90 backdrop-blur-sm text-foreground p-2 rounded-lg shadow-md border border-border/50 hover:bg-background transition-colors" title="Edytuj pędzlem">
                                       <Paintbrush className="h-4 w-4" />
                                     </button>
                                   </div>
@@ -616,7 +674,7 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
                               ))}
                             </div>
                           ) : (
-                            <p className="whitespace-pre-wrap font-medium">{msg.content}</p>
+                            <p className="whitespace-pre-wrap text-[14px] font-semibold">{msg.content}</p>
                           )}
                         </div>
                         {msg.role === 'user' && (
@@ -632,10 +690,10 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
                   {isLoading && (
                     <div className="flex gap-3">
                       <img src={ridoMascot} alt="AI" className="w-8 h-8 rounded-full object-cover flex-shrink-0 mt-0.5 bg-white border-2 border-foreground/10" />
-                      <div className="bg-muted/50 rounded-2xl rounded-bl-sm px-4 py-3">
-                        <div className="flex items-center gap-1.5">
-                          {[0, 150, 300].map(d => (
-                            <span key={d} className="w-2 h-2 rounded-full bg-primary/40 animate-bounce" style={{ animationDelay: `${d}ms` }} />
+                      <div className="bg-muted/60 rounded-2xl rounded-bl-sm px-5 py-3.5">
+                        <div className="flex items-center gap-2">
+                          {[0, 200, 400].map(d => (
+                            <span key={d} className="w-2.5 h-2.5 rounded-full bg-primary/50 animate-bounce" style={{ animationDelay: `${d}ms` }} />
                           ))}
                         </div>
                       </div>
@@ -644,20 +702,49 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
                 </div>
               </ScrollArea>
 
+              {/* Attached files preview */}
+              {attachedFiles.length > 0 && (
+                <div className="px-4 py-2 border-t bg-muted/20">
+                  <div className="flex flex-wrap gap-2 max-w-xl mx-auto">
+                    {attachedFiles.map((file, idx) => (
+                      <div key={idx} className="flex items-center gap-1.5 bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs font-semibold">
+                        <FileText className="h-3.5 w-3.5 text-primary" />
+                        <span className="max-w-[120px] truncate">{file.name}</span>
+                        <button onClick={() => removeFile(idx)} className="p-0.5 hover:bg-destructive/10 rounded">
+                          <X className="h-3 w-3 text-destructive" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Input */}
-              <div className="px-4 py-3 border-t bg-background/95 backdrop-blur-sm">
-                <div className="flex items-end gap-2 max-w-lg mx-auto">
-                  <Textarea
+              <div className="px-4 py-3 border-t bg-background">
+                <div className="flex items-end gap-2 max-w-xl mx-auto">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.webp,.txt,.csv,.xlsx"
+                    className="hidden"
+                    onChange={e => handleFileSelect(e.target.files)}
+                  />
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="p-2.5 rounded-xl hover:bg-muted transition-colors border border-border/50 flex-shrink-0"
+                    title="Dodaj plik"
+                  >
+                    <Paperclip className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                  <textarea
+                    ref={inputRef}
                     value={input}
                     onChange={e => setInput(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-                    placeholder={
-                      mainMode === 'grafika'
-                        ? 'Opisz grafikę którą chcesz stworzyć...'
-                        : 'Zadaj pytanie RidoAI...'
-                    }
+                    placeholder={mainMode === 'grafika' ? 'Opisz grafikę którą chcesz stworzyć...' : 'Zadaj pytanie RidoAI...'}
                     disabled={isLoading}
-                    className="min-h-[44px] max-h-[120px] resize-none rounded-xl text-sm border-border/50 focus-visible:ring-primary/30"
+                    className="flex-1 min-h-[44px] max-h-[120px] resize-none rounded-xl text-sm font-medium border border-border/50 bg-background px-4 py-3 outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 placeholder:text-muted-foreground/50 transition-all"
                     rows={1}
                   />
                   <Button
@@ -669,7 +756,7 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
                     {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                   </Button>
                 </div>
-                <p className="text-[10px] text-muted-foreground/60 text-center mt-2 font-medium">
+                <p className="text-[10px] text-muted-foreground/50 text-center mt-2 font-semibold">
                   RidoAI • Sprawdzaj ważne informacje
                 </p>
               </div>
