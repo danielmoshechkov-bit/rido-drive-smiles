@@ -283,7 +283,7 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
       },
       async () => {
         const aMsg: Msg = { role: 'assistant', content: acc };
-        await saveMsg(convId!, aMsg);
+        if (convId) await saveMsg(convId, aMsg);
         const action = parseAction(acc);
         if (action) {
           const routes: Record<string, string> = {
