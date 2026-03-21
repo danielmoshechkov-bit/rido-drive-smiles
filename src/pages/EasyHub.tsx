@@ -48,6 +48,7 @@ import { SearchCategoryModal } from "@/components/SearchCategoryModal";
 import { AccountingCategoryModal } from "@/components/AccountingCategoryModal";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { SEOHead, seoConfigs } from "@/components/SEOHead";
+import { RidoAIChatPanel } from "@/components/ai/RidoAIChatPanel";
 
 // Import tile images
 import tileCars from "@/assets/tile-cars.jpg";
@@ -308,6 +309,7 @@ export default function EasyHub() {
   const [showServicesComingSoon, setShowServicesComingSoon] = useState(false);
   const [showActivationModal, setShowActivationModal] = useState(false);
   const [activationPlatform, setActivationPlatform] = useState<'none' | 'android' | 'iphone'>('none');
+  const [showRidoAI, setShowRidoAI] = useState(false);
   const { isVisible: mapsVisible } = useModuleVisibility('maps');
   const { isAdmin } = useUserRole();
 
@@ -387,6 +389,12 @@ export default function EasyHub() {
   };
 
   const handleTileClick = (tile: MarketplaceTile) => {
+    // RidoAI — open panel instead of navigating
+    if (tile.id === 'rido-ai') {
+      setShowRidoAI(true);
+      return;
+    }
+    
     // Handle category navigation
     if (tile.id === 'motoryzacja') {
       setActiveCategory('motoryzacja');
@@ -1014,6 +1022,8 @@ export default function EasyHub() {
           </div>
         </DialogContent>
       </Dialog>
+      {/* RidoAI Chat Panel */}
+      <RidoAIChatPanel open={showRidoAI} onClose={() => setShowRidoAI(false)} />
     </div>
   );
 }
