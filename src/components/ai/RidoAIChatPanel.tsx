@@ -80,7 +80,14 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => { if (data.user) setUserId(data.user.id); });
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) {
+        console.log('[RidoAI] User loaded:', data.user.id);
+        setUserId(data.user.id);
+      } else {
+        console.warn('[RidoAI] No user found');
+      }
+    });
   }, []);
 
   const loadConversations = useCallback(async () => {
@@ -96,19 +103,50 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages]);
 
-  const createConv = async (text: string, mode: string) => {
-    if (!userId) return '';
-    const { data } = await (supabase as any).from('ai_conversations')
-      .insert({ user_id: userId, title: text.substring(0, 60), mode }).select().single();
+  const createConv = async (text: string, mode: string): Promise<string> => {
+    // Ensure userId is available
+    let uid = userId;
+    if (!uid) {
+      const { data } = await supabase.auth.getUser();
+      uid = data?.user?.id || null;
+      if (uid) setUserId(uid);
+    }
+    if (!uid) {
+      console.error('[RidoAI] Cannot create conversation - no userId');
+      return '';
+    }
+    const { data, error } = await (supabase as any).from('ai_conversations')
+      .insert({ user_id: uid, title: text.substring(0, 60), mode }).select().single();
+    if (error) {
+      console.error('[RidoAI] Failed to create conversation:', error);
+      return '';
+    }
+    console.log('[RidoAI] Created conversation:', data?.id);
     return data?.id || '';
   };
 
   const saveMsg = async (convId: string, msg: Msg) => {
-    if (!userId || !convId) return;
-    await (supabase as any).from('ai_messages').insert({
-      conversation_id: convId, user_id: userId, role: msg.role, content: msg.content, images: msg.images || null
+    if (!convId) {
+      console.error('[RidoAI] Cannot save message - no convId');
+      return;
+    }
+    let uid = userId;
+    if (!uid) {
+      const { data } = await supabase.auth.getUser();
+      uid = data?.user?.id || null;
+    }
+    if (!uid) {
+      console.error('[RidoAI] Cannot save message - no userId');
+      return;
+    }
+    const { error: msgErr } = await (supabase as any).from('ai_messages').insert({
+      conversation_id: convId, user_id: uid, role: msg.role, content: msg.content, images: msg.images || null
     });
-    await (supabase as any).from('ai_conversations').update({ updated_at: new Date().toISOString() }).eq('id', convId);
+    if (msgErr) console.error('[RidoAI] Failed to save message:', msgErr);
+    
+    const { error: updErr } = await (supabase as any).from('ai_conversations')
+      .update({ updated_at: new Date().toISOString() }).eq('id', convId);
+    if (updErr) console.error('[RidoAI] Failed to update conversation:', updErr);
   };
 
   const deleteConversation = async (convId: string, e: React.MouseEvent) => {
