@@ -206,8 +206,16 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
     setAttachedFiles([]);
 
     let convId = currentConvId;
-    if (!convId) { convId = await createConv(text, mainMode); setCurrentConvId(convId); }
-    await saveMsg(convId!, userMsg);
+    if (!convId) {
+      convId = await createConv(text, mainMode);
+      if (!convId) {
+        console.error('[RidoAI] Failed to create conversation, aborting send');
+        setMessages(prev => [...prev, { role: 'assistant', content: '⚠️ Nie udało się zapisać rozmowy. Spróbuj odświeżyć stronę i zalogować się ponownie.' }]);
+        return;
+      }
+      setCurrentConvId(convId);
+    }
+    await saveMsg(convId, userMsg);
 
     const isImgMode = mainMode as string === 'grafika';
     const isImg = isImgMode || IMAGE_PATTERNS.test(text);
