@@ -722,7 +722,7 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
                     return (
                       <div key={i} className={cn('flex gap-3', msg.role === 'user' ? 'flex-row-reverse' : 'flex-row')}>
                         {msg.role === 'assistant' && (
-                          <img src={ridoMascot} alt="AI" className="w-8 h-8 rounded-full object-cover flex-shrink-0 mt-0.5 bg-white border-2 border-foreground/10" />
+                          <img src={ridoMascot} alt="AI" className="w-9 h-9 object-contain flex-shrink-0 mt-0.5" />
                         )}
                         <div className={cn(
                           'max-w-[85%] leading-relaxed',
@@ -773,7 +773,7 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
                   {/* Typing indicator */}
                   {isLoading && (
                     <div className="flex gap-3">
-                      <img src={ridoMascot} alt="AI" className="w-8 h-8 rounded-full object-cover flex-shrink-0 mt-0.5 bg-white border-2 border-foreground/10" />
+                      <img src={ridoMascot} alt="AI" className="w-9 h-9 object-contain flex-shrink-0 mt-0.5" />
                       <div className="bg-muted/60 rounded-2xl rounded-bl-sm px-5 py-3.5">
                         <div className="flex items-center gap-2">
                           {[0, 200, 400].map(d => (
