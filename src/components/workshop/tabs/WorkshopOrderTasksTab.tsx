@@ -431,16 +431,6 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                   );
                 })}
 
-                {/* Sum row */}
-                <tr className="bg-muted/30 font-semibold text-sm border-b">
-                  <td className="p-2"></td>
-                  <td className="p-2" colSpan={2}>Razem usługi</td>
-                  <td className="p-2 text-right tabular-nums">{fmt(tasksTotal)}</td>
-                  <td className="p-2"></td>
-                  <td className="p-2"></td>
-                  <td className="p-2"></td>
-                </tr>
-
                 {/* Input rows */}
                 {taskRows.map((row, idx) => {
                   const rowTotal = isTaskGross ? row.quantity * row.price_gross : row.quantity * row.price_net;
@@ -618,16 +608,6 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                     </tr>
                   );
                 })}
-
-                {/* Sum row */}
-                <tr className="bg-muted/30 font-semibold text-sm border-b">
-                  <td className="p-2"></td>
-                  <td className="p-2" colSpan={5}>Razem części</td>
-                  <td className="p-2 text-right tabular-nums">{fmt(goodsTotal)}</td>
-                  <td className="p-2"></td>
-                  <td className="p-2"></td>
-                  <td className="p-2"></td>
-                </tr>
 
                 {/* Input rows */}
                 {goodsRows.map((row, idx) => {
