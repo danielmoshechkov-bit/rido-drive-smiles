@@ -738,30 +738,18 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
                       {group.label}
                     </p>
                     <div className="space-y-0.5">
-                      {group.items.map(conv => (
-                        <div
-                          key={conv.id}
-                          onClick={() => loadConversation(conv.id)}
-                          className={cn(
-                            'group flex items-center gap-2 px-3 py-2.5 rounded-xl cursor-pointer transition-all',
-                            currentConvId === conv.id
-                              ? 'bg-primary text-primary-foreground'
-                              : 'text-foreground hover:bg-accent hover:text-accent-foreground'
-                          )}
-                        >
-                          <MessageCircle className="h-4 w-4 flex-shrink-0 opacity-60" />
-                          <span className="min-w-0 flex-1 truncate text-sm font-medium">{conv.title || 'Nowa rozmowa'}</span>
-                          <div className="w-7 flex justify-end flex-shrink-0">
-                            <button
-                              onClick={(e) => deleteConversation(conv.id, e)}
-                              className="opacity-0 group-hover:opacity-100 p-1 hover:bg-destructive/20 rounded-lg transition-all"
-                              title="Usuń rozmowę"
-                            >
-                              <X className="h-4 w-4 text-destructive" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+                      {group.items.map(conv => {
+                        const isActive = currentConvId === conv.id;
+                        return (
+                          <ConvItemInline
+                            key={conv.id}
+                            title={conv.title}
+                            active={isActive}
+                            onClick={() => loadConversation(conv.id)}
+                            onDelete={(e) => deleteConversation(conv.id, e)}
+                          />
+                        );
+                      })}
                     </div>
                   </div>
                 ))}
