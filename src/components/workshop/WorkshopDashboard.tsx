@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Card } from '@/components/ui/card';
-import { useWorkshopProviderId } from '@/hooks/useWorkshop';
+import { useWorkshopOrders, useWorkshopProviderId } from '@/hooks/useWorkshop';
 import { WorkshopOrdersList } from './WorkshopOrdersList';
 import { WorkshopOrderDetail } from './WorkshopOrderDetail';
 import { WorkshopClientsList } from './WorkshopClientsList';
@@ -84,9 +84,13 @@ function WorkshopSidebar({ activeModule, onNavigate }: { activeModule: string; o
 export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashboardProps = {}) {
   const { data: hookProviderId, isLoading, error } = useWorkshopProviderId();
   const providerId = propProviderId || hookProviderId;
+  const { data: workshopOrders = [] } = useWorkshopOrders(providerId);
   const [activeModule, setActiveModule] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [selectedVehicle, setSelectedVehicle] = useState<any>(null);
+  const currentSelectedOrder = selectedOrder
+    ? workshopOrders.find((order: any) => order.id === selectedOrder.id) || selectedOrder
+    : null;
 
   if (!providerId && isLoading) {
     return (
@@ -107,13 +111,13 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
     );
   }
 
-  if (selectedOrder) {
+  if (currentSelectedOrder) {
     return (
       <div className="flex gap-0 min-h-[calc(100vh-200px)]">
         <WorkshopSidebar activeModule="zlecenia" onNavigate={(key) => { setSelectedOrder(null); setActiveModule(key); }} />
         <div className="flex-1 pl-3 min-w-0">
           <WorkshopOrderDetail
-            order={selectedOrder}
+            order={currentSelectedOrder}
             providerId={providerId}
             onBack={() => setSelectedOrder(null)}
           />
