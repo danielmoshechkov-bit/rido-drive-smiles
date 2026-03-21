@@ -1022,6 +1022,8 @@ export default function EasyHub() {
           </div>
         </DialogContent>
       </Dialog>
+      {/* RidoAI Chat Panel */}
+      <RidoAIChatPanel open={showRidoAI} onClose={() => setShowRidoAI(false)} />
     </div>
   );
 }
