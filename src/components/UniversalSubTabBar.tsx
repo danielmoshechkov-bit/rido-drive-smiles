@@ -24,18 +24,38 @@ export const UniversalSubTabBar = ({ activeTab, onTabChange, tabs }: UniversalSu
 
   return (
     <>
-      {/* Desktop: full button row */}
-      <div className="hidden md:flex justify-center gap-2 mb-4 flex-wrap">
+      {/* Desktop: pill-style row matching main nav */}
+      <div className="hidden md:flex justify-center gap-1.5 mb-4 flex-wrap">
         {visibleTabs.map((tab) => (
-          <Button
+          <button
             key={tab.value}
             onClick={() => onTabChange(tab.value)}
-            variant={activeTab === tab.value ? "default" : "ghost"}
-            size="sm"
-            className="transition-all"
+            className={`
+              px-5 py-2 rounded-full text-sm font-medium transition-all duration-200
+              ${activeTab === tab.value
+                ? 'text-white shadow-sm'
+                : 'text-foreground/70 hover:text-foreground'
+              }
+            `}
+            style={activeTab === tab.value
+              ? { backgroundColor: 'var(--nav-bar-color, #6C3CF0)' }
+              : undefined
+            }
+            onMouseEnter={(e) => {
+              if (activeTab !== tab.value) {
+                e.currentTarget.style.backgroundColor = '#F5C842';
+                e.currentTarget.style.color = '#1a1a1a';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (activeTab !== tab.value) {
+                e.currentTarget.style.backgroundColor = '';
+                e.currentTarget.style.color = '';
+              }
+            }}
           >
             {tab.label}
-          </Button>
+          </button>
         ))}
       </div>
 

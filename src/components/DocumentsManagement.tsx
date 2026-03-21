@@ -354,10 +354,21 @@ export const DocumentsManagement = ({ cityId, cityName, fleetId }: DocumentsMana
 
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="templates">Szablony</TabsTrigger>
-              <TabsTrigger value="sent">Wysłane</TabsTrigger>
-              <TabsTrigger value="completed">Podpisane</TabsTrigger>
+            <TabsList className="bg-transparent w-full justify-center gap-1.5 h-auto p-0 flex-wrap">
+              {[
+                { value: 'templates', label: 'Szablony' },
+                { value: 'sent', label: 'Wysłane' },
+                { value: 'completed', label: 'Podpisane' },
+              ].map((tab) => (
+                <TabsTrigger
+                  key={tab.value}
+                  value={tab.value}
+                  className="px-5 py-2 rounded-full text-sm font-medium transition-all duration-200 data-[state=active]:text-white data-[state=active]:shadow-sm data-[state=inactive]:text-foreground/70 data-[state=inactive]:bg-transparent data-[state=inactive]:hover:bg-[#F5C842] data-[state=inactive]:hover:text-[#1a1a1a]"
+                  style={activeTab === tab.value ? { backgroundColor: 'var(--nav-bar-color, #6C3CF0)' } : undefined}
+                >
+                  {tab.label}
+                </TabsTrigger>
+              ))}
             </TabsList>
 
             {/* Templates Tab */}
