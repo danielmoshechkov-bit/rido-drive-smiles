@@ -40,7 +40,7 @@ export function GlobalRidoAIButton() {
             className="w-10 h-10 rounded-full object-cover"
           />
           {/* Online indicator */}
-          <span className="absolute bottom-0.5 right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-background" />
+          <span className="absolute bottom-0.5 right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-background" />
         </div>
       </button>
 
