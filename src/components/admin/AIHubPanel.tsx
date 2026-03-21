@@ -76,10 +76,25 @@ const TASK_TYPE_LABELS: Record<string, string> = {
   ocr: "OCR",
   search: "Wyszukiwanie",
   embeddings: "Embeddings",
+  tts: "TTS",
+  stt: "STT",
+};
+
+const TASK_TYPE_DESCRIPTIONS: Record<string, string> = {
+  text: "Główny model do chatu RidoAI — odpowiedzi tekstowe, porady, Cowork",
+  image: "Generowanie i edycja grafik (Nano Banana) — plakaty, loga, zdjęcia",
+  ocr: "Rozpoznawanie tekstu z dokumentów i faktur — skanowanie i analiza",
+  search: "Wyszukiwanie informacji w internecie i portalu — Kimi, Gemini itp.",
+  embeddings: "Wektory tekstu do semantycznego wyszukiwania — baza wiedzy AI",
+  tts: "Text-to-Speech — zamiana tekstu na mowę (czytanie wiadomości głosem)",
+  stt: "Speech-to-Text — zamiana mowy na tekst (dyktowanie, transkrypcja)",
 };
 
 const CLAUDE_PROVIDER_KEYS = ["claude_haiku", "claude_sonnet", "claude_opus"];
 const GEMINI_PROVIDER_KEYS = ["gemini", "google_gemini", "gemini_flash", "gemini_pro", "imagen3"];
+
+// Ukryj duplikaty w UI — pokaż tylko jednego reprezentanta z rodziny
+const HIDDEN_PROVIDER_KEYS = ["claude_sonnet", "claude_opus", "gemini_flash", "imagen3"];
 
 export function AIHubPanel() {
   const [activeTab, setActiveTab] = useState("providers");
