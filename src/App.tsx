@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { CompareProvider } from "@/contexts/CompareContext";
 import { OnboardingProvider } from "@/contexts/OnboardingContext";
-import { RidoAssistantWidget } from "@/components/ai/RidoAssistantWidget";
+import { GlobalRidoAIButton } from "@/components/ai/GlobalRidoAIButton";
 
 import { OnboardingWidget } from "@/components/onboarding";
 import { useUISettings } from "@/hooks/useUISettings";
@@ -164,8 +164,8 @@ const App = () => (
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
-              {/* Global AI Assistant Widget */}
-              <RidoAssistantWidget />
+              {/* Global RidoAI Button */}
+              <GlobalRidoAIButton />
               {/* Global Onboarding Widget */}
               <OnboardingWidget />
             </CompareProvider>
