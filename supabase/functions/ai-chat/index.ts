@@ -124,10 +124,10 @@ serve(async (req) => {
         return jsonResp({ result: '⚠️ Brak klucza Google Gemini. Wejdź w Centrum AI → Dostawcy & API.' })
       }
       usedProvider = p.provider_key
-      usedModel = 'imagen-3.0-generate-001'
+      usedModel = 'imagen-4.0-fast-generate-001'
 
       const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key=${p.api_key_encrypted}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-fast-generate-001:predict?key=${p.api_key_encrypted}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -139,11 +139,12 @@ serve(async (req) => {
       )
       const d = await res.json()
       const b64 = d?.predictions?.[0]?.bytesBase64Encoded
+      const mimeType = d?.predictions?.[0]?.mimeType || 'image/png'
 
       await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: b64 ? 'success' : 'error', ms: Date.now() - t0 })
       return jsonResp({
-        result: b64 ? '🎨 Oto Twoja grafika!' : `❌ Błąd: ${d?.error?.message || 'Brak obrazu'}`,
-        images: b64 ? [`data:image/png;base64,${b64}`] : []
+        result: b64 ? '🎨 Oto Twoja grafika (Imagen 4)!' : `❌ ${d?.error?.message || 'Brak obrazu'}`,
+        images: b64 ? [`data:${mimeType};base64,${b64}`] : []
       })
     }
 
