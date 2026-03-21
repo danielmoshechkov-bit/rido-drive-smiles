@@ -42,7 +42,7 @@ serve(async (req) => {
     }
 
     const body = await req.json()
-    const { taskType, query, mode, messages, stream, imageBase64, maskBase64 } = body
+    const { taskType, query, mode, messages, stream, imageBase64, maskBase64, files } = body
     feature = body.feature || 'ai_chat'
 
     // Pobierz WSZYSTKICH dostawców

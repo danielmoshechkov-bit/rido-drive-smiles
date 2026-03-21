@@ -16,6 +16,7 @@ interface GetRidoAIParams {
   stream?: boolean;
   imageBase64?: string;
   maskBase64?: string;
+  files?: Array<{ name: string; type: string; data?: string; text?: string }>;
 }
 
 interface GetRidoAIResult {
