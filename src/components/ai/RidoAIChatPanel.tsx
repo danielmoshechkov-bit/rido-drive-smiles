@@ -743,21 +743,23 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
                           key={conv.id}
                           onClick={() => loadConversation(conv.id)}
                           className={cn(
-                            'flex items-center gap-2 px-3 py-2.5 rounded-xl cursor-pointer transition-all',
+                            'group flex items-center gap-2 px-3 py-2.5 rounded-xl cursor-pointer transition-all',
                             currentConvId === conv.id
                               ? 'bg-primary text-primary-foreground'
                               : 'text-foreground hover:bg-accent hover:text-accent-foreground'
                           )}
                         >
                           <MessageCircle className="h-4 w-4 flex-shrink-0 opacity-60" />
-                          <span className="flex-1 min-w-0 truncate text-sm font-medium">{conv.title || 'Nowa rozmowa'}</span>
-                          <button
-                            onClick={(e) => deleteConversation(conv.id, e)}
-                            className="p-1 hover:bg-destructive/20 rounded-lg transition-all flex-shrink-0"
-                            title="Usuń rozmowę"
-                          >
-                            <X className="h-4 w-4 text-destructive" />
-                          </button>
+                          <span className="min-w-0 flex-1 truncate text-sm font-medium">{conv.title || 'Nowa rozmowa'}</span>
+                          <div className="w-7 flex justify-end flex-shrink-0">
+                            <button
+                              onClick={(e) => deleteConversation(conv.id, e)}
+                              className="opacity-0 group-hover:opacity-100 p-1 hover:bg-destructive/20 rounded-lg transition-all"
+                              title="Usuń rozmowę"
+                            >
+                              <X className="h-4 w-4 text-destructive" />
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
