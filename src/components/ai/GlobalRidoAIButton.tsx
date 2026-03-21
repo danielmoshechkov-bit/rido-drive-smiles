@@ -54,15 +54,16 @@ export function GlobalRidoAIButton() {
 
       <RidoAIChatPanel open={isOpen} onClose={() => setIsOpen(false)} />
 
-      {showAuth && (
-        <AuthModal
-          isOpen={showAuth}
-          onClose={() => setShowAuth(false)}
-          defaultTab="login"
-          title="Zaloguj się, aby korzystać z RidoAI"
-          subtitle="Asystent RidoAI jest dostępny tylko dla zarejestrowanych użytkowników portalu."
-        />
-      )}
+      <AuthModal
+        open={showAuth}
+        onOpenChange={setShowAuth}
+        initialMode="login"
+        customDescription="Asystent RidoAI jest dostępny tylko dla zarejestrowanych użytkowników portalu. Zaloguj się lub załóż konto."
+        onSuccess={() => {
+          setShowAuth(false);
+          setIsOpen(true);
+        }}
+      />
     </>
   );
 }
