@@ -203,105 +203,120 @@ export default function RidoAIChatPage() {
   }, { today: [], yesterday: [], older: [] });
 
   return (
-    <div className="h-screen flex bg-background overflow-hidden">
-      {/* LEFT SIDEBAR — Claude style */}
-      {sidebarOpen && (
-        <div className="w-64 flex flex-col border-r bg-muted/20 flex-shrink-0">
-          {/* Sidebar header */}
-          <div className="p-3 space-y-1">
+    <div className="h-[100dvh] flex bg-background overflow-hidden">
+      {/* LEFT SIDEBAR — responsive */}
+      <div className={cn(
+        "flex-col border-r bg-muted/20 flex-shrink-0 w-64 md:w-64",
+        "absolute md:relative inset-0 z-40 bg-background md:bg-muted/20",
+        sidebarOpen ? "flex" : "hidden"
+      )}>
+        {/* Sidebar header */}
+        <div className="p-3 space-y-1">
+          <div className="flex items-center justify-between">
             <button
               onClick={handleNewChat}
-              className="flex items-center gap-2.5 w-full px-3 py-2 rounded-lg hover:bg-muted transition-colors text-sm font-medium text-foreground"
+              className="flex items-center gap-2.5 flex-1 px-3 py-2 rounded-lg hover:bg-muted transition-colors text-sm font-medium text-foreground"
             >
               <Plus className="h-4 w-4" />
               Nowa rozmowa
             </button>
-            
-            {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Szukaj..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-sm rounded-lg bg-muted/50 border-0 outline-none focus:bg-muted placeholder:text-muted-foreground/60 text-foreground"
-              />
-            </div>
-          </div>
-
-          {/* Navigation links */}
-          <div className="px-3 pb-2 space-y-0.5">
-            <button
-              onClick={() => navigate(-1)}
-              className="flex items-center gap-2.5 w-full px-3 py-2 rounded-lg hover:bg-muted transition-colors text-sm text-muted-foreground hover:text-foreground"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Wróć do portalu
+            <button onClick={() => setSidebarOpen(false)} className="md:hidden p-1.5 rounded-lg hover:bg-muted">
+              <X className="h-4 w-4" />
             </button>
           </div>
-
-          <div className="border-t mx-3" />
-
-          {/* Conversations list */}
-          <ScrollArea className="flex-1 px-1">
-            <div className="px-2 py-2">
-              {/* Today */}
-              {grouped.today.length > 0 && (
-                <div className="mb-3">
-                  <p className="text-[11px] font-medium text-muted-foreground px-2 py-1.5 uppercase tracking-wider">Dzisiaj</p>
-                  {grouped.today.map(conv => (
-                    <ConvItem key={conv.id} conv={conv} active={currentConvId === conv.id}
-                      onClick={() => loadConversation(conv.id)}
-                      onDelete={async () => {
-                        await (supabase as any).from('ai_conversations').delete().eq('id', conv.id);
-                        if (currentConvId === conv.id) handleNewChat();
-                        loadConversations();
-                      }} />
-                  ))}
-                </div>
-              )}
-
-              {/* Yesterday */}
-              {grouped.yesterday.length > 0 && (
-                <div className="mb-3">
-                  <p className="text-[11px] font-medium text-muted-foreground px-2 py-1.5 uppercase tracking-wider">Wczoraj</p>
-                  {grouped.yesterday.map(conv => (
-                    <ConvItem key={conv.id} conv={conv} active={currentConvId === conv.id}
-                      onClick={() => loadConversation(conv.id)}
-                      onDelete={async () => {
-                        await (supabase as any).from('ai_conversations').delete().eq('id', conv.id);
-                        if (currentConvId === conv.id) handleNewChat();
-                        loadConversations();
-                      }} />
-                  ))}
-                </div>
-              )}
-
-              {/* Older */}
-              {grouped.older.length > 0 && (
-                <div className="mb-3">
-                  <p className="text-[11px] font-medium text-muted-foreground px-2 py-1.5 uppercase tracking-wider">Wcześniej</p>
-                  {grouped.older.map(conv => (
-                    <ConvItem key={conv.id} conv={conv} active={currentConvId === conv.id}
-                      onClick={() => loadConversation(conv.id)}
-                      onDelete={async () => {
-                        await (supabase as any).from('ai_conversations').delete().eq('id', conv.id);
-                        if (currentConvId === conv.id) handleNewChat();
-                        loadConversations();
-                      }} />
-                  ))}
-                </div>
-              )}
-
-              {filteredConversations.length === 0 && (
-                <p className="text-center text-xs text-muted-foreground py-8">
-                  {searchQuery ? 'Brak wyników' : 'Brak rozmów'}
-                </p>
-              )}
-            </div>
-          </ScrollArea>
+          
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Szukaj..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 text-sm rounded-lg bg-muted/50 border-0 outline-none focus:bg-muted placeholder:text-muted-foreground/60 text-foreground"
+            />
+          </div>
         </div>
+
+        {/* Navigation links */}
+        <div className="px-3 pb-2 space-y-0.5">
+          <button
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-2.5 w-full px-3 py-2 rounded-lg hover:bg-muted transition-colors text-sm text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Wróć do portalu
+          </button>
+        </div>
+
+        <div className="border-t mx-3" />
+
+        {/* Conversations list */}
+        <ScrollArea className="flex-1 px-1">
+          <div className="px-2 py-2">
+            {grouped.today.length > 0 && (
+              <div className="mb-3">
+                <p className="text-[11px] font-medium text-muted-foreground px-2 py-1.5 uppercase tracking-wider">Dzisiaj</p>
+                {grouped.today.map(conv => (
+                  <ConvItem key={conv.id} conv={conv} active={currentConvId === conv.id}
+                    onClick={() => { loadConversation(conv.id); setSidebarOpen(false); }}
+                    onDelete={async () => {
+                      const ok = window.confirm('Czy na pewno chcesz usunąć tę rozmowę? Tej operacji nie można cofnąć.');
+                      if (!ok) return;
+                      await (supabase as any).from('ai_conversations').delete().eq('id', conv.id);
+                      if (currentConvId === conv.id) handleNewChat();
+                      loadConversations();
+                    }} />
+                ))}
+              </div>
+            )}
+
+            {grouped.yesterday.length > 0 && (
+              <div className="mb-3">
+                <p className="text-[11px] font-medium text-muted-foreground px-2 py-1.5 uppercase tracking-wider">Wczoraj</p>
+                {grouped.yesterday.map(conv => (
+                  <ConvItem key={conv.id} conv={conv} active={currentConvId === conv.id}
+                    onClick={() => { loadConversation(conv.id); setSidebarOpen(false); }}
+                    onDelete={async () => {
+                      const ok = window.confirm('Czy na pewno chcesz usunąć tę rozmowę? Tej operacji nie można cofnąć.');
+                      if (!ok) return;
+                      await (supabase as any).from('ai_conversations').delete().eq('id', conv.id);
+                      if (currentConvId === conv.id) handleNewChat();
+                      loadConversations();
+                    }} />
+                ))}
+              </div>
+            )}
+
+            {grouped.older.length > 0 && (
+              <div className="mb-3">
+                <p className="text-[11px] font-medium text-muted-foreground px-2 py-1.5 uppercase tracking-wider">Wcześniej</p>
+                {grouped.older.map(conv => (
+                  <ConvItem key={conv.id} conv={conv} active={currentConvId === conv.id}
+                    onClick={() => { loadConversation(conv.id); setSidebarOpen(false); }}
+                    onDelete={async () => {
+                      const ok = window.confirm('Czy na pewno chcesz usunąć tę rozmowę? Tej operacji nie można cofnąć.');
+                      if (!ok) return;
+                      await (supabase as any).from('ai_conversations').delete().eq('id', conv.id);
+                      if (currentConvId === conv.id) handleNewChat();
+                      loadConversations();
+                    }} />
+                ))}
+              </div>
+            )}
+
+            {filteredConversations.length === 0 && (
+              <p className="text-center text-xs text-muted-foreground py-8">
+                {searchQuery ? 'Brak wyników' : 'Brak rozmów'}
+              </p>
+            )}
+          </div>
+        </ScrollArea>
+      </div>
+
+      {/* Mobile overlay backdrop */}
+      {sidebarOpen && (
+        <div className="fixed inset-0 z-30 bg-black/30 md:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
       {/* MAIN AREA */}
