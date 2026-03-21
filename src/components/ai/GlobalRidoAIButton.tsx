@@ -24,7 +24,7 @@ export function GlobalRidoAIButton() {
         </div>
 
         {/* Mascot circle */}
-        <div className="relative w-14 h-14 rounded-full bg-primary shadow-lg flex items-center justify-center ring-2 ring-primary/20 hover:ring-primary/40 transition-all">
+        <div className="relative w-14 h-14 rounded-full bg-white shadow-lg flex items-center justify-center ring-2 ring-foreground/80 hover:ring-foreground transition-all">
           <img
             src={ridoMascot}
             alt="RidoAI"
