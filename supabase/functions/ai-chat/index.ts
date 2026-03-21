@@ -152,15 +152,17 @@ serve(async (req) => {
 
         if (res.ok) {
           const d = await res.json()
-          const imgPart = d?.candidates?.[0]?.content?.parts?.find((x: any) => x.inline_data?.data)
+          // Gemini returns camelCase (inlineData) not snake_case (inline_data)
+          const imgPart = d?.candidates?.[0]?.content?.parts?.find((x: any) => x.inlineData?.data || x.inline_data?.data)
           if (imgPart) {
-            const b64 = imgPart.inline_data.data
-            const mime = imgPart.inline_data.mime_type || 'image/png'
+            const idata = imgPart.inlineData || imgPart.inline_data
+            const b64 = idata.data
+            const mime = idata.mimeType || idata.mime_type || 'image/png'
             console.log(`[ai-chat] ✅ Image gen success with ${model}`)
             await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'success', ms: Date.now() - t0 })
             return jsonResp({ result: '🎨 Oto Twoja grafika!', images: [`data:${mime};base64,${b64}`] })
           }
-          console.log(`[ai-chat] ${model}: no image in response`)
+          console.log(`[ai-chat] ${model}: no image in response, parts:`, JSON.stringify(d?.candidates?.[0]?.content?.parts?.map((p:any)=>Object.keys(p))).substring(0,200))
         } else {
           const errText = await res.text()
           console.log(`[ai-chat] ${model} failed ${res.status}: ${errText.substring(0, 150)}`)
