@@ -167,37 +167,8 @@ serve(async (req) => {
         }
       }
 
-      // All models failed
-      console.log(`[ai-chat] Image gen: trying Gemini text fallback`)
-      usedModel = 'gemini-2.5-flash'
-      const geminiRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/openai/chat/completions`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: `Generate an image: ${query}` }] }],
-            generationConfig: { responseModalities: ['IMAGE', 'TEXT'] }
-          })
-        }
-      )
-
-      if (geminiRes.ok) {
-        const d = await geminiRes.json()
-        const imgPart = d?.candidates?.[0]?.content?.parts?.find((x: any) => x.inline_data?.data)
-        if (imgPart) {
-          const b64 = imgPart.inline_data.data
-          const mime = imgPart.inline_data.mime_type || 'image/png'
-          console.log(`[ai-chat] Gemini 2.0 flash exp image success`)
-          await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'success', ms: Date.now() - t0 })
-          return jsonResp({ result: '🎨 Oto Twoja grafika!', images: [`data:${mime};base64,${b64}`] })
-        }
-        console.log(`[ai-chat] Gemini 2.0 flash exp: no image in response`)
-      } else {
-        const errText = await geminiRes.text()
-        console.error(`[ai-chat] Gemini image error ${geminiRes.status}:`, errText.substring(0, 200))
-      }
-
+      await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'error', ms: Date.now() - t0 })
+      return jsonResp({ result: '❌ Nie udało się wygenerować obrazu. Spróbuj opisać inaczej lub zmień prompt.', images: [] })
       await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'error', ms: Date.now() - t0 })
       return jsonResp({ result: '❌ Nie udało się wygenerować obrazu. Spróbuj opisać inaczej lub zmień prompt.', images: [] })
     }
