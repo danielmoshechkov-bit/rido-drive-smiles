@@ -259,20 +259,20 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
                           key={conv.id}
                           onClick={() => loadConversation(conv.id)}
                           className={cn(
-                            'group flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer text-xs transition-all',
+                            'group flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer text-[13px] transition-all',
                             currentConvId === conv.id
-                              ? 'bg-primary/10 text-foreground font-medium'
-                              : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                              ? 'bg-primary/10 text-foreground font-semibold'
+                              : 'text-foreground/70 hover:bg-muted hover:text-foreground'
                           )}
                         >
-                          <MessageCircle className="h-3 w-3 flex-shrink-0 opacity-50" />
-                          <span className="flex-1 min-w-0 truncate">{conv.title || 'Nowa rozmowa'}</span>
+                          <MessageCircle className="h-3.5 w-3.5 flex-shrink-0 opacity-60" />
+                          <span className="flex-1 min-w-0 truncate font-medium">{conv.title || 'Nowa rozmowa'}</span>
                           <button
                             onClick={(e) => deleteConversation(conv.id, e)}
-                            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-destructive/10 rounded transition-all"
+                            className="p-1 hover:bg-destructive/10 rounded transition-all flex-shrink-0"
                             title="Usuń rozmowę"
                           >
-                            <X className="h-3 w-3 text-destructive" />
+                            <X className="h-3.5 w-3.5 text-destructive/70 hover:text-destructive" />
                           </button>
                         </div>
                       ))}
@@ -389,20 +389,20 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
                           />
                         )}
                         <div className={cn(
-                          'max-w-[85%] text-[13px] leading-relaxed',
+                          'max-w-[85%] text-sm leading-relaxed',
                           msg.role === 'user'
-                            ? 'bg-primary text-primary-foreground rounded-2xl rounded-br-sm px-4 py-2.5 shadow-sm'
+                            ? 'bg-primary text-primary-foreground rounded-2xl rounded-br-sm px-4 py-2.5 shadow-sm font-medium'
                             : 'bg-muted/50 rounded-2xl rounded-bl-sm px-4 py-3'
                         )}>
                           {msg.role === 'assistant' ? (
-                            <div className="prose prose-sm dark:prose-invert max-w-none [&>p]:mb-2 [&>p:last-child]:mb-0 [&>ul]:mb-2 [&>ol]:mb-2 [&>li]:mb-0.5 [&_strong]:text-foreground">
+                            <div className="prose prose-sm dark:prose-invert max-w-none [&>p]:mb-2 [&>p:last-child]:mb-0 [&>ul]:mb-2 [&>ol]:mb-2 [&>li]:mb-0.5 [&_strong]:text-foreground [&>p]:text-sm [&>p]:font-normal [&>li]:text-sm">
                               <ReactMarkdown>{(msg.content || '...').replace(/ACTION:\{.*?\}/s, '').replace(/IMAGE_REQUEST:true/g, '').trim()}</ReactMarkdown>
                               {msg.images?.map((img, idx) => (
                                 <img key={idx} src={img} alt="Generated" className="rounded-xl max-w-full shadow-lg border border-border/50 mt-3" />
                               ))}
                             </div>
                           ) : (
-                            <p className="whitespace-pre-wrap">{msg.content}</p>
+                            <p className="whitespace-pre-wrap font-medium">{msg.content}</p>
                           )}
                         </div>
                         {msg.role === 'user' && (
