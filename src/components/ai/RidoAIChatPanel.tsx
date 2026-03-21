@@ -36,7 +36,7 @@ Opisz co chcesz wygenerować — np:
   cowork: '',
 };
 
-const IMAGE_PATTERNS = /(?:stwórz|wygeneruj|narysuj|zrób|zrob|stworz|stworzysz|namaluj|zaprojektuj|pokaż|pokaz|daj|make|create|draw|generate).{0,30}(?:obraz|grafik|logo|zdję|zdjecie|baner|ilustracj|ikona|ikonk|obrazek|plakat|rysunek|foto|image|picture|graphic)/i;
+const IMAGE_PATTERNS = /(?:stw[oó]rz|wygeneruj|narysuj|zr[oó]b|stworzysz|namaluj|zaprojektuj|poka[zż]|daj|make|create|draw|generate|zrob|stworz|pokaz|wygenerować|narysowaĆ).{0,40}(?:obraz|grafik|logo|zdj[eę]|zdjecie|baner|ilustracj|ikona|ikonk|obrazek|plakat|rysunek|foto|image|picture|graphic|goryl|banana|kot|pies|samoch[oó]d|krajobraz)/i;
 
 const parseAction = (text: string) => {
   const match = text.match(/ACTION:(\{.*?\})/s);
