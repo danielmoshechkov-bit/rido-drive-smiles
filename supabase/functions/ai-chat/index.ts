@@ -124,53 +124,27 @@ serve(async (req) => {
         return jsonResp({ result: '⚠️ Brak klucza Google Gemini. Wejdź w Centrum AI → Dostawcy & API.' })
       }
       usedProvider = p.provider_key
-      const apiKey = p.api_key_encrypted
+      usedModel = 'imagen-3.0-generate-001'
 
-      // Try multiple image generation models
-      const imageModels = [
-        'gemini-3.1-flash-image-preview',
-        'gemini-2.5-flash-image',
-        'gemini-3-pro-image-preview',
-      ]
-
-      for (const model of imageModels) {
-        console.log(`[ai-chat] Image gen: trying ${model}`)
-        usedModel = model
-        const res = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: `Generate an image: ${query}` }] }],
-              generationConfig: {
-                responseModalities: ['IMAGE', 'TEXT'],
-              }
-            })
-          }
-        )
-
-        if (res.ok) {
-          const d = await res.json()
-          // Gemini returns camelCase (inlineData) not snake_case (inline_data)
-          const imgPart = d?.candidates?.[0]?.content?.parts?.find((x: any) => x.inlineData?.data || x.inline_data?.data)
-          if (imgPart) {
-            const idata = imgPart.inlineData || imgPart.inline_data
-            const b64 = idata.data
-            const mime = idata.mimeType || idata.mime_type || 'image/png'
-            console.log(`[ai-chat] ✅ Image gen success with ${model}`)
-            await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'success', ms: Date.now() - t0 })
-            return jsonResp({ result: '🎨 Oto Twoja grafika!', images: [`data:${mime};base64,${b64}`] })
-          }
-          console.log(`[ai-chat] ${model}: no image in response, parts:`, JSON.stringify(d?.candidates?.[0]?.content?.parts?.map((p:any)=>Object.keys(p))).substring(0,200))
-        } else {
-          const errText = await res.text()
-          console.log(`[ai-chat] ${model} failed ${res.status}: ${errText.substring(0, 150)}`)
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key=${p.api_key_encrypted}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            instances: [{ prompt: query }],
+            parameters: { sampleCount: 1 }
+          })
         }
-      }
+      )
+      const d = await res.json()
+      const b64 = d?.predictions?.[0]?.bytesBase64Encoded
 
-      await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'error', ms: Date.now() - t0 })
-      return jsonResp({ result: '❌ Nie udało się wygenerować obrazu. Spróbuj opisać inaczej lub zmień prompt.', images: [] })
+      await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: b64 ? 'success' : 'error', ms: Date.now() - t0 })
+      return jsonResp({
+        result: b64 ? '🎨 Oto Twoja grafika!' : `❌ Błąd: ${d?.error?.message || 'Brak obrazu'}`,
+        images: b64 ? [`data:image/png;base64,${b64}`] : []
+      })
     }
 
     // ── ROUTING TEKSTU ───────────────────────────────────────────
