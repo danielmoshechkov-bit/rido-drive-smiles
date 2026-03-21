@@ -67,13 +67,22 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
   const [editorImage, setEditorImage] = useState<string | null>(null);
   const [brushActive, setBrushActive] = useState(false);
   const [isDrawing, setIsDrawing] = useState(false);
-  const [editPrompt, setEditPrompt] = useState('');
   const [isEditing, setIsEditing] = useState(false);
-  const [showEditInput, setShowEditInput] = useState(false);
-  const [editInputPos, setEditInputPos] = useState({ x: 0, y: 0 });
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const maskCanvasRef = useRef<HTMLCanvasElement>(null);
   const lastPoint = useRef<{ x: number; y: number } | null>(null);
+  const currentPath = useRef<{ x: number; y: number }[]>([]);
+
+  // Multi-annotation system
+  interface Annotation {
+    id: number;
+    maskData: ImageData;
+    center: { x: number; y: number };
+    description: string;
+  }
+  const [annotations, setAnnotations] = useState<Annotation[]>([]);
+  const [activeAnnotation, setActiveAnnotation] = useState<number | null>(null);
+  const annotationCounter = useRef(0);
 
   const { streamExecute, execute, isLoading } = useGetRidoAI();
   const scrollRef = useRef<HTMLDivElement>(null);
