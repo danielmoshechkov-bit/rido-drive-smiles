@@ -40,7 +40,7 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
   const [activeMode, setActiveMode] = useState('rido_chat');
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [conversations, setConversations] = useState<Conv[]>([]);
   const [currentConvId, setCurrentConvId] = useState<string | null>(null);
@@ -292,34 +292,38 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
           {/* Messages */}
           <ScrollArea ref={scrollRef} className="flex-1 px-4 py-4">
             <div className="space-y-4">
-              {displayMsgs.map((msg, i) => (
-                <div key={i} className={cn('flex gap-2.5', msg.role === 'user' ? 'flex-row-reverse' : 'flex-row')}>
-                  {msg.role === 'assistant' && (
-                    <img src={ridoMascot} alt="AI" className="w-7 h-7 rounded-full object-cover flex-shrink-0 mt-1" />
-                  )}
-                  <div className={cn(
-                    'max-w-[85%] text-sm leading-relaxed',
-                    msg.role === 'user'
-                      ? 'bg-primary text-primary-foreground rounded-2xl rounded-br-md px-3.5 py-2'
-                      : ''
-                  )}>
-                    {msg.role === 'assistant' ? (
-                      <div className="prose prose-sm dark:prose-invert max-w-none [&>p]:mb-1.5 [&>p:last-child]:mb-0">
-                        <ReactMarkdown>{(msg.content || '...').replace(/ACTION:\{.*?\}/s, '').trim()}</ReactMarkdown>
-                        {msg.images?.map((img, idx) => (
-                          <img key={idx} src={img} alt="" className="rounded-xl max-w-full shadow-lg border border-border mt-2" />
-                        ))}
-                      </div>
-                    ) : <p className="whitespace-pre-wrap">{msg.content}</p>}
-                  </div>
-                  {msg.role === 'user' && (
-                    <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-1">
-                      <span className="text-[9px] font-semibold text-primary">Ty</span>
+              {displayMsgs.map((msg, i) => {
+                // Skip empty assistant message when loading (typing indicator handles it)
+                if (msg.role === 'assistant' && msg.content === '' && isLoading && i === displayMsgs.length - 1) return null;
+                return (
+                  <div key={i} className={cn('flex gap-2.5', msg.role === 'user' ? 'flex-row-reverse' : 'flex-row')}>
+                    {msg.role === 'assistant' && (
+                      <img src={ridoMascot} alt="AI" className="w-7 h-7 rounded-full object-cover flex-shrink-0 mt-1" />
+                    )}
+                    <div className={cn(
+                      'max-w-[85%] text-sm leading-relaxed',
+                      msg.role === 'user'
+                        ? 'bg-primary text-primary-foreground rounded-2xl rounded-br-md px-3.5 py-2'
+                        : ''
+                    )}>
+                      {msg.role === 'assistant' ? (
+                        <div className="prose prose-sm dark:prose-invert max-w-none [&>p]:mb-1.5 [&>p:last-child]:mb-0">
+                          <ReactMarkdown>{(msg.content || '...').replace(/ACTION:\{.*?\}/s, '').trim()}</ReactMarkdown>
+                          {msg.images?.map((img, idx) => (
+                            <img key={idx} src={img} alt="" className="rounded-xl max-w-full shadow-lg border border-border mt-2" />
+                          ))}
+                        </div>
+                      ) : <p className="whitespace-pre-wrap">{msg.content}</p>}
                     </div>
-                  )}
-                </div>
-              ))}
-              {isLoading && messages[messages.length - 1]?.content === '' && (
+                    {msg.role === 'user' && (
+                      <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-1">
+                        <span className="text-[9px] font-semibold text-primary">Ty</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              {isLoading && (
                 <div className="flex gap-2.5">
                   <img src={ridoMascot} alt="AI" className="w-7 h-7 rounded-full object-cover flex-shrink-0 mt-1" />
                   <div className="flex items-center gap-1.5 py-2">
