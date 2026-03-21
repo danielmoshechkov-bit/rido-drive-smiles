@@ -8,8 +8,8 @@ import { supabase } from '@/integrations/supabase/client';
 import ReactMarkdown from 'react-markdown';
 import {
   Loader2, Send, Plus, MessageCircle, Briefcase, Image,
-  ArrowLeft, History, Trash2, ChevronRight, Sparkles,
-  Paintbrush, RotateCcw, Download, X
+  ArrowLeft, Trash2, ChevronRight, Sparkles,
+  Paintbrush, RotateCcw, Download, X, Search, Settings, MoreHorizontal
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -49,7 +49,8 @@ export default function RidoAIChatPage() {
   const [activeMode, setActiveMode] = useState('rido_chat');
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
-  const [historyOpen, setHistoryOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
   const [conversations, setConversations] = useState<Conv[]>([]);
   const [currentConvId, setCurrentConvId] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
@@ -99,7 +100,6 @@ export default function RidoAIChatPage() {
     const { data } = await (supabase as any).from('ai_messages').select('*').eq('conversation_id', convId).order('created_at', { ascending: true });
     if (data) setMessages(data.map((m: any) => ({ id: m.id, role: m.role, content: m.content, images: m.images })));
     setCurrentConvId(convId);
-    setHistoryOpen(false);
   };
 
   const handleNewChat = () => { setMessages([]); setCurrentConvId(null); setInput(''); };
@@ -134,7 +134,6 @@ export default function RidoAIChatPage() {
       return;
     }
 
-    // Text streaming
     setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
     let acc = '';
     await streamExecute(
@@ -186,27 +185,161 @@ export default function RidoAIChatPage() {
 
   const displayMsgs = messages.length === 0 ? [{ role: 'assistant' as const, content: WELCOME[mainMode] }] : messages;
 
+  const filteredConversations = searchQuery
+    ? conversations.filter(c => c.title?.toLowerCase().includes(searchQuery.toLowerCase()))
+    : conversations;
+
+  // Group conversations by date
+  const today = new Date();
+  const todayStr = today.toDateString();
+  const yesterdayStr = new Date(today.getTime() - 86400000).toDateString();
+  
+  const grouped = filteredConversations.reduce<{ today: Conv[]; yesterday: Conv[]; older: Conv[] }>((acc, c) => {
+    const d = new Date(c.updated_at).toDateString();
+    if (d === todayStr) acc.today.push(c);
+    else if (d === yesterdayStr) acc.yesterday.push(c);
+    else acc.older.push(c);
+    return acc;
+  }, { today: [], yesterday: [], older: [] });
+
   return (
-    <div className="h-screen flex flex-col bg-background overflow-hidden">
-      {/* TOP BAR */}
-      <div className="flex items-center justify-between px-4 py-2.5 border-b bg-muted/30">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <img src={AVATAR} alt="RidoAI" className="w-8 h-8 rounded-full" />
-            <span className="font-bold text-sm">RidoAI</span>
-            <Sparkles className="h-3.5 w-3.5 text-primary" />
+    <div className="h-screen flex bg-background overflow-hidden">
+      {/* LEFT SIDEBAR — Claude style */}
+      {sidebarOpen && (
+        <div className="w-64 flex flex-col border-r bg-muted/20 flex-shrink-0">
+          {/* Sidebar header */}
+          <div className="p-3 space-y-1">
+            <button
+              onClick={handleNewChat}
+              className="flex items-center gap-2.5 w-full px-3 py-2 rounded-lg hover:bg-muted transition-colors text-sm font-medium text-foreground"
+            >
+              <Plus className="h-4 w-4" />
+              Nowa rozmowa
+            </button>
+            
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Szukaj..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 text-sm rounded-lg bg-muted/50 border-0 outline-none focus:bg-muted placeholder:text-muted-foreground/60 text-foreground"
+              />
+            </div>
           </div>
 
-          {/* Mode switcher — Chat / Cowork / Grafika */}
-          <div className="flex items-center gap-1 bg-muted rounded-full p-1">
+          {/* Navigation links */}
+          <div className="px-3 pb-2 space-y-0.5">
+            <button
+              onClick={() => navigate(-1)}
+              className="flex items-center gap-2.5 w-full px-3 py-2 rounded-lg hover:bg-muted transition-colors text-sm text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Wróć do portalu
+            </button>
+          </div>
+
+          <div className="border-t mx-3" />
+
+          {/* Conversations list */}
+          <ScrollArea className="flex-1 px-1">
+            <div className="px-2 py-2">
+              {/* Today */}
+              {grouped.today.length > 0 && (
+                <div className="mb-3">
+                  <p className="text-[11px] font-medium text-muted-foreground px-2 py-1.5 uppercase tracking-wider">Dzisiaj</p>
+                  {grouped.today.map(conv => (
+                    <ConvItem key={conv.id} conv={conv} active={currentConvId === conv.id}
+                      onClick={() => loadConversation(conv.id)}
+                      onDelete={async () => {
+                        await (supabase as any).from('ai_conversations').delete().eq('id', conv.id);
+                        if (currentConvId === conv.id) handleNewChat();
+                        loadConversations();
+                      }} />
+                  ))}
+                </div>
+              )}
+
+              {/* Yesterday */}
+              {grouped.yesterday.length > 0 && (
+                <div className="mb-3">
+                  <p className="text-[11px] font-medium text-muted-foreground px-2 py-1.5 uppercase tracking-wider">Wczoraj</p>
+                  {grouped.yesterday.map(conv => (
+                    <ConvItem key={conv.id} conv={conv} active={currentConvId === conv.id}
+                      onClick={() => loadConversation(conv.id)}
+                      onDelete={async () => {
+                        await (supabase as any).from('ai_conversations').delete().eq('id', conv.id);
+                        if (currentConvId === conv.id) handleNewChat();
+                        loadConversations();
+                      }} />
+                  ))}
+                </div>
+              )}
+
+              {/* Older */}
+              {grouped.older.length > 0 && (
+                <div className="mb-3">
+                  <p className="text-[11px] font-medium text-muted-foreground px-2 py-1.5 uppercase tracking-wider">Wcześniej</p>
+                  {grouped.older.map(conv => (
+                    <ConvItem key={conv.id} conv={conv} active={currentConvId === conv.id}
+                      onClick={() => loadConversation(conv.id)}
+                      onDelete={async () => {
+                        await (supabase as any).from('ai_conversations').delete().eq('id', conv.id);
+                        if (currentConvId === conv.id) handleNewChat();
+                        loadConversations();
+                      }} />
+                  ))}
+                </div>
+              )}
+
+              {filteredConversations.length === 0 && (
+                <p className="text-center text-xs text-muted-foreground py-8">
+                  {searchQuery ? 'Brak wyników' : 'Brak rozmów'}
+                </p>
+              )}
+            </div>
+          </ScrollArea>
+        </div>
+      )}
+
+      {/* MAIN AREA */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* TOP BAR with centered tabs */}
+        <div className="flex items-center justify-center px-4 py-2 border-b bg-background relative">
+          {/* Left: sidebar toggle + model name */}
+          <div className="absolute left-4 flex items-center gap-2">
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="p-1.5 rounded-lg hover:bg-muted transition-colors"
+              title={sidebarOpen ? 'Ukryj panel' : 'Pokaż panel'}
+            >
+              <svg className="h-4 w-4 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <line x1="9" y1="3" x2="9" y2="21" />
+              </svg>
+            </button>
+            <div className="flex items-center gap-1.5">
+              <img src={AVATAR} alt="RidoAI" className="w-6 h-6 rounded-full" />
+              <span className="text-sm font-medium text-muted-foreground">RidoAI</span>
+            </div>
+          </div>
+
+          {/* Center: Mode tabs */}
+          <div className="flex items-center gap-0.5 bg-muted/60 rounded-full p-0.5">
             {([
               { key: 'chat' as const, label: 'Chat', icon: MessageCircle },
               { key: 'cowork' as const, label: 'Cowork', icon: Briefcase },
               { key: 'grafika' as const, label: 'Grafika', icon: Image },
             ]).map(({ key, label, icon: Icon }) => (
               <button key={key} onClick={() => switchMode(key)}
-                className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all',
-                  mainMode === key ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground')}>
+                className={cn(
+                  'flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-all',
+                  mainMode === key
+                    ? 'bg-background shadow-sm text-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}>
                 <Icon className="h-3.5 w-3.5" />
                 {label}
               </button>
@@ -214,65 +347,23 @@ export default function RidoAIChatPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5">
-          <button onClick={() => setHistoryOpen(!historyOpen)}
-            className={cn('p-2 rounded-lg hover:bg-muted transition-colors', historyOpen && 'bg-muted')} title="Historia">
-            <History className="h-4 w-4" />
-          </button>
-          <Button variant="outline" size="sm" className="gap-1.5 h-8" onClick={handleNewChat}>
-            <Plus className="h-3.5 w-3.5" /> Nowa
-          </Button>
-          <button onClick={() => navigate(-1)} className="p-2 rounded-lg hover:bg-muted">
-            <ArrowLeft className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
-
-      <div className="flex flex-1 min-h-0">
-        {/* HISTORY SIDEBAR */}
-        {historyOpen && (
-          <div className="w-72 border-r bg-muted/20 flex flex-col flex-shrink-0">
-            <div className="flex items-center justify-between px-4 py-3 border-b">
-              <h3 className="font-semibold text-sm">Historia rozmów</h3>
-              <button onClick={() => setHistoryOpen(false)} className="p-1 hover:bg-muted rounded-lg">
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <ScrollArea className="flex-1">
-              {conversations.length === 0 && <p className="text-center text-sm text-muted-foreground py-8">Brak historii rozmów</p>}
-              {conversations.map(conv => (
-                <div key={conv.id} onClick={() => loadConversation(conv.id)}
-                  className={cn('flex items-start gap-2 px-3 py-2.5 rounded-xl cursor-pointer group hover:bg-muted mx-2 my-0.5', currentConvId === conv.id && 'bg-primary/10')}>
-                  <ChevronRight className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{conv.title || 'Nowa rozmowa'}</p>
-                    <p className="text-[10px] text-muted-foreground">{new Date(conv.updated_at).toLocaleDateString('pl-PL')}</p>
-                  </div>
-                  <button onClick={async (e) => {
-                    e.stopPropagation();
-                    await (supabase as any).from('ai_conversations').delete().eq('id', conv.id);
-                    if (currentConvId === conv.id) handleNewChat();
-                    loadConversations();
-                  }} className="opacity-0 group-hover:opacity-100 p-1 hover:bg-destructive/10 rounded transition-all">
-                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                  </button>
-                </div>
-              ))}
-            </ScrollArea>
-          </div>
-        )}
-
         {/* CHAT AREA */}
-        <div className="flex-1 flex flex-col min-w-0">
-          <ScrollArea ref={scrollRef} className="flex-1 px-4 py-4">
-            <div className="space-y-4 max-w-3xl mx-auto">
+        <div className="flex-1 flex flex-col min-h-0">
+          <ScrollArea ref={scrollRef} className="flex-1 px-4 py-6">
+            <div className="space-y-5 max-w-3xl mx-auto">
               {displayMsgs.map((msg, i) => (
-                <div key={i} className={cn('flex items-end gap-2', msg.role === 'user' ? 'flex-row-reverse' : 'flex-row')}>
-                  {msg.role === 'assistant' && <img src={AVATAR} alt="AI" className="w-8 h-8 rounded-full flex-shrink-0 mb-1" />}
-                  <div className={cn('max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed',
-                    msg.role === 'user' ? 'bg-primary text-primary-foreground rounded-br-md' : 'bg-muted rounded-bl-md')}>
+                <div key={i} className={cn('flex gap-3', msg.role === 'user' ? 'flex-row-reverse' : 'flex-row')}>
+                  {msg.role === 'assistant' && (
+                    <img src={AVATAR} alt="AI" className="w-7 h-7 rounded-full flex-shrink-0 mt-1" />
+                  )}
+                  <div className={cn(
+                    'max-w-[75%] text-sm leading-relaxed',
+                    msg.role === 'user'
+                      ? 'bg-primary text-primary-foreground rounded-2xl rounded-br-md px-4 py-2.5'
+                      : ''
+                  )}>
                     {msg.role === 'assistant' ? (
-                      <div className="prose prose-sm dark:prose-invert max-w-none [&>p]:mb-1.5 [&>p:last-child]:mb-0">
+                      <div className="prose prose-sm dark:prose-invert max-w-none [&>p]:mb-2 [&>p:last-child]:mb-0 [&_strong]:font-semibold">
                         <ReactMarkdown>{(msg.content || '...').replace(/ACTION:\{.*?\}/s, '').trim()}</ReactMarkdown>
                         {msg.images?.map((img, idx) => (
                           <div key={idx} className="mt-3 relative group/img">
@@ -292,37 +383,45 @@ export default function RidoAIChatPage() {
                     ) : <p className="whitespace-pre-wrap">{msg.content}</p>}
                   </div>
                   {msg.role === 'user' && (
-                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mb-1">
-                      <span className="text-xs font-semibold text-primary">Ty</span>
+                    <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-1">
+                      <span className="text-[10px] font-semibold text-primary">Ty</span>
                     </div>
                   )}
                 </div>
               ))}
               {isLoading && messages[messages.length - 1]?.content === '' && (
-                <div className="flex items-end gap-2">
-                  <img src={AVATAR} alt="AI" className="w-8 h-8 rounded-full flex-shrink-0 mb-1" />
-                  <div className="bg-muted rounded-2xl rounded-bl-md px-4 py-3">
-                    <div className="flex items-center gap-1.5">
-                      {[0, 150, 300].map(d => <span key={d} className={`w-2 h-2 rounded-full bg-muted-foreground/40 animate-bounce`} style={{ animationDelay: `${d}ms` }} />)}
-                    </div>
+                <div className="flex gap-3">
+                  <img src={AVATAR} alt="AI" className="w-7 h-7 rounded-full flex-shrink-0 mt-1" />
+                  <div className="flex items-center gap-1.5 py-2">
+                    {[0, 150, 300].map(d => (
+                      <span key={d} className="w-2 h-2 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: `${d}ms` }} />
+                    ))}
                   </div>
                 </div>
               )}
             </div>
           </ScrollArea>
 
-          <div className="px-4 py-3 border-t bg-background/80 backdrop-blur-sm">
+          {/* Input area */}
+          <div className="px-4 py-3 border-t bg-background">
             <div className="flex items-end gap-2 max-w-3xl mx-auto">
               <Textarea value={input} onChange={e => setInput(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-                placeholder={mainMode === 'cowork' ? 'Co zrobić? np. "wystaw fakturę na 500 zł dla Jana Kowalskiego"...' : mainMode === 'grafika' ? 'Opisz grafikę którą chcesz stworzyć...' : 'Napisz wiadomość...'}
-                disabled={isLoading} className="min-h-[44px] max-h-[120px] resize-none rounded-xl text-sm" rows={1} />
+                placeholder={
+                  mainMode === 'cowork' ? 'Co zrobić? np. "wystaw fakturę na 500 zł"...'
+                    : mainMode === 'grafika' ? 'Opisz grafikę którą chcesz stworzyć...'
+                      : 'Napisz wiadomość...'
+                }
+                disabled={isLoading}
+                className="min-h-[44px] max-h-[120px] resize-none rounded-xl text-sm"
+                rows={1}
+              />
               <Button onClick={handleSend} disabled={!input.trim() || isLoading} size="icon" className="h-[44px] w-[44px] rounded-xl flex-shrink-0">
                 {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               </Button>
             </div>
             <p className="text-[10px] text-muted-foreground text-center mt-1.5">
-              {mainMode === 'cowork' ? 'Cowork — RidoAI wykonuje akcje w portalu' : 'RidoAI może się mylić • Sprawdzaj ważne informacje'}
+              RidoAI może się mylić • Sprawdzaj ważne informacje
             </p>
           </div>
         </div>
@@ -358,7 +457,6 @@ export default function RidoAIChatPage() {
               </button>
             </div>
           </div>
-
           <div className="flex-1 overflow-auto flex items-start justify-center p-6">
             <div className="relative inline-block shadow-2xl rounded-2xl overflow-hidden border border-border">
               <canvas ref={canvasRef} className="block max-w-full" />
@@ -373,7 +471,6 @@ export default function RidoAIChatPage() {
               )}
             </div>
           </div>
-
           <div className="px-5 py-4 border-t bg-background flex-shrink-0">
             <div className="max-w-2xl mx-auto flex items-end gap-3">
               <div className="flex-1">
@@ -394,6 +491,27 @@ export default function RidoAIChatPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/* Conversation list item component */
+function ConvItem({ conv, active, onClick, onDelete }: { conv: Conv; active: boolean; onClick: () => void; onDelete: () => void }) {
+  return (
+    <div
+      onClick={onClick}
+      className={cn(
+        'group flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer text-sm transition-colors',
+        active ? 'bg-muted font-medium text-foreground' : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+      )}
+    >
+      <span className="flex-1 truncate">{conv.title || 'Nowa rozmowa'}</span>
+      <button
+        onClick={e => { e.stopPropagation(); onDelete(); }}
+        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-destructive/10 rounded transition-all flex-shrink-0"
+      >
+        <Trash2 className="h-3 w-3 text-destructive" />
+      </button>
     </div>
   );
 }
