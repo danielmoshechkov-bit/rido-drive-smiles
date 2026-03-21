@@ -186,13 +186,24 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="basic">Podstawowe</TabsTrigger>
-          <TabsTrigger value="tasks">Wycena zlecenia</TabsTrigger>
-          <TabsTrigger value="summary">Podsumowanie</TabsTrigger>
-          <TabsTrigger value="schedule">Terminarz</TabsTrigger>
-          <TabsTrigger value="files">Pliki</TabsTrigger>
-          <TabsTrigger value="repair-data">Dane naprawcze</TabsTrigger>
+        <TabsList className="bg-transparent w-full justify-start gap-1.5 h-auto p-0 flex-wrap mb-4">
+          {[
+            { value: 'basic', label: 'Podstawowe' },
+            { value: 'tasks', label: 'Wycena zlecenia' },
+            { value: 'summary', label: 'Podsumowanie' },
+            { value: 'schedule', label: 'Terminarz' },
+            { value: 'files', label: 'Pliki' },
+            { value: 'repair-data', label: 'Dane naprawcze' },
+          ].map((tab) => (
+            <TabsTrigger
+              key={tab.value}
+              value={tab.value}
+              className="px-5 py-2 rounded-full text-sm font-medium transition-all duration-200 data-[state=active]:text-white data-[state=active]:shadow-sm data-[state=inactive]:text-foreground/70 data-[state=inactive]:bg-transparent data-[state=inactive]:hover:bg-[#F5C842] data-[state=inactive]:hover:text-[#1a1a1a]"
+              style={activeTab === tab.value ? { backgroundColor: 'var(--nav-bar-color, #6C3CF0)' } : undefined}
+            >
+              {tab.label}
+            </TabsTrigger>
+          ))}
         </TabsList>
 
         <TabsContent value="basic">
