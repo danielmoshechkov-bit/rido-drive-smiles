@@ -203,105 +203,120 @@ export default function RidoAIChatPage() {
   }, { today: [], yesterday: [], older: [] });
 
   return (
-    <div className="h-screen flex bg-background overflow-hidden">
-      {/* LEFT SIDEBAR — Claude style */}
-      {sidebarOpen && (
-        <div className="w-64 flex flex-col border-r bg-muted/20 flex-shrink-0">
-          {/* Sidebar header */}
-          <div className="p-3 space-y-1">
+    <div className="h-[100dvh] flex bg-background overflow-hidden">
+      {/* LEFT SIDEBAR — responsive */}
+      <div className={cn(
+        "flex-col border-r bg-muted/20 flex-shrink-0 w-64 md:w-64",
+        "absolute md:relative inset-0 z-40 bg-background md:bg-muted/20",
+        sidebarOpen ? "flex" : "hidden"
+      )}>
+        {/* Sidebar header */}
+        <div className="p-3 space-y-1">
+          <div className="flex items-center justify-between">
             <button
               onClick={handleNewChat}
-              className="flex items-center gap-2.5 w-full px-3 py-2 rounded-lg hover:bg-muted transition-colors text-sm font-medium text-foreground"
+              className="flex items-center gap-2.5 flex-1 px-3 py-2 rounded-lg hover:bg-muted transition-colors text-sm font-medium text-foreground"
             >
               <Plus className="h-4 w-4" />
               Nowa rozmowa
             </button>
-            
-            {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Szukaj..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-sm rounded-lg bg-muted/50 border-0 outline-none focus:bg-muted placeholder:text-muted-foreground/60 text-foreground"
-              />
-            </div>
-          </div>
-
-          {/* Navigation links */}
-          <div className="px-3 pb-2 space-y-0.5">
-            <button
-              onClick={() => navigate(-1)}
-              className="flex items-center gap-2.5 w-full px-3 py-2 rounded-lg hover:bg-muted transition-colors text-sm text-muted-foreground hover:text-foreground"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Wróć do portalu
+            <button onClick={() => setSidebarOpen(false)} className="md:hidden p-1.5 rounded-lg hover:bg-muted">
+              <X className="h-4 w-4" />
             </button>
           </div>
-
-          <div className="border-t mx-3" />
-
-          {/* Conversations list */}
-          <ScrollArea className="flex-1 px-1">
-            <div className="px-2 py-2">
-              {/* Today */}
-              {grouped.today.length > 0 && (
-                <div className="mb-3">
-                  <p className="text-[11px] font-medium text-muted-foreground px-2 py-1.5 uppercase tracking-wider">Dzisiaj</p>
-                  {grouped.today.map(conv => (
-                    <ConvItem key={conv.id} conv={conv} active={currentConvId === conv.id}
-                      onClick={() => loadConversation(conv.id)}
-                      onDelete={async () => {
-                        await (supabase as any).from('ai_conversations').delete().eq('id', conv.id);
-                        if (currentConvId === conv.id) handleNewChat();
-                        loadConversations();
-                      }} />
-                  ))}
-                </div>
-              )}
-
-              {/* Yesterday */}
-              {grouped.yesterday.length > 0 && (
-                <div className="mb-3">
-                  <p className="text-[11px] font-medium text-muted-foreground px-2 py-1.5 uppercase tracking-wider">Wczoraj</p>
-                  {grouped.yesterday.map(conv => (
-                    <ConvItem key={conv.id} conv={conv} active={currentConvId === conv.id}
-                      onClick={() => loadConversation(conv.id)}
-                      onDelete={async () => {
-                        await (supabase as any).from('ai_conversations').delete().eq('id', conv.id);
-                        if (currentConvId === conv.id) handleNewChat();
-                        loadConversations();
-                      }} />
-                  ))}
-                </div>
-              )}
-
-              {/* Older */}
-              {grouped.older.length > 0 && (
-                <div className="mb-3">
-                  <p className="text-[11px] font-medium text-muted-foreground px-2 py-1.5 uppercase tracking-wider">Wcześniej</p>
-                  {grouped.older.map(conv => (
-                    <ConvItem key={conv.id} conv={conv} active={currentConvId === conv.id}
-                      onClick={() => loadConversation(conv.id)}
-                      onDelete={async () => {
-                        await (supabase as any).from('ai_conversations').delete().eq('id', conv.id);
-                        if (currentConvId === conv.id) handleNewChat();
-                        loadConversations();
-                      }} />
-                  ))}
-                </div>
-              )}
-
-              {filteredConversations.length === 0 && (
-                <p className="text-center text-xs text-muted-foreground py-8">
-                  {searchQuery ? 'Brak wyników' : 'Brak rozmów'}
-                </p>
-              )}
-            </div>
-          </ScrollArea>
+          
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Szukaj..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 text-sm rounded-lg bg-muted/50 border-0 outline-none focus:bg-muted placeholder:text-muted-foreground/60 text-foreground"
+            />
+          </div>
         </div>
+
+        {/* Navigation links */}
+        <div className="px-3 pb-2 space-y-0.5">
+          <button
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-2.5 w-full px-3 py-2 rounded-lg hover:bg-muted transition-colors text-sm text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Wróć do portalu
+          </button>
+        </div>
+
+        <div className="border-t mx-3" />
+
+        {/* Conversations list */}
+        <ScrollArea className="flex-1 px-1">
+          <div className="px-2 py-2">
+            {grouped.today.length > 0 && (
+              <div className="mb-3">
+                <p className="text-[11px] font-medium text-muted-foreground px-2 py-1.5 uppercase tracking-wider">Dzisiaj</p>
+                {grouped.today.map(conv => (
+                  <ConvItem key={conv.id} conv={conv} active={currentConvId === conv.id}
+                    onClick={() => { loadConversation(conv.id); setSidebarOpen(false); }}
+                    onDelete={async () => {
+                      const ok = window.confirm('Czy na pewno chcesz usunąć tę rozmowę? Tej operacji nie można cofnąć.');
+                      if (!ok) return;
+                      await (supabase as any).from('ai_conversations').delete().eq('id', conv.id);
+                      if (currentConvId === conv.id) handleNewChat();
+                      loadConversations();
+                    }} />
+                ))}
+              </div>
+            )}
+
+            {grouped.yesterday.length > 0 && (
+              <div className="mb-3">
+                <p className="text-[11px] font-medium text-muted-foreground px-2 py-1.5 uppercase tracking-wider">Wczoraj</p>
+                {grouped.yesterday.map(conv => (
+                  <ConvItem key={conv.id} conv={conv} active={currentConvId === conv.id}
+                    onClick={() => { loadConversation(conv.id); setSidebarOpen(false); }}
+                    onDelete={async () => {
+                      const ok = window.confirm('Czy na pewno chcesz usunąć tę rozmowę? Tej operacji nie można cofnąć.');
+                      if (!ok) return;
+                      await (supabase as any).from('ai_conversations').delete().eq('id', conv.id);
+                      if (currentConvId === conv.id) handleNewChat();
+                      loadConversations();
+                    }} />
+                ))}
+              </div>
+            )}
+
+            {grouped.older.length > 0 && (
+              <div className="mb-3">
+                <p className="text-[11px] font-medium text-muted-foreground px-2 py-1.5 uppercase tracking-wider">Wcześniej</p>
+                {grouped.older.map(conv => (
+                  <ConvItem key={conv.id} conv={conv} active={currentConvId === conv.id}
+                    onClick={() => { loadConversation(conv.id); setSidebarOpen(false); }}
+                    onDelete={async () => {
+                      const ok = window.confirm('Czy na pewno chcesz usunąć tę rozmowę? Tej operacji nie można cofnąć.');
+                      if (!ok) return;
+                      await (supabase as any).from('ai_conversations').delete().eq('id', conv.id);
+                      if (currentConvId === conv.id) handleNewChat();
+                      loadConversations();
+                    }} />
+                ))}
+              </div>
+            )}
+
+            {filteredConversations.length === 0 && (
+              <p className="text-center text-xs text-muted-foreground py-8">
+                {searchQuery ? 'Brak wyników' : 'Brak rozmów'}
+              </p>
+            )}
+          </div>
+        </ScrollArea>
+      </div>
+
+      {/* Mobile overlay backdrop */}
+      {sidebarOpen && (
+        <div className="fixed inset-0 z-30 bg-black/30 md:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
       {/* MAIN AREA */}
@@ -309,7 +324,7 @@ export default function RidoAIChatPage() {
         {/* TOP BAR with centered tabs */}
         <div className="flex items-center justify-center px-4 py-2 border-b bg-background relative">
           {/* Left: sidebar toggle + model name */}
-          <div className="absolute left-4 flex items-center gap-2">
+          <div className="absolute left-2 md:left-4 flex items-center gap-2">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
               className="p-1.5 rounded-lg hover:bg-muted transition-colors"
@@ -320,7 +335,7 @@ export default function RidoAIChatPage() {
                 <line x1="9" y1="3" x2="9" y2="21" />
               </svg>
             </button>
-            <div className="flex items-center gap-1.5">
+            <div className="hidden md:flex items-center gap-1.5">
               <img src={AVATAR} alt="RidoAI" className="w-6 h-6 rounded-full" />
               <span className="text-sm font-medium text-muted-foreground">RidoAI</span>
             </div>
@@ -335,7 +350,7 @@ export default function RidoAIChatPage() {
             ]).map(({ key, label, icon: Icon }) => (
               <button key={key} onClick={() => switchMode(key)}
                 className={cn(
-                  'flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-all',
+                  'flex items-center gap-1 md:gap-1.5 px-2.5 md:px-4 py-1.5 rounded-full text-xs md:text-sm font-medium transition-all',
                   mainMode === key
                     ? 'bg-background shadow-sm text-foreground'
                     : 'text-muted-foreground hover:text-foreground'
@@ -403,7 +418,7 @@ export default function RidoAIChatPage() {
           </ScrollArea>
 
           {/* Input area */}
-          <div className="px-4 py-3 border-t bg-background">
+          <div className="px-4 py-3 border-t bg-background" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
             <div className="flex items-end gap-2 max-w-3xl mx-auto">
               <Textarea value={input} onChange={e => setInput(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
@@ -413,7 +428,8 @@ export default function RidoAIChatPage() {
                       : 'Napisz wiadomość...'
                 }
                 disabled={isLoading}
-                className="min-h-[44px] max-h-[120px] resize-none rounded-xl text-sm"
+                className="min-h-[44px] max-h-[120px] resize-none rounded-xl text-base md:text-sm"
+                style={{ fontSize: '16px' }}
                 rows={1}
               />
               <Button onClick={handleSend} disabled={!input.trim() || isLoading} size="icon" className="h-[44px] w-[44px] rounded-xl flex-shrink-0">
@@ -459,9 +475,10 @@ export default function RidoAIChatPage() {
           </div>
           <div className="flex-1 overflow-auto flex items-start justify-center p-6">
             <div className="relative inline-block shadow-2xl rounded-2xl overflow-hidden border border-border">
-              <canvas ref={canvasRef} className="block max-w-full" />
+              <canvas ref={canvasRef} className="block max-w-full" style={{ touchAction: 'none' }} />
               <canvas ref={maskCanvasRef}
                 className={cn('absolute inset-0 w-full h-full', brushActive ? 'cursor-crosshair' : 'pointer-events-none')}
+                style={{ touchAction: 'none' }}
                 onMouseDown={() => setIsDrawing(true)} onMouseUp={() => setIsDrawing(false)}
                 onMouseLeave={() => setIsDrawing(false)} onMouseMove={onDraw} />
               {brushActive && (
@@ -504,18 +521,18 @@ function ConvItem({ conv, active, onClick, onDelete }: { conv: Conv; active: boo
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       className={cn(
-        'flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer text-sm transition-colors',
-        active ? 'bg-muted font-medium text-foreground' : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+        'flex items-center gap-2 px-3 py-2.5 rounded-xl cursor-pointer text-sm transition-colors',
+        active ? 'bg-primary text-primary-foreground font-medium' : 'text-foreground hover:bg-accent hover:text-accent-foreground'
       )}
     >
-      <span className="flex-1 truncate">{conv.title || 'Nowa rozmowa'}</span>
-      {hovered && (
+      <span className="flex-1 truncate font-medium">{conv.title || 'Nowa rozmowa'}</span>
+      {(hovered || active) && (
         <button
           onClick={e => { e.preventDefault(); e.stopPropagation(); onDelete(); }}
-          className="p-1 hover:bg-destructive/10 rounded transition-colors flex-shrink-0"
+          className="p-1 hover:bg-destructive/20 rounded-lg transition-colors flex-shrink-0 opacity-70 hover:opacity-100"
           title="Usuń rozmowę"
         >
-          <Trash2 className="h-3 w-3 text-destructive" />
+          <Trash2 className="h-3.5 w-3.5 text-destructive" />
         </button>
       )}
     </div>
