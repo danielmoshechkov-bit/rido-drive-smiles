@@ -169,8 +169,6 @@ serve(async (req) => {
 
       await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'error', ms: Date.now() - t0 })
       return jsonResp({ result: '❌ Nie udało się wygenerować obrazu. Spróbuj opisać inaczej lub zmień prompt.', images: [] })
-      await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'error', ms: Date.now() - t0 })
-      return jsonResp({ result: '❌ Nie udało się wygenerować obrazu. Spróbuj opisać inaczej lub zmień prompt.', images: [] })
     }
 
     // ── ROUTING TEKSTU ───────────────────────────────────────────
