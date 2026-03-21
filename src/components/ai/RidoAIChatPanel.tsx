@@ -152,6 +152,8 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
   const deleteConversation = async (convId: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    const confirmed = window.confirm('Czy na pewno chcesz usunąć tę rozmowę? Tej operacji nie można cofnąć.');
+    if (!confirmed) return;
     await (supabase as any).from('ai_messages').delete().eq('conversation_id', convId);
     await (supabase as any).from('ai_conversations').delete().eq('id', convId);
     if (currentConvId === convId) handleNewChat();
