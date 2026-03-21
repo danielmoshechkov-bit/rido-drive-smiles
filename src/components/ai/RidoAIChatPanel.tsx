@@ -128,7 +128,8 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
     await saveMsg(convId!, userMsg);
 
     // Auto-detect image requests in any mode
-    const isImg = mainMode === 'grafika' || IMAGE_PATTERNS.test(text);
+    const isImgMode = mainMode as string === 'grafika';
+    const isImg = isImgMode || IMAGE_PATTERNS.test(text);
 
     if (isImg) {
       setMessages(prev => [...prev, { role: 'assistant', content: '🎨 Generuję grafikę...' }]);
