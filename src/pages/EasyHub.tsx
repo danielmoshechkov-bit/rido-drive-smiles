@@ -389,6 +389,12 @@ export default function EasyHub() {
   };
 
   const handleTileClick = (tile: MarketplaceTile) => {
+    // RidoAI — open panel instead of navigating
+    if (tile.id === 'rido-ai') {
+      setShowRidoAI(true);
+      return;
+    }
+    
     // Handle category navigation
     if (tile.id === 'motoryzacja') {
       setActiveCategory('motoryzacja');
