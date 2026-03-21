@@ -283,14 +283,33 @@ serve(async (req) => {
           return jsonResp({ result: d.content?.[0]?.text || 'Brak odpowiedzi' })
 
         } else if (isGemini) {
-          // Gemini via OpenAI-compatible endpoint
+          // Gemini via OpenAI-compatible endpoint — supports multimodal (images)
           usedModel = 'gemini-2.5-flash'
+          
+          // Build messages with image support
+          const geminiMessages: any[] = [{ role: 'system', content: sys }]
+          for (const msg of history) {
+            // Check if this is the last user message and has image files
+            const isLastUser = msg === history[history.length - 1] && msg.role === 'user' && hasFiles
+            if (isLastUser) {
+              const contentParts: any[] = [{ type: 'text', text: msg.content }]
+              for (const f of files) {
+                if (f.data && f.type?.startsWith('image/')) {
+                  contentParts.push({ type: 'image_url', image_url: { url: `data:${f.type};base64,${f.data}` } })
+                }
+              }
+              geminiMessages.push({ role: 'user', content: contentParts })
+            } else {
+              geminiMessages.push(msg)
+            }
+          }
+
           const res = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
             body: JSON.stringify({
               model: usedModel,
-              messages: [{ role: 'system', content: sys }, ...history],
+              messages: geminiMessages,
               stream: !!stream,
               max_tokens: 2048
             })
