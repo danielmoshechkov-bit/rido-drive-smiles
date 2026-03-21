@@ -475,9 +475,10 @@ export default function RidoAIChatPage() {
           </div>
           <div className="flex-1 overflow-auto flex items-start justify-center p-6">
             <div className="relative inline-block shadow-2xl rounded-2xl overflow-hidden border border-border">
-              <canvas ref={canvasRef} className="block max-w-full" />
+              <canvas ref={canvasRef} className="block max-w-full" style={{ touchAction: 'none' }} />
               <canvas ref={maskCanvasRef}
                 className={cn('absolute inset-0 w-full h-full', brushActive ? 'cursor-crosshair' : 'pointer-events-none')}
+                style={{ touchAction: 'none' }}
                 onMouseDown={() => setIsDrawing(true)} onMouseUp={() => setIsDrawing(false)}
                 onMouseLeave={() => setIsDrawing(false)} onMouseMove={onDraw} />
               {brushActive && (
