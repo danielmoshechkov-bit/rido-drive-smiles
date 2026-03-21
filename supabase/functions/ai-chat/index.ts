@@ -88,21 +88,25 @@ serve(async (req) => {
         return jsonResp({ result: '⚠️ Brak klucza Google Gemini. Wejdź w Centrum AI → Dostawcy & API.' })
       }
       usedProvider = p.provider_key
-      usedModel = 'gemini-2.0-flash-exp'
+      usedModel = 'gemini-2.5-flash-preview-image-generation'
       console.log(`[ai-chat] Inpaint using ${usedProvider}`)
 
       const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${p.api_key_encrypted}`,
+        'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${p.api_key_encrypted}` },
           body: JSON.stringify({
-            contents: [{ parts: [
-              { text: `Edytuj TYLKO zaznaczony obszar. Zmień: ${query}. Reszta bez zmian.` },
-              { inline_data: { mime_type: 'image/png', data: imageBase64 } },
-              { inline_data: { mime_type: 'image/png', data: maskBase64 } }
-            ]}],
-            generationConfig: { responseModalities: ['IMAGE'] }
+            model: 'gemini-2.5-flash-preview-image-generation',
+            messages: [{
+              role: 'user',
+              content: [
+                { type: 'text', text: `Edytuj TYLKO zaznaczony obszar (fioletowa maska). Zmień: ${query}. Reszta obrazu zostaje BEZ ZMIAN.` },
+                { type: 'image_url', image_url: { url: `data:image/png;base64,${imageBase64}` } },
+                { type: 'image_url', image_url: { url: `data:image/png;base64,${maskBase64}` } }
+              ]
+            }],
+            modalities: ['image', 'text']
           })
         }
       )
@@ -112,9 +116,9 @@ serve(async (req) => {
         return jsonResp({ result: mapError('Gemini', res.status, errText) })
       }
       const d = await res.json()
-      const img = d?.candidates?.[0]?.content?.parts?.find((x: any) => x.inline_data?.data)?.inline_data?.data
-      await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: img ? 'success' : 'error', ms: Date.now() - t0 })
-      return jsonResp({ result: img ? '✨ Gotowe!' : '❌ Nie udało się edytować obrazu.', images: img ? [`data:image/png;base64,${img}`] : [] })
+      const imgUrl = d?.choices?.[0]?.message?.images?.[0]?.image_url?.url
+      await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: imgUrl ? 'success' : 'error', ms: Date.now() - t0 })
+      return jsonResp({ result: imgUrl ? '✨ Gotowe!' : '❌ Nie udało się edytować obrazu.', images: imgUrl ? [imgUrl] : [] })
     }
 
     // ── GENEROWANIE OBRAZÓW (Nano Banana) ────────────────────────
