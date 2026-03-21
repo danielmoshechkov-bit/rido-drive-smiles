@@ -128,9 +128,9 @@ serve(async (req) => {
 
       // Try multiple image generation models
       const imageModels = [
-        'gemini-2.5-flash-preview-04-17',
-        'gemini-2.0-flash-exp-image-generation', 
-        'gemini-2.0-flash',
+        'gemini-3.1-flash-image-preview',
+        'gemini-2.5-flash-image',
+        'gemini-3-pro-image-preview',
       ]
 
       for (const model of imageModels) {
