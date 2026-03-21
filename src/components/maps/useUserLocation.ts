@@ -99,7 +99,7 @@ export function useUserLocation(): GpsState {
   const lastUpdateRef = useRef<number>(0);
   // Moving average buffer for position smoothing
   const positionBufferRef = useRef<UserLocation[]>([]);
-  const MAX_BUFFER_SIZE = 3;
+  const MAX_BUFFER_SIZE = 5;
 
   // Smooth position using moving average when accuracy is poor
   const smoothPosition = useCallback((newLocation: UserLocation): UserLocation => {
@@ -107,21 +107,33 @@ export function useUserLocation(): GpsState {
     if (positionBufferRef.current.length > MAX_BUFFER_SIZE) {
       positionBufferRef.current.shift();
     }
-    
-    // If accuracy > 30m, use moving average for smoother movement
-    if (newLocation.accuracy > 30 && positionBufferRef.current.length >= 2) {
-      const buffer = positionBufferRef.current;
-      const avgLat = buffer.reduce((s, p) => s + p.latitude, 0) / buffer.length;
-      const avgLng = buffer.reduce((s, p) => s + p.longitude, 0) / buffer.length;
-      
-      return {
-        ...newLocation,
-        latitude: avgLat,
-        longitude: avgLng,
-      };
+
+    const buffer = positionBufferRef.current;
+
+    // Smooth lat/lng when accuracy is poor (>15m)
+    let smoothedLat = newLocation.latitude;
+    let smoothedLng = newLocation.longitude;
+    if (newLocation.accuracy > 15 && buffer.length >= 2) {
+      smoothedLat = buffer.reduce((s, p) => s + p.latitude, 0) / buffer.length;
+      smoothedLng = buffer.reduce((s, p) => s + p.longitude, 0) / buffer.length;
     }
-    
-    return newLocation;
+
+    // Smooth heading using circular average (handles 0°/360° wrap)
+    let smoothedHeading = newLocation.heading;
+    const headings = buffer.map(p => p.heading).filter((h): h is number => h !== null);
+    if (headings.length >= 2) {
+      const sinSum = headings.reduce((s, h) => s + Math.sin(h * Math.PI / 180), 0);
+      const cosSum = headings.reduce((s, h) => s + Math.cos(h * Math.PI / 180), 0);
+      smoothedHeading = Math.atan2(sinSum / headings.length, cosSum / headings.length) * 180 / Math.PI;
+      if (smoothedHeading < 0) smoothedHeading += 360;
+    }
+
+    return {
+      ...newLocation,
+      latitude: smoothedLat,
+      longitude: smoothedLng,
+      heading: smoothedHeading,
+    };
   }, []);
 
   const stopWatching = useCallback(() => {
@@ -234,15 +246,15 @@ export function useUserLocation(): GpsState {
       options
     );
 
-    // Fallback interval for navigation mode - uses FALLBACK_INTERVAL constant
+    // Fallback tylko gdy watchPosition całkowicie milknie przez >3s
     if (mode === 'navigation') {
       fallbackIntervalRef.current = window.setInterval(() => {
         const timeSinceUpdate = Date.now() - lastUpdateRef.current;
-        if (timeSinceUpdate > FALLBACK_INTERVAL) {
-          console.log('[GPS] Fallback: requesting current position');
+        if (timeSinceUpdate > 3000) {
+          console.log('[GPS] Fallback: watchPosition silent >3s, requesting position');
           navigator.geolocation.getCurrentPosition(handlePosition, handleError, options);
         }
-      }, FALLBACK_INTERVAL);
+      }, 2000);
     }
   }, [mode]);
 
