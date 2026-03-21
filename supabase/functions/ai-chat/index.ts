@@ -160,11 +160,32 @@ serve(async (req) => {
     }
 
     // ── ROUTING TEKSTU ───────────────────────────────────────────
+    // Build multimodal content if files attached
+    const hasFiles = files && Array.isArray(files) && files.length > 0
+
     const history = [
       ...(messages || []).filter((m: any) => m.content).map((m: any) => ({ role: m.role, content: m.content }))
     ]
     if (!history.length || history[history.length - 1]?.role !== 'user') {
       history.push({ role: 'user', content: query })
+    }
+
+    // If files are attached, enrich the last user message with file contents
+    if (hasFiles && history.length > 0) {
+      const lastMsg = history[history.length - 1]
+      if (lastMsg.role === 'user') {
+        let enrichedContent = lastMsg.content
+        for (const f of files) {
+          if (f.text) {
+            enrichedContent += `\n\n--- Zawartość pliku "${f.name}" ---\n${f.text}\n--- Koniec pliku ---`
+          } else if (f.data && f.type?.startsWith('image/')) {
+            // Will be handled as multimodal below for Gemini
+          } else if (f.data) {
+            enrichedContent += `\n\n[Plik: ${f.name} (${f.type}) - plik binarny, nie mogę odczytać treści bezpośrednio. Opisz co chcesz z nim zrobić.]`
+          }
+        }
+        lastMsg.content = enrichedContent
+      }
     }
     const sys = mode === 'cowork'
       ? RIDO_SYSTEM + '\n\nJesteś w trybie Cowork — gdy użytkownik prosi o akcję w portalu, wykonaj ją!'
