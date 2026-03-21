@@ -6,10 +6,17 @@ const cors = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 }
 
-const CLAUDE_PROVIDER_KEYS = ['claude_haiku', 'claude_sonnet', 'claude_opus']
-const GEMINI_PROVIDER_KEYS = ['google_gemini', 'gemini', 'gemini_flash', 'gemini_pro', 'Google Gemini', 'imagen3']
+const RIDO_SYSTEM = `Jesteś RidoAI – inteligentnym asystentem życiowym platformy GetRido. Rozmawiasz naturalnie i po ludzku, po polsku. Jesteś pomocny, konkretny i bezpośredni. Nigdy nie ujawniaj jakiego modelu AI używasz – jesteś po prostu "RidoAI".
 
-const RIDO_SYSTEM = `Jesteś RidoAI – inteligentnym asystentem życiowym platformy GetRido. Rozmawiasz naturalnie i po ludzku, po polsku. Jesteś pomocny, konkretny i bezpośredni. Nigdy nie ujawniaj jakiego modelu AI używasz.
+Możesz pomagać użytkownikom w:
+- Wyszukiwaniu nieruchomości, usług, ofert na portalu
+- Odpowiadaniu na pytania o portal i jego funkcje
+- Tworzeniu treści, tekstów, opisów
+- Analizie i wycenach
+- Ogólnych pytaniach i rozmowach
+
+Gdy użytkownik prosi o wygenerowanie grafiki/obrazu w trybie chat, odpowiedz normalnie że to zrobisz i dodaj na końcu:
+IMAGE_REQUEST:true
 
 W trybie Cowork gdy użytkownik chce wykonać akcję w portalu, na końcu odpowiedzi dodaj:
 ACTION:{"type":"TYP_AKCJI","params":{}}
@@ -38,101 +45,60 @@ serve(async (req) => {
     const { taskType, query, mode, messages, stream, imageBase64, maskBase64 } = body
     feature = body.feature || 'ai_chat'
 
-    // Pobierz WSZYSTKICH dostawców żeby znaleźć klucze
-    const { data: allProviders } = await supabase
-      .from('ai_providers')
-      .select('*')
+    // Pobierz WSZYSTKICH dostawców
+    const { data: allProviders, error: provErr } = await supabase.from('ai_providers').select('*')
+    console.log(`[ai-chat] Loaded ${allProviders?.length || 0} providers, error: ${provErr?.message || 'none'}`)
 
-    const uniqueProviders = (providers: any[]) => {
-      const seen = new Set<string>()
-      return providers.filter((provider) => {
-        const id = provider?.id || provider?.provider_key
-        if (!provider || !id || seen.has(id)) return false
-        seen.add(id)
-        return true
-      })
-    }
+    // Helper: check if provider has a valid key
+    const hasKey = (p: any) => p?.api_key_encrypted && String(p.api_key_encrypted).trim() !== ''
 
-    const withKey = (provider: any) => provider?.api_key_encrypted && String(provider.api_key_encrypted).trim() !== ''
-
-    // Szukaj dostawcy: najpierw aktywni z kluczem, potem nieaktywni z kluczem
-    const findProvider = (...keys: string[]) => {
+    // Find provider by key(s)
+    const findByKey = (...keys: string[]) => {
+      // First: enabled + has key
       for (const key of keys) {
-        const exact = allProviders?.find((p: any) =>
-          p.provider_key === key && withKey(p) && p.is_enabled
-        )
-        if (exact) return exact
+        const found = allProviders?.find((p: any) => p.provider_key === key && hasKey(p) && p.is_enabled)
+        if (found) return found
       }
+      // Then: just has key (even disabled)
       for (const key of keys) {
-        const withKey = allProviders?.find((p: any) =>
-          p.provider_key === key && p.api_key_encrypted
-        )
-        if (withKey) return withKey
+        const found = allProviders?.find((p: any) => p.provider_key === key && hasKey(p))
+        if (found) return found
       }
       return null
     }
 
-    // Znajdź Gemini elastycznie
+    // Find any Gemini provider with key
     const findGemini = () => {
-      return findProvider(...GEMINI_PROVIDER_KEYS) ||
-        allProviders?.find((p: any) =>
-          withKey(p) &&
-          (p.display_name?.toLowerCase().includes('gemini') ||
-           p.provider_key?.toLowerCase().includes('gemini') ||
-           p.display_name?.toLowerCase().includes('imagen'))
-        ) || null
-    }
-
-    const findClaude = () => findProvider(...CLAUDE_PROVIDER_KEYS)
-    const findKimi = () => findProvider('kimi')
-    const findOpenAI = () => findProvider('openai_mini', 'openai_gpt4o', 'openai')
-
-    const getTextProviderChain = () => {
-      const preferred = mode === 'cowork' || mode === 'rido_code'
-        ? [
-            findProvider('claude_sonnet'),
-            findProvider('claude_haiku'),
-            findKimi(),
-            findGemini(),
-            findOpenAI(),
-          ]
-        : mode === 'rido_pro'
-          ? [
-              findProvider('claude_opus'),
-              findProvider('claude_sonnet'),
-              findProvider('claude_haiku'),
-              findKimi(),
-              findGemini(),
-              findOpenAI(),
-            ]
-          : [
-              findProvider('claude_haiku'),
-              findKimi(),
-              findGemini(),
-              findOpenAI(),
-              findClaude(),
-            ]
-
-      return uniqueProviders(preferred.filter(withKey))
+      const byKey = findByKey('gemini', 'google_gemini', 'gemini_flash', 'gemini_pro', 'imagen3')
+      if (byKey) return byKey
+      // Fuzzy search by name
+      return allProviders?.find((p: any) =>
+        hasKey(p) && (
+          p.display_name?.toLowerCase().includes('gemini') ||
+          p.provider_key?.toLowerCase().includes('gemini') ||
+          p.display_name?.toLowerCase().includes('imagen')
+        )
+      ) || null
     }
 
     // ── INPAINTING ───────────────────────────────────────────────
     if (taskType === 'inpaint') {
       const p = findGemini()
-      if (!p?.api_key_encrypted) {
-        return jsonResp({ result: '⚠️ Brak klucza Google Gemini. Wejdź w Centrum AI → Dostawcy & API → Google Gemini i wpisz klucz z aistudio.google.com.' })
+      if (!hasKey(p)) {
+        return jsonResp({ result: '⚠️ Brak klucza Google Gemini. Wejdź w Centrum AI → Dostawcy & API.' })
       }
       usedProvider = p.provider_key
-      usedModel = 'gemini-3.1-flash-image-preview'
+      usedModel = 'gemini-2.0-flash-exp'
+      console.log(`[ai-chat] Inpaint using ${usedProvider}`)
 
       const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image-preview:generateContent?key=${p.api_key_encrypted}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${p.api_key_encrypted}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             contents: [{ parts: [
-              { text: `Edytuj TYLKO zaznaczony obszar (fioletowa maska). Zmień: ${query}. Reszta obrazu zostaje bez zmian.` },
+              { text: `Edytuj TYLKO zaznaczony obszar. Zmień: ${query}. Reszta bez zmian.` },
               { inline_data: { mime_type: 'image/png', data: imageBase64 } },
               { inline_data: { mime_type: 'image/png', data: maskBase64 } }
             ]}],
@@ -142,65 +108,89 @@ serve(async (req) => {
       )
       if (!res.ok) {
         const errText = await res.text()
-        console.error('Gemini inpaint error:', res.status, errText)
-        const result = mapProviderError('Gemini', res.status, errText)
-        await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'error', errorMessage: result, ms: Date.now() - t0 })
-        return jsonResp({ result })
+        console.error('[ai-chat] Inpaint error:', res.status, errText)
+        return jsonResp({ result: mapError('Gemini', res.status, errText) })
       }
       const d = await res.json()
-      const imgPart = d?.candidates?.[0]?.content?.parts?.find((x: any) => x.inline_data?.data)
-      const img = imgPart?.inline_data?.data
-      const mime = imgPart?.inline_data?.mime_type || 'image/png'
-
+      const img = d?.candidates?.[0]?.content?.parts?.find((x: any) => x.inline_data?.data)?.inline_data?.data
       await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: img ? 'success' : 'error', ms: Date.now() - t0 })
-      return jsonResp({ result: img ? '✨ Gotowe!' : `❌ Błąd: ${d?.error?.message || 'Brak obrazu'}`, images: img ? [`data:${mime};base64,${img}`] : [] })
+      return jsonResp({ result: img ? '✨ Gotowe!' : '❌ Nie udało się edytować obrazu.', images: img ? [`data:image/png;base64,${img}`] : [] })
     }
 
-    // ── GENEROWANIE OBRAZÓW (Nano Banana) ───────────────────────
+    // ── GENEROWANIE OBRAZÓW ─────────────────────────────────────
     if (taskType === 'image') {
       const p = findGemini()
-      if (!p?.api_key_encrypted) {
-        return jsonResp({ result: '⚠️ Brak klucza Google Gemini. Wejdź w Centrum AI → Dostawcy & API → Google Gemini i wpisz klucz z aistudio.google.com.' })
+      if (!hasKey(p)) {
+        return jsonResp({ result: '⚠️ Brak klucza Google Gemini. Wejdź w Centrum AI → Dostawcy & API.' })
       }
       usedProvider = p.provider_key
-      usedModel = 'gemini-3.1-flash-image-preview'
+      const apiKey = p.api_key_encrypted
 
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image-preview:generateContent?key=${p.api_key_encrypted}`,
+      // Try Imagen 3 first (best quality)
+      console.log(`[ai-chat] Image gen: trying Imagen 3`)
+      usedModel = 'imagen-3.0-generate-001'
+      const imagenRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key=${apiKey}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            contents: [{ parts: [{ text: query }] }],
-            generationConfig: {
-              responseModalities: ['IMAGE'],
-              imageConfig: { aspectRatio: '1:1' }
-            }
+            instances: [{ prompt: query }],
+            parameters: { sampleCount: 1 }
           })
         }
       )
-      if (!res.ok) {
-        const errText = await res.text()
-        console.error('Gemini image error:', res.status, errText)
-        const result = mapProviderError('Gemini Images', res.status, errText)
-        await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'error', errorMessage: result, ms: Date.now() - t0 })
-        return jsonResp({ result, images: [] })
-      }
-      const d = await res.json()
-      const imgPart = d?.candidates?.[0]?.content?.parts?.find((x: any) => x.inline_data?.data)
-      const b64 = imgPart?.inline_data?.data
-      const mime = imgPart?.inline_data?.mime_type || 'image/png'
 
-      await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: b64 ? 'success' : 'error', ms: Date.now() - t0 })
-      return jsonResp({
-        result: b64 ? '🎨 Oto Twoja grafika (Nano Banana)!' : `❌ Błąd: ${d?.error?.message || 'Brak obrazu'}`,
-        images: b64 ? [`data:${mime};base64,${b64}`] : []
-      })
+      if (imagenRes.ok) {
+        const d = await imagenRes.json()
+        const b64 = d?.predictions?.[0]?.bytesBase64Encoded
+        if (b64) {
+          console.log(`[ai-chat] Imagen 3 success`)
+          await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'success', ms: Date.now() - t0 })
+          return jsonResp({ result: '🎨 Oto Twoja grafika!', images: [`data:image/png;base64,${b64}`] })
+        }
+        console.log(`[ai-chat] Imagen 3 returned no image, response:`, JSON.stringify(d).substring(0, 200))
+      } else {
+        const errText = await imagenRes.text()
+        console.log(`[ai-chat] Imagen 3 failed ${imagenRes.status}: ${errText.substring(0, 200)}`)
+      }
+
+      // Fallback: Gemini with image generation
+      console.log(`[ai-chat] Image gen: trying Gemini 2.0 flash exp`)
+      usedModel = 'gemini-2.0-flash-exp'
+      const geminiRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: `Generate an image: ${query}` }] }],
+            generationConfig: { responseModalities: ['IMAGE', 'TEXT'] }
+          })
+        }
+      )
+
+      if (geminiRes.ok) {
+        const d = await geminiRes.json()
+        const imgPart = d?.candidates?.[0]?.content?.parts?.find((x: any) => x.inline_data?.data)
+        if (imgPart) {
+          const b64 = imgPart.inline_data.data
+          const mime = imgPart.inline_data.mime_type || 'image/png'
+          console.log(`[ai-chat] Gemini 2.0 flash exp image success`)
+          await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'success', ms: Date.now() - t0 })
+          return jsonResp({ result: '🎨 Oto Twoja grafika!', images: [`data:${mime};base64,${b64}`] })
+        }
+        console.log(`[ai-chat] Gemini 2.0 flash exp: no image in response`)
+      } else {
+        const errText = await geminiRes.text()
+        console.error(`[ai-chat] Gemini image error ${geminiRes.status}:`, errText.substring(0, 200))
+      }
+
+      await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'error', ms: Date.now() - t0 })
+      return jsonResp({ result: '❌ Nie udało się wygenerować obrazu. Spróbuj opisać inaczej lub zmień prompt.', images: [] })
     }
 
     // ── ROUTING TEKSTU ───────────────────────────────────────────
-    const textProviders = getTextProviderChain()
-
     const history = [
       ...(messages || []).filter((m: any) => m.content).map((m: any) => ({ role: m.role, content: m.content }))
     ]
@@ -211,20 +201,41 @@ serve(async (req) => {
       ? RIDO_SYSTEM + '\n\nJesteś w trybie Cowork — gdy użytkownik prosi o akcję w portalu, wykonaj ją!'
       : RIDO_SYSTEM
 
-    if (!textProviders.length) {
-      return jsonResp({ result: '⚠️ Brak kluczy API. Wejdź w Centrum AI → Dostawcy & API i dodaj klucz Claude lub Gemini.' })
+    // Build provider chain based on mode
+    const chain: any[] = []
+    if (mode === 'rido_pro') {
+      chain.push(findByKey('claude_opus'), findByKey('claude_sonnet'), findByKey('claude_haiku'))
+    } else if (mode === 'cowork' || mode === 'rido_code') {
+      chain.push(findByKey('claude_sonnet'), findByKey('claude_haiku'))
+    } else {
+      chain.push(findByKey('claude_haiku'))
+    }
+    // Always add general fallbacks
+    chain.push(findByKey('kimi'), findGemini(), findByKey('openai_mini', 'openai_gpt4o', 'openai'))
+
+    // Deduplicate and filter to providers with keys
+    const seen = new Set<string>()
+    const providers = chain.filter((p: any) => {
+      if (!p || !hasKey(p)) return false
+      if (seen.has(p.id)) return false
+      seen.add(p.id)
+      return true
+    })
+
+    console.log(`[ai-chat] Text providers chain: ${providers.map((p: any) => p.provider_key).join(' → ')}`)
+
+    if (!providers.length) {
+      const msg = '⚠️ Brak kluczy API. Wejdź w Centrum AI → Dostawcy & API i dodaj klucz Claude lub Gemini.'
+      if (stream) return sseText(msg)
+      return jsonResp({ result: msg })
     }
 
-    // OpenAI-compatible (Kimi, OpenAI, Gemini chat)
+    // OpenAI-compatible endpoints
     const oaiEndpoints: Record<string, string> = {
       kimi: 'https://api.moonshot.cn/v1/chat/completions',
       openai_gpt4o: 'https://api.openai.com/v1/chat/completions',
       openai_mini: 'https://api.openai.com/v1/chat/completions',
       openai: 'https://api.openai.com/v1/chat/completions',
-      gemini_flash: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
-      gemini_pro: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
-      google_gemini: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
-      gemini: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
     }
 
     const claudeModels: Record<string, string> = {
@@ -233,87 +244,131 @@ serve(async (req) => {
       claude_opus: 'claude-opus-4-6',
     }
 
-    let lastError = '⚠️ Żaden aktywny dostawca AI nie odpowiedział.'
+    let lastError = '⚠️ Żaden dostawca AI nie odpowiedział.'
 
-    for (const p of textProviders) {
-      const apiKey = p?.api_key_encrypted
-      if (!apiKey) continue
-
+    for (const p of providers) {
+      const apiKey = p.api_key_encrypted
       usedProvider = p.provider_key
       usedModel = p.default_model || p.provider_key
 
       const isGemini = p.display_name?.toLowerCase().includes('gemini') ||
                        p.provider_key?.toLowerCase().includes('gemini') ||
                        p.display_name?.toLowerCase().includes('imagen')
-      const endpoint = oaiEndpoints[p.provider_key] ||
-                       (isGemini ? 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions' : null)
+      const isClaude = p.provider_key?.startsWith('claude')
 
-      if (endpoint) {
-        if (isGemini) usedModel = 'gemini-2.5-flash'
-        const res = await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-          body: JSON.stringify({
-            model: usedModel,
-            messages: [{ role: 'system', content: sys }, ...history],
-            stream: !!stream,
-            max_tokens: 2048
+      console.log(`[ai-chat] Trying provider: ${p.provider_key} (isGemini=${isGemini}, isClaude=${isClaude})`)
+
+      try {
+        if (isClaude) {
+          // Anthropic API
+          usedModel = claudeModels[p.provider_key] || 'claude-haiku-4-5-20251001'
+          const res = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-api-key': apiKey,
+              'anthropic-version': '2023-06-01'
+            },
+            body: JSON.stringify({
+              model: usedModel,
+              max_tokens: 2048,
+              system: sys,
+              messages: history,
+              stream: !!stream
+            })
           })
-        })
 
-        if (!res.ok) {
-          const errText = await res.text()
-          lastError = mapProviderError(p.display_name || p.provider_key, res.status, errText)
-          console.error('Provider error:', p.provider_key, res.status, errText)
-          await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'error', errorMessage: lastError, ms: Date.now() - t0 })
-          continue
+          if (!res.ok) {
+            const errText = await res.text()
+            lastError = mapError(p.display_name || 'Claude', res.status, errText)
+            console.error(`[ai-chat] Claude ${p.provider_key} error ${res.status}:`, errText.substring(0, 200))
+            await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'error', errorMessage: lastError, ms: Date.now() - t0 })
+            continue
+          }
+
+          console.log(`[ai-chat] ✅ Claude ${p.provider_key} success`)
+          await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'success', ms: Date.now() - t0 })
+          if (stream) return new Response(res.body, { headers: { ...cors, 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' } })
+          const d = await res.json()
+          return jsonResp({ result: d.content?.[0]?.text || 'Brak odpowiedzi' })
+
+        } else if (isGemini) {
+          // Gemini via OpenAI-compatible endpoint
+          usedModel = 'gemini-2.5-flash'
+          const res = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+            body: JSON.stringify({
+              model: usedModel,
+              messages: [{ role: 'system', content: sys }, ...history],
+              stream: !!stream,
+              max_tokens: 2048
+            })
+          })
+
+          if (!res.ok) {
+            const errText = await res.text()
+            lastError = mapError('Gemini', res.status, errText)
+            console.error(`[ai-chat] Gemini error ${res.status}:`, errText.substring(0, 200))
+            await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'error', errorMessage: lastError, ms: Date.now() - t0 })
+            continue
+          }
+
+          console.log(`[ai-chat] ✅ Gemini success`)
+          await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'success', ms: Date.now() - t0 })
+          if (stream) return new Response(res.body, { headers: { ...cors, 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' } })
+          const d = await res.json()
+          return jsonResp({ result: d.choices?.[0]?.message?.content || 'Brak odpowiedzi' })
+
+        } else {
+          // OpenAI-compatible (Kimi, OpenAI, etc.)
+          const endpoint = oaiEndpoints[p.provider_key]
+          if (!endpoint) {
+            console.log(`[ai-chat] No endpoint for ${p.provider_key}, skipping`)
+            continue
+          }
+
+          const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+            body: JSON.stringify({
+              model: usedModel,
+              messages: [{ role: 'system', content: sys }, ...history],
+              stream: !!stream,
+              max_tokens: 2048
+            })
+          })
+
+          if (!res.ok) {
+            const errText = await res.text()
+            lastError = mapError(p.display_name || p.provider_key, res.status, errText)
+            console.error(`[ai-chat] ${p.provider_key} error ${res.status}:`, errText.substring(0, 200))
+            await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'error', errorMessage: lastError, ms: Date.now() - t0 })
+            continue
+          }
+
+          console.log(`[ai-chat] ✅ ${p.provider_key} success`)
+          await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'success', ms: Date.now() - t0 })
+          if (stream) return new Response(res.body, { headers: { ...cors, 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' } })
+          const d = await res.json()
+          return jsonResp({ result: d.choices?.[0]?.message?.content || 'Brak odpowiedzi' })
         }
-
-        await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'success', ms: Date.now() - t0 })
-        if (stream) return new Response(res.body, { headers: { ...cors, 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' } })
-        const d = await res.json()
-        return jsonResp({ result: d.choices?.[0]?.message?.content || 'Brak odpowiedzi' })
-      }
-
-      usedModel = claudeModels[p.provider_key] || 'claude-haiku-4-5-20251001'
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify({
-          model: usedModel,
-          max_tokens: 2048,
-          system: sys,
-          messages: history,
-          stream: !!stream
-        })
-      })
-
-      if (!res.ok) {
-        const errText = await res.text()
-        lastError = mapProviderError(p.display_name || p.provider_key, res.status, errText)
-        console.error('Claude error:', p.provider_key, res.status, errText)
-        await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'error', errorMessage: lastError, ms: Date.now() - t0 })
+      } catch (providerErr) {
+        lastError = `⚠️ ${p.display_name || p.provider_key}: błąd połączenia.`
+        console.error(`[ai-chat] ${p.provider_key} exception:`, providerErr)
         continue
       }
-
-      await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'success', ms: Date.now() - t0 })
-      if (stream) return new Response(res.body, { headers: { ...cors, 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' } })
-      const d = await res.json()
-      return jsonResp({ result: d.content?.[0]?.text || 'Brak odpowiedzi' })
     }
 
+    console.error(`[ai-chat] All providers failed. Last error: ${lastError}`)
     if (stream) return sseText(lastError)
     return jsonResp({ result: lastError })
 
   } catch (err) {
-    console.error('ai-chat error:', err)
+    console.error('[ai-chat] Fatal error:', err)
     await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'error', errorMessage: String(err), ms: Date.now() - t0 }).catch(() => {})
     return new Response(
-      JSON.stringify({ result: `⚠️ Błąd: ${String(err)}` }),
+      JSON.stringify({ result: `⚠️ Błąd serwera: ${String(err)}` }),
       { status: 500, headers: { ...cors, 'Content-Type': 'application/json' } }
     )
   }
@@ -322,7 +377,7 @@ serve(async (req) => {
 const jsonResp = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), {
     status,
-    headers: { ...cors, 'Content-Type': 'application/json' }
+    headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' }
   })
 
 async function logReq(sb: any, o: {
@@ -335,26 +390,29 @@ async function logReq(sb: any, o: {
       actor_user_id: o.userId, status: o.status,
       response_time_ms: o.ms || null, error_message: o.errorMessage || null, cache_hit: false
     })
-  } catch { /* ignoruj błędy logowania */ }
+  } catch { /* ignore */ }
 }
 
-function mapProviderError(providerName: string, status: number, rawError: string) {
-  const err = rawError.toLowerCase()
-  if (status === 429 || err.includes('rate') || err.includes('too many requests')) {
-    return `⚠️ ${providerName}: zbyt wiele zapytań. Spróbuj ponownie za chwilę.`
+function mapError(name: string, status: number, raw: string) {
+  const err = raw.toLowerCase()
+  if (status === 429 || err.includes('rate') || err.includes('too many')) {
+    return `⚠️ ${name}: zbyt wiele zapytań. Spróbuj za chwilę.`
   }
-  if (status === 402 || err.includes('payment required') || err.includes('quota exceeded') || err.includes('billing') || err.includes('credit balance is too low')) {
-    return `⚠️ ${providerName}: brak środków lub limit został wyczerpany. Sprawdź billing tego dostawcy.`
+  if (status === 402 || err.includes('credit') || err.includes('billing') || err.includes('quota') || err.includes('payment')) {
+    return `⚠️ ${name}: brak środków. Doładuj konto dostawcy.`
   }
-  if (status === 401 || status === 403 || err.includes('invalid api key') || err.includes('permission')) {
-    return `⚠️ ${providerName}: nieprawidłowy klucz API albo brak uprawnień.`
+  if (status === 401 || status === 403 || err.includes('invalid') || err.includes('permission') || err.includes('authentication')) {
+    return `⚠️ ${name}: nieprawidłowy klucz API.`
   }
-  return `⚠️ ${providerName}: błąd dostawcy AI (${status}).`
+  if (status === 404 || err.includes('not found')) {
+    return `⚠️ ${name}: model nie istnieje (${status}).`
+  }
+  return `⚠️ ${name}: błąd (${status}).`
 }
 
 function sseText(text: string) {
   const payload = `data: ${JSON.stringify({ choices: [{ delta: { content: text } }] })}\n\ndata: [DONE]\n\n`
   return new Response(payload, {
-    headers: { ...cors, 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' }
+    headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' }
   })
 }
