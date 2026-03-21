@@ -313,10 +313,12 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
   const openEditor = (imgSrc: string) => {
     setEditorImage(imgSrc);
     setBrushActive(false);
-    setEditPrompt('');
     setIsDrawing(false);
-    setShowEditInput(false);
+    setAnnotations([]);
+    setActiveAnnotation(null);
+    annotationCounter.current = 0;
     lastPoint.current = null;
+    currentPath.current = [];
   };
 
   const downloadImage = (imgSrc: string) => {
@@ -342,7 +344,17 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
     img.src = editorImage;
   }, [editorImage]);
 
-  // Smooth brush drawing with line interpolation
+  // Redraw all annotation masks on the mask canvas
+  const redrawAnnotations = useCallback((anns: typeof annotations) => {
+    if (!maskCanvasRef.current) return;
+    const ctx = maskCanvasRef.current.getContext('2d')!;
+    ctx.clearRect(0, 0, maskCanvasRef.current.width, maskCanvasRef.current.height);
+    anns.forEach(ann => {
+      ctx.putImageData(ann.maskData, 0, 0);
+    });
+  }, []);
+
+  // Smooth brush drawing
   const getCanvasCoords = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const rect = maskCanvasRef.current!.getBoundingClientRect();
     const sx = maskCanvasRef.current!.width / rect.width;
@@ -350,10 +362,10 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
     return { x: (e.clientX - rect.left) * sx, y: (e.clientY - rect.top) * sy };
   };
 
-  const drawBrushStroke = (from: { x: number; y: number }, to: { x: number; y: number }) => {
+  const drawStroke = (from: { x: number; y: number }, to: { x: number; y: number }) => {
     if (!maskCanvasRef.current) return;
     const ctx = maskCanvasRef.current.getContext('2d')!;
-    ctx.strokeStyle = 'rgba(108, 60, 240, 0.4)';
+    ctx.strokeStyle = 'rgba(108, 60, 240, 0.45)';
     ctx.lineWidth = 36;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
@@ -366,54 +378,99 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
   const onBrushDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!brushActive) return;
     setIsDrawing(true);
-    setShowEditInput(false);
     const pt = getCanvasCoords(e);
     lastPoint.current = pt;
-    drawBrushStroke(pt, pt);
+    currentPath.current = [pt];
+    // Draw initial dot
+    drawStroke(pt, pt);
   };
 
   const onBrushMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!isDrawing || !brushActive || !lastPoint.current) return;
     const pt = getCanvasCoords(e);
-    drawBrushStroke(lastPoint.current, pt);
+    drawStroke(lastPoint.current, pt);
     lastPoint.current = pt;
+    currentPath.current.push(pt);
   };
 
-  const onBrushUp = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isDrawing) return;
+  const onBrushUp = () => {
+    if (!isDrawing || !maskCanvasRef.current) return;
     setIsDrawing(false);
     lastPoint.current = null;
-    // Show edit input near mouse position
-    const rect = (e.target as HTMLElement).getBoundingClientRect();
-    setEditInputPos({
-      x: Math.min(e.clientX - rect.left, rect.width - 320),
-      y: Math.max(e.clientY - rect.top - 60, 10)
-    });
-    setShowEditInput(true);
+
+    // Calculate center of drawn path
+    const path = currentPath.current;
+    if (path.length === 0) return;
+    const cx = path.reduce((s, p) => s + p.x, 0) / path.length;
+    const cy = path.reduce((s, p) => s + p.y, 0) / path.length;
+
+    // Save current mask as annotation
+    const ctx = maskCanvasRef.current.getContext('2d')!;
+    const maskData = ctx.getImageData(0, 0, maskCanvasRef.current.width, maskCanvasRef.current.height);
+    
+    annotationCounter.current += 1;
+    const newAnnotation = {
+      id: annotationCounter.current,
+      maskData,
+      center: { x: cx, y: cy },
+      description: '',
+    };
+    
+    setAnnotations(prev => [...prev, newAnnotation]);
+    setActiveAnnotation(annotationCounter.current);
+    currentPath.current = [];
   };
 
-  const clearMask = () => {
+  const updateAnnotationDesc = (id: number, desc: string) => {
+    setAnnotations(prev => prev.map(a => a.id === id ? { ...a, description: desc } : a));
+  };
+
+  const removeAnnotation = (id: number) => {
+    setAnnotations(prev => {
+      const updated = prev.filter(a => a.id !== id);
+      // Redraw remaining masks
+      if (maskCanvasRef.current) {
+        const ctx = maskCanvasRef.current.getContext('2d')!;
+        ctx.clearRect(0, 0, maskCanvasRef.current.width, maskCanvasRef.current.height);
+        // Re-overlay remaining annotation masks
+        updated.forEach(ann => {
+          const tempCanvas = document.createElement('canvas');
+          tempCanvas.width = maskCanvasRef.current!.width;
+          tempCanvas.height = maskCanvasRef.current!.height;
+          const tctx = tempCanvas.getContext('2d')!;
+          tctx.putImageData(ann.maskData, 0, 0);
+          ctx.drawImage(tempCanvas, 0, 0);
+        });
+      }
+      return updated;
+    });
+    if (activeAnnotation === id) setActiveAnnotation(null);
+  };
+
+  const clearAllAnnotations = () => {
     if (!maskCanvasRef.current) return;
     const ctx = maskCanvasRef.current.getContext('2d')!;
     ctx.clearRect(0, 0, maskCanvasRef.current.width, maskCanvasRef.current.height);
-    setShowEditInput(false);
-    setEditPrompt('');
+    setAnnotations([]);
+    setActiveAnnotation(null);
+    annotationCounter.current = 0;
   };
 
-  const applyEdit = async () => {
-    if (!editPrompt.trim() || !canvasRef.current || !maskCanvasRef.current || isEditing) return;
+  const applyAllEdits = async () => {
+    const validAnnotations = annotations.filter(a => a.description.trim());
+    if (validAnnotations.length === 0 || !canvasRef.current || !maskCanvasRef.current || isEditing) return;
     setIsEditing(true);
-    setShowEditInput(false);
     try {
+      const combinedPrompt = validAnnotations.map((a, i) => `${i + 1}. ${a.description}`).join('\n');
       const result = await execute({
         taskType: 'inpaint',
-        query: editPrompt,
+        query: combinedPrompt,
         imageBase64: canvasRef.current.toDataURL('image/png').split(',')[1],
         maskBase64: maskCanvasRef.current.toDataURL('image/png').split(',')[1],
       });
       if (result?.images?.[0]) {
         setEditorImage(result.images[0]);
-        setEditPrompt('');
+        clearAllAnnotations();
         setBrushActive(false);
       }
     } finally {
@@ -451,16 +508,23 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
 
   // ── Fullscreen Image Editor ───────────────────────────────
   if (editorImage) {
+    const validAnnotationCount = annotations.filter(a => a.description.trim()).length;
     return (
       <div className="fixed inset-0 z-[60] bg-background flex flex-col">
+        {/* Toolbar */}
         <div className="flex items-center justify-between px-5 py-3 border-b bg-background shadow-sm flex-shrink-0">
           <div className="flex items-center gap-3">
             <img src={ridoMascot} alt="RidoAI" className="w-9 h-9 object-contain flex-shrink-0" />
             <span className="font-bold text-sm">Edytor grafiki</span>
+            {annotations.length > 0 && (
+              <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-semibold">
+                {annotations.length} {annotations.length === 1 ? 'zaznaczenie' : 'zaznaczeń'}
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => { setBrushActive(!brushActive); setShowEditInput(false); }}
+              onClick={() => setBrushActive(!brushActive)}
               className={cn(
                 'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold border transition-all',
                 brushActive
@@ -471,10 +535,21 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
               <Paintbrush className="h-4 w-4" />
               {brushActive ? 'Pędzel ON' : 'Pędzel'}
             </button>
-            {brushActive && (
-              <button onClick={clearMask} className="p-2 rounded-lg hover:bg-muted border border-border" title="Wyczyść zaznaczenie">
+            {annotations.length > 0 && (
+              <button onClick={clearAllAnnotations} className="p-2 rounded-lg hover:bg-muted border border-border" title="Wyczyść wszystko">
                 <RotateCcw className="h-4 w-4" />
               </button>
+            )}
+            {validAnnotationCount > 0 && (
+              <Button
+                size="sm"
+                onClick={applyAllEdits}
+                disabled={isEditing}
+                className="rounded-lg text-xs font-semibold gap-1.5"
+              >
+                {isEditing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                Popraw obrazek ({validAnnotationCount})
+              </Button>
             )}
             <button onClick={() => downloadImage(editorImage)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold hover:bg-muted border border-border">
               <Download className="h-4 w-4" /> Pobierz
@@ -485,51 +560,115 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
           </div>
         </div>
 
-        <div className="flex-1 overflow-auto flex items-center justify-center p-6 bg-muted/20">
-          <div className="relative inline-block shadow-2xl rounded-2xl overflow-hidden border border-border">
-            <canvas ref={canvasRef} className="block max-w-full max-h-[70vh]" />
-            <canvas
-              ref={maskCanvasRef}
-              className={cn('absolute inset-0 w-full h-full', brushActive ? 'cursor-crosshair' : 'pointer-events-none')}
-              onMouseDown={onBrushDown}
-              onMouseMove={onBrushMove}
-              onMouseUp={onBrushUp}
-              onMouseLeave={() => { setIsDrawing(false); lastPoint.current = null; }}
-            />
-            {brushActive && !showEditInput && (
-              <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-primary/90 text-primary-foreground text-xs px-3 py-1.5 rounded-full pointer-events-none font-semibold">
-                Zamaluj obszar który chcesz zmienić
-              </div>
-            )}
-            {/* Floating edit input after brush stroke */}
-            {showEditInput && (
-              <div
-                className="absolute z-10 bg-background border-2 border-primary rounded-xl shadow-2xl p-3 w-[300px]"
-                style={{ left: editInputPos.x, top: editInputPos.y }}
-                onClick={e => e.stopPropagation()}
-              >
-                <p className="text-xs font-semibold text-primary mb-2">✏️ Co zmienić w tym obszarze?</p>
-                <input
-                  type="text"
-                  value={editPrompt}
-                  onChange={e => setEditPrompt(e.target.value)}
-                  placeholder='np. "zmień kolor na niebieski"'
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:border-primary focus:ring-1 focus:ring-primary/30 outline-none font-medium"
-                  autoFocus
-                  onKeyDown={e => { if (e.key === 'Enter') applyEdit(); }}
+        {/* Editor area */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* Canvas area */}
+          <div className="flex-1 overflow-auto flex items-center justify-center p-6 bg-muted/20">
+            <div className="relative inline-block shadow-2xl rounded-2xl overflow-visible">
+              <div className="rounded-2xl overflow-hidden border border-border">
+                <canvas ref={canvasRef} className="block max-w-full max-h-[70vh]" style={{ touchAction: 'none' }} />
+                <canvas
+                  ref={maskCanvasRef}
+                  className={cn('absolute inset-0 w-full h-full', brushActive ? 'cursor-crosshair' : 'pointer-events-none')}
+                  style={{ touchAction: 'none' }}
+                  onMouseDown={onBrushDown}
+                  onMouseMove={onBrushMove}
+                  onMouseUp={onBrushUp}
+                  onMouseLeave={() => { if (isDrawing) { setIsDrawing(false); lastPoint.current = null; } }}
                 />
-                <div className="flex gap-2 mt-2">
-                  <Button size="sm" onClick={applyEdit} disabled={!editPrompt.trim() || isEditing} className="flex-1 rounded-lg text-xs font-semibold gap-1">
-                    {isEditing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-                    Zastosuj
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => { setShowEditInput(false); clearMask(); }} className="rounded-lg text-xs font-semibold">
-                    Anuluj
+              </div>
+              {brushActive && annotations.length === 0 && !isDrawing && (
+                <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-primary/90 text-primary-foreground text-xs px-3 py-1.5 rounded-full pointer-events-none font-semibold">
+                  Zamaluj obszar który chcesz zmienić
+                </div>
+              )}
+              {/* Numbered circles on image showing annotation positions */}
+              {annotations.map(ann => {
+                const canvas = maskCanvasRef.current;
+                if (!canvas) return null;
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = rect.width / canvas.width;
+                const scaleY = rect.height / canvas.height;
+                return (
+                  <div
+                    key={ann.id}
+                    className={cn(
+                      'absolute w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold pointer-events-none border-2 shadow-lg',
+                      ann.description.trim()
+                        ? 'bg-primary text-primary-foreground border-primary-foreground/30'
+                        : 'bg-accent text-accent-foreground border-border'
+                    )}
+                    style={{
+                      left: ann.center.x * scaleX - 14,
+                      top: ann.center.y * scaleY - 14,
+                    }}
+                  >
+                    {ann.id}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Annotations sidebar */}
+          {annotations.length > 0 && (
+            <div className="w-[320px] border-l bg-background flex flex-col flex-shrink-0">
+              <div className="px-4 py-3 border-b">
+                <h3 className="font-bold text-sm">Zaznaczenia</h3>
+                <p className="text-[11px] text-muted-foreground">Opisz co zmienić w każdym obszarze</p>
+              </div>
+              <ScrollArea className="flex-1">
+                <div className="p-3 space-y-3">
+                  {annotations.map(ann => (
+                    <div
+                      key={ann.id}
+                      className={cn(
+                        'rounded-xl border p-3 transition-all',
+                        activeAnnotation === ann.id ? 'border-primary bg-primary/5' : 'border-border'
+                      )}
+                      onClick={() => setActiveAnnotation(ann.id)}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center">
+                            {ann.id}
+                          </span>
+                          <span className="text-xs font-semibold text-foreground">Obszar {ann.id}</span>
+                        </div>
+                        <button
+                          onClick={e => { e.stopPropagation(); removeAnnotation(ann.id); }}
+                          className="p-1 hover:bg-destructive/10 rounded-lg transition-colors"
+                          title="Usuń zaznaczenie"
+                        >
+                          <X className="h-3.5 w-3.5 text-destructive" />
+                        </button>
+                      </div>
+                      <input
+                        type="text"
+                        value={ann.description}
+                        onChange={e => updateAnnotationDesc(ann.id, e.target.value)}
+                        placeholder='np. "zmień kolor na niebieski"'
+                        className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:border-primary focus:ring-1 focus:ring-primary/30 outline-none"
+                        autoFocus={activeAnnotation === ann.id}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+              {validAnnotationCount > 0 && (
+                <div className="p-3 border-t">
+                  <Button
+                    onClick={applyAllEdits}
+                    disabled={isEditing}
+                    className="w-full rounded-xl font-semibold gap-2"
+                  >
+                    {isEditing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                    Popraw obrazek ({validAnnotationCount} {validAnnotationCount === 1 ? 'zmiana' : 'zmian'})
                   </Button>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
         </div>
 
         {isEditing && (
