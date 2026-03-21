@@ -8,7 +8,8 @@ import { supabase } from '@/integrations/supabase/client';
 import ReactMarkdown from 'react-markdown';
 import {
   Loader2, Send, Plus, MessageCircle, Briefcase, Image,
-  Trash2, Sparkles, X, Search, PanelLeftOpen, PanelLeftClose, Lock
+  Sparkles, X, Search, PanelLeftOpen, PanelLeftClose, Lock,
+  Download, Paintbrush, RotateCcw
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ridoMascot from '@/assets/rido-mascot.png';
@@ -59,6 +60,15 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
   const [conversations, setConversations] = useState<Conv[]>([]);
   const [currentConvId, setCurrentConvId] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+
+  // Image editor state
+  const [editorImage, setEditorImage] = useState<string | null>(null);
+  const [brushActive, setBrushActive] = useState(false);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [editPrompt, setEditPrompt] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const maskCanvasRef = useRef<HTMLCanvasElement>(null);
 
   const { streamExecute, execute, isLoading } = useGetRidoAI();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -127,7 +137,6 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
     if (!convId) { convId = await createConv(text, mainMode); setCurrentConvId(convId); }
     await saveMsg(convId!, userMsg);
 
-    // Auto-detect image requests in any mode
     const isImgMode = mainMode as string === 'grafika';
     const isImg = isImgMode || IMAGE_PATTERNS.test(text);
 
@@ -141,7 +150,6 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
       return;
     }
 
-    // Text chat with streaming
     setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
     let acc = '';
     const activeMode = mainMode === 'cowork' ? 'cowork' : mainMode === 'grafika' ? 'rido_create' : 'rido_chat';
@@ -173,6 +181,76 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
     );
   }, [input, isLoading, messages, mainMode, currentConvId, userId, streamExecute, execute, navigate, loadConversations]);
 
+  // ── Image Editor ──────────────────────────────────────────
+  const openEditor = (imgSrc: string) => {
+    setEditorImage(imgSrc);
+    setBrushActive(false);
+    setEditPrompt('');
+    setIsDrawing(false);
+  };
+
+  const downloadImage = (imgSrc: string) => {
+    const a = document.createElement('a');
+    a.href = imgSrc;
+    a.download = 'rido-grafika.png';
+    a.click();
+  };
+
+  useEffect(() => {
+    if (!editorImage || !canvasRef.current || !maskCanvasRef.current) return;
+    const img = new window.Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const maxW = Math.min(img.width, 900);
+      const ratio = img.height / img.width;
+      const w = maxW;
+      const h = Math.round(maxW * ratio);
+      [canvasRef.current!, maskCanvasRef.current!].forEach(c => { c.width = w; c.height = h; });
+      canvasRef.current!.getContext('2d')!.drawImage(img, 0, 0, w, h);
+      maskCanvasRef.current!.getContext('2d')!.clearRect(0, 0, w, h);
+    };
+    img.src = editorImage;
+  }, [editorImage]);
+
+  const onDraw = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isDrawing || !brushActive || !maskCanvasRef.current) return;
+    const rect = maskCanvasRef.current.getBoundingClientRect();
+    const sx = maskCanvasRef.current.width / rect.width;
+    const sy = maskCanvasRef.current.height / rect.height;
+    const ctx = maskCanvasRef.current.getContext('2d')!;
+    ctx.fillStyle = 'rgba(108, 60, 240, 0.45)';
+    ctx.beginPath();
+    ctx.arc((e.clientX - rect.left) * sx, (e.clientY - rect.top) * sy, 22, 0, Math.PI * 2);
+    ctx.fill();
+  };
+
+  const clearMask = () => {
+    if (!maskCanvasRef.current) return;
+    const ctx = maskCanvasRef.current.getContext('2d')!;
+    ctx.clearRect(0, 0, maskCanvasRef.current.width, maskCanvasRef.current.height);
+  };
+
+  const applyEdit = async () => {
+    if (!editPrompt.trim() || !canvasRef.current || !maskCanvasRef.current || isEditing) return;
+    setIsEditing(true);
+    try {
+      const result = await execute({
+        taskType: 'inpaint',
+        query: editPrompt,
+        imageBase64: canvasRef.current.toDataURL('image/png').split(',')[1],
+        maskBase64: maskCanvasRef.current.toDataURL('image/png').split(',')[1],
+      });
+      if (result?.images?.[0]) {
+        setEditorImage(result.images[0]);
+        setEditPrompt('');
+        setBrushActive(false);
+      }
+    } finally {
+      setIsEditing(false);
+    }
+  };
+
+  // ── Display ───────────────────────────────────────────────
   const displayMsgs = messages.length === 0
     ? [{ role: 'assistant' as const, content: WELCOME[mainMode] || '' }]
     : messages;
@@ -181,7 +259,6 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
     ? conversations.filter(c => c.title?.toLowerCase().includes(searchQuery.toLowerCase()))
     : conversations;
 
-  // Group by date
   const groupedConvs = (() => {
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
@@ -201,6 +278,115 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
 
   if (!open) return null;
 
+  // ── Fullscreen Image Editor ───────────────────────────────
+  if (editorImage) {
+    return (
+      <div className="fixed inset-0 z-[60] bg-background flex flex-col">
+        {/* Editor top bar */}
+        <div className="flex items-center justify-between px-5 py-3 border-b bg-background shadow-sm flex-shrink-0">
+          <div className="flex items-center gap-3">
+            <img src={ridoMascot} alt="RidoAI" className="w-8 h-8 rounded-full object-cover bg-white border-2 border-foreground/10" />
+            <span className="font-bold text-sm">Edytor grafiki</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setBrushActive(!brushActive)}
+              className={cn(
+                'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border transition-all',
+                brushActive
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'hover:bg-muted border-border'
+              )}
+            >
+              <Paintbrush className="h-4 w-4" />
+              {brushActive ? 'Pędzel ON' : 'Pędzel'}
+            </button>
+            {brushActive && (
+              <button
+                onClick={clearMask}
+                className="p-2 rounded-lg hover:bg-muted border border-border"
+                title="Wyczyść zaznaczenie"
+              >
+                <RotateCcw className="h-4 w-4" />
+              </button>
+            )}
+            <button
+              onClick={() => downloadImage(editorImage)}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium hover:bg-muted border border-border"
+            >
+              <Download className="h-4 w-4" />
+              Pobierz
+            </button>
+            <button
+              onClick={() => setEditorImage(null)}
+              className="p-2 rounded-lg hover:bg-muted border border-border"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Canvas area */}
+        <div className="flex-1 overflow-auto flex items-center justify-center p-6 bg-muted/20">
+          <div className="relative inline-block shadow-2xl rounded-2xl overflow-hidden border border-border">
+            <canvas ref={canvasRef} className="block max-w-full max-h-[70vh]" />
+            <canvas
+              ref={maskCanvasRef}
+              className={cn(
+                'absolute inset-0 w-full h-full',
+                brushActive ? 'cursor-crosshair' : 'pointer-events-none'
+              )}
+              onMouseDown={() => setIsDrawing(true)}
+              onMouseUp={() => setIsDrawing(false)}
+              onMouseLeave={() => setIsDrawing(false)}
+              onMouseMove={onDraw}
+            />
+            {brushActive && (
+              <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-primary/90 text-primary-foreground text-xs px-3 py-1.5 rounded-full pointer-events-none font-medium">
+                Zamaluj obszar który chcesz zmienić
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Edit prompt bar */}
+        <div className="px-5 py-4 border-t bg-background flex-shrink-0">
+          <div className="max-w-2xl mx-auto flex items-end gap-3">
+            <div className="flex-1">
+              <p className="text-xs text-muted-foreground mb-1.5 font-medium">
+                {brushActive
+                  ? '✏️ Zamaluj obszar pędzlem i opisz co zmienić:'
+                  : '💡 Włącz pędzel → zamaluj fragment obrazu → opisz zmianę'}
+              </p>
+              <Textarea
+                value={editPrompt}
+                onChange={e => setEditPrompt(e.target.value)}
+                placeholder='np. "zmień kolor ściany na niebieski" lub "wstaw tutaj wazon z kwiatami"'
+                disabled={!brushActive || isEditing}
+                className="resize-none rounded-xl text-sm min-h-[44px]"
+                rows={1}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && !e.shiftKey && brushActive) {
+                    e.preventDefault();
+                    applyEdit();
+                  }
+                }}
+              />
+            </div>
+            <Button
+              onClick={applyEdit}
+              disabled={!editPrompt.trim() || !brushActive || isEditing}
+              className="h-[44px] px-5 rounded-xl gap-2"
+            >
+              {isEditing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              Zastosuj
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex">
       {/* Backdrop */}
@@ -212,7 +398,6 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
         {/* Sidebar */}
         {sidebarOpen && (
           <div className="w-[240px] flex flex-col border-r bg-muted/30 flex-shrink-0">
-            {/* New chat button */}
             <div className="p-3 border-b">
               <Button
                 variant="outline"
@@ -225,7 +410,6 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
               </Button>
             </div>
 
-            {/* Search */}
             <div className="px-3 py-2">
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/60" />
@@ -239,7 +423,6 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
               </div>
             </div>
 
-            {/* Conversations */}
             <ScrollArea className="flex-1">
               <div className="px-2 py-1 space-y-2">
                 {groupedConvs.length === 0 && (
@@ -326,7 +509,7 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
             </div>
           </div>
 
-          {/* Mode tabs: Chat, Grafika, Cowork */}
+          {/* Mode tabs */}
           <div className="flex items-center justify-center px-4 py-2 border-b">
             <div className="flex items-center gap-1 bg-muted/50 rounded-xl p-1">
               {([
@@ -396,9 +579,40 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
                         )}>
                           {msg.role === 'assistant' ? (
                             <div className="prose prose-sm dark:prose-invert max-w-none [&>p]:mb-2 [&>p:last-child]:mb-0 [&>ul]:mb-2 [&>ol]:mb-2 [&>li]:mb-0.5 [&_strong]:text-foreground [&>p]:text-sm [&>p]:font-normal [&>li]:text-sm">
-                              <ReactMarkdown>{(msg.content || '...').replace(/ACTION:\{.*?\}/s, '').replace(/IMAGE_REQUEST:true/g, '').trim()}</ReactMarkdown>
+                              <ReactMarkdown>
+                                {(msg.content || '...')
+                                  .replace(/ACTION:\{.*?\}/s, '')
+                                  .replace(/IMAGE_REQUEST:true/g, '')
+                                  .replace(/\(Imagen \d+\)/gi, '')
+                                  .trim()}
+                              </ReactMarkdown>
+                              {/* Image thumbnails with action buttons */}
                               {msg.images?.map((img, idx) => (
-                                <img key={idx} src={img} alt="Generated" className="rounded-xl max-w-full shadow-lg border border-border/50 mt-3" />
+                                <div key={idx} className="relative group mt-3">
+                                  <img
+                                    src={img}
+                                    alt="Wygenerowana grafika"
+                                    className="rounded-xl max-w-full shadow-lg border border-border/50 cursor-pointer hover:opacity-95 transition-opacity"
+                                    onClick={() => openEditor(img)}
+                                  />
+                                  {/* Overlay buttons top-left */}
+                                  <div className="absolute top-2 left-2 flex items-center gap-1.5">
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); downloadImage(img); }}
+                                      className="bg-background/90 backdrop-blur-sm text-foreground p-2 rounded-lg shadow-md border border-border/50 hover:bg-background transition-colors"
+                                      title="Pobierz"
+                                    >
+                                      <Download className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); openEditor(img); }}
+                                      className="bg-background/90 backdrop-blur-sm text-foreground p-2 rounded-lg shadow-md border border-border/50 hover:bg-background transition-colors"
+                                      title="Edytuj pędzlem"
+                                    >
+                                      <Paintbrush className="h-4 w-4" />
+                                    </button>
+                                  </div>
+                                </div>
                               ))}
                             </div>
                           ) : (
