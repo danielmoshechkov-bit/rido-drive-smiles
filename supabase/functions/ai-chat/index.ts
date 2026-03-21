@@ -402,21 +402,21 @@ async function logReq(sb: any, o: {
   } catch { /* ignore */ }
 }
 
-function mapError(name: string, status: number, raw: string) {
+function mapError(_name: string, status: number, raw: string) {
   const err = raw.toLowerCase()
   if (status === 429 || err.includes('rate') || err.includes('too many')) {
-    return `⚠️ ${name}: zbyt wiele zapytań. Spróbuj za chwilę.`
+    return '⚠️ Za dużo zapytań w krótkim czasie. Spróbuj ponownie za chwilę.'
   }
   if (status === 402 || err.includes('credit') || err.includes('billing') || err.includes('quota') || err.includes('payment')) {
-    return `⚠️ ${name}: brak środków. Doładuj konto dostawcy.`
+    return '⚠️ Usługa tymczasowo niedostępna. Spróbuj ponownie później.'
   }
   if (status === 401 || status === 403 || err.includes('invalid') || err.includes('permission') || err.includes('authentication')) {
-    return `⚠️ ${name}: nieprawidłowy klucz API.`
+    return '⚠️ Problem z autoryzacją. Skontaktuj się z administratorem.'
   }
   if (status === 404 || err.includes('not found')) {
-    return `⚠️ ${name}: model nie istnieje (${status}).`
+    return '⚠️ Usługa tymczasowo niedostępna. Spróbuj ponownie.'
   }
-  return `⚠️ ${name}: błąd (${status}).`
+  return `⚠️ Coś poszło nie tak. Spróbuj ponownie za chwilę.`
 }
 
 function sseText(text: string) {
