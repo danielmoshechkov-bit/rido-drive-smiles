@@ -1004,14 +1004,26 @@ function ConvItemInline({ title, active, onClick, onDelete }: {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       className={cn(
-        'flex items-center px-3 py-2.5 rounded-xl cursor-pointer transition-all',
+        'relative flex items-center px-3 py-2.5 rounded-xl cursor-pointer transition-all',
         active
           ? 'bg-primary text-primary-foreground'
           : 'text-foreground hover:bg-accent hover:text-accent-foreground'
       )}
       style={{ minWidth: 0 }}
     >
-      <MessageCircle className="h-4 w-4 flex-shrink-0 opacity-60 mr-2" />
+      <button
+        onClick={onDelete}
+        title="Usuń rozmowę"
+        style={{
+          opacity: hovered || active ? 1 : 0,
+          transition: 'opacity 0.15s',
+          lineHeight: 0,
+        }}
+        className="absolute left-1 top-1 p-1 rounded-md hover:bg-destructive/20"
+      >
+        <Trash2 className="h-3.5 w-3.5 text-destructive" />
+      </button>
+      <MessageCircle className="h-4 w-4 flex-shrink-0 opacity-60 mr-2 ml-4" />
       <span
         style={{
           flex: 1,
@@ -1024,22 +1036,6 @@ function ConvItemInline({ title, active, onClick, onDelete }: {
       >
         {title || 'Nowa rozmowa'}
       </span>
-      <button
-        onClick={onDelete}
-        title="Usuń rozmowę"
-        style={{
-          flexShrink: 0,
-          opacity: hovered || active ? 1 : 0,
-          transition: 'opacity 0.15s',
-          padding: '4px',
-          borderRadius: '6px',
-          marginLeft: '4px',
-          lineHeight: 0,
-        }}
-        className="hover:bg-destructive/20"
-      >
-        <Trash2 className="h-3.5 w-3.5 text-destructive" />
-      </button>
     </div>
   );
 }
