@@ -123,19 +123,20 @@ serve(async (req) => {
 
     // ── GENEROWANIE OBRAZÓW (Nano Banana) ────────────────────────
     if (taskType === 'image') {
-      const p = findGemini()
-      if (!hasKey(p)) {
-        return jsonResp({ result: '⚠️ Brak klucza Google Gemini. Wejdź w Centrum AI → Dostawcy & API.' })
+      // Use Lovable Gateway for image generation (Nano Banana)
+      const lovKey = Deno.env.get('LOVABLE_API_KEY')
+      if (!lovKey) {
+        return jsonResp({ result: '⚠️ Generowanie obrazów jest tymczasowo niedostępne.' })
       }
-      usedProvider = p.provider_key
-      usedModel = 'gemini-2.5-flash-image'
-      console.log(`[ai-chat] Image generation using Nano Banana (gemini-2.5-flash-image)`)
+      usedProvider = 'lovable'
+      usedModel = 'google/gemini-2.5-flash-image'
+      console.log(`[ai-chat] Image generation using Lovable Gateway (Nano Banana)`)
 
-      const res = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
+      const res = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${p.api_key_encrypted}` },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${lovKey}` },
         body: JSON.stringify({
-          model: 'gemini-2.5-flash-preview-image-generation',
+          model: 'google/gemini-2.5-flash-image',
           messages: [{ role: 'user', content: query }],
           modalities: ['image', 'text']
         })
@@ -145,7 +146,7 @@ serve(async (req) => {
         const errText = await res.text()
         console.error('[ai-chat] Image gen error:', res.status, errText)
         await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'error', errorMessage: errText, ms: Date.now() - t0 })
-        return jsonResp({ result: mapError('Gemini Image', res.status, errText) })
+        return jsonResp({ result: mapError('image', res.status, errText) })
       }
 
       const d = await res.json()
