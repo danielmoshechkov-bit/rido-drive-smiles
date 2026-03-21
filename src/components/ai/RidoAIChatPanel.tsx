@@ -8,7 +8,7 @@ import ReactMarkdown from 'react-markdown';
 import {
   Loader2, Send, Plus, MessageCircle, Briefcase, Image,
   Sparkles, X, Search, PanelLeftOpen, PanelLeftClose, Lock,
-  Download, Paintbrush, RotateCcw, Paperclip, FileText
+  Download, Paintbrush, RotateCcw, Paperclip, FileText, Trash2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ridoMascot from '@/assets/rido-mascot.png';
@@ -738,30 +738,18 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
                       {group.label}
                     </p>
                     <div className="space-y-0.5">
-                      {group.items.map(conv => (
-                        <div
-                          key={conv.id}
-                          onClick={() => loadConversation(conv.id)}
-                          className={cn(
-                            'group flex items-center gap-2 px-3 py-2.5 rounded-xl cursor-pointer transition-all',
-                            currentConvId === conv.id
-                              ? 'bg-primary text-primary-foreground'
-                              : 'text-foreground hover:bg-accent hover:text-accent-foreground'
-                          )}
-                        >
-                          <MessageCircle className="h-4 w-4 flex-shrink-0 opacity-60" />
-                          <span className="min-w-0 flex-1 truncate text-sm font-medium">{conv.title || 'Nowa rozmowa'}</span>
-                          <div className="w-7 flex justify-end flex-shrink-0">
-                            <button
-                              onClick={(e) => deleteConversation(conv.id, e)}
-                              className="opacity-0 group-hover:opacity-100 p-1 hover:bg-destructive/20 rounded-lg transition-all"
-                              title="Usuń rozmowę"
-                            >
-                              <X className="h-4 w-4 text-destructive" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+                      {group.items.map(conv => {
+                        const isActive = currentConvId === conv.id;
+                        return (
+                          <ConvItemInline
+                            key={conv.id}
+                            title={conv.title}
+                            active={isActive}
+                            onClick={() => loadConversation(conv.id)}
+                            onDelete={(e) => deleteConversation(conv.id, e)}
+                          />
+                        );
+                      })}
                     </div>
                   </div>
                 ))}
@@ -999,6 +987,59 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function ConvItemInline({ title, active, onClick, onDelete }: {
+  title: string | null;
+  active: boolean;
+  onClick: () => void;
+  onDelete: (e: React.MouseEvent) => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <div
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className={cn(
+        'flex items-center px-3 py-2.5 rounded-xl cursor-pointer transition-all',
+        active
+          ? 'bg-primary text-primary-foreground'
+          : 'text-foreground hover:bg-accent hover:text-accent-foreground'
+      )}
+      style={{ minWidth: 0 }}
+    >
+      <MessageCircle className="h-4 w-4 flex-shrink-0 opacity-60 mr-2" />
+      <span
+        style={{
+          flex: 1,
+          minWidth: 0,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }}
+        className="text-sm font-medium"
+      >
+        {title || 'Nowa rozmowa'}
+      </span>
+      <button
+        onClick={onDelete}
+        title="Usuń rozmowę"
+        style={{
+          flexShrink: 0,
+          opacity: hovered || active ? 1 : 0,
+          transition: 'opacity 0.15s',
+          padding: '4px',
+          borderRadius: '6px',
+          marginLeft: '4px',
+          lineHeight: 0,
+        }}
+        className="hover:bg-destructive/20"
+      >
+        <Trash2 className="h-3.5 w-3.5 text-destructive" />
+      </button>
     </div>
   );
 }
