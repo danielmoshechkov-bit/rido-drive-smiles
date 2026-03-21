@@ -78,6 +78,9 @@ const TASK_TYPE_LABELS: Record<string, string> = {
   embeddings: "Embeddings",
 };
 
+const CLAUDE_PROVIDER_KEYS = ["claude_haiku", "claude_sonnet", "claude_opus"];
+const GEMINI_PROVIDER_KEYS = ["gemini", "google_gemini", "gemini_flash", "gemini_pro", "imagen3"];
+
 export function AIHubPanel() {
   const [activeTab, setActiveTab] = useState("providers");
   const [providers, setProviders] = useState<Provider[]>([]);
@@ -100,6 +103,21 @@ export function AIHubPanel() {
   ];
 
   useEffect(() => { loadAll(); }, []);
+
+  const sharedClaudeOwner = providers.find((p) => CLAUDE_PROVIDER_KEYS.includes(p.provider_key))?.provider_key || "claude_haiku";
+  const sharedGeminiOwner = providers.find((p) => GEMINI_PROVIDER_KEYS.includes(p.provider_key))?.provider_key || "gemini";
+
+  const getSharedKeyOwner = (providerKey: string) => {
+    if (CLAUDE_PROVIDER_KEYS.includes(providerKey)) return sharedClaudeOwner;
+    if (GEMINI_PROVIDER_KEYS.includes(providerKey)) return sharedGeminiOwner;
+    return null;
+  };
+
+  const getSharedFamilyKeys = (providerKey: string) => {
+    if (CLAUDE_PROVIDER_KEYS.includes(providerKey)) return CLAUDE_PROVIDER_KEYS;
+    if (GEMINI_PROVIDER_KEYS.includes(providerKey)) return GEMINI_PROVIDER_KEYS;
+    return null;
+  };
 
   const loadAll = async () => {
     setLoading(true);
@@ -129,11 +147,36 @@ export function AIHubPanel() {
       admin_note: prov.admin_note,
     };
     const keyVal = keyInputs[prov.provider_key];
-    if (keyVal && !keyVal.includes("•")) {
-      update.api_key_encrypted = keyVal;
-    }
+    const familyKeys = getSharedFamilyKeys(prov.provider_key);
+
     const { error } = await supabase.from("ai_providers").update(update).eq("id", prov.id);
+
+    if (!error && keyVal && !keyVal.includes("•")) {
+      if (familyKeys) {
+        const { error: sharedKeyError } = await supabase
+          .from("ai_providers")
+          .update({ api_key_encrypted: keyVal })
+          .in("provider_key", familyKeys);
+        if (sharedKeyError) {
+          toast.error("Błąd zapisu wspólnego klucza API");
+          setSaving(false);
+          return;
+        }
+      } else {
+        const { error: keyError } = await supabase
+          .from("ai_providers")
+          .update({ api_key_encrypted: keyVal })
+          .eq("id", prov.id);
+        if (keyError) {
+          toast.error("Błąd zapisu klucza API");
+          setSaving(false);
+          return;
+        }
+      }
+    }
+
     if (error) toast.error("Błąd zapisu"); else toast.success("Zapisano");
+    await loadAll();
     setSaving(false);
   };
 
@@ -194,6 +237,12 @@ export function AIHubPanel() {
       {activeTab === "providers" && (
         <div className="space-y-4">
           {providers.map(prov => (
+            (() => {
+              const sharedOwner = getSharedKeyOwner(prov.provider_key);
+              const usesSharedKey = !!sharedOwner && sharedOwner !== prov.provider_key;
+              const sharedOwnerLabel = providers.find((p) => p.provider_key === sharedOwner)?.display_name || sharedOwner;
+
+              return (
             <Card key={prov.id} className={prov.is_enabled ? "border-primary/30" : "opacity-70"}>
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
@@ -211,17 +260,17 @@ export function AIHubPanel() {
                 {['claude_haiku','claude_sonnet','claude_opus'].includes(prov.provider_key) && (
                   <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">
                     <span>🔑</span>
-                    <span>Klucz API znajdziesz na <strong>console.anthropic.com → API Keys</strong>. Jeden klucz działa dla wszystkich modeli Claude.</span>
+                    <span>Klucz API znajdziesz na <strong>console.anthropic.com → API Keys</strong>. Jeden klucz działa dla wszystkich modeli Claude — wpisujesz go tylko raz.</span>
                   </div>
                 )}
                 {['imagen3','gemini_flash'].includes(prov.provider_key) && (
                   <div className="flex items-start gap-2 p-3 rounded-lg bg-blue-50 border border-blue-200 text-sm text-blue-800">
                     <span>🎨</span>
-                    <span>Używa tego samego klucza co Google Gemini — wpisz ten sam klucz API z <strong>aistudio.google.com</strong>.</span>
+                    <span>Używa tego samego klucza co Google Gemini — wpisujesz go tylko raz z <strong>aistudio.google.com</strong>.</span>
                   </div>
                 )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {prov.provider_key !== "lovable" && (
+                  {prov.provider_key !== "lovable" && !usesSharedKey && (
                     <div className="space-y-1">
                       <Label className="text-xs flex items-center gap-1"><Key className="h-3 w-3" /> Klucz API</Label>
                       <div className="flex gap-1">
@@ -238,6 +287,14 @@ export function AIHubPanel() {
                         }}>
                           {showKeys[prov.provider_key] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </Button>
+                      </div>
+                    </div>
+                  )}
+                  {prov.provider_key !== "lovable" && usesSharedKey && (
+                    <div className="space-y-1 md:col-span-2">
+                      <Label className="text-xs flex items-center gap-1"><Key className="h-3 w-3" /> Klucz API</Label>
+                      <div className="rounded-lg border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                        Ten model używa wspólnego klucza z: <span className="font-medium text-foreground">{sharedOwnerLabel}</span>.
                       </div>
                     </div>
                   )}
@@ -267,6 +324,8 @@ export function AIHubPanel() {
                 </div>
               </CardContent>
             </Card>
+              );
+            })()
           ))}
         </div>
       )}

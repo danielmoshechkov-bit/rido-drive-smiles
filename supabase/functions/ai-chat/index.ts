@@ -6,6 +6,9 @@ const cors = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 }
 
+const CLAUDE_PROVIDER_KEYS = ['claude_haiku', 'claude_sonnet', 'claude_opus']
+const GEMINI_PROVIDER_KEYS = ['google_gemini', 'gemini', 'gemini_flash', 'gemini_pro', 'Google Gemini', 'imagen3']
+
 const RIDO_SYSTEM = `Jesteś RidoAI – inteligentnym asystentem życiowym platformy GetRido. Rozmawiasz naturalnie i po ludzku, po polsku. Jesteś pomocny, konkretny i bezpośredni. Nigdy nie ujawniaj jakiego modelu AI używasz.
 
 W trybie Cowork gdy użytkownik chce wykonać akcję w portalu, na końcu odpowiedzi dodaj:
@@ -40,11 +43,23 @@ serve(async (req) => {
       .from('ai_providers')
       .select('*')
 
+    const uniqueProviders = (providers: any[]) => {
+      const seen = new Set<string>()
+      return providers.filter((provider) => {
+        const id = provider?.id || provider?.provider_key
+        if (!provider || !id || seen.has(id)) return false
+        seen.add(id)
+        return true
+      })
+    }
+
+    const withKey = (provider: any) => provider?.api_key_encrypted && String(provider.api_key_encrypted).trim() !== ''
+
     // Szukaj dostawcy: najpierw aktywni z kluczem, potem nieaktywni z kluczem
     const findProvider = (...keys: string[]) => {
       for (const key of keys) {
         const exact = allProviders?.find((p: any) =>
-          p.provider_key === key && p.api_key_encrypted && p.is_enabled
+          p.provider_key === key && withKey(p) && p.is_enabled
         )
         if (exact) return exact
       }
@@ -59,18 +74,47 @@ serve(async (req) => {
 
     // Znajdź Gemini elastycznie
     const findGemini = () => {
-      const geminiKeys = ['google_gemini', 'gemini', 'gemini_flash', 'gemini_pro', 'Google Gemini', 'imagen3']
-      return findProvider(...geminiKeys) ||
+      return findProvider(...GEMINI_PROVIDER_KEYS) ||
         allProviders?.find((p: any) =>
-          p.api_key_encrypted &&
+          withKey(p) &&
           (p.display_name?.toLowerCase().includes('gemini') ||
-           p.provider_key?.toLowerCase().includes('gemini'))
+           p.provider_key?.toLowerCase().includes('gemini') ||
+           p.display_name?.toLowerCase().includes('imagen'))
         ) || null
     }
 
-    const findClaude = () => findProvider('claude_haiku', 'claude_sonnet', 'claude_opus')
+    const findClaude = () => findProvider(...CLAUDE_PROVIDER_KEYS)
     const findKimi = () => findProvider('kimi')
     const findOpenAI = () => findProvider('openai_mini', 'openai_gpt4o', 'openai')
+
+    const getTextProviderChain = () => {
+      const preferred = mode === 'cowork' || mode === 'rido_code'
+        ? [
+            findProvider('claude_sonnet'),
+            findProvider('claude_haiku'),
+            findKimi(),
+            findGemini(),
+            findOpenAI(),
+          ]
+        : mode === 'rido_pro'
+          ? [
+              findProvider('claude_opus'),
+              findProvider('claude_sonnet'),
+              findProvider('claude_haiku'),
+              findKimi(),
+              findGemini(),
+              findOpenAI(),
+            ]
+          : [
+              findProvider('claude_haiku'),
+              findKimi(),
+              findGemini(),
+              findOpenAI(),
+              findClaude(),
+            ]
+
+      return uniqueProviders(preferred.filter(withKey))
+    }
 
     // ── INPAINTING ───────────────────────────────────────────────
     if (taskType === 'inpaint') {
@@ -96,6 +140,13 @@ serve(async (req) => {
           })
         }
       )
+      if (!res.ok) {
+        const errText = await res.text()
+        console.error('Gemini inpaint error:', res.status, errText)
+        const result = mapProviderError('Gemini', res.status, errText)
+        await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'error', errorMessage: result, ms: Date.now() - t0 })
+        return jsonResp({ result })
+      }
       const d = await res.json()
       const imgPart = d?.candidates?.[0]?.content?.parts?.find((x: any) => x.inline_data?.data)
       const img = imgPart?.inline_data?.data
@@ -128,6 +179,13 @@ serve(async (req) => {
           })
         }
       )
+      if (!res.ok) {
+        const errText = await res.text()
+        console.error('Gemini image error:', res.status, errText)
+        const result = mapProviderError('Gemini Images', res.status, errText)
+        await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'error', errorMessage: result, ms: Date.now() - t0 })
+        return jsonResp({ result, images: [] })
+      }
       const d = await res.json()
       const imgPart = d?.candidates?.[0]?.content?.parts?.find((x: any) => x.inline_data?.data)
       const b64 = imgPart?.inline_data?.data
@@ -141,16 +199,7 @@ serve(async (req) => {
     }
 
     // ── ROUTING TEKSTU ───────────────────────────────────────────
-    let p: any = null
-    if (mode === 'cowork' || mode === 'rido_code') {
-      p = findClaude() || findKimi() || findGemini()
-    } else if (mode === 'rido_pro') {
-      p = findProvider('claude_opus', 'claude_sonnet') || findClaude()
-    } else {
-      p = findProvider('claude_haiku') || findKimi() || findGemini() || findOpenAI() || findClaude()
-    }
-
-    const apiKey = p?.api_key_encrypted
+    const textProviders = getTextProviderChain()
 
     const history = [
       ...(messages || []).filter((m: any) => m.content).map((m: any) => ({ role: m.role, content: m.content }))
@@ -162,39 +211,9 @@ serve(async (req) => {
       ? RIDO_SYSTEM + '\n\nJesteś w trybie Cowork — gdy użytkownik prosi o akcję w portalu, wykonaj ją!'
       : RIDO_SYSTEM
 
-    // FALLBACK — Lovable Gateway
-    if (!apiKey) {
-      const lovKey = Deno.env.get('LOVABLE_API_KEY')
-      if (lovKey) {
-        usedProvider = 'lovable'
-        usedModel = 'google/gemini-3-flash-preview'
-        const res = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${lovKey}` },
-          body: JSON.stringify({
-            model: 'google/gemini-3-flash-preview',
-            messages: [{ role: 'system', content: sys }, ...history],
-            stream: !!stream,
-            max_tokens: 2048
-          })
-        })
-        if (!res.ok) {
-          const errText = await res.text()
-          console.error('Lovable Gateway error:', res.status, errText)
-          if (res.status === 429) return jsonResp({ result: '⚠️ Zbyt wiele zapytań. Spróbuj ponownie za chwilę.' })
-          if (res.status === 402) return jsonResp({ result: '⚠️ Brak środków. Doładuj konto.' })
-          return jsonResp({ result: '⚠️ Błąd AI. Spróbuj ponownie.' })
-        }
-        await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'success', ms: Date.now() - t0 })
-        if (stream) return new Response(res.body, { headers: { ...cors, 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' } })
-        const d = await res.json()
-        return jsonResp({ result: d.choices?.[0]?.message?.content || 'Brak odpowiedzi' })
-      }
+    if (!textProviders.length) {
       return jsonResp({ result: '⚠️ Brak kluczy API. Wejdź w Centrum AI → Dostawcy & API i dodaj klucz Claude lub Gemini.' })
     }
-
-    usedProvider = p.provider_key
-    usedModel = p.default_model || p.provider_key
 
     // OpenAI-compatible (Kimi, OpenAI, Gemini chat)
     const oaiEndpoints: Record<string, string> = {
@@ -208,96 +227,87 @@ serve(async (req) => {
       gemini: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
     }
 
-    const isGemini = p.display_name?.toLowerCase().includes('gemini') ||
-                     p.provider_key?.toLowerCase().includes('gemini')
-    const endpoint = oaiEndpoints[p.provider_key] ||
-                     (isGemini ? 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions' : null)
-
-    if (endpoint) {
-      if (isGemini) usedModel = 'gemini-2.0-flash'
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-        body: JSON.stringify({
-          model: usedModel,
-          messages: [{ role: 'system', content: sys }, ...history],
-          stream: !!stream,
-          max_tokens: 2048
-        })
-      })
-      if (!res.ok && !stream) {
-        const errText = await res.text()
-        console.error('Provider error:', res.status, errText)
-        // Fallback to Lovable Gateway
-        const lovKey = Deno.env.get('LOVABLE_API_KEY')
-        if (lovKey) {
-          console.log('Falling back to Lovable Gateway')
-          const fbRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${lovKey}` },
-            body: JSON.stringify({ model: 'google/gemini-3-flash-preview', messages: [{ role: 'system', content: sys }, ...history], stream: false, max_tokens: 2048 })
-          })
-          if (fbRes.ok) {
-            const fd = await fbRes.json()
-            return jsonResp({ result: fd.choices?.[0]?.message?.content || 'Brak odpowiedzi' })
-          }
-        }
-        return jsonResp({ result: `⚠️ Błąd dostawcy AI (${res.status}). Sprawdź klucz API.` })
-      }
-      await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'success', ms: Date.now() - t0 })
-      if (stream) return new Response(res.body, { headers: { ...cors, 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' } })
-      const d = await res.json()
-      return jsonResp({ result: d.choices?.[0]?.message?.content || 'Brak odpowiedzi' })
-    }
-
-    // CLAUDE (Anthropic)
     const claudeModels: Record<string, string> = {
       claude_haiku: 'claude-haiku-4-5-20251001',
       claude_sonnet: 'claude-sonnet-4-6',
       claude_opus: 'claude-opus-4-6',
     }
-    usedModel = claudeModels[p.provider_key] || 'claude-haiku-4-5-20251001'
 
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: usedModel,
-        max_tokens: 2048,
-        system: sys,
-        messages: history,
-        stream: !!stream
-      })
-    })
+    let lastError = '⚠️ Żaden aktywny dostawca AI nie odpowiedział.'
 
-    if (!res.ok && !stream) {
-      const errText = await res.text()
-      console.error('Claude error:', res.status, errText)
-      const lovKey = Deno.env.get('LOVABLE_API_KEY')
-      if (lovKey) {
-        console.log('Claude failed, falling back to Lovable Gateway')
-        const fbRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    for (const p of textProviders) {
+      const apiKey = p?.api_key_encrypted
+      if (!apiKey) continue
+
+      usedProvider = p.provider_key
+      usedModel = p.default_model || p.provider_key
+
+      const isGemini = p.display_name?.toLowerCase().includes('gemini') ||
+                       p.provider_key?.toLowerCase().includes('gemini') ||
+                       p.display_name?.toLowerCase().includes('imagen')
+      const endpoint = oaiEndpoints[p.provider_key] ||
+                       (isGemini ? 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions' : null)
+
+      if (endpoint) {
+        if (isGemini) usedModel = 'gemini-2.0-flash'
+        const res = await fetch(endpoint, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${lovKey}` },
-          body: JSON.stringify({ model: 'google/gemini-3-flash-preview', messages: [{ role: 'system', content: sys }, ...history], stream: !!stream, max_tokens: 2048 })
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+          body: JSON.stringify({
+            model: usedModel,
+            messages: [{ role: 'system', content: sys }, ...history],
+            stream: !!stream,
+            max_tokens: 2048
+          })
         })
-        if (fbRes.ok) {
-          if (stream) return new Response(fbRes.body, { headers: { ...cors, 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' } })
-          const fd = await fbRes.json()
-          return jsonResp({ result: fd.choices?.[0]?.message?.content || 'Brak odpowiedzi' })
+
+        if (!res.ok) {
+          const errText = await res.text()
+          lastError = mapProviderError(p.display_name || p.provider_key, res.status, errText)
+          console.error('Provider error:', p.provider_key, res.status, errText)
+          await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'error', errorMessage: lastError, ms: Date.now() - t0 })
+          continue
         }
+
+        await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'success', ms: Date.now() - t0 })
+        if (stream) return new Response(res.body, { headers: { ...cors, 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' } })
+        const d = await res.json()
+        return jsonResp({ result: d.choices?.[0]?.message?.content || 'Brak odpowiedzi' })
       }
-      return jsonResp({ result: `⚠️ Błąd Claude (${res.status}). Sprawdź klucz API.` })
+
+      usedModel = claudeModels[p.provider_key] || 'claude-haiku-4-5-20251001'
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: usedModel,
+          max_tokens: 2048,
+          system: sys,
+          messages: history,
+          stream: !!stream
+        })
+      })
+
+      if (!res.ok) {
+        const errText = await res.text()
+        lastError = mapProviderError(p.display_name || p.provider_key, res.status, errText)
+        console.error('Claude error:', p.provider_key, res.status, errText)
+        await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'error', errorMessage: lastError, ms: Date.now() - t0 })
+        continue
+      }
+
+      await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'success', ms: Date.now() - t0 })
+      if (stream) return new Response(res.body, { headers: { ...cors, 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' } })
+      const d = await res.json()
+      return jsonResp({ result: d.content?.[0]?.text || 'Brak odpowiedzi' })
     }
 
-    await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'success', ms: Date.now() - t0 })
-    if (stream) return new Response(res.body, { headers: { ...cors, 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' } })
-    const d = await res.json()
-    return jsonResp({ result: d.content?.[0]?.text || 'Brak odpowiedzi' })
+    if (stream) return sseText(lastError)
+    return jsonResp({ result: lastError })
 
   } catch (err) {
     console.error('ai-chat error:', err)
@@ -326,4 +336,25 @@ async function logReq(sb: any, o: {
       response_time_ms: o.ms || null, error_message: o.errorMessage || null, cache_hit: false
     })
   } catch { /* ignoruj błędy logowania */ }
+}
+
+function mapProviderError(providerName: string, status: number, rawError: string) {
+  const err = rawError.toLowerCase()
+  if (status === 429 || err.includes('rate') || err.includes('too many requests')) {
+    return `⚠️ ${providerName}: zbyt wiele zapytań. Spróbuj ponownie za chwilę.`
+  }
+  if (status === 402 || err.includes('payment required') || err.includes('quota exceeded') || err.includes('billing') || err.includes('credit balance is too low')) {
+    return `⚠️ ${providerName}: brak środków lub limit został wyczerpany. Sprawdź billing tego dostawcy.`
+  }
+  if (status === 401 || status === 403 || err.includes('invalid api key') || err.includes('permission')) {
+    return `⚠️ ${providerName}: nieprawidłowy klucz API albo brak uprawnień.`
+  }
+  return `⚠️ ${providerName}: błąd dostawcy AI (${status}).`
+}
+
+function sseText(text: string) {
+  const payload = `data: ${JSON.stringify({ choices: [{ delta: { content: text } }] })}\n\ndata: [DONE]\n\n`
+  return new Response(payload, {
+    headers: { ...cors, 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' }
+  })
 }
