@@ -42,7 +42,7 @@ serve(async (req) => {
     }
 
     const body = await req.json()
-    const { taskType, query, mode, messages, stream, imageBase64, maskBase64 } = body
+    const { taskType, query, mode, messages, stream, imageBase64, maskBase64, files } = body
     feature = body.feature || 'ai_chat'
 
     // Pobierz WSZYSTKICH dostawców
@@ -88,21 +88,25 @@ serve(async (req) => {
         return jsonResp({ result: '⚠️ Brak klucza Google Gemini. Wejdź w Centrum AI → Dostawcy & API.' })
       }
       usedProvider = p.provider_key
-      usedModel = 'gemini-2.0-flash-exp'
+      usedModel = 'gemini-2.5-flash-preview-image-generation'
       console.log(`[ai-chat] Inpaint using ${usedProvider}`)
 
       const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${p.api_key_encrypted}`,
+        'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${p.api_key_encrypted}` },
           body: JSON.stringify({
-            contents: [{ parts: [
-              { text: `Edytuj TYLKO zaznaczony obszar. Zmień: ${query}. Reszta bez zmian.` },
-              { inline_data: { mime_type: 'image/png', data: imageBase64 } },
-              { inline_data: { mime_type: 'image/png', data: maskBase64 } }
-            ]}],
-            generationConfig: { responseModalities: ['IMAGE'] }
+            model: 'gemini-2.5-flash-preview-image-generation',
+            messages: [{
+              role: 'user',
+              content: [
+                { type: 'text', text: `Edytuj TYLKO zaznaczony obszar (fioletowa maska). Zmień: ${query}. Reszta obrazu zostaje BEZ ZMIAN.` },
+                { type: 'image_url', image_url: { url: `data:image/png;base64,${imageBase64}` } },
+                { type: 'image_url', image_url: { url: `data:image/png;base64,${maskBase64}` } }
+              ]
+            }],
+            modalities: ['image', 'text']
           })
         }
       )
@@ -112,9 +116,9 @@ serve(async (req) => {
         return jsonResp({ result: mapError('Gemini', res.status, errText) })
       }
       const d = await res.json()
-      const img = d?.candidates?.[0]?.content?.parts?.find((x: any) => x.inline_data?.data)?.inline_data?.data
-      await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: img ? 'success' : 'error', ms: Date.now() - t0 })
-      return jsonResp({ result: img ? '✨ Gotowe!' : '❌ Nie udało się edytować obrazu.', images: img ? [`data:image/png;base64,${img}`] : [] })
+      const imgUrl = d?.choices?.[0]?.message?.images?.[0]?.image_url?.url
+      await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: imgUrl ? 'success' : 'error', ms: Date.now() - t0 })
+      return jsonResp({ result: imgUrl ? '✨ Gotowe!' : '❌ Nie udało się edytować obrazu.', images: imgUrl ? [imgUrl] : [] })
     }
 
     // ── GENEROWANIE OBRAZÓW (Nano Banana) ────────────────────────
@@ -156,11 +160,32 @@ serve(async (req) => {
     }
 
     // ── ROUTING TEKSTU ───────────────────────────────────────────
+    // Build multimodal content if files attached
+    const hasFiles = files && Array.isArray(files) && files.length > 0
+
     const history = [
       ...(messages || []).filter((m: any) => m.content).map((m: any) => ({ role: m.role, content: m.content }))
     ]
     if (!history.length || history[history.length - 1]?.role !== 'user') {
       history.push({ role: 'user', content: query })
+    }
+
+    // If files are attached, enrich the last user message with file contents
+    if (hasFiles && history.length > 0) {
+      const lastMsg = history[history.length - 1]
+      if (lastMsg.role === 'user') {
+        let enrichedContent = lastMsg.content
+        for (const f of files) {
+          if (f.text) {
+            enrichedContent += `\n\n--- Zawartość pliku "${f.name}" ---\n${f.text}\n--- Koniec pliku ---`
+          } else if (f.data && f.type?.startsWith('image/')) {
+            // Will be handled as multimodal below for Gemini
+          } else if (f.data) {
+            enrichedContent += `\n\n[Plik: ${f.name} (${f.type}) - plik binarny, nie mogę odczytać treści bezpośrednio. Opisz co chcesz z nim zrobić.]`
+          }
+        }
+        lastMsg.content = enrichedContent
+      }
     }
     const sys = mode === 'cowork'
       ? RIDO_SYSTEM + '\n\nJesteś w trybie Cowork — gdy użytkownik prosi o akcję w portalu, wykonaj ją!'
@@ -258,14 +283,33 @@ serve(async (req) => {
           return jsonResp({ result: d.content?.[0]?.text || 'Brak odpowiedzi' })
 
         } else if (isGemini) {
-          // Gemini via OpenAI-compatible endpoint
+          // Gemini via OpenAI-compatible endpoint — supports multimodal (images)
           usedModel = 'gemini-2.5-flash'
+          
+          // Build messages with image support
+          const geminiMessages: any[] = [{ role: 'system', content: sys }]
+          for (const msg of history) {
+            // Check if this is the last user message and has image files
+            const isLastUser = msg === history[history.length - 1] && msg.role === 'user' && hasFiles
+            if (isLastUser) {
+              const contentParts: any[] = [{ type: 'text', text: msg.content }]
+              for (const f of files) {
+                if (f.data && f.type?.startsWith('image/')) {
+                  contentParts.push({ type: 'image_url', image_url: { url: `data:${f.type};base64,${f.data}` } })
+                }
+              }
+              geminiMessages.push({ role: 'user', content: contentParts })
+            } else {
+              geminiMessages.push(msg)
+            }
+          }
+
           const res = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
             body: JSON.stringify({
               model: usedModel,
-              messages: [{ role: 'system', content: sys }, ...history],
+              messages: geminiMessages,
               stream: !!stream,
               max_tokens: 2048
             })
