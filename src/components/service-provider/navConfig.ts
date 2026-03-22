@@ -4,6 +4,8 @@ export type ServiceProviderNavTabKey =
   | 'workshop'
   | 'accounting'
   | 'calendar'
+  | 'leads'
+  | 'ads'
   | 'ai-agent'
   | 'account'
   | 'workspace'
@@ -16,6 +18,8 @@ export const SERVICE_PROVIDER_TAB_ORDER: ServiceProviderNavTabKey[] = [
   'workshop',
   'accounting',
   'calendar',
+  'leads',
+  'ads',
   'ai-agent',
   'account',
   'workspace',
@@ -29,6 +33,7 @@ export const DEFAULT_SERVICE_PROVIDER_PRIMARY_TABS: ServiceProviderNavTabKey[] =
   'workshop',
   'accounting',
   'calendar',
+  'leads',
   'account',
 ];
 
@@ -38,6 +43,8 @@ export const SERVICE_PROVIDER_TAB_LABELS: Record<ServiceProviderNavTabKey, strin
   workshop: 'Warsztat & Auto',
   accounting: 'Księgowość',
   calendar: 'Kalendarz',
+  leads: 'Leady',
+  ads: 'Reklamy',
   'ai-agent': 'AI Agenci',
   account: 'Wybierz moduł',
   workspace: 'Workspace',
