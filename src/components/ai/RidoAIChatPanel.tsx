@@ -1304,6 +1304,7 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
               </ScrollArea>
             </div>
           </div>
+        )}
 
           {/* Rename dialog */}
           {renamingConvId && (
@@ -1356,7 +1357,6 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
               </div>
             </div>
           )}
-        )}
 
         {/* Main chat */}
         <div className="flex-1 flex flex-col min-w-0" onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}>
