@@ -458,7 +458,7 @@ export default function ServiceProviderDashboard() {
 
           {/* Services Tab */}
           <TabsContent value="services" className="mt-6 space-y-4">
-            <div className="flex items-center justify-end">
+            <div className="flex items-center justify-start">
               <Button onClick={() => { resetServiceForm(); setServiceDialog(true); }} className="gap-2">
                 <Plus className="h-4 w-4" /> Dodaj usługę
               </Button>
