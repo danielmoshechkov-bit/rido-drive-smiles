@@ -202,14 +202,22 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                     <TableCell onClick={e => e.stopPropagation()}>
                       <HoverCard openDelay={400} closeDelay={200}>
                         <HoverCardTrigger asChild>
-                          <div className="flex items-center gap-1.5 cursor-default">
+                          <div
+                            className="flex items-center gap-1.5 cursor-pointer hover:text-primary transition-colors"
+                            onClick={() => order.vehicle && setEditVehicle(order.vehicle)}
+                          >
                             {order.vehicle && <Car className="h-3.5 w-3.5 text-muted-foreground" />}
                             <span className="text-sm truncate max-w-[180px]">{getVehicleName(order)}</span>
                           </div>
                         </HoverCardTrigger>
                         {order.vehicle && (
                           <HoverCardContent className="w-72 p-3" side="bottom" align="start">
-                            <p className="font-semibold text-sm mb-2">{order.vehicle.brand} {order.vehicle.model}</p>
+                            <div className="flex items-center justify-between mb-2">
+                              <p className="font-semibold text-sm">{order.vehicle.brand} {order.vehicle.model}</p>
+                              <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setEditVehicle(order.vehicle)}>
+                                <ExternalLink className="h-3 w-3" />
+                              </Button>
+                            </div>
                             <div className="grid grid-cols-2 gap-y-1.5 text-xs">
                               {order.vehicle.plate && (
                                 <>
@@ -239,6 +247,12 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                                   <span className="font-medium">{order.vehicle.engine_capacity} cc</span>
                                 </>
                               )}
+                              {order.vehicle.engine_power && (
+                                <>
+                                  <span className="text-muted-foreground">Moc</span>
+                                  <span className="font-medium">{order.vehicle.engine_power} kW</span>
+                                </>
+                              )}
                               {order.vehicle.fuel_type && (
                                 <>
                                   <span className="text-muted-foreground">Paliwo</span>
@@ -246,6 +260,14 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                                 </>
                               )}
                             </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full mt-3 h-7 text-xs gap-1"
+                              onClick={() => setEditVehicle(order.vehicle)}
+                            >
+                              <ExternalLink className="h-3 w-3" /> Otwórz kartę pojazdu
+                            </Button>
                           </HoverCardContent>
                         )}
                       </HoverCard>
@@ -253,14 +275,31 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                     <TableCell onClick={e => e.stopPropagation()}>
                       <HoverCard openDelay={400} closeDelay={200}>
                         <HoverCardTrigger asChild>
-                          <span className="text-sm cursor-default">{getClientName(order)}</span>
+                          <span
+                            className="text-sm cursor-pointer hover:text-primary transition-colors"
+                            onClick={() => order.client && setEditClient(order.client)}
+                          >
+                            {getClientName(order)}
+                          </span>
                         </HoverCardTrigger>
                         {order.client && (
-                          <HoverCardContent className="w-64 p-3" side="bottom" align="start">
-                            <div className="flex items-center gap-2 mb-2">
-                              <User className="h-4 w-4 text-muted-foreground" />
-                              <span className="font-semibold text-sm">{getClientName(order)}</span>
+                          <HoverCardContent className="w-72 p-3" side="bottom" align="start">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                {order.client.client_type === 'company' ? (
+                                  <Building className="h-4 w-4 text-muted-foreground" />
+                                ) : (
+                                  <User className="h-4 w-4 text-muted-foreground" />
+                                )}
+                                <span className="font-semibold text-sm">{getClientName(order)}</span>
+                              </div>
+                              <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setEditClient(order.client)}>
+                                <ExternalLink className="h-3 w-3" />
+                              </Button>
                             </div>
+                            {order.client.company_name && order.client.client_type === 'company' && (
+                              <p className="text-xs text-muted-foreground mb-2">{order.client.company_name}</p>
+                            )}
                             <div className="space-y-1.5 text-xs">
                               {order.client.phone && (
                                 <button className="flex items-center gap-2 hover:text-primary w-full text-left" onClick={() => { navigator.clipboard.writeText(order.client.phone); toast.success('Skopiowano telefon'); }}>
@@ -277,14 +316,26 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                                 </button>
                               )}
                               {order.client.nip && (
-                                <div className="flex items-center gap-2">
+                                <button className="flex items-center gap-2 hover:text-primary w-full text-left" onClick={() => { navigator.clipboard.writeText(order.client.nip); toast.success('Skopiowano NIP'); }}>
                                   <span className="text-muted-foreground">NIP:</span>
-                                  <button className="hover:text-primary flex items-center gap-1" onClick={() => { navigator.clipboard.writeText(order.client.nip); toast.success('Skopiowano NIP'); }}>
-                                    {order.client.nip} <Copy className="h-2.5 w-2.5 opacity-50" />
-                                  </button>
+                                  <span>{order.client.nip}</span>
+                                  <Copy className="h-2.5 w-2.5 opacity-50 ml-auto" />
+                                </button>
+                              )}
+                              {order.client.city && (
+                                <div className="flex items-center gap-2 text-muted-foreground">
+                                  <span>📍 {order.client.city}</span>
                                 </div>
                               )}
                             </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full mt-3 h-7 text-xs gap-1"
+                              onClick={() => setEditClient(order.client)}
+                            >
+                              <ExternalLink className="h-3 w-3" /> Otwórz kartę klienta
+                            </Button>
                           </HoverCardContent>
                         )}
                       </HoverCard>
@@ -321,6 +372,28 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
         onOpenChange={setShowNewOrder}
         providerId={providerId}
       />
+
+      {/* Client edit dialog */}
+      <WorkshopEditClientDialog
+        open={!!editClient}
+        onOpenChange={(v) => { if (!v) setEditClient(null); }}
+        client={editClient}
+      />
+
+      {/* Vehicle edit dialog */}
+      <Dialog open={!!editVehicle} onOpenChange={(v) => { if (!v) setEditVehicle(null); }}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Car className="h-5 w-5" />
+              {editVehicle?.brand} {editVehicle?.model} — {editVehicle?.plate}
+            </DialogTitle>
+          </DialogHeader>
+          {editVehicle && (
+            <VehicleEditForm vehicle={editVehicle} onClose={() => setEditVehicle(null)} />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
