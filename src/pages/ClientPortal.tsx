@@ -86,6 +86,7 @@ interface Purchase {
 const accountingSubTabs = [
   { id: 'przeglad', label: 'Przegląd', icon: BarChart3 },
   { id: 'faktury', label: 'Faktury', icon: FileText },
+  { id: 'zakupy', label: 'Zakupy', icon: ShoppingBag },
   { id: 'dokumenty', label: 'Dokumenty', icon: FileSpreadsheet },
   { id: 'platnosci', label: 'Płatności', icon: CreditCard },
   { id: 'magazyn', label: 'Stan magazynowy', icon: Package },
