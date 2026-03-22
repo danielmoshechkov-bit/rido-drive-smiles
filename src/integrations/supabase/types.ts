@@ -2215,6 +2215,535 @@ export type Database = {
           },
         ]
       }
+      ai_sales_agents: {
+        Row: {
+          agent_phone_script: string | null
+          agent_voice_id: string | null
+          available_slots_config: Json | null
+          avg_response_time_minutes: number | null
+          calendar_id: string | null
+          calendar_provider: string | null
+          calendar_token: string | null
+          company_profile: Json | null
+          contact_channels: string[] | null
+          conversion_rate: number | null
+          created_at: string | null
+          first_contact_delay_minutes: number | null
+          follow_up_sequence: Json | null
+          id: string
+          last_learning_at: string | null
+          learned_objections: Json | null
+          learned_phrases: Json | null
+          meta_access_token: string | null
+          meta_ad_account_id: string | null
+          meta_form_ids: string[] | null
+          meta_page_id: string | null
+          name: string
+          service_id: string | null
+          status: string | null
+          total_contacted: number | null
+          total_conversions: number | null
+          total_leads: number | null
+          total_meetings_booked: number | null
+          twilio_account_sid: string | null
+          twilio_auth_token: string | null
+          twilio_phone_number: string | null
+          updated_at: string | null
+          user_id: string
+          vapi_api_key: string | null
+        }
+        Insert: {
+          agent_phone_script?: string | null
+          agent_voice_id?: string | null
+          available_slots_config?: Json | null
+          avg_response_time_minutes?: number | null
+          calendar_id?: string | null
+          calendar_provider?: string | null
+          calendar_token?: string | null
+          company_profile?: Json | null
+          contact_channels?: string[] | null
+          conversion_rate?: number | null
+          created_at?: string | null
+          first_contact_delay_minutes?: number | null
+          follow_up_sequence?: Json | null
+          id?: string
+          last_learning_at?: string | null
+          learned_objections?: Json | null
+          learned_phrases?: Json | null
+          meta_access_token?: string | null
+          meta_ad_account_id?: string | null
+          meta_form_ids?: string[] | null
+          meta_page_id?: string | null
+          name?: string
+          service_id?: string | null
+          status?: string | null
+          total_contacted?: number | null
+          total_conversions?: number | null
+          total_leads?: number | null
+          total_meetings_booked?: number | null
+          twilio_account_sid?: string | null
+          twilio_auth_token?: string | null
+          twilio_phone_number?: string | null
+          updated_at?: string | null
+          user_id: string
+          vapi_api_key?: string | null
+        }
+        Update: {
+          agent_phone_script?: string | null
+          agent_voice_id?: string | null
+          available_slots_config?: Json | null
+          avg_response_time_minutes?: number | null
+          calendar_id?: string | null
+          calendar_provider?: string | null
+          calendar_token?: string | null
+          company_profile?: Json | null
+          contact_channels?: string[] | null
+          conversion_rate?: number | null
+          created_at?: string | null
+          first_contact_delay_minutes?: number | null
+          follow_up_sequence?: Json | null
+          id?: string
+          last_learning_at?: string | null
+          learned_objections?: Json | null
+          learned_phrases?: Json | null
+          meta_access_token?: string | null
+          meta_ad_account_id?: string | null
+          meta_form_ids?: string[] | null
+          meta_page_id?: string | null
+          name?: string
+          service_id?: string | null
+          status?: string | null
+          total_contacted?: number | null
+          total_conversions?: number | null
+          total_leads?: number | null
+          total_meetings_booked?: number | null
+          twilio_account_sid?: string | null
+          twilio_auth_token?: string | null
+          twilio_phone_number?: string | null
+          updated_at?: string | null
+          user_id?: string
+          vapi_api_key?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_sales_agents_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_sales_conversations: {
+        Row: {
+          agent_id: string | null
+          ai_buying_signals: string[] | null
+          ai_learning_notes: string | null
+          ai_objections_detected: string[] | null
+          ai_outcome: string | null
+          ai_sentiment: string | null
+          ai_summary: string | null
+          call_duration_seconds: number | null
+          call_recording_url: string | null
+          call_transcript: string | null
+          channel: string | null
+          created_at: string | null
+          direction: string | null
+          id: string
+          lead_id: string | null
+          messages: Json | null
+          status: string | null
+          twilio_conversation_sid: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          ai_buying_signals?: string[] | null
+          ai_learning_notes?: string | null
+          ai_objections_detected?: string[] | null
+          ai_outcome?: string | null
+          ai_sentiment?: string | null
+          ai_summary?: string | null
+          call_duration_seconds?: number | null
+          call_recording_url?: string | null
+          call_transcript?: string | null
+          channel?: string | null
+          created_at?: string | null
+          direction?: string | null
+          id?: string
+          lead_id?: string | null
+          messages?: Json | null
+          status?: string | null
+          twilio_conversation_sid?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          ai_buying_signals?: string[] | null
+          ai_learning_notes?: string | null
+          ai_objections_detected?: string[] | null
+          ai_outcome?: string | null
+          ai_sentiment?: string | null
+          ai_summary?: string | null
+          call_duration_seconds?: number | null
+          call_recording_url?: string | null
+          call_transcript?: string | null
+          channel?: string | null
+          created_at?: string | null
+          direction?: string | null
+          id?: string
+          lead_id?: string | null
+          messages?: Json | null
+          status?: string | null
+          twilio_conversation_sid?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_sales_conversations_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "ai_sales_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_sales_conversations_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "ai_sales_leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_sales_knowledge: {
+        Row: {
+          agent_id: string | null
+          content: string
+          context: string | null
+          created_at: string | null
+          id: string
+          industry: string | null
+          is_shared: boolean | null
+          knowledge_type: string | null
+          source_conversation_id: string | null
+          success_rate: number | null
+          usage_count: number | null
+          user_id: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          content: string
+          context?: string | null
+          created_at?: string | null
+          id?: string
+          industry?: string | null
+          is_shared?: boolean | null
+          knowledge_type?: string | null
+          source_conversation_id?: string | null
+          success_rate?: number | null
+          usage_count?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          content?: string
+          context?: string | null
+          created_at?: string | null
+          id?: string
+          industry?: string | null
+          is_shared?: boolean | null
+          knowledge_type?: string | null
+          source_conversation_id?: string | null
+          success_rate?: number | null
+          usage_count?: number | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_sales_knowledge_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "ai_sales_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_sales_knowledge_source_conversation_id_fkey"
+            columns: ["source_conversation_id"]
+            isOneToOne: false
+            referencedRelation: "ai_sales_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_sales_leads: {
+        Row: {
+          agent_id: string | null
+          ai_intent_analysis: string | null
+          ai_lead_score: number | null
+          ai_recommended_approach: string | null
+          city: string | null
+          contact_attempts: number | null
+          created_at: string | null
+          custom_fields: Json | null
+          email: string | null
+          first_name: string | null
+          id: string
+          last_contact_at: string | null
+          last_name: string | null
+          meeting_calendar_event_id: string | null
+          meeting_scheduled_at: string | null
+          meeting_type: string | null
+          meta_ad_id: string | null
+          meta_campaign_id: string | null
+          meta_form_id: string | null
+          meta_lead_id: string | null
+          next_contact_at: string | null
+          notes: string | null
+          phone: string | null
+          priority: string | null
+          service_id: string | null
+          status: string | null
+          tags: string[] | null
+          user_id: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          ai_intent_analysis?: string | null
+          ai_lead_score?: number | null
+          ai_recommended_approach?: string | null
+          city?: string | null
+          contact_attempts?: number | null
+          created_at?: string | null
+          custom_fields?: Json | null
+          email?: string | null
+          first_name?: string | null
+          id?: string
+          last_contact_at?: string | null
+          last_name?: string | null
+          meeting_calendar_event_id?: string | null
+          meeting_scheduled_at?: string | null
+          meeting_type?: string | null
+          meta_ad_id?: string | null
+          meta_campaign_id?: string | null
+          meta_form_id?: string | null
+          meta_lead_id?: string | null
+          next_contact_at?: string | null
+          notes?: string | null
+          phone?: string | null
+          priority?: string | null
+          service_id?: string | null
+          status?: string | null
+          tags?: string[] | null
+          user_id?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          ai_intent_analysis?: string | null
+          ai_lead_score?: number | null
+          ai_recommended_approach?: string | null
+          city?: string | null
+          contact_attempts?: number | null
+          created_at?: string | null
+          custom_fields?: Json | null
+          email?: string | null
+          first_name?: string | null
+          id?: string
+          last_contact_at?: string | null
+          last_name?: string | null
+          meeting_calendar_event_id?: string | null
+          meeting_scheduled_at?: string | null
+          meeting_type?: string | null
+          meta_ad_id?: string | null
+          meta_campaign_id?: string | null
+          meta_form_id?: string | null
+          meta_lead_id?: string | null
+          next_contact_at?: string | null
+          notes?: string | null
+          phone?: string | null
+          priority?: string | null
+          service_id?: string | null
+          status?: string | null
+          tags?: string[] | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_sales_leads_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "ai_sales_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_sales_leads_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_sales_questionnaire: {
+        Row: {
+          agent_id: string | null
+          completion_percentage: number | null
+          created_at: string | null
+          id: string
+          is_complete: boolean | null
+          q_certifications: string | null
+          q_closing_technique: string | null
+          q_company_achievements: string | null
+          q_company_description: string | null
+          q_company_name: string | null
+          q_customer_fears: string | null
+          q_customer_problems: string | null
+          q_customer_transformation: string | null
+          q_location: string | null
+          q_meeting_types: string | null
+          q_objection_competitor: string | null
+          q_objection_custom_1: string | null
+          q_objection_custom_1_answer: string | null
+          q_objection_custom_2: string | null
+          q_objection_custom_2_answer: string | null
+          q_objection_diy: string | null
+          q_objection_price: string | null
+          q_objection_think: string | null
+          q_objection_time: string | null
+          q_objection_trust: string | null
+          q_payment_methods: string | null
+          q_payment_terms: string | null
+          q_preferred_contact_time: string | null
+          q_price_from: number | null
+          q_price_justification: string | null
+          q_price_model: string | null
+          q_price_to: number | null
+          q_promotions: string | null
+          q_sales_tone: string | null
+          q_service_area: string | null
+          q_service_case_studies: string | null
+          q_service_description: string | null
+          q_service_duration: string | null
+          q_service_guarantee: string | null
+          q_service_name: string | null
+          q_service_process: string | null
+          q_service_results: string | null
+          q_service_unique_value: string | null
+          q_special_instructions: string | null
+          q_target_customer_profile: string | null
+          q_team_size: string | null
+          q_typical_sales_cycle: string | null
+          q_wrong_customer: string | null
+          q_years_in_business: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          completion_percentage?: number | null
+          created_at?: string | null
+          id?: string
+          is_complete?: boolean | null
+          q_certifications?: string | null
+          q_closing_technique?: string | null
+          q_company_achievements?: string | null
+          q_company_description?: string | null
+          q_company_name?: string | null
+          q_customer_fears?: string | null
+          q_customer_problems?: string | null
+          q_customer_transformation?: string | null
+          q_location?: string | null
+          q_meeting_types?: string | null
+          q_objection_competitor?: string | null
+          q_objection_custom_1?: string | null
+          q_objection_custom_1_answer?: string | null
+          q_objection_custom_2?: string | null
+          q_objection_custom_2_answer?: string | null
+          q_objection_diy?: string | null
+          q_objection_price?: string | null
+          q_objection_think?: string | null
+          q_objection_time?: string | null
+          q_objection_trust?: string | null
+          q_payment_methods?: string | null
+          q_payment_terms?: string | null
+          q_preferred_contact_time?: string | null
+          q_price_from?: number | null
+          q_price_justification?: string | null
+          q_price_model?: string | null
+          q_price_to?: number | null
+          q_promotions?: string | null
+          q_sales_tone?: string | null
+          q_service_area?: string | null
+          q_service_case_studies?: string | null
+          q_service_description?: string | null
+          q_service_duration?: string | null
+          q_service_guarantee?: string | null
+          q_service_name?: string | null
+          q_service_process?: string | null
+          q_service_results?: string | null
+          q_service_unique_value?: string | null
+          q_special_instructions?: string | null
+          q_target_customer_profile?: string | null
+          q_team_size?: string | null
+          q_typical_sales_cycle?: string | null
+          q_wrong_customer?: string | null
+          q_years_in_business?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          completion_percentage?: number | null
+          created_at?: string | null
+          id?: string
+          is_complete?: boolean | null
+          q_certifications?: string | null
+          q_closing_technique?: string | null
+          q_company_achievements?: string | null
+          q_company_description?: string | null
+          q_company_name?: string | null
+          q_customer_fears?: string | null
+          q_customer_problems?: string | null
+          q_customer_transformation?: string | null
+          q_location?: string | null
+          q_meeting_types?: string | null
+          q_objection_competitor?: string | null
+          q_objection_custom_1?: string | null
+          q_objection_custom_1_answer?: string | null
+          q_objection_custom_2?: string | null
+          q_objection_custom_2_answer?: string | null
+          q_objection_diy?: string | null
+          q_objection_price?: string | null
+          q_objection_think?: string | null
+          q_objection_time?: string | null
+          q_objection_trust?: string | null
+          q_payment_methods?: string | null
+          q_payment_terms?: string | null
+          q_preferred_contact_time?: string | null
+          q_price_from?: number | null
+          q_price_justification?: string | null
+          q_price_model?: string | null
+          q_price_to?: number | null
+          q_promotions?: string | null
+          q_sales_tone?: string | null
+          q_service_area?: string | null
+          q_service_case_studies?: string | null
+          q_service_description?: string | null
+          q_service_duration?: string | null
+          q_service_guarantee?: string | null
+          q_service_name?: string | null
+          q_service_process?: string | null
+          q_service_results?: string | null
+          q_service_unique_value?: string | null
+          q_special_instructions?: string | null
+          q_target_customer_profile?: string | null
+          q_team_size?: string | null
+          q_typical_sales_cycle?: string | null
+          q_wrong_customer?: string | null
+          q_years_in_business?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_sales_questionnaire_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: true
+            referencedRelation: "ai_sales_agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_settings: {
         Row: {
           ai_enabled: boolean | null
