@@ -35,6 +35,7 @@ export default function WorkshopClientCard() {
   const [accepted, setAccepted] = useState(false);
   const [signing, setSigning] = useState(false);
   const [activeTab, setActiveTab] = useState<TabKey>('reception');
+  const [initialTabSet, setInitialTabSet] = useState(false);
 
   useEffect(() => { loadOrder(); }, [code]);
 
@@ -117,8 +118,8 @@ export default function WorkshopClientCard() {
     ? order.client?.company_name
     : `${order.client?.first_name || ''} ${order.client?.last_name || ''}`.trim();
 
-  const tasks = (order.items || []).filter((i: any) => i.item_type !== 'goods');
-  const goods = (order.items || []).filter((i: any) => i.item_type === 'goods');
+  const tasks = (order.items || []).filter((i: any) => i.item_type === 'service' || i.item_type === 'task');
+  const goods = (order.items || []).filter((i: any) => i.item_type === 'part' || i.item_type === 'goods' || i.item_type === 'other');
   const tasksTotal = tasks.reduce((s: number, t: any) => s + (t.total_gross || 0), 0);
   const tasksNetTotal = tasks.reduce((s: number, t: any) => s + (t.total_net || 0), 0);
   const goodsTotal = goods.reduce((s: number, g: any) => s + (g.total_gross || 0), 0);
