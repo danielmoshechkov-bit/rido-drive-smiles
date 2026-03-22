@@ -28,6 +28,7 @@ import { ServiceProviderAccountingView } from '@/components/service-provider/Ser
 import { DEFAULT_SERVICE_PROVIDER_PRIMARY_TABS, SERVICE_PROVIDER_TAB_ORDER } from '@/components/service-provider/navConfig';
 import { CalendarView } from '@/components/calendar/CalendarView';
 import { AgentTypeSelector } from '@/components/ai-agents/AgentTypeSelector';
+import { AISalesAgentsDashboard } from '@/components/ai-sales/AISalesAgentsDashboard';
 import { KnowledgeBaseEditor } from '@/components/ai-agents/KnowledgeBaseEditor';
 import { ConversationAnalytics } from '@/components/ai-agents/ConversationAnalytics';
 import { GlobalLearningPanel } from '@/components/ai-agents/GlobalLearningPanel';
@@ -648,27 +649,7 @@ export default function ServiceProviderDashboard() {
 
           {/* AI Agent Tab */}
           <TabsContent value="ai-agent" className="mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Phone className="h-5 w-5" /> AI Agent Telefoniczny</CardTitle>
-                <CardDescription>Automatyczna obsługa połączeń przychodzących</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {configData ? (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between"><span className="font-medium">Status:</span><Badge variant={configData.is_active ? 'default' : 'secondary'}>{configData.is_active ? 'Aktywny' : 'Nieaktywny'}</Badge></div>
-                    <div className="flex items-center justify-between"><span className="font-medium">Firma:</span><span>{configData.company_name}</span></div>
-                    <Button className="w-full mt-4" onClick={() => setActiveTab('settings')}><Settings className="h-4 w-4 mr-2" /> Konfiguruj AI Agenta</Button>
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <Phone className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                    <p className="text-muted-foreground mb-4">AI Agent nie został jeszcze skonfigurowany</p>
-                    <Button>Rozpocznij konfigurację</Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <AISalesAgentsDashboard />
           </TabsContent>
 
           {/* Website Builder Tab */}
