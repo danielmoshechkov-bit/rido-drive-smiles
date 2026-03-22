@@ -700,7 +700,7 @@ function ConvItem({ conv, active, onClick, onStar, onRename, onAddToProject, onD
 
   if (renaming) {
     return (
-      <div className="flex items-center gap-1 px-2 py-1">
+      <div className="flex items-center gap-1 px-2 py-1 w-full min-w-0 overflow-hidden">
         <input
           autoFocus
           value={renameValue}
@@ -710,7 +710,7 @@ function ConvItem({ conv, active, onClick, onStar, onRename, onAddToProject, onD
             if (e.key === 'Escape') setRenaming(false);
           }}
           onBlur={() => { onRename(renameValue); setRenaming(false); }}
-          className="flex-1 text-sm px-2 py-1.5 rounded-lg bg-muted border border-border outline-none focus:ring-1 focus:ring-primary min-w-0"
+          className="flex-1 min-w-0 text-sm px-2 py-1.5 rounded-lg bg-muted border border-border outline-none focus:ring-1 focus:ring-primary"
         />
       </div>
     );
@@ -724,17 +724,27 @@ function ConvItem({ conv, active, onClick, onStar, onRename, onAddToProject, onD
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       className={cn(
-        'flex items-center px-2.5 py-2 rounded-xl cursor-pointer text-sm transition-colors w-full',
+        'flex items-center gap-1 px-2 py-1.5 rounded-lg cursor-pointer text-sm transition-colors w-full min-w-0 overflow-hidden',
         active ? 'bg-primary text-primary-foreground font-medium' : 'text-foreground hover:bg-accent hover:text-accent-foreground'
       )}
-      style={{ overflow: 'hidden' }}
     >
-      {conv.is_starred && <Star className="h-3 w-3 fill-yellow-400 text-yellow-400 flex-shrink-0 mr-1.5" />}
-      <span className="truncate min-w-0" style={{ flex: '1 1 0%' }}>{conv.title || 'Nowa rozmowa'}</span>
+      {conv.is_starred && <Star className="h-3 w-3 fill-yellow-400 text-yellow-400 flex-shrink-0" />}
+      <span
+        className="block min-w-0 flex-1"
+        style={{
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          fontSize: '13px',
+        }}
+      >
+        {conv.title || 'Nowa rozmowa'}
+      </span>
       <div
-        className="flex-shrink-0 ml-1"
+        className="flex-shrink-0"
         style={{
           width: '24px',
+          marginLeft: '4px',
           opacity: showMenu ? 1 : 0,
           pointerEvents: showMenu ? 'auto' : 'none',
           transition: 'opacity 0.15s',
@@ -754,7 +764,7 @@ function ConvItem({ conv, active, onClick, onStar, onRename, onAddToProject, onD
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-[160px]" onClick={e => e.stopPropagation()}>
             <DropdownMenuItem onClick={onStar}>
-              <Star className={cn("h-4 w-4 mr-2", conv.is_starred && "fill-yellow-400 text-yellow-400")} />
+              <Star className={cn('h-4 w-4 mr-2', conv.is_starred && 'fill-yellow-400 text-yellow-400')} />
               {conv.is_starred ? 'Usuń z ulubionych' : 'Dodaj do ulubionych'}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => { setRenameValue(conv.title || ''); setRenaming(true); }}>
