@@ -6,12 +6,13 @@ import { useGetRidoAI } from '@/hooks/useGetRidoAI';
 import { supabase } from '@/integrations/supabase/client';
 import ReactMarkdown from 'react-markdown';
 import {
-  Loader2, Send, Plus, MessageCircle, Briefcase, Image,
+  Loader2, Send, Plus, MessageCircle, Briefcase,
   Sparkles, X, Search, PanelLeftOpen, PanelLeftClose, Lock,
   Download, Paintbrush, RotateCcw, Paperclip, FileText, Trash2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ridoMascot from '@/assets/rido-mascot.png';
+import { AIProjectsSection } from './AIProjectsSection';
 
 type MainMode = 'chat' | 'grafika' | 'cowork';
 interface Msg { id?: string; role: 'user' | 'assistant'; content: string; images?: string[]; files?: { name: string; type: string }[]; }
