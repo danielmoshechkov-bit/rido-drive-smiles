@@ -173,7 +173,54 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
     setShowAddWorkstation(false);
   };
 
-  return (
+  useEffect(() => {
+    if (!providerId) return;
+    const loadNavPreferences = async () => {
+      const { data } = await (supabase as any)
+        .from('service_provider_nav_preferences')
+        .select('primary_tabs')
+        .eq('provider_id', providerId)
+        .maybeSingle();
+
+      const allowed = SERVICE_PROVIDER_TAB_ORDER.filter(tab => tab !== 'settings' && (websiteBuilderEnabled || tab !== 'website'));
+      const saved = Array.isArray(data?.primary_tabs) ? data.primary_tabs.filter((tab: string) => allowed.includes(tab as ServiceProviderNavTabKey)) : [];
+      setPrimaryTabs(saved.length ? saved as ServiceProviderNavTabKey[] : DEFAULT_SERVICE_PROVIDER_PRIMARY_TABS.filter(tab => allowed.includes(tab)));
+    };
+
+    loadNavPreferences();
+  }, [providerId, websiteBuilderEnabled]);
+
+  const handlePrimaryTabToggle = (tab: ServiceProviderNavTabKey, checked: boolean) => {
+    setPrimaryTabs(prev => {
+      if (checked) {
+        return SERVICE_PROVIDER_TAB_ORDER.filter(key => key !== 'settings' && (websiteBuilderEnabled || key !== 'website')).filter(key => key === tab || prev.includes(key));
+      }
+      return prev.filter(item => item !== tab);
+    });
+  };
+
+  const handleSavePrimaryTabs = async () => {
+    if (!providerId) return;
+
+    const nextPrimaryTabs = primaryTabs.length ? primaryTabs : DEFAULT_SERVICE_PROVIDER_PRIMARY_TABS.filter(tab => websiteBuilderEnabled || tab !== 'website');
+    const nextMoreTabs = SERVICE_PROVIDER_TAB_ORDER.filter(tab => tab !== 'settings' && !nextPrimaryTabs.includes(tab) && (websiteBuilderEnabled || tab !== 'website')).concat('settings');
+
+    const { error } = await (supabase as any)
+      .from('service_provider_nav_preferences')
+      .upsert({
+        provider_id: providerId,
+        primary_tabs: nextPrimaryTabs,
+        more_tabs: nextMoreTabs,
+      }, { onConflict: 'provider_id' });
+
+    if (error) {
+      toast.error('Nie udało się zapisać układu paska');
+      return;
+    }
+
+    onPrimaryTabsSaved?.(nextPrimaryTabs);
+    toast.success('Układ paska zapisany');
+  };
     <Card>
       <CardContent className="pt-6">
         <Tabs value={settingsTab} onValueChange={setSettingsTab}>
@@ -233,8 +280,29 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
             </div>
           </TabsContent>
 
-          {/* Employees */}
-          <TabsContent value="pracownicy" className="space-y-4">
+          <TabsContent value="konto" className="space-y-6">
+            <Card className="border-dashed">
+              <CardContent className="pt-6 space-y-4">
+                <div>
+                  <h3 className="font-semibold">Menu główne</h3>
+                  <p className="text-sm text-muted-foreground">Wybierz, które moduły mają być widoczne bezpośrednio na pasku. Reszta trafi do zakładki „Więcej”.</p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {SERVICE_PROVIDER_TAB_ORDER.filter(tab => tab !== 'settings' && (websiteBuilderEnabled || tab !== 'website')).map((tab) => (
+                    <label key={tab} className="flex items-center gap-3 rounded-lg border p-3 cursor-pointer hover:bg-muted/50">
+                      <Checkbox
+                        checked={primaryTabs.includes(tab)}
+                        onCheckedChange={(checked) => handlePrimaryTabToggle(tab, checked === true)}
+                      />
+                      <span className="text-sm font-medium">{SERVICE_PROVIDER_TAB_LABELS[tab]}</span>
+                    </label>
+                  ))}
+                </div>
+                <div className="flex justify-end">
+                  <Button type="button" variant="outline" onClick={handleSavePrimaryTabs}>Zapisz układ paska</Button>
+                </div>
+              </CardContent>
+            </Card>
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="font-semibold">Pracownicy</h3>
