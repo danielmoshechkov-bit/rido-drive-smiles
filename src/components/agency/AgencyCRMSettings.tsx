@@ -202,14 +202,8 @@ export function AgencyCRMSettings({ agencyId }: AgencyCRMSettingsProps) {
     try {
       setLoading(true);
       
-      // Fetch available CRM providers
-      const { data: providersData } = await supabase
-        .from('crm_integration_providers')
-        .select('*')
-        .eq('is_enabled', true)
-        .order('provider_name');
-      
-      setProviders(providersData || []);
+      // Use hardcoded CRM providers
+      setProviders(CRM_PROVIDERS);
 
       // Fetch existing integration for this agency
       const { data: integrationData } = await supabase
