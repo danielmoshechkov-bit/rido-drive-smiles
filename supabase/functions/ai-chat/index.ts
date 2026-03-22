@@ -22,12 +22,27 @@ W trybie Cowork gdy użytkownik chce wykonać akcję w portalu, na końcu odpowi
 ACTION:{"type":"TYP_AKCJI","params":{}}
 Dostępne akcje: CREATE_INVOICE, CREATE_TASK, FIND_SERVICE, BOOK_APPOINTMENT, SEARCH_PROPERTY, OPEN_PAGE`
 
-const WEATHER_QUERY_PATTERNS = /(?:pogod|weather|forecast|temperatur|meteo|klimat|температур|погод|прогноз)/i
+const WEATHER_QUERY_PATTERNS = /(?:pogod|weather|forecast|temperatur|meteo|klimat|температур|погод|прогноз|wetter|thời tiết|tiempo|météo|počasí)/i
 const LOW_CONFIDENCE_WEATHER_PATTERNS = [
+  // Polish
   /nie mog[eę].{0,60}(sprawdzi[ćc]|mam dost[eę]pu|w czasie rzeczywistym)/i,
   /sprawd[źz].{0,30}na stronie/i,
   /nie mam dost[eę]pu do danych pogodowych/i,
+  /nie znam.{0,30}(pogody|temperatury)/i,
+  /nie posiadam.{0,30}(aktualnych|bieżących|rzeczywistych)/i,
+  // English
   /i (?:can'?t|cannot|don'?t) .{0,40}(check|access|verify).{0,40}(weather|forecast)/i,
+  /don'?t have (?:access|real.?time)/i,
+  // Russian
+  /не (?:могу|имею).{0,60}(провери|доступ|реальн|актуальн|текущ)/i,
+  /не (?:знаю|известн).{0,40}(погод|температур)/i,
+  /нет доступа к.{0,40}(погод|данн|информац)/i,
+  /рекомендую.{0,40}(сайт|weather|meteo|прогноз)/i,
+  /посети.{0,40}(сайт|weather|meteo)/i,
+  // Ukrainian  
+  /не (?:можу|маю).{0,60}(перевір|доступ|реальн|актуальн)/i,
+  // German
+  /(?:keinen? zugang|kann nicht).{0,40}(wetter|prüfen|überprüfen)/i,
 ]
 const FILE_ACCESS_FAILURE_PATTERNS = [
   /nie mog[eę].{0,80}(otworzy[ćc]|odczyta[ćc]|czyta[ćc]|przeanalizowa[ćc]|sprawdzi[ćc]).{0,40}(pliku|pdf|dokumentu|obrazu|za[łl]ącznika)/i,
@@ -35,6 +50,7 @@ const FILE_ACCESS_FAILURE_PATTERNS = [
   /na podstawie nazwy pliku/i,
   /plik binarny/i,
   /i (?:can'?t|cannot|unable to).{0,80}(open|read|access|analy[sz]e).{0,40}(file|pdf|document|image|attachment)/i,
+  /не (?:могу|удалось).{0,80}(откры|прочита|проанализирова|обработа)/i,
 ]
 
 serve(async (req) => {
