@@ -89,7 +89,15 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [selectedVehicle, setSelectedVehicle] = useState<any>(null);
   const currentSelectedOrder = selectedOrder
-    ? workshopOrders.find((order: any) => order.id === selectedOrder.id) || selectedOrder
+    ? workshopOrders.find((order: any) => order.id === selectedOrder.id)
+      ? {
+          ...selectedOrder,
+          ...workshopOrders.find((order: any) => order.id === selectedOrder.id),
+          items: workshopOrders.find((order: any) => order.id === selectedOrder.id)?.items || selectedOrder.items || [],
+          client: workshopOrders.find((order: any) => order.id === selectedOrder.id)?.client || selectedOrder.client,
+          vehicle: workshopOrders.find((order: any) => order.id === selectedOrder.id)?.vehicle || selectedOrder.vehicle,
+        }
+      : selectedOrder
     : null;
 
   if (!providerId && isLoading) {
