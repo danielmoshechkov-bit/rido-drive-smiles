@@ -167,7 +167,7 @@ serve(async (req) => {
             content: [
               {
                 type: 'text',
-                text: `Edytuj obraz zgodnie z zaznaczonymi obszarami. Fioletowe maski pokazują miejsca zmian. Zachowaj cały obraz bez zmian poza zaznaczonymi miejscami. Wprowadź dokładnie te zmiany: ${query}`,
+                text: `Edit the image ONLY in the areas marked with purple/violet masks. The masks show EXACTLY where changes should be made. Do NOT change anything outside the masked areas. Each numbered change corresponds to a masked area:\n${query}\n\nIMPORTANT: Apply each change precisely to the masked area it corresponds to. Keep the rest of the image completely unchanged.`,
               },
               { type: 'image_url', image_url: { url: `data:image/png;base64,${imageBase64}` } },
               { type: 'image_url', image_url: { url: `data:image/png;base64,${maskBase64}` } },
