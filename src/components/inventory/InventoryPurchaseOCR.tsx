@@ -103,6 +103,10 @@ export function InventoryPurchaseOCR({ entityId }: Props) {
   const [ocrDone, setOcrDone] = useState(false);
   const [dragOver, setDragOver] = useState(false);
 
+  // Invoice mode: 'magazyn' = add to inventory, 'kosztowa' = cost invoice only
+  const [invoiceMode, setInvoiceMode] = useState<'magazyn' | 'kosztowa'>('magazyn');
+  const [autoMatchedCount, setAutoMatchedCount] = useState(0);
+
   // New product dialog
   const [newProductOpen, setNewProductOpen] = useState(false);
   const [newProductName, setNewProductName] = useState('');
@@ -313,16 +317,41 @@ Odpowiedz TYLKO samym JSON bez żadnego tekstu, bez markdown.`,
     }
   };
 
-  /* ── Auto-match ───────────────────────────────────────────────────── */
+  /* ── Auto-match (by supplier_symbol/index first, then name) ──────── */
 
-  const autoMatchProduct = (name?: string): string | undefined => {
-    if (!name || !products.length) return undefined;
+  const autoMatchProduct = (name?: string, supplierSymbol?: string): string | undefined => {
+    if (!products.length) return undefined;
+
+    // 1. First try by supplier_symbol/index (most reliable — part numbers are stable)
+    if (supplierSymbol) {
+      const symbolLower = supplierSymbol.toLowerCase().trim();
+      const mappingBySymbol = supplierMappings.find(m =>
+        m.supplier_symbol && m.supplier_symbol.toLowerCase().trim() === symbolLower
+      );
+      if (mappingBySymbol?.product_id) return mappingBySymbol.product_id;
+
+      // Also check SKU in products table
+      const productBySku = products.find(p =>
+        p.sku && p.sku.toLowerCase().trim() === symbolLower
+      );
+      if (productBySku) return productBySku.id;
+    }
+
+    if (!name) return undefined;
     const lower = name.toLowerCase().trim();
-    const mapping = supplierMappings.find(m =>
-      m.supplier_name.toLowerCase() === lower ||
-      (m.supplier_symbol && m.supplier_symbol.toLowerCase() === lower)
+
+    // 2. Then try supplier_mappings by name
+    const mappingByName = supplierMappings.find(m =>
+      m.supplier_name.toLowerCase().trim() === lower
     );
-    if (mapping?.product_id) return mapping.product_id;
+    if (mappingByName?.product_id) return mappingByName.product_id;
+
+    // 3. Fuzzy match by product name
+    // Exact match first
+    const exact = products.find(p => p.name.toLowerCase().trim() === lower);
+    if (exact) return exact.id;
+
+    // Substring match
     return products.find(p =>
       p.name.toLowerCase().includes(lower) || lower.includes(p.name.toLowerCase())
     )?.id;
