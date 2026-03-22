@@ -458,6 +458,15 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     setTaskRows([createEmptyTask()]);
   };
 
+  // Auto-save task row on blur if filled
+  const autoSaveTaskRow = async (idx: number) => {
+    const row = taskRows[idx];
+    if (row && isTaskDraftFilled(row)) {
+      await submitTask(row, idx);
+      setTaskRows(prev => prev.map((r, i) => i === idx ? createEmptyTask() : r));
+    }
+  };
+
   const saveGoodsDraftRows = async () => {
     const rowsToSave = goodsRows.filter(isGoodsDraftFilled);
     if (rowsToSave.length === 0) {
@@ -471,6 +480,15 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     }
 
     setGoodsRows([createEmptyGoods()]);
+  };
+
+  // Auto-save goods row on blur if filled
+  const autoSaveGoodsRow = async (idx: number) => {
+    const row = goodsRows[idx];
+    if (row && isGoodsDraftFilled(row)) {
+      await submitGoods(row, idx);
+      setGoodsRows(prev => prev.map((r, i) => i === idx ? createEmptyGoods() : r));
+    }
   };
 
   // Inline editable cell renderer
@@ -644,6 +662,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           placeholder={isTaskGross ? 'Brutto' : 'Netto'}
                           value={isTaskGross ? (row.price_gross || '') : (row.price_net || '')}
                           onChange={e => updateTaskRowPrice(idx, Number(e.target.value))}
+                          onBlur={() => autoSaveTaskRow(idx)}
                             className="h-9 w-full text-sm text-right min-w-0"
                         />
                       </td>
@@ -687,7 +706,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                   <td colSpan={7} className="p-1.5">
                     <div className="flex items-center gap-2">
                       <Button onClick={saveTaskDraftRows} variant="ghost" size="sm" className="gap-1 text-xs text-primary">
-                        <Plus className="h-3.5 w-3.5" /> Zapisz i dodaj usługę
+                        <Plus className="h-3.5 w-3.5" /> Dodaj usługę
                       </Button>
                       {(tasks.length > 0 || taskRows.some(r => r.name.trim())) && ridoPriceSettings?.ai_suggestions_enabled !== false && (
                         <Button
@@ -844,6 +863,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           placeholder={isGoodsGross ? 'Brutto' : 'Netto'}
                           value={isGoodsGross ? (row.price_gross || '') : (row.price_net || '')}
                           onChange={e => updateGoodsRowPrice(idx, Number(e.target.value))}
+                          onBlur={() => autoSaveGoodsRow(idx)}
                             className="h-9 w-full text-sm text-right min-w-0 px-2"
                         />
                       </td>
@@ -890,7 +910,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                   <td colSpan={10} className="p-1.5">
                     <div className="flex items-center gap-2">
                       <Button onClick={saveGoodsDraftRows} variant="ghost" size="sm" className="gap-1 text-xs text-amber-600">
-                        <Plus className="h-3.5 w-3.5" /> Zapisz i dodaj pozycję
+                        <Plus className="h-3.5 w-3.5" /> Dodaj pozycję
                       </Button>
                       <Button variant="outline" size="sm" className="gap-1 h-7 text-xs">
                         <Package className="h-3.5 w-3.5" /> Dodaj z magazynu
