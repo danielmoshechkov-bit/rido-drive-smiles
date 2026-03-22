@@ -9,14 +9,22 @@ import ReactMarkdown from 'react-markdown';
 import {
   Loader2, Send, Plus, MessageCircle, Briefcase, Image,
   ArrowLeft, Trash2, ChevronRight, Sparkles,
-  Paintbrush, RotateCcw, Download, X, Search, Settings, MoreHorizontal
+  Paintbrush, RotateCcw, Download, X, Search, Settings, MoreHorizontal,
+  Star, Pencil, FolderPlus
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 
 const AVATAR = '/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png';
 type MainMode = 'chat' | 'cowork' | 'grafika';
 interface Msg { id?: string; role: 'user' | 'assistant'; content: string; images?: string[]; }
-interface Conv { id: string; title: string; mode: string; updated_at: string; }
+interface Conv { id: string; title: string; mode: string; updated_at: string; is_starred?: boolean; project_id?: string | null; }
 
 const parseAction = (text: string) => {
   const match = text.match(/ACTION:(\{.*?\})/s);
@@ -54,6 +62,7 @@ export default function RidoAIChatPage() {
   const [conversations, setConversations] = useState<Conv[]>([]);
   const [currentConvId, setCurrentConvId] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [projectDialogConvId, setProjectDialogConvId] = useState<string | null>(null);
 
   // Image editor state
   const [editingImage, setEditingImage] = useState<string | null>(null);
@@ -73,7 +82,7 @@ export default function RidoAIChatPage() {
   const loadConversations = useCallback(async () => {
     if (!userId) return;
     const { data } = await (supabase as any)
-      .from('ai_conversations').select('id,title,mode,updated_at')
+      .from('ai_conversations').select('id,title,mode,updated_at,is_starred,project_id')
       .eq('user_id', userId).order('updated_at', { ascending: false }).limit(50);
     if (data) setConversations(data);
   }, [userId]);
@@ -254,15 +263,49 @@ export default function RidoAIChatPage() {
         {/* Conversations list */}
         <ScrollArea className="flex-1 px-1">
           <div className="px-2 py-2">
+            {/* Starred section */}
+            {!searchQuery && filteredConversations.some(c => c.is_starred) && (
+              <div className="mb-3">
+                <p className="text-[11px] font-medium text-muted-foreground px-2 py-1.5 uppercase tracking-wider">⭐ Ulubione</p>
+                {filteredConversations.filter(c => c.is_starred).map(conv => (
+                  <ConvItem key={conv.id} conv={conv} active={currentConvId === conv.id}
+                    onClick={() => { loadConversation(conv.id); setSidebarOpen(false); }}
+                    onStar={async () => {
+                      await (supabase as any).from('ai_conversations').update({ is_starred: !conv.is_starred }).eq('id', conv.id);
+                      loadConversations();
+                    }}
+                    onRename={async (newTitle) => {
+                      await (supabase as any).from('ai_conversations').update({ title: newTitle }).eq('id', conv.id);
+                      loadConversations();
+                    }}
+                    onAddToProject={() => setProjectDialogConvId(conv.id)}
+                    onDelete={async () => {
+                      if (!window.confirm('Usunąć tę rozmowę?')) return;
+                      await (supabase as any).from('ai_conversations').delete().eq('id', conv.id);
+                      if (currentConvId === conv.id) handleNewChat();
+                      loadConversations();
+                    }} />
+                ))}
+              </div>
+            )}
+
             {grouped.today.length > 0 && (
               <div className="mb-3">
                 <p className="text-[11px] font-medium text-muted-foreground px-2 py-1.5 uppercase tracking-wider">Dzisiaj</p>
-                {grouped.today.map(conv => (
+                {grouped.today.filter(c => searchQuery || !c.is_starred).map(conv => (
                   <ConvItem key={conv.id} conv={conv} active={currentConvId === conv.id}
                     onClick={() => { loadConversation(conv.id); setSidebarOpen(false); }}
+                    onStar={async () => {
+                      await (supabase as any).from('ai_conversations').update({ is_starred: !conv.is_starred }).eq('id', conv.id);
+                      loadConversations();
+                    }}
+                    onRename={async (newTitle) => {
+                      await (supabase as any).from('ai_conversations').update({ title: newTitle }).eq('id', conv.id);
+                      loadConversations();
+                    }}
+                    onAddToProject={() => setProjectDialogConvId(conv.id)}
                     onDelete={async () => {
-                      const ok = window.confirm('Czy na pewno chcesz usunąć tę rozmowę? Tej operacji nie można cofnąć.');
-                      if (!ok) return;
+                      if (!window.confirm('Usunąć tę rozmowę?')) return;
                       await (supabase as any).from('ai_conversations').delete().eq('id', conv.id);
                       if (currentConvId === conv.id) handleNewChat();
                       loadConversations();
@@ -274,12 +317,20 @@ export default function RidoAIChatPage() {
             {grouped.yesterday.length > 0 && (
               <div className="mb-3">
                 <p className="text-[11px] font-medium text-muted-foreground px-2 py-1.5 uppercase tracking-wider">Wczoraj</p>
-                {grouped.yesterday.map(conv => (
+                {grouped.yesterday.filter(c => searchQuery || !c.is_starred).map(conv => (
                   <ConvItem key={conv.id} conv={conv} active={currentConvId === conv.id}
                     onClick={() => { loadConversation(conv.id); setSidebarOpen(false); }}
+                    onStar={async () => {
+                      await (supabase as any).from('ai_conversations').update({ is_starred: !conv.is_starred }).eq('id', conv.id);
+                      loadConversations();
+                    }}
+                    onRename={async (newTitle) => {
+                      await (supabase as any).from('ai_conversations').update({ title: newTitle }).eq('id', conv.id);
+                      loadConversations();
+                    }}
+                    onAddToProject={() => setProjectDialogConvId(conv.id)}
                     onDelete={async () => {
-                      const ok = window.confirm('Czy na pewno chcesz usunąć tę rozmowę? Tej operacji nie można cofnąć.');
-                      if (!ok) return;
+                      if (!window.confirm('Usunąć tę rozmowę?')) return;
                       await (supabase as any).from('ai_conversations').delete().eq('id', conv.id);
                       if (currentConvId === conv.id) handleNewChat();
                       loadConversations();
@@ -291,12 +342,20 @@ export default function RidoAIChatPage() {
             {grouped.older.length > 0 && (
               <div className="mb-3">
                 <p className="text-[11px] font-medium text-muted-foreground px-2 py-1.5 uppercase tracking-wider">Wcześniej</p>
-                {grouped.older.map(conv => (
+                {grouped.older.filter(c => searchQuery || !c.is_starred).map(conv => (
                   <ConvItem key={conv.id} conv={conv} active={currentConvId === conv.id}
                     onClick={() => { loadConversation(conv.id); setSidebarOpen(false); }}
+                    onStar={async () => {
+                      await (supabase as any).from('ai_conversations').update({ is_starred: !conv.is_starred }).eq('id', conv.id);
+                      loadConversations();
+                    }}
+                    onRename={async (newTitle) => {
+                      await (supabase as any).from('ai_conversations').update({ title: newTitle }).eq('id', conv.id);
+                      loadConversations();
+                    }}
+                    onAddToProject={() => setProjectDialogConvId(conv.id)}
                     onDelete={async () => {
-                      const ok = window.confirm('Czy na pewno chcesz usunąć tę rozmowę? Tej operacji nie można cofnąć.');
-                      if (!ok) return;
+                      if (!window.confirm('Usunąć tę rozmowę?')) return;
                       await (supabase as any).from('ai_conversations').delete().eq('id', conv.id);
                       if (currentConvId === conv.id) handleNewChat();
                       loadConversations();
@@ -508,32 +567,171 @@ export default function RidoAIChatPage() {
           </div>
         </div>
       )}
+
+      {/* Add to project dialog */}
+      <AddToProjectDialog
+        convId={projectDialogConvId}
+        userId={userId}
+        onClose={() => setProjectDialogConvId(null)}
+        onDone={() => { setProjectDialogConvId(null); loadConversations(); }}
+      />
     </div>
   );
 }
 
+/* Add to project dialog */
+function AddToProjectDialog({ convId, userId, onClose, onDone }: {
+  convId: string | null; userId: string | null; onClose: () => void; onDone: () => void;
+}) {
+  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
+  const [search, setSearch] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState('');
+
+  useEffect(() => {
+    if (!convId || !userId) return;
+    (supabase as any).from('workspace_projects').select('id,name')
+      .eq('owner_user_id', userId).order('name').then(({ data }: any) => {
+        if (data) setProjects(data);
+      });
+  }, [convId, userId]);
+
+  const filtered = projects.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
+
+  const assignProject = async (projectId: string) => {
+    if (!convId) return;
+    await (supabase as any).from('ai_conversations').update({ project_id: projectId }).eq('id', convId);
+    onDone();
+  };
+
+  const createAndAssign = async () => {
+    if (!newName.trim() || !userId || !convId) return;
+    const { data } = await (supabase as any).from('workspace_projects')
+      .insert({ name: newName.trim(), owner_user_id: userId, status: 'active' }).select().single();
+    if (data) {
+      await (supabase as any).from('workspace_project_members')
+        .insert({ project_id: data.id, user_id: userId, role: 'owner' });
+      await assignProject(data.id);
+    }
+  };
+
+  return (
+    <Dialog open={!!convId} onOpenChange={open => { if (!open) onClose(); }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Dodaj do projektu</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">Wybierz projekt, do którego chcesz przypisać tę rozmowę.</p>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Szukaj lub utwórz projekt..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <div className="max-h-[240px] overflow-auto space-y-1">
+          {filtered.map(p => (
+            <button key={p.id} onClick={() => assignProject(p.id)}
+              className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-lg hover:bg-muted transition-colors text-sm text-left">
+              <FolderPlus className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              <span className="truncate">{p.name}</span>
+            </button>
+          ))}
+          {filtered.length === 0 && !creating && (
+            <p className="text-center text-xs text-muted-foreground py-4">Brak projektów</p>
+          )}
+        </div>
+        {!creating ? (
+          <Button variant="outline" size="sm" onClick={() => { setCreating(true); setNewName(search); }} className="w-full gap-2">
+            <Plus className="h-4 w-4" /> Nowy projekt
+          </Button>
+        ) : (
+          <div className="flex gap-2">
+            <Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Nazwa projektu..." autoFocus
+              onKeyDown={e => { if (e.key === 'Enter') createAndAssign(); }} />
+            <Button onClick={createAndAssign} disabled={!newName.trim()} size="sm">Utwórz</Button>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 /* Conversation list item component */
-function ConvItem({ conv, active, onClick, onDelete }: { conv: Conv; active: boolean; onClick: () => void; onDelete: () => void }) {
+function ConvItem({ conv, active, onClick, onStar, onRename, onAddToProject, onDelete }: {
+  conv: Conv; active: boolean; onClick: () => void;
+  onStar: () => void; onRename: (title: string) => void;
+  onAddToProject: () => void; onDelete: () => void;
+}) {
   const [hovered, setHovered] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState(conv.title || '');
+
+  if (renaming) {
+    return (
+      <div className="flex items-center gap-1 px-2 py-1">
+        <input
+          autoFocus
+          value={renameValue}
+          onChange={e => setRenameValue(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'Enter') { onRename(renameValue); setRenaming(false); }
+            if (e.key === 'Escape') setRenaming(false);
+          }}
+          onBlur={() => { onRename(renameValue); setRenaming(false); }}
+          className="flex-1 text-sm px-2 py-1.5 rounded-lg bg-muted border border-border outline-none focus:ring-1 focus:ring-primary"
+        />
+      </div>
+    );
+  }
+
   return (
     <div
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       className={cn(
-        'flex items-center gap-2 px-3 py-2.5 rounded-xl cursor-pointer text-sm transition-colors',
+        'group flex items-center gap-1 px-3 py-2 rounded-xl cursor-pointer text-sm transition-colors',
         active ? 'bg-primary text-primary-foreground font-medium' : 'text-foreground hover:bg-accent hover:text-accent-foreground'
       )}
     >
-      <span className="flex-1 truncate font-medium">{conv.title || 'Nowa rozmowa'}</span>
+      {conv.is_starred && <Star className="h-3 w-3 fill-yellow-400 text-yellow-400 flex-shrink-0" />}
+      <span className="flex-1 truncate">{conv.title || 'Nowa rozmowa'}</span>
       {(hovered || active) && (
-        <button
-          onClick={e => { e.preventDefault(); e.stopPropagation(); onDelete(); }}
-          className="p-1 hover:bg-destructive/20 rounded-lg transition-colors flex-shrink-0 opacity-70 hover:opacity-100"
-          title="Usuń rozmowę"
-        >
-          <Trash2 className="h-3.5 w-3.5 text-destructive" />
-        </button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              onClick={e => { e.preventDefault(); e.stopPropagation(); }}
+              className={cn(
+                'p-1 rounded-lg transition-colors flex-shrink-0',
+                active ? 'hover:bg-primary-foreground/20' : 'hover:bg-muted'
+              )}
+            >
+              <MoreHorizontal className="h-3.5 w-3.5" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-[160px]" onClick={e => e.stopPropagation()}>
+            <DropdownMenuItem onClick={onStar}>
+              <Star className={cn("h-4 w-4 mr-2", conv.is_starred && "fill-yellow-400 text-yellow-400")} />
+              {conv.is_starred ? 'Usuń z ulubionych' : 'Dodaj do ulubionych'}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => { setRenameValue(conv.title || ''); setRenaming(true); }}>
+              <Pencil className="h-4 w-4 mr-2" />
+              Zmień nazwę
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onAddToProject}>
+              <FolderPlus className="h-4 w-4 mr-2" />
+              Dodaj do projektu
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={onDelete} className="text-destructive focus:text-destructive">
+              <Trash2 className="h-4 w-4 mr-2" />
+              Usuń
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       )}
     </div>
   );
