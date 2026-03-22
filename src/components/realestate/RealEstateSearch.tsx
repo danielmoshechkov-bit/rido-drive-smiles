@@ -66,6 +66,8 @@ const TRANSACTION_TYPES = [
   { value: "sprzedaz", label: "Na sprzedaż" },
   { value: "wynajem", label: "Wynajem" },
   { value: "wynajem-krotkoterminowy", label: "Wynajem krótkoterminowy" },
+  { value: "rynek-pierwotny", label: "Rynek pierwotny" },
+  { value: "komercja", label: "Komercja" },
 ];
 
 const ROOMS_OPTIONS = [
