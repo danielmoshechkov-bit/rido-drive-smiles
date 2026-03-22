@@ -17,11 +17,12 @@ interface Props {
   providerId: string;
   onBack: () => void;
   title?: string;
+  focusOrderId?: string;
 }
 
 const HOURS = Array.from({ length: 11 }, (_, i) => i + 8);
 
-export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz' }: Props) {
+export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz', focusOrderId }: Props) {
   const queryClient = useQueryClient();
   const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
@@ -117,8 +118,16 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz' }: P
         o.vehicle?.plate?.toLowerCase().includes(q)
       );
     }
+    // If focusOrderId is set, ensure it's first and always visible
+    if (focusOrderId) {
+      const focusOrder = orders.find((o: any) => o.id === focusOrderId && !o.scheduled_start);
+      const rest = filtered.filter((o: any) => o.id !== focusOrderId);
+      if (focusOrder) {
+        return [focusOrder, ...rest.slice(0, 19)];
+      }
+    }
     return filtered.slice(0, 20);
-  }, [orders, search]);
+  }, [orders, search, focusOrderId]);
 
   // Calculate order span in hours
   const getOrderSpan = useCallback((order: any): number => {
@@ -300,7 +309,7 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz' }: P
               <div className="text-sm text-muted-foreground py-4 text-center w-full">Brak zadań do rozplanowania</div>
             ) : (
               unplannedOrders.map((o: any) => (
-                <OrderCard key={o.id} order={o} onDragStart={() => { setDraggedOrder(o); setDragSource('unplanned'); }} onDragEnd={resetDrag} />
+                <OrderCard key={o.id} order={o} onDragStart={() => { setDraggedOrder(o); setDragSource('unplanned'); }} onDragEnd={resetDrag} isFocused={o.id === focusOrderId} />
               ))
             )}
           </div>
@@ -571,13 +580,16 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz' }: P
   );
 }
 
-function OrderCard({ order, onDragStart, onDragEnd }: { order: any; onDragStart: () => void; onDragEnd: () => void }) {
+function OrderCard({ order, onDragStart, onDragEnd, isFocused }: { order: any; onDragStart: () => void; onDragEnd: () => void; isFocused?: boolean }) {
   return (
     <Card
-      className="min-w-[240px] flex-shrink-0 border-l-4 border-l-[hsl(220,70%,55%)] cursor-grab active:cursor-grabbing hover:shadow-md transition-all bg-card"
+      className={`min-w-[240px] flex-shrink-0 border-l-4 cursor-grab active:cursor-grabbing hover:shadow-md transition-all bg-card ${isFocused ? 'border-l-amber-500 ring-2 ring-amber-400 shadow-lg' : 'border-l-[hsl(220,70%,55%)]'}`}
       draggable onDragStart={onDragStart} onDragEnd={onDragEnd}
     >
       <CardContent className="p-3 space-y-1">
+        {isFocused && (
+          <div className="text-[10px] font-bold text-amber-600 uppercase tracking-wider mb-1">← Bieżące zlecenie</div>
+        )}
         <div className="flex items-center gap-2 text-sm font-medium">
           <GripVertical className="h-4 w-4 text-muted-foreground flex-shrink-0" />
           <Car className="h-4 w-4 text-muted-foreground" />

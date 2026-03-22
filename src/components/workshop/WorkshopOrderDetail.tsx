@@ -217,7 +217,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
           <WorkshopOrderSummaryTab order={order} />
         </TabsContent>
         <TabsContent value="schedule">
-          <WorkshopScheduler providerId={providerId} onBack={() => {}} title={`Terminarz: ${order.order_number || ''}`} />
+          <WorkshopScheduler providerId={providerId} onBack={() => {}} title={`Terminarz: ${order.order_number || ''}`} focusOrderId={order.id} />
         </TabsContent>
         <TabsContent value="files">
           <WorkshopOrderFilesTab order={order} />
