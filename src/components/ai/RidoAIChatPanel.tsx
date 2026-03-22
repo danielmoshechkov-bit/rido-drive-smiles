@@ -8,11 +8,14 @@ import ReactMarkdown from 'react-markdown';
 import {
   Loader2, Send, Plus, MessageCircle, Briefcase,
   Sparkles, X, Search, PanelLeftOpen, PanelLeftClose, Lock,
-  Download, Paintbrush, RotateCcw, Paperclip, FileText, Trash2, Circle, Square
+  Download, Paintbrush, RotateCcw, Paperclip, FileText, Trash2, Circle, Square, MoreHorizontal
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ridoMascot from '@/assets/rido-mascot.png';
 import { AIProjectsSection } from './AIProjectsSection';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu';
 
 type MainMode = 'chat' | 'grafika' | 'cowork';
 interface Msg { id?: string; role: 'user' | 'assistant'; content: string; images?: string[]; files?: { name: string; type: string }[]; }
@@ -168,7 +171,14 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
   }, [messages, currentConvId, open, scrollToBottom]);
 
   const createConv = async (text: string, mode: string): Promise<string> => {
-    // Ensure userId is available
+    const shortTitle = text
+      .replace(/\s+/g, ' ')
+      .trim()
+      .split(' ')
+      .slice(0, 4)
+      .join(' ')
+      .slice(0, 32);
+
     let uid = userId;
     if (!uid) {
       const { data } = await supabase.auth.getUser();
@@ -180,7 +190,7 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
       return '';
     }
     const { data, error } = await (supabase as any).from('ai_conversations')
-      .insert({ user_id: uid, title: text.substring(0, 60), mode }).select().single();
+      .insert({ user_id: uid, title: shortTitle || 'Nowa rozmowa', mode }).select().single();
     if (error) {
       console.error('[RidoAI] Failed to create conversation:', error);
       return '';
@@ -1500,16 +1510,18 @@ function ConvItemInline({ title, active, onClick, onDelete }: {
   onDelete: (e: React.MouseEvent) => void;
 }) {
   const [hovered, setHovered] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+
   return (
     <div
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       className={cn(
-        'flex items-center gap-1.5 px-2.5 py-2 rounded-lg cursor-pointer transition-all w-full overflow-hidden',
+        'flex items-center gap-1.5 px-2.5 py-2 cursor-pointer transition-all w-full overflow-hidden',
         active
-          ? 'bg-primary text-primary-foreground'
-          : 'text-foreground hover:bg-accent hover:text-accent-foreground'
+          ? 'bg-primary text-primary-foreground rounded-l-2xl rounded-r-none'
+          : 'text-foreground hover:bg-accent hover:text-accent-foreground rounded-l-2xl rounded-r-none'
       )}
     >
       <MessageCircle className="h-3.5 w-3.5 flex-shrink-0 opacity-60" />
@@ -1519,15 +1531,31 @@ function ConvItemInline({ title, active, onClick, onDelete }: {
       >
         {title || 'Nowa rozmowa'}
       </span>
-      {(hovered || active) && (
-        <button
-          onClick={onDelete}
-          title="Usuń rozmowę"
-          className="p-0.5 rounded-md hover:bg-destructive/20 flex-shrink-0 transition-colors"
-        >
-          <Trash2 className="h-3 w-3 text-destructive" />
-        </button>
-      )}
+      <div
+        className="flex-shrink-0"
+        style={{ opacity: hovered || active || menuOpen ? 1 : 0, transition: 'opacity 0.15s' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <DropdownMenu onOpenChange={setMenuOpen}>
+          <DropdownMenuTrigger asChild>
+            <button
+              className={cn(
+                'p-1 rounded-md transition-colors',
+                active ? 'hover:bg-primary-foreground/20' : 'hover:bg-muted'
+              )}
+              title="Więcej"
+            >
+              <MoreHorizontal className="h-3.5 w-3.5" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={(e) => onDelete(e as unknown as React.MouseEvent)} className="text-destructive focus:text-destructive">
+              <Trash2 className="h-3.5 w-3.5 mr-2" />
+              Usuń rozmowę
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </div>
   );
 }
