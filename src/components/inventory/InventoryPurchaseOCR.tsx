@@ -103,6 +103,10 @@ export function InventoryPurchaseOCR({ entityId }: Props) {
   const [ocrDone, setOcrDone] = useState(false);
   const [dragOver, setDragOver] = useState(false);
 
+  // Invoice mode: 'magazyn' = add to inventory, 'kosztowa' = cost invoice only
+  const [invoiceMode, setInvoiceMode] = useState<'magazyn' | 'kosztowa'>('magazyn');
+  const [autoMatchedCount, setAutoMatchedCount] = useState(0);
+
   // New product dialog
   const [newProductOpen, setNewProductOpen] = useState(false);
   const [newProductName, setNewProductName] = useState('');
@@ -300,12 +304,18 @@ Odpowiedz TYLKO samym JSON bez żadnego tekstu, bez markdown.`,
         total_gross: Number(item.total_gross) || 0,
         supplier_symbol: item.supplier_symbol || '',
         gtu_code: item.gtu_code || '',
-        mapped_product_id: autoMatchProduct(item.name),
+        mapped_product_id: autoMatchProduct(item.name, item.supplier_symbol),
       }));
 
+      const matched = items.filter(i => i.mapped_product_id).length;
+      setAutoMatchedCount(matched);
       setOcrItems(items);
       setOcrDone(true);
-      toast.success(`Rozpoznano ${items.length} pozycji na fakturze.`);
+      if (matched > 0) {
+        toast.success(`Rozpoznano ${items.length} pozycji. 🧠 ${matched} auto-dopasowanych z pamięci!`);
+      } else {
+        toast.success(`Rozpoznano ${items.length} pozycji na fakturze.`);
+      }
     } catch {
       toast.error('Błąd OCR. Sprawdź konfigurację AI.');
     } finally {
@@ -313,16 +323,41 @@ Odpowiedz TYLKO samym JSON bez żadnego tekstu, bez markdown.`,
     }
   };
 
-  /* ── Auto-match ───────────────────────────────────────────────────── */
+  /* ── Auto-match (by supplier_symbol/index first, then name) ──────── */
 
-  const autoMatchProduct = (name?: string): string | undefined => {
-    if (!name || !products.length) return undefined;
+  const autoMatchProduct = (name?: string, supplierSymbol?: string): string | undefined => {
+    if (!products.length) return undefined;
+
+    // 1. First try by supplier_symbol/index (most reliable — part numbers are stable)
+    if (supplierSymbol) {
+      const symbolLower = supplierSymbol.toLowerCase().trim();
+      const mappingBySymbol = supplierMappings.find(m =>
+        m.supplier_symbol && m.supplier_symbol.toLowerCase().trim() === symbolLower
+      );
+      if (mappingBySymbol?.product_id) return mappingBySymbol.product_id;
+
+      // Also check SKU in products table
+      const productBySku = products.find(p =>
+        p.sku && p.sku.toLowerCase().trim() === symbolLower
+      );
+      if (productBySku) return productBySku.id;
+    }
+
+    if (!name) return undefined;
     const lower = name.toLowerCase().trim();
-    const mapping = supplierMappings.find(m =>
-      m.supplier_name.toLowerCase() === lower ||
-      (m.supplier_symbol && m.supplier_symbol.toLowerCase() === lower)
+
+    // 2. Then try supplier_mappings by name
+    const mappingByName = supplierMappings.find(m =>
+      m.supplier_name.toLowerCase().trim() === lower
     );
-    if (mapping?.product_id) return mapping.product_id;
+    if (mappingByName?.product_id) return mappingByName.product_id;
+
+    // 3. Fuzzy match by product name
+    // Exact match first
+    const exact = products.find(p => p.name.toLowerCase().trim() === lower);
+    if (exact) return exact.id;
+
+    // Substring match
     return products.find(p =>
       p.name.toLowerCase().includes(lower) || lower.includes(p.name.toLowerCase())
     )?.id;
@@ -395,7 +430,7 @@ Odpowiedz TYLKO samym JSON bez żadnego tekstu, bez markdown.`,
         total_gross: invoiceHeader.gross_total,
         pdf_url: uploadedFileUrl,
         status: 'approved',
-        ocr_raw: { items: ocrItems, header: invoiceHeader },
+        ocr_raw: { items: ocrItems, header: invoiceHeader, mode: invoiceMode },
       };
 
       const { data: invoice, error: invError } = await supabase
@@ -413,7 +448,7 @@ Odpowiedz TYLKO samym JSON bez żadnego tekstu, bez markdown.`,
       for (const item of ocrItems) {
         await supabase.from('purchase_invoice_items').insert({
           purchase_invoice_id: invoice.id,
-          product_id: item.mapped_product_id || null,
+          product_id: (invoiceMode === 'magazyn' && item.mapped_product_id) ? item.mapped_product_id : null,
           name: item.name,
           supplier_symbol: item.supplier_symbol || null,
           quantity: item.quantity,
@@ -425,7 +460,8 @@ Odpowiedz TYLKO samym JSON bez żadnego tekstu, bez markdown.`,
           gtu_code: item.gtu_code || null,
         });
 
-        if (item.mapped_product_id) {
+        // Only update stock if mode is 'magazyn' and product is mapped
+        if (invoiceMode === 'magazyn' && item.mapped_product_id) {
           const product = products.find(p => p.id === item.mapped_product_id);
           if (product) {
             const newQty = (product.stock_quantity || 0) + item.quantity;
@@ -445,6 +481,7 @@ Odpowiedz TYLKO samym JSON bez żadnego tekstu, bez markdown.`,
             } as any);
           }
 
+          // Save supplier mapping for future auto-match
           if (item.supplier_symbol || item.name) {
             await (supabase as any).from('supplier_mappings').insert({
               supplier_name: item.name,
@@ -455,14 +492,19 @@ Odpowiedz TYLKO samym JSON bez żadnego tekstu, bez markdown.`,
         }
       }
 
-      toast.success('✅ Faktura zatwierdzona! Stany magazynowe zaktualizowane.');
+      const modeLabel = invoiceMode === 'magazyn' 
+        ? '✅ Faktura zatwierdzona! Stany magazynowe zaktualizowane.' 
+        : '✅ Faktura kosztowa zapisana!';
+      toast.success(modeLabel);
       setOcrItems([]);
       setInvoiceHeader(null);
       setFileBase64(null);
       setUploadedFileUrl(null);
       setOcrDone(false);
+      setAutoMatchedCount(0);
       await fetchProducts();
       await fetchInvoices();
+      await fetchSupplierMappings();
     } catch {
       toast.error('Błąd zatwierdzania faktury');
     } finally {
@@ -682,10 +724,48 @@ Odpowiedz TYLKO samym JSON bez żadnego tekstu, bez markdown.`,
                           </a>
                         )}
                       </div>
-                      <Badge variant="outline">{ocrItems.filter(i => i.mapped_product_id).length}/{ocrItems.length} powiązanych</Badge>
+                      {invoiceMode === 'magazyn' && (
+                        <Badge variant="outline">{ocrItems.filter(i => i.mapped_product_id).length}/{ocrItems.length} powiązanych</Badge>
+                      )}
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    {/* Mode toggle */}
+                    <div className="flex gap-2 p-1 bg-muted rounded-lg">
+                      <button
+                        onClick={() => setInvoiceMode('magazyn')}
+                        className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium transition-colors ${
+                          invoiceMode === 'magazyn' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        <Package className="h-4 w-4" />
+                        📦 Dodaj do magazynu
+                      </button>
+                      <button
+                        onClick={() => setInvoiceMode('kosztowa')}
+                        className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium transition-colors ${
+                          invoiceMode === 'kosztowa' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        <FileText className="h-4 w-4" />
+                        📄 Tylko faktura kosztowa
+                      </button>
+                    </div>
+
+                    {invoiceMode === 'kosztowa' && (
+                      <div className="p-3 rounded-lg bg-muted/50 border border-muted text-sm text-muted-foreground">
+                        💡 Tryb kosztowy — faktura zostanie zapisana bez powiązania z magazynem. Pozycje nie aktualizują stanów.
+                      </div>
+                    )}
+
+                    {/* Auto-match info */}
+                    {invoiceMode === 'magazyn' && autoMatchedCount > 0 && (
+                      <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 text-sm">
+                        <span className="font-medium">🧠 System rozpoznał {autoMatchedCount} z {ocrItems.length} pozycji</span>
+                        <span className="text-muted-foreground ml-1">— dopasowane automatycznie po indeksie/nazwie dostawcy</span>
+                      </div>
+                    )}
+
                     {/* Header info */}
                     <div className="p-4 rounded-lg bg-muted/50 space-y-2">
                       <div className="flex items-center justify-between">
@@ -719,7 +799,7 @@ Odpowiedz TYLKO samym JSON bez żadnego tekstu, bez markdown.`,
                                 <TableHead className="w-24 text-right">Cena netto</TableHead>
                                 <TableHead className="w-20 text-right">VAT</TableHead>
                                 <TableHead className="w-24 text-right">Brutto</TableHead>
-                                <TableHead className="w-48">Produkt</TableHead>
+                                {invoiceMode === 'magazyn' && <TableHead className="w-48">Produkt w magazynie</TableHead>}
                                 <TableHead className="w-10"></TableHead>
                               </TableRow>
                             </TableHeader>
@@ -728,35 +808,37 @@ Odpowiedz TYLKO samym JSON bez żadnego tekstu, bez markdown.`,
                                 <TableRow key={index}>
                                   <TableCell>
                                     <p className="font-medium text-sm">{item.name}</p>
-                                    {item.supplier_symbol && <p className="text-xs text-muted-foreground">Kod: {item.supplier_symbol}</p>}
+                                    {item.supplier_symbol && <p className="text-xs text-muted-foreground">Indeks: {item.supplier_symbol}</p>}
                                     {item.gtu_code && <Badge variant="outline" className="text-[10px] mt-1">{item.gtu_code}</Badge>}
                                   </TableCell>
                                   <TableCell className="text-right text-sm">{item.quantity} {item.unit}</TableCell>
                                   <TableCell className="text-right text-sm font-mono">{item.unit_price_net.toFixed(2)}</TableCell>
                                   <TableCell className="text-right text-sm">{item.vat_rate}%</TableCell>
                                   <TableCell className="text-right text-sm font-mono font-semibold">{item.total_gross.toFixed(2)}</TableCell>
-                                  <TableCell>
-                                    <div className="flex items-center gap-1">
-                                      <Select value={item.mapped_product_id || '_none'} onValueChange={(v) => handleMapProduct(index, v === '_none' ? '' : v)}>
-                                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Wybierz..." /></SelectTrigger>
-                                        <SelectContent>
-                                          <SelectItem value="_none">— brak —</SelectItem>
-                                          {products.map(p => (
-                                            <SelectItem key={p.id} value={p.id}>{p.name} {p.sku ? `(${p.sku})` : ''}</SelectItem>
-                                          ))}
-                                        </SelectContent>
-                                      </Select>
-                                      <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => openNewProductDialog(index)} title="Utwórz nowy produkt">
-                                        <Plus className="h-3 w-3" />
-                                      </Button>
-                                    </div>
-                                    {item.mapped_product_id && (
-                                      <div className="flex items-center gap-1 mt-1">
-                                        <CheckCircle className="h-3 w-3 text-green-600" />
-                                        <span className="text-[10px] text-green-600">Powiązany</span>
+                                  {invoiceMode === 'magazyn' && (
+                                    <TableCell>
+                                      <div className="flex items-center gap-1">
+                                        <Select value={item.mapped_product_id || '_none'} onValueChange={(v) => handleMapProduct(index, v === '_none' ? '' : v)}>
+                                          <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Wybierz..." /></SelectTrigger>
+                                          <SelectContent>
+                                            <SelectItem value="_none">— brak —</SelectItem>
+                                            {products.map(p => (
+                                              <SelectItem key={p.id} value={p.id}>{p.name} {p.sku ? `(${p.sku})` : ''}</SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => openNewProductDialog(index)} title="Utwórz nowy produkt">
+                                          <Plus className="h-3 w-3" />
+                                        </Button>
                                       </div>
-                                    )}
-                                  </TableCell>
+                                      {item.mapped_product_id && (
+                                        <div className="flex items-center gap-1 mt-1">
+                                          <CheckCircle className="h-3 w-3 text-primary" />
+                                          <span className="text-[10px] text-primary">Powiązany</span>
+                                        </div>
+                                      )}
+                                    </TableCell>
+                                  )}
                                   <TableCell>
                                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeItem(index)}>
                                       <Trash2 className="h-3 w-3 text-destructive" />
@@ -769,13 +851,28 @@ Odpowiedz TYLKO samym JSON bez żadnego tekstu, bez markdown.`,
                         </div>
 
                         {/* Approve */}
-                        <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
+                        <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg gap-4">
                           <div>
-                            <p className="text-sm font-medium">{ocrItems.filter(i => i.mapped_product_id).length} z {ocrItems.length} pozycji powiązanych</p>
-                            <p className="text-xs text-muted-foreground">Niepowiązane pozycje zapisane bez aktualizacji stanu</p>
+                            {invoiceMode === 'magazyn' ? (
+                              <>
+                                <p className="text-sm font-medium">{ocrItems.filter(i => i.mapped_product_id).length} z {ocrItems.length} pozycji powiązanych z magazynem</p>
+                                <p className="text-xs text-muted-foreground">Niepowiązane pozycje zapisane bez aktualizacji stanu</p>
+                              </>
+                            ) : (
+                              <>
+                                <p className="text-sm font-medium">{ocrItems.length} pozycji do zapisania</p>
+                                <p className="text-xs text-muted-foreground">Faktura kosztowa — bez wpływu na stany magazynowe</p>
+                              </>
+                            )}
                           </div>
                           <Button onClick={handleApprove} disabled={processing} size="lg">
-                            {processing ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Zatwierdzanie...</> : <><CheckCircle className="h-4 w-4 mr-2" />Zatwierdź i dodaj do magazynu</>}
+                            {processing ? (
+                              <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Zatwierdzanie...</>
+                            ) : invoiceMode === 'magazyn' ? (
+                              <><CheckCircle className="h-4 w-4 mr-2" />Zatwierdź i dodaj do magazynu</>
+                            ) : (
+                              <><CheckCircle className="h-4 w-4 mr-2" />Zapisz fakturę kosztową</>
+                            )}
                           </Button>
                         </div>
                       </div>
