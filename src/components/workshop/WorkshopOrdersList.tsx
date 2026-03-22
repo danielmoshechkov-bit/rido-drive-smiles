@@ -235,7 +235,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                               {order.vehicle.vin && (
                                 <>
                                   <span className="text-muted-foreground">VIN</span>
-                                  <button className="text-left font-mono text-[10px] hover:text-primary flex items-center gap-1 truncate" onClick={() => { navigator.clipboard.writeText(order.vehicle.vin); toast.success('Skopiowano VIN'); }}>
+                                  <button className="text-left text-xs hover:text-primary flex items-center gap-1 truncate" onClick={() => { navigator.clipboard.writeText(order.vehicle.vin); toast.success('Skopiowano VIN'); }}>
                                     {order.vehicle.vin} <Copy className="h-2.5 w-2.5 opacity-50" />
                                   </button>
                                 </>
@@ -517,7 +517,7 @@ function VehicleEditDialog({ vehicle, onClose }: { vehicle: any; onClose: () => 
           <div>
             <Label className="text-xs">Nr rejestracyjny</Label>
             <div className="flex gap-1">
-              <Input value={form.plate} onChange={e => set('plate', e.target.value.toUpperCase())} placeholder="WW12345" className="font-mono" />
+              <Input value={form.plate} onChange={e => set('plate', e.target.value.toUpperCase())} placeholder="WW12345" />
               <Button variant="outline" size="icon" onClick={handlePlateSearch} disabled={lookupLoading || !form.plate.trim()} title="Szukaj po nr rej">
                 {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
               </Button>
@@ -530,7 +530,7 @@ function VehicleEditDialog({ vehicle, onClose }: { vehicle: any; onClose: () => 
           <div className="col-span-2">
             <Label className="text-xs">VIN</Label>
             <div className="flex gap-1">
-              <Input value={form.vin} onChange={e => set('vin', e.target.value.toUpperCase())} placeholder="WVWZZZ3CZWE123456" className="font-mono" />
+              <Input value={form.vin} onChange={e => set('vin', e.target.value.toUpperCase())} placeholder="WVWZZZ3CZWE123456" />
               <Button variant="outline" size="icon" onClick={handleVinSearch} disabled={lookupLoading || !form.vin.trim()} title="Szukaj po VIN">
                 {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
               </Button>
