@@ -372,21 +372,23 @@ Odpowiedz TYLKO samym JSON bez żadnego tekstu, bez markdown.`,
 
     try {
       // 1. Create purchase_invoice
+      const insertPayload: any = {
+        document_number: invoiceHeader.document_number || `FZ-${Date.now()}`,
+        supplier_name: invoiceHeader.supplier_name,
+        supplier_nip: invoiceHeader.supplier_nip,
+        purchase_date: invoiceHeader.purchase_date,
+        payment_method: invoiceHeader.payment_method,
+        total_net: invoiceHeader.net_total,
+        total_vat: invoiceHeader.vat_total,
+        total_gross: invoiceHeader.gross_total,
+        pdf_url: uploadedFileUrl,
+        status: 'approved',
+        ocr_raw: { items: ocrItems, header: invoiceHeader },
+      };
+
       const { data: invoice, error: invError } = await supabase
         .from('purchase_invoices')
-        .insert({
-          document_number: invoiceHeader.document_number || `FZ-${Date.now()}`,
-          supplier_name: invoiceHeader.supplier_name,
-          supplier_nip: invoiceHeader.supplier_nip,
-          purchase_date: invoiceHeader.purchase_date,
-          payment_method: invoiceHeader.payment_method,
-          total_net: invoiceHeader.net_total,
-          total_vat: invoiceHeader.vat_total,
-          total_gross: invoiceHeader.gross_total,
-          pdf_url: uploadedFileUrl,
-          status: 'approved',
-          ocr_raw: { items: ocrItems, header: invoiceHeader },
-        })
+        .insert(insertPayload)
         .select()
         .single();
 
