@@ -10,8 +10,6 @@ const TRANSACTION_TYPES = [
   { value: "sprzedaz", label: "Na sprzedaż", color: "#10b981" },
   { value: "wynajem", label: "Wynajem", color: "#3b82f6" },
   { value: "wynajem-krotkoterminowy", label: "Krótkoterminowy", color: "#8b5cf6" },
-  { value: "rynek-pierwotny", label: "Rynek pierwotny", color: "#f59e0b" },
-  { value: "komercja", label: "Komercja", color: "#ef4444" },
 ];
 
 export function TransactionTypeChips({
