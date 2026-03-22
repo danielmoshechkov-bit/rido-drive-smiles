@@ -517,7 +517,7 @@ function VehicleEditDialog({ vehicle, onClose }: { vehicle: any; onClose: () => 
           <div>
             <Label className="text-xs">Nr rejestracyjny</Label>
             <div className="flex gap-1">
-              <Input value={form.plate} onChange={e => set('plate', e.target.value.toUpperCase())} placeholder="WW12345" className="font-mono" />
+              <Input value={form.plate} onChange={e => set('plate', e.target.value.toUpperCase())} placeholder="WW12345" />
               <Button variant="outline" size="icon" onClick={handlePlateSearch} disabled={lookupLoading || !form.plate.trim()} title="Szukaj po nr rej">
                 {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
               </Button>
