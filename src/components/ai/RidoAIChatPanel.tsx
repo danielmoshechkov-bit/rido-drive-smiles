@@ -107,7 +107,6 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
   const [editorImage, setEditorImage] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
 
-  type AnnotationTool = 'brush' | 'ellipse' | 'rectangle';
 
   const { streamExecute, execute, isLoading } = useGetRidoAI();
   const messagesEndRef = useRef<HTMLDivElement>(null);
