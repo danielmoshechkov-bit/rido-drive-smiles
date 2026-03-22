@@ -132,6 +132,13 @@ export function InventoryPurchaseOCR({ entityId }: Props) {
     setLoadingProducts(false);
   };
 
+  const fetchSupplierMappings = async () => {
+    const { data } = await (supabase as any)
+      .from('supplier_mappings')
+      .select('supplier_name, supplier_symbol, product_id');
+    if (data) setSupplierMappings(data);
+  };
+
   /* ── Fetch past invoices ───────────────────────────────────────────── */
 
   const fetchInvoices = async () => {
