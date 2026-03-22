@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { toast } from 'sonner';
-import { ArrowLeft, Send, Target, Phone, MessageCircle, Eye } from 'lucide-react';
+import { ArrowLeft, Send, Target, Phone, MessageCircle, Eye, Info } from 'lucide-react';
 
 interface AdOrderModalProps {
   open: boolean;
@@ -27,23 +27,30 @@ export function AdOrderModal({ open, onClose, service, userId }: AdOrderModalPro
     budget_monthly: 1500, campaign_goal: 'leads', target_location: '',
     target_audience: '', expected_leads: '', additional_notes: '',
   });
+  const [serviceQuestions, setServiceQuestions] = useState({
+    unique_value: '', customer_problem: '', customer_result: '',
+    current_promotion: '', faq: '',
+  });
 
   const GOAL_OPTIONS = [
-    { value: 'leads', icon: Target, label: `🎯 ${t('ads.goalLeads')}`, desc: t('ads.goalLeadsDesc') },
-    { value: 'calls', icon: Phone, label: `📞 ${t('ads.goalCalls')}`, desc: t('ads.goalCallsDesc') },
-    { value: 'messages', icon: MessageCircle, label: `💬 ${t('ads.goalMessages')}`, desc: t('ads.goalMessagesDesc') },
-    { value: 'awareness', icon: Eye, label: `👁️ ${t('ads.goalAwareness')}`, desc: t('ads.goalAwarenessDesc') },
+    { value: 'leads', icon: Target, label: `🎯 ${t('ads.goalLeads', 'Zapytania (leady)')}`, desc: t('ads.goalLeadsDesc', 'Formularz kontaktowy na Facebooku/Instagramie') },
+    { value: 'calls', icon: Phone, label: `📞 ${t('ads.goalCalls', 'Telefony')}`, desc: t('ads.goalCallsDesc', 'Reklama zachęcająca do zadzwonienia') },
+    { value: 'messages', icon: MessageCircle, label: `💬 ${t('ads.goalMessages', 'Wiadomości')}`, desc: t('ads.goalMessagesDesc', 'Klienci piszą na Messengera/WhatsApp') },
+    { value: 'awareness', icon: Eye, label: `👁️ ${t('ads.goalAwareness', 'Zasięg')}`, desc: t('ads.goalAwarenessDesc', 'Budowanie świadomości marki') },
   ];
 
   const createMut = useMutation({
     mutationFn: async () => {
-      if (!userId || !service) throw new Error(t('ads.noData'));
+      if (!userId || !service) throw new Error('Brak danych');
       const { error } = await supabase.from('ad_orders').insert({
         service_id: service.id, provider_user_id: userId,
         budget_monthly: form.budget_monthly, campaign_goal: form.campaign_goal,
         target_location: form.target_location, target_audience: form.target_audience || null,
         expected_leads_per_month: form.expected_leads ? parseInt(form.expected_leads) : null,
-        additional_notes: form.additional_notes || null,
+        additional_notes: JSON.stringify({
+          notes: form.additional_notes,
+          service_questions: serviceQuestions,
+        }),
         campaign_name: `${service.name} - ${form.target_location} - Leady`,
         status: 'new',
       });
@@ -51,38 +58,50 @@ export function AdOrderModal({ open, onClose, service, userId }: AdOrderModalPro
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ad-orders'] });
-      toast.success(t('ads.orderSent'));
-      onClose();
-      setStep(1);
+      toast.success('Zlecenie wysłane! Specjalista odezwie się w ciągu 24h 🎉');
+      handleClose();
     },
     onError: (e: any) => toast.error(e.message),
   });
+
+  const handleClose = () => {
+    setStep(1);
+    setForm({ budget_monthly: 1500, campaign_goal: 'leads', target_location: '', target_audience: '', expected_leads: '', additional_notes: '' });
+    setServiceQuestions({ unique_value: '', customer_problem: '', customer_result: '', current_promotion: '', faq: '' });
+    onClose();
+  };
 
   const estMin = Math.round(form.budget_monthly / 50);
   const estMax = Math.round(form.budget_monthly / 25);
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg">
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>📣 {t('ads.launchAd')} — {service?.name}</DialogTitle>
-          <DialogDescription>{t('ads.launchAdDesc')}</DialogDescription>
+          <DialogTitle>
+            {step === 1 ? '📣 Uruchom reklamę' : '💡 Pomóż nam lepiej reklamować tę usługę'}
+          </DialogTitle>
+          <DialogDescription>
+            {step === 1
+              ? `Usługa: ${service?.name}`
+              : 'Te informacje trafią do specjalisty i do Twojego AI Agenta'}
+          </DialogDescription>
         </DialogHeader>
 
         {step === 1 && (
           <div className="space-y-5">
             <div className="space-y-2">
-              <Label className="font-medium">{t('ads.monthlyBudget')}</Label>
+              <Label className="font-medium">Miesięczny budżet reklamowy</Label>
               <div className="flex items-center gap-3">
                 <Slider value={[form.budget_monthly]} onValueChange={v => setForm(p => ({ ...p, budget_monthly: v[0] }))} min={500} max={10000} step={100} className="flex-1" />
                 <Input type="number" value={form.budget_monthly} onChange={e => setForm(p => ({ ...p, budget_monthly: Number(e.target.value) }))} className="w-24 text-right" />
                 <span className="text-sm text-muted-foreground">zł</span>
               </div>
-              <p className="text-xs text-muted-foreground">{t('ads.estimatedLeads')}: ~{estMin}–{estMax}/{t('ads.perMonth')}</p>
+              <p className="text-xs text-muted-foreground">Szacowana liczba zapytań: ~{estMin}–{estMax}/mies.</p>
             </div>
 
             <div className="space-y-2">
-              <Label className="font-medium">{t('ads.campaignGoal')}</Label>
+              <Label className="font-medium">Cel kampanii</Label>
               <div className="grid grid-cols-2 gap-2">
                 {GOAL_OPTIONS.map(g => (
                   <button key={g.value} onClick={() => setForm(p => ({ ...p, campaign_goal: g.value }))}
@@ -95,61 +114,105 @@ export function AdOrderModal({ open, onClose, service, userId }: AdOrderModalPro
             </div>
 
             <div>
-              <Label className="font-medium">{t('ads.targetLocation')}</Label>
-              <Input value={form.target_location} onChange={e => setForm(p => ({ ...p, target_location: e.target.value }))} placeholder={t('ads.targetLocationPlaceholder')} />
+              <Label className="font-medium">Lokalizacja docelowa *</Label>
+              <Input value={form.target_location} onChange={e => setForm(p => ({ ...p, target_location: e.target.value }))} placeholder="np. Warszawa 30 km / Cała Polska" />
             </div>
 
             <div>
-              <Label className="font-medium">{t('ads.targetAudience')} <span className="text-muted-foreground font-normal">({t('ads.targetAudienceOptional')})</span></Label>
-              <Textarea value={form.target_audience} onChange={e => setForm(p => ({ ...p, target_audience: e.target.value }))} placeholder={t('ads.targetAudiencePlaceholder')} rows={2} />
+              <Label className="font-medium">Grupa docelowa <span className="text-muted-foreground font-normal">(opcjonalne)</span></Label>
+              <Textarea value={form.target_audience} onChange={e => setForm(p => ({ ...p, target_audience: e.target.value }))} placeholder="Opisz idealnego klienta" rows={2} />
             </div>
 
             <div>
-              <Label>{t('ads.expectedLeads')}</Label>
+              <Label>Oczekiwana liczba zapytań</Label>
               <Select value={form.expected_leads} onValueChange={v => setForm(p => ({ ...p, expected_leads: v }))}>
-                <SelectTrigger><SelectValue placeholder={t('ads.selectPlaceholder')} /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Wybierz..." /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="15">10–20 / {t('ads.perMonth')}</SelectItem>
-                  <SelectItem value="35">20–50 / {t('ads.perMonth')}</SelectItem>
-                  <SelectItem value="75">50–100 / {t('ads.perMonth')}</SelectItem>
-                  <SelectItem value="150">100+ / {t('ads.perMonth')}</SelectItem>
+                  <SelectItem value="15">10–20 / miesiąc</SelectItem>
+                  <SelectItem value="35">20–50 / miesiąc</SelectItem>
+                  <SelectItem value="75">50–100 / miesiąc</SelectItem>
+                  <SelectItem value="150">100+ / miesiąc</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div>
-              <Label>{t('ads.additionalNotes')}</Label>
-              <Textarea value={form.additional_notes} onChange={e => setForm(p => ({ ...p, additional_notes: e.target.value }))} placeholder={t('ads.additionalNotesPlaceholder')} rows={2} />
+              <Label>Uwagi dla specjalisty</Label>
+              <Textarea value={form.additional_notes} onChange={e => setForm(p => ({ ...p, additional_notes: e.target.value }))} placeholder="Co chcesz zaznaczyć? Specjalne promocje, sezonowość..." rows={2} />
             </div>
           </div>
         )}
 
         {step === 2 && (
           <div className="space-y-4">
-            <div className="bg-muted/50 rounded-lg p-4 space-y-2 text-sm">
-              <p><strong>{t('ads.service')}:</strong> {service?.name}</p>
-              <p><strong>{t('ads.budget')}:</strong> {form.budget_monthly} zł/{t('ads.perMonth')}</p>
-              <p><strong>{t('ads.goal')}:</strong> {GOAL_OPTIONS.find(g => g.value === form.campaign_goal)?.label}</p>
-              <p><strong>{t('ads.location')}:</strong> {form.target_location}</p>
-              {form.target_audience && <p><strong>{t('ads.targetAudience')}:</strong> {form.target_audience}</p>}
+            <div className="space-y-2">
+              <Label className="font-medium">Co wyróżnia tę usługę na tle konkurencji?</Label>
+              <Textarea
+                value={serviceQuestions.unique_value}
+                onChange={e => setServiceQuestions(p => ({ ...p, unique_value: e.target.value }))}
+                placeholder="np. Używamy najnowszych technologii, 10 lat doświadczenia..."
+                rows={2}
+              />
             </div>
-            <p className="text-sm text-muted-foreground">{t('ads.confirmDesc')}</p>
+            <div className="space-y-2">
+              <Label className="font-medium">Jaki jest główny problem klienta przed skorzystaniem?</Label>
+              <Textarea
+                value={serviceQuestions.customer_problem}
+                onChange={e => setServiceQuestions(p => ({ ...p, customer_problem: e.target.value }))}
+                placeholder="np. Auto traci na wartości, brak czasu na samodzielne dbanie..."
+                rows={2}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="font-medium">Jaki efekt/rezultat dostaje klient?</Label>
+              <Textarea
+                value={serviceQuestions.customer_result}
+                onChange={e => setServiceQuestions(p => ({ ...p, customer_result: e.target.value }))}
+                placeholder="np. Auto wygląda jak nowe, ochrona lakieru na 5 lat..."
+                rows={2}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="font-medium">Czy masz teraz promocję lub ofertę specjalną?</Label>
+              <Textarea
+                value={serviceQuestions.current_promotion}
+                onChange={e => setServiceQuestions(p => ({ ...p, current_promotion: e.target.value }))}
+                placeholder="np. -20% na pierwszy detailing, pakiet zima gratis..."
+                rows={2}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="font-medium">Najczęstsze pytania klientów o tę usługę</Label>
+              <Textarea
+                value={serviceQuestions.faq}
+                onChange={e => setServiceQuestions(p => ({ ...p, faq: e.target.value }))}
+                placeholder="np. Ile trwa? Czy trzeba zostawić auto? Jaka jest gwarancja?"
+                rows={2}
+              />
+            </div>
+
+            <div className="flex items-start gap-2 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+              <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+              <p className="text-xs text-blue-700 dark:text-blue-300">
+                Te odpowiedzi pomogą AI Agentowi skuteczniej rozmawiać z klientami którzy trafią z reklamy
+              </p>
+            </div>
           </div>
         )}
 
         <DialogFooter>
           {step === 2 && (
             <Button variant="outline" onClick={() => setStep(1)}>
-              <ArrowLeft className="h-4 w-4 mr-1" /> {t('ads.back')}
+              <ArrowLeft className="h-4 w-4 mr-1" /> Wróć
             </Button>
           )}
           {step === 1 ? (
             <Button onClick={() => setStep(2)} disabled={!form.target_location || !form.campaign_goal}>
-              {t('ads.next')}
+              Dalej →
             </Button>
           ) : (
             <Button onClick={() => createMut.mutate()} disabled={createMut.isPending}>
-              <Send className="h-4 w-4 mr-1" /> {t('ads.sendOrder')}
+              <Send className="h-4 w-4 mr-1" /> Wyślij zlecenie ✓
             </Button>
           )}
         </DialogFooter>
