@@ -83,37 +83,41 @@ serve(async (req) => {
 
     // ── INPAINTING ───────────────────────────────────────────────
     if (taskType === 'inpaint') {
-      const p = findGemini()
-      if (!hasKey(p)) {
-        return jsonResp({ result: '⚠️ Brak klucza Google Gemini. Wejdź w Centrum AI → Dostawcy & API.' })
+      const lovKey = Deno.env.get('LOVABLE_API_KEY')
+      if (!lovKey) {
+        return jsonResp({ result: '⚠️ Edycja obrazów jest tymczasowo niedostępna.' })
       }
-      usedProvider = p.provider_key
-      usedModel = 'gemini-2.5-flash-preview-image-generation'
-      console.log(`[ai-chat] Inpaint using ${usedProvider}`)
+      usedProvider = 'lovable'
+      usedModel = 'google/gemini-2.5-flash-image'
+      console.log('[ai-chat] Inpaint using Lovable Gateway')
 
-      const res = await fetch(
-        'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${p.api_key_encrypted}` },
-          body: JSON.stringify({
-            model: 'gemini-2.5-flash-preview-image-generation',
-            messages: [{
-              role: 'user',
-              content: [
-                { type: 'text', text: `Edytuj TYLKO zaznaczony obszar (fioletowa maska). Zmień: ${query}. Reszta obrazu zostaje BEZ ZMIAN.` },
-                { type: 'image_url', image_url: { url: `data:image/png;base64,${imageBase64}` } },
-                { type: 'image_url', image_url: { url: `data:image/png;base64,${maskBase64}` } }
-              ]
-            }],
-            modalities: ['image', 'text']
-          })
-        }
-      )
+      const res = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${lovKey}`,
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash-image',
+          messages: [{
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: `Edytuj obraz zgodnie z zaznaczonymi obszarami. Fioletowe maski pokazują miejsca zmian. Zachowaj cały obraz bez zmian poza zaznaczonymi miejscami. Wprowadź dokładnie te zmiany: ${query}`,
+              },
+              { type: 'image_url', image_url: { url: `data:image/png;base64,${imageBase64}` } },
+              { type: 'image_url', image_url: { url: `data:image/png;base64,${maskBase64}` } },
+            ],
+          }],
+          modalities: ['image', 'text'],
+        }),
+      })
       if (!res.ok) {
         const errText = await res.text()
         console.error('[ai-chat] Inpaint error:', res.status, errText)
-        return jsonResp({ result: mapError('Gemini', res.status, errText) })
+        await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'error', errorMessage: errText, ms: Date.now() - t0 })
+        return jsonResp({ result: mapError('image', res.status, errText) })
       }
       const d = await res.json()
       const imgUrl = d?.choices?.[0]?.message?.images?.[0]?.image_url?.url
