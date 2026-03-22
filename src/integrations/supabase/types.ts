@@ -9529,6 +9529,83 @@ export type Database = {
           },
         ]
       }
+      product_mappings: {
+        Row: {
+          created_at: string | null
+          id: string
+          product_id: string | null
+          supplier_name: string
+          supplier_symbol: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          product_id?: string | null
+          supplier_name: string
+          supplier_symbol?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          product_id?: string | null
+          supplier_name?: string
+          supplier_symbol?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_mappings_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      products: {
+        Row: {
+          created_at: string | null
+          gtu_code: string | null
+          id: string
+          low_stock_alert: number | null
+          name: string
+          purchase_price: number | null
+          sale_price: number | null
+          sku: string | null
+          stock_quantity: number | null
+          unit: string | null
+          updated_at: string | null
+          vat_rate: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          gtu_code?: string | null
+          id?: string
+          low_stock_alert?: number | null
+          name: string
+          purchase_price?: number | null
+          sale_price?: number | null
+          sku?: string | null
+          stock_quantity?: number | null
+          unit?: string | null
+          updated_at?: string | null
+          vat_rate?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          gtu_code?: string | null
+          id?: string
+          low_stock_alert?: number | null
+          name?: string
+          purchase_price?: number | null
+          sale_price?: number | null
+          sku?: string | null
+          stock_quantity?: number | null
+          unit?: string | null
+          updated_at?: string | null
+          vat_rate?: number | null
+        }
+        Relationships: []
+      }
       promotion_pricing: {
         Row: {
           created_at: string | null
@@ -9811,6 +9888,117 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      purchase_invoice_items: {
+        Row: {
+          created_at: string | null
+          gtu_code: string | null
+          id: string
+          name: string
+          product_id: string | null
+          purchase_invoice_id: string | null
+          quantity: number | null
+          supplier_symbol: string | null
+          total_gross: number | null
+          total_net: number | null
+          unit: string | null
+          unit_price_net: number | null
+          vat_rate: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          gtu_code?: string | null
+          id?: string
+          name: string
+          product_id?: string | null
+          purchase_invoice_id?: string | null
+          quantity?: number | null
+          supplier_symbol?: string | null
+          total_gross?: number | null
+          total_net?: number | null
+          unit?: string | null
+          unit_price_net?: number | null
+          vat_rate?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          gtu_code?: string | null
+          id?: string
+          name?: string
+          product_id?: string | null
+          purchase_invoice_id?: string | null
+          quantity?: number | null
+          supplier_symbol?: string | null
+          total_gross?: number | null
+          total_net?: number | null
+          unit?: string | null
+          unit_price_net?: number | null
+          vat_rate?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_invoice_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_invoice_items_purchase_invoice_id_fkey"
+            columns: ["purchase_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_invoices: {
+        Row: {
+          created_at: string | null
+          document_number: string
+          id: string
+          ocr_raw: Json | null
+          payment_method: string | null
+          pdf_url: string | null
+          purchase_date: string | null
+          status: string | null
+          supplier_name: string | null
+          supplier_nip: string | null
+          total_gross: number | null
+          total_net: number | null
+          total_vat: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          document_number: string
+          id?: string
+          ocr_raw?: Json | null
+          payment_method?: string | null
+          pdf_url?: string | null
+          purchase_date?: string | null
+          status?: string | null
+          supplier_name?: string | null
+          supplier_nip?: string | null
+          total_gross?: number | null
+          total_net?: number | null
+          total_vat?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          document_number?: string
+          id?: string
+          ocr_raw?: Json | null
+          payment_method?: string | null
+          pdf_url?: string | null
+          purchase_date?: string | null
+          status?: string | null
+          supplier_name?: string | null
+          supplier_nip?: string | null
+          total_gross?: number | null
+          total_net?: number | null
+          total_vat?: number | null
+        }
+        Relationships: []
       }
       real_estate_agents: {
         Row: {
@@ -12528,6 +12716,53 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      stock_movements: {
+        Row: {
+          created_at: string | null
+          id: string
+          invoice_id: string | null
+          invoice_number: string | null
+          movement_type: string
+          notes: string | null
+          product_id: string | null
+          quantity: number
+          supplier: string | null
+          unit_price: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          invoice_id?: string | null
+          invoice_number?: string | null
+          movement_type: string
+          notes?: string | null
+          product_id?: string | null
+          quantity: number
+          supplier?: string | null
+          unit_price?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          invoice_id?: string | null
+          invoice_number?: string | null
+          movement_type?: string
+          notes?: string | null
+          product_id?: string | null
+          quantity?: number
+          supplier?: string | null
+          unit_price?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_movements_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       stocktaking_items: {
         Row: {

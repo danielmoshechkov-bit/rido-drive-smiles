@@ -24,6 +24,7 @@ import { SimpleFreeInvoice } from '@/components/invoices/SimpleFreeInvoice';
 import { InvoiceExpandableRow } from '@/components/invoices/InvoiceExpandableRow';
 import { SearchCategoryModal } from '@/components/search/SearchCategoryModal';
 import { InventoryModuleView } from '@/components/inventory';
+import { InventoryPurchaseOCR } from '@/components/inventory/InventoryPurchaseOCR';
 import { 
   Car,
   Home,
@@ -85,6 +86,7 @@ interface Purchase {
 const accountingSubTabs = [
   { id: 'przeglad', label: 'Przegląd', icon: BarChart3 },
   { id: 'faktury', label: 'Faktury', icon: FileText },
+  { id: 'zakupy', label: 'Zakupy', icon: ShoppingBag },
   { id: 'dokumenty', label: 'Dokumenty', icon: FileSpreadsheet },
   { id: 'platnosci', label: 'Płatności', icon: CreditCard },
   { id: 'magazyn', label: 'Stan magazynowy', icon: Package },
@@ -1462,7 +1464,11 @@ export default function ClientPortal() {
                 <InventoryModuleView entityId={userEntities[0]?.id} />
               )}
 
-              {accountingSubTab !== 'przeglad' && accountingSubTab !== 'faktury' && accountingSubTab !== 'magazyn' && (
+              {accountingSubTab === 'zakupy' && (
+                <InventoryPurchaseOCR entityId={userEntities[0]?.id} />
+              )}
+
+              {accountingSubTab !== 'przeglad' && accountingSubTab !== 'faktury' && accountingSubTab !== 'magazyn' && accountingSubTab !== 'zakupy' && (
                 <Card>
                   <CardContent className="py-12 text-center">
                     <Calculator className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
