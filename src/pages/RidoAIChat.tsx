@@ -261,8 +261,8 @@ export default function RidoAIChatPage() {
         <div className="border-t mx-3" />
 
         {/* Conversations list */}
-        <ScrollArea className="flex-1 px-1 overflow-hidden">
-          <div className="px-2 py-2 overflow-hidden">
+        <ScrollArea className="flex-1 overflow-hidden">
+          <div className="px-2 py-2 pr-3 overflow-hidden">
             {/* Starred section */}
             {!searchQuery && filteredConversations.some(c => c.is_starred) && (
               <div className="mb-3">
