@@ -304,12 +304,18 @@ Odpowiedz TYLKO samym JSON bez żadnego tekstu, bez markdown.`,
         total_gross: Number(item.total_gross) || 0,
         supplier_symbol: item.supplier_symbol || '',
         gtu_code: item.gtu_code || '',
-        mapped_product_id: autoMatchProduct(item.name),
+        mapped_product_id: autoMatchProduct(item.name, item.supplier_symbol),
       }));
 
+      const matched = items.filter(i => i.mapped_product_id).length;
+      setAutoMatchedCount(matched);
       setOcrItems(items);
       setOcrDone(true);
-      toast.success(`Rozpoznano ${items.length} pozycji na fakturze.`);
+      if (matched > 0) {
+        toast.success(`Rozpoznano ${items.length} pozycji. 🧠 ${matched} auto-dopasowanych z pamięci!`);
+      } else {
+        toast.success(`Rozpoznano ${items.length} pozycji na fakturze.`);
+      }
     } catch {
       toast.error('Błąd OCR. Sprawdź konfigurację AI.');
     } finally {
