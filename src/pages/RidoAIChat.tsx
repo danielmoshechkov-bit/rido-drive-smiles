@@ -719,16 +719,17 @@ function ConvItem({ conv, active, onClick, onStar, onRename, onAddToProject, onD
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       className={cn(
-        'group flex items-center px-2.5 py-2 rounded-xl cursor-pointer text-sm transition-colors',
+        'flex items-center px-2.5 py-2 rounded-xl cursor-pointer text-sm transition-colors w-full',
         active ? 'bg-primary text-primary-foreground font-medium' : 'text-foreground hover:bg-accent hover:text-accent-foreground'
       )}
-      style={{ maxWidth: '100%', overflow: 'hidden' }}
+      style={{ overflow: 'hidden' }}
     >
       {conv.is_starred && <Star className="h-3 w-3 fill-yellow-400 text-yellow-400 flex-shrink-0 mr-1.5" />}
-      <span className="truncate flex-1 min-w-0">{conv.title || 'Nowa rozmowa'}</span>
+      <span className="truncate min-w-0" style={{ flex: '1 1 0%' }}>{conv.title || 'Nowa rozmowa'}</span>
       <div
         className="flex-shrink-0 ml-1"
         style={{
+          width: '24px',
           opacity: showMenu ? 1 : 0,
           pointerEvents: showMenu ? 'auto' : 'none',
           transition: 'opacity 0.15s',
