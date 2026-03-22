@@ -9,9 +9,12 @@ import { SimpleFreeInvoice } from '@/components/invoices/SimpleFreeInvoice';
 import { InvoiceExpandableRow } from '@/components/invoices/InvoiceExpandableRow';
 import { InventoryModuleView } from '@/components/inventory';
 import { InventoryPurchaseOCR } from '@/components/inventory/InventoryPurchaseOCR';
+import { PendingInvoicesReview } from '@/components/invoices/PendingInvoicesReview';
+import { InvoiceEmailSetup } from '@/components/invoices/InvoiceEmailSetup';
+import { InvoiceNotificationBell } from '@/components/invoices/InvoiceNotificationBell';
 import {
   FileText, Plus, FileSpreadsheet, BarChart3, Clock, Package,
-  CreditCard, ShoppingBag, Calculator, Building2, ChevronRight
+  CreditCard, ShoppingBag, Calculator, Building2, ChevronRight, Mail
 } from 'lucide-react';
 import { toast } from 'sonner';
 
