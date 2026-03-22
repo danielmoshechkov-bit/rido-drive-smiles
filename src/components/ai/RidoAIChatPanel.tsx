@@ -399,7 +399,12 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
       </div>
     );
   }
-  const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 768;
+  const [isDesktop, setIsDesktop] = useState(typeof window !== 'undefined' && window.innerWidth >= 768);
+  useEffect(() => {
+    const check = () => setIsDesktop(window.innerWidth >= 768);
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   const listView = (
     <div className="flex flex-col h-full bg-muted/20">
