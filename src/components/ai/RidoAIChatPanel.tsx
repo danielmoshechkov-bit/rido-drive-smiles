@@ -871,12 +871,10 @@ function ChatView({
             onMouseEnter={e => (e.currentTarget.style.background = '#F5F4F0')} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
             <Plus size={18} />
           </button>
-          {!isMobile && (
-            <button onClick={onClose} style={{ padding: 7, borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', color: '#9CA3AF' }} title="Zamknij"
-              onMouseEnter={e => (e.currentTarget.style.background = '#F5F4F0')} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-              <X size={18} />
-            </button>
-          )}
+          <button onClick={onClose} style={{ padding: 7, borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', color: '#9CA3AF' }} title="Zamknij"
+            onMouseEnter={e => (e.currentTarget.style.background = '#F5F4F0')} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+            <X size={18} />
+          </button>
         </div>
       </div>
 
