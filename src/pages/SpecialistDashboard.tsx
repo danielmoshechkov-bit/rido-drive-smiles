@@ -98,7 +98,7 @@ export default function SpecialistDashboard() {
           {/* Orders Tab */}
           <TabsContent value="orders" className="mt-6 space-y-6">
             <Tabs value={ordersSubTab} onValueChange={setOrdersSubTab}>
-              <TabsList variant="outline">
+              <TabsList>
                 <TabsTrigger value="new">
                   Nowe zlecenia {newOrders.length > 0 && <Badge variant="destructive" className="ml-1">{newOrders.length}</Badge>}
                 </TabsTrigger>
