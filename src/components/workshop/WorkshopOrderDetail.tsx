@@ -6,6 +6,7 @@ import { useWorkshopStatuses, useUpdateWorkshopOrder } from '@/hooks/useWorkshop
 import { WorkshopOrderBasicTab } from './tabs/WorkshopOrderBasicTab';
 import { WorkshopOrderFilesTab } from './tabs/WorkshopOrderFilesTab';
 import { WorkshopOrderTasksTab } from './tabs/WorkshopOrderTasksTab';
+import { WorkshopScheduler } from './WorkshopScheduler';
 import { WorkshopOrderSummaryTab } from './tabs/WorkshopOrderSummaryTab';
 import { WorkshopSmsDialog } from './WorkshopSmsDialog';
 import { RidoPartsCartButton } from './parts/RidoPartsCartButton';
@@ -216,9 +217,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
           <WorkshopOrderSummaryTab order={order} />
         </TabsContent>
         <TabsContent value="schedule">
-          <div className="text-center py-12 text-muted-foreground">
-            Terminarz zlecenia — wkrótce dostępny
-          </div>
+          <WorkshopScheduler providerId={providerId} onBack={() => {}} title={`Terminarz: ${order.order_number || ''}`} />
         </TabsContent>
         <TabsContent value="files">
           <WorkshopOrderFilesTab order={order} />

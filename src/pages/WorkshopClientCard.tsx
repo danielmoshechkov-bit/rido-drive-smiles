@@ -362,9 +362,15 @@ export default function WorkshopClientCard() {
                       <h4 className="text-sm font-semibold text-primary mb-2">Usługi:</h4>
                       <div className="border rounded-xl overflow-hidden">
                         <Table>
+                          <colgroup>
+                            <col style={{ width: '50px' }} />
+                            <col />
+                            <col style={{ width: '140px' }} />
+                            <col style={{ width: '140px' }} />
+                          </colgroup>
                           <TableHeader>
                             <TableRow className="bg-muted/30">
-                              <TableHead className="w-12">Lp.</TableHead>
+                              <TableHead>Lp.</TableHead>
                               <TableHead>Nazwa</TableHead>
                               <TableHead className="text-right">Netto</TableHead>
                               <TableHead className="text-right">Brutto</TableHead>
@@ -375,14 +381,14 @@ export default function WorkshopClientCard() {
                               <TableRow key={t.id}>
                                 <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                                 <TableCell className="font-medium">{t.name}</TableCell>
-                                <TableCell className="text-right">{fmt(t.total_net || 0)} zł</TableCell>
-                                <TableCell className="text-right font-medium">{fmt(t.total_gross || 0)} zł</TableCell>
+                                <TableCell className="text-right tabular-nums">{fmt(t.total_net || 0)} zł</TableCell>
+                                <TableCell className="text-right font-medium tabular-nums">{fmt(t.total_gross || 0)} zł</TableCell>
                               </TableRow>
                             ))}
                             <TableRow className="font-bold bg-muted/20">
                               <TableCell colSpan={2}>Razem usługi</TableCell>
-                              <TableCell className="text-right text-primary">{fmt(tasksNetTotal)} zł</TableCell>
-                              <TableCell className="text-right text-primary">{fmt(tasksTotal)} zł</TableCell>
+                              <TableCell className="text-right text-primary tabular-nums">{fmt(tasksNetTotal)} zł</TableCell>
+                              <TableCell className="text-right text-primary tabular-nums">{fmt(tasksTotal)} zł</TableCell>
                             </TableRow>
                           </TableBody>
                         </Table>
@@ -395,9 +401,17 @@ export default function WorkshopClientCard() {
                       <h4 className="text-sm font-semibold text-primary mb-2">Części i materiały:</h4>
                       <div className="border rounded-xl overflow-hidden">
                         <Table>
+                          <colgroup>
+                            <col style={{ width: '50px' }} />
+                            <col />
+                            <col style={{ width: '60px' }} />
+                            <col style={{ width: '60px' }} />
+                            <col style={{ width: '140px' }} />
+                            <col style={{ width: '140px' }} />
+                          </colgroup>
                           <TableHeader>
                             <TableRow className="bg-muted/30">
-                              <TableHead className="w-12">Lp.</TableHead>
+                              <TableHead>Lp.</TableHead>
                               <TableHead>Nazwa</TableHead>
                               <TableHead className="text-right">Ilość</TableHead>
                               <TableHead>J.m.</TableHead>
@@ -410,16 +424,16 @@ export default function WorkshopClientCard() {
                               <TableRow key={g.id}>
                                 <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                                 <TableCell className="font-medium">{g.name}</TableCell>
-                                <TableCell className="text-right">{g.quantity}</TableCell>
+                                <TableCell className="text-right tabular-nums">{g.quantity}</TableCell>
                                 <TableCell>{g.unit}</TableCell>
-                                <TableCell className="text-right">{fmt(g.total_net || 0)} zł</TableCell>
-                                <TableCell className="text-right font-medium">{fmt(g.total_gross || 0)} zł</TableCell>
+                                <TableCell className="text-right tabular-nums">{fmt(g.total_net || 0)} zł</TableCell>
+                                <TableCell className="text-right font-medium tabular-nums">{fmt(g.total_gross || 0)} zł</TableCell>
                               </TableRow>
                             ))}
                             <TableRow className="font-bold bg-muted/20">
                               <TableCell colSpan={4}>Razem części</TableCell>
-                              <TableCell className="text-right text-primary">{fmt(goodsNetTotal)} zł</TableCell>
-                              <TableCell className="text-right text-primary">{fmt(goodsTotal)} zł</TableCell>
+                              <TableCell className="text-right text-primary tabular-nums">{fmt(goodsNetTotal)} zł</TableCell>
+                              <TableCell className="text-right text-primary tabular-nums">{fmt(goodsTotal)} zł</TableCell>
                             </TableRow>
                           </TableBody>
                         </Table>
