@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ImageLightbox } from "@/components/ui/ImageLightbox";
+import { useContentTranslation } from "@/hooks/useContentTranslation";
 
 interface ListingCardProps {
   listing: {

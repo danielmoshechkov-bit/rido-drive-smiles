@@ -78,6 +78,7 @@ const TASK_TYPE_LABELS: Record<string, string> = {
   embeddings: "Embeddings",
   tts: "TTS",
   stt: "STT",
+  translation: "Tłumaczenie",
 };
 
 const TASK_TYPE_DESCRIPTIONS: Record<string, string> = {
@@ -88,6 +89,7 @@ const TASK_TYPE_DESCRIPTIONS: Record<string, string> = {
   embeddings: "Wektory tekstu do semantycznego wyszukiwania — baza wiedzy AI",
   tts: "Text-to-Speech — zamiana tekstu na mowę (czytanie wiadomości głosem)",
   stt: "Speech-to-Text — zamiana mowy na tekst (dyktowanie, transkrypcja)",
+  translation: "Automatyczne tłumaczenie ogłoszeń i treści portalu na 15 języków — cache w bazie",
 };
 
 const CLAUDE_PROVIDER_KEYS = ["claude_haiku", "claude_sonnet", "claude_opus"];
