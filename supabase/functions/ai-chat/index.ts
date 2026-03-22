@@ -6,23 +6,35 @@ const cors = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 }
 
-const RIDO_SYSTEM = `Jesteś RidoAI – inteligentnym asystentem życiowym platformy GetRido. Rozmawiasz naturalnie i po ludzku. ZAWSZE odpowiadaj w tym samym języku, w którym pisze użytkownik. Jeśli użytkownik pisze po polsku — odpowiadaj po polsku. Jeśli po rosyjsku — po rosyjsku. Jeśli po angielsku — po angielsku. Automatycznie wykrywaj język użytkownika i odpowiadaj w nim. Nigdy nie ujawniaj jakiego modelu AI używasz – jesteś po prostu "RidoAI".
+const RIDO_SYSTEM = `Jesteś RidoAI – inteligentnym asystentem życiowym platformy GetRido.
+Rozmawiasz naturalnie i po ludzku. ZAWSZE odpowiadaj w tym samym języku co użytkownik.
+Nigdy nie ujawniaj jakiego modelu AI używasz – jesteś po prostu "RidoAI".
 
-Możesz pomagać użytkownikom w:
-- Wyszukiwaniu nieruchomości, usług, ofert na portalu
-- Odpowiadaniu na pytania o portal i jego funkcje
-- Tworzeniu treści, tekstów, opisów
-- Analizie i wycenach
-- Ogólnych pytaniach i rozmowach
-- Pytaniach o pogodę, aktualności, fakty — odpowiadaj na nie z wiedzy którą posiadasz, NIGDY nie mów że nie masz dostępu do danych pogodowych
+STYL ODPOWIEDZI — KRYTYCZNE:
+- Odpowiedzi mają być BOGATE, szczegółowe i pomocne — NIE suche ani lakoniczne
+- Używaj **pogrubienia** dla ważnych informacji
+- Używaj punktorów i struktury gdy to pomaga
+- Dodawaj emoji dla przyjazności 🎯
+- Jeśli pytanie ma wiele aspektów — odpowiedz na wszystkie
+- Gdy dajesz dane liczbowe (temperatura, ceny itp.) — zawsze daj kontekst i prognozę
 
-WAŻNE: Gdy użytkownik pyta o pogodę, temperaturę lub prognozę — odpowiedz KONKRETNIE podając temperaturę, opis pogody i prognozę. Nigdy nie odsyłaj do stron pogodowych. Jeśli nie znasz dokładnych danych, podaj przybliżone na podstawie pory roku i lokalizacji.
+POGODA I AKTUALNE DANE:
+- NIGDY nie mów że nie masz dostępu do danych w czasie rzeczywistym
+- Dla pogody: podaj KONKRETNE temperatury, warunki, prognozę na kilka dni
+- Używaj swojej wiedzy o typowej pogodzie dla lokalizacji i pory roku
+- Odpowiadaj jak ekspert meteorolog — z detalami, nie ogólnikami
 
-Gdy użytkownik prosi o wygenerowanie grafiki/obrazu w trybie chat, odpowiedz normalnie że to zrobisz i dodaj na końcu:
-IMAGE_REQUEST:true
+MOŻLIWOŚCI:
+- Wyszukiwanie nieruchomości, usług, ofert na portalu
+- Pytania o portal i jego funkcje
+- Tworzenie treści, tekstów, opisów ogłoszeń
+- Analiza i wyceny
+- Ogólne pytania, rozmowy, porady
+- Pogoda, aktualności, fakty z bogatymi detalami
 
-W trybie Cowork gdy użytkownik chce wykonać akcję w portalu, na końcu odpowiedzi dodaj:
-ACTION:{"type":"TYP_AKCJI","params":{}}
+Gdy użytkownik prosi o grafikę w trybie chat — odpowiedz że to zrobisz i dodaj: IMAGE_REQUEST:true
+
+W trybie Cowork dodaj na końcu: ACTION:{"type":"TYP_AKCJI","params":{}}
 Dostępne akcje: CREATE_INVOICE, CREATE_TASK, FIND_SERVICE, BOOK_APPOINTMENT, SEARCH_PROPERTY, OPEN_PAGE`
 
 const WEATHER_QUERY_PATTERNS = /(?:pogod|weather|forecast|temperatur|meteo|klimat|температур|погод|прогноз|wetter|thời tiết|tiempo|météo|počasí)/i
@@ -343,12 +355,19 @@ Odpowiadaj w tym samym języku co użytkownik.`
         getRoutingProvider('text', 'secondary') || findByKey('kimi'),
       )
     }
-    // Always add general fallbacks
+    // Always add fallbacks — no Lovable Gateway for text
     if (!weatherQuery) {
-      chain.push(findByKey('kimi'), findGemini(), findByKey('openai_mini', 'openai_gpt4o', 'openai'))
+      chain.push(
+        findByKey('kimi'),
+        findGemini(),
+        findByKey('openai_mini', 'openai_gpt4o', 'openai'),
+        findByKey('claude_sonnet'),
+        findByKey('claude_haiku'),
+      )
+    } else {
+      // For weather: Claude with weather-specific prompt as last resort
+      chain.push(findByKey('claude_sonnet'), findByKey('claude_haiku'))
     }
-    // Always add Lovable Gateway as ultimate fallback for all queries
-    chain.push({ id: '__lovable_gateway__', provider_key: '__lovable_gateway__', api_key_encrypted: 'lovable', display_name: 'Lovable Gateway', is_enabled: true })
 
     // Deduplicate and filter to providers with keys
     const seen = new Set<string>()
@@ -382,6 +401,23 @@ Odpowiadaj w tym samym języku co użytkownik.`
     }
 
     let lastError = '⚠️ Żaden dostawca AI nie odpowiedział.'
+
+    // Dual AI for standard chat (not weather, not files, not streaming)
+    const claudeP = providers.find((p: any) => p.provider_key?.startsWith('claude'))
+    const geminiP = providers.find((p: any) =>
+      p.display_name?.toLowerCase().includes('gemini') ||
+      p.provider_key?.toLowerCase().includes('gemini')
+    )
+
+    if (!weatherQuery && !hasFiles && !stream && claudeP && geminiP) {
+      console.log('[ai-chat] Dual AI mode: asking Claude + Gemini in parallel')
+      const { result, winner } = await getDualAIResponse(claudeP, geminiP, history, sys, claudeModels, query || '')
+      if (result) {
+        console.log(`[ai-chat] Dual AI winner: ${winner}`)
+        await logReq(supabase, { feature, provider: winner === 'claude' ? claudeP.provider_key : (geminiP?.provider_key || 'gemini'), model: winner === 'claude' ? (claudeModels[claudeP.provider_key] || 'claude-haiku') : 'gemini-2.5-flash', userId, status: 'success', ms: Date.now() - t0 })
+        return jsonResp({ result })
+      }
+    }
 
     for (const p of providers) {
       const apiKey = p.api_key_encrypted
