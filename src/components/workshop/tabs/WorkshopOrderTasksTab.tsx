@@ -662,6 +662,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           placeholder={isTaskGross ? 'Brutto' : 'Netto'}
                           value={isTaskGross ? (row.price_gross || '') : (row.price_net || '')}
                           onChange={e => updateTaskRowPrice(idx, Number(e.target.value))}
+                          onBlur={() => autoSaveTaskRow(idx)}
                             className="h-9 w-full text-sm text-right min-w-0"
                         />
                       </td>
@@ -705,7 +706,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                   <td colSpan={7} className="p-1.5">
                     <div className="flex items-center gap-2">
                       <Button onClick={saveTaskDraftRows} variant="ghost" size="sm" className="gap-1 text-xs text-primary">
-                        <Plus className="h-3.5 w-3.5" /> Zapisz i dodaj usługę
+                        <Plus className="h-3.5 w-3.5" /> Dodaj usługę
                       </Button>
                       {(tasks.length > 0 || taskRows.some(r => r.name.trim())) && ridoPriceSettings?.ai_suggestions_enabled !== false && (
                         <Button
@@ -908,7 +909,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                   <td colSpan={10} className="p-1.5">
                     <div className="flex items-center gap-2">
                       <Button onClick={saveGoodsDraftRows} variant="ghost" size="sm" className="gap-1 text-xs text-amber-600">
-                        <Plus className="h-3.5 w-3.5" /> Zapisz i dodaj pozycję
+                        <Plus className="h-3.5 w-3.5" /> Dodaj pozycję
                       </Button>
                       <Button variant="outline" size="sm" className="gap-1 h-7 text-xs">
                         <Package className="h-3.5 w-3.5" /> Dodaj z magazynu
