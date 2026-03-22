@@ -118,8 +118,16 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz', foc
         o.vehicle?.plate?.toLowerCase().includes(q)
       );
     }
+    // If focusOrderId is set, ensure it's first and always visible
+    if (focusOrderId) {
+      const focusOrder = orders.find((o: any) => o.id === focusOrderId && !o.scheduled_start);
+      const rest = filtered.filter((o: any) => o.id !== focusOrderId);
+      if (focusOrder) {
+        return [focusOrder, ...rest.slice(0, 19)];
+      }
+    }
     return filtered.slice(0, 20);
-  }, [orders, search]);
+  }, [orders, search, focusOrderId]);
 
   // Calculate order span in hours
   const getOrderSpan = useCallback((order: any): number => {
