@@ -1,4 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 interface UniversalHomeButtonProps {
   className?: string;
@@ -7,11 +8,11 @@ interface UniversalHomeButtonProps {
 export function UniversalHomeButton({ className }: UniversalHomeButtonProps) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useTranslation();
 
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
     
-    // If we're already on home, force a refresh to reset any state
     if (location.pathname === '/') {
       window.location.href = '/';
     } else {
@@ -30,7 +31,7 @@ export function UniversalHomeButton({ className }: UniversalHomeButtonProps) {
         className="h-6 w-6"
       />
       <span className="text-sm font-medium text-foreground">
-        Strona główna
+        {t('header.home')}
       </span>
     </button>
   );

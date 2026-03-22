@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { LogIn, User, Heart, Bell, LayoutGrid, Car, Truck, Store, Home } from "lucide-react";
@@ -21,13 +22,13 @@ interface MarketplaceHeaderProps {
 
 export function MarketplaceHeader({ user, favoritesCount = 0 }: MarketplaceHeaderProps) {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { features } = useFeatureToggles();
   const [isDriverAccount, setIsDriverAccount] = useState(false);
   const [isFleetAccount, setIsFleetAccount] = useState(false);
 
   useEffect(() => {
     if (user) {
-      // Check for driver account
       supabase
         .from("driver_app_users")
         .select("user_id")
@@ -35,7 +36,6 @@ export function MarketplaceHeader({ user, favoritesCount = 0 }: MarketplaceHeade
         .maybeSingle()
         .then(({ data }) => setIsDriverAccount(!!data));
 
-      // Check for fleet account
       supabase
         .from("user_roles")
         .select("role")
@@ -55,7 +55,6 @@ export function MarketplaceHeader({ user, favoritesCount = 0 }: MarketplaceHeade
     <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
-          {/* Logo */}
           <div 
             className="flex items-center gap-3 cursor-pointer" 
             onClick={() => navigate("/gielda")}
@@ -72,7 +71,6 @@ export function MarketplaceHeader({ user, favoritesCount = 0 }: MarketplaceHeade
             </div>
           </div>
 
-          {/* Navigation */}
           <nav className="hidden md:flex items-center gap-6">
             <a 
               href="/easy" 
@@ -82,21 +80,19 @@ export function MarketplaceHeader({ user, favoritesCount = 0 }: MarketplaceHeade
               GetRido Easy
             </a>
             <a href="/gielda" className="text-sm font-medium hover:text-primary transition-colors">
-              Pojazdy
+              {t('marketplace.vehicles')}
             </a>
             <span className="text-sm text-muted-foreground cursor-not-allowed">
-              Usługi (wkrótce)
+              {t('marketplace.servicesSoon')}
             </span>
             <span className="text-sm text-muted-foreground cursor-not-allowed">
-              Mini-market (wkrótce)
+              {t('marketplace.miniMarketSoon')}
             </span>
           </nav>
 
-          {/* Actions */}
           <div className="flex items-center gap-2">
             {user ? (
               <>
-                {/* Account Switcher */}
                 {showAccountSwitcher && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -105,35 +101,32 @@ export function MarketplaceHeader({ user, favoritesCount = 0 }: MarketplaceHeade
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-56">
-                      <DropdownMenuLabel>Wybierz moduł</DropdownMenuLabel>
+                      <DropdownMenuLabel>{t('marketplace.selectModule')}</DropdownMenuLabel>
                       <DropdownMenuSeparator />
                       
-                      {/* Current: Marketplace */}
                       <DropdownMenuItem disabled className="flex items-center gap-2 bg-muted/50">
                         <Store className="h-4 w-4" />
-                        <span>Giełda (marketplace)</span>
-                        <Badge variant="outline" className="ml-auto text-xs">aktywne</Badge>
+                        <span>{t('marketplace.marketplace')}</span>
+                        <Badge variant="outline" className="ml-auto text-xs">{t('marketplace.currentActive')}</Badge>
                       </DropdownMenuItem>
 
-                      {/* Driver Panel */}
                       {isDriverAccount && (
                         <DropdownMenuItem 
                           onClick={() => navigate('/driver')}
                           className="flex items-center gap-2 cursor-pointer"
                         >
                           <Car className="h-4 w-4" />
-                          <span>Panel kierowcy</span>
+                          <span>{t('marketplace.driverPanel')}</span>
                         </DropdownMenuItem>
                       )}
 
-                      {/* Fleet Panel */}
                       {isFleetAccount && (
                         <DropdownMenuItem 
                           onClick={() => navigate('/fleet/dashboard')}
                           className="flex items-center gap-2 cursor-pointer"
                         >
                           <Truck className="h-4 w-4" />
-                          <span>Panel flotowy</span>
+                          <span>{t('marketplace.fleetPanel')}</span>
                         </DropdownMenuItem>
                       )}
                     </DropdownMenuContent>
@@ -153,17 +146,17 @@ export function MarketplaceHeader({ user, favoritesCount = 0 }: MarketplaceHeade
                 </Button>
                 <Button variant="outline" onClick={() => navigate("/gielda/panel")}>
                   <User className="h-4 w-4 mr-2" />
-                  Moje konto
+                  {t('marketplace.myAccount')}
                 </Button>
               </>
             ) : (
               <>
                 <Button variant="outline" onClick={() => navigate("/gielda/logowanie")}>
                   <LogIn className="h-4 w-4 mr-2" />
-                  Zaloguj
+                  {t('marketplace.login')}
                 </Button>
                 <Button onClick={() => navigate("/gielda/rejestracja")}>
-                  Dołącz za darmo
+                  {t('marketplace.joinFree')}
                 </Button>
               </>
             )}
