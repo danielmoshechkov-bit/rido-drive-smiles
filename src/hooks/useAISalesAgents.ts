@@ -11,7 +11,7 @@ export function useAISalesAgents() {
         .select('*')
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return data || [];
+      return (data || []) as any[];
     }
   });
 }
@@ -27,7 +27,7 @@ export function useAISalesAgent(id: string | null) {
         .eq('id', id)
         .single();
       if (error) throw error;
-      return data;
+      return data as any;
     }
   });
 }
