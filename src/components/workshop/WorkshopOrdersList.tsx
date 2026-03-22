@@ -11,9 +11,10 @@ import {
   useWorkshopOrders, useWorkshopStatuses, useUpdateWorkshopOrder,
 } from '@/hooks/useWorkshop';
 import { WorkshopNewOrderDialog } from './WorkshopNewOrderDialog';
+import { WorkshopEditClientDialog } from './WorkshopEditClientDialog';
 import {
   Plus, Search, CheckCircle, Car, Trash2,
-  Wrench, Filter, Loader2, Copy, Phone, Mail, User
+  Wrench, Filter, Loader2, Copy, Phone, Mail, User, ExternalLink, Building
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
