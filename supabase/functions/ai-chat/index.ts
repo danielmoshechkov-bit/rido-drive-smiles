@@ -33,15 +33,36 @@ const LOW_CONFIDENCE_WEATHER_PATTERNS = [
   /nie mam dost[eę]pu do danych pogodowych/i,
   /nie znam.{0,30}(pogody|temperatury)/i,
   /nie posiadam.{0,30}(aktualnych|bieżących|rzeczywistych)/i,
+  /nie posiadam aktualnych danych/i,
+  /proszę sprawdzić/i,
+  /zalecam sprawdzenie/i,
+  /skorzystaj z aplikacji pogodowej/i,
   // English
   /i (?:can'?t|cannot|don'?t) .{0,40}(check|access|verify).{0,40}(weather|forecast)/i,
   /don'?t have (?:access|real.?time)/i,
-  // Russian
+  /i don.?t have access to real.?time/i,
+  /i cannot provide current/i,
+  /i don.?t have the ability to check/i,
+  /please check a weather/i,
+  /for current weather/i,
+  /i recommend checking/i,
+  /check.*weather.*app/i,
+  // Russian — expanded
   /не (?:могу|имею).{0,60}(провери|доступ|реальн|актуальн|текущ)/i,
   /не (?:знаю|известн).{0,40}(погод|температур)/i,
   /нет доступа к.{0,40}(погод|данн|информац)/i,
   /рекомендую.{0,40}(сайт|weather|meteo|прогноз)/i,
   /посети.{0,40}(сайт|weather|meteo)/i,
+  /не имею доступа к информации/i,
+  /мне не известн/i,
+  /не имею возможност/i,
+  /данные в реальном времени/i,
+  /актуальные данные о погоде/i,
+  /для получения актуальной/i,
+  /посетить сайты прогноза/i,
+  /рекомендую воспользоваться/i,
+  /обратитесь к/i,
+  /не могу предоставить актуальн/i,
   // Ukrainian  
   /не (?:можу|маю).{0,60}(перевір|доступ|реальн|актуальн)/i,
   // German
@@ -271,27 +292,56 @@ serve(async (req) => {
         lastMsg.content = enrichedContent
       }
     }
-    const sys = mode === 'cowork'
-      ? RIDO_SYSTEM + '\n\nJesteś w trybie Cowork — gdy użytkownik prosi o akcję w portalu, wykonaj ją!'
-      : RIDO_SYSTEM
+    // Build system prompt — enhanced for weather queries
+    const todayStr = new Date().toLocaleDateString('pl-PL', { month: 'long', day: 'numeric' })
+    const weatherSys = RIDO_SYSTEM + `\n\nKRYTYCZNE DLA ZAPYTAŃ O POGODĘ:
+Użytkownik pyta o pogodę. MUSISZ podać konkretną odpowiedź.
+Data dzisiejsza: ${todayStr}.
+Użyj swojej wiedzy o typowej pogodzie dla tej lokalizacji i pory roku.
+NIGDY nie mów że nie masz dostępu do danych w czasie rzeczywistym.
+ZAWSZE podaj przybliżoną temperaturę i opis pogody na podstawie pory roku.
+Przykład: "W Mediolanie w marcu jest około 8-14°C, pochmurno z możliwością deszczu."
+Odpowiadaj w tym samym języku co użytkownik.`
 
-    // Build provider chain based on mode
+    const sys = mode === 'cowork'
+      ? (weatherQuery ? weatherSys : RIDO_SYSTEM) + '\n\nJesteś w trybie Cowork — gdy użytkownik prosi o akcję w portalu, wykonaj ją!'
+      : (weatherQuery ? weatherSys : RIDO_SYSTEM)
+
+    // Build provider chain based on mode — uses routing rules from DB
     const chain: any[] = []
     
     if (weatherQuery) {
-      // For weather queries: Gemini FIRST (has grounding/search), then Lovable Gateway, then others
-      chain.push(findGemini(), findByKey('kimi'))
-      // Add a virtual "lovable_gateway" provider as ultimate fallback
-      chain.push({ id: '__lovable_gateway__', provider_key: '__lovable_gateway__', api_key_encrypted: 'lovable', display_name: 'Lovable Gateway', is_enabled: true })
-      chain.push(findByKey('claude_haiku'))
+      // Weather: Gemini FIRST (Google Search grounding), then Kimi, then Claude
+      chain.push(
+        getRoutingProvider('search', 'primary') || findGemini(),
+        getRoutingProvider('search', 'secondary') || findByKey('kimi'),
+        findByKey('claude_haiku'),
+        findByKey('claude_sonnet'),
+      )
     } else if (hasRichVisionFiles) {
-      chain.push(findByKey('claude_sonnet'), findByKey('claude_opus'), findByKey('claude_haiku'), findGemini())
+      chain.push(
+        getRoutingProvider('text', 'primary') || findByKey('claude_sonnet'),
+        findByKey('claude_opus'),
+        findByKey('claude_haiku'),
+        findGemini(),
+      )
     } else if (mode === 'rido_pro') {
-      chain.push(findByKey('claude_opus'), findByKey('claude_sonnet'), findByKey('claude_haiku'))
+      chain.push(
+        findByKey('claude_opus'),
+        findByKey('claude_sonnet'),
+        getRoutingProvider('text', 'secondary') || findByKey('claude_haiku'),
+      )
     } else if (mode === 'cowork' || mode === 'rido_code') {
-      chain.push(findByKey('claude_sonnet'), findByKey('claude_haiku'))
+      chain.push(
+        getRoutingProvider('text', 'primary') || findByKey('claude_sonnet'),
+        getRoutingProvider('text', 'secondary') || findByKey('claude_haiku'),
+      )
     } else {
-      chain.push(findByKey('claude_haiku'))
+      // Standard chat — use routing rules from DB
+      chain.push(
+        getRoutingProvider('text', 'primary') || findByKey('claude_haiku'),
+        getRoutingProvider('text', 'secondary') || findByKey('kimi'),
+      )
     }
     // Always add general fallbacks
     if (!weatherQuery) {
