@@ -44,7 +44,7 @@ export function useCreateAISalesAgent() {
         .select()
         .single();
       if (error) throw error;
-      return data;
+      return data as any;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['ai-sales-agents'] });
