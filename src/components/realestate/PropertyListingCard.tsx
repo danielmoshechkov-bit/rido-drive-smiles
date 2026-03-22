@@ -94,20 +94,27 @@ export function PropertyListingCard({
   const [showLightbox, setShowLightbox] = useState(false);
   const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
 
-  const rawPhotos = typeof listing.photos === 'string' 
-    ? (() => { try { return JSON.parse(listing.photos); } catch { return []; } })()
+  const rawPhotos = typeof listing.photos === 'string'
+    ? (() => {
+        try {
+          return JSON.parse(listing.photos);
+        } catch {
+          return [];
+        }
+      })()
     : listing.photos;
-  const photos = Array.isArray(rawPhotos) && rawPhotos.length > 0 
-    ? rawPhotos 
-    : ["/placeholder.svg"];
+  const photos = Array.isArray(rawPhotos) && rawPhotos.length > 0
+    ? rawPhotos.filter((photo): photo is string => typeof photo === 'string' && photo.trim().length > 0)
+    : [];
+  const mainPhotoUrl = photos[0] ?? '/placeholder.svg';
 
   const handleImageError = (index: number) => {
     setImageErrors(prev => new Set(prev).add(index));
   };
 
   const getPhotoSrc = (index: number) => {
-    if (imageErrors.has(index)) return "/placeholder.svg";
-    return photos[index];
+    if (imageErrors.has(index)) return '/placeholder.svg';
+    return photos[index] ?? mainPhotoUrl;
   };
 
   const nextPhoto = (e: React.MouseEvent) => {
@@ -174,8 +181,11 @@ export function PropertyListingCard({
               <img
                 src={getPhotoSrc(currentPhoto)}
                 alt={listing.title}
-                className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
-                onError={() => handleImageError(currentPhoto)}
+                className="block h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
+                onError={(e) => {
+                  handleImageError(currentPhoto);
+                  e.currentTarget.src = '/placeholder.svg';
+                }}
               />
 
               {/* Compare Button */}
@@ -390,8 +400,11 @@ export function PropertyListingCard({
           <img
             src={getPhotoSrc(currentPhoto)}
             alt={listing.title}
-            className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
-            onError={() => handleImageError(currentPhoto)}
+            className="block h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
+            onError={(e) => {
+              handleImageError(currentPhoto);
+              e.currentTarget.src = '/placeholder.svg';
+            }}
           />
 
           {/* Compare Checkbox - top left corner */}
