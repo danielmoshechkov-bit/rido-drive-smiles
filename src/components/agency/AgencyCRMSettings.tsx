@@ -32,9 +32,73 @@ import { pl } from 'date-fns/locale';
 interface CRMProvider {
   provider_code: string;
   provider_name: string;
+  logo: string;
+  description: string;
+  help_text: string;
+  help_url: string;
+  xml_format: string;
   is_enabled: boolean;
   supported_import_modes: string[];
 }
+
+const CRM_PROVIDERS: CRMProvider[] = [
+  {
+    provider_code: 'asari', provider_name: 'ASARI CRM', logo: '🏢',
+    description: 'Najpopularniejszy CRM w Polsce dla biur nieruchomości.',
+    help_text: 'W ASARI: Eksport na portale → Konfiguracja → Dodaj własny FTP → wpisz dane GetRido poniżej',
+    help_url: 'https://asaricrm.com/system-crm/integracje-api/', xml_format: 'EbiuroV2',
+    is_enabled: true, supported_import_modes: ['xml_url', 'ftp'],
+  },
+  {
+    provider_code: 'esticrm', provider_name: 'EstiCRM', logo: '🏠',
+    description: 'System CRM z eksportem XML w formacie ZIP co godzinę.',
+    help_text: 'W EstiCRM: Ustawienia → Portale → Dodaj FTP → wpisz dane GetRido poniżej',
+    help_url: 'https://info.esticrm.pl/instrukcje/eksporty/', xml_format: 'EstiCRM XML',
+    is_enabled: true, supported_import_modes: ['xml_url', 'ftp'],
+  },
+  {
+    provider_code: 'imo', provider_name: 'IMO', logo: '📋',
+    description: 'Program IMO z eksportem na portale.',
+    help_text: 'W IMO: Administracja → Ustawienia eksportu → dodaj nowy portal z danymi FTP GetRido',
+    help_url: 'https://instrukcja.imo.pl/index.php/Konfiguracja_eksport%C3%B3w', xml_format: 'EbiuroV2',
+    is_enabled: true, supported_import_modes: ['xml_url', 'ftp'],
+  },
+  {
+    provider_code: 'agencja3000', provider_name: 'Agencja3000', logo: '🔑',
+    description: 'System Agencja3000 z eksportem XML.',
+    help_text: 'W Agencja3000: Konfiguracja eksportów → dodaj portal → wpisz dane FTP GetRido',
+    help_url: 'http://www.agencja3000.com/agencja2/eksport_specyfikacja.shtml', xml_format: 'Agencja3000',
+    is_enabled: true, supported_import_modes: ['xml_url', 'ftp'],
+  },
+  {
+    provider_code: 'galactica', provider_name: 'Galactica Gestor', logo: '🌐',
+    description: 'Kompleksowe oprogramowanie biura nieruchomości.',
+    help_text: 'W Galactica Gestor: Eksporty → dodaj nowy portal FTP z danymi GetRido poniżej',
+    help_url: '', xml_format: 'EbiuroV2',
+    is_enabled: true, supported_import_modes: ['xml_url', 'ftp'],
+  },
+  {
+    provider_code: 'domus', provider_name: 'Domus', logo: '🏡',
+    description: 'Program Domus do zarządzania nieruchomościami.',
+    help_text: 'W Domus: Ustawienia portali → dodaj GetRido jako nowy portal FTP',
+    help_url: '', xml_format: 'EbiuroV2',
+    is_enabled: true, supported_import_modes: ['xml_url', 'ftp'],
+  },
+  {
+    provider_code: 'realsoft', provider_name: 'RealSoft', logo: '💼',
+    description: 'System RealSoft dla biur nieruchomości.',
+    help_text: 'W RealSoft: Eksporty → konfiguracja portalu → wpisz dane FTP GetRido',
+    help_url: '', xml_format: 'EbiuroV2',
+    is_enabled: true, supported_import_modes: ['xml_url', 'ftp'],
+  },
+  {
+    provider_code: 'custom_xml', provider_name: 'Własny system (XML/FTP)', logo: '⚙️',
+    description: 'Masz inny program? Skonfiguruj eksport XML na serwer FTP GetRido.',
+    help_text: 'Skonfiguruj swój program żeby wysyłał plik ZIP z XML na podany adres FTP GetRido.',
+    help_url: '', xml_format: 'EbiuroV2',
+    is_enabled: true, supported_import_modes: ['xml_url', 'ftp', 'api'],
+  },
+];
 
 interface CRMIntegration {
   id: string;
@@ -138,14 +202,8 @@ export function AgencyCRMSettings({ agencyId }: AgencyCRMSettingsProps) {
     try {
       setLoading(true);
       
-      // Fetch available CRM providers
-      const { data: providersData } = await supabase
-        .from('crm_integration_providers')
-        .select('*')
-        .eq('is_enabled', true)
-        .order('provider_name');
-      
-      setProviders(providersData || []);
+      // Use hardcoded CRM providers
+      setProviders(CRM_PROVIDERS);
 
       // Fetch existing integration for this agency
       const { data: integrationData } = await supabase
@@ -511,12 +569,46 @@ export function AgencyCRMSettings({ agencyId }: AgencyCRMSettingsProps) {
               <SelectContent>
                 {providers.map(provider => (
                   <SelectItem key={provider.provider_code} value={provider.provider_code}>
-                    {provider.provider_name}
+                    <span className="flex items-center gap-2">
+                      <span>{provider.logo}</span>
+                      <span>{provider.provider_name}</span>
+                    </span>
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
+
+          {/* CRM instruction card */}
+          {selectedProvider && (() => {
+            const prov = CRM_PROVIDERS.find(p => p.provider_code === selectedProvider);
+            if (!prov) return null;
+            return (
+              <div className="p-3 rounded-lg bg-blue-50 border border-blue-200 dark:bg-blue-950/30 dark:border-blue-800">
+                <p className="text-sm font-semibold text-blue-800 dark:text-blue-300 mb-1">
+                  {prov.logo} {prov.provider_name} — jak skonfigurować eksport
+                </p>
+                <p className="text-sm text-blue-700 dark:text-blue-400 mb-2">{prov.help_text}</p>
+                <div className="p-2 rounded bg-amber-50 border border-amber-200 dark:bg-amber-950/30 dark:border-amber-800">
+                  <p className="text-xs font-semibold text-amber-800 dark:text-amber-300 mb-1">📡 Dane do wpisania w swoim programie CRM:</p>
+                  <div className="grid grid-cols-2 gap-0.5 text-xs text-amber-700 dark:text-amber-400">
+                    <span className="font-semibold">Serwer FTP:</span><span>ftp.getrido.pl</span>
+                    <span className="font-semibold">Login:</span><span>agent_{agencyId?.slice(0, 8)}</span>
+                    <span className="font-semibold">Hasło:</span><span className="italic">(z pola poniżej)</span>
+                    <span className="font-semibold">Katalog XML:</span><span>/import/xml/</span>
+                    <span className="font-semibold">Format:</span><span>{prov.xml_format}</span>
+                    <span className="font-semibold">Port FTP:</span><span>21</span>
+                  </div>
+                </div>
+                {prov.help_url && (
+                  <a href={prov.help_url} target="_blank" rel="noopener noreferrer"
+                    className="text-xs text-blue-600 underline mt-1 inline-block dark:text-blue-400">
+                    → Dokumentacja {prov.provider_name}
+                  </a>
+                )}
+              </div>
+            );
+          })()}
 
           {selectedProvider && (
             <>
