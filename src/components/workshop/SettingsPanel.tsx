@@ -226,29 +226,20 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
     toast.success('Układ paska zapisany');
   };
 
-  return (
-    <Card>
-      <CardContent className="pt-6">
-        <Tabs value={settingsTab} onValueChange={setSettingsTab}>
-          <TabsList className="mb-6">
-            <TabsTrigger value="konto" className="gap-1.5">
-              <Building2 className="h-4 w-4" /> Konto i firma
-            </TabsTrigger>
-            <TabsTrigger value="pracownicy" className="gap-1.5">
-              <Users className="h-4 w-4" /> Pracownicy
-            </TabsTrigger>
-            <TabsTrigger value="stanowiska" className="gap-1.5">
-              <Monitor className="h-4 w-4" /> Stanowiska
-            </TabsTrigger>
-            <TabsTrigger value="integracje" className="gap-1.5">
-              <Building2 className="h-4 w-4" /> Integracje
-            </TabsTrigger>
-            <TabsTrigger value="rido-price" className="gap-1.5">
-              <Sparkles className="h-4 w-4" /> Rido Price
-            </TabsTrigger>
-          </TabsList>
+  const settingsSubTabs = [
+    { value: 'konto', label: 'Konto i firma', visible: true },
+    { value: 'pracownicy', label: 'Pracownicy', visible: true },
+    { value: 'stanowiska', label: 'Stanowiska', visible: true },
+    { value: 'integracje', label: 'Integracje', visible: true },
+    { value: 'rido-price', label: 'Rido Price', visible: true },
+  ];
 
-          <TabsContent value="konto" className="space-y-6">
+  return (
+    <div className="space-y-6">
+      <UniversalSubTabBar activeTab={settingsTab} onTabChange={setSettingsTab} tabs={settingsSubTabs} />
+
+      {settingsTab === 'konto' && (
+        <div className="space-y-6">
             <Card className="border-dashed">
               <CardContent className="pt-6 space-y-4">
                 <div>
