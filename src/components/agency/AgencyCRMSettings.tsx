@@ -32,9 +32,73 @@ import { pl } from 'date-fns/locale';
 interface CRMProvider {
   provider_code: string;
   provider_name: string;
+  logo: string;
+  description: string;
+  help_text: string;
+  help_url: string;
+  xml_format: string;
   is_enabled: boolean;
   supported_import_modes: string[];
 }
+
+const CRM_PROVIDERS: CRMProvider[] = [
+  {
+    provider_code: 'asari', provider_name: 'ASARI CRM', logo: '🏢',
+    description: 'Najpopularniejszy CRM w Polsce dla biur nieruchomości.',
+    help_text: 'W ASARI: Eksport na portale → Konfiguracja → Dodaj własny FTP → wpisz dane GetRido poniżej',
+    help_url: 'https://asaricrm.com/system-crm/integracje-api/', xml_format: 'EbiuroV2',
+    is_enabled: true, supported_import_modes: ['xml_url', 'ftp'],
+  },
+  {
+    provider_code: 'esticrm', provider_name: 'EstiCRM', logo: '🏠',
+    description: 'System CRM z eksportem XML w formacie ZIP co godzinę.',
+    help_text: 'W EstiCRM: Ustawienia → Portale → Dodaj FTP → wpisz dane GetRido poniżej',
+    help_url: 'https://info.esticrm.pl/instrukcje/eksporty/', xml_format: 'EstiCRM XML',
+    is_enabled: true, supported_import_modes: ['xml_url', 'ftp'],
+  },
+  {
+    provider_code: 'imo', provider_name: 'IMO', logo: '📋',
+    description: 'Program IMO z eksportem na portale.',
+    help_text: 'W IMO: Administracja → Ustawienia eksportu → dodaj nowy portal z danymi FTP GetRido',
+    help_url: 'https://instrukcja.imo.pl/index.php/Konfiguracja_eksport%C3%B3w', xml_format: 'EbiuroV2',
+    is_enabled: true, supported_import_modes: ['xml_url', 'ftp'],
+  },
+  {
+    provider_code: 'agencja3000', provider_name: 'Agencja3000', logo: '🔑',
+    description: 'System Agencja3000 z eksportem XML.',
+    help_text: 'W Agencja3000: Konfiguracja eksportów → dodaj portal → wpisz dane FTP GetRido',
+    help_url: 'http://www.agencja3000.com/agencja2/eksport_specyfikacja.shtml', xml_format: 'Agencja3000',
+    is_enabled: true, supported_import_modes: ['xml_url', 'ftp'],
+  },
+  {
+    provider_code: 'galactica', provider_name: 'Galactica Gestor', logo: '🌐',
+    description: 'Kompleksowe oprogramowanie biura nieruchomości.',
+    help_text: 'W Galactica Gestor: Eksporty → dodaj nowy portal FTP z danymi GetRido poniżej',
+    help_url: '', xml_format: 'EbiuroV2',
+    is_enabled: true, supported_import_modes: ['xml_url', 'ftp'],
+  },
+  {
+    provider_code: 'domus', provider_name: 'Domus', logo: '🏡',
+    description: 'Program Domus do zarządzania nieruchomościami.',
+    help_text: 'W Domus: Ustawienia portali → dodaj GetRido jako nowy portal FTP',
+    help_url: '', xml_format: 'EbiuroV2',
+    is_enabled: true, supported_import_modes: ['xml_url', 'ftp'],
+  },
+  {
+    provider_code: 'realsoft', provider_name: 'RealSoft', logo: '💼',
+    description: 'System RealSoft dla biur nieruchomości.',
+    help_text: 'W RealSoft: Eksporty → konfiguracja portalu → wpisz dane FTP GetRido',
+    help_url: '', xml_format: 'EbiuroV2',
+    is_enabled: true, supported_import_modes: ['xml_url', 'ftp'],
+  },
+  {
+    provider_code: 'custom_xml', provider_name: 'Własny system (XML/FTP)', logo: '⚙️',
+    description: 'Masz inny program? Skonfiguruj eksport XML na serwer FTP GetRido.',
+    help_text: 'Skonfiguruj swój program żeby wysyłał plik ZIP z XML na podany adres FTP GetRido.',
+    help_url: '', xml_format: 'EbiuroV2',
+    is_enabled: true, supported_import_modes: ['xml_url', 'ftp', 'api'],
+  },
+];
 
 interface CRMIntegration {
   id: string;
