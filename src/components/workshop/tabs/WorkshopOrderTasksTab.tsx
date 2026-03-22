@@ -205,7 +205,10 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   const addTaskRow = () => setTaskRows(prev => [...prev, createEmptyTask()]);
 
   const removeTaskRow = (idx: number) => {
-    if (taskRows.length <= 1) return;
+    if (taskRows.length <= 1) {
+      setTaskRows([createEmptyTask()]);
+      return;
+    }
     setTaskRows(prev => prev.filter((_, i) => i !== idx));
   };
 
@@ -273,7 +276,10 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   const addGoodsRow = () => setGoodsRows(prev => [...prev, createEmptyGoods()]);
 
   const removeGoodsRow = (idx: number) => {
-    if (goodsRows.length <= 1) return;
+    if (goodsRows.length <= 1) {
+      setGoodsRows([createEmptyGoods()]);
+      return;
+    }
     setGoodsRows(prev => prev.filter((_, i) => i !== idx));
   };
 
@@ -658,11 +664,9 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                         {hasDiscount ? fmt(afterDiscount) : fmt(rowTotal)}
                       </td>
                       <td className="p-1.5 text-center">
-                        {taskRows.length > 1 && (
-                           <Button onClick={() => removeTaskRow(idx)} size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive hover:text-destructive">
-                             <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
+                        <Button onClick={() => removeTaskRow(idx)} size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive hover:text-destructive">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </td>
                     </tr>
                   );
@@ -671,7 +675,6 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                 <tr className="bg-muted/30 font-semibold text-sm border-b">
                   <td className="p-2"></td>
                   <td className="p-2" colSpan={4}>Razem usługi</td>
-                  <td className="p-2"></td>
                   <td className="p-2 text-right tabular-nums">{fmt(displayTasksTotal)}</td>
                   <td className="p-2"></td>
                 </tr>
@@ -741,13 +744,13 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                   <th className="p-2 text-left font-medium text-muted-foreground">NAZWA</th>
                   <th className="p-2 text-center text-[11px] font-medium text-muted-foreground">ILOŚĆ</th>
                   <th className="p-2 text-center text-[11px] font-medium text-muted-foreground">J.M.</th>
-                  <th className="p-2 text-right text-[11px] font-medium text-muted-foreground">CENA</th>
                   <th className="p-2 text-right text-[11px] font-medium text-muted-foreground">
                     <div className="flex items-center justify-end gap-1">
                       <EyeOff className="h-3 w-3" />
                       <span>KOSZT</span>
                     </div>
                   </th>
+                  <th className="p-2 text-right text-[11px] font-medium text-muted-foreground">CENA</th>
                   <th className="p-2 text-right text-[11px] font-medium text-muted-foreground">RAZEM</th>
                   <th className="p-2 text-right text-[11px] font-medium text-muted-foreground">RABAT</th>
                   <th className="p-2 text-right text-[11px] font-medium text-muted-foreground">PO RAB.</th>
@@ -768,8 +771,8 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                         <td className="p-2 font-medium"><div className="truncate">{renderEditableCell(g, 'name', g.name)}</div></td>
                       <td className="p-2 text-center">{g.quantity}</td>
                       <td className="p-2 text-center">{g.unit}</td>
-                      <td className="p-2 text-right tabular-nums">{renderEditableCell(g, 'price', fmt(itemPrice), 'tabular-nums')}</td>
                       <td className="p-2 text-right text-muted-foreground tabular-nums">{fmt(itemCost)}</td>
+                      <td className="p-2 text-right tabular-nums">{renderEditableCell(g, 'price', fmt(itemPrice), 'tabular-nums')}</td>
                       <td className="p-2 text-right tabular-nums">{fmt(rawTotal)}</td>
                        <td className="p-2 text-right">{hasDiscount ? `${Math.round(getDiscountPercent(g))}%` : '—'}</td>
                        <td className="p-2 text-right font-semibold tabular-nums">{fmt(itemTotal)}</td>
@@ -823,19 +826,19 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                       <td className="p-1.5">
                         <Input
                           type="number"
-                          placeholder={isGoodsGross ? 'Brutto' : 'Netto'}
-                          value={isGoodsGross ? (row.price_gross || '') : (row.price_net || '')}
-                          onChange={e => updateGoodsRowPrice(idx, Number(e.target.value))}
+                          placeholder="Koszt"
+                          title="Koszt zakupu — widoczne tylko dla serwisu"
+                          value={isGoodsGross ? (row.cost_gross || '') : (row.cost_net || '')}
+                          onChange={e => updateGoodsRowCost(idx, Number(e.target.value))}
                             className="h-9 w-full text-sm text-right min-w-0 px-2"
                         />
                       </td>
                       <td className="p-1.5">
                         <Input
                           type="number"
-                          placeholder="Koszt"
-                          title="Koszt zakupu — widoczne tylko dla serwisu"
-                          value={isGoodsGross ? (row.cost_gross || '') : (row.cost_net || '')}
-                          onChange={e => updateGoodsRowCost(idx, Number(e.target.value))}
+                          placeholder={isGoodsGross ? 'Brutto' : 'Netto'}
+                          value={isGoodsGross ? (row.price_gross || '') : (row.price_net || '')}
+                          onChange={e => updateGoodsRowPrice(idx, Number(e.target.value))}
                             className="h-9 w-full text-sm text-right min-w-0 px-2"
                         />
                       </td>
