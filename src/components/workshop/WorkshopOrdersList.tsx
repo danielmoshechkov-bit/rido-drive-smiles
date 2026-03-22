@@ -392,7 +392,48 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
             </DialogTitle>
           </DialogHeader>
           {editVehicle && (
-            <VehicleEditForm vehicle={editVehicle} onClose={() => setEditVehicle(null)} />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs text-muted-foreground">Marka</Label>
+                <p className="font-medium">{editVehicle.brand || '—'}</p>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Model</Label>
+                <p className="font-medium">{editVehicle.model || '—'}</p>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Nr rejestracyjny</Label>
+                <button className="font-medium flex items-center gap-1 hover:text-primary" onClick={() => { navigator.clipboard.writeText(editVehicle.plate || ''); toast.success('Skopiowano'); }}>
+                  {editVehicle.plate || '—'} <Copy className="h-3 w-3 opacity-50" />
+                </button>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Rok produkcji</Label>
+                <p className="font-medium">{editVehicle.year || '—'}</p>
+              </div>
+              <div className="col-span-2">
+                <Label className="text-xs text-muted-foreground">VIN</Label>
+                <button className="font-mono text-sm flex items-center gap-1 hover:text-primary" onClick={() => { navigator.clipboard.writeText(editVehicle.vin || ''); toast.success('Skopiowano VIN'); }}>
+                  {editVehicle.vin || '—'} <Copy className="h-3 w-3 opacity-50" />
+                </button>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Pojemność silnika</Label>
+                <p className="font-medium">{editVehicle.engine_capacity ? `${editVehicle.engine_capacity} cc` : '—'}</p>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Moc silnika</Label>
+                <p className="font-medium">{editVehicle.engine_power ? `${editVehicle.engine_power} kW` : '—'}</p>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Rodzaj paliwa</Label>
+                <p className="font-medium">{editVehicle.fuel_type || '—'}</p>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Kolor</Label>
+                <p className="font-medium">{editVehicle.color || '—'}</p>
+              </div>
+            </div>
           )}
         </DialogContent>
       </Dialog>
