@@ -112,6 +112,18 @@ serve(async (req) => {
     const { data: allProviders, error: provErr } = await supabase.from('ai_providers').select('*')
     console.log(`[ai-chat] Loaded ${allProviders?.length || 0} providers, error: ${provErr?.message || 'none'}`)
 
+    const { data: routingRules } = await supabase.from('ai_routing_rules').select('*')
+    console.log(`[ai-chat] Loaded ${routingRules?.length || 0} routing rules:`, routingRules?.map((r:any) => `${r.task_type}→${r.primary_provider_key}`).join(', '))
+
+    // Helper: get provider from routing rules for a given task_type
+    const getRoutingProvider = (taskType: string, slot: 'primary' | 'secondary') => {
+      const rule = routingRules?.find((r: any) => r.task_type === taskType)
+      if (!rule) return null
+      const key = slot === 'primary' ? rule.primary_provider_key : rule.secondary_provider_key
+      if (!key) return null
+      return allProviders?.find((p: any) => p.provider_key === key && hasKey(p)) || null
+    }
+
     // Helper: check if provider has a valid key
     const hasKey = (p: any) => p?.api_key_encrypted && String(p.api_key_encrypted).trim() !== ''
 
