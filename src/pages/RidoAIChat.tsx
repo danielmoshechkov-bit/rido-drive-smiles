@@ -215,31 +215,67 @@ export default function RidoAIChatPage() {
     <div className="h-[100dvh] flex bg-background overflow-hidden">
       {/* LEFT SIDEBAR — responsive */}
       <div className={cn(
-        "flex-col border-r bg-muted/20 flex-shrink-0 w-64 md:w-64",
+        "flex-col border-r bg-muted/20 flex-shrink-0",
         "absolute md:relative inset-0 z-40 bg-background md:bg-muted/20",
         sidebarOpen ? "flex" : "hidden"
-      )}>
+      )} style={{ width: '256px', minWidth: '256px', maxWidth: '256px', overflow: 'hidden' }}>
         {/* Sidebar header */}
-        <div className="p-3 space-y-1">
+        <div className="p-3 space-y-1 flex-shrink-0">
           <div className="flex items-center justify-between">
             <button
               onClick={handleNewChat}
               className="flex items-center gap-2.5 flex-1 px-3 py-2 rounded-lg hover:bg-muted transition-colors text-sm font-medium text-foreground"
             >
-              <Plus className="h-4 w-4" />
+              <Plus className="h-4 w-4 flex-shrink-0" />
               Nowa rozmowa
             </button>
-            <button onClick={() => setSidebarOpen(false)} className="md:hidden p-1.5 rounded-lg hover:bg-muted">
+            <button onClick={() => setSidebarOpen(false)} className="md:hidden p-1.5 rounded-lg hover:bg-muted flex-shrink-0">
               <X className="h-4 w-4" />
             </button>
           </div>
-          
-          {/* Search */}
+        </div>
+
+        {/* Navigation links */}
+        <div className="px-3 pb-2 space-y-0.5 flex-shrink-0">
+          <button
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-2.5 w-full px-3 py-2 rounded-lg hover:bg-muted transition-colors text-sm text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4 flex-shrink-0" />
+            <span className="truncate">Wróć do portalu</span>
+          </button>
+        </div>
+
+        {/* PROJEKTY — fixed, not scrolled */}
+        <div className="flex-shrink-0 px-3 pb-2 border-b">
+          <div className="flex items-center justify-between mb-1 px-1">
+            <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Projekty</span>
+          </div>
+          {conversations.filter(c => c.project_id).length === 0 ? (
+            <div className="flex flex-col items-center gap-1 py-3 text-muted-foreground/60">
+              <FolderPlus className="h-5 w-5" />
+              <p className="text-[11px]">Brak projektów</p>
+            </div>
+          ) : (
+            <div className="space-y-0.5 max-h-[100px] overflow-y-auto">
+              {/* Show unique projects */}
+              {Array.from(new Set(conversations.filter(c => c.project_id).map(c => c.project_id!))).slice(0, 5).map(pid => (
+                <div key={pid} className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-muted-foreground hover:bg-muted cursor-pointer truncate">
+                  <FolderPlus className="h-3.5 w-3.5 flex-shrink-0" />
+                  <span className="truncate">Projekt</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Search */}
+        <div className="flex-shrink-0 px-3 py-2">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Szukaj..."
+              placeholder="Szukaj rozmów..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-3 py-2 text-sm rounded-lg bg-muted/50 border-0 outline-none focus:bg-muted placeholder:text-muted-foreground/60 text-foreground"
@@ -247,22 +283,9 @@ export default function RidoAIChatPage() {
           </div>
         </div>
 
-        {/* Navigation links */}
-        <div className="px-3 pb-2 space-y-0.5">
-          <button
-            onClick={() => navigate(-1)}
-            className="flex items-center gap-2.5 w-full px-3 py-2 rounded-lg hover:bg-muted transition-colors text-sm text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Wróć do portalu
-          </button>
-        </div>
-
-        <div className="border-t mx-3" />
-
-        {/* Conversations list */}
-        <ScrollArea className="flex-1 overflow-hidden">
-          <div className="px-2 py-2 pr-3 overflow-hidden">
+        {/* KONWERSACJE — scrollable separately */}
+        <ScrollArea className="flex-1 min-h-0">
+          <div className="px-2 py-1" style={{ overflow: 'hidden' }}>
             {/* Starred section */}
             {!searchQuery && filteredConversations.some(c => c.is_starred) && (
               <div className="mb-3">
