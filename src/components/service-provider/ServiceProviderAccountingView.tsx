@@ -22,9 +22,11 @@ const accountingSubTabs = [
   { value: 'przeglad', label: 'Przegląd', icon: BarChart3, visible: true },
   { value: 'faktury', label: 'Faktury', icon: FileText, visible: true },
   { value: 'zakupy', label: 'Zakupy', icon: ShoppingBag, visible: true },
+  { value: 'oczekujace', label: 'Do sprawdzenia', icon: Mail, visible: true },
   { value: 'dokumenty', label: 'Dokumenty', icon: FileSpreadsheet, visible: true },
   { value: 'platnosci', label: 'Płatności', icon: CreditCard, visible: true },
   { value: 'magazyn', label: 'Stan magazynowy', icon: Package, visible: true },
+  { value: 'email-faktury', label: 'Email faktury', icon: Mail, visible: true },
   { value: 'cykliczne', label: 'Cykliczne', icon: Clock, visible: true },
 ];
 
