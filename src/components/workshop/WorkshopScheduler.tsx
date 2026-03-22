@@ -309,7 +309,7 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz', foc
               <div className="text-sm text-muted-foreground py-4 text-center w-full">Brak zadań do rozplanowania</div>
             ) : (
               unplannedOrders.map((o: any) => (
-                <OrderCard key={o.id} order={o} onDragStart={() => { setDraggedOrder(o); setDragSource('unplanned'); }} onDragEnd={resetDrag} />
+                <OrderCard key={o.id} order={o} onDragStart={() => { setDraggedOrder(o); setDragSource('unplanned'); }} onDragEnd={resetDrag} isFocused={o.id === focusOrderId} />
               ))
             )}
           </div>
