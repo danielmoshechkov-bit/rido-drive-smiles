@@ -11819,6 +11819,41 @@ export type Database = {
           },
         ]
       }
+      service_provider_nav_preferences: {
+        Row: {
+          created_at: string
+          id: string
+          more_tabs: string[]
+          primary_tabs: string[]
+          provider_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          more_tabs?: string[]
+          primary_tabs?: string[]
+          provider_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          more_tabs?: string[]
+          primary_tabs?: string[]
+          provider_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_provider_nav_preferences_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: true
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       service_provider_requests: {
         Row: {
           created_at: string

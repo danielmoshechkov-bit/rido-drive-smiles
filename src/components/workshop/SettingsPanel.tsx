@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,9 +9,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Save, Plus, Trash2, Users, Building2, Monitor, UserPlus, Sparkles } from 'lucide-react';
 import { WorkshopPartsIntegrationsSettings } from './parts/WorkshopPartsIntegrationsSettings';
 import { RidoPriceSettingsTab } from './pricing/RidoPriceSettingsTab';
+import { DEFAULT_SERVICE_PROVIDER_PRIMARY_TABS, SERVICE_PROVIDER_TAB_LABELS, SERVICE_PROVIDER_TAB_ORDER, type ServiceProviderNavTabKey } from '@/components/service-provider/navConfig';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -20,14 +22,17 @@ interface SettingsPanelProps {
   providerId: string | null;
   settingsForm: any;
   setSettingsForm: (fn: (prev: any) => any) => void;
+  websiteBuilderEnabled?: boolean;
+  onPrimaryTabsSaved?: (tabs: string[]) => void;
 }
 
-export function SettingsPanel({ providerId, settingsForm, setSettingsForm }: SettingsPanelProps) {
+export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websiteBuilderEnabled = false, onPrimaryTabsSaved }: SettingsPanelProps) {
   const [settingsTab, setSettingsTab] = useState('konto');
   const [showAddEmployee, setShowAddEmployee] = useState(false);
   const [showAddWorkstation, setShowAddWorkstation] = useState(false);
   const [empForm, setEmpForm] = useState({ name: '', phone: '', email: '', salary: '' });
   const [wsName, setWsName] = useState('');
+  const [primaryTabs, setPrimaryTabs] = useState<ServiceProviderNavTabKey[]>(DEFAULT_SERVICE_PROVIDER_PRIMARY_TABS);
   const queryClient = useQueryClient();
 
   // Employees
@@ -168,6 +173,59 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm }: Set
     setShowAddWorkstation(false);
   };
 
+  useEffect(() => {
+    if (!providerId) return;
+    const loadNavPreferences = async () => {
+      const { data } = await (supabase as any)
+        .from('service_provider_nav_preferences')
+        .select('primary_tabs')
+        .eq('provider_id', providerId)
+        .maybeSingle();
+
+      const allowed = SERVICE_PROVIDER_TAB_ORDER.filter(tab => tab !== 'settings' && (websiteBuilderEnabled || tab !== 'website'));
+      const saved = Array.isArray(data?.primary_tabs) ? data.primary_tabs.filter((tab: string) => allowed.includes(tab as ServiceProviderNavTabKey)) : [];
+      setPrimaryTabs(saved.length ? saved as ServiceProviderNavTabKey[] : DEFAULT_SERVICE_PROVIDER_PRIMARY_TABS.filter(tab => allowed.includes(tab)));
+    };
+
+    loadNavPreferences();
+  }, [providerId, websiteBuilderEnabled]);
+
+  const handlePrimaryTabToggle = (tab: ServiceProviderNavTabKey, checked: boolean) => {
+    setPrimaryTabs(prev => {
+      if (checked) {
+        return SERVICE_PROVIDER_TAB_ORDER.filter(key => key !== 'settings' && (websiteBuilderEnabled || key !== 'website')).filter(key => key === tab || prev.includes(key));
+      }
+      return prev.filter(item => item !== tab);
+    });
+  };
+
+  const handleSavePrimaryTabs = async () => {
+    if (!providerId) return;
+
+    const fallbackTabs = DEFAULT_SERVICE_PROVIDER_PRIMARY_TABS.filter(tab => websiteBuilderEnabled || tab !== 'website');
+    const nextPrimaryTabs = (primaryTabs.length ? primaryTabs : fallbackTabs).filter(tab => tab !== 'settings');
+    const nextMoreTabs = SERVICE_PROVIDER_TAB_ORDER.filter(tab => tab !== 'settings' && !nextPrimaryTabs.includes(tab) && (websiteBuilderEnabled || tab !== 'website')).concat('settings');
+
+    const { error } = await (supabase as any)
+      .from('service_provider_nav_preferences')
+      .upsert(
+        {
+          provider_id: providerId,
+          primary_tabs: nextPrimaryTabs,
+          more_tabs: nextMoreTabs,
+        },
+        { onConflict: 'provider_id' }
+      );
+
+    if (error) {
+      toast.error('Nie udało się zapisać układu paska');
+      return;
+    }
+
+    onPrimaryTabsSaved?.(nextPrimaryTabs);
+    toast.success('Układ paska zapisany');
+  };
+
   return (
     <Card>
       <CardContent className="pt-6">
@@ -190,8 +248,30 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm }: Set
             </TabsTrigger>
           </TabsList>
 
-          {/* Account & Company */}
           <TabsContent value="konto" className="space-y-6">
+            <Card className="border-dashed">
+              <CardContent className="pt-6 space-y-4">
+                <div>
+                  <h3 className="font-semibold">Menu główne</h3>
+                  <p className="text-sm text-muted-foreground">Wybierz, które moduły mają być widoczne bezpośrednio na pasku. Pozostałe trafią do zakładki „Więcej”.</p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {SERVICE_PROVIDER_TAB_ORDER.filter(tab => tab !== 'settings' && (websiteBuilderEnabled || tab !== 'website')).map((tab) => (
+                    <label key={tab} className="flex items-center gap-3 rounded-lg border p-3 cursor-pointer hover:bg-muted/50">
+                      <Checkbox
+                        checked={primaryTabs.includes(tab)}
+                        onCheckedChange={(checked) => handlePrimaryTabToggle(tab, checked === true)}
+                      />
+                      <span className="text-sm font-medium">{SERVICE_PROVIDER_TAB_LABELS[tab]}</span>
+                    </label>
+                  ))}
+                </div>
+                <div className="flex justify-end">
+                  <Button type="button" variant="outline" onClick={handleSavePrimaryTabs}>Zapisz układ paska</Button>
+                </div>
+              </CardContent>
+            </Card>
+
             <div className="space-y-2">
               <Label>Typ konta</Label>
               <Select value={settingsForm.business_type} onValueChange={v => setSettingsForm((p: any) => ({ ...p, business_type: v }))}>
@@ -228,7 +308,6 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm }: Set
             </div>
           </TabsContent>
 
-          {/* Employees */}
           <TabsContent value="pracownicy" className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
@@ -296,7 +375,6 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm }: Set
             </Dialog>
           </TabsContent>
 
-          {/* Workstations */}
           <TabsContent value="stanowiska" className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
@@ -344,7 +422,6 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm }: Set
             </Dialog>
           </TabsContent>
 
-          {/* Integrations Tab */}
           <TabsContent value="integracje" className="space-y-6">
             {providerId ? (
               <WorkshopPartsIntegrationsSettings providerId={providerId} />
@@ -353,7 +430,6 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm }: Set
             )}
           </TabsContent>
 
-          {/* Rido Price Tab */}
           <TabsContent value="rido-price" className="space-y-6">
             {providerId ? (
               <RidoPriceSettingsTab providerId={providerId} />

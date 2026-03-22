@@ -25,16 +25,17 @@ import { WorkshopDashboard } from '@/components/workshop/WorkshopDashboard';
 import { WorkshopScheduler } from '@/components/workshop/WorkshopScheduler';
 import { SettingsPanel } from '@/components/workshop/SettingsPanel';
 import { ServiceProviderAccountingView } from '@/components/service-provider/ServiceProviderAccountingView';
+import { DEFAULT_SERVICE_PROVIDER_PRIMARY_TABS, SERVICE_PROVIDER_TAB_ORDER } from '@/components/service-provider/navConfig';
 import { CalendarView } from '@/components/calendar/CalendarView';
 import { AgentTypeSelector } from '@/components/ai-agents/AgentTypeSelector';
 import { KnowledgeBaseEditor } from '@/components/ai-agents/KnowledgeBaseEditor';
 import { ConversationAnalytics } from '@/components/ai-agents/ConversationAnalytics';
 import { GlobalLearningPanel } from '@/components/ai-agents/GlobalLearningPanel';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { 
+import {
   LayoutDashboard, Wrench, Calendar, ClipboardList, Settings, Phone,
   Users, Clock, Star, Globe, Bot, Hammer, Plus, Trash2, Edit, Save, Image,
-  Upload, X, ImageIcon, Briefcase, MoreHorizontal, Calculator
+  Upload, X, ImageIcon, Briefcase, MoreHorizontal, Calculator, ChevronDown
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { UniversalSubTabBar } from '@/components/UniversalSubTabBar';
@@ -65,6 +66,7 @@ export default function ServiceProviderDashboard() {
   const [providerId, setProviderId] = useState<string | null>(null);
   const [calendarSubTab, setCalendarSubTab] = useState<'calendar' | 'bookings'>('calendar');
   const [moreOpen, setMoreOpen] = useState(false);
+  const [primaryTabs, setPrimaryTabs] = useState<string[]>(DEFAULT_SERVICE_PROVIDER_PRIMARY_TABS);
   
   const [stats, setStats] = useState({
     totalBookings: 0,
@@ -123,6 +125,20 @@ export default function ServiceProviderDashboard() {
 
     if (provider) {
       setProviderId(provider.id);
+
+      const { data: navPreferences } = await (supabase as any)
+        .from('service_provider_nav_preferences')
+        .select('primary_tabs')
+        .eq('provider_id', provider.id)
+        .maybeSingle();
+
+      const allowedTabs = SERVICE_PROVIDER_TAB_ORDER.filter(tab => tab !== 'settings' && (features.website_builder_enabled || tab !== 'website'));
+      const savedPrimaryTabs = Array.isArray(navPreferences?.primary_tabs)
+        ? navPreferences.primary_tabs.filter((tab: string) => allowedTabs.includes(tab as any))
+        : [];
+
+      setPrimaryTabs(savedPrimaryTabs.length ? savedPrimaryTabs : DEFAULT_SERVICE_PROVIDER_PRIMARY_TABS.filter(tab => allowedTabs.includes(tab)));
+
       const { count: totalCount } = await supabase
         .from('booking_appointments')
         .select('*', { count: 'exact', head: true })
@@ -332,56 +348,74 @@ export default function ServiceProviderDashboard() {
 
       <main className="container mx-auto px-4 py-6">
         <TabsPill value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsTrigger value="dashboard">
-            <LayoutDashboard className="h-4 w-4 mr-1.5" />
-            Pulpit
-          </TabsTrigger>
-          <TabsTrigger value="services">
-            <Wrench className="h-4 w-4 mr-1.5" />
-            Moje usługi
-          </TabsTrigger>
-          <TabsTrigger value="workshop">
-            <Hammer className="h-4 w-4 mr-1.5" />
-            Warsztat & Auto
-          </TabsTrigger>
-          <TabsTrigger value="accounting">
-            <Calculator className="h-4 w-4 mr-1.5" />
-            Księgowość
-          </TabsTrigger>
-          <TabsTrigger value="calendar">
-            <Calendar className="h-4 w-4 mr-1.5" />
-            Kalendarz
-          </TabsTrigger>
-          <TabsTrigger value="ai-agent">
-            <Bot className="h-4 w-4 mr-1.5" />
-            AI Agenci
-          </TabsTrigger>
-          <TabsTrigger value="account">
-            <Users className="h-4 w-4 mr-1.5" />
-            Wybierz moduł
-          </TabsTrigger>
+          {primaryTabs.includes('dashboard') && (
+            <TabsTrigger value="dashboard">
+              <LayoutDashboard className="h-4 w-4 mr-1.5" />
+              Pulpit
+            </TabsTrigger>
+          )}
+          {primaryTabs.includes('services') && (
+            <TabsTrigger value="services">
+              <Wrench className="h-4 w-4 mr-1.5" />
+              Moje usługi
+            </TabsTrigger>
+          )}
+          {primaryTabs.includes('workshop') && (
+            <TabsTrigger value="workshop">
+              <Hammer className="h-4 w-4 mr-1.5" />
+              Warsztat & Auto
+            </TabsTrigger>
+          )}
+          {primaryTabs.includes('accounting') && (
+            <TabsTrigger value="accounting">
+              <Calculator className="h-4 w-4 mr-1.5" />
+              Księgowość
+            </TabsTrigger>
+          )}
+          {primaryTabs.includes('calendar') && (
+            <TabsTrigger value="calendar">
+              <Calendar className="h-4 w-4 mr-1.5" />
+              Kalendarz
+            </TabsTrigger>
+          )}
+          {primaryTabs.includes('ai-agent') && (
+            <TabsTrigger value="ai-agent">
+              <Bot className="h-4 w-4 mr-1.5" />
+              AI Agenci
+            </TabsTrigger>
+          )}
+          {primaryTabs.includes('account') && (
+            <TabsTrigger value="account">
+              <Users className="h-4 w-4 mr-1.5" />
+              Wybierz moduł
+            </TabsTrigger>
+          )}
           <Popover open={moreOpen} onOpenChange={setMoreOpen}>
             <PopoverTrigger asChild>
               <button
                 type="button"
                 className="px-5 h-10 flex items-center gap-2 rounded-full text-white text-sm whitespace-nowrap transition-colors hover:bg-white/20 focus-visible:outline-none"
               >
-                <MoreHorizontal className="h-4 w-4" />
+                <ChevronDown className="h-4 w-4" />
                 Więcej
               </button>
             </PopoverTrigger>
-            <PopoverContent className="w-48 p-1" align="end">
-              <button className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-muted transition-colors" onClick={() => { setActiveTab('workspace'); setMoreOpen(false); }}>
-                <Briefcase className="h-4 w-4" /> Workspace
-              </button>
-              {features.website_builder_enabled && (
+            <PopoverContent className="w-52 p-1" align="end">
+              {!primaryTabs.includes('workspace') && (
+                <button className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-muted transition-colors" onClick={() => { setActiveTab('workspace'); setMoreOpen(false); }}>
+                  <Briefcase className="h-4 w-4" /> Workspace
+                </button>
+              )}
+              {features.website_builder_enabled && !primaryTabs.includes('website') && (
                 <button className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-muted transition-colors" onClick={() => { setActiveTab('website'); setMoreOpen(false); }}>
                   <Globe className="h-4 w-4" /> Strona WWW
                 </button>
               )}
-              <button className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-muted transition-colors" onClick={() => { setActiveTab('settings'); setMoreOpen(false); }}>
-                <Settings className="h-4 w-4" /> Ustawienia
-              </button>
+              {!primaryTabs.includes('settings') && (
+                <button className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-muted transition-colors" onClick={() => { setActiveTab('settings'); setMoreOpen(false); }}>
+                  <Settings className="h-4 w-4" /> Ustawienia
+                </button>
+              )}
             </PopoverContent>
           </Popover>
 
@@ -663,7 +697,13 @@ export default function ServiceProviderDashboard() {
 
           {/* Settings Tab */}
           <TabsContent value="settings" className="mt-6 space-y-6">
-            <SettingsPanel providerId={providerId} settingsForm={settingsForm} setSettingsForm={setSettingsForm} />
+            <SettingsPanel
+              providerId={providerId}
+              settingsForm={settingsForm}
+              setSettingsForm={setSettingsForm}
+              websiteBuilderEnabled={features.website_builder_enabled}
+              onPrimaryTabsSaved={setPrimaryTabs}
+            />
           </TabsContent>
 
           <TabsContent value="accounting" className="mt-6">
