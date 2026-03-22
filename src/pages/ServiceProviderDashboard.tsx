@@ -386,6 +386,18 @@ export default function ServiceProviderDashboard() {
               {t('sp.tabs.calendar')}
             </TabsTrigger>
           )}
+          {primaryTabs.includes('leads') && (
+            <TabsTrigger value="leads">
+              <Target className="h-4 w-4 mr-1.5" />
+              Leady
+            </TabsTrigger>
+          )}
+          {primaryTabs.includes('ads') && (
+            <TabsTrigger value="ads">
+              <Megaphone className="h-4 w-4 mr-1.5" />
+              Reklamy
+            </TabsTrigger>
+          )}
           {primaryTabs.includes('ai-agent') && (
             <TabsTrigger value="ai-agent">
               <Bot className="h-4 w-4 mr-1.5" />
@@ -488,6 +500,7 @@ export default function ServiceProviderDashboard() {
                         <TableHead className="text-right">{t('sp.services.priceFrom')}</TableHead>
                         <TableHead className="text-right">{t('sp.services.priceTo')}</TableHead>
                         <TableHead>{t('sp.services.status')}</TableHead>
+                        <TableHead>Reklama</TableHead>
                         <TableHead></TableHead>
                       </TableRow>
                     </TableHeader>
@@ -502,6 +515,11 @@ export default function ServiceProviderDashboard() {
                              <Badge variant={service.is_active ? 'default' : 'secondary'}>
                               {service.is_active ? t('sp.services.activeStatus') : t('sp.services.inactiveStatus')}
                             </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Button variant="outline" size="sm" className="gap-1 mr-1" onClick={() => setAdOrderService({ id: service.id, name: service.name })}>
+                              <Megaphone className="h-3 w-3" /> Reklamuj
+                            </Button>
                           </TableCell>
                           <TableCell>
                             <div className="flex gap-1">
