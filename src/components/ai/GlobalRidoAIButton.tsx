@@ -43,12 +43,12 @@ export function GlobalRidoAIButton() {
         className={cn(
           "fixed right-6 z-40 flex items-center gap-2.5 transition-all duration-300",
           "hover:scale-105 active:scale-95",
-          isWorkshopPanel ? 'bottom-32' : 'bottom-6',
+          isWorkshopPanel ? 'bottom-40' : 'bottom-6',
           isOpen && "hidden"
         )}
         aria-label="Zapytaj RidoAI"
       >
-        <div className="bg-background border shadow-lg rounded-full px-4 py-2.5 text-sm font-medium text-foreground hidden sm:block">
+        <div className={cn("bg-background border shadow-lg rounded-full px-4 py-2.5 text-sm font-medium text-foreground hidden sm:block", isWorkshopPanel && 'hidden')}>
           Zadaj pytanie RidoAI
         </div>
         <div className="relative w-14 h-14 rounded-full bg-background shadow-lg flex items-center justify-center ring-2 ring-foreground/80 hover:ring-foreground transition-all overflow-hidden">
