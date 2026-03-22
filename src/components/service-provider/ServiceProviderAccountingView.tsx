@@ -95,6 +95,9 @@ export function ServiceProviderAccountingView() {
             </Card>
           )}
 
+          {/* Pending invoices alert */}
+          <PendingInvoicesReview />
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card>
               <CardContent className="p-6">
