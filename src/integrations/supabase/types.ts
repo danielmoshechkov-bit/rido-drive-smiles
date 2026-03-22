@@ -186,6 +186,155 @@ export type Database = {
         }
         Relationships: []
       }
+      ad_order_messages: {
+        Row: {
+          attachments: Json | null
+          created_at: string | null
+          id: string
+          is_read: boolean | null
+          message: string
+          order_id: string | null
+          sender_id: string
+          sender_type: string | null
+        }
+        Insert: {
+          attachments?: Json | null
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          message: string
+          order_id?: string | null
+          sender_id: string
+          sender_type?: string | null
+        }
+        Update: {
+          attachments?: Json | null
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          message?: string
+          order_id?: string | null
+          sender_id?: string
+          sender_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_order_messages_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "ad_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ad_orders: {
+        Row: {
+          additional_notes: string | null
+          budget_currency: string | null
+          budget_monthly: number
+          campaign_goal: string | null
+          campaign_name: string | null
+          campaign_paused_at: string | null
+          campaign_started_at: string | null
+          cpl_avg: number | null
+          created_at: string | null
+          expected_leads_per_month: number | null
+          id: string
+          last_message_at: string | null
+          leads_this_month: number | null
+          leads_total: number | null
+          meta_access_token: string | null
+          meta_ad_account_id: string | null
+          meta_ad_id: string | null
+          meta_adset_id: string | null
+          meta_campaign_id: string | null
+          meta_form_id: string | null
+          meta_page_id: string | null
+          meta_pixel_id: string | null
+          provider_user_id: string
+          service_id: string
+          specialist_user_id: string | null
+          spend_this_month: number | null
+          spend_total: number | null
+          status: string | null
+          target_audience: string | null
+          target_location: string | null
+          unread_messages_provider: number | null
+          unread_messages_specialist: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          additional_notes?: string | null
+          budget_currency?: string | null
+          budget_monthly?: number
+          campaign_goal?: string | null
+          campaign_name?: string | null
+          campaign_paused_at?: string | null
+          campaign_started_at?: string | null
+          cpl_avg?: number | null
+          created_at?: string | null
+          expected_leads_per_month?: number | null
+          id?: string
+          last_message_at?: string | null
+          leads_this_month?: number | null
+          leads_total?: number | null
+          meta_access_token?: string | null
+          meta_ad_account_id?: string | null
+          meta_ad_id?: string | null
+          meta_adset_id?: string | null
+          meta_campaign_id?: string | null
+          meta_form_id?: string | null
+          meta_page_id?: string | null
+          meta_pixel_id?: string | null
+          provider_user_id: string
+          service_id: string
+          specialist_user_id?: string | null
+          spend_this_month?: number | null
+          spend_total?: number | null
+          status?: string | null
+          target_audience?: string | null
+          target_location?: string | null
+          unread_messages_provider?: number | null
+          unread_messages_specialist?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          additional_notes?: string | null
+          budget_currency?: string | null
+          budget_monthly?: number
+          campaign_goal?: string | null
+          campaign_name?: string | null
+          campaign_paused_at?: string | null
+          campaign_started_at?: string | null
+          cpl_avg?: number | null
+          created_at?: string | null
+          expected_leads_per_month?: number | null
+          id?: string
+          last_message_at?: string | null
+          leads_this_month?: number | null
+          leads_total?: number | null
+          meta_access_token?: string | null
+          meta_ad_account_id?: string | null
+          meta_ad_id?: string | null
+          meta_adset_id?: string | null
+          meta_campaign_id?: string | null
+          meta_form_id?: string | null
+          meta_page_id?: string | null
+          meta_pixel_id?: string | null
+          provider_user_id?: string
+          service_id?: string
+          specialist_user_id?: string | null
+          spend_this_month?: number | null
+          spend_total?: number | null
+          status?: string | null
+          target_audience?: string | null
+          target_location?: string | null
+          unread_messages_provider?: number | null
+          unread_messages_specialist?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       admin_communication_settings: {
         Row: {
           created_at: string
@@ -8301,6 +8450,122 @@ export type Database = {
           },
         ]
       }
+      leads: {
+        Row: {
+          ad_order_id: string | null
+          ai_agent_enabled: boolean | null
+          ai_agent_id: string | null
+          ai_agent_status: string | null
+          ai_intent: string | null
+          ai_score: number | null
+          city: string | null
+          contact_attempts: number | null
+          created_at: string | null
+          custom_form_fields: Json | null
+          email: string | null
+          first_name: string | null
+          id: string
+          last_contact_at: string | null
+          last_name: string | null
+          meeting_notes: string | null
+          meeting_scheduled_at: string | null
+          meeting_type: string | null
+          meta_ad_id: string | null
+          meta_campaign_name: string | null
+          meta_form_id: string | null
+          meta_lead_id: string | null
+          next_follow_up_at: string | null
+          notes: string | null
+          phone: string | null
+          priority: string | null
+          provider_user_id: string
+          service_id: string | null
+          source: string | null
+          source_detail: string | null
+          status: string | null
+          tags: string[] | null
+          voivodeship: string | null
+        }
+        Insert: {
+          ad_order_id?: string | null
+          ai_agent_enabled?: boolean | null
+          ai_agent_id?: string | null
+          ai_agent_status?: string | null
+          ai_intent?: string | null
+          ai_score?: number | null
+          city?: string | null
+          contact_attempts?: number | null
+          created_at?: string | null
+          custom_form_fields?: Json | null
+          email?: string | null
+          first_name?: string | null
+          id?: string
+          last_contact_at?: string | null
+          last_name?: string | null
+          meeting_notes?: string | null
+          meeting_scheduled_at?: string | null
+          meeting_type?: string | null
+          meta_ad_id?: string | null
+          meta_campaign_name?: string | null
+          meta_form_id?: string | null
+          meta_lead_id?: string | null
+          next_follow_up_at?: string | null
+          notes?: string | null
+          phone?: string | null
+          priority?: string | null
+          provider_user_id: string
+          service_id?: string | null
+          source?: string | null
+          source_detail?: string | null
+          status?: string | null
+          tags?: string[] | null
+          voivodeship?: string | null
+        }
+        Update: {
+          ad_order_id?: string | null
+          ai_agent_enabled?: boolean | null
+          ai_agent_id?: string | null
+          ai_agent_status?: string | null
+          ai_intent?: string | null
+          ai_score?: number | null
+          city?: string | null
+          contact_attempts?: number | null
+          created_at?: string | null
+          custom_form_fields?: Json | null
+          email?: string | null
+          first_name?: string | null
+          id?: string
+          last_contact_at?: string | null
+          last_name?: string | null
+          meeting_notes?: string | null
+          meeting_scheduled_at?: string | null
+          meeting_type?: string | null
+          meta_ad_id?: string | null
+          meta_campaign_name?: string | null
+          meta_form_id?: string | null
+          meta_lead_id?: string | null
+          next_follow_up_at?: string | null
+          notes?: string | null
+          phone?: string | null
+          priority?: string | null
+          provider_user_id?: string
+          service_id?: string | null
+          source?: string | null
+          source_detail?: string | null
+          status?: string | null
+          tags?: string[] | null
+          voivodeship?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_ad_order_id_fkey"
+            columns: ["ad_order_id"]
+            isOneToOne: false
+            referencedRelation: "ad_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       legal_consents: {
         Row: {
           accepted: boolean
@@ -13480,6 +13745,44 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      specialist_ratings: {
+        Row: {
+          comment: string | null
+          created_at: string | null
+          id: string
+          order_id: string | null
+          provider_user_id: string | null
+          rating: number | null
+          specialist_user_id: string | null
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string | null
+          id?: string
+          order_id?: string | null
+          provider_user_id?: string | null
+          rating?: number | null
+          specialist_user_id?: string | null
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string | null
+          id?: string
+          order_id?: string | null
+          provider_user_id?: string | null
+          rating?: number | null
+          specialist_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "specialist_ratings_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: true
+            referencedRelation: "ad_orders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       stock_movements: {
         Row: {

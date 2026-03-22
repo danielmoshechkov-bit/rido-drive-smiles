@@ -30,6 +30,9 @@ import { DEFAULT_SERVICE_PROVIDER_PRIMARY_TABS, SERVICE_PROVIDER_TAB_ORDER } fro
 import { CalendarView } from '@/components/calendar/CalendarView';
 import { AgentTypeSelector } from '@/components/ai-agents/AgentTypeSelector';
 import { AISalesAgentsDashboard } from '@/components/ai-sales/AISalesAgentsDashboard';
+import { LeadsTab } from '@/components/leads/LeadsTab';
+import { AdsTab } from '@/components/ads/AdsTab';
+import { AdOrderModal } from '@/components/ads/AdOrderModal';
 import { KnowledgeBaseEditor } from '@/components/ai-agents/KnowledgeBaseEditor';
 import { ConversationAnalytics } from '@/components/ai-agents/ConversationAnalytics';
 import { GlobalLearningPanel } from '@/components/ai-agents/GlobalLearningPanel';
@@ -37,7 +40,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   LayoutDashboard, Wrench, Calendar, ClipboardList, Settings, Phone,
   Users, Clock, Star, Globe, Bot, Hammer, Plus, Trash2, Edit, Save, Image,
-  Upload, X, ImageIcon, Briefcase, MoreHorizontal, Calculator, ChevronDown
+  Upload, X, ImageIcon, Briefcase, MoreHorizontal, Calculator, ChevronDown,
+  Megaphone, Target
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { UniversalSubTabBar } from '@/components/UniversalSubTabBar';
@@ -70,6 +74,7 @@ export default function ServiceProviderDashboard() {
   const [calendarSubTab, setCalendarSubTab] = useState<'calendar' | 'bookings'>('calendar');
   const [moreOpen, setMoreOpen] = useState(false);
   const [primaryTabs, setPrimaryTabs] = useState<string[]>(DEFAULT_SERVICE_PROVIDER_PRIMARY_TABS);
+  const [adOrderService, setAdOrderService] = useState<{ id: string; name: string } | null>(null);
   
   const [stats, setStats] = useState({
     totalBookings: 0,
@@ -381,6 +386,18 @@ export default function ServiceProviderDashboard() {
               {t('sp.tabs.calendar')}
             </TabsTrigger>
           )}
+          {primaryTabs.includes('leads') && (
+            <TabsTrigger value="leads">
+              <Target className="h-4 w-4 mr-1.5" />
+              Leady
+            </TabsTrigger>
+          )}
+          {primaryTabs.includes('ads') && (
+            <TabsTrigger value="ads">
+              <Megaphone className="h-4 w-4 mr-1.5" />
+              Reklamy
+            </TabsTrigger>
+          )}
           {primaryTabs.includes('ai-agent') && (
             <TabsTrigger value="ai-agent">
               <Bot className="h-4 w-4 mr-1.5" />
@@ -483,6 +500,7 @@ export default function ServiceProviderDashboard() {
                         <TableHead className="text-right">{t('sp.services.priceFrom')}</TableHead>
                         <TableHead className="text-right">{t('sp.services.priceTo')}</TableHead>
                         <TableHead>{t('sp.services.status')}</TableHead>
+                        <TableHead>Reklama</TableHead>
                         <TableHead></TableHead>
                       </TableRow>
                     </TableHeader>
@@ -497,6 +515,11 @@ export default function ServiceProviderDashboard() {
                              <Badge variant={service.is_active ? 'default' : 'secondary'}>
                               {service.is_active ? t('sp.services.activeStatus') : t('sp.services.inactiveStatus')}
                             </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Button variant="outline" size="sm" className="gap-1 mr-1" onClick={() => setAdOrderService({ id: service.id, name: service.name })}>
+                              <Megaphone className="h-3 w-3" /> Reklamuj
+                            </Button>
                           </TableCell>
                           <TableCell>
                             <div className="flex gap-1">
