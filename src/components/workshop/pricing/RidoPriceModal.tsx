@@ -59,14 +59,20 @@ export function RidoPriceModal({
     if (open && services.length > 0) {
       fetchSuggestions();
     }
-  }, [open]);
+  }, [open, mode, services]);
 
   const fetchSuggestions = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      // Try community DB first
+      // Prefer AI pricing first for live, vehicle-aware suggestions
+      const aiWorked = await fetchAISuggestions();
+      if (aiWorked) {
+        return;
+      }
+
+      // Fallback to community DB
       const serviceNames = services.map(s => s.name.trim().toLowerCase().replace(/\s+/g, ' '));
       const { data: dbPrices } = await (supabase as any)
         .from('anonymous_service_prices')
@@ -99,8 +105,7 @@ export function RidoPriceModal({
         });
         setSuggestions(result);
       } else {
-        // Fallback to AI
-        await fetchAISuggestions();
+        setError('Sugestia chwilowo niedostępna. Spróbuj ponownie.');
       }
     } catch (e) {
       setError('Sugestia chwilowo niedostępna. Spróbuj ponownie.');
@@ -111,10 +116,10 @@ export function RidoPriceModal({
 
   const fetchAISuggestions = async () => {
     const vehicleDesc = vehicle
-      ? `${vehicle.brand || ''} ${vehicle.model || ''} ${vehicle.year || ''} silnik ${vehicle.engine_capacity || ''}cc ${vehicle.fuel_type || ''}`.trim()
+      ? `${vehicle.brand || ''} ${vehicle.model || ''} rok ${vehicle.year || ''} silnik ${vehicle.engine_capacity || ''}cc ${vehicle.fuel_type || ''}`.trim()
       : 'nieznany pojazd';
 
-    const servicesList = services.map(s => s.name).join('\n');
+    const servicesList = services.map((s, index) => `${index + 1}. ${s.name} | aktualna cena: ${s.currentPrice || 0} zł (${mode})`).join('\n');
 
     const systemPrompt = `Jesteś ekspertem od wyceny usług motoryzacyjnych w Polsce.
 
@@ -125,7 +130,9 @@ Lokalizacja: ${city || 'nieznane'}, ${voivodeship || 'nieznane'}
 Branża: ${industry}
 Wyświetlaj ceny w: ${mode}
 
-Dla każdej usługi z listy podaj realistyczny zakres cenowy w Polsce.
+Dla każdej usługi z listy podaj realistyczny zakres cenowy OD-DO dla miasta użytkownika i typu pojazdu.
+Uwzględnij markę, model, rok, silnik, lokalizację warsztatu oraz treść kosztorysu.
+Jeśli aktualna cena jest zbyt niska lub zbyt wysoka, wskaż to krótko w note.
 Jeśli usługa zawiera P+L, obie strony, x2 — uwzględnij to w cenie i dodaj uwagę.
 
 Odpowiedz TYLKO w formacie JSON — tablica obiektów, kolejność taka sama jak lista wejściowa:
@@ -149,8 +156,7 @@ Odpowiedz TYLKO w formacie JSON — tablica obiektów, kolejność taka sama jak
     });
 
     if (!result || result.error) {
-      setError('Sugestia chwilowo niedostępna. Spróbuj ponownie.');
-      return;
+      return false;
     }
 
     try {
@@ -178,8 +184,10 @@ Odpowiedz TYLKO w formacie JSON — tablica obiektów, kolejność taka sama jak
         };
       });
       setSuggestions(mapped);
+      setError(null);
+      return true;
     } catch {
-      setError('Sugestia chwilowo niedostępna. Spróbuj ponownie.');
+      return false;
     }
   };
 

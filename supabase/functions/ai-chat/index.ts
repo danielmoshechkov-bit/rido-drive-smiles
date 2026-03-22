@@ -176,7 +176,7 @@ serve(async (req) => {
     }
 
     const body = await req.json()
-    const { taskType, query, mode, messages, stream, imageBase64, maskBase64, files } = body
+    const { taskType, query, mode, messages, stream, imageBase64, maskBase64, files, systemPrompt } = body
     feature = body.feature || 'ai_chat'
 
     // Pobierz WSZYSTKICH dostawców
@@ -353,9 +353,10 @@ ZAWSZE podaj przybliżoną temperaturę i opis pogody na podstawie pory roku.
 Przykład: "W Mediolanie w marcu jest około 8-14°C, pochmurno z możliwością deszczu."
 Odpowiadaj w tym samym języku co użytkownik.`
 
-    const sys = mode === 'cowork'
+    const baseSys = mode === 'cowork'
       ? (weatherQuery ? weatherSys : RIDO_SYSTEM) + '\n\nJesteś w trybie Cowork — gdy użytkownik prosi o akcję w portalu, wykonaj ją!'
       : (weatherQuery ? weatherSys : RIDO_SYSTEM)
+    const sys = systemPrompt ? `${baseSys}\n\nDODATKOWE INSTRUKCJE ZADANIA:\n${systemPrompt}` : baseSys
 
     // Build provider chain based on mode — uses routing rules from DB
     const chain: any[] = []
@@ -366,6 +367,12 @@ Odpowiadaj w tym samym języku co użytkownik.`
         getRoutingProvider('search', 'primary') || findGemini(),
         getRoutingProvider('search', 'secondary') || findByKey('kimi'),
         findByKey('claude_haiku'),
+        findByKey('claude_sonnet'),
+      )
+    } else if (taskType === 'pricing_suggestion' || feature === 'rido_price') {
+      chain.push(
+        findByKey('kimi'),
+        findGemini(),
         findByKey('claude_sonnet'),
       )
     } else if (hasRichVisionFiles) {

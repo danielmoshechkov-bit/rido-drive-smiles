@@ -140,23 +140,38 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     return Math.max(0, rawValue - (rawValue * discount / 100));
   };
 
-  const isTaskDraftFilled = (row: TaskRow) => row.name.trim().length > 0 && (row.price_net > 0 || row.price_gross > 0);
-  const isGoodsDraftFilled = (row: GoodsRow) => row.name.trim().length > 0 && (row.price_net > 0 || row.price_gross > 0);
+  const getDraftPrice = (row: Pick<TaskRow | GoodsRow, 'price_net' | 'price_gross'>, gross: boolean) => {
+    const grossValue = safeNumber(row.price_gross);
+    const netValue = safeNumber(row.price_net);
+    return gross
+      ? (grossValue || (netValue > 0 ? netValue * VAT_RATE : 0))
+      : (netValue || (grossValue > 0 ? grossValue / VAT_RATE : 0));
+  };
+
+  const getDraftCost = (row: Pick<TaskRow | GoodsRow, 'cost_net' | 'cost_gross'>, gross: boolean) => {
+    const grossValue = safeNumber(row.cost_gross);
+    const netValue = safeNumber(row.cost_net);
+    return gross
+      ? (grossValue || (netValue > 0 ? netValue * VAT_RATE : 0))
+      : (netValue || (grossValue > 0 ? grossValue / VAT_RATE : 0));
+  };
+
+  const isTaskDraftFilled = (row: TaskRow) => row.name.trim().length > 0 && getDraftPrice(row, isTaskGross) > 0;
+  const isGoodsDraftFilled = (row: GoodsRow) => row.name.trim().length > 0 && getDraftPrice(row, isGoodsGross) > 0;
 
   const getDraftTaskTotal = (row: TaskRow) => {
-    const raw = isTaskGross ? row.quantity * row.price_gross : row.quantity * row.price_net;
+    const raw = row.quantity * getDraftPrice(row, isTaskGross);
     return calcDiscountedValue(raw, row.discount, row.discountType);
   };
+
+  const getDraftTaskCost = (row: TaskRow) => getDraftCost(row, isTaskGross) * row.quantity;
 
   const getDraftGoodsTotal = (row: GoodsRow) => {
-    const raw = isGoodsGross ? row.quantity * row.price_gross : row.quantity * row.price_net;
+    const raw = row.quantity * getDraftPrice(row, isGoodsGross);
     return calcDiscountedValue(raw, row.discount, row.discountType);
   };
 
-  const getDraftGoodsCost = (row: GoodsRow) => {
-    const unitCost = isGoodsGross ? row.cost_gross : row.cost_net;
-    return unitCost * row.quantity;
-  };
+  const getDraftGoodsCost = (row: GoodsRow) => getDraftCost(row, isGoodsGross) * row.quantity;
 
   // Client confirmation warning check
   const showQuoteWarningIfNeeded = () => {
@@ -352,13 +367,14 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   const savedGrandNetTotal = savedTasksNetTotal + savedGoodsNetTotal;
 
   const draftTasksTotal = taskRows.reduce((sum, row) => sum + (isTaskDraftFilled(row) ? getDraftTaskTotal(row) : 0), 0);
+  const draftTasksCost = taskRows.reduce((sum, row) => sum + (isTaskDraftFilled(row) ? getDraftTaskCost(row) : 0), 0);
   const draftGoodsTotal = goodsRows.reduce((sum, row) => sum + (isGoodsDraftFilled(row) ? getDraftGoodsTotal(row) : 0), 0);
   const draftGoodsCost = goodsRows.reduce((sum, row) => sum + (isGoodsDraftFilled(row) ? getDraftGoodsCost(row) : 0), 0);
 
   const displayTasksTotal = tasksTotal + draftTasksTotal;
   const displayGoodsTotal = goodsTotal + draftGoodsTotal;
   const displayGrandTotal = displayTasksTotal + displayGoodsTotal;
-  const displayGrandCost = tasksCost + goodsCost + draftGoodsCost;
+  const displayGrandCost = tasksCost + goodsCost + draftTasksCost + draftGoodsCost;
   const displayGrandProfit = displayGrandTotal - displayGrandCost;
 
   useEffect(() => {
@@ -446,7 +462,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   };
 
   return (
-    <div className="space-y-6 pb-28">
+    <div className="space-y-6 pb-40">
       {/* Quote accepted warning banner */}
       {order.quote_accepted && (
         <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg text-sm text-amber-800 dark:text-amber-200">
@@ -670,12 +686,12 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
               <colgroup>
                 <col style={{ width: '40px' }} />
                 <col />
-                <col style={{ width: '76px' }} />
-                <col style={{ width: '66px' }} />
-                <col style={{ width: '100px' }} />
-                <col style={{ width: '128px' }} />
-                <col style={{ width: '108px' }} />
-                <col style={{ width: '110px' }} />
+                <col style={{ width: '96px' }} />
+                <col style={{ width: '84px' }} />
+                <col style={{ width: '124px' }} />
+                <col style={{ width: '132px' }} />
+                <col style={{ width: '112px' }} />
+                <col style={{ width: '124px' }} />
                 <col style={{ width: '108px' }} />
                 <col style={{ width: '36px' }} />
               </colgroup>
@@ -753,15 +769,15 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           min={1}
                           value={row.quantity}
                           onChange={e => updateGoodsRow(idx, { quantity: Number(e.target.value) })}
-                           className="h-9 text-sm text-center min-w-0"
+                           className="h-9 text-sm text-center min-w-0 px-2"
                         />
                       </td>
                       <td className="p-1.5">
                         <Input
-                          placeholder="szt."
+                          placeholder="szt"
                           value={row.unit}
                           onChange={e => updateGoodsRow(idx, { unit: e.target.value })}
-                           className="h-9 text-sm text-center min-w-0"
+                           className="h-9 text-sm text-center min-w-0 px-2"
                         />
                       </td>
                       <td className="p-1.5">
@@ -770,7 +786,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           placeholder={isGoodsGross ? 'Brutto' : 'Netto'}
                           value={isGoodsGross ? (row.price_gross || '') : (row.price_net || '')}
                           onChange={e => updateGoodsRowPrice(idx, Number(e.target.value))}
-                           className="h-9 text-sm text-right min-w-0"
+                           className="h-9 text-sm text-right min-w-0 px-2"
                         />
                       </td>
                       <td className="p-1.5">
@@ -780,7 +796,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           title="Koszt zakupu — widoczne tylko dla serwisu"
                           value={isGoodsGross ? (row.cost_gross || '') : (row.cost_net || '')}
                           onChange={e => updateGoodsRowCost(idx, Number(e.target.value))}
-                           className="h-9 text-sm text-right min-w-0"
+                           className="h-9 text-sm text-right min-w-0 px-2"
                         />
                       </td>
                       <td className="p-1.5 text-right text-sm tabular-nums">
@@ -860,7 +876,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       </Card>
 
       {/* GRAND TOTAL */}
-      <Card className="bg-muted/50">
+      <Card className="bg-muted/50 max-w-4xl">
         <CardContent className="py-4 space-y-4">
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-xl border bg-background/70 px-4 py-3 text-center">
@@ -883,7 +899,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-end justify-between gap-4 rounded-xl border bg-background px-4 py-4">
+          <div className="flex flex-wrap items-end justify-between gap-4 rounded-xl border bg-background px-4 py-4 md:pr-10">
             <div>
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Podsumowanie zlecenia</p>
               <p className="text-sm text-muted-foreground mt-1">Koszt części i robocizny vs. końcowa wartość sprzedaży.</p>
