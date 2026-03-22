@@ -292,12 +292,13 @@ serve(async (req) => {
       usedProvider = p.provider_key
       usedModel = p.default_model || p.provider_key
 
-      const isGemini = p.display_name?.toLowerCase().includes('gemini') ||
+      const isLovableGateway = p.provider_key === '__lovable_gateway__'
+      const isGemini = !isLovableGateway && (p.display_name?.toLowerCase().includes('gemini') ||
                        p.provider_key?.toLowerCase().includes('gemini') ||
-                       p.display_name?.toLowerCase().includes('imagen')
+                       p.display_name?.toLowerCase().includes('imagen'))
       const isClaude = p.provider_key?.startsWith('claude')
 
-      console.log(`[ai-chat] Trying provider: ${p.provider_key} (isGemini=${isGemini}, isClaude=${isClaude})`)
+      console.log(`[ai-chat] Trying provider: ${p.provider_key} (isGemini=${isGemini}, isClaude=${isClaude}, isLovableGateway=${isLovableGateway})`)
 
       try {
         if (isClaude) {
