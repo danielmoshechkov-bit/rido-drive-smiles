@@ -10,8 +10,9 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { 
   Building, Plus, Home, Users, Settings,
   ArrowLeft, Eye, Edit, Trash2, AlertCircle, Heart, 
-  GitCompare, Phone, ChevronDown, ChevronUp, Repeat
+  GitCompare, Phone, ChevronDown, ChevronUp, Repeat, GitBranch
 } from "lucide-react";
+import { AgencyCRMSettings } from "@/components/agency/AgencyCRMSettings";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { AccountSwitcherPanel } from "@/components/AccountSwitcherPanel";
@@ -361,6 +362,10 @@ export default function RealEstateAgentDashboard() {
             <Settings className="h-4 w-4 mr-2" />
             Ustawienia
           </TabsTrigger>
+          <TabsTrigger value="integration">
+            <GitBranch className="h-4 w-4 mr-2" />
+            Integracja CRM
+          </TabsTrigger>
           <TabsTrigger value="accounts">
             <Repeat className="h-4 w-4 mr-2" />
             Wybierz moduł
@@ -549,6 +554,9 @@ export default function RealEstateAgentDashboard() {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+          <TabsContent value="integration">
+            {agent && <AgencyCRMSettings agencyId={agent.id} />}
           </TabsContent>
           {/* Account Switcher */}
           <TabsContent value="accounts">
