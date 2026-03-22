@@ -307,7 +307,7 @@ export function CostInvoiceModal({ open, onOpenChange, entityId, onCreated }: Co
         .from('user_invoices')
         .insert({
           user_id: user.id,
-          company_id: entityId,
+          company_id: entityId || null,
           invoice_number: costInvoiceNumber,
           invoice_type: 'cost',
           buyer_name: supplierName,

@@ -29,7 +29,6 @@ export const DEFAULT_SERVICE_PROVIDER_PRIMARY_TABS: ServiceProviderNavTabKey[] =
   'workshop',
   'accounting',
   'calendar',
-  'ai-agent',
   'account',
 ];
 
