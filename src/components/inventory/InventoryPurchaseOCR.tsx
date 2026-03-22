@@ -155,6 +155,7 @@ export function InventoryPurchaseOCR({ entityId }: Props) {
   useEffect(() => {
     fetchProducts();
     fetchInvoices();
+    fetchSupplierMappings();
   }, []);
 
   /* ── File upload ─────────────────────────────────────────────────── */
