@@ -296,6 +296,7 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
             <div className="space-y-2"><Label>Opis działalności</Label><Textarea rows={3} value={settingsForm.bio} onChange={e => setSettingsForm((p: any) => ({ ...p, bio: e.target.value }))} placeholder="Krótki opis Twojej firmy..." /></div>
             <div className="flex justify-end">
               <Button className="gap-2" onClick={handleSaveSettings}><Save className="h-4 w-4" /> Zapisz ustawienia</Button>
+            </div>
           </div>
         )}
 
