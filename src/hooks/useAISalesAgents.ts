@@ -98,7 +98,7 @@ export function useAISalesLeads(agentId?: string) {
       if (agentId) q = q.eq('agent_id', agentId);
       const { data, error } = await q;
       if (error) throw error;
-      return data || [];
+      return (data || []) as any[];
     }
   });
 }
@@ -111,7 +111,7 @@ export function useAISalesConversations(agentId?: string) {
       if (agentId) q = q.eq('agent_id', agentId);
       const { data, error } = await q;
       if (error) throw error;
-      return data || [];
+      return (data || []) as any[];
     }
   });
 }
@@ -124,7 +124,7 @@ export function useAISalesKnowledge(agentId?: string) {
       if (agentId) q = q.eq('agent_id', agentId);
       const { data, error } = await q;
       if (error) throw error;
-      return data || [];
+      return (data || []) as any[];
     }
   });
 }
