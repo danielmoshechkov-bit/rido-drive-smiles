@@ -84,19 +84,31 @@ const pickImageReply = (type: keyof typeof IMAGE_REPLY_VARIANTS) => {
   return variants[Math.floor(Math.random() * variants.length)];
 };
 
-const MAX_CONV_TITLE_WORDS = 3;
-const MAX_CONV_TITLE_CHARS = 22;
+const MAX_CONV_TITLE_WORDS = 2;
+const MAX_CONV_TITLE_CHARS = 18;
+const CONVERSATION_TITLE_STOPWORDS = new Set([
+  'a', 'aby', 'albo', 'ale', 'bo', 'co', 'czy', 'dla', 'do', 'gdzie', 'i', 'ile', 'jak', 'jaka', 'jaki', 'jakie',
+  'jest', 'kiedy', 'mam', 'mi', 'na', 'nad', 'nie', 'o', 'od', 'oraz', 'po', 'pod', 'proszę', 'sie', 'się', 'ten',
+  'to', 'tu', 'w', 'we', 'za', 'z', 'ze'
+]);
 
 function formatConversationTitle(title?: string | null) {
   const normalized = (title || '')
     .replace(/\s+/g, ' ')
+    .replace(/[?!.,:;()\[\]{}"']/g, ' ')
     .replace(/[\n\r]+/g, ' ')
     .trim();
 
   if (!normalized) return 'Nowa rozmowa';
 
-  const shortWords = normalized
+  const allWords = normalized
     .split(' ')
+    .map(word => word.trim())
+    .filter(Boolean);
+
+  const keywordWords = allWords.filter(word => !CONVERSATION_TITLE_STOPWORDS.has(word.toLowerCase()));
+
+  const shortWords = (keywordWords.length ? keywordWords : allWords)
     .slice(0, MAX_CONV_TITLE_WORDS)
     .join(' ');
 
@@ -179,7 +191,12 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
     const { data } = await (supabase as any)
       .from('ai_conversations').select('id,title,mode,updated_at')
       .eq('user_id', userId).order('updated_at', { ascending: false }).limit(50);
-    if (data) setConversations(data);
+    if (data) {
+      setConversations(data.map((conversation: Conv) => ({
+        ...conversation,
+        title: formatConversationTitle(conversation.title),
+      })));
+    }
   }, [userId]);
 
   useEffect(() => {

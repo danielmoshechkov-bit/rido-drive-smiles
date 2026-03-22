@@ -43,7 +43,7 @@ export function GlobalRidoAIButton() {
         className={cn(
           "fixed right-6 z-40 flex items-center gap-2.5 transition-all duration-300",
           "hover:scale-105 active:scale-95",
-          isWorkshopPanel ? 'bottom-20' : 'bottom-6',
+          isWorkshopPanel ? 'bottom-32' : 'bottom-6',
           isOpen && "hidden"
         )}
         aria-label="Zapytaj RidoAI"
