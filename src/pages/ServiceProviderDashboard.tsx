@@ -401,6 +401,11 @@ export default function ServiceProviderDashboard() {
               </button>
             </PopoverTrigger>
             <PopoverContent className="w-52 p-1" align="end">
+              {!primaryTabs.includes('ai-agent') && (
+                <button className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-muted transition-colors" onClick={() => { setActiveTab('ai-agent'); setMoreOpen(false); }}>
+                  <Bot className="h-4 w-4" /> AI Agenci
+                </button>
+              )}
               {!primaryTabs.includes('workspace') && (
                 <button className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-muted transition-colors" onClick={() => { setActiveTab('workspace'); setMoreOpen(false); }}>
                   <Briefcase className="h-4 w-4" /> Workspace
