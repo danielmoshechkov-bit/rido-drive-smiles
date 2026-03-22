@@ -36,6 +36,7 @@ import { AdOrderModal } from '@/components/ads/AdOrderModal';
 import { KnowledgeBaseEditor } from '@/components/ai-agents/KnowledgeBaseEditor';
 import { ConversationAnalytics } from '@/components/ai-agents/ConversationAnalytics';
 import { GlobalLearningPanel } from '@/components/ai-agents/GlobalLearningPanel';
+import { CalendarAIAssistant } from '@/components/calendar/CalendarAIAssistant';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   LayoutDashboard, Wrench, Calendar, ClipboardList, Settings, Phone,
