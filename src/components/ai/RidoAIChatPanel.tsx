@@ -8,7 +8,7 @@ import ReactMarkdown from 'react-markdown';
 import {
   Loader2, Send, Plus, MessageCircle, Briefcase,
   Sparkles, X, Search, Lock,
-  Download, Paintbrush, RotateCcw, Paperclip, FileText, Trash2, Circle, Square, MoreHorizontal,
+  Download, Paintbrush, Paperclip, FileText, Trash2, MoreHorizontal,
   ChevronLeft
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
