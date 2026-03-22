@@ -505,13 +505,37 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
     img.src = editorImage;
   }, [editorImage]);
 
-  // Redraw all annotation masks on the mask canvas
-  const redrawAnnotations = useCallback((anns: typeof annotations) => {
+  // Redraw all annotation masks from geometry
+  const redrawAnnotations = useCallback((anns: Annotation[]) => {
     if (!maskCanvasRef.current) return;
     const ctx = maskCanvasRef.current.getContext('2d')!;
     ctx.clearRect(0, 0, maskCanvasRef.current.width, maskCanvasRef.current.height);
     anns.forEach(ann => {
-      ctx.putImageData(ann.maskData, 0, 0);
+      if (ann.type === 'brush' && ann.brushPoints && ann.brushPoints.length > 1) {
+        ctx.strokeStyle = 'rgba(108, 60, 240, 0.45)';
+        ctx.lineWidth = 36;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        for (let i = 1; i < ann.brushPoints.length; i++) {
+          ctx.beginPath();
+          ctx.moveTo(ann.brushPoints[i - 1].x, ann.brushPoints[i - 1].y);
+          ctx.lineTo(ann.brushPoints[i].x, ann.brushPoints[i].y);
+          ctx.stroke();
+        }
+      } else if (ann.start && ann.end) {
+        const x = Math.min(ann.start.x, ann.end.x);
+        const y = Math.min(ann.start.y, ann.end.y);
+        const w = Math.abs(ann.end.x - ann.start.x);
+        const h = Math.abs(ann.end.y - ann.start.y);
+        ctx.fillStyle = 'rgba(108, 60, 240, 0.45)';
+        if (ann.type === 'rectangle') {
+          ctx.fillRect(x, y, w, h);
+        } else {
+          ctx.beginPath();
+          ctx.ellipse(x + w / 2, y + h / 2, Math.max(w / 2, 1), Math.max(h / 2, 1), 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
     });
   }, []);
 
