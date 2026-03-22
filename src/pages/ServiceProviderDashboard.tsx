@@ -34,7 +34,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   LayoutDashboard, Wrench, Calendar, ClipboardList, Settings, Phone,
   Users, Clock, Star, Globe, Bot, Hammer, Plus, Trash2, Edit, Save, Image,
-  Upload, X, ImageIcon, Briefcase, MoreHorizontal
+  Upload, X, ImageIcon, Briefcase, MoreHorizontal, Calculator
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { UniversalSubTabBar } from '@/components/UniversalSubTabBar';
@@ -343,6 +343,10 @@ export default function ServiceProviderDashboard() {
           <TabsTrigger value="workshop">
             <Hammer className="h-4 w-4 mr-1.5" />
             Serwis
+          </TabsTrigger>
+          <TabsTrigger value="accounting">
+            <Calculator className="h-4 w-4 mr-1.5" />
+            Księgowość
           </TabsTrigger>
           <TabsTrigger value="calendar">
             <Calendar className="h-4 w-4 mr-1.5" />
