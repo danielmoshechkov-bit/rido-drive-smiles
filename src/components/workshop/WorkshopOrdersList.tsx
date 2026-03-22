@@ -546,11 +546,11 @@ function VehicleEditDialog({ vehicle, onClose }: { vehicle: any; onClose: () => 
           </div>
           <div>
             <Label className="text-xs">Pojemność silnika (cc)</Label>
-            <Input value={form.engine_capacity} onChange={e => set('engine_capacity', e.target.value)} placeholder="1998" />
+            <Input value={form.engine_capacity_cm3} onChange={e => set('engine_capacity_cm3', e.target.value)} placeholder="1998" />
           </div>
           <div>
             <Label className="text-xs">Moc silnika (kW)</Label>
-            <Input value={form.engine_power} onChange={e => set('engine_power', e.target.value)} placeholder="150" />
+            <Input value={form.engine_power_kw} onChange={e => set('engine_power_kw', e.target.value)} placeholder="150" />
           </div>
           <div>
             <Label className="text-xs">Rodzaj paliwa</Label>
