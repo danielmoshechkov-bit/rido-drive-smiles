@@ -214,20 +214,23 @@ export default function RidoAIChatPage() {
   return (
     <div className="h-[100dvh] flex bg-background overflow-hidden">
       {/* LEFT SIDEBAR — responsive */}
-      <div className={cn(
-        "flex-col border-r bg-muted/20 flex-shrink-0",
-        "absolute md:relative inset-0 z-40 bg-background md:bg-muted/20",
-        sidebarOpen ? "flex" : "hidden"
-      )} style={{ width: '256px', minWidth: '256px', maxWidth: '256px', overflow: 'hidden' }}>
+      <div
+        className={cn(
+          "flex-col border-r bg-muted/20 flex-shrink-0 min-w-0",
+          "absolute md:relative inset-0 z-40 bg-background md:bg-muted/20",
+          sidebarOpen ? "flex" : "hidden"
+        )}
+        style={{ width: '256px', minWidth: '256px', maxWidth: '256px', overflow: 'hidden' }}
+      >
         {/* Sidebar header */}
-        <div className="p-3 space-y-1 flex-shrink-0">
-          <div className="flex items-center justify-between">
+        <div className="p-3 space-y-1 flex-shrink-0 min-w-0 border-b">
+          <div className="flex items-center justify-between gap-2 min-w-0">
             <button
               onClick={handleNewChat}
-              className="flex items-center gap-2.5 flex-1 px-3 py-2 rounded-lg hover:bg-muted transition-colors text-sm font-medium text-foreground"
+              className="flex items-center gap-2.5 flex-1 min-w-0 px-3 py-2 rounded-lg hover:bg-muted transition-colors text-sm font-medium text-foreground"
             >
               <Plus className="h-4 w-4 flex-shrink-0" />
-              Nowa rozmowa
+              <span className="truncate block">Nowa rozmowa</span>
             </button>
             <button onClick={() => setSidebarOpen(false)} className="md:hidden p-1.5 rounded-lg hover:bg-muted flex-shrink-0">
               <X className="h-4 w-4" />
@@ -236,164 +239,166 @@ export default function RidoAIChatPage() {
         </div>
 
         {/* Navigation links */}
-        <div className="px-3 pb-2 space-y-0.5 flex-shrink-0">
+        <div className="px-3 py-2 space-y-0.5 flex-shrink-0 min-w-0">
           <button
             onClick={() => navigate(-1)}
-            className="flex items-center gap-2.5 w-full px-3 py-2 rounded-lg hover:bg-muted transition-colors text-sm text-muted-foreground hover:text-foreground"
+            className="flex items-center gap-2.5 w-full min-w-0 px-3 py-2 rounded-lg hover:bg-muted transition-colors text-sm text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4 flex-shrink-0" />
-            <span className="truncate">Wróć do portalu</span>
+            <span className="truncate block">Wróć do portalu</span>
           </button>
         </div>
 
         {/* PROJEKTY — fixed, not scrolled */}
-        <div className="flex-shrink-0 px-3 pb-2 border-b">
-          <div className="flex items-center justify-between mb-1 px-1">
-            <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Projekty</span>
+        <div className="flex-shrink-0 min-w-0 border-y bg-background/60">
+          <div className="px-3 py-3 min-w-0">
+            <div className="flex items-center justify-between mb-2 px-1 min-w-0">
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.18em]">Projekty</span>
+            </div>
+            {conversations.filter(c => c.project_id).length === 0 ? (
+              <div className="rounded-xl border border-border/60 bg-background px-3 py-6 text-center min-w-0">
+                <FolderPlus className="h-7 w-7 mx-auto mb-2 text-muted-foreground/50" />
+                <p className="text-xs text-muted-foreground">Brak projektów</p>
+              </div>
+            ) : (
+              <div className="space-y-1.5 max-h-[112px] overflow-y-auto min-w-0">
+                {Array.from(new Set(conversations.filter(c => c.project_id).map(c => c.project_id!))).slice(0, 5).map(pid => (
+                  <div key={pid} className="flex items-center gap-2 rounded-lg border border-border/50 bg-background px-2.5 py-2 text-xs text-muted-foreground min-w-0 overflow-hidden">
+                    <FolderPlus className="h-3.5 w-3.5 flex-shrink-0" />
+                    <span className="truncate block min-w-0 flex-1">Projekt</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-          {conversations.filter(c => c.project_id).length === 0 ? (
-            <div className="flex flex-col items-center gap-1 py-3 text-muted-foreground/60">
-              <FolderPlus className="h-5 w-5" />
-              <p className="text-[11px]">Brak projektów</p>
-            </div>
-          ) : (
-            <div className="space-y-0.5 max-h-[100px] overflow-y-auto">
-              {/* Show unique projects */}
-              {Array.from(new Set(conversations.filter(c => c.project_id).map(c => c.project_id!))).slice(0, 5).map(pid => (
-                <div key={pid} className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-muted-foreground hover:bg-muted cursor-pointer truncate">
-                  <FolderPlus className="h-3.5 w-3.5 flex-shrink-0" />
-                  <span className="truncate">Projekt</span>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
 
         {/* Search */}
-        <div className="flex-shrink-0 px-3 py-2">
-          <div className="relative">
+        <div className="flex-shrink-0 px-3 py-3 border-b min-w-0 bg-background/80">
+          <div className="relative min-w-0">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <input
               type="text"
               placeholder="Szukaj rozmów..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-sm rounded-lg bg-muted/50 border-0 outline-none focus:bg-muted placeholder:text-muted-foreground/60 text-foreground"
+              className="w-full min-w-0 pl-9 pr-3 py-2 text-sm rounded-full bg-muted/50 border border-border/50 outline-none focus:bg-muted placeholder:text-muted-foreground/60 text-foreground"
             />
           </div>
         </div>
 
         {/* KONWERSACJE — scrollable separately */}
-        <ScrollArea className="flex-1 min-h-0">
-          <div className="px-2 py-1" style={{ overflow: 'hidden' }}>
-            {/* Starred section */}
-            {!searchQuery && filteredConversations.some(c => c.is_starred) && (
-              <div className="mb-3">
-                <p className="text-[11px] font-medium text-muted-foreground px-2 py-1.5 uppercase tracking-wider">⭐ Ulubione</p>
-                {filteredConversations.filter(c => c.is_starred).map(conv => (
-                  <ConvItem key={conv.id} conv={conv} active={currentConvId === conv.id}
-                    onClick={() => { loadConversation(conv.id); setSidebarOpen(false); }}
-                    onStar={async () => {
-                      await (supabase as any).from('ai_conversations').update({ is_starred: !conv.is_starred }).eq('id', conv.id);
-                      loadConversations();
-                    }}
-                    onRename={async (newTitle) => {
-                      await (supabase as any).from('ai_conversations').update({ title: newTitle }).eq('id', conv.id);
-                      loadConversations();
-                    }}
-                    onAddToProject={() => setProjectDialogConvId(conv.id)}
-                    onDelete={async () => {
-                      if (!window.confirm('Usunąć tę rozmowę?')) return;
-                      await (supabase as any).from('ai_conversations').delete().eq('id', conv.id);
-                      if (currentConvId === conv.id) handleNewChat();
-                      loadConversations();
-                    }} />
-                ))}
-              </div>
-            )}
+        <div className="flex-1 min-h-0 min-w-0 overflow-hidden">
+          <ScrollArea className="h-full w-full">
+            <div className="px-2 py-2 min-w-0 overflow-hidden">
+              {!searchQuery && filteredConversations.some(c => c.is_starred) && (
+                <div className="mb-3 min-w-0">
+                  <p className="text-[11px] font-semibold text-muted-foreground px-2 py-1.5 uppercase tracking-[0.18em]">⭐ Ulubione</p>
+                  {filteredConversations.filter(c => c.is_starred).map(conv => (
+                    <ConvItem key={conv.id} conv={conv} active={currentConvId === conv.id}
+                      onClick={() => { loadConversation(conv.id); setSidebarOpen(false); }}
+                      onStar={async () => {
+                        await (supabase as any).from('ai_conversations').update({ is_starred: !conv.is_starred }).eq('id', conv.id);
+                        loadConversations();
+                      }}
+                      onRename={async (newTitle) => {
+                        await (supabase as any).from('ai_conversations').update({ title: newTitle }).eq('id', conv.id);
+                        loadConversations();
+                      }}
+                      onAddToProject={() => setProjectDialogConvId(conv.id)}
+                      onDelete={async () => {
+                        if (!window.confirm('Usunąć tę rozmowę?')) return;
+                        await (supabase as any).from('ai_conversations').delete().eq('id', conv.id);
+                        if (currentConvId === conv.id) handleNewChat();
+                        loadConversations();
+                      }} />
+                  ))}
+                </div>
+              )}
 
-            {grouped.today.length > 0 && (
-              <div className="mb-3">
-                <p className="text-[11px] font-medium text-muted-foreground px-2 py-1.5 uppercase tracking-wider">Dzisiaj</p>
-                {grouped.today.filter(c => searchQuery || !c.is_starred).map(conv => (
-                  <ConvItem key={conv.id} conv={conv} active={currentConvId === conv.id}
-                    onClick={() => { loadConversation(conv.id); setSidebarOpen(false); }}
-                    onStar={async () => {
-                      await (supabase as any).from('ai_conversations').update({ is_starred: !conv.is_starred }).eq('id', conv.id);
-                      loadConversations();
-                    }}
-                    onRename={async (newTitle) => {
-                      await (supabase as any).from('ai_conversations').update({ title: newTitle }).eq('id', conv.id);
-                      loadConversations();
-                    }}
-                    onAddToProject={() => setProjectDialogConvId(conv.id)}
-                    onDelete={async () => {
-                      if (!window.confirm('Usunąć tę rozmowę?')) return;
-                      await (supabase as any).from('ai_conversations').delete().eq('id', conv.id);
-                      if (currentConvId === conv.id) handleNewChat();
-                      loadConversations();
-                    }} />
-                ))}
-              </div>
-            )}
+              {grouped.today.length > 0 && (
+                <div className="mb-3 min-w-0">
+                  <p className="text-[11px] font-semibold text-muted-foreground px-2 py-1.5 uppercase tracking-[0.18em]">Dzisiaj</p>
+                  {grouped.today.filter(c => searchQuery || !c.is_starred).map(conv => (
+                    <ConvItem key={conv.id} conv={conv} active={currentConvId === conv.id}
+                      onClick={() => { loadConversation(conv.id); setSidebarOpen(false); }}
+                      onStar={async () => {
+                        await (supabase as any).from('ai_conversations').update({ is_starred: !conv.is_starred }).eq('id', conv.id);
+                        loadConversations();
+                      }}
+                      onRename={async (newTitle) => {
+                        await (supabase as any).from('ai_conversations').update({ title: newTitle }).eq('id', conv.id);
+                        loadConversations();
+                      }}
+                      onAddToProject={() => setProjectDialogConvId(conv.id)}
+                      onDelete={async () => {
+                        if (!window.confirm('Usunąć tę rozmowę?')) return;
+                        await (supabase as any).from('ai_conversations').delete().eq('id', conv.id);
+                        if (currentConvId === conv.id) handleNewChat();
+                        loadConversations();
+                      }} />
+                  ))}
+                </div>
+              )}
 
-            {grouped.yesterday.length > 0 && (
-              <div className="mb-3">
-                <p className="text-[11px] font-medium text-muted-foreground px-2 py-1.5 uppercase tracking-wider">Wczoraj</p>
-                {grouped.yesterday.filter(c => searchQuery || !c.is_starred).map(conv => (
-                  <ConvItem key={conv.id} conv={conv} active={currentConvId === conv.id}
-                    onClick={() => { loadConversation(conv.id); setSidebarOpen(false); }}
-                    onStar={async () => {
-                      await (supabase as any).from('ai_conversations').update({ is_starred: !conv.is_starred }).eq('id', conv.id);
-                      loadConversations();
-                    }}
-                    onRename={async (newTitle) => {
-                      await (supabase as any).from('ai_conversations').update({ title: newTitle }).eq('id', conv.id);
-                      loadConversations();
-                    }}
-                    onAddToProject={() => setProjectDialogConvId(conv.id)}
-                    onDelete={async () => {
-                      if (!window.confirm('Usunąć tę rozmowę?')) return;
-                      await (supabase as any).from('ai_conversations').delete().eq('id', conv.id);
-                      if (currentConvId === conv.id) handleNewChat();
-                      loadConversations();
-                    }} />
-                ))}
-              </div>
-            )}
+              {grouped.yesterday.length > 0 && (
+                <div className="mb-3 min-w-0">
+                  <p className="text-[11px] font-semibold text-muted-foreground px-2 py-1.5 uppercase tracking-[0.18em]">Wczoraj</p>
+                  {grouped.yesterday.filter(c => searchQuery || !c.is_starred).map(conv => (
+                    <ConvItem key={conv.id} conv={conv} active={currentConvId === conv.id}
+                      onClick={() => { loadConversation(conv.id); setSidebarOpen(false); }}
+                      onStar={async () => {
+                        await (supabase as any).from('ai_conversations').update({ is_starred: !conv.is_starred }).eq('id', conv.id);
+                        loadConversations();
+                      }}
+                      onRename={async (newTitle) => {
+                        await (supabase as any).from('ai_conversations').update({ title: newTitle }).eq('id', conv.id);
+                        loadConversations();
+                      }}
+                      onAddToProject={() => setProjectDialogConvId(conv.id)}
+                      onDelete={async () => {
+                        if (!window.confirm('Usunąć tę rozmowę?')) return;
+                        await (supabase as any).from('ai_conversations').delete().eq('id', conv.id);
+                        if (currentConvId === conv.id) handleNewChat();
+                        loadConversations();
+                      }} />
+                  ))}
+                </div>
+              )}
 
-            {grouped.older.length > 0 && (
-              <div className="mb-3">
-                <p className="text-[11px] font-medium text-muted-foreground px-2 py-1.5 uppercase tracking-wider">Wcześniej</p>
-                {grouped.older.filter(c => searchQuery || !c.is_starred).map(conv => (
-                  <ConvItem key={conv.id} conv={conv} active={currentConvId === conv.id}
-                    onClick={() => { loadConversation(conv.id); setSidebarOpen(false); }}
-                    onStar={async () => {
-                      await (supabase as any).from('ai_conversations').update({ is_starred: !conv.is_starred }).eq('id', conv.id);
-                      loadConversations();
-                    }}
-                    onRename={async (newTitle) => {
-                      await (supabase as any).from('ai_conversations').update({ title: newTitle }).eq('id', conv.id);
-                      loadConversations();
-                    }}
-                    onAddToProject={() => setProjectDialogConvId(conv.id)}
-                    onDelete={async () => {
-                      if (!window.confirm('Usunąć tę rozmowę?')) return;
-                      await (supabase as any).from('ai_conversations').delete().eq('id', conv.id);
-                      if (currentConvId === conv.id) handleNewChat();
-                      loadConversations();
-                    }} />
-                ))}
-              </div>
-            )}
+              {grouped.older.length > 0 && (
+                <div className="mb-3 min-w-0">
+                  <p className="text-[11px] font-semibold text-muted-foreground px-2 py-1.5 uppercase tracking-[0.18em]">Wcześniej</p>
+                  {grouped.older.filter(c => searchQuery || !c.is_starred).map(conv => (
+                    <ConvItem key={conv.id} conv={conv} active={currentConvId === conv.id}
+                      onClick={() => { loadConversation(conv.id); setSidebarOpen(false); }}
+                      onStar={async () => {
+                        await (supabase as any).from('ai_conversations').update({ is_starred: !conv.is_starred }).eq('id', conv.id);
+                        loadConversations();
+                      }}
+                      onRename={async (newTitle) => {
+                        await (supabase as any).from('ai_conversations').update({ title: newTitle }).eq('id', conv.id);
+                        loadConversations();
+                      }}
+                      onAddToProject={() => setProjectDialogConvId(conv.id)}
+                      onDelete={async () => {
+                        if (!window.confirm('Usunąć tę rozmowę?')) return;
+                        await (supabase as any).from('ai_conversations').delete().eq('id', conv.id);
+                        if (currentConvId === conv.id) handleNewChat();
+                        loadConversations();
+                      }} />
+                  ))}
+                </div>
+              )}
 
-            {filteredConversations.length === 0 && (
-              <p className="text-center text-xs text-muted-foreground py-8">
-                {searchQuery ? 'Brak wyników' : 'Brak rozmów'}
-              </p>
-            )}
-          </div>
-        </ScrollArea>
+              {filteredConversations.length === 0 && (
+                <p className="text-center text-xs text-muted-foreground py-8">
+                  {searchQuery ? 'Brak wyników' : 'Brak rozmów'}
+                </p>
+              )}
+            </div>
+          </ScrollArea>
+        </div>
       </div>
 
       {/* Mobile overlay backdrop */}
