@@ -7542,6 +7542,132 @@ export type Database = {
           },
         ]
       }
+      ksef_monitor_alerts: {
+        Row: {
+          action_required: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          is_read: boolean | null
+          resolved_at: string | null
+          severity: string
+          source: string | null
+          source_url: string | null
+          title: string
+          user_id: string | null
+        }
+        Insert: {
+          action_required?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_read?: boolean | null
+          resolved_at?: string | null
+          severity: string
+          source?: string | null
+          source_url?: string | null
+          title: string
+          user_id?: string | null
+        }
+        Update: {
+          action_required?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_read?: boolean | null
+          resolved_at?: string | null
+          severity?: string
+          source?: string | null
+          source_url?: string | null
+          title?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      ksef_monitor_config: {
+        Row: {
+          alert_email: string | null
+          created_at: string | null
+          id: string
+          last_scan_alerts_count: number | null
+          last_scan_at: string | null
+          last_scan_status: string | null
+          notify_critical: boolean | null
+          notify_info: boolean | null
+          notify_warning: boolean | null
+          scan_enabled: boolean | null
+          scan_frequency: string | null
+          slack_webhook_url: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          alert_email?: string | null
+          created_at?: string | null
+          id?: string
+          last_scan_alerts_count?: number | null
+          last_scan_at?: string | null
+          last_scan_status?: string | null
+          notify_critical?: boolean | null
+          notify_info?: boolean | null
+          notify_warning?: boolean | null
+          scan_enabled?: boolean | null
+          scan_frequency?: string | null
+          slack_webhook_url?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          alert_email?: string | null
+          created_at?: string | null
+          id?: string
+          last_scan_alerts_count?: number | null
+          last_scan_at?: string | null
+          last_scan_status?: string | null
+          notify_critical?: boolean | null
+          notify_info?: boolean | null
+          notify_warning?: boolean | null
+          scan_enabled?: boolean | null
+          scan_frequency?: string | null
+          slack_webhook_url?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      ksef_monitor_scans: {
+        Row: {
+          alerts_found: number | null
+          created_at: string | null
+          duration_ms: number | null
+          error_message: string | null
+          id: string
+          sources_checked: number | null
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          alerts_found?: number | null
+          created_at?: string | null
+          duration_ms?: number | null
+          error_message?: string | null
+          id?: string
+          sources_checked?: number | null
+          status: string
+          user_id?: string | null
+        }
+        Update: {
+          alerts_found?: number | null
+          created_at?: string | null
+          duration_ms?: number | null
+          error_message?: string | null
+          id?: string
+          sources_checked?: number | null
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       ksef_settings: {
         Row: {
           auto_send: boolean
