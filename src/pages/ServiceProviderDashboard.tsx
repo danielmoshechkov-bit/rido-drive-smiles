@@ -24,6 +24,7 @@ import { WebsiteBuilderWizard } from '@/components/website-builder/WebsiteBuilde
 import { WorkshopDashboard } from '@/components/workshop/WorkshopDashboard';
 import { WorkshopScheduler } from '@/components/workshop/WorkshopScheduler';
 import { SettingsPanel } from '@/components/workshop/SettingsPanel';
+import { ServiceProviderAccountingView } from '@/components/service-provider/ServiceProviderAccountingView';
 import { CalendarView } from '@/components/calendar/CalendarView';
 import { AgentTypeSelector } from '@/components/ai-agents/AgentTypeSelector';
 import { KnowledgeBaseEditor } from '@/components/ai-agents/KnowledgeBaseEditor';
