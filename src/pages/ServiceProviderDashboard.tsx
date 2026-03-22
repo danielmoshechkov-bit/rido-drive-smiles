@@ -666,6 +666,10 @@ export default function ServiceProviderDashboard() {
             <SettingsPanel providerId={providerId} settingsForm={settingsForm} setSettingsForm={setSettingsForm} />
           </TabsContent>
 
+          <TabsContent value="accounting" className="mt-6">
+            <ServiceProviderAccountingView />
+          </TabsContent>
+
           <TabsContent value="workshop" className="mt-6">
             <WorkshopDashboard providerId={providerId} />
           </TabsContent>
