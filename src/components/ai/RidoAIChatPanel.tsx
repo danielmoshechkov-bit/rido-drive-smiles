@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useGetRidoAI } from '@/hooks/useGetRidoAI';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
 import {
   Loader2, Send, Plus, MessageCircle, Briefcase,
@@ -16,10 +17,11 @@ import { AIProjectsSection } from './AIProjectsSection';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
+import { DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 
 type MainMode = 'chat' | 'grafika' | 'cowork';
 interface Msg { id?: string; role: 'user' | 'assistant'; content: string; images?: string[]; files?: { name: string; type: string }[]; }
-interface Conv { id: string; title: string; mode: string; updated_at: string; }
+interface Conv { id: string; title: string; mode: string; updated_at: string; is_starred?: boolean; project_id?: string | null; }
 
 const WELCOME: Record<string, string> = {
   chat: `Cześć! 👋 Jestem **RidoAI** – Twój inteligentny asystent.
@@ -130,6 +132,10 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+  const [renamingConvId, setRenamingConvId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [projectPickerConvId, setProjectPickerConvId] = useState<string | null>(null);
+  const [projectsList, setProjectsList] = useState<{ id: string; name: string; color: string | null }[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Image editor state
@@ -189,7 +195,7 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
   const loadConversations = useCallback(async () => {
     if (!userId) return;
     const { data } = await (supabase as any)
-      .from('ai_conversations').select('id,title,mode,updated_at')
+      .from('ai_conversations').select('id,title,mode,updated_at,is_starred,project_id')
       .eq('user_id', userId).order('updated_at', { ascending: false }).limit(50);
     if (data) {
       setConversations(data.map((conversation: Conv) => ({
@@ -262,12 +268,39 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
   const deleteConversation = async (convId: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const confirmed = window.confirm('Czy na pewno chcesz usunąć tę rozmowę? Tej operacji nie można cofnąć.');
+    const confirmed = window.confirm('Usunąć tę rozmowę?');
     if (!confirmed) return;
     await (supabase as any).from('ai_messages').delete().eq('conversation_id', convId);
     await (supabase as any).from('ai_conversations').delete().eq('id', convId);
     if (currentConvId === convId) handleNewChat();
     loadConversations();
+  };
+
+  const toggleStar = async (convId: string) => {
+    const conv = conversations.find(c => c.id === convId);
+    if (!conv) return;
+    await (supabase as any).from('ai_conversations').update({ is_starred: !conv.is_starred }).eq('id', convId);
+    loadConversations();
+  };
+
+  const renameConversation = async (convId: string, newTitle: string) => {
+    if (!newTitle.trim()) return;
+    await (supabase as any).from('ai_conversations').update({ title: newTitle.trim() }).eq('id', convId);
+    setRenamingConvId(null);
+    loadConversations();
+  };
+
+  const openProjectPicker = async (convId: string) => {
+    setProjectPickerConvId(convId);
+    const { data } = await (supabase as any).from('workspace_projects').select('id,name,color').order('updated_at', { ascending: false });
+    setProjectsList(data || []);
+  };
+
+  const assignToProject = async (convId: string, projectId: string | null) => {
+    await (supabase as any).from('ai_conversations').update({ project_id: projectId }).eq('id', convId);
+    setProjectPickerConvId(null);
+    loadConversations();
+    toast.success(projectId ? 'Dodano do projektu' : 'Usunięto z projektu');
   };
 
   const loadConversation = async (convId: string) => {
@@ -1256,8 +1289,12 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
                               key={conv.id}
                               title={conv.title}
                               active={isActive}
+                              starred={conv.is_starred}
                               onClick={() => loadConversation(conv.id)}
                               onDelete={(e) => deleteConversation(conv.id, e)}
+                              onToggleStar={() => toggleStar(conv.id)}
+                              onRename={() => { setRenamingConvId(conv.id); setRenameValue(conv.title || ''); }}
+                              onAddToProject={() => openProjectPicker(conv.id)}
                             />
                           );
                         })}
@@ -1269,6 +1306,58 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
             </div>
           </div>
         )}
+
+          {/* Rename dialog */}
+          {renamingConvId && (
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40" onClick={() => setRenamingConvId(null)}>
+              <div className="bg-background rounded-xl border shadow-xl p-5 w-80 space-y-3" onClick={e => e.stopPropagation()}>
+                <p className="text-sm font-semibold">Zmień nazwę rozmowy</p>
+                <input
+                  autoFocus
+                  value={renameValue}
+                  onChange={e => setRenameValue(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') renameConversation(renamingConvId, renameValue); if (e.key === 'Escape') setRenamingConvId(null); }}
+                  className="w-full border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+                <div className="flex justify-end gap-2">
+                  <Button variant="ghost" size="sm" onClick={() => setRenamingConvId(null)}>Anuluj</Button>
+                  <Button size="sm" onClick={() => renameConversation(renamingConvId, renameValue)}>Zapisz</Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Project picker dialog */}
+          {projectPickerConvId && (
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40" onClick={() => setProjectPickerConvId(null)}>
+              <div className="bg-background rounded-xl border shadow-xl p-5 w-80 space-y-3" onClick={e => e.stopPropagation()}>
+                <p className="text-sm font-semibold">Dodaj do projektu</p>
+                <div className="space-y-1 max-h-48 overflow-y-auto">
+                  {projectsList.map(p => (
+                    <button
+                      key={p.id}
+                      onClick={() => assignToProject(projectPickerConvId, p.id)}
+                      className="flex items-center gap-2 w-full px-3 py-2 rounded-lg hover:bg-muted text-sm text-left"
+                    >
+                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: p.color || 'hsl(var(--primary))' }} />
+                      {p.name}
+                    </button>
+                  ))}
+                  {projectsList.length === 0 && (
+                    <p className="text-xs text-muted-foreground text-center py-4">Brak projektów — stwórz nowy w sekcji Projekty</p>
+                  )}
+                </div>
+                {conversations.find(c => c.id === projectPickerConvId)?.project_id && (
+                  <Button variant="ghost" size="sm" className="w-full text-xs text-destructive" onClick={() => assignToProject(projectPickerConvId, null)}>
+                    Usuń z projektu
+                  </Button>
+                )}
+                <div className="flex justify-end">
+                  <Button variant="ghost" size="sm" onClick={() => setProjectPickerConvId(null)}>Zamknij</Button>
+                </div>
+              </div>
+            </div>
+          )}
 
         {/* Main chat */}
         <div className="flex-1 flex flex-col min-w-0" onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}>
@@ -1535,11 +1624,15 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
   );
 }
 
-function ConvItemInline({ title, active, onClick, onDelete }: {
+function ConvItemInline({ title, active, starred, onClick, onDelete, onToggleStar, onRename, onAddToProject }: {
   title: string | null;
   active: boolean;
+  starred?: boolean;
   onClick: () => void;
   onDelete: (e: React.MouseEvent) => void;
+  onToggleStar: () => void;
+  onRename: () => void;
+  onAddToProject: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -1582,9 +1675,20 @@ function ConvItemInline({ title, active, onClick, onDelete }: {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={onToggleStar}>
+              {starred ? '⭐' : '☆'}
+              <span className="ml-2">{starred ? 'Usuń z ulubionych' : 'Dodaj do ulubionych'}</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onRename}>
+              <span className="mr-2">✏️</span>Zmień nazwę
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onAddToProject}>
+              <span className="mr-2">📁</span>Dodaj do projektu
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem onClick={(e) => onDelete(e as unknown as React.MouseEvent)} className="text-destructive focus:text-destructive">
               <Trash2 className="h-3.5 w-3.5 mr-2" />
-              Usuń rozmowę
+              Usuń
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
