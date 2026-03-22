@@ -530,7 +530,7 @@ function VehicleEditDialog({ vehicle, onClose }: { vehicle: any; onClose: () => 
           <div className="col-span-2">
             <Label className="text-xs">VIN</Label>
             <div className="flex gap-1">
-              <Input value={form.vin} onChange={e => set('vin', e.target.value.toUpperCase())} placeholder="WVWZZZ3CZWE123456" className="font-mono" />
+              <Input value={form.vin} onChange={e => set('vin', e.target.value.toUpperCase())} placeholder="WVWZZZ3CZWE123456" />
               <Button variant="outline" size="icon" onClick={handleVinSearch} disabled={lookupLoading || !form.vin.trim()} title="Szukaj po VIN">
                 {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
               </Button>
