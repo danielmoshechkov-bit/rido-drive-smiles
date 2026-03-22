@@ -336,9 +336,9 @@ export default function ServiceProviderDashboard() {
           <div className="flex items-center gap-4">
             <UniversalHomeButton />
             <div className="hidden sm:block">
-              <h1 className="font-semibold text-lg">Panel Usługodawcy</h1>
+              <h1 className="font-semibold text-lg">{t('sp.panel')}</h1>
               <p className="text-xs text-muted-foreground">
-                {configData?.company_name || settingsForm.company_name || 'Twoja firma'}
+                {configData?.company_name || settingsForm.company_name || t('sp.yourCompany')}
               </p>
             </div>
           </div>
@@ -352,45 +352,45 @@ export default function ServiceProviderDashboard() {
       <main className="container mx-auto px-4 py-6">
         <TabsPill value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           {primaryTabs.includes('dashboard') && (
-            <TabsTrigger value="dashboard">
+             <TabsTrigger value="dashboard">
               <LayoutDashboard className="h-4 w-4 mr-1.5" />
-              Pulpit
+              {t('sp.tabs.dashboard')}
             </TabsTrigger>
           )}
           {primaryTabs.includes('services') && (
             <TabsTrigger value="services">
               <Wrench className="h-4 w-4 mr-1.5" />
-              Moje usługi
+              {t('sp.tabs.services')}
             </TabsTrigger>
           )}
           {primaryTabs.includes('workshop') && (
             <TabsTrigger value="workshop">
               <Hammer className="h-4 w-4 mr-1.5" />
-              Warsztat & Auto
+              {t('sp.tabs.workshop')}
             </TabsTrigger>
           )}
           {primaryTabs.includes('accounting') && (
             <TabsTrigger value="accounting">
               <Calculator className="h-4 w-4 mr-1.5" />
-              Księgowość
+              {t('sp.tabs.accounting')}
             </TabsTrigger>
           )}
           {primaryTabs.includes('calendar') && (
             <TabsTrigger value="calendar">
               <Calendar className="h-4 w-4 mr-1.5" />
-              Kalendarz
+              {t('sp.tabs.calendar')}
             </TabsTrigger>
           )}
           {primaryTabs.includes('ai-agent') && (
             <TabsTrigger value="ai-agent">
               <Bot className="h-4 w-4 mr-1.5" />
-              AI Agenci
+              {t('sp.tabs.aiAgent')}
             </TabsTrigger>
           )}
           {primaryTabs.includes('account') && (
             <TabsTrigger value="account">
               <Users className="h-4 w-4 mr-1.5" />
-              Wybierz moduł
+              {t('sp.tabs.selectModule')}
             </TabsTrigger>
           )}
           <Popover open={moreOpen} onOpenChange={setMoreOpen}>
@@ -400,28 +400,28 @@ export default function ServiceProviderDashboard() {
                 className="px-5 h-10 flex items-center gap-2 rounded-full text-white text-sm whitespace-nowrap transition-colors hover:bg-white/20 focus-visible:outline-none"
               >
                 <ChevronDown className="h-4 w-4" />
-                Więcej
+                {t('sp.tabs.more')}
               </button>
             </PopoverTrigger>
             <PopoverContent className="w-52 p-1" align="end">
               {!primaryTabs.includes('ai-agent') && (
                 <button className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-muted transition-colors" onClick={() => { setActiveTab('ai-agent'); setMoreOpen(false); }}>
-                  <Bot className="h-4 w-4" /> AI Agenci
+                  <Bot className="h-4 w-4" /> {t('sp.tabs.aiAgent')}
                 </button>
               )}
               {!primaryTabs.includes('workspace') && (
                 <button className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-muted transition-colors" onClick={() => { setActiveTab('workspace'); setMoreOpen(false); }}>
-                  <Briefcase className="h-4 w-4" /> Workspace
+                  <Briefcase className="h-4 w-4" /> {t('sp.tabs.workspace')}
                 </button>
               )}
               {features.website_builder_enabled && !primaryTabs.includes('website') && (
                 <button className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-muted transition-colors" onClick={() => { setActiveTab('website'); setMoreOpen(false); }}>
-                  <Globe className="h-4 w-4" /> Strona WWW
+                  <Globe className="h-4 w-4" /> {t('sp.tabs.website')}
                 </button>
               )}
               {!primaryTabs.includes('settings') && (
                 <button className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-muted transition-colors" onClick={() => { setActiveTab('settings'); setMoreOpen(false); }}>
-                  <Settings className="h-4 w-4" /> Ustawienia
+                  <Settings className="h-4 w-4" /> {t('sp.tabs.settings')}
                 </button>
               )}
             </PopoverContent>
