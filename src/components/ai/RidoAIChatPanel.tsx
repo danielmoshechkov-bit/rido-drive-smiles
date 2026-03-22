@@ -101,11 +101,17 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
 
   // Mobile: which view is active
   const [activeView, setActiveView] = useState<'list' | 'chat'>('list');
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  const [isDesktop, setIsDesktop] = useState(typeof window !== 'undefined' && window.innerWidth >= 768);
 
   // Image editor state
   const [editorImage, setEditorImage] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsDesktop(window.innerWidth >= 768);
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
 
   const { streamExecute, execute, isLoading } = useGetRidoAI();
@@ -399,24 +405,23 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
       </div>
     );
   }
-  const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 768;
 
   const listView = (
     <div className="flex flex-col h-full bg-muted/20">
       {/* Header */}
-      <div className="flex-shrink-0 p-4 border-b bg-background">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <img src={ridoMascot} alt="RidoAI" className="w-10 h-10 object-contain" />
-              <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-background" />
+      <div className="flex-shrink-0 p-3 border-b bg-background">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="relative flex-shrink-0">
+              <img src={ridoMascot} alt="RidoAI" className="w-9 h-9 object-contain" />
+              <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-background" />
             </div>
-            <div>
-              <h2 className="font-extrabold text-base tracking-tight">RidoAI</h2>
-              <p className="text-[11px] text-muted-foreground font-medium">● Asystent GetRido · online</p>
+            <div className="min-w-0">
+              <h2 className="font-extrabold text-sm tracking-tight truncate">RidoAI</h2>
+              <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider truncate">Asystent GetRido</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 rounded-lg hover:bg-muted transition-colors"><X className="h-5 w-5 text-muted-foreground" /></button>
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-muted transition-colors flex-shrink-0"><X className="h-5 w-5 text-muted-foreground" /></button>
         </div>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -467,31 +472,37 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
   const chatView = (
     <div className="flex flex-col h-full bg-background" onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}>
       {/* Chat header */}
-      <div className="flex-shrink-0 flex items-center gap-3 px-4 py-2.5 border-b bg-background" style={{ height: 60 }}>
+      <div className="flex-shrink-0 flex items-center gap-2 px-3 py-2 border-b bg-background" style={{ minHeight: 52 }}>
         {/* Back button on mobile */}
-        <button onClick={() => setActiveView('list')} className="p-1.5 rounded-lg hover:bg-muted transition-colors md:hidden"><ChevronLeft className="h-5 w-5 text-muted-foreground" /></button>
+        {!isDesktop && (
+          <button onClick={() => setActiveView('list')} className="p-1.5 rounded-lg hover:bg-muted transition-colors flex-shrink-0">
+            <ChevronLeft className="h-5 w-5 text-muted-foreground" />
+          </button>
+        )}
         
-        <div className="relative">
-          <img src={ridoMascot} alt="RidoAI" className="w-9 h-9 object-contain flex-shrink-0" />
+        <div className="relative flex-shrink-0">
+          <img src={ridoMascot} alt="RidoAI" className="w-8 h-8 object-contain" />
           <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-background" />
         </div>
-        <div className="flex-1 min-w-0">
-          <h3 className="font-extrabold text-sm tracking-tight flex items-center gap-1.5">RidoAI <Sparkles className="h-3.5 w-3.5 text-primary" /></h3>
-          <p className="text-[11px] text-muted-foreground font-medium">● online — odpowiada natychmiast</p>
+        <div className="flex-1 min-w-0 overflow-hidden">
+          <h3 className="font-extrabold text-sm tracking-tight truncate">RidoAI</h3>
+          <p className="text-[10px] text-muted-foreground font-medium truncate">● online</p>
         </div>
 
-        {/* Mode tabs */}
-        <div className="hidden sm:flex items-center gap-0.5 bg-muted/50 rounded-xl p-0.5">
-          {([{ key: 'chat' as const, label: 'Chat', icon: MessageCircle }, { key: 'cowork' as const, label: 'Cowork', icon: Briefcase, locked: true }]).map(({ key, label, icon: Icon, locked }) => (
-            <button key={key} onClick={() => !locked && switchMode(key)} className={cn('flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all', mainMode === key && !locked ? 'bg-background shadow-sm text-foreground' : locked ? 'text-muted-foreground/40 cursor-not-allowed' : 'text-muted-foreground hover:text-foreground hover:bg-background/50')}>
-              {locked ? <Lock className="h-3 w-3" /> : <Icon className="h-3 w-3" />}{label}
-            </button>
-          ))}
-        </div>
+        {/* Mode tabs — only on wide desktop panels */}
+        {isDesktop && (
+          <div className="flex items-center gap-0.5 bg-muted/50 rounded-xl p-0.5 flex-shrink-0">
+            {([{ key: 'chat' as const, label: 'Chat', icon: MessageCircle }, { key: 'cowork' as const, label: 'Cowork', icon: Briefcase, locked: true }]).map(({ key, label, icon: Icon, locked }) => (
+              <button key={key} onClick={() => !locked && switchMode(key)} className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all', mainMode === key && !locked ? 'bg-background shadow-sm text-foreground' : locked ? 'text-muted-foreground/40 cursor-not-allowed' : 'text-muted-foreground hover:text-foreground hover:bg-background/50')}>
+                {locked ? <Lock className="h-3 w-3" /> : <Icon className="h-3 w-3" />}{label}
+              </button>
+            ))}
+          </div>
+        )}
 
-        <div className="flex items-center gap-0.5">
+        <div className="flex items-center gap-0.5 flex-shrink-0">
           <button onClick={handleNewChat} className="p-2 rounded-lg hover:bg-muted transition-colors" title="Nowa rozmowa"><Plus className="h-4 w-4 text-muted-foreground" /></button>
-          <button onClick={onClose} className="p-2 rounded-lg hover:bg-muted transition-colors hidden md:block" title="Zamknij"><X className="h-4 w-4 text-muted-foreground" /></button>
+          {isDesktop && <button onClick={onClose} className="p-2 rounded-lg hover:bg-muted transition-colors" title="Zamknij"><X className="h-4 w-4 text-muted-foreground" /></button>}
         </div>
       </div>
 
@@ -644,13 +655,13 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
   return (
     <>
       {/* Overlay backdrop */}
-      <div className="fixed inset-0 z-50 flex">
-        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm md:block" onClick={onClose} />
+      <div className="fixed inset-0 z-50 flex" style={{ height: '100dvh' }}>
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
 
         {/* Panel container */}
         <div className={cn(
-          'relative ml-auto h-full flex bg-background shadow-2xl animate-slide-in-right',
-          'w-full md:max-w-[480px]' // full screen on mobile, 480px drawer on desktop
+          'relative ml-auto flex bg-background shadow-2xl animate-slide-in-right overflow-hidden',
+          isDesktop ? 'w-[760px] h-full' : 'w-full h-full'
         )}>
           {isDesktop ? (
             /* Desktop: split layout */
