@@ -55,6 +55,14 @@ export function TabsPill(props: React.ComponentProps<typeof Tabs>) {
                   "hover:bg-accent hover:text-accent-foreground focus-visible:outline-none",
               });
             }
+            // Render non-trigger, non-content elements (e.g. Popover "Więcej") inside the bar
+            if (React.isValidElement(child)) {
+              const type = child.type as any;
+              const displayName = type?.displayName || type?.name || '';
+              if (!displayName.includes('Content')) {
+                return <React.Fragment key={idx}>{child}</React.Fragment>;
+              }
+            }
             return null;
           })}
         </TabsList>
