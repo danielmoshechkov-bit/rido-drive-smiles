@@ -199,6 +199,33 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
     });
   };
 
+  const handleSavePrimaryTabs = async () => {
+    if (!providerId) return;
+
+    const fallbackTabs = DEFAULT_SERVICE_PROVIDER_PRIMARY_TABS.filter(tab => websiteBuilderEnabled || tab !== 'website');
+    const nextPrimaryTabs = (primaryTabs.length ? primaryTabs : fallbackTabs).filter(tab => tab !== 'settings');
+    const nextMoreTabs = SERVICE_PROVIDER_TAB_ORDER.filter(tab => tab !== 'settings' && !nextPrimaryTabs.includes(tab) && (websiteBuilderEnabled || tab !== 'website')).concat('settings');
+
+    const { error } = await (supabase as any)
+      .from('service_provider_nav_preferences')
+      .upsert(
+        {
+          provider_id: providerId,
+          primary_tabs: nextPrimaryTabs,
+          more_tabs: nextMoreTabs,
+        },
+        { onConflict: 'provider_id' }
+      );
+
+    if (error) {
+      toast.error('Nie udało się zapisać układu paska');
+      return;
+    }
+
+    onPrimaryTabsSaved?.(nextPrimaryTabs);
+    toast.success('Układ paska zapisany');
+  };
+
   return (
     <Card>
       <CardContent className="pt-6">

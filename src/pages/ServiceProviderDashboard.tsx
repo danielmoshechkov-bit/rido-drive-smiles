@@ -134,7 +134,7 @@ export default function ServiceProviderDashboard() {
 
       const allowedTabs = SERVICE_PROVIDER_TAB_ORDER.filter(tab => tab !== 'settings' && (features.website_builder_enabled || tab !== 'website'));
       const savedPrimaryTabs = Array.isArray(navPreferences?.primary_tabs)
-        ? navPreferences.primary_tabs.filter((tab: string) => allowedTabs.includes(tab))
+        ? navPreferences.primary_tabs.filter((tab: string) => allowedTabs.includes(tab as any))
         : [];
 
       setPrimaryTabs(savedPrimaryTabs.length ? savedPrimaryTabs : DEFAULT_SERVICE_PROVIDER_PRIMARY_TABS.filter(tab => allowedTabs.includes(tab)));
@@ -697,7 +697,13 @@ export default function ServiceProviderDashboard() {
 
           {/* Settings Tab */}
           <TabsContent value="settings" className="mt-6 space-y-6">
-            <SettingsPanel providerId={providerId} settingsForm={settingsForm} setSettingsForm={setSettingsForm} />
+            <SettingsPanel
+              providerId={providerId}
+              settingsForm={settingsForm}
+              setSettingsForm={setSettingsForm}
+              websiteBuilderEnabled={features.website_builder_enabled}
+              onPrimaryTabsSaved={setPrimaryTabs}
+            />
           </TabsContent>
 
           <TabsContent value="accounting" className="mt-6">
