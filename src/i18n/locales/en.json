@@ -611,7 +611,9 @@
       "workspace": "Workspace",
       "website": "Website",
       "settings": "Settings",
-      "bookings": "Bookings"
+      "bookings": "Bookings",
+      "leads": "Leads",
+      "ads": "Ads"
     },
     "dashboard": {
       "allBookings": "All bookings",

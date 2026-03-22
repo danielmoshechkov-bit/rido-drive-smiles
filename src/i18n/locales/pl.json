@@ -612,7 +612,9 @@
       "workspace": "Workspace",
       "website": "Strona WWW",
       "settings": "Ustawienia",
-      "bookings": "Rezerwacje"
+      "bookings": "Rezerwacje",
+      "leads": "Leady",
+      "ads": "Reklamy"
     },
     "dashboard": {
       "allBookings": "Wszystkie rezerwacje",
