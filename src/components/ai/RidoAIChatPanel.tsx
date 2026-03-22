@@ -38,6 +38,7 @@ Opisz co chcesz wygenerować — np:
 };
 
 const IMAGE_PATTERNS = /(?:stw[oó]rz|wygeneruj|narysuj|zr[oó]b|stworzysz|namaluj|zaprojektuj|poka[zż]|daj|make|create|draw|generate|zrob|stworz|pokaz|wygenerować|narysowaĆ).{0,40}(?:obraz|grafik|logo|zdj[eę]|zdjecie|baner|ilustracj|ikona|ikonk|obrazek|plakat|rysunek|foto|image|picture|graphic|goryl|banana|kot|pies|samoch[oó]d|krajobraz)/i;
+const WEATHER_PATTERNS = /(?:pogod|weather|forecast|temperatur|meteo|klimat|температур|погод|прогноз)/i;
 
 const parseAction = (text: string) => {
   const match = text.match(/ACTION:(\{.*?\})/s);
@@ -121,7 +122,14 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
 
   const { streamExecute, execute, isLoading } = useGetRidoAI();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  const scrollToBottom = useCallback(() => {
+    requestAnimationFrame(() => {
+      messagesEndRef.current?.scrollIntoView({ block: 'end' });
+    });
+  }, []);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -144,8 +152,8 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
 
   useEffect(() => { if (open) loadConversations(); }, [open, loadConversations]);
   useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [messages]);
+    scrollToBottom();
+  }, [messages, currentConvId, open, scrollToBottom]);
 
   const createConv = async (text: string, mode: string): Promise<string> => {
     // Ensure userId is available
@@ -184,7 +192,11 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
       return;
     }
     const { error: msgErr } = await (supabase as any).from('ai_messages').insert({
-      conversation_id: convId, user_id: uid, role: msg.role, content: msg.content, images: msg.images || null
+      conversation_id: convId,
+      user_id: uid,
+      role: msg.role,
+      content: msg.content,
+      images: msg.role === 'assistant' ? (msg.images || null) : null
     });
     if (msgErr) console.error('[RidoAI] Failed to save message:', msgErr);
     
@@ -208,10 +220,7 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
     const { data } = await (supabase as any).from('ai_messages').select('*').eq('conversation_id', convId).order('created_at', { ascending: true });
     if (data) setMessages(data.map((m: any) => ({ id: m.id, role: m.role, content: m.content, images: m.images })));
     setCurrentConvId(convId);
-    // Auto-scroll to bottom after loading
-    setTimeout(() => {
-      if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }, 100);
+    setTimeout(scrollToBottom, 50);
   };
 
   const handleNewChat = () => { setMessages([]); setCurrentConvId(null); setInput(''); setAttachedFiles([]); };
@@ -241,6 +250,15 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
     });
   };
 
+  const readFileAsDataUrl = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
   const readFileAsText = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -258,6 +276,16 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
     handleFileSelect(e.dataTransfer.files);
   };
 
+  const openAttachedImageEditor = async (file: File) => {
+    if (!file.type.startsWith('image/')) return;
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      openEditor(dataUrl);
+    } catch (err) {
+      console.error('[RidoAI] Failed to open attached image:', err);
+    }
+  };
+
   const handleSend = useCallback(async () => {
     const text = input.trim();
     if (!text || isLoading) return;
@@ -267,18 +295,15 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
       ? `${text}\n\n📎 Załączniki: ${fileNames.join(', ')}`
       : text;
 
-    const userMsg: Msg = { role: 'user', content: contentWithFiles, files: attachedFiles.map(f => ({ name: f.name, type: f.type })) };
-    const newMsgs = [...messages, userMsg];
-    setMessages(newMsgs);
-    setInput('');
-
     // Read file contents for AI
     let fileContents: { name: string; type: string; data?: string; text?: string }[] = [];
+    let attachmentPreviewImages: string[] = [];
     for (const file of attachedFiles) {
       try {
         if (file.type.startsWith('image/')) {
           const b64 = await readFileAsBase64(file);
           fileContents.push({ name: file.name, type: file.type, data: b64 });
+          attachmentPreviewImages.push(`data:${file.type};base64,${b64}`);
         } else if (file.type === 'text/plain' || file.type === 'text/csv' || file.name.endsWith('.txt') || file.name.endsWith('.csv')) {
           const txt = await readFileAsText(file);
           fileContents.push({ name: file.name, type: file.type, text: txt });
@@ -291,6 +316,16 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
         console.error('[RidoAI] Error reading file:', file.name, err);
       }
     }
+
+    const userMsg: Msg = {
+      role: 'user',
+      content: contentWithFiles,
+      files: attachedFiles.map(f => ({ name: f.name, type: f.type })),
+      images: attachmentPreviewImages.length > 0 ? attachmentPreviewImages : undefined,
+    };
+    const newMsgs = [...messages, userMsg];
+    setMessages(newMsgs);
+    setInput('');
     setAttachedFiles([]);
 
     let convId = currentConvId;
@@ -305,6 +340,7 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
     if (convId) await saveMsg(convId, userMsg);
 
     const isImg = IMAGE_PATTERNS.test(text);
+    const shouldUseNonStreaming = fileContents.length > 0 || WEATHER_PATTERNS.test(text);
 
     if (isImg && fileContents.length === 0) {
       setMessages(prev => [...prev, { role: 'assistant', content: '🎨 Generuję grafikę...' }]);
@@ -321,8 +357,58 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
     }
 
     setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
-    let acc = '';
     const activeMode = mainMode === 'cowork' ? 'cowork' : 'rido_chat';
+
+    if (shouldUseNonStreaming) {
+      const result = await execute({
+        taskType: 'text',
+        query: text,
+        mode: activeMode,
+        messages: newMsgs.map(m => ({ role: m.role, content: m.content })),
+        stream: false,
+        files: fileContents.length > 0 ? fileContents : undefined,
+      });
+
+      const assistantContent = result?.result || '⚠️ Nie udało się uzyskać odpowiedzi.';
+      const assistantMsg: Msg = { role: 'assistant', content: assistantContent };
+      setMessages(prev => {
+        const updated = [...prev];
+        updated[updated.length - 1] = assistantMsg;
+        return updated;
+      });
+      if (convId) await saveMsg(convId, assistantMsg);
+
+      if (/IMAGE_REQUEST:true/.test(assistantContent)) {
+        setMessages(prev => [...prev, { role: 'assistant', content: '🎨 Generuję grafikę...' }]);
+        const imageResult = await execute({ taskType: 'image', query: text, mode: 'rido_create', stream: false });
+        const imageMsg: Msg = {
+          role: 'assistant',
+          content: imageResult?.images?.length ? pickImageReply('create') : (imageResult?.result || '❌ Nie udało się wygenerować.'),
+          images: imageResult?.images,
+        };
+        setMessages(prev => {
+          const updated = [...prev];
+          updated[updated.length - 1] = imageMsg;
+          return updated;
+        });
+        if (convId) await saveMsg(convId, imageMsg);
+      }
+
+      const action = parseAction(assistantContent);
+      if (action) {
+        const routes: Record<string, string> = {
+          CREATE_INVOICE: '/invoices/new', CREATE_TASK: '/tasks',
+          FIND_SERVICE: '/services', SEARCH_PROPERTY: '/real-estate',
+        };
+        const path = action.params?.path || routes[action.type];
+        if (path) navigate(path);
+      }
+
+      loadConversations();
+      return;
+    }
+
+    let acc = '';
 
     await streamExecute(
       { taskType: 'text', query: text, mode: activeMode, messages: newMsgs.map(m => ({ role: m.role, content: m.content })), stream: true, files: fileContents.length > 0 ? fileContents : undefined },
@@ -337,6 +423,23 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
       async () => {
         const aMsg: Msg = { role: 'assistant', content: acc };
         if (convId) await saveMsg(convId, aMsg);
+
+        if (/IMAGE_REQUEST:true/.test(acc)) {
+          setMessages(prev => [...prev, { role: 'assistant', content: '🎨 Generuję grafikę...' }]);
+          const imageResult = await execute({ taskType: 'image', query: text, mode: 'rido_create', stream: false });
+          const imageMsg: Msg = {
+            role: 'assistant',
+            content: imageResult?.images?.length ? pickImageReply('create') : (imageResult?.result || '❌ Nie udało się wygenerować.'),
+            images: imageResult?.images,
+          };
+          setMessages(prev => {
+            const updated = [...prev];
+            updated[updated.length - 1] = imageMsg;
+            return updated;
+          });
+          if (convId) await saveMsg(convId, imageMsg);
+        }
+
         const action = parseAction(acc);
         if (action) {
           const routes: Record<string, string> = {
@@ -1086,7 +1189,28 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
                               ))}
                             </>
                           ) : (
-                            <p className="whitespace-pre-wrap text-[14px] font-semibold text-foreground">{msg.content}</p>
+                            <>
+                              <p className="whitespace-pre-wrap text-[14px] font-semibold text-foreground">{msg.content}</p>
+                              {msg.images?.map((img, idx) => (
+                                <div key={idx} className="relative group mt-3 overflow-hidden rounded-2xl border border-border/50 bg-background shadow-sm">
+                                  <img
+                                    src={img}
+                                    alt="Załączony obraz"
+                                    className="w-full cursor-pointer hover:opacity-95 transition-opacity"
+                                    onClick={() => openEditor(img)}
+                                  />
+                                  <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); openEditor(img); }}
+                                      className="bg-background/90 backdrop-blur-sm text-foreground p-2 rounded-lg shadow-md border border-border/50 hover:bg-background transition-colors"
+                                      title="Edytuj pędzlem"
+                                    >
+                                      <Paintbrush className="h-4 w-4" />
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </>
                           )}
                         </div>
                         {msg.role === 'user' && (
@@ -1111,6 +1235,7 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
                       </div>
                     </div>
                   )}
+                  <div ref={messagesEndRef} />
                 </div>
               </ScrollArea>
 
@@ -1122,6 +1247,11 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
                       <div key={idx} className="flex items-center gap-1.5 bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs font-semibold">
                         <FileText className="h-3.5 w-3.5 text-primary" />
                         <span className="max-w-[120px] truncate">{file.name}</span>
+                        {file.type.startsWith('image/') && (
+                          <button onClick={() => openAttachedImageEditor(file)} className="p-0.5 hover:bg-primary/10 rounded" title="Otwórz w edytorze">
+                            <Paintbrush className="h-3 w-3 text-primary" />
+                          </button>
+                        )}
                         <button onClick={() => removeFile(idx)} className="p-0.5 hover:bg-destructive/10 rounded">
                           <X className="h-3 w-3 text-destructive" />
                         </button>

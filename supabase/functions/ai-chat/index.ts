@@ -22,6 +22,21 @@ W trybie Cowork gdy użytkownik chce wykonać akcję w portalu, na końcu odpowi
 ACTION:{"type":"TYP_AKCJI","params":{}}
 Dostępne akcje: CREATE_INVOICE, CREATE_TASK, FIND_SERVICE, BOOK_APPOINTMENT, SEARCH_PROPERTY, OPEN_PAGE`
 
+const WEATHER_QUERY_PATTERNS = /(?:pogod|weather|forecast|temperatur|meteo|klimat|температур|погод|прогноз)/i
+const LOW_CONFIDENCE_WEATHER_PATTERNS = [
+  /nie mog[eę].{0,60}(sprawdzi[ćc]|mam dost[eę]pu|w czasie rzeczywistym)/i,
+  /sprawd[źz].{0,30}na stronie/i,
+  /nie mam dost[eę]pu do danych pogodowych/i,
+  /i (?:can'?t|cannot|don'?t) .{0,40}(check|access|verify).{0,40}(weather|forecast)/i,
+]
+const FILE_ACCESS_FAILURE_PATTERNS = [
+  /nie mog[eę].{0,80}(otworzy[ćc]|odczyta[ćc]|czyta[ćc]|przeanalizowa[ćc]|sprawdzi[ćc]).{0,40}(pliku|pdf|dokumentu|obrazu|za[łl]ącznika)/i,
+  /nie mog[eę] bezpo[sś]rednio czyta[ćc] zawarto[sś]ci/i,
+  /na podstawie nazwy pliku/i,
+  /plik binarny/i,
+  /i (?:can'?t|cannot|unable to).{0,80}(open|read|access|analy[sz]e).{0,40}(file|pdf|document|image|attachment)/i,
+]
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
 
@@ -167,6 +182,8 @@ serve(async (req) => {
     // ── ROUTING TEKSTU ───────────────────────────────────────────
     // Build multimodal content if files attached
     const hasFiles = files && Array.isArray(files) && files.length > 0
+    const weatherQuery = WEATHER_QUERY_PATTERNS.test(query || '')
+    const hasRichVisionFiles = hasFiles && files.some((f: any) => isImageFile(f) || isPdfFile(f))
 
     const history = [
       ...(messages || []).filter((m: any) => m.content).map((m: any) => ({ role: m.role, content: m.content }))
@@ -185,8 +202,10 @@ serve(async (req) => {
             enrichedContent += `\n\n--- Zawartość pliku "${f.name}" ---\n${f.text}\n--- Koniec pliku ---`
           } else if (f.data && f.type?.startsWith('image/')) {
             // Will be handled as multimodal below for Gemini
+          } else if (isPdfFile(f)) {
+            enrichedContent += `\n\n[Załączono dokument PDF: ${f.name}. Przeanalizuj jego rzeczywistą treść i odpowiedz konkretnie.]`
           } else if (f.data) {
-            enrichedContent += `\n\n[Plik: ${f.name} (${f.type}) - plik binarny, nie mogę odczytać treści bezpośrednio. Opisz co chcesz z nim zrobić.]`
+            enrichedContent += `\n\n[Załączono plik: ${f.name} (${f.type || 'binarny'}). Jeśli potrafisz odczytać jego treść, zrób to i odpowiedz konkretnie.]`
           }
         }
         lastMsg.content = enrichedContent
@@ -198,7 +217,9 @@ serve(async (req) => {
 
     // Build provider chain based on mode
     const chain: any[] = []
-    if (mode === 'rido_pro') {
+    if (hasRichVisionFiles) {
+      chain.push(findByKey('claude_sonnet'), findByKey('claude_opus'), findByKey('claude_haiku'), findGemini())
+    } else if (mode === 'rido_pro') {
       chain.push(findByKey('claude_opus'), findByKey('claude_sonnet'), findByKey('claude_haiku'))
     } else if (mode === 'cowork' || mode === 'rido_code') {
       chain.push(findByKey('claude_sonnet'), findByKey('claude_haiku'))
@@ -206,7 +227,8 @@ serve(async (req) => {
       chain.push(findByKey('claude_haiku'))
     }
     // Always add general fallbacks
-    chain.push(findByKey('kimi'), findGemini(), findByKey('openai_mini', 'openai_gpt4o', 'openai'))
+    if (weatherQuery) chain.push(findGemini(), findByKey('kimi'), findByKey('openai_mini', 'openai_gpt4o', 'openai'))
+    else chain.push(findByKey('kimi'), findGemini(), findByKey('openai_mini', 'openai_gpt4o', 'openai'))
 
     // Deduplicate and filter to providers with keys
     const seen = new Set<string>()
@@ -257,6 +279,29 @@ serve(async (req) => {
         if (isClaude) {
           // Anthropic API
           usedModel = claudeModels[p.provider_key] || 'claude-haiku-4-5-20251001'
+          const claudeMessages = history.map((msg: any, index: number) => {
+            const isLastUser = index === history.length - 1 && msg.role === 'user' && hasFiles
+            if (!isLastUser) return { role: msg.role, content: msg.content }
+
+            const contentBlocks: any[] = [{ type: 'text', text: msg.content }]
+            for (const f of files) {
+              if (!f?.data) continue
+              if (isImageFile(f)) {
+                contentBlocks.push({
+                  type: 'image',
+                  source: { type: 'base64', media_type: f.type, data: f.data }
+                })
+              } else if (isPdfFile(f)) {
+                contentBlocks.push({
+                  type: 'document',
+                  source: { type: 'base64', media_type: 'application/pdf', data: f.data }
+                })
+              }
+            }
+
+            return { role: 'user', content: contentBlocks }
+          })
+
           const res = await fetch('https://api.anthropic.com/v1/messages', {
             method: 'POST',
             headers: {
@@ -268,7 +313,7 @@ serve(async (req) => {
               model: usedModel,
               max_tokens: 2048,
               system: sys,
-              messages: history,
+              messages: claudeMessages,
               stream: !!stream
             })
           })
@@ -285,7 +330,12 @@ serve(async (req) => {
           await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'success', ms: Date.now() - t0 })
           if (stream) return new Response(res.body, { headers: { ...cors, 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' } })
           const d = await res.json()
-          return jsonResp({ result: d.content?.[0]?.text || 'Brak odpowiedzi' })
+          const answer = (d.content || []).filter((block: any) => block?.type === 'text').map((block: any) => block.text).join('\n').trim() || 'Brak odpowiedzi'
+          if (shouldRetryWithNextProvider(query || '', answer, hasFiles)) {
+            lastError = answer
+            continue
+          }
+          return jsonResp({ result: answer })
 
         } else if (isGemini) {
           // Gemini via OpenAI-compatible endpoint — supports multimodal (images)
@@ -332,7 +382,12 @@ serve(async (req) => {
           await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'success', ms: Date.now() - t0 })
           if (stream) return new Response(res.body, { headers: { ...cors, 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' } })
           const d = await res.json()
-          return jsonResp({ result: d.choices?.[0]?.message?.content || 'Brak odpowiedzi' })
+          const answer = d.choices?.[0]?.message?.content || 'Brak odpowiedzi'
+          if (shouldRetryWithNextProvider(query || '', answer, hasFiles)) {
+            lastError = answer
+            continue
+          }
+          return jsonResp({ result: answer })
 
         } else {
           // OpenAI-compatible (Kimi, OpenAI, etc.)
@@ -365,7 +420,12 @@ serve(async (req) => {
           await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'success', ms: Date.now() - t0 })
           if (stream) return new Response(res.body, { headers: { ...cors, 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' } })
           const d = await res.json()
-          return jsonResp({ result: d.choices?.[0]?.message?.content || 'Brak odpowiedzi' })
+          const answer = d.choices?.[0]?.message?.content || 'Brak odpowiedzi'
+          if (shouldRetryWithNextProvider(query || '', answer, hasFiles)) {
+            lastError = answer
+            continue
+          }
+          return jsonResp({ result: answer })
         }
       } catch (providerErr) {
         lastError = `⚠️ ${p.display_name || p.provider_key}: błąd połączenia.`
@@ -429,4 +489,24 @@ function sseText(text: string) {
   return new Response(payload, {
     headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' }
   })
+}
+
+function isPdfFile(file: any) {
+  return file?.type === 'application/pdf' || String(file?.name || '').toLowerCase().endsWith('.pdf')
+}
+
+function isImageFile(file: any) {
+  return String(file?.type || '').startsWith('image/')
+}
+
+function shouldRetryWithNextProvider(query: string, answer: string, hasFiles: boolean) {
+  const normalized = String(answer || '').trim()
+  if (!normalized) return true
+  if (WEATHER_QUERY_PATTERNS.test(query) && LOW_CONFIDENCE_WEATHER_PATTERNS.some((pattern) => pattern.test(normalized))) {
+    return true
+  }
+  if (hasFiles && FILE_ACCESS_FAILURE_PATTERNS.some((pattern) => pattern.test(normalized))) {
+    return true
+  }
+  return false
 }
