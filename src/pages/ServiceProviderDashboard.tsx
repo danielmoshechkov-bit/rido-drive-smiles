@@ -389,13 +389,13 @@ export default function ServiceProviderDashboard() {
           {primaryTabs.includes('leads') && (
             <TabsTrigger value="leads">
               <Target className="h-4 w-4 mr-1.5" />
-              Leady
+              {t('sp.tabs.leads', 'Leady')}
             </TabsTrigger>
           )}
           {primaryTabs.includes('ads') && (
             <TabsTrigger value="ads">
               <Megaphone className="h-4 w-4 mr-1.5" />
-              Reklamy
+              {t('sp.tabs.ads', 'Reklamy')}
             </TabsTrigger>
           )}
           {primaryTabs.includes('ai-agent') && (
@@ -500,7 +500,7 @@ export default function ServiceProviderDashboard() {
                         <TableHead className="text-right">{t('sp.services.priceFrom')}</TableHead>
                         <TableHead className="text-right">{t('sp.services.priceTo')}</TableHead>
                         <TableHead>{t('sp.services.status')}</TableHead>
-                        <TableHead>Reklama</TableHead>
+                        <TableHead>{t('ads.advertising', 'Reklama')}</TableHead>
                         <TableHead></TableHead>
                       </TableRow>
                     </TableHeader>
@@ -518,7 +518,7 @@ export default function ServiceProviderDashboard() {
                           </TableCell>
                           <TableCell>
                             <Button variant="outline" size="sm" className="gap-1 mr-1" onClick={() => setAdOrderService({ id: service.id, name: service.name })}>
-                              <Megaphone className="h-3 w-3" /> Reklamuj
+                              <Megaphone className="h-3 w-3" /> {t('ads.advertise', 'Reklamuj')}
                             </Button>
                           </TableCell>
                           <TableCell>
