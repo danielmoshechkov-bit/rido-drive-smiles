@@ -1,0 +1,2 @@
+ALTER TABLE public.ai_conversations ADD COLUMN IF NOT EXISTS is_starred boolean DEFAULT false;
+ALTER TABLE public.ai_conversations ADD COLUMN IF NOT EXISTS project_id uuid REFERENCES public.workspace_projects(id) ON DELETE SET NULL;

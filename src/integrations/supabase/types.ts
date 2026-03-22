@@ -1248,7 +1248,9 @@ export type Database = {
         Row: {
           created_at: string | null
           id: string
+          is_starred: boolean | null
           mode: string | null
+          project_id: string | null
           title: string | null
           updated_at: string | null
           user_id: string
@@ -1256,7 +1258,9 @@ export type Database = {
         Insert: {
           created_at?: string | null
           id?: string
+          is_starred?: boolean | null
           mode?: string | null
+          project_id?: string | null
           title?: string | null
           updated_at?: string | null
           user_id: string
@@ -1264,12 +1268,22 @@ export type Database = {
         Update: {
           created_at?: string | null
           id?: string
+          is_starred?: boolean | null
           mode?: string | null
+          project_id?: string | null
           title?: string | null
           updated_at?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "ai_conversations_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "workspace_projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ai_credit_history: {
         Row: {
