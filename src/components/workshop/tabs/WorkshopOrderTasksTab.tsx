@@ -482,6 +482,15 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     setGoodsRows([createEmptyGoods()]);
   };
 
+  // Auto-save goods row on blur if filled
+  const autoSaveGoodsRow = async (idx: number) => {
+    const row = goodsRows[idx];
+    if (row && isGoodsDraftFilled(row)) {
+      await submitGoods(row, idx);
+      setGoodsRows(prev => prev.map((r, i) => i === idx ? createEmptyGoods() : r));
+    }
+  };
+
   // Inline editable cell renderer
   const renderEditableCell = (item: any, field: string, displayValue: string, className: string = '') => {
     const isEditing = editingItemId === item.id && editingField === field;
