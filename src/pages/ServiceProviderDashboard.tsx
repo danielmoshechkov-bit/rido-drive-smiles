@@ -431,29 +431,29 @@ export default function ServiceProviderDashboard() {
           <TabsContent value="dashboard" className="space-y-6 mt-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <Card>
-                <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Wszystkie rezerwacje</CardTitle></CardHeader>
+                <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">{t('sp.dashboard.allBookings')}</CardTitle></CardHeader>
                 <CardContent><div className="flex items-center gap-2"><ClipboardList className="h-5 w-5 text-primary" /><span className="text-2xl font-bold">{stats.totalBookings}</span></div></CardContent>
               </Card>
               <Card>
-                <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Oczekujące</CardTitle></CardHeader>
-                <CardContent><div className="flex items-center gap-2"><Clock className="h-5 w-5 text-yellow-500" /><span className="text-2xl font-bold">{stats.pendingBookings}</span></div></CardContent>
+                <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">{t('sp.dashboard.pending')}</CardTitle></CardHeader>
+                <CardContent><div className="flex items-center gap-2"><Clock className="h-5 w-5 text-warning" /><span className="text-2xl font-bold">{stats.pendingBookings}</span></div></CardContent>
               </Card>
               <Card>
-                <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Średnia ocena</CardTitle></CardHeader>
-                <CardContent><div className="flex items-center gap-2"><Star className="h-5 w-5 text-yellow-400 fill-yellow-400" /><span className="text-2xl font-bold">{stats.averageRating > 0 ? stats.averageRating.toFixed(1) : '-'}</span></div></CardContent>
+                <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">{t('sp.dashboard.avgRating')}</CardTitle></CardHeader>
+                <CardContent><div className="flex items-center gap-2"><Star className="h-5 w-5 text-warning fill-warning" /><span className="text-2xl font-bold">{stats.averageRating > 0 ? stats.averageRating.toFixed(1) : '-'}</span></div></CardContent>
               </Card>
               <Card>
-                <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">AI Agent</CardTitle></CardHeader>
-                <CardContent><div className="flex items-center gap-2"><Phone className="h-5 w-5 text-primary" /><Badge variant={configData?.is_active ? 'default' : 'secondary'}>{configData?.is_active ? 'Aktywny' : 'Nieaktywny'}</Badge></div></CardContent>
+                <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">{t('sp.dashboard.aiAgent')}</CardTitle></CardHeader>
+                <CardContent><div className="flex items-center gap-2"><Phone className="h-5 w-5 text-primary" /><Badge variant={configData?.is_active ? 'default' : 'secondary'}>{configData?.is_active ? t('sp.dashboard.active') : t('sp.dashboard.inactive')}</Badge></div></CardContent>
               </Card>
             </div>
             <Card>
-              <CardHeader><CardTitle>Szybkie akcje</CardTitle><CardDescription>Najczęściej używane funkcje</CardDescription></CardHeader>
+              <CardHeader><CardTitle>{t('sp.dashboard.quickActions')}</CardTitle><CardDescription>{t('sp.dashboard.quickActionsDesc')}</CardDescription></CardHeader>
               <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <Button variant="outline" onClick={() => setActiveTab('bookings')}><ClipboardList className="h-4 w-4 mr-2" />Rezerwacje</Button>
-                <Button variant="outline" onClick={() => setActiveTab('calendar')}><Calendar className="h-4 w-4 mr-2" />Kalendarz</Button>
-                <Button variant="outline" onClick={() => setActiveTab('ai-agent')}><Phone className="h-4 w-4 mr-2" />AI Agent</Button>
-                <Button variant="outline" onClick={() => setActiveTab('services')}><Wrench className="h-4 w-4 mr-2" />Usługi</Button>
+                <Button variant="outline" onClick={() => setActiveTab('bookings')}><ClipboardList className="h-4 w-4 mr-2" />{t('sp.dashboard.bookings')}</Button>
+                <Button variant="outline" onClick={() => setActiveTab('calendar')}><Calendar className="h-4 w-4 mr-2" />{t('sp.dashboard.calendar')}</Button>
+                <Button variant="outline" onClick={() => setActiveTab('ai-agent')}><Phone className="h-4 w-4 mr-2" />{t('sp.dashboard.aiAgent')}</Button>
+                <Button variant="outline" onClick={() => setActiveTab('services')}><Wrench className="h-4 w-4 mr-2" />{t('sp.dashboard.services')}</Button>
               </CardContent>
             </Card>
           </TabsContent>
@@ -462,7 +462,7 @@ export default function ServiceProviderDashboard() {
           <TabsContent value="services" className="mt-6 space-y-4">
             <div className="flex items-center justify-start">
               <Button onClick={() => { resetServiceForm(); setServiceDialog(true); }} className="gap-2">
-                <Plus className="h-4 w-4" /> Dodaj usługę
+                <Plus className="h-4 w-4" /> {t('sp.services.addService')}
               </Button>
             </div>
 
@@ -471,18 +471,18 @@ export default function ServiceProviderDashboard() {
                 {services.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">
                     <Wrench className="h-12 w-12 mx-auto mb-4 opacity-30" />
-                    <p className="font-medium">Brak usług</p>
-                    <p className="text-sm">Dodaj pierwszą usługę, która pojawi się na Twoim profilu w portalu</p>
+                    <p className="font-medium">{t('sp.services.noServices')}</p>
+                    <p className="text-sm">{t('sp.services.noServicesHint')}</p>
                   </div>
                 ) : (
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Nazwa usługi</TableHead>
-                        <TableHead>Kategoria</TableHead>
-                        <TableHead className="text-right">Cena od</TableHead>
-                        <TableHead className="text-right">Cena do</TableHead>
-                        <TableHead>Status</TableHead>
+                        <TableHead>{t('sp.services.serviceName')}</TableHead>
+                        <TableHead>{t('sp.services.category')}</TableHead>
+                        <TableHead className="text-right">{t('sp.services.priceFrom')}</TableHead>
+                        <TableHead className="text-right">{t('sp.services.priceTo')}</TableHead>
+                        <TableHead>{t('sp.services.status')}</TableHead>
                         <TableHead></TableHead>
                       </TableRow>
                     </TableHeader>
@@ -490,12 +490,12 @@ export default function ServiceProviderDashboard() {
                       {services.map((service: ServiceItem) => (
                         <TableRow key={service.id}>
                           <TableCell className="font-medium">{service.name}</TableCell>
-                          <TableCell className="text-sm text-muted-foreground">{service.category}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{t(`sp.services.categories.${service.category}`, service.category)}</TableCell>
                           <TableCell className="text-right">{service.price_from} zł</TableCell>
                           <TableCell className="text-right">{service.price_to > 0 ? `${service.price_to} zł` : '—'}</TableCell>
                           <TableCell>
-                            <Badge variant={service.is_active ? 'default' : 'secondary'}>
-                              {service.is_active ? 'Aktywna' : 'Nieaktywna'}
+                             <Badge variant={service.is_active ? 'default' : 'secondary'}>
+                              {service.is_active ? t('sp.services.activeStatus') : t('sp.services.inactiveStatus')}
                             </Badge>
                           </TableCell>
                           <TableCell>
