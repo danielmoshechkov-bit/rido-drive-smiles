@@ -62,6 +62,7 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
   const [userId, setUserId] = useState<string | null>(null);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Image editor state
