@@ -716,25 +716,42 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
               </Button>
             </div>
 
-            <div className="px-3 py-2">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/60" />
-                <input
-                  type="text"
-                  placeholder="Szukaj rozmów..."
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  className="w-full pl-8 pr-3 py-2 text-xs font-medium rounded-lg bg-background border border-border/50 outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 placeholder:text-muted-foreground/50 text-foreground transition-all"
-                />
-              </div>
-            </div>
-
             <ScrollArea className="flex-1">
+              {/* Projects section */}
+              <AIProjectsSection
+                userId={userId}
+                activeProjectId={activeProjectId}
+                onSelectProject={(id, name) => {
+                  setActiveProjectId(id);
+                  // Start new chat in project context
+                  handleNewChat();
+                  setInput(`Pracuję nad projektem "${name}". `);
+                }}
+              />
+
+              {/* Divider */}
+              <div className="border-t mx-3 my-2" />
+
+              {/* Search */}
+              <div className="px-3 py-1">
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/60" />
+                  <input
+                    type="text"
+                    placeholder="Szukaj rozmów..."
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    className="w-full pl-8 pr-3 py-2 text-xs font-medium rounded-lg bg-background border border-border/50 outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 placeholder:text-muted-foreground/50 text-foreground transition-all"
+                  />
+                </div>
+              </div>
+
+              {/* Conversations */}
               <div className="px-2 py-1 space-y-1">
                 {groupedConvs.length === 0 && (
-                  <div className="text-center py-12 px-4">
-                    <MessageCircle className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-                    <p className="text-xs text-muted-foreground/60 font-medium">Brak rozmów</p>
+                  <div className="text-center py-8 px-4">
+                    <MessageCircle className="h-6 w-6 text-muted-foreground/30 mx-auto mb-1" />
+                    <p className="text-[10px] text-muted-foreground/50 font-medium">Brak rozmów</p>
                   </div>
                 )}
                 {groupedConvs.map(group => (
