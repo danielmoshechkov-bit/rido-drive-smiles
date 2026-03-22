@@ -424,6 +424,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     localStorage.setItem(draftStorageKey, JSON.stringify(draftPayload));
   }, [draftStorageKey, taskRows, goodsRows]);
 
+  // Sync order totals to DB whenever saved items change
   useEffect(() => {
     const currentGross = safeNumber(order.total_gross);
     const currentNet = safeNumber(order.total_net);
@@ -431,12 +432,15 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       return;
     }
 
-    // Force immediate sync of order totals
-    updateOrder.mutateAsync({
-      id: order.id,
-      total_gross: savedGrandGrossTotal,
-      total_net: savedGrandNetTotal,
-    }).catch(() => {});
+    console.log('[WorkshopTasks] Syncing order totals:', { currentGross, savedGrandGrossTotal, currentNet, savedGrandNetTotal });
+    // Direct DB update + cache invalidation
+    (supabase as any)
+      .from('workshop_orders')
+      .update({ total_gross: savedGrandGrossTotal, total_net: savedGrandNetTotal })
+      .eq('id', order.id)
+      .then(() => {
+        updateOrder.mutate({ id: order.id, total_gross: savedGrandGrossTotal, total_net: savedGrandNetTotal });
+      });
   }, [order.id, order.total_gross, order.total_net, savedGrandGrossTotal, savedGrandNetTotal]);
 
   const saveTaskDraftRows = async () => {
@@ -728,16 +732,16 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[980px] text-xs" style={{ tableLayout: 'fixed' }}>
               <colgroup>
-                <col style={{ width: '36px' }} />
-                <col style={{ width: '28%' }} />
+                <col style={{ width: '40px' }} />
+                <col style={{ width: '30%' }} />
+                <col style={{ width: '80px' }} />
                 <col style={{ width: '72px' }} />
-                <col style={{ width: '64px' }} />
+                <col style={{ width: '110px' }} />
+                <col style={{ width: '110px' }} />
                 <col style={{ width: '100px' }} />
+                <col style={{ width: '120px' }} />
                 <col style={{ width: '100px' }} />
-                <col style={{ width: '92px' }} />
-                <col style={{ width: '108px' }} />
-                <col style={{ width: '88px' }} />
-                <col style={{ width: '44px' }} />
+                <col style={{ width: '50px' }} />
               </colgroup>
               <thead>
                 <tr className="border-b bg-muted/10">
