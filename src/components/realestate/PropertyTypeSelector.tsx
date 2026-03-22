@@ -15,6 +15,8 @@ const PROPERTY_TYPES = [
   { value: "lokal", label: "Lokale", icon: Building2 },
   { value: "pokoj", label: "Pokoje", icon: BedDouble },
   { value: "kawalerka", label: "Kawalerki", icon: Home },
+  { value: "rynek-pierwotny", label: "Rynek pierwotny", icon: Landmark },
+  { value: "komercja", label: "Komercja", icon: Building2 },
 ];
 
 export function PropertyTypeSelector({
