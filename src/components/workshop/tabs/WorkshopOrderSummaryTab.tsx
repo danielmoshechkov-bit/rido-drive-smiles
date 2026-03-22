@@ -6,20 +6,52 @@ interface Props {
   order: any;
 }
 
+const VAT_RATE = 1.23;
+
+const safeNumber = (value: unknown) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const getDiscountPercent = (item: any) => safeNumber(item.discount_percent);
+
+const getLineTotal = (item: any, gross: boolean) => {
+  const stored = gross ? safeNumber(item.total_gross) : safeNumber(item.total_net);
+  if (stored > 0) return stored;
+
+  const quantity = safeNumber(item.quantity) || 1;
+  const unitPrice = gross ? safeNumber(item.unit_price_gross) : safeNumber(item.unit_price_net);
+  const raw = unitPrice * quantity;
+  const discountPercent = getDiscountPercent(item);
+  return raw - (raw * discountPercent / 100);
+};
+
+const getLineCost = (item: any, gross: boolean) => {
+  const quantity = safeNumber(item.quantity) || 1;
+  const unitCost = gross ? safeNumber(item.unit_cost_gross) : safeNumber(item.unit_cost_net);
+  if (unitCost > 0) return unitCost * quantity;
+
+  const fallbackUnitCost = gross
+    ? safeNumber(item.unit_cost_net) * VAT_RATE
+    : safeNumber(item.unit_cost_gross) / VAT_RATE;
+
+  return fallbackUnitCost > 0 ? fallbackUnitCost * quantity : 0;
+};
+
 export function WorkshopOrderSummaryTab({ order }: Props) {
   const [priceMode, setPriceMode] = useState<'net' | 'gross'>('gross');
 
-  const tasks = (order.items || []).filter((i: any) => i.item_type === 'service' || i.item_type === 'task' || (i.item_type !== 'part' && i.item_type !== 'goods' && i.item_type !== 'other'));
+  const tasks = (order.items || []).filter((i: any) => i.item_type === 'service' || i.item_type === 'task');
   const goods = (order.items || []).filter((i: any) => i.item_type === 'part' || i.item_type === 'goods' || i.item_type === 'other');
 
   const isGross = priceMode === 'gross';
 
-  const tasksValue = tasks.reduce((s: number, t: any) => s + (isGross ? t.total_gross : t.total_net || 0), 0);
-  const tasksCost = tasks.reduce((s: number, t: any) => s + ((t.unit_cost_gross || 0) * (t.quantity || 1)), 0);
-  const tasksProfit = tasksValue - (isGross ? tasksCost : tasksCost / 1.23);
+  const tasksValue = tasks.reduce((s: number, t: any) => s + getLineTotal(t, isGross), 0);
+  const tasksCost = tasks.reduce((s: number, t: any) => s + getLineCost(t, isGross), 0);
+  const tasksProfit = tasksValue - tasksCost;
 
-  const goodsValue = goods.reduce((s: number, g: any) => s + (isGross ? g.total_gross : g.total_net || 0), 0);
-  const goodsCost = goods.reduce((s: number, g: any) => s + ((isGross ? g.unit_cost_gross : g.unit_cost_net || 0) * (g.quantity || 1)), 0);
+  const goodsValue = goods.reduce((s: number, g: any) => s + getLineTotal(g, isGross), 0);
+  const goodsCost = goods.reduce((s: number, g: any) => s + getLineCost(g, isGross), 0);
   const goodsProfit = goodsValue - goodsCost;
 
   const fmt = (n: number) => n.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -44,7 +76,7 @@ export function WorkshopOrderSummaryTab({ order }: Props) {
           <TableRow>
             <TableCell className="font-medium">Zadania</TableCell>
             <TableCell className="text-right">{fmt(tasksValue)}</TableCell>
-            <TableCell className="text-right">{fmt(isGross ? tasksCost : tasksCost / 1.23)}</TableCell>
+            <TableCell className="text-right">{fmt(tasksCost)}</TableCell>
             <TableCell className="text-right font-medium text-green-600">{fmt(tasksProfit)}</TableCell>
           </TableRow>
           <TableRow>
@@ -56,7 +88,7 @@ export function WorkshopOrderSummaryTab({ order }: Props) {
           <TableRow className="font-bold border-t-2">
             <TableCell>Razem</TableCell>
             <TableCell className="text-right">{fmt(tasksValue + goodsValue)}</TableCell>
-            <TableCell className="text-right">{fmt((isGross ? tasksCost : tasksCost / 1.23) + goodsCost)}</TableCell>
+            <TableCell className="text-right">{fmt(tasksCost + goodsCost)}</TableCell>
             <TableCell className="text-right text-green-600">{fmt(tasksProfit + goodsProfit)}</TableCell>
           </TableRow>
         </TableBody>
