@@ -1143,14 +1143,14 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
       <div className="relative ml-auto w-full max-w-[780px] h-full flex bg-background shadow-2xl animate-in slide-in-from-right duration-300">
         {/* Sidebar */}
         {sidebarOpen && (
-          <div className="w-[260px] flex flex-col border-r bg-muted/20 flex-shrink-0">
+          <div className="flex flex-col border-r bg-muted/20 flex-shrink-0 overflow-hidden" style={{ width: '260px', minWidth: '260px', maxWidth: '260px' }}>
             {/* Sidebar header */}
-            <div className="p-3 border-b">
-              <div className="flex items-center gap-2.5 mb-3">
+            <div className="p-3 border-b flex-shrink-0 overflow-hidden">
+              <div className="flex items-center gap-2.5 mb-3 overflow-hidden">
                 <img src={ridoMascot} alt="RidoAI" className="w-9 h-9 object-contain flex-shrink-0" />
-                <div>
-                  <h2 className="font-extrabold text-sm tracking-tight">RidoAI</h2>
-                  <p className="text-[10px] font-semibold text-primary uppercase tracking-widest">Asystent GetRido</p>
+                <div className="min-w-0">
+                  <h2 className="font-extrabold text-sm tracking-tight truncate">RidoAI</h2>
+                  <p className="text-[10px] font-semibold text-primary uppercase tracking-widest truncate">Asystent GetRido</p>
                 </div>
               </div>
               <Button
@@ -1159,72 +1159,72 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
                 onClick={handleNewChat}
                 className="w-full justify-start gap-2 h-9 text-xs font-semibold rounded-lg"
               >
-                <Plus className="h-3.5 w-3.5" />
-                Nowa rozmowa
+                <Plus className="h-3.5 w-3.5 flex-shrink-0" />
+                <span className="truncate">Nowa rozmowa</span>
               </Button>
             </div>
 
-            <ScrollArea className="flex-1">
-              {/* Projects section */}
+            {/* Projects section — FIXED, not scrolled */}
+            <div className="flex-shrink-0 overflow-hidden border-b">
               <AIProjectsSection
                 userId={userId}
                 activeProjectId={activeProjectId}
                 onSelectProject={(id, name) => {
                   setActiveProjectId(id);
-                  // Start new chat in project context
                   handleNewChat();
                   setInput(`Pracuję nad projektem "${name}". `);
                 }}
               />
+            </div>
 
-              {/* Divider */}
-              <div className="border-t mx-3 my-2" />
-
-              {/* Search */}
-              <div className="px-3 py-1">
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/60" />
-                  <input
-                    type="text"
-                    placeholder="Szukaj rozmów..."
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                    className="w-full pl-8 pr-3 py-2 text-xs font-medium rounded-lg bg-background border border-border/50 outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 placeholder:text-muted-foreground/50 text-foreground transition-all"
-                  />
-                </div>
+            {/* Search — FIXED */}
+            <div className="flex-shrink-0 px-3 py-2 border-b overflow-hidden">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/60" />
+                <input
+                  type="text"
+                  placeholder="Szukaj rozmów..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  className="w-full pl-8 pr-3 py-2 text-xs font-medium rounded-lg bg-background border border-border/50 outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 placeholder:text-muted-foreground/50 text-foreground transition-all"
+                />
               </div>
+            </div>
 
-              {/* Conversations */}
-              <div className="px-2 py-1 space-y-1">
-                {groupedConvs.length === 0 && (
-                  <div className="text-center py-8 px-4">
-                    <MessageCircle className="h-6 w-6 text-muted-foreground/30 mx-auto mb-1" />
-                    <p className="text-[10px] text-muted-foreground/50 font-medium">Brak rozmów</p>
-                  </div>
-                )}
-                {groupedConvs.map(group => (
-                  <div key={group.label}>
-                    <p className="px-2 py-1.5 text-[10px] font-bold text-muted-foreground/60 uppercase tracking-wider">
-                      {group.label}
-                    </p>
-                    <div className="space-y-0.5">
-                      {group.items.map(conv => {
-                        const isActive = currentConvId === conv.id;
-                        return (
-                          <ConvItemInline
-                            key={conv.id}
-                            title={conv.title}
-                            active={isActive}
-                            onClick={() => loadConversation(conv.id)}
-                            onDelete={(e) => deleteConversation(conv.id, e)}
-                          />
-                        );
-                      })}
+            {/* Conversations — scrollable separately */}
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <ScrollArea className="h-full">
+                <div className="px-2 py-1 overflow-hidden">
+                  {groupedConvs.length === 0 && (
+                    <div className="text-center py-8 px-4">
+                      <MessageCircle className="h-6 w-6 text-muted-foreground/30 mx-auto mb-1" />
+                      <p className="text-[10px] text-muted-foreground/50 font-medium">Brak rozmów</p>
                     </div>
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
+                  )}
+                  {groupedConvs.map(group => (
+                    <div key={group.label}>
+                      <p className="px-2 py-1.5 text-[10px] font-bold text-muted-foreground/60 uppercase tracking-wider">
+                        {group.label}
+                      </p>
+                      <div className="space-y-0.5">
+                        {group.items.map(conv => {
+                          const isActive = currentConvId === conv.id;
+                          return (
+                            <ConvItemInline
+                              key={conv.id}
+                              title={conv.title}
+                              active={isActive}
+                              onClick={() => loadConversation(conv.id)}
+                              onDelete={(e) => deleteConversation(conv.id, e)}
+                            />
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </div>
           </div>
         )}
 
@@ -1506,23 +1506,26 @@ function ConvItemInline({ title, active, onClick, onDelete }: {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       className={cn(
-        'flex items-center gap-2 px-3 py-2.5 rounded-xl cursor-pointer transition-all',
+        'flex items-center gap-1.5 px-2.5 py-2 rounded-lg cursor-pointer transition-all w-full overflow-hidden',
         active
           ? 'bg-primary text-primary-foreground'
           : 'text-foreground hover:bg-accent hover:text-accent-foreground'
       )}
     >
-      <MessageCircle className="h-4 w-4 flex-shrink-0 opacity-60" />
-      <span className="text-sm font-medium flex-1 truncate min-w-0">
+      <MessageCircle className="h-3.5 w-3.5 flex-shrink-0 opacity-60" />
+      <span
+        className="text-xs font-medium min-w-0 block"
+        style={{ flex: '1 1 0%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+      >
         {title || 'Nowa rozmowa'}
       </span>
       {(hovered || active) && (
         <button
           onClick={onDelete}
           title="Usuń rozmowę"
-          className="p-1 rounded-md hover:bg-destructive/20 flex-shrink-0 transition-colors"
+          className="p-0.5 rounded-md hover:bg-destructive/20 flex-shrink-0 transition-colors"
         >
-          <Trash2 className="h-3.5 w-3.5 text-destructive" />
+          <Trash2 className="h-3 w-3 text-destructive" />
         </button>
       )}
     </div>
