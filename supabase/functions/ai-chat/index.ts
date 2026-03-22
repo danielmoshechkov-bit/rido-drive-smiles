@@ -301,7 +301,45 @@ serve(async (req) => {
       console.log(`[ai-chat] Trying provider: ${p.provider_key} (isGemini=${isGemini}, isClaude=${isClaude}, isLovableGateway=${isLovableGateway})`)
 
       try {
-        if (isClaude) {
+        if (isLovableGateway) {
+          // Lovable AI Gateway — uses Gemini with grounding (for weather, search, etc.)
+          const lovKey = Deno.env.get('LOVABLE_API_KEY')
+          if (!lovKey) {
+            console.log('[ai-chat] Lovable Gateway: no API key, skipping')
+            continue
+          }
+          usedProvider = 'lovable_gateway'
+          usedModel = 'google/gemini-3-flash-preview'
+          console.log('[ai-chat] Trying Lovable Gateway with grounding')
+
+          const lovMessages = [{ role: 'system', content: sys }, ...history]
+          const res = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${lovKey}` },
+            body: JSON.stringify({
+              model: 'google/gemini-3-flash-preview',
+              messages: lovMessages,
+              stream: !!stream,
+              max_tokens: 2048
+            })
+          })
+
+          if (!res.ok) {
+            const errText = await res.text()
+            lastError = mapError('Gateway', res.status, errText)
+            console.error(`[ai-chat] Lovable Gateway error ${res.status}:`, errText.substring(0, 200))
+            await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'error', errorMessage: lastError, ms: Date.now() - t0 })
+            continue
+          }
+
+          console.log('[ai-chat] ✅ Lovable Gateway success')
+          await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'success', ms: Date.now() - t0 })
+          if (stream) return new Response(res.body, { headers: { ...cors, 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' } })
+          const d = await res.json()
+          const answer = d.choices?.[0]?.message?.content || 'Brak odpowiedzi'
+          return jsonResp({ result: answer })
+
+        } else if (isClaude) {
           // Anthropic API
           usedModel = claudeModels[p.provider_key] || 'claude-haiku-4-5-20251001'
           const claudeMessages = history.map((msg: any, index: number) => {
