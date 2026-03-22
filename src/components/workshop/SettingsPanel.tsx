@@ -296,10 +296,11 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
             <div className="space-y-2"><Label>Opis działalności</Label><Textarea rows={3} value={settingsForm.bio} onChange={e => setSettingsForm((p: any) => ({ ...p, bio: e.target.value }))} placeholder="Krótki opis Twojej firmy..." /></div>
             <div className="flex justify-end">
               <Button className="gap-2" onClick={handleSaveSettings}><Save className="h-4 w-4" /> Zapisz ustawienia</Button>
-            </div>
-          </TabsContent>
+          </div>
+        )}
 
-          <TabsContent value="pracownicy" className="space-y-4">
+        {settingsTab === 'pracownicy' && (
+          <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="font-semibold">Pracownicy</h3>
@@ -364,9 +365,11 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
                 </DialogFooter>
               </DialogContent>
             </Dialog>
-          </TabsContent>
+          </div>
+        )}
 
-          <TabsContent value="stanowiska" className="space-y-4">
+        {settingsTab === 'stanowiska' && (
+          <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="font-semibold">Stanowiska robocze</h3>
@@ -411,25 +414,28 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
                 </DialogFooter>
               </DialogContent>
             </Dialog>
-          </TabsContent>
+          </div>
+        )}
 
-          <TabsContent value="integracje" className="space-y-6">
+        {settingsTab === 'integracje' && (
+          <div className="space-y-6">
             {providerId ? (
               <WorkshopPartsIntegrationsSettings providerId={providerId} />
             ) : (
               <p className="text-center py-8 text-muted-foreground">Brak providera</p>
             )}
-          </TabsContent>
+          </div>
+        )}
 
-          <TabsContent value="rido-price" className="space-y-6">
+        {settingsTab === 'rido-price' && (
+          <div className="space-y-6">
             {providerId ? (
               <RidoPriceSettingsTab providerId={providerId} />
             ) : (
               <p className="text-center py-8 text-muted-foreground">Brak providera</p>
             )}
-          </TabsContent>
-        </Tabs>
-      </CardContent>
-    </Card>
+          </div>
+        )}
+    </div>
   );
 }
