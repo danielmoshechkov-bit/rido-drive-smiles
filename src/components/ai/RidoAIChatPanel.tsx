@@ -1,44 +1,30 @@
 import { useState, useRef, useEffect, useCallback, DragEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { useGetRidoAI } from '@/hooks/useGetRidoAI';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
 import {
   Loader2, Send, Plus, MessageCircle, Briefcase,
-  Sparkles, X, Search, PanelLeftOpen, PanelLeftClose, Lock,
-  Download, Paintbrush, RotateCcw, Paperclip, FileText, Trash2, Circle, Square, MoreHorizontal
+  Sparkles, X, Search, Lock,
+  Download, Paintbrush, RotateCcw, Paperclip, FileText, Trash2, Circle, Square, MoreHorizontal,
+  ChevronLeft
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ridoMascot from '@/assets/rido-mascot.png';
 import { AIProjectsSection } from './AIProjectsSection';
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
-import { DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 
 type MainMode = 'chat' | 'grafika' | 'cowork';
 interface Msg { id?: string; role: 'user' | 'assistant'; content: string; images?: string[]; files?: { name: string; type: string }[]; }
 interface Conv { id: string; title: string; mode: string; updated_at: string; is_starred?: boolean; project_id?: string | null; }
 
 const WELCOME: Record<string, string> = {
-  chat: `Cześć! 👋 Jestem **RidoAI** – Twój inteligentny asystent.
-
-Mogę Ci pomóc z:
-• 💬 Pytania i rozmowy
-• 🎨 Generowanie grafik — wystarczy napisać np. *"stwórz logo"*
-• 🏠 Wyszukiwanie nieruchomości i usług
-• 📄 Tworzenie treści i analiz
-
-Po prostu napisz czego potrzebujesz!`,
-  grafika: `🎨 **Tryb Grafika**
-
-Opisz co chcesz wygenerować — np:
-• *"Logo firmy transportowej w stylu minimalistycznym"*
-• *"Baner reklamowy z samochodem na tle miasta"*
-• *"Zdjęcie małpy w lesie z butelką"*`,
+  chat: `Cześć! 👋 Jestem **RidoAI** – Twój inteligentny asystent.\n\nMogę Ci pomóc z:\n• 💬 Pytania i rozmowy\n• 🎨 Generowanie grafik\n• 🏠 Wyszukiwanie nieruchomości i usług\n• 📄 Tworzenie treści i analiz\n\nPo prostu napisz czego potrzebujesz!`,
+  grafika: `🎨 **Tryb Grafika**\n\nOpisz co chcesz wygenerować.`,
   cowork: '',
 };
 
@@ -51,6 +37,40 @@ const parseAction = (text: string) => {
   try { return JSON.parse(match[1]); } catch { return null; }
 };
 
+const IMAGE_REPLY_VARIANTS = {
+  create: ['Gotowe — przygotowałem grafikę.', 'Jasne, oto przygotowany obraz.', 'Grafika jest gotowa.'],
+  edit: ['Gotowe — wprowadziłem zmiany.', 'Zmiany zostały naniesione.', 'Obraz został zaktualizowany.'],
+} as const;
+const pickImageReply = (type: keyof typeof IMAGE_REPLY_VARIANTS) => {
+  const v = IMAGE_REPLY_VARIANTS[type];
+  return v[Math.floor(Math.random() * v.length)];
+};
+
+const MAX_CONV_TITLE_WORDS = 2;
+const MAX_CONV_TITLE_CHARS = 18;
+const CONVERSATION_TITLE_STOPWORDS = new Set([
+  'a','aby','albo','ale','bo','co','czy','dla','do','gdzie','i','ile','jak','jaka','jaki','jakie',
+  'jest','kiedy','mam','mi','na','nad','nie','o','od','oraz','po','pod','proszę','sie','się','ten',
+  'to','tu','w','we','za','z','ze'
+]);
+
+function formatConversationTitle(title?: string | null) {
+  const normalized = (title || '').replace(/\s+/g, ' ').replace(/[?!.,:;()\[\]{}"']/g, ' ').replace(/[\n\r]+/g, ' ').trim();
+  if (!normalized) return 'Nowa rozmowa';
+  const allWords = normalized.split(' ').map(w => w.trim()).filter(Boolean);
+  const keywordWords = allWords.filter(w => !CONVERSATION_TITLE_STOPWORDS.has(w.toLowerCase()));
+  const shortWords = (keywordWords.length ? keywordWords : allWords).slice(0, MAX_CONV_TITLE_WORDS).join(' ');
+  return shortWords.length > MAX_CONV_TITLE_CHARS ? `${shortWords.slice(0, MAX_CONV_TITLE_CHARS - 1).trimEnd()}…` : shortWords;
+}
+
+const QUICK_REPLIES = [
+  'Jak wystawić fakturę?',
+  'Pokaż moje leady',
+  'Jak dodać usługę?',
+  'Uruchom AI Agenta',
+  'Pomoc z KSeF',
+];
+
 interface RidoAIChatPanelProps {
   open: boolean;
   onClose: () => void;
@@ -58,73 +78,11 @@ interface RidoAIChatPanelProps {
 
 type AnnotationTool = 'brush' | 'ellipse' | 'rectangle';
 
-const IMAGE_REPLY_VARIANTS = {
-  create: [
-    'Gotowe — przygotowałem grafikę.',
-    'Jasne, oto przygotowany obraz.',
-    'Stworzyłem nową wersję grafiki.',
-    'Mam to — poniżej masz obraz.',
-    'Grafika jest gotowa.',
-    'Przygotowałem to tak, jak prosiłeś.',
-    'Oto efekt tej prośby.',
-    'Wrzucam gotową grafikę poniżej.',
-  ],
-  edit: [
-    'Gotowe — wprowadziłem zmiany na obrazie.',
-    'Mam poprawioną wersję grafiki.',
-    'Zmiany zostały naniesione.',
-    'Przygotowałem zaktualizowany obraz.',
-    'To jest poprawiona wersja.',
-    'Dodałem wskazane poprawki.',
-    'Poniżej masz nową wersję po edycji.',
-    'Obraz został zaktualizowany.',
-  ],
-} as const;
-
-const pickImageReply = (type: keyof typeof IMAGE_REPLY_VARIANTS) => {
-  const variants = IMAGE_REPLY_VARIANTS[type];
-  return variants[Math.floor(Math.random() * variants.length)];
-};
-
-const MAX_CONV_TITLE_WORDS = 2;
-const MAX_CONV_TITLE_CHARS = 18;
-const CONVERSATION_TITLE_STOPWORDS = new Set([
-  'a', 'aby', 'albo', 'ale', 'bo', 'co', 'czy', 'dla', 'do', 'gdzie', 'i', 'ile', 'jak', 'jaka', 'jaki', 'jakie',
-  'jest', 'kiedy', 'mam', 'mi', 'na', 'nad', 'nie', 'o', 'od', 'oraz', 'po', 'pod', 'proszę', 'sie', 'się', 'ten',
-  'to', 'tu', 'w', 'we', 'za', 'z', 'ze'
-]);
-
-function formatConversationTitle(title?: string | null) {
-  const normalized = (title || '')
-    .replace(/\s+/g, ' ')
-    .replace(/[?!.,:;()\[\]{}"']/g, ' ')
-    .replace(/[\n\r]+/g, ' ')
-    .trim();
-
-  if (!normalized) return 'Nowa rozmowa';
-
-  const allWords = normalized
-    .split(' ')
-    .map(word => word.trim())
-    .filter(Boolean);
-
-  const keywordWords = allWords.filter(word => !CONVERSATION_TITLE_STOPWORDS.has(word.toLowerCase()));
-
-  const shortWords = (keywordWords.length ? keywordWords : allWords)
-    .slice(0, MAX_CONV_TITLE_WORDS)
-    .join(' ');
-
-  return shortWords.length > MAX_CONV_TITLE_CHARS
-    ? `${shortWords.slice(0, MAX_CONV_TITLE_CHARS - 1).trimEnd()}…`
-    : shortWords;
-}
-
 export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
   const navigate = useNavigate();
   const [mainMode, setMainMode] = useState<MainMode>('chat');
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
-  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [conversations, setConversations] = useState<Conv[]>([]);
   const [currentConvId, setCurrentConvId] = useState<string | null>(null);
@@ -140,6 +98,10 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
   const [newProjectName, setNewProjectName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Mobile: which view is active
+  const [activeView, setActiveView] = useState<'list' | 'chat'>('list');
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+
   // Image editor state
   const [editorImage, setEditorImage] = useState<string | null>(null);
   const [brushActive, setBrushActive] = useState(false);
@@ -153,7 +115,6 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
   const shapeStart = useRef<{ x: number; y: number } | null>(null);
   const baseMaskData = useRef<ImageData | null>(null);
 
-  // Multi-annotation system — store geometry for proper compositing & manipulation
   interface Annotation {
     id: number;
     type: AnnotationTool;
@@ -165,32 +126,25 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
   }
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [activeAnnotation, setActiveAnnotation] = useState<number | null>(null);
-  
-  // Shape interaction (move/resize)
+
   type InteractionMode = 'none' | 'move' | 'resize-tl' | 'resize-tr' | 'resize-bl' | 'resize-br';
   const [interactionMode, setInteractionMode] = useState<InteractionMode>('none');
   const [interactingAnnotation, setInteractingAnnotation] = useState<number | null>(null);
   const interactionStart = useRef<{ x: number; y: number; origStart: { x: number; y: number }; origEnd: { x: number; y: number } } | null>(null);
 
   const { streamExecute, execute, isLoading } = useGetRidoAI();
-  const scrollRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const scrollToBottom = useCallback(() => {
     requestAnimationFrame(() => {
-      messagesEndRef.current?.scrollIntoView({ block: 'end' });
+      messagesEndRef.current?.scrollIntoView({ block: 'end', behavior: 'smooth' });
     });
   }, []);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
-      if (data.user) {
-        console.log('[RidoAI] User loaded:', data.user.id);
-        setUserId(data.user.id);
-      } else {
-        console.warn('[RidoAI] No user found');
-      }
+      if (data.user) setUserId(data.user.id);
     });
   }, [open]);
 
@@ -200,78 +154,46 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
       .from('ai_conversations').select('id,title,mode,updated_at,is_starred,project_id')
       .eq('user_id', userId).order('updated_at', { ascending: false }).limit(50);
     if (data) {
-      setConversations(data.map((conversation: Conv) => ({
-        ...conversation,
-        title: formatConversationTitle(conversation.title),
-      })));
+      setConversations(data.map((c: Conv) => ({ ...c, title: formatConversationTitle(c.title) })));
     }
   }, [userId]);
 
   useEffect(() => {
-    if (open && userId) {
-      loadConversations();
-    }
+    if (open && userId) loadConversations();
   }, [open, userId, loadConversations]);
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, currentConvId, open, scrollToBottom]);
 
+  useEffect(() => { scrollToBottom(); }, [messages, currentConvId, open, scrollToBottom]);
+
+  // ── Data operations ──
   const createConv = async (text: string, mode: string): Promise<string> => {
-    const shortTitle = formatConversationTitle(text);
-
     let uid = userId;
     if (!uid) {
       const { data } = await supabase.auth.getUser();
       uid = data?.user?.id || null;
       if (uid) setUserId(uid);
     }
-    if (!uid) {
-      console.error('[RidoAI] Cannot create conversation - no userId');
-      return '';
-    }
+    if (!uid) return '';
     const { data, error } = await (supabase as any).from('ai_conversations')
-      .insert({ user_id: uid, title: shortTitle || 'Nowa rozmowa', mode }).select().single();
-    if (error) {
-      console.error('[RidoAI] Failed to create conversation:', error);
-      return '';
-    }
-    console.log('[RidoAI] Created conversation:', data?.id);
+      .insert({ user_id: uid, title: formatConversationTitle(text) || 'Nowa rozmowa', mode }).select().single();
+    if (error) return '';
     return data?.id || '';
   };
 
   const saveMsg = async (convId: string, msg: Msg) => {
-    if (!convId) {
-      console.error('[RidoAI] Cannot save message - no convId');
-      return;
-    }
+    if (!convId) return;
     let uid = userId;
-    if (!uid) {
-      const { data } = await supabase.auth.getUser();
-      uid = data?.user?.id || null;
-    }
-    if (!uid) {
-      console.error('[RidoAI] Cannot save message - no userId');
-      return;
-    }
-    const { error: msgErr } = await (supabase as any).from('ai_messages').insert({
-      conversation_id: convId,
-      user_id: uid,
-      role: msg.role,
-      content: msg.content,
+    if (!uid) { const { data } = await supabase.auth.getUser(); uid = data?.user?.id || null; }
+    if (!uid) return;
+    await (supabase as any).from('ai_messages').insert({
+      conversation_id: convId, user_id: uid, role: msg.role, content: msg.content,
       images: msg.role === 'assistant' ? (msg.images || null) : null
     });
-    if (msgErr) console.error('[RidoAI] Failed to save message:', msgErr);
-    
-    const { error: updErr } = await (supabase as any).from('ai_conversations')
-      .update({ updated_at: new Date().toISOString() }).eq('id', convId);
-    if (updErr) console.error('[RidoAI] Failed to update conversation:', updErr);
+    await (supabase as any).from('ai_conversations').update({ updated_at: new Date().toISOString() }).eq('id', convId);
   };
 
   const deleteConversation = async (convId: string, e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const confirmed = window.confirm('Usunąć tę rozmowę?');
-    if (!confirmed) return;
+    e.preventDefault(); e.stopPropagation();
+    if (!window.confirm('Usunąć tę rozmowę?')) return;
     await (supabase as any).from('ai_messages').delete().eq('conversation_id', convId);
     await (supabase as any).from('ai_conversations').delete().eq('id', convId);
     if (currentConvId === convId) handleNewChat();
@@ -311,108 +233,61 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
     if (!newProjectName.trim() || !userId) return;
     try {
       const { data, error } = await (supabase as any)
-        .from('workspace_projects')
-        .insert({ name: newProjectName.trim(), owner_user_id: userId, status: 'active' })
-        .select('id,name,color')
-        .single();
+        .from('workspace_projects').insert({ name: newProjectName.trim(), owner_user_id: userId, status: 'active' })
+        .select('id,name,color').single();
       if (error) throw error;
-      // Add self as member
-      await (supabase as any).from('workspace_project_members').insert({
-        project_id: data.id,
-        user_id: userId,
-        role: 'owner',
-      });
+      await (supabase as any).from('workspace_project_members').insert({ project_id: data.id, user_id: userId, role: 'owner' });
       setProjectsList(prev => [data, ...prev]);
-      // Assign conversation to the new project
-      if (projectPickerConvId) {
-        await assignToProject(projectPickerConvId, data.id);
-      }
+      if (projectPickerConvId) await assignToProject(projectPickerConvId, data.id);
       toast.success(`Projekt "${data.name}" utworzony`);
-    } catch {
-      toast.error('Nie udało się utworzyć projektu');
-    }
+    } catch { toast.error('Nie udało się utworzyć projektu'); }
   };
 
   const loadConversation = async (convId: string) => {
     const { data } = await (supabase as any).from('ai_messages').select('*').eq('conversation_id', convId).order('created_at', { ascending: true });
     if (data) setMessages(data.map((m: any) => ({ id: m.id, role: m.role, content: m.content, images: m.images })));
     setCurrentConvId(convId);
+    setActiveView('chat');
     setTimeout(scrollToBottom, 50);
   };
 
-  const handleNewChat = () => { setMessages([]); setCurrentConvId(null); setInput(''); setAttachedFiles([]); };
+  const handleNewChat = () => {
+    setMessages([]);
+    setCurrentConvId(null);
+    setInput('');
+    setAttachedFiles([]);
+    setActiveView('chat');
+  };
 
   const switchMode = (mode: MainMode) => {
     setMainMode(mode);
     if (mode !== 'cowork') handleNewChat();
   };
 
-  // File handling
+  // ── Files ──
   const handleFileSelect = (files: FileList | null) => {
     if (!files) return;
-    const newFiles = Array.from(files).slice(0, 5);
-    setAttachedFiles(prev => [...prev, ...newFiles].slice(0, 5));
+    setAttachedFiles(prev => [...prev, ...Array.from(files).slice(0, 5)].slice(0, 5));
   };
-
-  const removeFile = (idx: number) => {
-    setAttachedFiles(prev => prev.filter((_, i) => i !== idx));
-  };
-
-  const readFileAsBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve((reader.result as string).split(',')[1]);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  };
-
-  const readFileAsDataUrl = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  };
-
-  const readFileAsText = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsText(file);
-    });
-  };
-
+  const removeFile = (idx: number) => setAttachedFiles(prev => prev.filter((_, i) => i !== idx));
+  const readFileAsBase64 = (file: File): Promise<string> => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res((r.result as string).split(',')[1]); r.onerror = rej; r.readAsDataURL(file); });
+  const readFileAsDataUrl = (file: File): Promise<string> => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result as string); r.onerror = rej; r.readAsDataURL(file); });
+  const readFileAsText = (file: File): Promise<string> => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result as string); r.onerror = rej; r.readAsText(file); });
   const onDragOver = (e: DragEvent) => { e.preventDefault(); setIsDragging(true); };
   const onDragLeave = (e: DragEvent) => { e.preventDefault(); setIsDragging(false); };
-  const onDrop = (e: DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    handleFileSelect(e.dataTransfer.files);
-  };
-
+  const onDrop = (e: DragEvent) => { e.preventDefault(); setIsDragging(false); handleFileSelect(e.dataTransfer.files); };
   const openAttachedImageEditor = async (file: File) => {
     if (!file.type.startsWith('image/')) return;
-    try {
-      const dataUrl = await readFileAsDataUrl(file);
-      openEditor(dataUrl);
-    } catch (err) {
-      console.error('[RidoAI] Failed to open attached image:', err);
-    }
+    try { const dataUrl = await readFileAsDataUrl(file); openEditor(dataUrl); } catch {}
   };
 
-  const handleSend = useCallback(async () => {
-    const text = input.trim();
+  // ── Send ──
+  const handleSend = useCallback(async (overrideText?: string) => {
+    const text = (overrideText || input).trim();
     if (!text || isLoading) return;
-
     const fileNames = attachedFiles.map(f => f.name);
-    const contentWithFiles = fileNames.length > 0
-      ? `${text}\n\n📎 Załączniki: ${fileNames.join(', ')}`
-      : text;
+    const contentWithFiles = fileNames.length > 0 ? `${text}\n\n📎 Załączniki: ${fileNames.join(', ')}` : text;
 
-    // Read file contents for AI
     let fileContents: { name: string; type: string; data?: string; text?: string }[] = [];
     let attachmentPreviewImages: string[] = [];
     for (const file of attachedFiles) {
@@ -425,34 +300,23 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
           const txt = await readFileAsText(file);
           fileContents.push({ name: file.name, type: file.type, text: txt });
         } else {
-          // PDF, DOCX etc - send as base64
           const b64 = await readFileAsBase64(file);
           fileContents.push({ name: file.name, type: file.type, data: b64 });
         }
-      } catch (err) {
-        console.error('[RidoAI] Error reading file:', file.name, err);
-      }
+      } catch {}
     }
 
-    const userMsg: Msg = {
-      role: 'user',
-      content: contentWithFiles,
-      files: attachedFiles.map(f => ({ name: f.name, type: f.type })),
-      images: attachmentPreviewImages.length > 0 ? attachmentPreviewImages : undefined,
-    };
+    const userMsg: Msg = { role: 'user', content: contentWithFiles, files: attachedFiles.map(f => ({ name: f.name, type: f.type })), images: attachmentPreviewImages.length > 0 ? attachmentPreviewImages : undefined };
     const newMsgs = [...messages, userMsg];
     setMessages(newMsgs);
     setInput('');
     setAttachedFiles([]);
+    setActiveView('chat');
 
     let convId = currentConvId;
     if (!convId) {
       convId = await createConv(text, mainMode);
-      if (convId) {
-        setCurrentConvId(convId);
-      } else {
-        console.warn('[RidoAI] Could not save conversation, continuing without persistence');
-      }
+      if (convId) setCurrentConvId(convId);
     }
     if (convId) await saveMsg(convId, userMsg);
 
@@ -462,11 +326,7 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
     if (isImg && fileContents.length === 0) {
       setMessages(prev => [...prev, { role: 'assistant', content: '🎨 Generuję grafikę...' }]);
       const result = await execute({ taskType: 'image', query: text, mode: 'rido_create', stream: false });
-      const aMsg: Msg = {
-        role: 'assistant',
-        content: result?.images?.length ? pickImageReply('create') : (result?.result || '❌ Nie udało się wygenerować.'),
-        images: result?.images
-      };
+      const aMsg: Msg = { role: 'assistant', content: result?.images?.length ? pickImageReply('create') : (result?.result || '❌ Nie udało się wygenerować.'), images: result?.images };
       setMessages(prev => { const u = [...prev]; u[u.length - 1] = aMsg; return u; });
       if (convId) await saveMsg(convId, aMsg);
       loadConversations();
@@ -477,120 +337,48 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
     const activeMode = mainMode === 'cowork' ? 'cowork' : 'rido_chat';
 
     if (shouldUseNonStreaming) {
-      const result = await execute({
-        taskType: 'text',
-        query: text,
-        mode: activeMode,
-        messages: newMsgs.map(m => ({ role: m.role, content: m.content })),
-        stream: false,
-        files: fileContents.length > 0 ? fileContents : undefined,
-      });
-
+      const result = await execute({ taskType: 'text', query: text, mode: activeMode, messages: newMsgs.map(m => ({ role: m.role, content: m.content })), stream: false, files: fileContents.length > 0 ? fileContents : undefined });
       const assistantContent = result?.result || '⚠️ Nie udało się uzyskać odpowiedzi.';
       const assistantMsg: Msg = { role: 'assistant', content: assistantContent };
-      setMessages(prev => {
-        const updated = [...prev];
-        updated[updated.length - 1] = assistantMsg;
-        return updated;
-      });
+      setMessages(prev => { const u = [...prev]; u[u.length - 1] = assistantMsg; return u; });
       if (convId) await saveMsg(convId, assistantMsg);
-
       if (/IMAGE_REQUEST:true/.test(assistantContent)) {
         setMessages(prev => [...prev, { role: 'assistant', content: '🎨 Generuję grafikę...' }]);
         const imageResult = await execute({ taskType: 'image', query: text, mode: 'rido_create', stream: false });
-        const imageMsg: Msg = {
-          role: 'assistant',
-          content: imageResult?.images?.length ? pickImageReply('create') : (imageResult?.result || '❌ Nie udało się wygenerować.'),
-          images: imageResult?.images,
-        };
-        setMessages(prev => {
-          const updated = [...prev];
-          updated[updated.length - 1] = imageMsg;
-          return updated;
-        });
+        const imageMsg: Msg = { role: 'assistant', content: imageResult?.images?.length ? pickImageReply('create') : (imageResult?.result || '❌'), images: imageResult?.images };
+        setMessages(prev => { const u = [...prev]; u[u.length - 1] = imageMsg; return u; });
         if (convId) await saveMsg(convId, imageMsg);
       }
-
       const action = parseAction(assistantContent);
-      if (action) {
-        const routes: Record<string, string> = {
-          CREATE_INVOICE: '/invoices/new', CREATE_TASK: '/tasks',
-          FIND_SERVICE: '/services', SEARCH_PROPERTY: '/real-estate',
-        };
-        const path = action.params?.path || routes[action.type];
-        if (path) navigate(path);
-      }
-
+      if (action) { const routes: Record<string, string> = { CREATE_INVOICE: '/invoices/new', CREATE_TASK: '/tasks', FIND_SERVICE: '/services', SEARCH_PROPERTY: '/real-estate' }; const path = action.params?.path || routes[action.type]; if (path) navigate(path); }
       loadConversations();
       return;
     }
 
     let acc = '';
-
     await streamExecute(
       { taskType: 'text', query: text, mode: activeMode, messages: newMsgs.map(m => ({ role: m.role, content: m.content })), stream: true, files: fileContents.length > 0 ? fileContents : undefined },
-      delta => {
-        acc += delta;
-        setMessages(prev => {
-          const u = [...prev];
-          u[u.length - 1] = { role: 'assistant', content: acc };
-          return u;
-        });
-      },
+      delta => { acc += delta; setMessages(prev => { const u = [...prev]; u[u.length - 1] = { role: 'assistant', content: acc }; return u; }); },
       async () => {
         const aMsg: Msg = { role: 'assistant', content: acc };
         if (convId) await saveMsg(convId, aMsg);
-
         if (/IMAGE_REQUEST:true/.test(acc)) {
           setMessages(prev => [...prev, { role: 'assistant', content: '🎨 Generuję grafikę...' }]);
           const imageResult = await execute({ taskType: 'image', query: text, mode: 'rido_create', stream: false });
-          const imageMsg: Msg = {
-            role: 'assistant',
-            content: imageResult?.images?.length ? pickImageReply('create') : (imageResult?.result || '❌ Nie udało się wygenerować.'),
-            images: imageResult?.images,
-          };
-          setMessages(prev => {
-            const updated = [...prev];
-            updated[updated.length - 1] = imageMsg;
-            return updated;
-          });
+          const imageMsg: Msg = { role: 'assistant', content: imageResult?.images?.length ? pickImageReply('create') : (imageResult?.result || '❌'), images: imageResult?.images };
+          setMessages(prev => { const u = [...prev]; u[u.length - 1] = imageMsg; return u; });
           if (convId) await saveMsg(convId, imageMsg);
         }
-
         const action = parseAction(acc);
-        if (action) {
-          const routes: Record<string, string> = {
-            CREATE_INVOICE: '/invoices/new', CREATE_TASK: '/tasks',
-            FIND_SERVICE: '/services', SEARCH_PROPERTY: '/real-estate',
-          };
-          const path = action.params?.path || routes[action.type];
-          if (path) navigate(path);
-        }
+        if (action) { const routes: Record<string, string> = { CREATE_INVOICE: '/invoices/new', CREATE_TASK: '/tasks', FIND_SERVICE: '/services', SEARCH_PROPERTY: '/real-estate' }; const path = action.params?.path || routes[action.type]; if (path) navigate(path); }
         loadConversations();
       }
     );
   }, [input, isLoading, messages, mainMode, currentConvId, userId, streamExecute, execute, navigate, loadConversations, attachedFiles]);
 
-  // ── Image Editor ──────────────────────────────────────────
-  const openEditor = (imgSrc: string) => {
-    setEditorImage(imgSrc);
-    setBrushActive(false);
-    setAnnotationTool('brush');
-    setIsDrawing(false);
-    setAnnotations([]);
-    setActiveAnnotation(null);
-    lastPoint.current = null;
-    currentPath.current = [];
-    shapeStart.current = null;
-    baseMaskData.current = null;
-  };
-
-  const downloadImage = (imgSrc: string) => {
-    const a = document.createElement('a');
-    a.href = imgSrc;
-    a.download = 'rido-grafika.png';
-    a.click();
-  };
+  // ── Image Editor ──
+  const openEditor = (imgSrc: string) => { setEditorImage(imgSrc); setBrushActive(false); setAnnotationTool('brush'); setIsDrawing(false); setAnnotations([]); setActiveAnnotation(null); lastPoint.current = null; currentPath.current = []; shapeStart.current = null; baseMaskData.current = null; };
+  const downloadImage = (imgSrc: string) => { const a = document.createElement('a'); a.href = imgSrc; a.download = 'rido-grafika.png'; a.click(); };
 
   useEffect(() => {
     if (!editorImage || !canvasRef.current || !maskCanvasRef.current) return;
@@ -599,121 +387,63 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
     img.onload = () => {
       const maxW = Math.min(img.width, 900);
       const ratio = img.height / img.width;
-      const w = maxW;
-      const h = Math.round(maxW * ratio);
+      const w = maxW; const h = Math.round(maxW * ratio);
       [canvasRef.current!, maskCanvasRef.current!].forEach(c => { c.width = w; c.height = h; });
       canvasRef.current!.getContext('2d')!.drawImage(img, 0, 0, w, h);
       maskCanvasRef.current!.getContext('2d')!.clearRect(0, 0, w, h);
-      shapeStart.current = null;
-      baseMaskData.current = null;
+      shapeStart.current = null; baseMaskData.current = null;
     };
     img.src = editorImage;
   }, [editorImage]);
 
-  // Redraw all annotation masks from geometry
   const redrawAnnotations = useCallback((anns: Annotation[]) => {
     if (!maskCanvasRef.current) return;
     const ctx = maskCanvasRef.current.getContext('2d')!;
     ctx.clearRect(0, 0, maskCanvasRef.current.width, maskCanvasRef.current.height);
     anns.forEach(ann => {
       if (ann.type === 'brush' && ann.brushPoints && ann.brushPoints.length > 1) {
-        ctx.strokeStyle = 'rgba(108, 60, 240, 0.45)';
-        ctx.lineWidth = 36;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        for (let i = 1; i < ann.brushPoints.length; i++) {
-          ctx.beginPath();
-          ctx.moveTo(ann.brushPoints[i - 1].x, ann.brushPoints[i - 1].y);
-          ctx.lineTo(ann.brushPoints[i].x, ann.brushPoints[i].y);
-          ctx.stroke();
-        }
+        ctx.strokeStyle = 'rgba(108, 60, 240, 0.45)'; ctx.lineWidth = 36; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        for (let i = 1; i < ann.brushPoints.length; i++) { ctx.beginPath(); ctx.moveTo(ann.brushPoints[i - 1].x, ann.brushPoints[i - 1].y); ctx.lineTo(ann.brushPoints[i].x, ann.brushPoints[i].y); ctx.stroke(); }
       } else if (ann.start && ann.end) {
-        const x = Math.min(ann.start.x, ann.end.x);
-        const y = Math.min(ann.start.y, ann.end.y);
-        const w = Math.abs(ann.end.x - ann.start.x);
-        const h = Math.abs(ann.end.y - ann.start.y);
+        const x = Math.min(ann.start.x, ann.end.x), y = Math.min(ann.start.y, ann.end.y), w = Math.abs(ann.end.x - ann.start.x), h = Math.abs(ann.end.y - ann.start.y);
         ctx.fillStyle = 'rgba(108, 60, 240, 0.45)';
-        if (ann.type === 'rectangle') {
-          ctx.fillRect(x, y, w, h);
-        } else {
-          ctx.beginPath();
-          ctx.ellipse(x + w / 2, y + h / 2, Math.max(w / 2, 1), Math.max(h / 2, 1), 0, 0, Math.PI * 2);
-          ctx.fill();
-        }
+        if (ann.type === 'rectangle') { ctx.fillRect(x, y, w, h); } else { ctx.beginPath(); ctx.ellipse(x + w / 2, y + h / 2, Math.max(w / 2, 1), Math.max(h / 2, 1), 0, 0, Math.PI * 2); ctx.fill(); }
       }
     });
   }, []);
 
-  // Smooth brush drawing
   const getCanvasCoords = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const rect = maskCanvasRef.current!.getBoundingClientRect();
-    const sx = maskCanvasRef.current!.width / rect.width;
-    const sy = maskCanvasRef.current!.height / rect.height;
-    return { x: (e.clientX - rect.left) * sx, y: (e.clientY - rect.top) * sy };
+    return { x: (e.clientX - rect.left) * (maskCanvasRef.current!.width / rect.width), y: (e.clientY - rect.top) * (maskCanvasRef.current!.height / rect.height) };
   };
-
   const drawStroke = (from: { x: number; y: number }, to: { x: number; y: number }) => {
     if (!maskCanvasRef.current) return;
     const ctx = maskCanvasRef.current.getContext('2d')!;
-    ctx.strokeStyle = 'rgba(108, 60, 240, 0.45)';
-    ctx.lineWidth = 36;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.beginPath();
-    ctx.moveTo(from.x, from.y);
-    ctx.lineTo(to.x, to.y);
-    ctx.stroke();
+    ctx.strokeStyle = 'rgba(108, 60, 240, 0.45)'; ctx.lineWidth = 36; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.beginPath(); ctx.moveTo(from.x, from.y); ctx.lineTo(to.x, to.y); ctx.stroke();
   };
-
   const drawShape = (start: { x: number; y: number }, end: { x: number; y: number }, tool: Exclude<AnnotationTool, 'brush'>) => {
     if (!maskCanvasRef.current) return;
     const ctx = maskCanvasRef.current.getContext('2d')!;
-    const x = Math.min(start.x, end.x);
-    const y = Math.min(start.y, end.y);
-    const w = Math.abs(end.x - start.x);
-    const h = Math.abs(end.y - start.y);
-
+    const x = Math.min(start.x, end.x), y = Math.min(start.y, end.y), w = Math.abs(end.x - start.x), h = Math.abs(end.y - start.y);
     ctx.fillStyle = 'rgba(108, 60, 240, 0.45)';
-
-    if (tool === 'rectangle') {
-      ctx.fillRect(x, y, w, h);
-      return;
-    }
-
-    ctx.beginPath();
-    ctx.ellipse(x + w / 2, y + h / 2, Math.max(w / 2, 1), Math.max(h / 2, 1), 0, 0, Math.PI * 2);
-    ctx.fill();
+    if (tool === 'rectangle') { ctx.fillRect(x, y, w, h); } else { ctx.beginPath(); ctx.ellipse(x + w / 2, y + h / 2, Math.max(w / 2, 1), Math.max(h / 2, 1), 0, 0, Math.PI * 2); ctx.fill(); }
   };
-
   const addAnnotation = (ann: Omit<Annotation, 'id' | 'description'>) => {
-    setAnnotations(prev => {
-      const next = [...prev, { ...ann, id: prev.length + 1, description: '' }];
-      setActiveAnnotation(next.length);
-      return next;
-    });
+    setAnnotations(prev => { const next = [...prev, { ...ann, id: prev.length + 1, description: '' }]; setActiveAnnotation(next.length); return next; });
   };
+  const setActiveTool = (tool: AnnotationTool) => { setAnnotationTool(tool); setBrushActive(c => (annotationTool === tool ? !c : true)); };
 
-  const setActiveTool = (tool: AnnotationTool) => {
-    setAnnotationTool(tool);
-    setBrushActive(current => (annotationTool === tool ? !current : true));
-  };
-
-  // Check if click is on an existing shape annotation (for move/resize)
   const findShapeAtPoint = (pt: { x: number; y: number }): { annId: number; mode: InteractionMode } | null => {
     for (let i = annotations.length - 1; i >= 0; i--) {
       const ann = annotations[i];
       if (ann.type === 'brush' || !ann.start || !ann.end) continue;
-      const x1 = Math.min(ann.start.x, ann.end.x);
-      const y1 = Math.min(ann.start.y, ann.end.y);
-      const x2 = Math.max(ann.start.x, ann.end.x);
-      const y2 = Math.max(ann.start.y, ann.end.y);
-      const handleSize = 16;
-      // Check corner handles first
-      if (Math.abs(pt.x - x1) < handleSize && Math.abs(pt.y - y1) < handleSize) return { annId: ann.id, mode: 'resize-tl' };
-      if (Math.abs(pt.x - x2) < handleSize && Math.abs(pt.y - y1) < handleSize) return { annId: ann.id, mode: 'resize-tr' };
-      if (Math.abs(pt.x - x1) < handleSize && Math.abs(pt.y - y2) < handleSize) return { annId: ann.id, mode: 'resize-bl' };
-      if (Math.abs(pt.x - x2) < handleSize && Math.abs(pt.y - y2) < handleSize) return { annId: ann.id, mode: 'resize-br' };
-      // Check inside shape
+      const x1 = Math.min(ann.start.x, ann.end.x), y1 = Math.min(ann.start.y, ann.end.y), x2 = Math.max(ann.start.x, ann.end.x), y2 = Math.max(ann.start.y, ann.end.y);
+      const hs = 16;
+      if (Math.abs(pt.x - x1) < hs && Math.abs(pt.y - y1) < hs) return { annId: ann.id, mode: 'resize-tl' };
+      if (Math.abs(pt.x - x2) < hs && Math.abs(pt.y - y1) < hs) return { annId: ann.id, mode: 'resize-tr' };
+      if (Math.abs(pt.x - x1) < hs && Math.abs(pt.y - y2) < hs) return { annId: ann.id, mode: 'resize-bl' };
+      if (Math.abs(pt.x - x2) < hs && Math.abs(pt.y - y2) < hs) return { annId: ann.id, mode: 'resize-br' };
       if (pt.x >= x1 && pt.x <= x2 && pt.y >= y1 && pt.y <= y2) return { annId: ann.id, mode: 'move' };
     }
     return null;
@@ -722,161 +452,71 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
   const onBrushDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!brushActive) return;
     const pt = getCanvasCoords(e);
-
-    // Check if clicking on existing shape to move/resize
     const hit = findShapeAtPoint(pt);
-    if (hit) {
-      const ann = annotations.find(a => a.id === hit.annId);
-      if (ann && ann.start && ann.end) {
-        setInteractionMode(hit.mode);
-        setInteractingAnnotation(hit.annId);
-        interactionStart.current = { x: pt.x, y: pt.y, origStart: { ...ann.start }, origEnd: { ...ann.end } };
-        setActiveAnnotation(hit.annId);
-        return;
-      }
-    }
-
-    setIsDrawing(true);
-    shapeStart.current = pt;
-    lastPoint.current = pt;
-
-    if (annotationTool === 'brush') {
-      currentPath.current = [pt];
-      drawStroke(pt, pt);
-      return;
-    }
-
+    if (hit) { const ann = annotations.find(a => a.id === hit.annId); if (ann?.start && ann?.end) { setInteractionMode(hit.mode); setInteractingAnnotation(hit.annId); interactionStart.current = { x: pt.x, y: pt.y, origStart: { ...ann.start }, origEnd: { ...ann.end } }; setActiveAnnotation(hit.annId); return; } }
+    setIsDrawing(true); shapeStart.current = pt; lastPoint.current = pt;
+    if (annotationTool === 'brush') { currentPath.current = [pt]; drawStroke(pt, pt); return; }
     currentPath.current = [];
-    // Save current mask state for shape preview
     const ctx = maskCanvasRef.current?.getContext('2d');
-    if (ctx && maskCanvasRef.current) {
-      baseMaskData.current = ctx.getImageData(0, 0, maskCanvasRef.current.width, maskCanvasRef.current.height);
-    }
+    if (ctx && maskCanvasRef.current) baseMaskData.current = ctx.getImageData(0, 0, maskCanvasRef.current.width, maskCanvasRef.current.height);
   };
 
   const onBrushMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const pt = getCanvasCoords(e);
-
-    // Handle shape move/resize
     if (interactionMode !== 'none' && interactingAnnotation && interactionStart.current) {
-      const dx = pt.x - interactionStart.current.x;
-      const dy = pt.y - interactionStart.current.y;
+      const dx = pt.x - interactionStart.current.x, dy = pt.y - interactionStart.current.y;
       const { origStart, origEnd } = interactionStart.current;
-
       setAnnotations(prev => prev.map(ann => {
         if (ann.id !== interactingAnnotation) return ann;
-        let newStart = ann.start!, newEnd = ann.end!;
-        if (interactionMode === 'move') {
-          newStart = { x: origStart.x + dx, y: origStart.y + dy };
-          newEnd = { x: origEnd.x + dx, y: origEnd.y + dy };
-        } else if (interactionMode === 'resize-tl') {
-          newStart = { x: origStart.x + dx, y: origStart.y + dy };
-          newEnd = { ...origEnd };
-        } else if (interactionMode === 'resize-tr') {
-          newStart = { x: origStart.x, y: origStart.y + dy };
-          newEnd = { x: origEnd.x + dx, y: origEnd.y };
-        } else if (interactionMode === 'resize-bl') {
-          newStart = { x: origStart.x + dx, y: origStart.y };
-          newEnd = { x: origEnd.x, y: origEnd.y + dy };
-        } else if (interactionMode === 'resize-br') {
-          newStart = { ...origStart };
-          newEnd = { x: origEnd.x + dx, y: origEnd.y + dy };
-        }
-        const center = { x: (newStart.x + newEnd.x) / 2, y: (newStart.y + newEnd.y) / 2 };
-        return { ...ann, start: newStart, end: newEnd, center };
+        let ns = ann.start!, ne = ann.end!;
+        if (interactionMode === 'move') { ns = { x: origStart.x + dx, y: origStart.y + dy }; ne = { x: origEnd.x + dx, y: origEnd.y + dy }; }
+        else if (interactionMode === 'resize-tl') { ns = { x: origStart.x + dx, y: origStart.y + dy }; ne = { ...origEnd }; }
+        else if (interactionMode === 'resize-tr') { ns = { x: origStart.x, y: origStart.y + dy }; ne = { x: origEnd.x + dx, y: origEnd.y }; }
+        else if (interactionMode === 'resize-bl') { ns = { x: origStart.x + dx, y: origStart.y }; ne = { x: origEnd.x, y: origEnd.y + dy }; }
+        else if (interactionMode === 'resize-br') { ns = { ...origStart }; ne = { x: origEnd.x + dx, y: origEnd.y + dy }; }
+        return { ...ann, start: ns, end: ne, center: { x: (ns.x + ne.x) / 2, y: (ns.y + ne.y) / 2 } };
       }));
-      // Redraw all masks
       setAnnotations(prev => { redrawAnnotations(prev); return prev; });
       return;
     }
-
     if (!isDrawing || !brushActive || !lastPoint.current) return;
-
-    if (annotationTool === 'brush') {
-      drawStroke(lastPoint.current, pt);
-      lastPoint.current = pt;
-      currentPath.current.push(pt);
-      return;
-    }
-
+    if (annotationTool === 'brush') { drawStroke(lastPoint.current, pt); lastPoint.current = pt; currentPath.current.push(pt); return; }
     if (!shapeStart.current || !maskCanvasRef.current || !baseMaskData.current) return;
-    const ctx = maskCanvasRef.current.getContext('2d')!;
-    ctx.putImageData(baseMaskData.current, 0, 0);
+    maskCanvasRef.current.getContext('2d')!.putImageData(baseMaskData.current, 0, 0);
     drawShape(shapeStart.current, pt, annotationTool);
     lastPoint.current = pt;
   };
 
   const onBrushUp = () => {
-    // End shape interaction
-    if (interactionMode !== 'none') {
-      setInteractionMode('none');
-      setInteractingAnnotation(null);
-      interactionStart.current = null;
-      return;
-    }
-
+    if (interactionMode !== 'none') { setInteractionMode('none'); setInteractingAnnotation(null); interactionStart.current = null; return; }
     if (!isDrawing || !maskCanvasRef.current) return;
     setIsDrawing(false);
-
     if (annotationTool === 'brush') {
       const path = currentPath.current;
-      if (path.length > 1) {
-        const center = {
-          x: path.reduce((s, p) => s + p.x, 0) / path.length,
-          y: path.reduce((s, p) => s + p.y, 0) / path.length,
-        };
-        addAnnotation({ type: 'brush', brushPoints: [...path], center });
-      }
+      if (path.length > 1) { const center = { x: path.reduce((s, p) => s + p.x, 0) / path.length, y: path.reduce((s, p) => s + p.y, 0) / path.length }; addAnnotation({ type: 'brush', brushPoints: [...path], center }); }
     } else if (shapeStart.current && lastPoint.current) {
-      const center = {
-        x: (shapeStart.current.x + lastPoint.current.x) / 2,
-        y: (shapeStart.current.y + lastPoint.current.y) / 2,
-      };
-      addAnnotation({
-        type: annotationTool,
-        start: { ...shapeStart.current },
-        end: { ...lastPoint.current },
-        center,
-      });
+      const center = { x: (shapeStart.current.x + lastPoint.current.x) / 2, y: (shapeStart.current.y + lastPoint.current.y) / 2 };
+      addAnnotation({ type: annotationTool, start: { ...shapeStart.current }, end: { ...lastPoint.current }, center });
     }
-
-    lastPoint.current = null;
-    currentPath.current = [];
-    shapeStart.current = null;
-    baseMaskData.current = null;
+    lastPoint.current = null; currentPath.current = []; shapeStart.current = null; baseMaskData.current = null;
   };
 
-  const updateAnnotationDesc = (id: number, desc: string) => {
-    setAnnotations(prev => prev.map(a => a.id === id ? { ...a, description: desc } : a));
-  };
-
+  const updateAnnotationDesc = (id: number, desc: string) => setAnnotations(prev => prev.map(a => a.id === id ? { ...a, description: desc } : a));
   const removeAnnotation = (id: number) => {
     let nextActive: number | null = activeAnnotation;
     setAnnotations(prev => {
-      const updated = prev
-        .filter(a => a.id !== id)
-        .map((ann, index) => ({ ...ann, id: index + 1 }));
-
+      const updated = prev.filter(a => a.id !== id).map((ann, i) => ({ ...ann, id: i + 1 }));
       redrawAnnotations(updated);
-
       if (activeAnnotation === id) nextActive = updated[0]?.id ?? null;
       else if (activeAnnotation && activeAnnotation > id) nextActive = activeAnnotation - 1;
-
       return updated;
     });
     setActiveAnnotation(nextActive);
   };
-
   const clearAllAnnotations = () => {
     if (!maskCanvasRef.current) return;
-    const ctx = maskCanvasRef.current.getContext('2d')!;
-    ctx.clearRect(0, 0, maskCanvasRef.current.width, maskCanvasRef.current.height);
-    setAnnotations([]);
-    setActiveAnnotation(null);
-    lastPoint.current = null;
-    currentPath.current = [];
-    shapeStart.current = null;
-    baseMaskData.current = null;
+    maskCanvasRef.current.getContext('2d')!.clearRect(0, 0, maskCanvasRef.current.width, maskCanvasRef.current.height);
+    setAnnotations([]); setActiveAnnotation(null); lastPoint.current = null; currentPath.current = []; shapeStart.current = null; baseMaskData.current = null;
   };
 
   const applyAllEdits = async () => {
@@ -884,872 +524,449 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
     if (validAnnotations.length === 0 || !canvasRef.current || !maskCanvasRef.current || isEditing) return;
     setIsEditing(true);
     try {
-      // Ensure mask is fully redrawn from geometry before capturing
       redrawAnnotations(annotations);
-      
-      // Build prompt with positional context 
-      const cw = canvasRef.current.width;
-      const ch = canvasRef.current.height;
+      const cw = canvasRef.current.width, ch = canvasRef.current.height;
       const combinedPrompt = validAnnotations.map((a, i) => {
-        const posDesc = a.center 
-          ? `(pozycja: ${Math.round(a.center.x / cw * 100)}% od lewej, ${Math.round(a.center.y / ch * 100)}% od góry)`
-          : '';
+        const posDesc = a.center ? `(pozycja: ${Math.round(a.center.x / cw * 100)}% od lewej, ${Math.round(a.center.y / ch * 100)}% od góry)` : '';
         return `${i + 1}. ${a.description} ${posDesc}`;
       }).join('\n');
-      
       const imageBase64 = canvasRef.current.toDataURL('image/png').split(',')[1];
       const maskBase64 = maskCanvasRef.current.toDataURL('image/png').split(',')[1];
-      
-      console.log('[RidoAI] Sending inpaint request with', validAnnotations.length, 'annotations, prompt:', combinedPrompt);
-      
-      const result = await execute({
-        taskType: 'inpaint',
-        query: combinedPrompt,
-        imageBase64,
-        maskBase64,
-      });
-      
-      console.log('[RidoAI] Inpaint result:', result?.result, 'images:', result?.images?.length);
-      
+      const result = await execute({ taskType: 'inpaint', query: combinedPrompt, imageBase64, maskBase64 });
       if (result?.images?.[0]) {
         const editedSrc = result.images[0];
-        // Load edited image onto canvas
         const newImg = new window.Image();
         newImg.crossOrigin = 'anonymous';
         newImg.onload = () => {
-          if (canvasRef.current) {
-            const ctx = canvasRef.current.getContext('2d')!;
-            ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-            ctx.drawImage(newImg, 0, 0, canvasRef.current.width, canvasRef.current.height);
-          }
-          clearAllAnnotations();
-          setBrushActive(false);
-          setAnnotationTool('brush');
-          setEditorImage(editedSrc);
-        };
-        newImg.onerror = () => {
-          console.error('[RidoAI] Failed to load edited image');
+          if (canvasRef.current) { const ctx = canvasRef.current.getContext('2d')!; ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height); ctx.drawImage(newImg, 0, 0, canvasRef.current.width, canvasRef.current.height); }
+          clearAllAnnotations(); setBrushActive(false); setAnnotationTool('brush'); setEditorImage(editedSrc);
         };
         newImg.src = editedSrc;
-
-        const imageMsg: Msg = {
-          role: 'assistant',
-          content: pickImageReply('edit'),
-          images: [editedSrc],
-        };
+        const imageMsg: Msg = { role: 'assistant', content: pickImageReply('edit'), images: [editedSrc] };
         setMessages(prev => [...prev, imageMsg]);
-        if (currentConvId) {
-          await saveMsg(currentConvId, imageMsg);
-          loadConversations();
-        }
-      } else {
-        console.error('[RidoAI] No edited image returned:', result?.result);
+        if (currentConvId) { await saveMsg(currentConvId, imageMsg); loadConversations(); }
       }
-    } catch (err) {
-      console.error('[RidoAI] Inpaint error:', err);
-    } finally {
-      setIsEditing(false);
-    }
+    } catch {} finally { setIsEditing(false); }
   };
 
-  // ── Display ───────────────────────────────────────────────
-  const displayMsgs = messages;
-
-  const filteredConvs = searchQuery
-    ? conversations.filter(c => c.title?.toLowerCase().includes(searchQuery.toLowerCase()))
-    : conversations;
-
+  // ── Display helpers ──
+  const filteredConvs = searchQuery ? conversations.filter(c => c.title?.toLowerCase().includes(searchQuery.toLowerCase())) : conversations;
   const groupedConvs = (() => {
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
-    const groups: { label: string; items: Conv[] }[] = [
-      { label: 'Dzisiaj', items: [] },
-      { label: 'Wczoraj', items: [] },
-      { label: 'Wcześniej', items: [] },
-    ];
+    const groups: { label: string; items: Conv[] }[] = [{ label: '⭐ Ulubione', items: [] }, { label: 'Dzisiaj', items: [] }, { label: 'Wczoraj', items: [] }, { label: 'Wcześniej', items: [] }];
     filteredConvs.forEach(c => {
+      if (c.is_starred) { groups[0].items.push(c); return; }
       const d = new Date(c.updated_at); d.setHours(0, 0, 0, 0);
-      if (d >= today) groups[0].items.push(c);
-      else if (d >= yesterday) groups[1].items.push(c);
-      else groups[2].items.push(c);
+      if (d >= today) groups[1].items.push(c);
+      else if (d >= yesterday) groups[2].items.push(c);
+      else groups[3].items.push(c);
     });
     return groups.filter(g => g.items.length > 0);
   })();
 
   if (!open) return null;
 
-  // ── Fullscreen Image Editor ───────────────────────────────
+  // ── Image Editor (fullscreen) ──
   if (editorImage) {
     const validAnnotationCount = annotations.filter(a => a.description.trim()).length;
     return (
       <div className="fixed inset-0 z-[60] bg-background flex flex-col">
-        {/* Toolbar */}
         <div className="flex items-center justify-between px-5 py-3 border-b bg-background shadow-sm flex-shrink-0">
           <div className="flex items-center gap-3">
             <img src={ridoMascot} alt="RidoAI" className="w-9 h-9 object-contain flex-shrink-0" />
             <span className="font-bold text-sm">Edytor grafiki</span>
-            {annotations.length > 0 && (
-              <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-semibold">
-                {annotations.length} {annotations.length === 1 ? 'zaznaczenie' : 'zaznaczeń'}
-              </span>
-            )}
+            {annotations.length > 0 && <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-semibold">{annotations.length} zaznaczeń</span>}
           </div>
           <div className="flex items-center gap-2">
-            <button
-                onClick={() => setActiveTool('brush')}
-                className={cn(
-                  'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold border transition-all',
-                  brushActive && annotationTool === 'brush'
-                    ? 'bg-primary text-primary-foreground border-primary'
-                    : 'hover:bg-muted border-border'
-                )}
-              >
-                <Paintbrush className="h-4 w-4" />
-                {brushActive && annotationTool === 'brush' ? 'Pędzel ON' : 'Pędzel'}
-              </button>
-              <button
-                onClick={() => setActiveTool('ellipse')}
-                className={cn(
-                  'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold border transition-all',
-                  brushActive && annotationTool === 'ellipse'
-                    ? 'bg-primary text-primary-foreground border-primary'
-                    : 'hover:bg-muted border-border'
-                )}
-              >
-                <Circle className="h-4 w-4" />
-                Owal
-              </button>
-              <button
-                onClick={() => setActiveTool('rectangle')}
-                className={cn(
-                  'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold border transition-all',
-                  brushActive && annotationTool === 'rectangle'
-                    ? 'bg-primary text-primary-foreground border-primary'
-                    : 'hover:bg-muted border-border'
-                )}
-              >
-                <Square className="h-4 w-4" />
-                Prostokąt
-              </button>
-            {annotations.length > 0 && (
-              <button onClick={clearAllAnnotations} className="p-2 rounded-lg hover:bg-muted border border-border" title="Wyczyść wszystko">
-                <RotateCcw className="h-4 w-4" />
-              </button>
-            )}
-            {validAnnotationCount > 0 && (
-              <Button
-                size="sm"
-                onClick={applyAllEdits}
-                disabled={isEditing}
-                className="rounded-lg text-xs font-semibold gap-1.5"
-              >
-                {isEditing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-                Popraw obrazek ({validAnnotationCount})
-              </Button>
-            )}
-            <button onClick={() => downloadImage(editorImage)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold hover:bg-muted border border-border">
-              <Download className="h-4 w-4" /> Pobierz
-            </button>
-            <button onClick={() => setEditorImage(null)} className="p-2 rounded-lg hover:bg-muted border border-border">
-              <X className="h-4 w-4" />
-            </button>
+            <button onClick={() => setActiveTool('brush')} className={cn('flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold border transition-all', brushActive && annotationTool === 'brush' ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-muted border-border')}><Paintbrush className="h-4 w-4" /><span className="hidden sm:inline">{brushActive && annotationTool === 'brush' ? 'Pędzel ON' : 'Pędzel'}</span></button>
+            <button onClick={() => setActiveTool('ellipse')} className={cn('flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold border transition-all', brushActive && annotationTool === 'ellipse' ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-muted border-border')}><Circle className="h-4 w-4" /><span className="hidden sm:inline">Owal</span></button>
+            <button onClick={() => setActiveTool('rectangle')} className={cn('flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold border transition-all', brushActive && annotationTool === 'rectangle' ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-muted border-border')}><Square className="h-4 w-4" /><span className="hidden sm:inline">Prostokąt</span></button>
+            {annotations.length > 0 && <button onClick={clearAllAnnotations} className="p-2 rounded-lg hover:bg-muted border border-border" title="Wyczyść wszystko"><RotateCcw className="h-4 w-4" /></button>}
+            {validAnnotationCount > 0 && <Button size="sm" onClick={applyAllEdits} disabled={isEditing} className="rounded-lg text-xs font-semibold gap-1.5">{isEditing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}Popraw ({validAnnotationCount})</Button>}
+            <button onClick={() => downloadImage(editorImage)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold hover:bg-muted border border-border"><Download className="h-4 w-4" /><span className="hidden sm:inline">Pobierz</span></button>
+            <button onClick={() => setEditorImage(null)} className="p-2 rounded-lg hover:bg-muted border border-border"><X className="h-4 w-4" /></button>
           </div>
         </div>
-
-        {/* Editor area */}
         <div className="flex-1 flex overflow-hidden">
-          {/* Canvas area */}
           <div className="flex-1 overflow-auto flex items-center justify-center p-6 bg-muted/20">
             <div className="relative inline-block shadow-2xl rounded-2xl overflow-visible">
               <div className="rounded-2xl overflow-hidden border border-border">
                 <canvas ref={canvasRef} className="block max-w-full max-h-[70vh]" style={{ touchAction: 'none' }} />
-                <canvas
-                  ref={maskCanvasRef}
-                  className={cn('absolute inset-0 w-full h-full', brushActive ? 'cursor-crosshair' : 'pointer-events-none')}
-                  style={{ touchAction: 'none' }}
-                  onMouseDown={onBrushDown}
-                  onMouseMove={onBrushMove}
-                  onMouseUp={onBrushUp}
-                  onMouseLeave={() => { if (isDrawing) { setIsDrawing(false); lastPoint.current = null; } }}
-                />
+                <canvas ref={maskCanvasRef} className={cn('absolute inset-0 w-full h-full', brushActive ? 'cursor-crosshair' : 'pointer-events-none')} style={{ touchAction: 'none' }} onMouseDown={onBrushDown} onMouseMove={onBrushMove} onMouseUp={onBrushUp} onMouseLeave={() => { if (isDrawing) { setIsDrawing(false); lastPoint.current = null; } }} />
               </div>
               {brushActive && annotations.length === 0 && !isDrawing && (
                 <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-primary/90 text-primary-foreground text-xs px-3 py-1.5 rounded-full pointer-events-none font-semibold">
-                  {annotationTool === 'brush' ? 'Zamaluj obszar który chcesz zmienić' : annotationTool === 'ellipse' ? 'Przeciągnij, aby zaznaczyć owal' : 'Przeciągnij, aby zaznaczyć prostokąt'}
+                  {annotationTool === 'brush' ? 'Zamaluj obszar' : annotationTool === 'ellipse' ? 'Przeciągnij owal' : 'Przeciągnij prostokąt'}
                 </div>
               )}
-              {/* Numbered circles + resize/move handles on image */}
               {annotations.map(ann => {
                 const canvas = maskCanvasRef.current;
                 if (!canvas) return null;
                 const rect = canvas.getBoundingClientRect();
-                const scaleX = rect.width / canvas.width;
-                const scaleY = rect.height / canvas.height;
-
-                // Render shape handles for rectangle/ellipse annotations
-                const isShape = ann.type !== 'brush' && ann.start && ann.end;
-                const isSelected = activeAnnotation === ann.id;
-                const x1 = isShape ? Math.min(ann.start!.x, ann.end!.x) * scaleX : 0;
-                const y1 = isShape ? Math.min(ann.start!.y, ann.end!.y) * scaleY : 0;
-                const x2 = isShape ? Math.max(ann.start!.x, ann.end!.x) * scaleX : 0;
-                const y2 = isShape ? Math.max(ann.start!.y, ann.end!.y) * scaleY : 0;
-
+                const sx = rect.width / canvas.width, sy = rect.height / canvas.height;
                 return (
-                  <div key={ann.id}>
-                    {/* Shape bounding box + handles (only when brush is active and shape is selected) */}
-                    {isShape && brushActive && isSelected && (
-                      <>
-                        {/* Bounding box outline */}
-                        <div
-                          className="absolute border-2 border-primary pointer-events-none"
-                          style={{ left: x1, top: y1, width: x2 - x1, height: y2 - y1 }}
-                        />
-                        {/* Corner handles */}
-                        {[
-                          { cx: x1, cy: y1, cursor: 'nwse-resize', label: '↖' },
-                          { cx: x2, cy: y1, cursor: 'nesw-resize', label: '↗' },
-                          { cx: x1, cy: y2, cursor: 'nesw-resize', label: '↙' },
-                          { cx: x2, cy: y2, cursor: 'nwse-resize', label: '↘' },
-                        ].map((h, i) => (
-                          <div
-                            key={`corner-${i}`}
-                            className="absolute w-3 h-3 bg-background border-2 border-primary rounded-full pointer-events-none shadow-sm"
-                            style={{ left: h.cx - 6, top: h.cy - 6 }}
-                          />
-                        ))}
-                        {/* Edge midpoint handles */}
-                        {[
-                          { cx: (x1 + x2) / 2, cy: y1, w: 12, h: 5 },
-                          { cx: (x1 + x2) / 2, cy: y2, w: 12, h: 5 },
-                          { cx: x1, cy: (y1 + y2) / 2, w: 5, h: 12 },
-                          { cx: x2, cy: (y1 + y2) / 2, w: 5, h: 12 },
-                        ].map((h, i) => (
-                          <div
-                            key={`edge-${i}`}
-                            className="absolute bg-background border-2 border-primary rounded-sm pointer-events-none shadow-sm"
-                            style={{ left: h.cx - h.w / 2, top: h.cy - h.h / 2, width: h.w, height: h.h }}
-                          />
-                        ))}
-                        {/* Move icon below shape */}
-                        <div
-                          className="absolute flex items-center gap-1.5 pointer-events-none"
-                          style={{ left: (x1 + x2) / 2 - 28, top: y2 + 8 }}
-                        >
-                          <div className="w-6 h-6 rounded-full bg-background border border-border shadow-sm flex items-center justify-center" title="Obróć">
-                            <RotateCcw className="h-3 w-3 text-muted-foreground" />
-                          </div>
-                          <div className="w-6 h-6 rounded-full bg-background border border-border shadow-sm flex items-center justify-center" title="Przesuń">
-                            <svg className="h-3 w-3 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M5 9l-3 3 3 3" /><path d="M9 5l3-3 3 3" /><path d="M15 19l-3 3-3-3" /><path d="M19 9l3 3-3 3" />
-                              <line x1="2" y1="12" x2="22" y2="12" /><line x1="12" y1="2" x2="12" y2="22" />
-                            </svg>
-                          </div>
-                        </div>
-                      </>
-                    )}
-                    {/* Numbered circle */}
-                    <div
-                      className={cn(
-                        'absolute w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold pointer-events-none border-2 shadow-lg',
-                        ann.description.trim()
-                          ? 'bg-primary text-primary-foreground border-primary-foreground/30'
-                          : 'bg-accent text-accent-foreground border-border'
-                      )}
-                      style={{
-                        left: ann.center.x * scaleX - 14,
-                        top: ann.center.y * scaleY - 14,
-                      }}
-                    >
-                      {ann.id}
-                    </div>
-                  </div>
+                  <div key={ann.id} className={cn('absolute w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold pointer-events-none border-2 shadow-lg', ann.description.trim() ? 'bg-primary text-primary-foreground border-primary-foreground/30' : 'bg-accent text-accent-foreground border-border')} style={{ left: ann.center.x * sx - 14, top: ann.center.y * sy - 14 }}>{ann.id}</div>
                 );
               })}
             </div>
           </div>
-
-          {/* Annotations sidebar */}
           {annotations.length > 0 && (
-            <div className="w-[320px] border-l bg-background flex flex-col flex-shrink-0">
-              <div className="px-4 py-3 border-b">
-                <h3 className="font-bold text-sm">Zaznaczenia</h3>
-                <p className="text-[11px] text-muted-foreground">Opisz co zmienić w każdym obszarze</p>
-              </div>
-              <ScrollArea className="flex-1">
-                <div className="p-3 space-y-3">
-                  {annotations.map(ann => (
-                    <div
-                      key={ann.id}
-                      className={cn(
-                        'rounded-xl border p-3 transition-all',
-                        activeAnnotation === ann.id ? 'border-primary bg-primary/5' : 'border-border'
-                      )}
-                      onClick={() => setActiveAnnotation(ann.id)}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center">
-                            {ann.id}
-                          </span>
-                          <span className="text-xs font-semibold text-foreground">Obszar {ann.id}</span>
-                        </div>
-                        <button
-                          onClick={e => { e.stopPropagation(); removeAnnotation(ann.id); }}
-                          className="p-1 hover:bg-destructive/10 rounded-lg transition-colors"
-                          title="Usuń zaznaczenie"
-                        >
-                          <X className="h-3.5 w-3.5 text-destructive" />
-                        </button>
-                      </div>
-                      <input
-                        type="text"
-                        value={ann.description}
-                        onChange={e => updateAnnotationDesc(ann.id, e.target.value)}
-                        placeholder='np. "zmień kolor na niebieski"'
-                        className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:border-primary focus:ring-1 focus:ring-primary/30 outline-none"
-                        autoFocus={activeAnnotation === ann.id}
-                      />
+            <div className="w-[320px] border-l bg-background flex flex-col flex-shrink-0 hidden md:flex">
+              <div className="px-4 py-3 border-b"><h3 className="font-bold text-sm">Zaznaczenia</h3><p className="text-[11px] text-muted-foreground">Opisz co zmienić</p></div>
+              <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                {annotations.map(ann => (
+                  <div key={ann.id} className={cn('rounded-xl border p-3 transition-all', activeAnnotation === ann.id ? 'border-primary bg-primary/5' : 'border-border')} onClick={() => setActiveAnnotation(ann.id)}>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center">{ann.id}</span><span className="text-xs font-semibold">Obszar {ann.id}</span></div>
+                      <button onClick={e => { e.stopPropagation(); removeAnnotation(ann.id); }} className="p-1 hover:bg-destructive/10 rounded-lg"><X className="h-3.5 w-3.5 text-destructive" /></button>
                     </div>
-                  ))}
-                </div>
-              </ScrollArea>
+                    <input type="text" value={ann.description} onChange={e => updateAnnotationDesc(ann.id, e.target.value)} placeholder='np. "zmień kolor"' className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:border-primary outline-none" autoFocus={activeAnnotation === ann.id} />
+                  </div>
+                ))}
+              </div>
               {validAnnotationCount > 0 && (
-                <div className="p-3 border-t">
-                  <Button
-                    onClick={applyAllEdits}
-                    disabled={isEditing}
-                    className="w-full rounded-xl font-semibold gap-2"
-                  >
-                    {isEditing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                    Popraw obrazek ({validAnnotationCount} {validAnnotationCount === 1 ? 'zmiana' : 'zmian'})
-                  </Button>
-                </div>
+                <div className="p-3 border-t"><Button onClick={applyAllEdits} disabled={isEditing} className="w-full rounded-xl font-semibold gap-2">{isEditing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}Popraw obrazek ({validAnnotationCount})</Button></div>
               )}
             </div>
           )}
         </div>
-
-        {isEditing && (
-          <div className="px-5 py-3 border-t bg-background flex-shrink-0">
-            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground font-medium">
-              <Loader2 className="h-4 w-4 animate-spin text-primary" />
-              Edytuję obraz...
-            </div>
-          </div>
-        )}
       </div>
     );
   }
 
-  return (
-    <div className="fixed inset-0 z-50 flex">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+  // ── MAIN LAYOUT ──
+  const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 768;
 
-      <div className="relative ml-auto w-full max-w-[780px] h-full flex bg-background shadow-2xl animate-in slide-in-from-right duration-300">
-        {/* Sidebar */}
-        {sidebarOpen && (
-          <div className="flex flex-col border-r bg-muted/20 flex-shrink-0 overflow-hidden" style={{ width: '260px', minWidth: '260px', maxWidth: '260px' }}>
-            {/* Sidebar header */}
-            <div className="p-3 border-b flex-shrink-0 overflow-hidden">
-              <div className="flex items-center gap-2.5 mb-3 overflow-hidden">
-                <img src={ridoMascot} alt="RidoAI" className="w-9 h-9 object-contain flex-shrink-0" />
-                <div className="min-w-0">
-                  <h2 className="font-extrabold text-sm tracking-tight truncate">RidoAI</h2>
-                  <p className="text-[10px] font-semibold text-primary uppercase tracking-widest truncate">Asystent GetRido</p>
-                </div>
+  const listView = (
+    <div className="flex flex-col h-full bg-muted/20">
+      {/* Header */}
+      <div className="flex-shrink-0 p-4 border-b bg-background">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <img src={ridoMascot} alt="RidoAI" className="w-10 h-10 object-contain" />
+              <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-background" />
+            </div>
+            <div>
+              <h2 className="font-extrabold text-base tracking-tight">RidoAI</h2>
+              <p className="text-[11px] text-muted-foreground font-medium">● Asystent GetRido · online</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-muted transition-colors"><X className="h-5 w-5 text-muted-foreground" /></button>
+        </div>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Szukaj rozmów..." className="w-full pl-9 pr-4 py-2.5 text-sm rounded-xl bg-muted/50 border border-border/50 outline-none focus:border-primary/50 font-medium" />
+        </div>
+      </div>
+
+      {/* Scrollable list */}
+      <div className="flex-1 overflow-y-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
+        {/* Projects */}
+        <AIProjectsSection userId={userId} onSelectProject={(id, name) => { setActiveProjectId(id); }} activeProjectId={activeProjectId} />
+
+        {/* Conversations */}
+        <div className="px-2 py-1">
+          {groupedConvs.length === 0 && (
+            <div className="text-center py-8"><MessageCircle className="h-6 w-6 text-muted-foreground/30 mx-auto mb-1" /><p className="text-[10px] text-muted-foreground/50 font-medium">Brak rozmów</p></div>
+          )}
+          {groupedConvs.map(group => (
+            <div key={group.label}>
+              <p className="px-2 py-1.5 text-[10px] font-bold text-muted-foreground/60 uppercase tracking-wider">{group.label}</p>
+              <div className="space-y-0.5">
+                {group.items.map(conv => (
+                  <ConvItemInline
+                    key={conv.id}
+                    title={conv.title}
+                    active={currentConvId === conv.id}
+                    starred={conv.is_starred}
+                    onClick={() => loadConversation(conv.id)}
+                    onDelete={(e) => deleteConversation(conv.id, e)}
+                    onToggleStar={() => toggleStar(conv.id)}
+                    onRename={() => { setRenamingConvId(conv.id); setRenameValue(conv.title || ''); }}
+                    onAddToProject={() => openProjectPicker(conv.id)}
+                  />
+                ))}
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleNewChat}
-                className="w-full justify-start gap-2 h-9 text-xs font-semibold rounded-lg"
-              >
-                <Plus className="h-3.5 w-3.5 flex-shrink-0" />
-                <span className="truncate">Nowa rozmowa</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* New chat button */}
+      <div className="flex-shrink-0 p-3 border-t bg-background">
+        <Button onClick={handleNewChat} className="w-full rounded-xl gap-2 font-semibold"><Plus className="h-4 w-4" /> Nowa rozmowa</Button>
+      </div>
+    </div>
+  );
+
+  const chatView = (
+    <div className="flex flex-col h-full bg-background" onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}>
+      {/* Chat header */}
+      <div className="flex-shrink-0 flex items-center gap-3 px-4 py-2.5 border-b bg-background" style={{ height: 60 }}>
+        {/* Back button on mobile */}
+        <button onClick={() => setActiveView('list')} className="p-1.5 rounded-lg hover:bg-muted transition-colors md:hidden"><ChevronLeft className="h-5 w-5 text-muted-foreground" /></button>
+        
+        <div className="relative">
+          <img src={ridoMascot} alt="RidoAI" className="w-9 h-9 object-contain flex-shrink-0" />
+          <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-background" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="font-extrabold text-sm tracking-tight flex items-center gap-1.5">RidoAI <Sparkles className="h-3.5 w-3.5 text-primary" /></h3>
+          <p className="text-[11px] text-muted-foreground font-medium">● online — odpowiada natychmiast</p>
+        </div>
+
+        {/* Mode tabs */}
+        <div className="hidden sm:flex items-center gap-0.5 bg-muted/50 rounded-xl p-0.5">
+          {([{ key: 'chat' as const, label: 'Chat', icon: MessageCircle }, { key: 'cowork' as const, label: 'Cowork', icon: Briefcase, locked: true }]).map(({ key, label, icon: Icon, locked }) => (
+            <button key={key} onClick={() => !locked && switchMode(key)} className={cn('flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all', mainMode === key && !locked ? 'bg-background shadow-sm text-foreground' : locked ? 'text-muted-foreground/40 cursor-not-allowed' : 'text-muted-foreground hover:text-foreground hover:bg-background/50')}>
+              {locked ? <Lock className="h-3 w-3" /> : <Icon className="h-3 w-3" />}{label}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-0.5">
+          <button onClick={handleNewChat} className="p-2 rounded-lg hover:bg-muted transition-colors" title="Nowa rozmowa"><Plus className="h-4 w-4 text-muted-foreground" /></button>
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-muted transition-colors hidden md:block" title="Zamknij"><X className="h-4 w-4 text-muted-foreground" /></button>
+        </div>
+      </div>
+
+      {mainMode === 'cowork' ? (
+        <div className="flex-1 flex items-center justify-center px-8">
+          <div className="text-center space-y-4">
+            <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto"><Briefcase className="h-8 w-8 text-primary/50" /></div>
+            <div><h3 className="font-extrabold text-lg">Cowork — wkrótce!</h3><p className="text-sm text-muted-foreground mt-1 max-w-sm font-medium">Tryb Cowork pozwoli Ci sterować portalem głosem i tekstem.</p></div>
+            <Button variant="outline" size="sm" onClick={() => switchMode('chat')} className="rounded-lg font-semibold">Wróć do chatu</Button>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Drag overlay */}
+          {isDragging && (
+            <div className="absolute inset-0 z-20 bg-primary/10 border-2 border-dashed border-primary rounded-xl flex items-center justify-center pointer-events-none">
+              <div className="text-center"><Paperclip className="h-10 w-10 text-primary mx-auto mb-2" /><p className="text-sm font-bold text-primary">Upuść pliki tutaj</p></div>
+            </div>
+          )}
+
+          {/* Messages — THE ONLY SCROLLABLE ELEMENT */}
+          <div className="flex-1 overflow-y-auto px-4 py-4" style={{ WebkitOverflowScrolling: 'touch' }}>
+            <div className="space-y-4 max-w-xl mx-auto">
+              {/* Welcome message if no messages */}
+              {messages.length === 0 && (
+                <div className="flex gap-3 items-start">
+                  <img src={ridoMascot} alt="AI" className="w-9 h-9 object-contain flex-shrink-0 mt-0.5" />
+                  <div className="bg-primary text-primary-foreground rounded-2xl rounded-bl-sm px-4 py-3 max-w-[85%]">
+                    <div className="prose prose-sm max-w-none text-primary-foreground [&_strong]:text-primary-foreground [&_li]:text-primary-foreground [&>p]:text-[14px] [&>p]:leading-relaxed [&>p]:font-medium [&>li]:text-[14px] [&>li]:font-medium">
+                      <ReactMarkdown>{WELCOME[mainMode] || WELCOME.chat}</ReactMarkdown>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {messages.map((msg, i) => {
+                if (msg.role === 'assistant' && msg.content === '' && isLoading && i === messages.length - 1) return null;
+                return (
+                  <div key={i} className={cn('flex gap-3', msg.role === 'user' ? 'flex-row-reverse' : 'flex-row items-start')}>
+                    {msg.role === 'assistant' && <img src={ridoMascot} alt="AI" className="w-9 h-9 object-contain flex-shrink-0 mt-0.5 self-start" />}
+                    <div className="max-w-[85%] flex flex-col gap-2">
+                      {msg.role === 'assistant' ? (
+                        <>
+                          {(() => {
+                            const clean = (msg.content || '').replace(/ACTION:\{.*?\}/s, '').replace(/IMAGE_REQUEST:true/g, '').trim();
+                            return clean ? (
+                              <div className="bg-primary text-primary-foreground rounded-2xl rounded-bl-sm px-4 py-3">
+                                <div className="prose prose-sm max-w-none [&>p]:mb-2 [&>p:last-child]:mb-0 [&>p]:text-[14px] [&>p]:leading-relaxed [&>p]:font-medium [&>li]:text-[14px] [&>li]:font-medium text-primary-foreground [&_strong]:text-primary-foreground [&_li]:text-primary-foreground">
+                                  <ReactMarkdown>{clean}</ReactMarkdown>
+                                </div>
+                              </div>
+                            ) : null;
+                          })()}
+                          {msg.images?.map((img, idx) => (
+                            <div key={idx} className="relative group overflow-hidden rounded-2xl">
+                              <img src={img} alt="Grafika" className="w-full cursor-pointer hover:opacity-95 transition-opacity rounded-2xl" onClick={() => openEditor(img)} />
+                              <div className="absolute top-2 left-2 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button onClick={(e) => { e.stopPropagation(); downloadImage(img); }} className="bg-background/90 backdrop-blur-sm p-2 rounded-lg shadow-md border border-border/50 hover:bg-background"><Download className="h-4 w-4" /></button>
+                                <button onClick={(e) => { e.stopPropagation(); openEditor(img); }} className="bg-background/90 backdrop-blur-sm p-2 rounded-lg shadow-md border border-border/50 hover:bg-background"><Paintbrush className="h-4 w-4" /></button>
+                              </div>
+                            </div>
+                          ))}
+                        </>
+                      ) : (
+                        <>
+                          <div className="bg-muted rounded-2xl rounded-br-sm px-4 py-2.5 shadow-sm text-foreground">
+                            <p className="whitespace-pre-wrap text-[14px] font-semibold">{msg.content}</p>
+                          </div>
+                          {msg.images?.map((img, idx) => (
+                            <div key={idx} className="relative group overflow-hidden rounded-2xl">
+                              <img src={img} alt="Załączony obraz" className="w-full cursor-pointer hover:opacity-95 transition-opacity rounded-2xl" onClick={() => openEditor(img)} />
+                            </div>
+                          ))}
+                        </>
+                      )}
+                    </div>
+                    {msg.role === 'user' && <div className="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center flex-shrink-0 mt-0.5"><span className="text-[10px] font-bold text-primary">Ty</span></div>}
+                  </div>
+                );
+              })}
+
+              {/* Typing indicator */}
+              {isLoading && (
+                <div className="flex gap-3">
+                  <img src={ridoMascot} alt="AI" className="w-9 h-9 object-contain flex-shrink-0 mt-0.5" />
+                  <div className="bg-primary rounded-2xl rounded-bl-sm px-5 py-3.5">
+                    <div className="flex items-center gap-2">
+                      {[0, 200, 400].map(d => <span key={d} className="w-2.5 h-2.5 rounded-full bg-primary-foreground/50 animate-bounce" style={{ animationDelay: `${d}ms` }} />)}
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+          </div>
+
+          {/* Quick replies */}
+          {messages.length === 0 && (
+            <div className="flex-shrink-0 px-4 py-2 border-t bg-muted/10">
+              <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}>
+                {QUICK_REPLIES.map(reply => (
+                  <button key={reply} onClick={() => handleSend(reply)} className="flex-shrink-0 whitespace-nowrap bg-background border border-border rounded-2xl px-3.5 py-1.5 text-[13px] font-medium text-primary hover:bg-primary/5 transition-colors">{reply}</button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Attached files */}
+          {attachedFiles.length > 0 && (
+            <div className="flex-shrink-0 px-4 py-2 border-t bg-muted/20">
+              <div className="flex flex-wrap gap-2 max-w-xl mx-auto">
+                {attachedFiles.map((file, idx) => (
+                  <div key={idx} className="flex items-center gap-1.5 bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs font-semibold">
+                    <FileText className="h-3.5 w-3.5 text-primary" />
+                    <span className="max-w-[120px] truncate">{file.name}</span>
+                    {file.type.startsWith('image/') && <button onClick={() => openAttachedImageEditor(file)} className="p-0.5 hover:bg-primary/10 rounded"><Paintbrush className="h-3 w-3 text-primary" /></button>}
+                    <button onClick={() => removeFile(idx)} className="p-0.5 hover:bg-destructive/10 rounded"><X className="h-3 w-3 text-destructive" /></button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Input bar */}
+          <div className="flex-shrink-0 px-4 py-3 border-t bg-background" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
+            <div className="flex items-end gap-2 max-w-xl mx-auto">
+              <input ref={fileInputRef} type="file" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.webp,.txt,.csv,.xlsx" className="hidden" onChange={e => handleFileSelect(e.target.files)} />
+              <button onClick={() => fileInputRef.current?.click()} className="p-2.5 rounded-xl hover:bg-muted transition-colors border border-border/50 flex-shrink-0" title="Dodaj plik"><Paperclip className="h-4 w-4 text-muted-foreground" /></button>
+              <textarea
+                ref={inputRef}
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+                placeholder="Zadaj pytanie RidoAI..."
+                disabled={isLoading}
+                className="flex-1 min-h-[44px] max-h-[120px] resize-none rounded-xl text-[16px] sm:text-sm font-medium border border-border/50 bg-muted/30 px-4 py-3 outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 placeholder:text-muted-foreground/50 transition-all"
+                rows={1}
+              />
+              <Button onClick={() => handleSend()} disabled={!input.trim() || isLoading} size="icon" className="h-[44px] w-[44px] rounded-xl flex-shrink-0 shadow-sm">
+                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               </Button>
             </div>
-
-            {/* Projects section — FIXED, not scrolled */}
-            <div className="flex-shrink-0 overflow-hidden border-b">
-              <AIProjectsSection
-                userId={userId}
-                activeProjectId={activeProjectId}
-                onSelectProject={(id, name) => {
-                  setActiveProjectId(id);
-                  handleNewChat();
-                  setInput(`Pracuję nad projektem "${name}". `);
-                }}
-              />
-            </div>
-
-            {/* Search — FIXED */}
-            <div className="flex-shrink-0 px-3 py-2 border-b overflow-hidden">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/60" />
-                <input
-                  type="text"
-                  placeholder="Szukaj rozmów..."
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  className="w-full pl-8 pr-3 py-2 text-xs font-medium rounded-lg bg-background border border-border/50 outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 placeholder:text-muted-foreground/50 text-foreground transition-all"
-                />
-              </div>
-            </div>
-
-            {/* Conversations — scrollable separately */}
-            <div className="flex-1 min-h-0 overflow-hidden">
-              <ScrollArea className="h-full">
-                <div className="px-2 py-1 overflow-hidden">
-                  {groupedConvs.length === 0 && (
-                    <div className="text-center py-8 px-4">
-                      <MessageCircle className="h-6 w-6 text-muted-foreground/30 mx-auto mb-1" />
-                      <p className="text-[10px] text-muted-foreground/50 font-medium">Brak rozmów</p>
-                    </div>
-                  )}
-                  {groupedConvs.map(group => (
-                    <div key={group.label}>
-                      <p className="px-2 py-1.5 text-[10px] font-bold text-muted-foreground/60 uppercase tracking-wider">
-                        {group.label}
-                      </p>
-                      <div className="space-y-0.5">
-                        {group.items.map(conv => {
-                          const isActive = currentConvId === conv.id;
-                          return (
-                            <ConvItemInline
-                              key={conv.id}
-                              title={conv.title}
-                              active={isActive}
-                              starred={conv.is_starred}
-                              onClick={() => loadConversation(conv.id)}
-                              onDelete={(e) => deleteConversation(conv.id, e)}
-                              onToggleStar={() => toggleStar(conv.id)}
-                              onRename={() => { setRenamingConvId(conv.id); setRenameValue(conv.title || ''); }}
-                              onAddToProject={() => openProjectPicker(conv.id)}
-                            />
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </ScrollArea>
-            </div>
+            <p className="text-[10px] text-muted-foreground/50 text-center mt-2 font-semibold">RidoAI • Sprawdzaj ważne informacje</p>
           </div>
-        )}
+        </>
+      )}
+    </div>
+  );
 
-          {/* Rename dialog */}
-          {renamingConvId && (
-            <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40" onClick={() => setRenamingConvId(null)}>
-              <div className="bg-background rounded-xl border shadow-xl p-5 w-80 space-y-3" onClick={e => e.stopPropagation()}>
-                <p className="text-sm font-semibold">Zmień nazwę rozmowy</p>
-                <input
-                  autoFocus
-                  value={renameValue}
-                  onChange={e => setRenameValue(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') renameConversation(renamingConvId, renameValue); if (e.key === 'Escape') setRenamingConvId(null); }}
-                  className="w-full border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary"
-                />
-                <div className="flex justify-end gap-2">
-                  <Button variant="ghost" size="sm" onClick={() => setRenamingConvId(null)}>Anuluj</Button>
-                  <Button size="sm" onClick={() => renameConversation(renamingConvId, renameValue)}>Zapisz</Button>
-                </div>
-              </div>
-            </div>
-          )}
+  return (
+    <>
+      {/* Overlay backdrop */}
+      <div className="fixed inset-0 z-50 flex">
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm md:block" onClick={onClose} />
 
-          {/* Project picker dialog */}
-          {projectPickerConvId && (
-            <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40" onClick={() => setProjectPickerConvId(null)}>
-              <div className="bg-background rounded-xl border shadow-xl p-5 w-80 space-y-3" onClick={e => e.stopPropagation()}>
-                <p className="text-sm font-semibold">Dodaj do projektu</p>
-                <div className="space-y-1 max-h-48 overflow-y-auto">
-                  {projectsList.map(p => (
-                    <button
-                      key={p.id}
-                      onClick={() => assignToProject(projectPickerConvId, p.id)}
-                      className="flex items-center gap-2 w-full px-3 py-2 rounded-lg hover:bg-muted text-sm text-left"
-                    >
-                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: p.color || 'hsl(var(--primary))' }} />
-                      {p.name}
-                    </button>
-                  ))}
-                </div>
-                {/* Inline create new project */}
-                {!newProjectInline ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full gap-1.5 text-xs"
-                    onClick={() => setNewProjectInline(true)}
-                  >
-                    <Plus className="h-3.5 w-3.5" /> Stwórz nowy projekt
-                  </Button>
-                ) : (
-                  <div className="space-y-2 border-t pt-2">
-                    <input
-                      autoFocus
-                      placeholder="Nazwa projektu..."
-                      value={newProjectName}
-                      onChange={e => setNewProjectName(e.target.value)}
-                      className="w-full px-3 py-1.5 text-sm border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-                      onKeyDown={e => {
-                        if (e.key === 'Enter' && newProjectName.trim()) createProjectInPicker();
-                        if (e.key === 'Escape') { setNewProjectInline(false); setNewProjectName(''); }
-                      }}
-                    />
-                    <div className="flex gap-1.5">
-                      <Button size="sm" className="flex-1 text-xs h-7" disabled={!newProjectName.trim()} onClick={createProjectInPicker}>
-                        Utwórz
-                      </Button>
-                      <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => { setNewProjectInline(false); setNewProjectName(''); }}>
-                        Anuluj
-                      </Button>
-                    </div>
-                  </div>
-                )}
-                {conversations.find(c => c.id === projectPickerConvId)?.project_id && (
-                  <Button variant="ghost" size="sm" className="w-full text-xs text-destructive" onClick={() => assignToProject(projectPickerConvId, null)}>
-                    Usuń z projektu
-                  </Button>
-                )}
-                <div className="flex justify-end">
-                  <Button variant="ghost" size="sm" onClick={() => setProjectPickerConvId(null)}>Zamknij</Button>
-                </div>
-              </div>
-            </div>
-          )}
-
-        {/* Main chat */}
-        <div className="flex-1 flex flex-col min-w-0" onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}>
-          {/* Header */}
-          <div className="flex items-center gap-3 px-4 py-2.5 border-b bg-background">
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-1.5 rounded-lg hover:bg-muted transition-colors"
-              title={sidebarOpen ? 'Ukryj historię' : 'Pokaż historię'}
-            >
-              {sidebarOpen ? <PanelLeftClose className="h-4 w-4 text-muted-foreground" /> : <PanelLeftOpen className="h-4 w-4 text-muted-foreground" />}
-            </button>
-
-            {!sidebarOpen && (
-              <>
-                <div className="relative">
-                  <img src={ridoMascot} alt="RidoAI" className="w-9 h-9 object-contain flex-shrink-0" />
-                  <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-background" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-extrabold text-sm tracking-tight flex items-center gap-1.5">
-                    RidoAI <Sparkles className="h-3.5 w-3.5 text-primary" />
-                  </h3>
-                  <p className="text-[11px] text-muted-foreground font-semibold">Asystent AI portalu GetRido</p>
-                </div>
-              </>
-            )}
-
-            <div className="flex-1" />
-
-            {/* Mode tabs inline */}
-            <div className="flex items-center gap-0.5 bg-muted/50 rounded-xl p-0.5">
-              {([
-                { key: 'chat' as const, label: 'Chat', icon: MessageCircle },
-                { key: 'cowork' as const, label: 'Cowork', icon: Briefcase, locked: true },
-              ]).map(({ key, label, icon: Icon, locked }) => (
-                <button
-                  key={key}
-                  onClick={() => !locked && switchMode(key)}
-                  className={cn(
-                    'flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all',
-                    mainMode === key && !locked
-                      ? 'bg-background shadow-sm text-foreground'
-                      : locked
-                        ? 'text-muted-foreground/40 cursor-not-allowed'
-                        : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
-                  )}
-                >
-                  {locked ? <Lock className="h-3 w-3" /> : <Icon className="h-3 w-3" />}
-                  {label}
-                </button>
-              ))}
-            </div>
-
-            <div className="flex items-center gap-0.5">
-              <button onClick={handleNewChat} className="p-2 rounded-lg hover:bg-muted transition-colors" title="Nowa rozmowa">
-                <Plus className="h-4 w-4 text-muted-foreground" />
-              </button>
-              <button onClick={onClose} className="p-2 rounded-lg hover:bg-muted transition-colors" title="Zamknij">
-                <X className="h-4 w-4 text-muted-foreground" />
-              </button>
-            </div>
-          </div>
-
-          {/* Cowork coming soon */}
-          {mainMode === 'cowork' ? (
-            <div className="flex-1 flex items-center justify-center px-8">
-              <div className="text-center space-y-4">
-                <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto">
-                  <Briefcase className="h-8 w-8 text-primary/50" />
-                </div>
-                <div>
-                  <h3 className="font-extrabold text-lg">Cowork — wkrótce!</h3>
-                  <p className="text-sm text-muted-foreground mt-1 max-w-sm font-medium">
-                    Tryb Cowork pozwoli Ci sterować portalem głosem i tekstem.
-                    Wystawiaj faktury, szukaj usług, zarządzaj zadaniami — wszystko przez AI.
-                  </p>
-                </div>
-                <Button variant="outline" size="sm" onClick={() => switchMode('chat')} className="rounded-lg font-semibold">
-                  Wróć do chatu
-                </Button>
-              </div>
+        {/* Panel container */}
+        <div className={cn(
+          'relative ml-auto h-full flex bg-background shadow-2xl animate-slide-in-right',
+          'w-full md:max-w-[480px]' // full screen on mobile, 480px drawer on desktop
+        )}>
+          {isDesktop ? (
+            /* Desktop: split layout */
+            <div className="flex w-full h-full">
+              <div className="w-[280px] flex-shrink-0 border-r h-full">{listView}</div>
+              <div className="flex-1 h-full min-w-0">{chatView}</div>
             </div>
           ) : (
-            <>
-              {/* Drag overlay */}
-              {isDragging && (
-                <div className="absolute inset-0 z-20 bg-primary/10 border-2 border-dashed border-primary rounded-xl flex items-center justify-center pointer-events-none">
-                  <div className="text-center">
-                    <Paperclip className="h-10 w-10 text-primary mx-auto mb-2" />
-                    <p className="text-sm font-bold text-primary">Upuść pliki tutaj</p>
-                  </div>
-                </div>
-              )}
-
-              {/* Messages */}
-              <ScrollArea ref={scrollRef} className="flex-1 px-5 py-5">
-                <div className="space-y-5 max-w-xl mx-auto">
-                  {displayMsgs.map((msg, i) => {
-                    if (msg.role === 'assistant' && msg.content === '' && isLoading && i === displayMsgs.length - 1) return null;
-                    return (
-                      <div key={i} className={cn('flex gap-3', msg.role === 'user' ? 'flex-row-reverse' : 'flex-row items-start')}>
-                        {msg.role === 'assistant' && (
-                          <img src={ridoMascot} alt="AI" className="w-9 h-9 object-contain flex-shrink-0 mt-0.5 self-start" />
-                        )}
-                        <div className="max-w-[85%] flex flex-col gap-2">
-                          {/* Text bubble */}
-                          {msg.role === 'assistant' ? (
-                            <>
-                              {(() => {
-                                const cleanContent = (msg.content || '')
-                                  .replace(/ACTION:\{.*?\}/s, '')
-                                  .replace(/IMAGE_REQUEST:true/g, '')
-                                  .trim();
-                                return cleanContent ? (
-                                  <div className="bg-primary text-primary-foreground rounded-2xl rounded-bl-sm px-4 py-3">
-                                    <div className="prose prose-sm max-w-none [&>p]:mb-2 [&>p:last-child]:mb-0 [&>ul]:mb-2 [&>ol]:mb-2 [&>li]:mb-0.5 [&_strong]:font-bold [&>p]:text-[14px] [&>p]:leading-relaxed [&>p]:font-medium [&>li]:text-[14px] [&>li]:font-medium text-primary-foreground [&_strong]:text-primary-foreground [&_li]:text-primary-foreground [&_a]:text-primary-foreground/80">
-                                      <ReactMarkdown>{cleanContent}</ReactMarkdown>
-                                    </div>
-                                  </div>
-                                ) : null;
-                              })()}
-                              {/* Images OUTSIDE the purple bubble */}
-                              {msg.images?.map((img, idx) => (
-                                <div key={idx} className="relative group overflow-hidden rounded-2xl">
-                                  <img
-                                    src={img}
-                                    alt="Wygenerowana grafika"
-                                    className="w-full cursor-pointer hover:opacity-95 transition-opacity rounded-2xl"
-                                    onClick={() => openEditor(img)}
-                                  />
-                                  <div className="absolute top-2 left-2 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button onClick={(e) => { e.stopPropagation(); downloadImage(img); }} className="bg-background/90 backdrop-blur-sm text-foreground p-2 rounded-lg shadow-md border border-border/50 hover:bg-background transition-colors" title="Pobierz">
-                                      <Download className="h-4 w-4" />
-                                    </button>
-                                    <button onClick={(e) => { e.stopPropagation(); openEditor(img); }} className="bg-background/90 backdrop-blur-sm text-foreground p-2 rounded-lg shadow-md border border-border/50 hover:bg-background transition-colors" title="Edytuj pędzlem">
-                                      <Paintbrush className="h-4 w-4" />
-                                    </button>
-                                  </div>
-                                </div>
-                              ))}
-                            </>
-                          ) : (
-                            <>
-                              <div className="bg-muted rounded-2xl rounded-br-sm px-4 py-2.5 shadow-sm text-foreground">
-                                <p className="whitespace-pre-wrap text-[14px] font-semibold">{msg.content}</p>
-                              </div>
-                              {msg.images?.map((img, idx) => (
-                                <div key={idx} className="relative group overflow-hidden rounded-2xl">
-                                  <img
-                                    src={img}
-                                    alt="Załączony obraz"
-                                    className="w-full cursor-pointer hover:opacity-95 transition-opacity rounded-2xl"
-                                    onClick={() => openEditor(img)}
-                                  />
-                                  <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button
-                                      onClick={(e) => { e.stopPropagation(); openEditor(img); }}
-                                      className="bg-background/90 backdrop-blur-sm text-foreground p-2 rounded-lg shadow-md border border-border/50 hover:bg-background transition-colors"
-                                      title="Edytuj pędzlem"
-                                    >
-                                      <Paintbrush className="h-4 w-4" />
-                                    </button>
-                                  </div>
-                                </div>
-                              ))}
-                            </>
-                          )}
-                        </div>
-                        {msg.role === 'user' && (
-                          <div className="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center flex-shrink-0 mt-0.5">
-                            <span className="text-[10px] font-bold text-primary">Ty</span>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-
-                  {/* Typing indicator */}
-                  {isLoading && (
-                    <div className="flex gap-3">
-                      <img src={ridoMascot} alt="AI" className="w-9 h-9 object-contain flex-shrink-0 mt-0.5" />
-                      <div className="bg-primary rounded-2xl rounded-bl-sm px-5 py-3.5">
-                        <div className="flex items-center gap-2">
-                          {[0, 200, 400].map(d => (
-                            <span key={d} className="w-2.5 h-2.5 rounded-full bg-primary-foreground/50 animate-bounce" style={{ animationDelay: `${d}ms` }} />
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  <div ref={messagesEndRef} />
-                </div>
-              </ScrollArea>
-
-              {/* Attached files preview */}
-              {attachedFiles.length > 0 && (
-                <div className="px-4 py-2 border-t bg-muted/20">
-                  <div className="flex flex-wrap gap-2 max-w-xl mx-auto">
-                    {attachedFiles.map((file, idx) => (
-                      <div key={idx} className="flex items-center gap-1.5 bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs font-semibold">
-                        <FileText className="h-3.5 w-3.5 text-primary" />
-                        <span className="max-w-[120px] truncate">{file.name}</span>
-                        {file.type.startsWith('image/') && (
-                          <button onClick={() => openAttachedImageEditor(file)} className="p-0.5 hover:bg-primary/10 rounded" title="Otwórz w edytorze">
-                            <Paintbrush className="h-3 w-3 text-primary" />
-                          </button>
-                        )}
-                        <button onClick={() => removeFile(idx)} className="p-0.5 hover:bg-destructive/10 rounded">
-                          <X className="h-3 w-3 text-destructive" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Input */}
-              <div className="px-4 py-3 border-t bg-background">
-                <div className="flex items-end gap-2 max-w-xl mx-auto">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    multiple
-                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.webp,.txt,.csv,.xlsx"
-                    className="hidden"
-                    onChange={e => handleFileSelect(e.target.files)}
-                  />
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="p-2.5 rounded-xl hover:bg-muted transition-colors border border-border/50 flex-shrink-0"
-                    title="Dodaj plik"
-                  >
-                    <Paperclip className="h-4 w-4 text-muted-foreground" />
-                  </button>
-                  <textarea
-                    ref={inputRef}
-                    value={input}
-                    onChange={e => setInput(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-                    placeholder="Zadaj pytanie RidoAI..."
-                    disabled={isLoading}
-                    className="flex-1 min-h-[44px] max-h-[120px] resize-none rounded-xl text-sm font-medium border border-border/50 bg-background px-4 py-3 outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 placeholder:text-muted-foreground/50 transition-all"
-                    rows={1}
-                  />
-                  <Button
-                    onClick={handleSend}
-                    disabled={!input.trim() || isLoading}
-                    size="icon"
-                    className="h-[44px] w-[44px] rounded-xl flex-shrink-0 shadow-sm"
-                  >
-                    {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                  </Button>
-                </div>
-                <p className="text-[10px] text-muted-foreground/50 text-center mt-2 font-semibold">
-                  RidoAI • Sprawdzaj ważne informacje
-                </p>
-              </div>
-            </>
+            /* Mobile: one view at a time */
+            activeView === 'list' ? listView : chatView
           )}
         </div>
       </div>
-    </div>
+
+      {/* Rename dialog */}
+      {renamingConvId && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40" onClick={() => setRenamingConvId(null)}>
+          <div className="bg-background rounded-xl border shadow-xl p-5 w-80 space-y-3" onClick={e => e.stopPropagation()}>
+            <p className="text-sm font-semibold">Zmień nazwę rozmowy</p>
+            <input autoFocus value={renameValue} onChange={e => setRenameValue(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') renameConversation(renamingConvId, renameValue); if (e.key === 'Escape') setRenamingConvId(null); }} className="w-full border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary" />
+            <div className="flex justify-end gap-2"><Button variant="ghost" size="sm" onClick={() => setRenamingConvId(null)}>Anuluj</Button><Button size="sm" onClick={() => renameConversation(renamingConvId, renameValue)}>Zapisz</Button></div>
+          </div>
+        </div>
+      )}
+
+      {/* Project picker dialog */}
+      {projectPickerConvId && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40" onClick={() => setProjectPickerConvId(null)}>
+          <div className="bg-background rounded-xl border shadow-xl p-5 w-80 space-y-3" onClick={e => e.stopPropagation()}>
+            <p className="text-sm font-semibold">Dodaj do projektu</p>
+            <div className="space-y-1 max-h-48 overflow-y-auto">
+              {projectsList.map(p => (
+                <button key={p.id} onClick={() => assignToProject(projectPickerConvId, p.id)} className="flex items-center gap-2 w-full px-3 py-2 rounded-lg hover:bg-muted text-sm text-left">
+                  <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: p.color || 'hsl(var(--primary))' }} />{p.name}
+                </button>
+              ))}
+            </div>
+            {!newProjectInline ? (
+              <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs" onClick={() => setNewProjectInline(true)}><Plus className="h-3.5 w-3.5" /> Stwórz nowy projekt</Button>
+            ) : (
+              <div className="space-y-2 border-t pt-2">
+                <input autoFocus placeholder="Nazwa projektu..." value={newProjectName} onChange={e => setNewProjectName(e.target.value)} className="w-full px-3 py-1.5 text-sm border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-ring" onKeyDown={e => { if (e.key === 'Enter' && newProjectName.trim()) createProjectInPicker(); if (e.key === 'Escape') { setNewProjectInline(false); setNewProjectName(''); } }} />
+                <div className="flex gap-1.5"><Button size="sm" className="flex-1 text-xs h-7" disabled={!newProjectName.trim()} onClick={createProjectInPicker}>Utwórz</Button><Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => { setNewProjectInline(false); setNewProjectName(''); }}>Anuluj</Button></div>
+              </div>
+            )}
+            {conversations.find(c => c.id === projectPickerConvId)?.project_id && (
+              <Button variant="ghost" size="sm" className="w-full text-xs text-destructive" onClick={() => assignToProject(projectPickerConvId, null)}>Usuń z projektu</Button>
+            )}
+            <div className="flex justify-end"><Button variant="ghost" size="sm" onClick={() => setProjectPickerConvId(null)}>Zamknij</Button></div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
 function ConvItemInline({ title, active, starred, onClick, onDelete, onToggleStar, onRename, onAddToProject }: {
-  title: string | null;
-  active: boolean;
-  starred?: boolean;
-  onClick: () => void;
-  onDelete: (e: React.MouseEvent) => void;
-  onToggleStar: () => void;
-  onRename: () => void;
-  onAddToProject: () => void;
+  title: string | null; active: boolean; starred?: boolean; onClick: () => void;
+  onDelete: (e: React.MouseEvent) => void; onToggleStar: () => void; onRename: () => void; onAddToProject: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const displayTitle = formatConversationTitle(title);
-
   return (
-    <div
-      onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      className={cn(
-        'flex min-w-0 max-w-full items-center gap-1.5 px-2.5 py-2 pr-1.5 cursor-pointer transition-all w-full overflow-hidden',
-        active
-          ? 'bg-primary text-primary-foreground rounded-l-2xl rounded-r-none'
-          : 'text-foreground hover:bg-accent hover:text-accent-foreground rounded-l-2xl rounded-r-none'
-      )}
-    >
+    <div onClick={onClick} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
+      className={cn('flex min-w-0 max-w-full items-center gap-1.5 px-2.5 py-2.5 pr-1.5 cursor-pointer transition-all w-full overflow-hidden', active ? 'bg-primary text-primary-foreground rounded-l-2xl rounded-r-none' : 'text-foreground hover:bg-accent hover:text-accent-foreground rounded-l-2xl rounded-r-none')}>
       <MessageCircle className="h-3.5 w-3.5 flex-shrink-0 opacity-60" />
-      <span
-        className="text-xs font-medium min-w-0 block"
-        style={{ flex: '1 1 auto', maxWidth: 'calc(100% - 1.75rem)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-      >
-        {displayTitle}
-      </span>
-      <div
-        className="flex w-6 flex-shrink-0 justify-center"
-        style={{ opacity: hovered || active || menuOpen ? 1 : 0, transition: 'opacity 0.15s' }}
-        onClick={(e) => e.stopPropagation()}
-      >
+      <span className="text-xs font-medium min-w-0 block" style={{ flex: '1 1 auto', maxWidth: 'calc(100% - 1.75rem)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayTitle}</span>
+      <div className="flex w-6 flex-shrink-0 justify-center" style={{ opacity: hovered || active || menuOpen ? 1 : 0, transition: 'opacity 0.15s' }} onClick={e => e.stopPropagation()}>
         <DropdownMenu onOpenChange={setMenuOpen}>
           <DropdownMenuTrigger asChild>
-            <button
-              className={cn(
-                'p-1 rounded-md transition-colors',
-                active ? 'hover:bg-primary-foreground/20' : 'hover:bg-muted'
-              )}
-              title="Więcej"
-            >
-              <MoreHorizontal className="h-3.5 w-3.5" />
-            </button>
+            <button className={cn('p-1 rounded-md transition-colors', active ? 'hover:bg-primary-foreground/20' : 'hover:bg-muted')} title="Więcej"><MoreHorizontal className="h-3.5 w-3.5" /></button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={onToggleStar}>
-              {starred ? '⭐' : '☆'}
-              <span className="ml-2">{starred ? 'Usuń z ulubionych' : 'Dodaj do ulubionych'}</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={onRename}>
-              <span className="mr-2">✏️</span>Zmień nazwę
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={onAddToProject}>
-              <span className="mr-2">📁</span>Dodaj do projektu
-            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onToggleStar}>{starred ? '⭐' : '☆'}<span className="ml-2">{starred ? 'Usuń z ulubionych' : 'Dodaj do ulubionych'}</span></DropdownMenuItem>
+            <DropdownMenuItem onClick={onRename}><span className="mr-2">✏️</span>Zmień nazwę</DropdownMenuItem>
+            <DropdownMenuItem onClick={onAddToProject}><span className="mr-2">📁</span>Dodaj do projektu</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={(e) => onDelete(e as unknown as React.MouseEvent)} className="text-destructive focus:text-destructive">
-              <Trash2 className="h-3.5 w-3.5 mr-2" />
-              Usuń
-            </DropdownMenuItem>
+            <DropdownMenuItem onClick={(e) => onDelete(e as unknown as React.MouseEvent)} className="text-destructive focus:text-destructive"><Trash2 className="h-3.5 w-3.5 mr-2" />Usuń</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
