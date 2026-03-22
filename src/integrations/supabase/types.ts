@@ -7085,6 +7085,39 @@ export type Database = {
           },
         ]
       }
+      invoice_email_configs: {
+        Row: {
+          created_at: string | null
+          email_address: string
+          id: string
+          is_active: boolean | null
+          last_check_at: string | null
+          updated_at: string | null
+          user_id: string
+          webhook_secret: string
+        }
+        Insert: {
+          created_at?: string | null
+          email_address: string
+          id?: string
+          is_active?: boolean | null
+          last_check_at?: string | null
+          updated_at?: string | null
+          user_id: string
+          webhook_secret?: string
+        }
+        Update: {
+          created_at?: string | null
+          email_address?: string
+          id?: string
+          is_active?: boolean | null
+          last_check_at?: string | null
+          updated_at?: string | null
+          user_id?: string
+          webhook_secret?: string
+        }
+        Relationships: []
+      }
       invoice_items: {
         Row: {
           created_at: string | null
@@ -7140,6 +7173,47 @@ export type Database = {
             columns: ["invoice_id"]
             isOneToOne: false
             referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoice_notifications: {
+        Row: {
+          created_at: string | null
+          id: string
+          invoice_id: string | null
+          is_read: boolean | null
+          message: string | null
+          notification_type: string | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          invoice_id?: string | null
+          is_read?: boolean | null
+          message?: string | null
+          notification_type?: string | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          invoice_id?: string | null
+          is_read?: boolean | null
+          message?: string | null
+          notification_type?: string | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_notifications_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "user_invoices"
             referencedColumns: ["id"]
           },
         ]
@@ -13757,7 +13831,11 @@ export type Database = {
           paid_at: string | null
           payment_method: string | null
           pdf_url: string | null
+          received_at: string | null
+          review_status: string | null
           sale_date: string | null
+          sender_email: string | null
+          source: string | null
           updated_at: string | null
           user_id: string
           vat_total: number | null
@@ -13783,7 +13861,11 @@ export type Database = {
           paid_at?: string | null
           payment_method?: string | null
           pdf_url?: string | null
+          received_at?: string | null
+          review_status?: string | null
           sale_date?: string | null
+          sender_email?: string | null
+          source?: string | null
           updated_at?: string | null
           user_id: string
           vat_total?: number | null
@@ -13809,7 +13891,11 @@ export type Database = {
           paid_at?: string | null
           payment_method?: string | null
           pdf_url?: string | null
+          received_at?: string | null
+          review_status?: string | null
           sale_date?: string | null
+          sender_email?: string | null
+          source?: string | null
           updated_at?: string | null
           user_id?: string
           vat_total?: number | null

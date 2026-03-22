@@ -9,9 +9,12 @@ import { SimpleFreeInvoice } from '@/components/invoices/SimpleFreeInvoice';
 import { InvoiceExpandableRow } from '@/components/invoices/InvoiceExpandableRow';
 import { InventoryModuleView } from '@/components/inventory';
 import { InventoryPurchaseOCR } from '@/components/inventory/InventoryPurchaseOCR';
+import { PendingInvoicesReview } from '@/components/invoices/PendingInvoicesReview';
+import { InvoiceEmailSetup } from '@/components/invoices/InvoiceEmailSetup';
+import { InvoiceNotificationBell } from '@/components/invoices/InvoiceNotificationBell';
 import {
   FileText, Plus, FileSpreadsheet, BarChart3, Clock, Package,
-  CreditCard, ShoppingBag, Calculator, Building2, ChevronRight
+  CreditCard, ShoppingBag, Calculator, Building2, ChevronRight, Mail
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -19,9 +22,11 @@ const accountingSubTabs = [
   { value: 'przeglad', label: 'Przegląd', icon: BarChart3, visible: true },
   { value: 'faktury', label: 'Faktury', icon: FileText, visible: true },
   { value: 'zakupy', label: 'Zakupy', icon: ShoppingBag, visible: true },
+  { value: 'oczekujace', label: 'Do sprawdzenia', icon: Mail, visible: true },
   { value: 'dokumenty', label: 'Dokumenty', icon: FileSpreadsheet, visible: true },
   { value: 'platnosci', label: 'Płatności', icon: CreditCard, visible: true },
   { value: 'magazyn', label: 'Stan magazynowy', icon: Package, visible: true },
+  { value: 'email-faktury', label: 'Email faktury', icon: Mail, visible: true },
   { value: 'cykliczne', label: 'Cykliczne', icon: Clock, visible: true },
 ];
 
@@ -89,6 +94,9 @@ export function ServiceProviderAccountingView() {
               </CardContent>
             </Card>
           )}
+
+          {/* Pending invoices alert */}
+          <PendingInvoicesReview />
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card>
@@ -251,11 +259,17 @@ export function ServiceProviderAccountingView() {
       {/* Zakupy */}
       {subTab === 'zakupy' && <InventoryPurchaseOCR entityId={userEntities[0]?.id} />}
 
+      {/* Oczekujące na sprawdzenie */}
+      {subTab === 'oczekujace' && <PendingInvoicesReview />}
+
+      {/* Email faktury setup */}
+      {subTab === 'email-faktury' && <InvoiceEmailSetup />}
+
       {/* Stan magazynowy */}
       {subTab === 'magazyn' && <InventoryModuleView entityId={userEntities[0]?.id} />}
 
       {/* Placeholder for unbuilt tabs */}
-      {!['przeglad', 'faktury', 'zakupy', 'magazyn'].includes(subTab) && (
+      {!['przeglad', 'faktury', 'zakupy', 'magazyn', 'oczekujace', 'email-faktury'].includes(subTab) && (
         <Card>
           <CardContent className="py-12 text-center">
             <Calculator className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
