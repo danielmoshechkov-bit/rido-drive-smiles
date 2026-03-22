@@ -12993,6 +12993,51 @@ export type Database = {
           },
         ]
       }
+      translations_cache: {
+        Row: {
+          access_count: number | null
+          created_at: string | null
+          entity_id: string
+          entity_type: string
+          field_name: string
+          id: string
+          last_accessed: string | null
+          source_hash: string
+          source_lang: string
+          target_lang: string
+          translated_by: string | null
+          translated_text: string
+        }
+        Insert: {
+          access_count?: number | null
+          created_at?: string | null
+          entity_id: string
+          entity_type: string
+          field_name: string
+          id?: string
+          last_accessed?: string | null
+          source_hash: string
+          source_lang?: string
+          target_lang: string
+          translated_by?: string | null
+          translated_text: string
+        }
+        Update: {
+          access_count?: number | null
+          created_at?: string | null
+          entity_id?: string
+          entity_type?: string
+          field_name?: string
+          id?: string
+          last_accessed?: string | null
+          source_hash?: string
+          source_lang?: string
+          target_lang?: string
+          translated_by?: string | null
+          translated_text?: string
+        }
+        Relationships: []
+      }
       ui_settings: {
         Row: {
           created_at: string | null

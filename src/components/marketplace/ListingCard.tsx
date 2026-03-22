@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ImageLightbox } from "@/components/ui/ImageLightbox";
+import { useContentTranslation } from "@/hooks/useContentTranslation";
 
 interface ListingCardProps {
   listing: {
@@ -99,6 +100,9 @@ export function ListingCard({
   const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
   const [showLightbox, setShowLightbox] = useState(false);
   
+  const { text: translatedTitle } = useContentTranslation('listing', listing.id, 'title', listing.title);
+  const { text: translatedDescription } = useContentTranslation('listing', listing.id, 'description', listing.description);
+
   const isCompact = compact || variant === 'compact';
   const isList = variant === 'list';
 
@@ -217,7 +221,7 @@ export function ListingCard({
               )}
             </div>
             <div className="flex-1 p-4 flex flex-col">
-              <h3 className="font-bold text-lg line-clamp-2 min-h-[3rem]">{listing.title}</h3>
+              <h3 className="font-bold text-lg line-clamp-2 min-h-[3rem]">{translatedTitle}</h3>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground mt-2">
                 {listing.year && <span className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5" />{listing.year}</span>}
                 {listing.fuelType && <span className="flex items-center gap-1"><Fuel className="h-3.5 w-3.5" />{FUEL_LABELS[listing.fuelType.toLowerCase()] || listing.fuelType}</span>}
@@ -308,7 +312,7 @@ export function ListingCard({
         </div>
 
         <div className={cn("p-4 flex flex-col", isCompact && "p-2")}>
-          <h3 className={cn("font-bold leading-tight", isCompact ? "text-sm line-clamp-1" : "text-lg line-clamp-2 min-h-[3.5rem]")}>{listing.title}</h3>
+          <h3 className={cn("font-bold leading-tight", isCompact ? "text-sm line-clamp-1" : "text-lg line-clamp-2 min-h-[3.5rem]")}>{translatedTitle}</h3>
           <div className={cn("flex flex-wrap items-center text-muted-foreground", isCompact ? "text-xs mt-1" : "text-sm mb-1.5")}>
             {listing.year && <span className="flex items-center gap-1"><Calendar className={cn(isCompact ? "h-3 w-3" : "h-3.5 w-3.5")} />{listing.year}</span>}
             {listing.fuelType && <><span className="mx-1">•</span><span className="flex items-center gap-1"><Fuel className={cn(isCompact ? "h-3 w-3" : "h-3.5 w-3.5")} />{FUEL_LABELS[listing.fuelType.toLowerCase()] || listing.fuelType}</span></>}

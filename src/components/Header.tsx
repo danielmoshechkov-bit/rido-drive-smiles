@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Button } from "@/components/ui/button";
-import LanguageSelector from "@/components/LanguageSelector";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useTranslation } from 'react-i18next';
 import { AuthModal } from "@/components/auth/AuthModal";
 
@@ -75,7 +75,7 @@ const Header = () => {
 
         {/* CTA Button and Language Selector */}
         <div className="flex items-center gap-3">
-          <LanguageSelector />
+          <LanguageSwitcher />
           <Button variant="accent" size="sm" onClick={() => setShowLoginModal(true)}>
             {t('header.joinNow')}
           </Button>
