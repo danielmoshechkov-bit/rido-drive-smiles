@@ -41,6 +41,8 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
   const [completedOnly, setCompletedOnly] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [statusDropdownId, setStatusDropdownId] = useState<string | null>(null);
+  const [editClient, setEditClient] = useState<any>(null);
+  const [editVehicle, setEditVehicle] = useState<any>(null);
 
   const { data: statuses = [] } = useWorkshopStatuses(providerId);
   const { data: orders = [], isLoading } = useWorkshopOrders(providerId, {
