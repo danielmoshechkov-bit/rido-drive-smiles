@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { useCreateWorkshopOrderItem, useUpdateWorkshopOrderItem, useDeleteWorkshopOrderItem } from '@/hooks/useWorkshop';
+import { useCreateWorkshopOrderItem, useUpdateWorkshopOrderItem, useDeleteWorkshopOrderItem, useUpdateWorkshopOrder } from '@/hooks/useWorkshop';
 import { usePartsIntegrations } from '@/hooks/useWorkshopParts';
 import { Plus, Trash2, Package, Wrench, Search, EyeOff, Sparkles, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
@@ -83,6 +83,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   const createItem = useCreateWorkshopOrderItem();
   const updateItem = useUpdateWorkshopOrderItem();
   const deleteItem = useDeleteWorkshopOrderItem();
+  const updateOrder = useUpdateWorkshopOrder();
   const { data: partsIntegrations = [] } = usePartsIntegrations(providerId);
 
   // Separate price modes for services and parts
@@ -132,6 +133,29 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   const syncPrice = (val: number, field: 'net' | 'gross') => {
     if (field === 'net') return { net: val, gross: Math.round(val * VAT_RATE * 100) / 100 };
     return { net: Math.round(val / VAT_RATE * 100) / 100, gross: val };
+  };
+
+  const calcDiscountedValue = (rawValue: number, discount: number, discountType: DiscountType) => {
+    if (discountType === 'amount') return Math.max(0, rawValue - discount);
+    return Math.max(0, rawValue - (rawValue * discount / 100));
+  };
+
+  const isTaskDraftFilled = (row: TaskRow) => row.name.trim().length > 0 && (row.price_net > 0 || row.price_gross > 0);
+  const isGoodsDraftFilled = (row: GoodsRow) => row.name.trim().length > 0 && (row.price_net > 0 || row.price_gross > 0);
+
+  const getDraftTaskTotal = (row: TaskRow) => {
+    const raw = isTaskGross ? row.quantity * row.price_gross : row.quantity * row.price_net;
+    return calcDiscountedValue(raw, row.discount, row.discountType);
+  };
+
+  const getDraftGoodsTotal = (row: GoodsRow) => {
+    const raw = isGoodsGross ? row.quantity * row.price_gross : row.quantity * row.price_net;
+    return calcDiscountedValue(raw, row.discount, row.discountType);
+  };
+
+  const getDraftGoodsCost = (row: GoodsRow) => {
+    const unitCost = isGoodsGross ? row.cost_gross : row.cost_net;
+    return unitCost * row.quantity;
   };
 
   // Client confirmation warning check
@@ -322,9 +346,64 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   const goodsTotal = goods.reduce((s: number, g: any) => s + getGoodsItemTotal(g), 0);
   const tasksCost = tasks.reduce((s: number, t: any) => s + getLineCost(t, isTaskGross), 0);
   const goodsCost = goods.reduce((s: number, g: any) => s + getLineCost(g, isGoodsGross), 0);
-  const grandTotal = tasksTotal + goodsTotal;
-  const grandCost = tasksCost + goodsCost;
-  const grandProfit = grandTotal - grandCost;
+  const savedTasksNetTotal = tasks.reduce((s: number, t: any) => s + getLineTotal(t, false), 0);
+  const savedGoodsNetTotal = goods.reduce((s: number, g: any) => s + getLineTotal(g, false), 0);
+  const savedGrandGrossTotal = tasks.reduce((s: number, t: any) => s + getLineTotal(t, true), 0) + goods.reduce((s: number, g: any) => s + getLineTotal(g, true), 0);
+  const savedGrandNetTotal = savedTasksNetTotal + savedGoodsNetTotal;
+
+  const draftTasksTotal = taskRows.reduce((sum, row) => sum + (isTaskDraftFilled(row) ? getDraftTaskTotal(row) : 0), 0);
+  const draftGoodsTotal = goodsRows.reduce((sum, row) => sum + (isGoodsDraftFilled(row) ? getDraftGoodsTotal(row) : 0), 0);
+  const draftGoodsCost = goodsRows.reduce((sum, row) => sum + (isGoodsDraftFilled(row) ? getDraftGoodsCost(row) : 0), 0);
+
+  const displayTasksTotal = tasksTotal + draftTasksTotal;
+  const displayGoodsTotal = goodsTotal + draftGoodsTotal;
+  const displayGrandTotal = displayTasksTotal + displayGoodsTotal;
+  const displayGrandCost = tasksCost + goodsCost + draftGoodsCost;
+  const displayGrandProfit = displayGrandTotal - displayGrandCost;
+
+  useEffect(() => {
+    const currentGross = safeNumber(order.total_gross);
+    const currentNet = safeNumber(order.total_net);
+    if (Math.abs(currentGross - savedGrandGrossTotal) < 0.01 && Math.abs(currentNet - savedGrandNetTotal) < 0.01) {
+      return;
+    }
+
+    updateOrder.mutate({
+      id: order.id,
+      total_gross: savedGrandGrossTotal,
+      total_net: savedGrandNetTotal,
+    });
+  }, [order.id, order.total_gross, order.total_net, savedGrandGrossTotal, savedGrandNetTotal]);
+
+  const saveTaskDraftRows = async () => {
+    const rowsToSave = taskRows.filter(isTaskDraftFilled);
+    if (rowsToSave.length === 0) {
+      addTaskRow();
+      return;
+    }
+
+    for (const row of rowsToSave) {
+      const sourceIndex = taskRows.findIndex(candidate => candidate === row);
+      await submitTask(row, sourceIndex >= 0 ? sourceIndex : 0);
+    }
+
+    setTaskRows([{ ...emptyTask }]);
+  };
+
+  const saveGoodsDraftRows = async () => {
+    const rowsToSave = goodsRows.filter(isGoodsDraftFilled);
+    if (rowsToSave.length === 0) {
+      addGoodsRow();
+      return;
+    }
+
+    for (const row of rowsToSave) {
+      const sourceIndex = goodsRows.findIndex(candidate => candidate === row);
+      await submitGoods(row, sourceIndex >= 0 ? sourceIndex : 0);
+    }
+
+    setGoodsRows([{ ...emptyGoods }]);
+  };
 
   // Inline editable cell renderer
   const renderEditableCell = (item: any, field: string, displayValue: string, className: string = '') => {
@@ -367,7 +446,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-28">
       {/* Quote accepted warning banner */}
       {order.quote_accepted && (
         <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg text-sm text-amber-800 dark:text-amber-200">
@@ -380,15 +459,15 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       <div className="flex items-center gap-3 flex-wrap">
         <Badge variant="outline" className="text-sm px-3 py-1.5 gap-1.5">
           <Wrench className="h-3.5 w-3.5" />
-          Usługi: {fmt(tasksTotal)}
+          Usługi: {fmt(displayTasksTotal)}
         </Badge>
         <Badge variant="outline" className="text-sm px-3 py-1.5 gap-1.5">
           <Package className="h-3.5 w-3.5" />
-          Części: {fmt(goodsTotal)}
+          Części: {fmt(displayGoodsTotal)}
         </Badge>
-        {grandCost > 0 && (
+        {displayGrandCost > 0 && (
           <Badge variant="secondary" className="text-sm px-3 py-1.5">
-            Marża: {fmt(grandProfit)} ({grandTotal > 0 ? Math.round((grandProfit / grandTotal) * 100) : 0}%)
+            Marża: {fmt(displayGrandProfit)} ({displayGrandTotal > 0 ? Math.round((displayGrandProfit / displayGrandTotal) * 100) : 0}%)
           </Badge>
         )}
       </div>
@@ -535,7 +614,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                 <tr className="bg-muted/30 font-semibold text-sm border-b">
                   <td className="p-2"></td>
                   <td className="p-2" colSpan={2}>Razem usługi</td>
-                  <td className="p-2 text-right tabular-nums">{fmt(tasksTotal)}</td>
+                  <td className="p-2 text-right tabular-nums">{fmt(displayTasksTotal)}</td>
                   <td className="p-2"></td>
                   <td className="p-2"></td>
                   <td className="p-2"></td>
@@ -543,8 +622,8 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                 <tr className="bg-primary/5">
                   <td colSpan={7} className="p-1.5">
                     <div className="flex items-center gap-2">
-                      <Button onClick={addTaskRow} variant="ghost" size="sm" className="gap-1 text-xs text-primary">
-                        <Plus className="h-3.5 w-3.5" /> Dodaj kolejną usługę
+                      <Button onClick={saveTaskDraftRows} variant="ghost" size="sm" className="gap-1 text-xs text-primary">
+                        <Plus className="h-3.5 w-3.5" /> Zapisz i dodaj usługę
                       </Button>
                       {(tasks.length > 0 || taskRows.some(r => r.name.trim())) && ridoPriceSettings?.ai_suggestions_enabled !== false && (
                         <Button
@@ -742,7 +821,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                 <tr className="bg-muted/30 font-semibold text-sm border-b">
                   <td className="p-2"></td>
                   <td className="p-2" colSpan={5}>Razem części</td>
-                  <td className="p-2 text-right tabular-nums">{fmt(goodsTotal)}</td>
+                  <td className="p-2 text-right tabular-nums">{fmt(displayGoodsTotal)}</td>
                   <td className="p-2"></td>
                   <td className="p-2"></td>
                   <td className="p-2"></td>
@@ -750,8 +829,8 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                 <tr className="bg-amber-500/5">
                   <td colSpan={10} className="p-1.5">
                     <div className="flex items-center gap-2">
-                      <Button onClick={addGoodsRow} variant="ghost" size="sm" className="gap-1 text-xs text-amber-600">
-                        <Plus className="h-3.5 w-3.5" /> Dodaj pozycję ręcznie
+                      <Button onClick={saveGoodsDraftRows} variant="ghost" size="sm" className="gap-1 text-xs text-amber-600">
+                        <Plus className="h-3.5 w-3.5" /> Zapisz i dodaj pozycję
                       </Button>
                       <Button variant="outline" size="sm" className="gap-1 h-7 text-xs">
                         <Package className="h-3.5 w-3.5" /> Dodaj z magazynu
@@ -782,24 +861,39 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
 
       {/* GRAND TOTAL */}
       <Card className="bg-muted/50">
-        <CardContent className="py-4">
-          <div className="grid grid-cols-3 gap-4 text-center">
-            <div className="flex flex-col items-center">
+        <CardContent className="py-4 space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-xl border bg-background/70 px-4 py-3 text-center">
+              <p className="text-xs text-muted-foreground mb-1">Robocizna</p>
+              <p className="text-lg font-bold tabular-nums">{fmt(displayTasksTotal)}</p>
+            </div>
+            <div className="rounded-xl border bg-background/70 px-4 py-3 text-center">
+              <p className="text-xs text-muted-foreground mb-1">Części</p>
+              <p className="text-lg font-bold tabular-nums">{fmt(displayGoodsTotal)}</p>
+            </div>
+            <div className="rounded-xl border bg-background/70 px-4 py-3 text-center">
               <p className="text-xs text-muted-foreground mb-1">Koszt własny</p>
-              <p className="text-lg font-bold text-muted-foreground tabular-nums">{fmt(grandCost)}</p>
+              <p className="text-lg font-bold text-muted-foreground tabular-nums">{fmt(displayGrandCost)}</p>
             </div>
-            <div className="flex flex-col items-center">
-              <p className="text-xs text-muted-foreground mb-1">Razem</p>
-              <p className="text-2xl font-bold tabular-nums">{fmt(grandTotal)}</p>
-            </div>
-            <div className="flex flex-col items-center">
+            <div className="rounded-xl border bg-background/70 px-4 py-3 text-center">
               <p className="text-xs text-muted-foreground mb-1">Zysk</p>
-              <p className={`text-lg font-bold tabular-nums ${grandProfit >= 0 ? 'text-green-600' : 'text-destructive'}`}>
-                {fmt(grandProfit)}
+              <p className={`text-lg font-bold tabular-nums ${displayGrandProfit >= 0 ? 'text-primary' : 'text-destructive'}`}>
+                {fmt(displayGrandProfit)}
               </p>
-              {grandTotal > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  {Math.round((grandProfit / grandTotal) * 100)}% marży
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-end justify-between gap-4 rounded-xl border bg-background px-4 py-4">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Podsumowanie zlecenia</p>
+              <p className="text-sm text-muted-foreground mt-1">Koszt części i robocizny vs. końcowa wartość sprzedaży.</p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-muted-foreground mb-1">Razem do zapłaty</p>
+              <p className="text-3xl font-bold tabular-nums">{fmt(displayGrandTotal)}</p>
+              {displayGrandTotal > 0 && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Marża: {Math.round((displayGrandProfit / displayGrandTotal) * 100)}%
                 </p>
               )}
             </div>
