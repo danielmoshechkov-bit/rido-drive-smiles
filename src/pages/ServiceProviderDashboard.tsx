@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '@/integrations/supabase/client';
 import { UniversalHomeButton } from '@/components/UniversalHomeButton';
 import { MyGetRidoButton } from '@/components/MyGetRidoButton';
@@ -56,6 +57,7 @@ interface ServiceItem {
 
 export default function ServiceProviderDashboard() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { roles, loading: roleLoading } = useUserRole();
   const { features } = useFeatureToggles();
   const [user, setUser] = useState<any>(null);
@@ -98,7 +100,7 @@ export default function ServiceProviderDashboard() {
     if (roleLoading) return;
     const isServiceProvider = roles.some(r => r === 'service_provider');
     if (!isServiceProvider) {
-      toast.error('Brak uprawnień do panelu usługodawcy');
+      toast.error(t('sp.noPermission'));
       navigate('/auth');
       return;
     }
@@ -199,7 +201,7 @@ export default function ServiceProviderDashboard() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['provider-services'] });
-      toast.success('Usługa dodana');
+      toast.success(t('sp.services.added'));
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -214,7 +216,7 @@ export default function ServiceProviderDashboard() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['provider-services'] });
-      toast.success('Usługa zaktualizowana');
+      toast.success(t('sp.services.updated'));
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -229,18 +231,18 @@ export default function ServiceProviderDashboard() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['provider-services'] });
-      toast.success('Usługa usunięta');
+      toast.success(t('sp.services.deleted'));
     },
     onError: (e: any) => toast.error(e.message),
   });
 
   const handleSaveService = async () => {
     if (!serviceForm.name.trim()) {
-      toast.error('Podaj nazwę usługi');
+      toast.error(t('sp.services.enterName'));
       return;
     }
     if (!providerId) {
-      toast.error('Brak ID usługodawcy — odśwież stronę');
+      toast.error(t('sp.services.noProviderId'));
       return;
     }
 
@@ -279,7 +281,7 @@ export default function ServiceProviderDashboard() {
       resetServiceForm();
     } catch (err: any) {
       console.error('Save service error:', err);
-      toast.error('Błąd zapisu: ' + (err?.message || 'Spróbuj ponownie'));
+      toast.error(t('sp.services.saveError') + ': ' + (err?.message || ''));
     }
   };
 
@@ -334,9 +336,9 @@ export default function ServiceProviderDashboard() {
           <div className="flex items-center gap-4">
             <UniversalHomeButton />
             <div className="hidden sm:block">
-              <h1 className="font-semibold text-lg">Panel Usługodawcy</h1>
+              <h1 className="font-semibold text-lg">{t('sp.panel')}</h1>
               <p className="text-xs text-muted-foreground">
-                {configData?.company_name || settingsForm.company_name || 'Twoja firma'}
+                {configData?.company_name || settingsForm.company_name || t('sp.yourCompany')}
               </p>
             </div>
           </div>
@@ -350,45 +352,45 @@ export default function ServiceProviderDashboard() {
       <main className="container mx-auto px-4 py-6">
         <TabsPill value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           {primaryTabs.includes('dashboard') && (
-            <TabsTrigger value="dashboard">
+             <TabsTrigger value="dashboard">
               <LayoutDashboard className="h-4 w-4 mr-1.5" />
-              Pulpit
+              {t('sp.tabs.dashboard')}
             </TabsTrigger>
           )}
           {primaryTabs.includes('services') && (
             <TabsTrigger value="services">
               <Wrench className="h-4 w-4 mr-1.5" />
-              Moje usługi
+              {t('sp.tabs.services')}
             </TabsTrigger>
           )}
           {primaryTabs.includes('workshop') && (
             <TabsTrigger value="workshop">
               <Hammer className="h-4 w-4 mr-1.5" />
-              Warsztat & Auto
+              {t('sp.tabs.workshop')}
             </TabsTrigger>
           )}
           {primaryTabs.includes('accounting') && (
             <TabsTrigger value="accounting">
               <Calculator className="h-4 w-4 mr-1.5" />
-              Księgowość
+              {t('sp.tabs.accounting')}
             </TabsTrigger>
           )}
           {primaryTabs.includes('calendar') && (
             <TabsTrigger value="calendar">
               <Calendar className="h-4 w-4 mr-1.5" />
-              Kalendarz
+              {t('sp.tabs.calendar')}
             </TabsTrigger>
           )}
           {primaryTabs.includes('ai-agent') && (
             <TabsTrigger value="ai-agent">
               <Bot className="h-4 w-4 mr-1.5" />
-              AI Agenci
+              {t('sp.tabs.aiAgent')}
             </TabsTrigger>
           )}
           {primaryTabs.includes('account') && (
             <TabsTrigger value="account">
               <Users className="h-4 w-4 mr-1.5" />
-              Wybierz moduł
+              {t('sp.tabs.selectModule')}
             </TabsTrigger>
           )}
           <Popover open={moreOpen} onOpenChange={setMoreOpen}>
@@ -398,28 +400,28 @@ export default function ServiceProviderDashboard() {
                 className="px-5 h-10 flex items-center gap-2 rounded-full text-white text-sm whitespace-nowrap transition-colors hover:bg-white/20 focus-visible:outline-none"
               >
                 <ChevronDown className="h-4 w-4" />
-                Więcej
+                {t('sp.tabs.more')}
               </button>
             </PopoverTrigger>
             <PopoverContent className="w-52 p-1" align="end">
               {!primaryTabs.includes('ai-agent') && (
                 <button className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-muted transition-colors" onClick={() => { setActiveTab('ai-agent'); setMoreOpen(false); }}>
-                  <Bot className="h-4 w-4" /> AI Agenci
+                  <Bot className="h-4 w-4" /> {t('sp.tabs.aiAgent')}
                 </button>
               )}
               {!primaryTabs.includes('workspace') && (
                 <button className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-muted transition-colors" onClick={() => { setActiveTab('workspace'); setMoreOpen(false); }}>
-                  <Briefcase className="h-4 w-4" /> Workspace
+                  <Briefcase className="h-4 w-4" /> {t('sp.tabs.workspace')}
                 </button>
               )}
               {features.website_builder_enabled && !primaryTabs.includes('website') && (
                 <button className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-muted transition-colors" onClick={() => { setActiveTab('website'); setMoreOpen(false); }}>
-                  <Globe className="h-4 w-4" /> Strona WWW
+                  <Globe className="h-4 w-4" /> {t('sp.tabs.website')}
                 </button>
               )}
               {!primaryTabs.includes('settings') && (
                 <button className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-muted transition-colors" onClick={() => { setActiveTab('settings'); setMoreOpen(false); }}>
-                  <Settings className="h-4 w-4" /> Ustawienia
+                  <Settings className="h-4 w-4" /> {t('sp.tabs.settings')}
                 </button>
               )}
             </PopoverContent>
@@ -429,29 +431,29 @@ export default function ServiceProviderDashboard() {
           <TabsContent value="dashboard" className="space-y-6 mt-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <Card>
-                <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Wszystkie rezerwacje</CardTitle></CardHeader>
+                <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">{t('sp.dashboard.allBookings')}</CardTitle></CardHeader>
                 <CardContent><div className="flex items-center gap-2"><ClipboardList className="h-5 w-5 text-primary" /><span className="text-2xl font-bold">{stats.totalBookings}</span></div></CardContent>
               </Card>
               <Card>
-                <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Oczekujące</CardTitle></CardHeader>
-                <CardContent><div className="flex items-center gap-2"><Clock className="h-5 w-5 text-yellow-500" /><span className="text-2xl font-bold">{stats.pendingBookings}</span></div></CardContent>
+                <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">{t('sp.dashboard.pending')}</CardTitle></CardHeader>
+                <CardContent><div className="flex items-center gap-2"><Clock className="h-5 w-5 text-warning" /><span className="text-2xl font-bold">{stats.pendingBookings}</span></div></CardContent>
               </Card>
               <Card>
-                <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Średnia ocena</CardTitle></CardHeader>
-                <CardContent><div className="flex items-center gap-2"><Star className="h-5 w-5 text-yellow-400 fill-yellow-400" /><span className="text-2xl font-bold">{stats.averageRating > 0 ? stats.averageRating.toFixed(1) : '-'}</span></div></CardContent>
+                <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">{t('sp.dashboard.avgRating')}</CardTitle></CardHeader>
+                <CardContent><div className="flex items-center gap-2"><Star className="h-5 w-5 text-warning fill-warning" /><span className="text-2xl font-bold">{stats.averageRating > 0 ? stats.averageRating.toFixed(1) : '-'}</span></div></CardContent>
               </Card>
               <Card>
-                <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">AI Agent</CardTitle></CardHeader>
-                <CardContent><div className="flex items-center gap-2"><Phone className="h-5 w-5 text-primary" /><Badge variant={configData?.is_active ? 'default' : 'secondary'}>{configData?.is_active ? 'Aktywny' : 'Nieaktywny'}</Badge></div></CardContent>
+                <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">{t('sp.dashboard.aiAgent')}</CardTitle></CardHeader>
+                <CardContent><div className="flex items-center gap-2"><Phone className="h-5 w-5 text-primary" /><Badge variant={configData?.is_active ? 'default' : 'secondary'}>{configData?.is_active ? t('sp.dashboard.active') : t('sp.dashboard.inactive')}</Badge></div></CardContent>
               </Card>
             </div>
             <Card>
-              <CardHeader><CardTitle>Szybkie akcje</CardTitle><CardDescription>Najczęściej używane funkcje</CardDescription></CardHeader>
+              <CardHeader><CardTitle>{t('sp.dashboard.quickActions')}</CardTitle><CardDescription>{t('sp.dashboard.quickActionsDesc')}</CardDescription></CardHeader>
               <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <Button variant="outline" onClick={() => setActiveTab('bookings')}><ClipboardList className="h-4 w-4 mr-2" />Rezerwacje</Button>
-                <Button variant="outline" onClick={() => setActiveTab('calendar')}><Calendar className="h-4 w-4 mr-2" />Kalendarz</Button>
-                <Button variant="outline" onClick={() => setActiveTab('ai-agent')}><Phone className="h-4 w-4 mr-2" />AI Agent</Button>
-                <Button variant="outline" onClick={() => setActiveTab('services')}><Wrench className="h-4 w-4 mr-2" />Usługi</Button>
+                <Button variant="outline" onClick={() => setActiveTab('bookings')}><ClipboardList className="h-4 w-4 mr-2" />{t('sp.dashboard.bookings')}</Button>
+                <Button variant="outline" onClick={() => setActiveTab('calendar')}><Calendar className="h-4 w-4 mr-2" />{t('sp.dashboard.calendar')}</Button>
+                <Button variant="outline" onClick={() => setActiveTab('ai-agent')}><Phone className="h-4 w-4 mr-2" />{t('sp.dashboard.aiAgent')}</Button>
+                <Button variant="outline" onClick={() => setActiveTab('services')}><Wrench className="h-4 w-4 mr-2" />{t('sp.dashboard.services')}</Button>
               </CardContent>
             </Card>
           </TabsContent>
@@ -460,7 +462,7 @@ export default function ServiceProviderDashboard() {
           <TabsContent value="services" className="mt-6 space-y-4">
             <div className="flex items-center justify-start">
               <Button onClick={() => { resetServiceForm(); setServiceDialog(true); }} className="gap-2">
-                <Plus className="h-4 w-4" /> Dodaj usługę
+                <Plus className="h-4 w-4" /> {t('sp.services.addService')}
               </Button>
             </div>
 
@@ -469,18 +471,18 @@ export default function ServiceProviderDashboard() {
                 {services.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">
                     <Wrench className="h-12 w-12 mx-auto mb-4 opacity-30" />
-                    <p className="font-medium">Brak usług</p>
-                    <p className="text-sm">Dodaj pierwszą usługę, która pojawi się na Twoim profilu w portalu</p>
+                    <p className="font-medium">{t('sp.services.noServices')}</p>
+                    <p className="text-sm">{t('sp.services.noServicesHint')}</p>
                   </div>
                 ) : (
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Nazwa usługi</TableHead>
-                        <TableHead>Kategoria</TableHead>
-                        <TableHead className="text-right">Cena od</TableHead>
-                        <TableHead className="text-right">Cena do</TableHead>
-                        <TableHead>Status</TableHead>
+                        <TableHead>{t('sp.services.serviceName')}</TableHead>
+                        <TableHead>{t('sp.services.category')}</TableHead>
+                        <TableHead className="text-right">{t('sp.services.priceFrom')}</TableHead>
+                        <TableHead className="text-right">{t('sp.services.priceTo')}</TableHead>
+                        <TableHead>{t('sp.services.status')}</TableHead>
                         <TableHead></TableHead>
                       </TableRow>
                     </TableHeader>
@@ -488,12 +490,12 @@ export default function ServiceProviderDashboard() {
                       {services.map((service: ServiceItem) => (
                         <TableRow key={service.id}>
                           <TableCell className="font-medium">{service.name}</TableCell>
-                          <TableCell className="text-sm text-muted-foreground">{service.category}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{t(`sp.services.categories.${service.category}`, service.category)}</TableCell>
                           <TableCell className="text-right">{service.price_from} zł</TableCell>
                           <TableCell className="text-right">{service.price_to > 0 ? `${service.price_to} zł` : '—'}</TableCell>
                           <TableCell>
-                            <Badge variant={service.is_active ? 'default' : 'secondary'}>
-                              {service.is_active ? 'Aktywna' : 'Nieaktywna'}
+                             <Badge variant={service.is_active ? 'default' : 'secondary'}>
+                              {service.is_active ? t('sp.services.activeStatus') : t('sp.services.inactiveStatus')}
                             </Badge>
                           </TableCell>
                           <TableCell>
@@ -518,49 +520,49 @@ export default function ServiceProviderDashboard() {
             <Dialog open={serviceDialog} onOpenChange={setServiceDialog}>
               <DialogContent className="max-w-lg">
                 <DialogHeader>
-                  <DialogTitle>{editingService ? 'Edytuj usługę' : 'Dodaj nową usługę'}</DialogTitle>
+                  <DialogTitle>{editingService ? t('sp.services.editService') : t('sp.services.addNewService')}</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 max-h-[60vh] overflow-y-auto">
                   <div className="space-y-2">
-                    <Label>Nazwa usługi *</Label>
-                    <Input value={serviceForm.name} onChange={e => setServiceForm(p => ({ ...p, name: e.target.value }))} placeholder="np. Wymiana oleju, Korekta lakieru" />
+                    <Label>{t('sp.services.serviceNameLabel')}</Label>
+                    <Input value={serviceForm.name} onChange={e => setServiceForm(p => ({ ...p, name: e.target.value }))} placeholder={t('sp.services.serviceNamePlaceholder')} />
                   </div>
                   <div className="space-y-2">
-                    <Label>Krótki opis</Label>
-                    <Input value={serviceForm.short_description} onChange={e => setServiceForm(p => ({ ...p, short_description: e.target.value }))} placeholder="Krótkie podsumowanie widoczne na liście" />
+                    <Label>{t('sp.services.shortDesc')}</Label>
+                    <Input value={serviceForm.short_description} onChange={e => setServiceForm(p => ({ ...p, short_description: e.target.value }))} placeholder={t('sp.services.shortDescPlaceholder')} />
                   </div>
                   <div className="space-y-2">
-                    <Label>Pełny opis</Label>
-                    <Textarea rows={4} value={serviceForm.description} onChange={e => setServiceForm(p => ({ ...p, description: e.target.value }))} placeholder="Szczegółowy opis usługi..." />
+                    <Label>{t('sp.services.fullDesc')}</Label>
+                    <Textarea rows={4} value={serviceForm.description} onChange={e => setServiceForm(p => ({ ...p, description: e.target.value }))} placeholder={t('sp.services.fullDescPlaceholder')} />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Cena od (zł)</Label>
+                      <Label>{t('sp.services.priceFromLabel')}</Label>
                       <Input type="number" value={serviceForm.price_from} onChange={e => setServiceForm(p => ({ ...p, price_from: e.target.value }))} placeholder="0" />
                     </div>
                     <div className="space-y-2">
-                      <Label>Cena do (zł)</Label>
+                      <Label>{t('sp.services.priceToLabel')}</Label>
                       <Input type="number" value={serviceForm.price_to} onChange={e => setServiceForm(p => ({ ...p, price_to: e.target.value }))} placeholder="0" />
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label>Kategoria</Label>
+                    <Label>{t('sp.services.category')}</Label>
                     <Select value={serviceForm.category} onValueChange={v => setServiceForm(p => ({ ...p, category: v }))}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="ogolne">Ogólne</SelectItem>
-                        <SelectItem value="mechanika">Mechanika</SelectItem>
-                        <SelectItem value="detailing">Detailing</SelectItem>
-                        <SelectItem value="lakiernictwo">Lakiernictwo</SelectItem>
-                        <SelectItem value="elektryka">Elektryka</SelectItem>
-                        <SelectItem value="opony">Opony / Wulkanizacja</SelectItem>
-                        <SelectItem value="diagnostyka">Diagnostyka</SelectItem>
-                        <SelectItem value="inne">Inne</SelectItem>
+                        <SelectItem value="ogolne">{t('sp.services.categories.ogolne')}</SelectItem>
+                        <SelectItem value="mechanika">{t('sp.services.categories.mechanika')}</SelectItem>
+                        <SelectItem value="detailing">{t('sp.services.categories.detailing')}</SelectItem>
+                        <SelectItem value="lakiernictwo">{t('sp.services.categories.lakiernictwo')}</SelectItem>
+                        <SelectItem value="elektryka">{t('sp.services.categories.elektryka')}</SelectItem>
+                        <SelectItem value="opony">{t('sp.services.categories.opony')}</SelectItem>
+                        <SelectItem value="diagnostyka">{t('sp.services.categories.diagnostyka')}</SelectItem>
+                        <SelectItem value="inne">{t('sp.services.categories.inne')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Zdjęcia usługi</Label>
+                    <Label>{t('sp.services.photos')}</Label>
                     <div
                       className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${isDraggingService ? 'border-primary bg-primary/5' : 'border-muted-foreground/30 hover:border-primary/50'}`}
                       onClick={() => serviceFileRef.current?.click()}
@@ -569,7 +571,7 @@ export default function ServiceProviderDashboard() {
                       onDrop={handleServiceFileDrop}
                     >
                       <Upload className="h-8 w-8 mx-auto mb-2 opacity-40" />
-                      <p className="text-sm text-muted-foreground">Przeciągnij zdjęcia lub <span className="text-primary font-medium">kliknij aby wybrać</span></p>
+                      <p className="text-sm text-muted-foreground">{t('sp.services.photosHint')}</p>
                       <input ref={serviceFileRef} type="file" multiple accept="image/*" className="hidden" onChange={handleServiceFileSelect} />
                     </div>
                     {/* Show existing photos */}
@@ -599,13 +601,13 @@ export default function ServiceProviderDashboard() {
                   </div>
                   <div className="flex items-center gap-3">
                     <Switch checked={serviceForm.is_active} onCheckedChange={v => setServiceForm(p => ({ ...p, is_active: v }))} />
-                    <Label>Usługa aktywna (widoczna w portalu)</Label>
+                    <Label>{t('sp.services.serviceActive')}</Label>
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setServiceDialog(false)}>Anuluj</Button>
+                  <Button variant="outline" onClick={() => setServiceDialog(false)}>{t('sp.services.cancel')}</Button>
                   <Button onClick={handleSaveService} disabled={!serviceForm.name || createServiceMut.isPending || updateServiceMut.isPending}>
-                    <Save className="h-4 w-4 mr-2" />Zapisz
+                    <Save className="h-4 w-4 mr-2" />{t('sp.services.save')}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -618,8 +620,8 @@ export default function ServiceProviderDashboard() {
               activeTab={calendarSubTab}
               onTabChange={(v) => setCalendarSubTab(v as 'calendar' | 'bookings')}
               tabs={[
-                { value: 'calendar', label: 'Kalendarz' },
-                { value: 'bookings', label: 'Rezerwacje' },
+                { value: 'calendar', label: t('sp.calendar.calendar') },
+                { value: 'bookings', label: t('sp.calendar.bookings') },
               ]}
             />
             {calendarSubTab === 'calendar' && (
@@ -634,7 +636,7 @@ export default function ServiceProviderDashboard() {
             {calendarSubTab === 'bookings' && (
               <div className="mt-4">
                 <Card>
-                  <CardContent className="pt-6"><p className="text-muted-foreground text-center py-8">Brak aktywnych rezerwacji</p></CardContent>
+                  <CardContent className="pt-6"><p className="text-muted-foreground text-center py-8">{t('sp.calendar.noBookings')}</p></CardContent>
                 </Card>
               </div>
             )}
@@ -643,7 +645,7 @@ export default function ServiceProviderDashboard() {
           {/* Bookings Tab */}
            <TabsContent value="bookings" className="mt-6">
             <Card>
-              <CardContent className="pt-6"><p className="text-muted-foreground text-center py-8">Brak aktywnych rezerwacji</p></CardContent>
+              <CardContent className="pt-6"><p className="text-muted-foreground text-center py-8">{t('sp.calendar.noBookings')}</p></CardContent>
             </Card>
           </TabsContent>
 
