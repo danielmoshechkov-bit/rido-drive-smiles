@@ -267,11 +267,14 @@ export function ServiceProviderAccountingView() {
       {/* Email faktury setup */}
       {subTab === 'email-faktury' && <InvoiceEmailSetup />}
 
+      {/* KSeF Monitor */}
+      {subTab === 'ksef' && <KsefMonitorView />}
+
       {/* Stan magazynowy */}
       {subTab === 'magazyn' && <InventoryModuleView entityId={userEntities[0]?.id} />}
 
       {/* Placeholder for unbuilt tabs */}
-      {!['przeglad', 'faktury', 'zakupy', 'magazyn', 'oczekujace', 'email-faktury'].includes(subTab) && (
+      {!['przeglad', 'faktury', 'zakupy', 'magazyn', 'oczekujace', 'email-faktury', 'ksef'].includes(subTab) && (
         <Card>
           <CardContent className="py-12 text-center">
             <Calculator className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
