@@ -293,7 +293,7 @@ function mapDbToListing(db: DbListing) {
     title: db.title,
     price: db.price,
     priceType: db.price_type || 'sale',
-    photos: db.photos || [],
+    photos: (typeof db.photos === 'string' ? (() => { try { return JSON.parse(db.photos as string); } catch { return []; } })() : db.photos) || [],
     location: db.city || db.location || '',
     district: db.district,
     buildYear: db.build_year,

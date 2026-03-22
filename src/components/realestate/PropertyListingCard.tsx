@@ -94,8 +94,11 @@ export function PropertyListingCard({
   const [showLightbox, setShowLightbox] = useState(false);
   const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
 
-  const photos = listing.photos?.length > 0 
-    ? listing.photos 
+  const rawPhotos = typeof listing.photos === 'string' 
+    ? (() => { try { return JSON.parse(listing.photos); } catch { return []; } })()
+    : listing.photos;
+  const photos = Array.isArray(rawPhotos) && rawPhotos.length > 0 
+    ? rawPhotos 
     : ["/placeholder.svg"];
 
   const handleImageError = (index: number) => {
