@@ -109,16 +109,24 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
   const shapeStart = useRef<{ x: number; y: number } | null>(null);
   const baseMaskData = useRef<ImageData | null>(null);
 
-  // Multi-annotation system
+  // Multi-annotation system — store geometry for proper compositing & manipulation
   interface Annotation {
     id: number;
-    maskData: ImageData;
+    type: AnnotationTool;
+    start?: { x: number; y: number };
+    end?: { x: number; y: number };
+    brushPoints?: { x: number; y: number }[];
     center: { x: number; y: number };
     description: string;
-    tool: AnnotationTool;
   }
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [activeAnnotation, setActiveAnnotation] = useState<number | null>(null);
+  
+  // Shape interaction (move/resize)
+  type InteractionMode = 'none' | 'move' | 'resize-tl' | 'resize-tr' | 'resize-bl' | 'resize-br';
+  const [interactionMode, setInteractionMode] = useState<InteractionMode>('none');
+  const [interactingAnnotation, setInteractingAnnotation] = useState<number | null>(null);
+  const interactionStart = useRef<{ x: number; y: number; origStart: { x: number; y: number }; origEnd: { x: number; y: number } } | null>(null);
 
   const { streamExecute, execute, isLoading } = useGetRidoAI();
   const scrollRef = useRef<HTMLDivElement>(null);
