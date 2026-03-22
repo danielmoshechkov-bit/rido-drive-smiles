@@ -467,17 +467,44 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
     setIsEditing(true);
     try {
       const combinedPrompt = validAnnotations.map((a, i) => `${i + 1}. ${a.description}`).join('\n');
+      const imageBase64 = canvasRef.current.toDataURL('image/png').split(',')[1];
+      const maskBase64 = maskCanvasRef.current.toDataURL('image/png').split(',')[1];
+      
+      console.log('[RidoAI] Sending inpaint request with', validAnnotations.length, 'annotations');
+      
       const result = await execute({
         taskType: 'inpaint',
         query: combinedPrompt,
-        imageBase64: canvasRef.current.toDataURL('image/png').split(',')[1],
-        maskBase64: maskCanvasRef.current.toDataURL('image/png').split(',')[1],
+        imageBase64,
+        maskBase64,
       });
+      
+      console.log('[RidoAI] Inpaint result:', result?.result, 'images:', result?.images?.length);
+      
       if (result?.images?.[0]) {
-        setEditorImage(result.images[0]);
-        clearAllAnnotations();
-        setBrushActive(false);
+        const editedSrc = result.images[0];
+        // Load edited image onto canvas
+        const newImg = new window.Image();
+        newImg.crossOrigin = 'anonymous';
+        newImg.onload = () => {
+          if (canvasRef.current) {
+            const ctx = canvasRef.current.getContext('2d')!;
+            ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+            ctx.drawImage(newImg, 0, 0, canvasRef.current.width, canvasRef.current.height);
+          }
+          clearAllAnnotations();
+          setBrushActive(false);
+          setEditorImage(editedSrc);
+        };
+        newImg.onerror = () => {
+          console.error('[RidoAI] Failed to load edited image');
+        };
+        newImg.src = editedSrc;
+      } else {
+        console.error('[RidoAI] No edited image returned:', result?.result);
       }
+    } catch (err) {
+      console.error('[RidoAI] Inpaint error:', err);
     } finally {
       setIsEditing(false);
     }
@@ -891,22 +918,25 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
                             : 'bg-primary text-primary-foreground rounded-2xl rounded-bl-sm px-4 py-3'
                         )}>
                           {msg.role === 'assistant' ? (
-                            <div className="prose prose-sm max-w-none [&>p]:mb-2 [&>p:last-child]:mb-0 [&>ul]:mb-2 [&>ol]:mb-2 [&>li]:mb-0.5 [&_strong]:font-bold [&>p]:text-[14px] [&>p]:leading-relaxed [&>p]:font-medium [&>li]:text-[14px] [&>li]:font-medium text-primary-foreground [&_strong]:text-primary-foreground [&_li]:text-primary-foreground [&_a]:text-primary-foreground/80">
-                              <ReactMarkdown>
-                                {(msg.content || '...')
-                                  .replace(/ACTION:\{.*?\}/s, '')
-                                  .replace(/IMAGE_REQUEST:true/g, '')
-                                  .trim()}
-                              </ReactMarkdown>
+                            <>
+                              <div className="prose prose-sm max-w-none [&>p]:mb-2 [&>p:last-child]:mb-0 [&>ul]:mb-2 [&>ol]:mb-2 [&>li]:mb-0.5 [&_strong]:font-bold [&>p]:text-[14px] [&>p]:leading-relaxed [&>p]:font-medium [&>li]:text-[14px] [&>li]:font-medium text-primary-foreground [&_strong]:text-primary-foreground [&_li]:text-primary-foreground [&_a]:text-primary-foreground/80">
+                                {(() => {
+                                  const cleanContent = (msg.content || '')
+                                    .replace(/ACTION:\{.*?\}/s, '')
+                                    .replace(/IMAGE_REQUEST:true/g, '')
+                                    .trim();
+                                  return cleanContent ? <ReactMarkdown>{cleanContent}</ReactMarkdown> : null;
+                                })()}
+                              </div>
                               {msg.images?.map((img, idx) => (
-                                <div key={idx} className="relative group mt-3">
+                                <div key={idx} className="relative group mt-2 -mx-4 -mb-3">
                                   <img
                                     src={img}
                                     alt="Wygenerowana grafika"
-                                    className="rounded-xl max-w-full shadow-lg border border-primary-foreground/20 cursor-pointer hover:opacity-95 transition-opacity"
+                                    className="w-full rounded-b-2xl cursor-pointer hover:opacity-95 transition-opacity"
                                     onClick={() => openEditor(img)}
                                   />
-                                  <div className="absolute top-2 left-2 flex items-center gap-1.5">
+                                  <div className="absolute top-2 left-2 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <button onClick={(e) => { e.stopPropagation(); downloadImage(img); }} className="bg-background/90 backdrop-blur-sm text-foreground p-2 rounded-lg shadow-md border border-border/50 hover:bg-background transition-colors" title="Pobierz">
                                       <Download className="h-4 w-4" />
                                     </button>
@@ -916,7 +946,7 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
                                   </div>
                                 </div>
                               ))}
-                            </div>
+                            </>
                           ) : (
                             <p className="whitespace-pre-wrap text-[14px] font-semibold text-foreground">{msg.content}</p>
                           )}

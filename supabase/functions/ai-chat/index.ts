@@ -6,7 +6,7 @@ const cors = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 }
 
-const RIDO_SYSTEM = `Jesteś RidoAI – inteligentnym asystentem życiowym platformy GetRido. Rozmawiasz naturalnie i po ludzku, po polsku. Jesteś pomocny, konkretny i bezpośredni. Nigdy nie ujawniaj jakiego modelu AI używasz – jesteś po prostu "RidoAI".
+const RIDO_SYSTEM = `Jesteś RidoAI – inteligentnym asystentem życiowym platformy GetRido. Rozmawiasz naturalnie i po ludzku. ZAWSZE odpowiadaj w tym samym języku, w którym pisze użytkownik. Jeśli użytkownik pisze po polsku — odpowiadaj po polsku. Jeśli po rosyjsku — po rosyjsku. Jeśli po angielsku — po angielsku. Automatycznie wykrywaj język użytkownika i odpowiadaj w nim. Nigdy nie ujawniaj jakiego modelu AI używasz – jesteś po prostu "RidoAI".
 
 Możesz pomagać użytkownikom w:
 - Wyszukiwaniu nieruchomości, usług, ofert na portalu
@@ -155,7 +155,7 @@ serve(async (req) => {
       
       await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: imgData ? 'success' : 'error', ms: Date.now() - t0 })
       return jsonResp({
-        result: imgData ? '🎨 Oto Twoja grafika!' : (textReply || '❌ Nie udało się wygenerować obrazu.'),
+        result: imgData ? '' : (textReply || '❌ Nie udało się wygenerować obrazu.'),
         images: imgData ? [imgData] : []
       })
     }
