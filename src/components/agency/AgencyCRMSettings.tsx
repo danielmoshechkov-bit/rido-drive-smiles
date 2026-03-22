@@ -14,12 +14,13 @@ const CRM_LIST = [
     id: 'asari',
     name: 'ASARI CRM',
     logo: '🏢',
-    urlExample: 'https://pliki.asari.pl/export/TWOJE_ID/feed.xml',
+    urlExample: '',
     steps: [
       'Zaloguj się do ASARI CRM (login.asari.pro)',
-      'Przejdź do: Administracja → Eksport na portale → Dodaj własny FTP',
-      'W formularzu "Dodaj własny portal" wpisz DOKŁADNIE te dane:\n• Nazwa: GetRido\n• Adres serwera: ftp.getrido.pl\n• Katalog XML: /xml/\n• Podkatalog FOTO: /foto/\n• Port: 21\n• Strona kodowa: UTF-8\n• Format eksportu: EbiuroV2\n• Maks. liczba zdjęć: 20\n• Tryb Pasywny: ✓ zaznacz\nNastępnie kliknij Zapisz.',
-      'Po zapisaniu ASARI wygeneruje URL eksportu — skopiuj go i wklej w polu poniżej (Krok 3)',
+      'Przejdź do: Eksport na portale → Zarządzanie eksportami',
+      'W prawym górnym rogu: kliknij dropdown "Własny portal:" → wybierz "GetRido" z listy → kliknij "Szukaj"',
+      'Otworzy się formularz "Dodaj eksport na portal". Wypełnij go:\n• Nazwa portalu: GetRido (już wpisane)\n• Konto: wpisz swój adres email z konta GetRido\n• Hasło: wpisz hasło do konta GetRido\n• Biuro: wybierz swoje biuro lub zostaw puste\n• Limit ofert: 0 (brak limitu)\n• Eksportuj wizualizacje: Tak\n• Eksportuj stemple: Tak\nKliknij "Zapisz".',
+      'Gotowe! ASARI automatycznie wyśle Twoje oferty na GetRido w ciągu kilku minut. Eksport odbywa się co kilkadziesiąt sekund przy każdej zmianie oferty.',
     ],
     ftpData: {
       nazwa: 'GetRido',
@@ -348,77 +349,99 @@ export function AgencyCRMSettings({ agencyId }: AgencyCRMSettingsProps) {
         </Card>
       )}
 
-      {/* Step 3 — URL input */}
+      {/* Step 3 — URL input or ASARI auto-sync */}
       {crm && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">
-              Krok 3 — Wklej URL do pliku XML
+              {selectedCrm === 'asari' ? 'Krok 3 — Aktywuj integrację' : 'Krok 3 — Wklej URL do pliku XML'}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">
-                URL do pliku XML z ofertami *
-              </Label>
-              <div className="flex gap-2">
-                <Input
-                  value={xmlUrl}
-                  onChange={(e) => { setXmlUrl(e.target.value); setTestResult('idle'); }}
-                  placeholder={crm.urlExample}
-                  className={`flex-1 text-sm ${
-                    testResult === 'ok' ? 'border-green-500' : testResult === 'error' ? 'border-destructive' : ''
-                  }`}
-                />
-                <Button variant="outline" onClick={handleTest} disabled={testing || !xmlUrl}>
-                  {testing
-                    ? <Loader2 className="h-4 w-4 animate-spin" />
-                    : testResult === 'ok'
-                    ? <CheckCircle className="h-4 w-4 text-green-500" />
-                    : testResult === 'error'
-                    ? <AlertCircle className="h-4 w-4 text-destructive" />
-                    : null}
-                  <span className="ml-1">Testuj</span>
+            {selectedCrm === 'asari' ? (
+              <div className="p-4 rounded-xl border-2 border-green-200 bg-green-50 text-center">
+                <div className="text-2xl mb-2">✅</div>
+                <p className="font-semibold text-green-800 text-sm">
+                  ASARI nie wymaga URL — wysyła oferty automatycznie przez FTP
+                </p>
+                <p className="text-xs text-green-700 mt-1">
+                  Po kliknięciu "Zapisz" w ASARI, Twoje oferty pojawią się na GetRido w ciągu kilku minut.
+                </p>
+                <div className="mt-3 flex items-center justify-between p-3 rounded-lg border border-green-200 bg-white">
+                  <div className="text-left">
+                    <p className="text-sm font-medium text-green-900">Automatyczna synchronizacja</p>
+                    <p className="text-xs text-green-600">Włącz żeby aktywować odbiór danych z ASARI</p>
+                  </div>
+                  <Switch checked={isActive} onCheckedChange={setIsActive} />
+                </div>
+                <Button onClick={handleSave} disabled={saving || !selectedCrm} className="w-full mt-3">
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                  Aktywuj integrację z ASARI
                 </Button>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Np.: {crm.urlExample}
-              </p>
-            </div>
-
-            {/* Optional login/pass */}
-            <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground">
-                Login i hasło (opcjonalnie — jeśli plik XML jest chroniony)
-              </Label>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label className="text-xs">Login</Label>
-                  <Input value={xmlLogin} onChange={e => setXmlLogin(e.target.value)} placeholder="login" className="text-sm" />
+            ) : (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">
+                    URL do pliku XML z ofertami *
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={xmlUrl}
+                      onChange={(e) => { setXmlUrl(e.target.value); setTestResult('idle'); }}
+                      placeholder={crm.urlExample}
+                      className={`flex-1 text-sm ${
+                        testResult === 'ok' ? 'border-green-500' : testResult === 'error' ? 'border-destructive' : ''
+                      }`}
+                    />
+                    <Button variant="outline" onClick={handleTest} disabled={testing || !xmlUrl}>
+                      {testing
+                        ? <Loader2 className="h-4 w-4 animate-spin" />
+                        : testResult === 'ok'
+                        ? <CheckCircle className="h-4 w-4 text-green-500" />
+                        : testResult === 'error'
+                        ? <AlertCircle className="h-4 w-4 text-destructive" />
+                        : null}
+                      <span className="ml-1">Testuj</span>
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Np.: {crm.urlExample}
+                  </p>
                 </div>
-                <div>
-                  <Label className="text-xs">Hasło</Label>
-                  <Input type="password" value={xmlPassword} onChange={e => setXmlPassword(e.target.value)} placeholder="hasło" className="text-sm" />
+
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">
+                    Login i hasło (opcjonalnie — jeśli plik XML jest chroniony)
+                  </Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-xs">Login</Label>
+                      <Input value={xmlLogin} onChange={e => setXmlLogin(e.target.value)} placeholder="login" className="text-sm" />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Hasło</Label>
+                      <Input type="password" value={xmlPassword} onChange={e => setXmlPassword(e.target.value)} placeholder="hasło" className="text-sm" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                  <div>
+                    <p className="text-sm font-medium">Automatyczna synchronizacja co godzinę</p>
+                    <p className="text-xs text-muted-foreground">Nowe i zmienione oferty pobierane są automatycznie</p>
+                  </div>
+                  <Switch checked={isActive} onCheckedChange={setIsActive} />
+                </div>
+
+                <div className="flex justify-end">
+                  <Button onClick={handleSave} disabled={saving || !xmlUrl || !selectedCrm}>
+                    {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                    Zapisz i uruchom integrację
+                  </Button>
                 </div>
               </div>
-            </div>
-
-            {/* Auto-sync toggle */}
-            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
-              <div>
-                <p className="text-sm font-medium">Automatyczna synchronizacja co godzinę</p>
-                <p className="text-xs text-muted-foreground">Nowe i zmienione oferty pobierane są automatycznie</p>
-              </div>
-              <Switch checked={isActive} onCheckedChange={setIsActive} />
-            </div>
-
-            {/* Save */}
-            <div className="flex justify-end">
-              <Button onClick={handleSave} disabled={saving || !xmlUrl || !selectedCrm}>
-                {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-                Zapisz i uruchom integrację
-              </Button>
-            </div>
+            )}
           </CardContent>
         </Card>
       )}
