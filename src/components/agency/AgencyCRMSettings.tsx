@@ -170,10 +170,10 @@ export function AgencyCRMSettings({ agencyId }: AgencyCRMSettingsProps) {
     if (!selectedCrm || !xmlUrl) { toast.error('Wybierz CRM i wpisz URL'); return; }
     setSaving(true);
     try {
-      const payload: Record<string, unknown> = {
-        agency_id: agencyId,
+      const payload = {
+        agency_id: agencyId as string,
         provider_code: selectedCrm,
-        import_mode: 'xml_url',
+        import_mode: 'xml_url' as const,
         xml_url: xmlUrl,
         xml_login: xmlLogin,
         is_enabled: isActive,
@@ -181,7 +181,7 @@ export function AgencyCRMSettings({ agencyId }: AgencyCRMSettingsProps) {
       };
       const { error } = existingId
         ? await supabase.from('agency_crm_integrations').update(payload).eq('id', existingId)
-        : await supabase.from('agency_crm_integrations').insert(payload);
+        : await supabase.from('agency_crm_integrations').insert([payload]);
       if (error) throw error;
       toast.success('✅ Konfiguracja zapisana! Pierwsze pobieranie ofert nastąpi w ciągu godziny.');
       await loadConfig();
