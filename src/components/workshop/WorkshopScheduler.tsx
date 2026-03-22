@@ -580,13 +580,16 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz', foc
   );
 }
 
-function OrderCard({ order, onDragStart, onDragEnd }: { order: any; onDragStart: () => void; onDragEnd: () => void }) {
+function OrderCard({ order, onDragStart, onDragEnd, isFocused }: { order: any; onDragStart: () => void; onDragEnd: () => void; isFocused?: boolean }) {
   return (
     <Card
-      className="min-w-[240px] flex-shrink-0 border-l-4 border-l-[hsl(220,70%,55%)] cursor-grab active:cursor-grabbing hover:shadow-md transition-all bg-card"
+      className={`min-w-[240px] flex-shrink-0 border-l-4 cursor-grab active:cursor-grabbing hover:shadow-md transition-all bg-card ${isFocused ? 'border-l-amber-500 ring-2 ring-amber-400 shadow-lg' : 'border-l-[hsl(220,70%,55%)]'}`}
       draggable onDragStart={onDragStart} onDragEnd={onDragEnd}
     >
       <CardContent className="p-3 space-y-1">
+        {isFocused && (
+          <div className="text-[10px] font-bold text-amber-600 uppercase tracking-wider mb-1">← Bieżące zlecenie</div>
+        )}
         <div className="flex items-center gap-2 text-sm font-medium">
           <GripVertical className="h-4 w-4 text-muted-foreground flex-shrink-0" />
           <Car className="h-4 w-4 text-muted-foreground" />
