@@ -109,16 +109,24 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
   const shapeStart = useRef<{ x: number; y: number } | null>(null);
   const baseMaskData = useRef<ImageData | null>(null);
 
-  // Multi-annotation system
+  // Multi-annotation system — store geometry for proper compositing & manipulation
   interface Annotation {
     id: number;
-    maskData: ImageData;
+    type: AnnotationTool;
+    start?: { x: number; y: number };
+    end?: { x: number; y: number };
+    brushPoints?: { x: number; y: number }[];
     center: { x: number; y: number };
     description: string;
-    tool: AnnotationTool;
   }
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [activeAnnotation, setActiveAnnotation] = useState<number | null>(null);
+  
+  // Shape interaction (move/resize)
+  type InteractionMode = 'none' | 'move' | 'resize-tl' | 'resize-tr' | 'resize-bl' | 'resize-br';
+  const [interactionMode, setInteractionMode] = useState<InteractionMode>('none');
+  const [interactingAnnotation, setInteractingAnnotation] = useState<number | null>(null);
+  const interactionStart = useRef<{ x: number; y: number; origStart: { x: number; y: number }; origEnd: { x: number; y: number } } | null>(null);
 
   const { streamExecute, execute, isLoading } = useGetRidoAI();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -497,13 +505,37 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
     img.src = editorImage;
   }, [editorImage]);
 
-  // Redraw all annotation masks on the mask canvas
-  const redrawAnnotations = useCallback((anns: typeof annotations) => {
+  // Redraw all annotation masks from geometry
+  const redrawAnnotations = useCallback((anns: Annotation[]) => {
     if (!maskCanvasRef.current) return;
     const ctx = maskCanvasRef.current.getContext('2d')!;
     ctx.clearRect(0, 0, maskCanvasRef.current.width, maskCanvasRef.current.height);
     anns.forEach(ann => {
-      ctx.putImageData(ann.maskData, 0, 0);
+      if (ann.type === 'brush' && ann.brushPoints && ann.brushPoints.length > 1) {
+        ctx.strokeStyle = 'rgba(108, 60, 240, 0.45)';
+        ctx.lineWidth = 36;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        for (let i = 1; i < ann.brushPoints.length; i++) {
+          ctx.beginPath();
+          ctx.moveTo(ann.brushPoints[i - 1].x, ann.brushPoints[i - 1].y);
+          ctx.lineTo(ann.brushPoints[i].x, ann.brushPoints[i].y);
+          ctx.stroke();
+        }
+      } else if (ann.start && ann.end) {
+        const x = Math.min(ann.start.x, ann.end.x);
+        const y = Math.min(ann.start.y, ann.end.y);
+        const w = Math.abs(ann.end.x - ann.start.x);
+        const h = Math.abs(ann.end.y - ann.start.y);
+        ctx.fillStyle = 'rgba(108, 60, 240, 0.45)';
+        if (ann.type === 'rectangle') {
+          ctx.fillRect(x, y, w, h);
+        } else {
+          ctx.beginPath();
+          ctx.ellipse(x + w / 2, y + h / 2, Math.max(w / 2, 1), Math.max(h / 2, 1), 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
     });
   }, []);
 
@@ -548,15 +580,9 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
     ctx.fill();
   };
 
-  const addAnnotationFromMask = (maskData: ImageData, center: { x: number; y: number }, tool: AnnotationTool) => {
+  const addAnnotation = (ann: Omit<Annotation, 'id' | 'description'>) => {
     setAnnotations(prev => {
-      const next = [...prev, {
-        id: prev.length + 1,
-        maskData,
-        center,
-        description: '',
-        tool,
-      }];
+      const next = [...prev, { ...ann, id: prev.length + 1, description: '' }];
       setActiveAnnotation(next.length);
       return next;
     });
@@ -567,10 +593,45 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
     setBrushActive(current => (annotationTool === tool ? !current : true));
   };
 
+  // Check if click is on an existing shape annotation (for move/resize)
+  const findShapeAtPoint = (pt: { x: number; y: number }): { annId: number; mode: InteractionMode } | null => {
+    for (let i = annotations.length - 1; i >= 0; i--) {
+      const ann = annotations[i];
+      if (ann.type === 'brush' || !ann.start || !ann.end) continue;
+      const x1 = Math.min(ann.start.x, ann.end.x);
+      const y1 = Math.min(ann.start.y, ann.end.y);
+      const x2 = Math.max(ann.start.x, ann.end.x);
+      const y2 = Math.max(ann.start.y, ann.end.y);
+      const handleSize = 16;
+      // Check corner handles first
+      if (Math.abs(pt.x - x1) < handleSize && Math.abs(pt.y - y1) < handleSize) return { annId: ann.id, mode: 'resize-tl' };
+      if (Math.abs(pt.x - x2) < handleSize && Math.abs(pt.y - y1) < handleSize) return { annId: ann.id, mode: 'resize-tr' };
+      if (Math.abs(pt.x - x1) < handleSize && Math.abs(pt.y - y2) < handleSize) return { annId: ann.id, mode: 'resize-bl' };
+      if (Math.abs(pt.x - x2) < handleSize && Math.abs(pt.y - y2) < handleSize) return { annId: ann.id, mode: 'resize-br' };
+      // Check inside shape
+      if (pt.x >= x1 && pt.x <= x2 && pt.y >= y1 && pt.y <= y2) return { annId: ann.id, mode: 'move' };
+    }
+    return null;
+  };
+
   const onBrushDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!brushActive) return;
-    setIsDrawing(true);
     const pt = getCanvasCoords(e);
+
+    // Check if clicking on existing shape to move/resize
+    const hit = findShapeAtPoint(pt);
+    if (hit) {
+      const ann = annotations.find(a => a.id === hit.annId);
+      if (ann && ann.start && ann.end) {
+        setInteractionMode(hit.mode);
+        setInteractingAnnotation(hit.annId);
+        interactionStart.current = { x: pt.x, y: pt.y, origStart: { ...ann.start }, origEnd: { ...ann.end } };
+        setActiveAnnotation(hit.annId);
+        return;
+      }
+    }
+
+    setIsDrawing(true);
     shapeStart.current = pt;
     lastPoint.current = pt;
 
@@ -581,6 +642,7 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
     }
 
     currentPath.current = [];
+    // Save current mask state for shape preview
     const ctx = maskCanvasRef.current?.getContext('2d');
     if (ctx && maskCanvasRef.current) {
       baseMaskData.current = ctx.getImageData(0, 0, maskCanvasRef.current.width, maskCanvasRef.current.height);
@@ -588,8 +650,42 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
   };
 
   const onBrushMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isDrawing || !brushActive || !lastPoint.current) return;
     const pt = getCanvasCoords(e);
+
+    // Handle shape move/resize
+    if (interactionMode !== 'none' && interactingAnnotation && interactionStart.current) {
+      const dx = pt.x - interactionStart.current.x;
+      const dy = pt.y - interactionStart.current.y;
+      const { origStart, origEnd } = interactionStart.current;
+
+      setAnnotations(prev => prev.map(ann => {
+        if (ann.id !== interactingAnnotation) return ann;
+        let newStart = ann.start!, newEnd = ann.end!;
+        if (interactionMode === 'move') {
+          newStart = { x: origStart.x + dx, y: origStart.y + dy };
+          newEnd = { x: origEnd.x + dx, y: origEnd.y + dy };
+        } else if (interactionMode === 'resize-tl') {
+          newStart = { x: origStart.x + dx, y: origStart.y + dy };
+          newEnd = { ...origEnd };
+        } else if (interactionMode === 'resize-tr') {
+          newStart = { x: origStart.x, y: origStart.y + dy };
+          newEnd = { x: origEnd.x + dx, y: origEnd.y };
+        } else if (interactionMode === 'resize-bl') {
+          newStart = { x: origStart.x + dx, y: origStart.y };
+          newEnd = { x: origEnd.x, y: origEnd.y + dy };
+        } else if (interactionMode === 'resize-br') {
+          newStart = { ...origStart };
+          newEnd = { x: origEnd.x + dx, y: origEnd.y + dy };
+        }
+        const center = { x: (newStart.x + newEnd.x) / 2, y: (newStart.y + newEnd.y) / 2 };
+        return { ...ann, start: newStart, end: newEnd, center };
+      }));
+      // Redraw all masks
+      setAnnotations(prev => { redrawAnnotations(prev); return prev; });
+      return;
+    }
+
+    if (!isDrawing || !brushActive || !lastPoint.current) return;
 
     if (annotationTool === 'brush') {
       drawStroke(lastPoint.current, pt);
@@ -606,28 +702,38 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
   };
 
   const onBrushUp = () => {
+    // End shape interaction
+    if (interactionMode !== 'none') {
+      setInteractionMode('none');
+      setInteractingAnnotation(null);
+      interactionStart.current = null;
+      return;
+    }
+
     if (!isDrawing || !maskCanvasRef.current) return;
     setIsDrawing(false);
-    const ctx = maskCanvasRef.current.getContext('2d')!;
-    const maskData = ctx.getImageData(0, 0, maskCanvasRef.current.width, maskCanvasRef.current.height);
 
-    let center: { x: number; y: number } | null = null;
     if (annotationTool === 'brush') {
       const path = currentPath.current;
-      if (path.length > 0) {
-        center = {
+      if (path.length > 1) {
+        const center = {
           x: path.reduce((s, p) => s + p.x, 0) / path.length,
           y: path.reduce((s, p) => s + p.y, 0) / path.length,
         };
+        addAnnotation({ type: 'brush', brushPoints: [...path], center });
       }
     } else if (shapeStart.current && lastPoint.current) {
-      center = {
+      const center = {
         x: (shapeStart.current.x + lastPoint.current.x) / 2,
         y: (shapeStart.current.y + lastPoint.current.y) / 2,
       };
+      addAnnotation({
+        type: annotationTool,
+        start: { ...shapeStart.current },
+        end: { ...lastPoint.current },
+        center,
+      });
     }
-
-    if (center) addAnnotationFromMask(maskData, center, annotationTool);
 
     lastPoint.current = null;
     currentPath.current = [];
@@ -673,11 +779,23 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
     if (validAnnotations.length === 0 || !canvasRef.current || !maskCanvasRef.current || isEditing) return;
     setIsEditing(true);
     try {
-      const combinedPrompt = validAnnotations.map((a, i) => `${i + 1}. ${a.description}`).join('\n');
+      // Ensure mask is fully redrawn from geometry before capturing
+      redrawAnnotations(annotations);
+      
+      // Build prompt with positional context 
+      const cw = canvasRef.current.width;
+      const ch = canvasRef.current.height;
+      const combinedPrompt = validAnnotations.map((a, i) => {
+        const posDesc = a.center 
+          ? `(pozycja: ${Math.round(a.center.x / cw * 100)}% od lewej, ${Math.round(a.center.y / ch * 100)}% od góry)`
+          : '';
+        return `${i + 1}. ${a.description} ${posDesc}`;
+      }).join('\n');
+      
       const imageBase64 = canvasRef.current.toDataURL('image/png').split(',')[1];
       const maskBase64 = maskCanvasRef.current.toDataURL('image/png').split(',')[1];
       
-      console.log('[RidoAI] Sending inpaint request with', validAnnotations.length, 'annotations');
+      console.log('[RidoAI] Sending inpaint request with', validAnnotations.length, 'annotations, prompt:', combinedPrompt);
       
       const result = await execute({
         taskType: 'inpaint',
