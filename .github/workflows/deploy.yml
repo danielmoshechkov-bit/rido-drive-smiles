@@ -55,6 +55,9 @@ jobs:
             echo "No public/getrido-mascot-email.png found - skipping"
           fi
 
+      - name: Copy foto-proxy.php to dist
+        run: cp public/foto-proxy.php dist/foto-proxy.php
+
       - name: Debug - List dist contents
         run: |
           echo "=== dist/ root ==="
