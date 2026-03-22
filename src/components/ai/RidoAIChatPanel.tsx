@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useGetRidoAI } from '@/hooks/useGetRidoAI';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
 import {
   Loader2, Send, Plus, MessageCircle, Briefcase,
