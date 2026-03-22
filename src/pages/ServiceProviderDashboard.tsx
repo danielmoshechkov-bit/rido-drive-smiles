@@ -24,6 +24,7 @@ import { WebsiteBuilderWizard } from '@/components/website-builder/WebsiteBuilde
 import { WorkshopDashboard } from '@/components/workshop/WorkshopDashboard';
 import { WorkshopScheduler } from '@/components/workshop/WorkshopScheduler';
 import { SettingsPanel } from '@/components/workshop/SettingsPanel';
+import { ServiceProviderAccountingView } from '@/components/service-provider/ServiceProviderAccountingView';
 import { CalendarView } from '@/components/calendar/CalendarView';
 import { AgentTypeSelector } from '@/components/ai-agents/AgentTypeSelector';
 import { KnowledgeBaseEditor } from '@/components/ai-agents/KnowledgeBaseEditor';
@@ -33,7 +34,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   LayoutDashboard, Wrench, Calendar, ClipboardList, Settings, Phone,
   Users, Clock, Star, Globe, Bot, Hammer, Plus, Trash2, Edit, Save, Image,
-  Upload, X, ImageIcon, Briefcase, MoreHorizontal
+  Upload, X, ImageIcon, Briefcase, MoreHorizontal, Calculator
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { UniversalSubTabBar } from '@/components/UniversalSubTabBar';
@@ -342,6 +343,10 @@ export default function ServiceProviderDashboard() {
           <TabsTrigger value="workshop">
             <Hammer className="h-4 w-4 mr-1.5" />
             Serwis
+          </TabsTrigger>
+          <TabsTrigger value="accounting">
+            <Calculator className="h-4 w-4 mr-1.5" />
+            Księgowość
           </TabsTrigger>
           <TabsTrigger value="calendar">
             <Calendar className="h-4 w-4 mr-1.5" />
@@ -659,6 +664,10 @@ export default function ServiceProviderDashboard() {
           {/* Settings Tab */}
           <TabsContent value="settings" className="mt-6 space-y-6">
             <SettingsPanel providerId={providerId} settingsForm={settingsForm} setSettingsForm={setSettingsForm} />
+          </TabsContent>
+
+          <TabsContent value="accounting" className="mt-6">
+            <ServiceProviderAccountingView />
           </TabsContent>
 
           <TabsContent value="workshop" className="mt-6">
