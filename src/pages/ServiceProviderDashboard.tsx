@@ -57,6 +57,7 @@ interface ServiceItem {
 
 export default function ServiceProviderDashboard() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { roles, loading: roleLoading } = useUserRole();
   const { features } = useFeatureToggles();
   const [user, setUser] = useState<any>(null);
