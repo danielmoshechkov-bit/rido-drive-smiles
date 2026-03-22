@@ -503,7 +503,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   };
 
   return (
-    <div className="space-y-6 pb-40">
+    <div className="space-y-6 pb-20">
       {/* Quote accepted warning banner */}
       {order.quote_accepted && (
         <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg text-sm text-amber-800 dark:text-amber-200">
@@ -864,11 +864,9 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                         {fmt(afterDiscount)}
                       </td>
                       <td className="p-1.5 text-center">
-                        {goodsRows.length > 1 && (
                            <Button onClick={() => removeGoodsRow(idx)} size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive hover:text-destructive">
                              <Trash2 className="h-4 w-4" />
                           </Button>
-                        )}
                       </td>
                     </tr>
                   );

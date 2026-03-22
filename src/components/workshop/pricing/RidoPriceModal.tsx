@@ -61,11 +61,25 @@ export function RidoPriceModal({
     setPriceInputs(services.map(service => service.currentPrice > 0 ? String(service.currentPrice) : ''));
   }, [open, services]);
 
+  const [hasFetched, setHasFetched] = useState(false);
+
   useEffect(() => {
-    if (open && services.length > 0) {
+    if (!open) {
+      setHasFetched(false);
+      return;
+    }
+    if (open && services.length > 0 && !hasFetched) {
+      setHasFetched(true);
       fetchSuggestions();
     }
-  }, [open, mode, services]);
+  }, [open, services]);
+
+  // Re-fetch only when mode changes while open
+  useEffect(() => {
+    if (open && hasFetched && services.length > 0) {
+      fetchSuggestions();
+    }
+  }, [mode]);
 
   const fetchSuggestions = async () => {
     setLoading(true);

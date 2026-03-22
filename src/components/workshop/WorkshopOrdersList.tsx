@@ -6,13 +6,14 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import {
   useWorkshopOrders, useWorkshopStatuses, useUpdateWorkshopOrder,
 } from '@/hooks/useWorkshop';
 import { WorkshopNewOrderDialog } from './WorkshopNewOrderDialog';
 import {
   Plus, Search, CheckCircle, Car, Trash2,
-  Wrench, Filter, Loader2
+  Wrench, Filter, Loader2, Copy, Phone, Mail, User
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -195,14 +196,95 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                     <TableCell className="text-right font-medium">
                       {(order.total_gross || 0).toLocaleString('pl-PL', { minimumFractionDigits: 2 })}
                     </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1.5">
-                        {order.vehicle && <Car className="h-3.5 w-3.5 text-muted-foreground" />}
-                        <span className="text-sm truncate max-w-[180px]">{getVehicleName(order)}</span>
-                      </div>
+                    <TableCell onClick={e => e.stopPropagation()}>
+                      <HoverCard openDelay={400} closeDelay={200}>
+                        <HoverCardTrigger asChild>
+                          <div className="flex items-center gap-1.5 cursor-default">
+                            {order.vehicle && <Car className="h-3.5 w-3.5 text-muted-foreground" />}
+                            <span className="text-sm truncate max-w-[180px]">{getVehicleName(order)}</span>
+                          </div>
+                        </HoverCardTrigger>
+                        {order.vehicle && (
+                          <HoverCardContent className="w-72 p-3" side="bottom" align="start">
+                            <p className="font-semibold text-sm mb-2">{order.vehicle.brand} {order.vehicle.model}</p>
+                            <div className="grid grid-cols-2 gap-y-1.5 text-xs">
+                              {order.vehicle.plate && (
+                                <>
+                                  <span className="text-muted-foreground">Nr rej</span>
+                                  <button className="text-left font-medium hover:text-primary flex items-center gap-1" onClick={() => { navigator.clipboard.writeText(order.vehicle.plate); toast.success('Skopiowano nr rej'); }}>
+                                    {order.vehicle.plate} <Copy className="h-2.5 w-2.5 opacity-50" />
+                                  </button>
+                                </>
+                              )}
+                              {order.vehicle.vin && (
+                                <>
+                                  <span className="text-muted-foreground">VIN</span>
+                                  <button className="text-left font-mono text-[10px] hover:text-primary flex items-center gap-1 truncate" onClick={() => { navigator.clipboard.writeText(order.vehicle.vin); toast.success('Skopiowano VIN'); }}>
+                                    {order.vehicle.vin} <Copy className="h-2.5 w-2.5 opacity-50" />
+                                  </button>
+                                </>
+                              )}
+                              {order.vehicle.year && (
+                                <>
+                                  <span className="text-muted-foreground">Rok prod</span>
+                                  <span className="font-medium">{order.vehicle.year}</span>
+                                </>
+                              )}
+                              {order.vehicle.engine_capacity && (
+                                <>
+                                  <span className="text-muted-foreground">Pojemność</span>
+                                  <span className="font-medium">{order.vehicle.engine_capacity} cc</span>
+                                </>
+                              )}
+                              {order.vehicle.fuel_type && (
+                                <>
+                                  <span className="text-muted-foreground">Paliwo</span>
+                                  <span className="font-medium">{order.vehicle.fuel_type}</span>
+                                </>
+                              )}
+                            </div>
+                          </HoverCardContent>
+                        )}
+                      </HoverCard>
                     </TableCell>
-                    <TableCell>
-                      <span className="text-sm">{getClientName(order)}</span>
+                    <TableCell onClick={e => e.stopPropagation()}>
+                      <HoverCard openDelay={400} closeDelay={200}>
+                        <HoverCardTrigger asChild>
+                          <span className="text-sm cursor-default">{getClientName(order)}</span>
+                        </HoverCardTrigger>
+                        {order.client && (
+                          <HoverCardContent className="w-64 p-3" side="bottom" align="start">
+                            <div className="flex items-center gap-2 mb-2">
+                              <User className="h-4 w-4 text-muted-foreground" />
+                              <span className="font-semibold text-sm">{getClientName(order)}</span>
+                            </div>
+                            <div className="space-y-1.5 text-xs">
+                              {order.client.phone && (
+                                <button className="flex items-center gap-2 hover:text-primary w-full text-left" onClick={() => { navigator.clipboard.writeText(order.client.phone); toast.success('Skopiowano telefon'); }}>
+                                  <Phone className="h-3 w-3 text-muted-foreground" />
+                                  <span>{order.client.phone}</span>
+                                  <Copy className="h-2.5 w-2.5 opacity-50 ml-auto" />
+                                </button>
+                              )}
+                              {order.client.email && (
+                                <button className="flex items-center gap-2 hover:text-primary w-full text-left" onClick={() => { navigator.clipboard.writeText(order.client.email); toast.success('Skopiowano email'); }}>
+                                  <Mail className="h-3 w-3 text-muted-foreground" />
+                                  <span className="truncate">{order.client.email}</span>
+                                  <Copy className="h-2.5 w-2.5 opacity-50 ml-auto" />
+                                </button>
+                              )}
+                              {order.client.nip && (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-muted-foreground">NIP:</span>
+                                  <button className="hover:text-primary flex items-center gap-1" onClick={() => { navigator.clipboard.writeText(order.client.nip); toast.success('Skopiowano NIP'); }}>
+                                    {order.client.nip} <Copy className="h-2.5 w-2.5 opacity-50" />
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </HoverCardContent>
+                        )}
+                      </HoverCard>
                     </TableCell>
                     <TableCell>
                       {format(new Date(order.created_at), 'yyyy-MM-dd')}

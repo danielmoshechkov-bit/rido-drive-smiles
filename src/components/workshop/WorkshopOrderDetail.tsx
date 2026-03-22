@@ -41,7 +41,7 @@ const statusColors: Record<string, string> = {
 export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
   const { data: statuses = [] } = useWorkshopStatuses(providerId);
   const updateOrder = useUpdateWorkshopOrder();
-  const [activeTab, setActiveTab] = useState('basic');
+  const [activeTab, setActiveTab] = useState('tasks');
   const [smsOpen, setSmsOpen] = useState(false);
   const [smsType, setSmsType] = useState<'reception' | 'quote' | 'ready'>('reception');
 
@@ -188,8 +188,8 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="bg-transparent w-full justify-start gap-1.5 h-auto p-0 flex-wrap mb-4">
           {[
-            { value: 'basic', label: 'Podstawowe' },
             { value: 'tasks', label: 'Wycena zlecenia' },
+            { value: 'basic', label: 'Podstawowe' },
             { value: 'summary', label: 'Podsumowanie' },
             { value: 'schedule', label: 'Terminarz' },
             { value: 'files', label: 'Pliki' },
