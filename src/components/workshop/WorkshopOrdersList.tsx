@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,16 +7,19 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import {
   useWorkshopOrders, useWorkshopStatuses, useUpdateWorkshopOrder,
 } from '@/hooks/useWorkshop';
 import { WorkshopNewOrderDialog } from './WorkshopNewOrderDialog';
 import { WorkshopEditClientDialog } from './WorkshopEditClientDialog';
+import { useVehicleLookup } from '@/hooks/useVehicleLookup';
+import { supabase } from '@/integrations/supabase/client';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   Plus, Search, CheckCircle, Car, Trash2,
-  Wrench, Filter, Loader2, Copy, Phone, Mail, User, ExternalLink, Building
+  Wrench, Filter, Loader2, Copy, Phone, Mail, User, ExternalLink, Building, Save
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
