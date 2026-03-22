@@ -137,38 +137,33 @@ export default function RealEstateAgentDashboard() {
       }
 
       setAgent(agentData as AgentProfile);
-      // TODO: Fetch listings from database
-      // For now using mock data
-      setListings([
-        {
-          id: "1",
-          title: "Przestronne mieszkanie 3-pokojowe, Kazimierz",
-          price: 450000,
-          property_type: "Mieszkanie",
-          location: "Kraków, Kazimierz",
-          status: "active",
-          views: 1234,
-          favorites: 45,
-          compares: 12,
-          contact_reveals: 8,
-          listing_number: "33928",
-          created_at: "2026-01-10",
-        },
-        {
-          id: "2",
-          title: "Nowoczesne studio w centrum",
-          price: 2800,
-          property_type: "Kawalerka",
-          location: "Warszawa, Śródmieście",
-          status: "active",
-          views: 567,
-          favorites: 23,
-          compares: 5,
-          contact_reveals: 3,
-          listing_number: "78421",
-          created_at: "2026-01-08",
-        },
-      ]);
+      
+      // Fetch real listings from database
+      const { data: realListings, error: listingsError } = await supabase
+        .from("real_estate_listings")
+        .select("id, title, price, property_type, location, status, views, favorites_count, comparison_count, contact_reveals_count, listing_number, created_at, city, district")
+        .eq("agent_id", agentData.id)
+        .order("created_at", { ascending: false });
+
+      if (listingsError) {
+        console.error("Error fetching listings:", listingsError);
+        setListings([]);
+      } else {
+        setListings((realListings || []).map((l: any) => ({
+          id: l.id,
+          title: l.title || '',
+          price: l.price || 0,
+          property_type: l.property_type || '',
+          location: l.location || `${l.city || ''}, ${l.district || ''}`.trim(),
+          status: l.status || 'draft',
+          views: l.views || 0,
+          favorites: l.favorites_count || 0,
+          compares: l.comparison_count || 0,
+          contact_reveals: l.contact_reveals_count || 0,
+          listing_number: l.listing_number || '',
+          created_at: l.created_at || '',
+        })));
+      }
     } catch (error) {
       console.error("Error fetching agent:", error);
     } finally {

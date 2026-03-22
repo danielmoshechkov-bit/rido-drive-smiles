@@ -1,0 +1,1 @@
+UPDATE real_estate_agents SET status = 'verified' WHERE id = '0b86722a-afd5-4831-b8f3-7b5c4af1d6ed';
