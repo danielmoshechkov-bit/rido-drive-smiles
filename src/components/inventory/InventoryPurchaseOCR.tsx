@@ -305,6 +305,13 @@ Odpowiedz TYLKO samym JSON bez żadnego tekstu, bez markdown.`,
   const autoMatchProduct = (name?: string): string | undefined => {
     if (!name || !products.length) return undefined;
     const lower = name.toLowerCase().trim();
+    // First try supplier_mappings (loaded with products)
+    const mapping = supplierMappings.find(m =>
+      m.supplier_name.toLowerCase() === lower ||
+      (m.supplier_symbol && m.supplier_symbol.toLowerCase() === lower)
+    );
+    if (mapping?.product_id) return mapping.product_id;
+    // Fallback: fuzzy match by product name
     return products.find(p =>
       p.name.toLowerCase().includes(lower) ||
       lower.includes(p.name.toLowerCase())
