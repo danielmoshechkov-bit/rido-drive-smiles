@@ -655,13 +655,13 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
   return (
     <>
       {/* Overlay backdrop */}
-      <div className="fixed inset-0 z-50 flex">
-        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm md:block" onClick={onClose} />
+      <div className="fixed inset-0 z-50 flex" style={{ height: '100dvh' }}>
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
 
         {/* Panel container */}
         <div className={cn(
-          'relative ml-auto h-full flex bg-background shadow-2xl animate-slide-in-right',
-          'w-full md:max-w-[480px]' // full screen on mobile, 480px drawer on desktop
+          'relative ml-auto flex bg-background shadow-2xl animate-slide-in-right overflow-hidden',
+          isDesktop ? 'w-[760px] h-full' : 'w-full h-full'
         )}>
           {isDesktop ? (
             /* Desktop: split layout */
