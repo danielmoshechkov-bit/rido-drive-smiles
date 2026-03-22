@@ -9,14 +9,22 @@ import ReactMarkdown from 'react-markdown';
 import {
   Loader2, Send, Plus, MessageCircle, Briefcase, Image,
   ArrowLeft, Trash2, ChevronRight, Sparkles,
-  Paintbrush, RotateCcw, Download, X, Search, Settings, MoreHorizontal
+  Paintbrush, RotateCcw, Download, X, Search, Settings, MoreHorizontal,
+  Star, Pencil, FolderPlus
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 
 const AVATAR = '/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png';
 type MainMode = 'chat' | 'cowork' | 'grafika';
 interface Msg { id?: string; role: 'user' | 'assistant'; content: string; images?: string[]; }
-interface Conv { id: string; title: string; mode: string; updated_at: string; }
+interface Conv { id: string; title: string; mode: string; updated_at: string; is_starred?: boolean; project_id?: string | null; }
 
 const parseAction = (text: string) => {
   const match = text.match(/ACTION:(\{.*?\})/s);
@@ -54,6 +62,7 @@ export default function RidoAIChatPage() {
   const [conversations, setConversations] = useState<Conv[]>([]);
   const [currentConvId, setCurrentConvId] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [projectDialogConvId, setProjectDialogConvId] = useState<string | null>(null);
 
   // Image editor state
   const [editingImage, setEditingImage] = useState<string | null>(null);
@@ -73,7 +82,7 @@ export default function RidoAIChatPage() {
   const loadConversations = useCallback(async () => {
     if (!userId) return;
     const { data } = await (supabase as any)
-      .from('ai_conversations').select('id,title,mode,updated_at')
+      .from('ai_conversations').select('id,title,mode,updated_at,is_starred,project_id')
       .eq('user_id', userId).order('updated_at', { ascending: false }).limit(50);
     if (data) setConversations(data);
   }, [userId]);
@@ -254,15 +263,49 @@ export default function RidoAIChatPage() {
         {/* Conversations list */}
         <ScrollArea className="flex-1 px-1">
           <div className="px-2 py-2">
+            {/* Starred section */}
+            {!searchQuery && filteredConversations.some(c => c.is_starred) && (
+              <div className="mb-3">
+                <p className="text-[11px] font-medium text-muted-foreground px-2 py-1.5 uppercase tracking-wider">⭐ Ulubione</p>
+                {filteredConversations.filter(c => c.is_starred).map(conv => (
+                  <ConvItem key={conv.id} conv={conv} active={currentConvId === conv.id}
+                    onClick={() => { loadConversation(conv.id); setSidebarOpen(false); }}
+                    onStar={async () => {
+                      await (supabase as any).from('ai_conversations').update({ is_starred: !conv.is_starred }).eq('id', conv.id);
+                      loadConversations();
+                    }}
+                    onRename={async (newTitle) => {
+                      await (supabase as any).from('ai_conversations').update({ title: newTitle }).eq('id', conv.id);
+                      loadConversations();
+                    }}
+                    onAddToProject={() => setProjectDialogConvId(conv.id)}
+                    onDelete={async () => {
+                      if (!window.confirm('Usunąć tę rozmowę?')) return;
+                      await (supabase as any).from('ai_conversations').delete().eq('id', conv.id);
+                      if (currentConvId === conv.id) handleNewChat();
+                      loadConversations();
+                    }} />
+                ))}
+              </div>
+            )}
+
             {grouped.today.length > 0 && (
               <div className="mb-3">
                 <p className="text-[11px] font-medium text-muted-foreground px-2 py-1.5 uppercase tracking-wider">Dzisiaj</p>
-                {grouped.today.map(conv => (
+                {grouped.today.filter(c => searchQuery || !c.is_starred).map(conv => (
                   <ConvItem key={conv.id} conv={conv} active={currentConvId === conv.id}
                     onClick={() => { loadConversation(conv.id); setSidebarOpen(false); }}
+                    onStar={async () => {
+                      await (supabase as any).from('ai_conversations').update({ is_starred: !conv.is_starred }).eq('id', conv.id);
+                      loadConversations();
+                    }}
+                    onRename={async (newTitle) => {
+                      await (supabase as any).from('ai_conversations').update({ title: newTitle }).eq('id', conv.id);
+                      loadConversations();
+                    }}
+                    onAddToProject={() => setProjectDialogConvId(conv.id)}
                     onDelete={async () => {
-                      const ok = window.confirm('Czy na pewno chcesz usunąć tę rozmowę? Tej operacji nie można cofnąć.');
-                      if (!ok) return;
+                      if (!window.confirm('Usunąć tę rozmowę?')) return;
                       await (supabase as any).from('ai_conversations').delete().eq('id', conv.id);
                       if (currentConvId === conv.id) handleNewChat();
                       loadConversations();
@@ -274,12 +317,20 @@ export default function RidoAIChatPage() {
             {grouped.yesterday.length > 0 && (
               <div className="mb-3">
                 <p className="text-[11px] font-medium text-muted-foreground px-2 py-1.5 uppercase tracking-wider">Wczoraj</p>
-                {grouped.yesterday.map(conv => (
+                {grouped.yesterday.filter(c => searchQuery || !c.is_starred).map(conv => (
                   <ConvItem key={conv.id} conv={conv} active={currentConvId === conv.id}
                     onClick={() => { loadConversation(conv.id); setSidebarOpen(false); }}
+                    onStar={async () => {
+                      await (supabase as any).from('ai_conversations').update({ is_starred: !conv.is_starred }).eq('id', conv.id);
+                      loadConversations();
+                    }}
+                    onRename={async (newTitle) => {
+                      await (supabase as any).from('ai_conversations').update({ title: newTitle }).eq('id', conv.id);
+                      loadConversations();
+                    }}
+                    onAddToProject={() => setProjectDialogConvId(conv.id)}
                     onDelete={async () => {
-                      const ok = window.confirm('Czy na pewno chcesz usunąć tę rozmowę? Tej operacji nie można cofnąć.');
-                      if (!ok) return;
+                      if (!window.confirm('Usunąć tę rozmowę?')) return;
                       await (supabase as any).from('ai_conversations').delete().eq('id', conv.id);
                       if (currentConvId === conv.id) handleNewChat();
                       loadConversations();
@@ -291,12 +342,20 @@ export default function RidoAIChatPage() {
             {grouped.older.length > 0 && (
               <div className="mb-3">
                 <p className="text-[11px] font-medium text-muted-foreground px-2 py-1.5 uppercase tracking-wider">Wcześniej</p>
-                {grouped.older.map(conv => (
+                {grouped.older.filter(c => searchQuery || !c.is_starred).map(conv => (
                   <ConvItem key={conv.id} conv={conv} active={currentConvId === conv.id}
                     onClick={() => { loadConversation(conv.id); setSidebarOpen(false); }}
+                    onStar={async () => {
+                      await (supabase as any).from('ai_conversations').update({ is_starred: !conv.is_starred }).eq('id', conv.id);
+                      loadConversations();
+                    }}
+                    onRename={async (newTitle) => {
+                      await (supabase as any).from('ai_conversations').update({ title: newTitle }).eq('id', conv.id);
+                      loadConversations();
+                    }}
+                    onAddToProject={() => setProjectDialogConvId(conv.id)}
                     onDelete={async () => {
-                      const ok = window.confirm('Czy na pewno chcesz usunąć tę rozmowę? Tej operacji nie można cofnąć.');
-                      if (!ok) return;
+                      if (!window.confirm('Usunąć tę rozmowę?')) return;
                       await (supabase as any).from('ai_conversations').delete().eq('id', conv.id);
                       if (currentConvId === conv.id) handleNewChat();
                       loadConversations();
