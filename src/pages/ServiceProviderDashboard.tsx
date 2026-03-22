@@ -355,6 +355,30 @@ export default function ServiceProviderDashboard() {
             <Users className="h-4 w-4 mr-1.5" />
             Wybierz moduł
           </TabsTrigger>
+          <Popover open={moreOpen} onOpenChange={setMoreOpen}>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="px-5 h-10 flex items-center gap-2 rounded-full text-white text-sm whitespace-nowrap transition-colors hover:bg-white/20 focus-visible:outline-none"
+              >
+                <MoreHorizontal className="h-4 w-4" />
+                Więcej
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-48 p-1" align="end">
+              <button className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-muted transition-colors" onClick={() => { setActiveTab('workspace'); setMoreOpen(false); }}>
+                <Briefcase className="h-4 w-4" /> Workspace
+              </button>
+              {features.website_builder_enabled && (
+                <button className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-muted transition-colors" onClick={() => { setActiveTab('website'); setMoreOpen(false); }}>
+                  <Globe className="h-4 w-4" /> Strona WWW
+                </button>
+              )}
+              <button className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-muted transition-colors" onClick={() => { setActiveTab('settings'); setMoreOpen(false); }}>
+                <Settings className="h-4 w-4" /> Ustawienia
+              </button>
+            </PopoverContent>
+          </Popover>
 
           {/* Pulpit / Dashboard Tab */}
           <TabsContent value="dashboard" className="space-y-6 mt-6">
