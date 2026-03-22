@@ -286,13 +286,13 @@ export default function RealEstateAgentRegister() {
 
       if (agentError) throw agentError;
 
-      // Add real_estate_agent role
+      // Add real_estate_agent role (safe if it already exists)
       const { error: roleError } = await supabase
         .from("user_roles")
-        .insert({
+        .upsert({
           user_id: user.id,
           role: "real_estate_agent",
-        });
+        }, { onConflict: "user_id,role" });
 
       if (roleError) {
         console.error("Failed to add real_estate_agent role:", roleError);
