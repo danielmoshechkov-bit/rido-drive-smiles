@@ -883,7 +883,6 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                 <tr className="bg-muted/30 font-semibold text-sm border-b">
                   <td className="p-2"></td>
                   <td className="p-2" colSpan={7}>Razem części</td>
-                  <td className="p-2"></td>
                   <td className="p-2 text-right tabular-nums">{fmt(displayGoodsTotal)}</td>
                   <td className="p-2"></td>
                 </tr>
