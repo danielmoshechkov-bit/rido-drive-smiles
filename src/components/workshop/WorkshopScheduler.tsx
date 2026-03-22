@@ -109,7 +109,19 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz', foc
   });
 
   const unplannedOrders = useMemo(() => {
-    let filtered = orders.filter((o: any) => o.status_name !== 'Zakończone' && !o.scheduled_start);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    let filtered = orders.filter((o: any) => {
+      if (o.status_name === 'Zakończone') return false;
+      // Not scheduled at all → unplanned
+      if (!o.scheduled_start) return true;
+      // Scheduled in the past (before today) and not completed → treat as unplanned (needs rescheduling)
+      const scheduledDate = new Date(o.scheduled_start);
+      scheduledDate.setHours(0, 0, 0, 0);
+      return scheduledDate < today;
+    });
+    
     if (search) {
       const q = search.toLowerCase();
       filtered = filtered.filter((o: any) =>
@@ -120,7 +132,7 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz', foc
     }
     // If focusOrderId is set, ensure it's first and always visible
     if (focusOrderId) {
-      const focusOrder = orders.find((o: any) => o.id === focusOrderId && !o.scheduled_start);
+      const focusOrder = orders.find((o: any) => o.id === focusOrderId && o.status_name !== 'Zakończone');
       const rest = filtered.filter((o: any) => o.id !== focusOrderId);
       if (focusOrder) {
         return [focusOrder, ...rest.slice(0, 19)];
