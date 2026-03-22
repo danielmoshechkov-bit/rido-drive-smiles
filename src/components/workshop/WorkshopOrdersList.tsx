@@ -386,60 +386,171 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
       />
 
       {/* Vehicle edit dialog */}
-      <Dialog open={!!editVehicle} onOpenChange={(v) => { if (!v) setEditVehicle(null); }}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Car className="h-5 w-5" />
-              {editVehicle?.brand} {editVehicle?.model} — {editVehicle?.plate}
-            </DialogTitle>
-          </DialogHeader>
-          {editVehicle && (
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label className="text-xs text-muted-foreground">Marka</Label>
-                <p className="font-medium">{editVehicle.brand || '—'}</p>
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground">Model</Label>
-                <p className="font-medium">{editVehicle.model || '—'}</p>
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground">Nr rejestracyjny</Label>
-                <button className="font-medium flex items-center gap-1 hover:text-primary" onClick={() => { navigator.clipboard.writeText(editVehicle.plate || ''); toast.success('Skopiowano'); }}>
-                  {editVehicle.plate || '—'} <Copy className="h-3 w-3 opacity-50" />
-                </button>
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground">Rok produkcji</Label>
-                <p className="font-medium">{editVehicle.year || '—'}</p>
-              </div>
-              <div className="col-span-2">
-                <Label className="text-xs text-muted-foreground">VIN</Label>
-                <button className="font-mono text-sm flex items-center gap-1 hover:text-primary" onClick={() => { navigator.clipboard.writeText(editVehicle.vin || ''); toast.success('Skopiowano VIN'); }}>
-                  {editVehicle.vin || '—'} <Copy className="h-3 w-3 opacity-50" />
-                </button>
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground">Pojemność silnika</Label>
-                <p className="font-medium">{editVehicle.engine_capacity ? `${editVehicle.engine_capacity} cc` : '—'}</p>
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground">Moc silnika</Label>
-                <p className="font-medium">{editVehicle.engine_power ? `${editVehicle.engine_power} kW` : '—'}</p>
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground">Rodzaj paliwa</Label>
-                <p className="font-medium">{editVehicle.fuel_type || '—'}</p>
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground">Kolor</Label>
-                <p className="font-medium">{editVehicle.color || '—'}</p>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      {editVehicle && (
+        <VehicleEditDialog
+          vehicle={editVehicle}
+          onClose={() => setEditVehicle(null)}
+        />
+      )}
     </div>
+  );
+}
+
+const fuelTypes = ['Benzyna', 'Diesel', 'LPG', 'Elektryczny', 'Hybryda', 'Benzyna+LPG', 'CNG'];
+
+function VehicleEditDialog({ vehicle, onClose }: { vehicle: any; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [userId, setUserId] = useState<string | undefined>();
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    brand: vehicle.brand || '',
+    model: vehicle.model || '',
+    plate: vehicle.plate || '',
+    vin: vehicle.vin || '',
+    year: vehicle.year || '',
+    engine_capacity: vehicle.engine_capacity || '',
+    engine_power: vehicle.engine_power || '',
+    fuel_type: vehicle.fuel_type || '',
+    color: vehicle.color || '',
+  });
+
+  const { credits, loading: lookupLoading, checkRegistration, checkVin } = useVehicleLookup(userId);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data?.user) setUserId(data.user.id);
+    });
+  }, []);
+
+  const set = (key: string, val: string) => setForm(p => ({ ...p, [key]: val }));
+
+  const applyLookup = (data: any) => {
+    if (data.make) set('brand', data.make);
+    if (data.model) set('model', data.model.replace(/\s+\d+\.\d+(\s+\S+)*$/, '').trim());
+    if (data.registration_year) set('year', String(data.registration_year));
+    if (data.vin) set('vin', data.vin);
+    if (data.color) set('color', data.color);
+    if (data.fuel_type) set('fuel_type', data.fuel_type);
+    if (data.engine_size) set('engine_capacity', data.engine_size);
+    if (data.engine_power_kw) set('engine_power', data.engine_power_kw);
+  };
+
+  const handlePlateSearch = async () => {
+    if (!form.plate.trim()) return;
+    const data = await checkRegistration(form.plate.trim());
+    if (data) applyLookup(data);
+  };
+
+  const handleVinSearch = async () => {
+    if (!form.vin.trim()) return;
+    const data = await checkVin(form.vin.trim());
+    if (data) applyLookup(data);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from('workshop_vehicles' as any)
+        .update({
+          brand: form.brand || null,
+          model: form.model || null,
+          plate: form.plate || null,
+          vin: form.vin || null,
+          year: form.year ? parseInt(form.year) : null,
+          engine_capacity: form.engine_capacity || null,
+          engine_power: form.engine_power || null,
+          fuel_type: form.fuel_type || null,
+          color: form.color || null,
+        })
+        .eq('id', vehicle.id);
+      if (error) throw error;
+      toast.success('Dane pojazdu zapisane');
+      qc.invalidateQueries({ queryKey: ['workshopOrders'] });
+      onClose();
+    } catch (e: any) {
+      toast.error(e.message || 'Błąd zapisu');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Car className="h-5 w-5" />
+            Edycja pojazdu
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label className="text-xs">Nr rejestracyjny</Label>
+            <div className="flex gap-1">
+              <Input value={form.plate} onChange={e => set('plate', e.target.value.toUpperCase())} placeholder="WW12345" className="font-mono" />
+              <Button variant="outline" size="icon" onClick={handlePlateSearch} disabled={lookupLoading || !form.plate.trim()} title="Szukaj po nr rej">
+                {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+              </Button>
+            </div>
+          </div>
+          <div>
+            <Label className="text-xs">Rok produkcji</Label>
+            <Input value={form.year} onChange={e => set('year', e.target.value)} placeholder="2020" />
+          </div>
+          <div className="col-span-2">
+            <Label className="text-xs">VIN</Label>
+            <div className="flex gap-1">
+              <Input value={form.vin} onChange={e => set('vin', e.target.value.toUpperCase())} placeholder="WVWZZZ3CZWE123456" className="font-mono" />
+              <Button variant="outline" size="icon" onClick={handleVinSearch} disabled={lookupLoading || !form.vin.trim()} title="Szukaj po VIN">
+                {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+              </Button>
+            </div>
+          </div>
+          <div>
+            <Label className="text-xs">Marka</Label>
+            <Input value={form.brand} onChange={e => set('brand', e.target.value)} placeholder="BMW" />
+          </div>
+          <div>
+            <Label className="text-xs">Model</Label>
+            <Input value={form.model} onChange={e => set('model', e.target.value)} placeholder="X5" />
+          </div>
+          <div>
+            <Label className="text-xs">Pojemność silnika (cc)</Label>
+            <Input value={form.engine_capacity} onChange={e => set('engine_capacity', e.target.value)} placeholder="1998" />
+          </div>
+          <div>
+            <Label className="text-xs">Moc silnika (kW)</Label>
+            <Input value={form.engine_power} onChange={e => set('engine_power', e.target.value)} placeholder="150" />
+          </div>
+          <div>
+            <Label className="text-xs">Rodzaj paliwa</Label>
+            <Select value={form.fuel_type} onValueChange={v => set('fuel_type', v)}>
+              <SelectTrigger><SelectValue placeholder="Wybierz" /></SelectTrigger>
+              <SelectContent>
+                {fuelTypes.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">Kolor</Label>
+            <Input value={form.color} onChange={e => set('color', e.target.value)} placeholder="Czarny" />
+          </div>
+        </div>
+
+        {credits !== null && (
+          <p className="text-xs text-muted-foreground">Pozostałe kredyty wyszukiwania: {credits.remaining_credits}</p>
+        )}
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Anuluj</Button>
+          <Button onClick={handleSave} disabled={saving} className="gap-1">
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Zapisz
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
