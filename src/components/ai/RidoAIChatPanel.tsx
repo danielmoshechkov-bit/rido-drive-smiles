@@ -140,7 +140,7 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
         console.warn('[RidoAI] No user found');
       }
     });
-  }, []);
+  }, [open]);
 
   const loadConversations = useCallback(async () => {
     if (!userId) return;
@@ -150,7 +150,11 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
     if (data) setConversations(data);
   }, [userId]);
 
-  useEffect(() => { if (open) loadConversations(); }, [open, loadConversations]);
+  useEffect(() => {
+    if (open && userId) {
+      loadConversations();
+    }
+  }, [open, userId, loadConversations]);
   useEffect(() => {
     scrollToBottom();
   }, [messages, currentConvId, open, scrollToBottom]);
