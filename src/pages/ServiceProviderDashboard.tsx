@@ -33,8 +33,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   LayoutDashboard, Wrench, Calendar, ClipboardList, Settings, Phone,
   Users, Clock, Star, Globe, Bot, Hammer, Plus, Trash2, Edit, Save, Image,
-  Upload, X, ImageIcon, Briefcase
+  Upload, X, ImageIcon, Briefcase, MoreHorizontal
 } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { UniversalSubTabBar } from '@/components/UniversalSubTabBar';
 import { toast } from 'sonner';
 
 interface ServiceItem {
@@ -60,6 +62,8 @@ export default function ServiceProviderDashboard() {
   const [selectedAgentType, setSelectedAgentType] = useState<string | null>(null);
   const [aiAgentSubTab, setAiAgentSubTab] = useState<'overview' | 'knowledge' | 'analytics' | 'learning'>('overview');
   const [providerId, setProviderId] = useState<string | null>(null);
+  const [calendarSubTab, setCalendarSubTab] = useState<'calendar' | 'bookings'>('calendar');
+  const [moreOpen, setMoreOpen] = useState(false);
   
   const [stats, setStats] = useState({
     totalBookings: 0,
@@ -335,39 +339,21 @@ export default function ServiceProviderDashboard() {
             <Wrench className="h-4 w-4 mr-1.5" />
             Moje usługi
           </TabsTrigger>
+          <TabsTrigger value="workshop">
+            <Hammer className="h-4 w-4 mr-1.5" />
+            Serwis
+          </TabsTrigger>
           <TabsTrigger value="calendar">
             <Calendar className="h-4 w-4 mr-1.5" />
             Kalendarz
-          </TabsTrigger>
-          <TabsTrigger value="workspace">
-            <Briefcase className="h-4 w-4 mr-1.5" />
-            Workspace
-          </TabsTrigger>
-          <TabsTrigger value="workshop">
-            <Hammer className="h-4 w-4 mr-1.5" />
-            Zarządzanie
-          </TabsTrigger>
-          <TabsTrigger value="bookings">
-            <ClipboardList className="h-4 w-4 mr-1.5" />
-            Rezerwacje
           </TabsTrigger>
           <TabsTrigger value="ai-agent">
             <Bot className="h-4 w-4 mr-1.5" />
             AI Agenci
           </TabsTrigger>
-          {features.website_builder_enabled && (
-            <TabsTrigger value="website">
-              <Globe className="h-4 w-4 mr-1.5" />
-              Strona WWW
-            </TabsTrigger>
-          )}
           <TabsTrigger value="account">
             <Users className="h-4 w-4 mr-1.5" />
             Wybierz moduł
-          </TabsTrigger>
-          <TabsTrigger value="settings">
-            <Settings className="h-4 w-4 mr-1.5" />
-            Ustawienia
           </TabsTrigger>
 
           {/* Pulpit / Dashboard Tab */}
