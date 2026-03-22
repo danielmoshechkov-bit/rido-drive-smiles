@@ -14,12 +14,13 @@ const CRM_LIST = [
     id: 'asari',
     name: 'ASARI CRM',
     logo: '🏢',
-    urlExample: 'https://pliki.asari.pl/export/TWOJE_ID/feed.xml',
+    urlExample: '',
     steps: [
       'Zaloguj się do ASARI CRM (login.asari.pro)',
-      'Przejdź do: Administracja → Eksport na portale → Dodaj własny FTP',
-      'W formularzu "Dodaj własny portal" wpisz DOKŁADNIE te dane:\n• Nazwa: GetRido\n• Adres serwera: ftp.getrido.pl\n• Katalog XML: /xml/\n• Podkatalog FOTO: /foto/\n• Port: 21\n• Strona kodowa: UTF-8\n• Format eksportu: EbiuroV2\n• Maks. liczba zdjęć: 20\n• Tryb Pasywny: ✓ zaznacz\nNastępnie kliknij Zapisz.',
-      'Po zapisaniu ASARI wygeneruje URL eksportu — skopiuj go i wklej w polu poniżej (Krok 3)',
+      'Przejdź do: Eksport na portale → Zarządzanie eksportami',
+      'W prawym górnym rogu: kliknij dropdown "Własny portal:" → wybierz "GetRido" z listy → kliknij "Szukaj"',
+      'Otworzy się formularz "Dodaj eksport na portal". Wypełnij go:\n• Nazwa portalu: GetRido (już wpisane)\n• Konto: wpisz swój adres email z konta GetRido\n• Hasło: wpisz hasło do konta GetRido\n• Biuro: wybierz swoje biuro lub zostaw puste\n• Limit ofert: 0 (brak limitu)\n• Eksportuj wizualizacje: Tak\n• Eksportuj stemple: Tak\nKliknij "Zapisz".',
+      'Gotowe! ASARI automatycznie wyśle Twoje oferty na GetRido w ciągu kilku minut. Eksport odbywa się co kilkadziesiąt sekund przy każdej zmianie oferty.',
     ],
     ftpData: {
       nazwa: 'GetRido',
