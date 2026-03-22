@@ -22,7 +22,7 @@ interface Props {
 
 const HOURS = Array.from({ length: 11 }, (_, i) => i + 8);
 
-export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz' }: Props) {
+export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz', focusOrderId }: Props) {
   const queryClient = useQueryClient();
   const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
