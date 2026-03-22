@@ -666,6 +666,7 @@ function ConvItem({ conv, active, onClick, onStar, onRename, onAddToProject, onD
   onAddToProject: () => void; onDelete: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(conv.title || '');
 
@@ -681,11 +682,13 @@ function ConvItem({ conv, active, onClick, onStar, onRename, onAddToProject, onD
             if (e.key === 'Escape') setRenaming(false);
           }}
           onBlur={() => { onRename(renameValue); setRenaming(false); }}
-          className="flex-1 text-sm px-2 py-1.5 rounded-lg bg-muted border border-border outline-none focus:ring-1 focus:ring-primary"
+          className="flex-1 text-sm px-2 py-1.5 rounded-lg bg-muted border border-border outline-none focus:ring-1 focus:ring-primary min-w-0"
         />
       </div>
     );
   }
+
+  const showMenu = hovered || menuOpen;
 
   return (
     <div
@@ -693,19 +696,21 @@ function ConvItem({ conv, active, onClick, onStar, onRename, onAddToProject, onD
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       className={cn(
-        'group flex items-center gap-1 px-3 py-2 rounded-xl cursor-pointer text-sm transition-colors',
+        'group flex items-center gap-1.5 px-2.5 py-2 rounded-xl cursor-pointer text-sm transition-colors overflow-hidden',
         active ? 'bg-primary text-primary-foreground font-medium' : 'text-foreground hover:bg-accent hover:text-accent-foreground'
       )}
     >
       {conv.is_starred && <Star className="h-3 w-3 fill-yellow-400 text-yellow-400 flex-shrink-0" />}
-      <span className="flex-1 truncate">{conv.title || 'Nowa rozmowa'}</span>
-      {(hovered || active) && (
-        <DropdownMenu>
+      <span className="flex-1 truncate min-w-0 block" style={{ maxWidth: showMenu ? 'calc(100% - 28px)' : '100%' }}>
+        {conv.title || 'Nowa rozmowa'}
+      </span>
+      <div className="flex-shrink-0" style={{ width: '24px', opacity: showMenu ? 1 : 0, transition: 'opacity 0.15s' }}>
+        <DropdownMenu onOpenChange={setMenuOpen}>
           <DropdownMenuTrigger asChild>
             <button
               onClick={e => { e.preventDefault(); e.stopPropagation(); }}
               className={cn(
-                'p-1 rounded-lg transition-colors flex-shrink-0',
+                'p-1 rounded-lg transition-colors',
                 active ? 'hover:bg-primary-foreground/20' : 'hover:bg-muted'
               )}
             >
@@ -732,7 +737,7 @@ function ConvItem({ conv, active, onClick, onStar, onRename, onAddToProject, onD
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-      )}
+      </div>
     </div>
   );
 }
