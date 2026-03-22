@@ -648,12 +648,17 @@ export default function ServiceProviderDashboard() {
               ]}
             />
             {calendarSubTab === 'calendar' && (
-              <div className="mt-4">
-                {providerId ? (
-                  <WorkshopScheduler providerId={providerId} onBack={() => setActiveTab('dashboard')} title="" />
-                ) : (
-                  <CalendarView />
-                )}
+              <div className="mt-4 flex gap-4">
+                <div className="flex-1 min-w-0">
+                  {providerId ? (
+                    <WorkshopScheduler providerId={providerId} onBack={() => setActiveTab('dashboard')} title="" />
+                  ) : (
+                    <CalendarView />
+                  )}
+                </div>
+                <div className="hidden lg:block w-[280px] flex-shrink-0">
+                  <CalendarAIAssistant providerId={providerId} />
+                </div>
               </div>
             )}
             {calendarSubTab === 'bookings' && (
