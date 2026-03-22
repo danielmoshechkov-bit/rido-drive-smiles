@@ -118,6 +118,44 @@ const GENERAL_LOW_CONFIDENCE_PATTERNS = [
   /(?:bitte|empfehle).{0,40}(besuchen|überprüf|nachschau)/i,
 ]
 
+async function getDualAIResponse(
+  claudeProvider: any,
+  geminiProvider: any,
+  messages: any[],
+  sys: string,
+  claudeModels: Record<string, string>,
+  query: string
+): Promise<{ result: string; winner: string }> {
+  const claudeModel = claudeModels[claudeProvider?.provider_key] || 'claude-haiku-4-5-20251001'
+
+  const [claudeRes, geminiRes] = await Promise.allSettled([
+    claudeProvider ? fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': claudeProvider.api_key_encrypted, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({ model: claudeModel, max_tokens: 2048, system: sys, messages, stream: false })
+    }).then(r => r.json()).then(d => (d.content || []).filter((b: any) => b.type === 'text').map((b: any) => b.text).join('')) : Promise.reject('no claude'),
+
+    geminiProvider ? fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${geminiProvider.api_key_encrypted}` },
+      body: JSON.stringify({ model: 'gemini-2.5-flash', messages: [{ role: 'system', content: sys }, ...messages], max_tokens: 2048 })
+    }).then(r => r.json()).then(d => d.choices?.[0]?.message?.content || '') : Promise.reject('no gemini'),
+  ])
+
+  const claudeAnswer = claudeRes.status === 'fulfilled' ? String(claudeRes.value || '') : ''
+  const geminiAnswer = geminiRes.status === 'fulfilled' ? String(geminiRes.value || '') : ''
+
+  // Gemini wins if: answer is longer OR Claude admits it doesn't know
+  const claudeFailed = !claudeAnswer || claudeAnswer.length < 50
+  const geminiIsBetter = geminiAnswer.length > claudeAnswer.length * 1.3 && geminiAnswer.length > 100
+
+  if (claudeFailed && geminiAnswer) return { result: geminiAnswer, winner: 'gemini' }
+  if (geminiIsBetter && geminiAnswer) return { result: geminiAnswer, winner: 'gemini' }
+  if (claudeAnswer) return { result: claudeAnswer, winner: 'claude' }
+  if (geminiAnswer) return { result: geminiAnswer, winner: 'gemini' }
+  return { result: '', winner: 'none' }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
 
