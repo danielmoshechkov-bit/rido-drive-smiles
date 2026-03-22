@@ -105,33 +105,9 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
 
   // Image editor state
   const [editorImage, setEditorImage] = useState<string | null>(null);
-  const [brushActive, setBrushActive] = useState(false);
-  const [annotationTool, setAnnotationTool] = useState<AnnotationTool>('brush');
-  const [isDrawing, setIsDrawing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const maskCanvasRef = useRef<HTMLCanvasElement>(null);
-  const lastPoint = useRef<{ x: number; y: number } | null>(null);
-  const currentPath = useRef<{ x: number; y: number }[]>([]);
-  const shapeStart = useRef<{ x: number; y: number } | null>(null);
-  const baseMaskData = useRef<ImageData | null>(null);
 
-  interface Annotation {
-    id: number;
-    type: AnnotationTool;
-    start?: { x: number; y: number };
-    end?: { x: number; y: number };
-    brushPoints?: { x: number; y: number }[];
-    center: { x: number; y: number };
-    description: string;
-  }
-  const [annotations, setAnnotations] = useState<Annotation[]>([]);
-  const [activeAnnotation, setActiveAnnotation] = useState<number | null>(null);
-
-  type InteractionMode = 'none' | 'move' | 'resize-tl' | 'resize-tr' | 'resize-bl' | 'resize-br';
-  const [interactionMode, setInteractionMode] = useState<InteractionMode>('none');
-  const [interactingAnnotation, setInteractingAnnotation] = useState<number | null>(null);
-  const interactionStart = useRef<{ x: number; y: number; origStart: { x: number; y: number }; origEnd: { x: number; y: number } } | null>(null);
+  type AnnotationTool = 'brush' | 'ellipse' | 'rectangle';
 
   const { streamExecute, execute, isLoading } = useGetRidoAI();
   const messagesEndRef = useRef<HTMLDivElement>(null);
