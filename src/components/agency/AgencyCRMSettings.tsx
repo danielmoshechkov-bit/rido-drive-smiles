@@ -609,6 +609,8 @@ export function AgencyCRMSettings({ agencyId }: AgencyCRMSettingsProps) {
               </div>
             );
           })()}
+
+          {selectedProvider && (
             <>
               {/* Import Mode */}
               <div>
