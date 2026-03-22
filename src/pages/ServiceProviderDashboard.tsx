@@ -342,7 +342,7 @@ export default function ServiceProviderDashboard() {
           </TabsTrigger>
           <TabsTrigger value="workshop">
             <Hammer className="h-4 w-4 mr-1.5" />
-            Serwis
+            Warsztat & Auto
           </TabsTrigger>
           <TabsTrigger value="accounting">
             <Calculator className="h-4 w-4 mr-1.5" />
