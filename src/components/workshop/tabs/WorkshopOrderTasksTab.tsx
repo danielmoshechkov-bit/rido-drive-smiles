@@ -431,11 +431,12 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       return;
     }
 
-    updateOrder.mutate({
+    // Force immediate sync of order totals
+    updateOrder.mutateAsync({
       id: order.id,
       total_gross: savedGrandGrossTotal,
       total_net: savedGrandNetTotal,
-    });
+    }).catch(() => {});
   }, [order.id, order.total_gross, order.total_net, savedGrandGrossTotal, savedGrandNetTotal]);
 
   const saveTaskDraftRows = async () => {
