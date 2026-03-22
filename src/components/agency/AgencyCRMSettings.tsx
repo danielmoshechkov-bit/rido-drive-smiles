@@ -17,10 +17,21 @@ const CRM_LIST = [
     urlExample: 'https://pliki.asari.pl/export/TWOJE_ID/feed.xml',
     steps: [
       'Zaloguj się do ASARI CRM (login.asari.pro)',
-      'Przejdź do: Ustawienia → Eksport na portale',
-      'Kliknij "Dodaj własny FTP / URL"',
-      'Skopiuj wygenerowany URL eksportu i wklej poniżej',
+      'Przejdź do: Administracja → Eksport na portale → Dodaj własny FTP',
+      'W formularzu "Dodaj własny portal" wpisz DOKŁADNIE te dane:\n• Nazwa: GetRido\n• Adres serwera: ftp.getrido.pl\n• Katalog XML: /xml/\n• Podkatalog FOTO: /foto/\n• Port: 21\n• Strona kodowa: UTF-8\n• Format eksportu: EbiuroV2\n• Maks. liczba zdjęć: 20\n• Tryb Pasywny: ✓ zaznacz\nNastępnie kliknij Zapisz.',
+      'Po zapisaniu ASARI wygeneruje URL eksportu — skopiuj go i wklej w polu poniżej (Krok 3)',
     ],
+    ftpData: {
+      nazwa: 'GetRido',
+      adresSerwera: 'ftp.getrido.pl',
+      katalogXml: '/xml/',
+      podkatalogFoto: '/foto/',
+      port: '21',
+      stronaKodowa: 'UTF-8',
+      formatEksportu: 'EbiuroV2',
+      maksZdjec: '20',
+      trybPasywny: true,
+    },
     docsUrl: 'https://wiki.asari.pl',
   },
   {
@@ -294,9 +305,37 @@ export function AgencyCRMSettings({ agencyId }: AgencyCRMSettingsProps) {
                     <span className="flex-shrink-0 h-5 w-5 rounded-full bg-primary/10 text-primary text-xs flex items-center justify-center font-bold">
                       {i + 1}
                     </span>
-                    <span>{step}</span>
+                    <span className="whitespace-pre-line">{step}</span>
                   </div>
                 ))}
+                {crm.id === 'asari' && (
+                  <div className="mt-3 p-3 rounded-lg bg-amber-50 border border-amber-200">
+                    <p className="text-xs font-bold text-amber-800 mb-2">
+                      📋 Dane do wpisania w ASARI (skopiuj do formularza):
+                    </p>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs font-mono">
+                      {[
+                        ['Nazwa portalu', 'GetRido'],
+                        ['Adres serwera', 'ftp.getrido.pl'],
+                        ['Katalog XML', '/xml/'],
+                        ['Podkatalog FOTO', '/foto/'],
+                        ['Port', '21'],
+                        ['Strona kodowa', 'UTF-8'],
+                        ['Format eksportu', 'EbiuroV2'],
+                        ['Maks. liczba zdjęć', '20'],
+                        ['Tryb Pasywny', '✓ zaznacz'],
+                      ].map(([label, val]) => (
+                        <span key={label} className="contents">
+                          <span className="text-amber-700 font-semibold">{label}:</span>
+                          <span className="text-amber-900 font-bold select-all">{val}</span>
+                        </span>
+                      ))}
+                    </div>
+                    <p className="text-xs text-amber-700 mt-2">
+                      💡 Po kliknięciu "Zapisz" w ASARI — skopiuj wygenerowany URL eksportu i wklej go poniżej w Kroku 3.
+                    </p>
+                  </div>
+                )}
               </div>
               {crm.docsUrl && (
                 <a href={crm.docsUrl} target="_blank" rel="noopener noreferrer"
