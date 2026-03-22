@@ -101,11 +101,17 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
 
   // Mobile: which view is active
   const [activeView, setActiveView] = useState<'list' | 'chat'>('list');
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  const [isDesktop, setIsDesktop] = useState(typeof window !== 'undefined' && window.innerWidth >= 768);
 
   // Image editor state
   const [editorImage, setEditorImage] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsDesktop(window.innerWidth >= 768);
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
 
   const { streamExecute, execute, isLoading } = useGetRidoAI();
