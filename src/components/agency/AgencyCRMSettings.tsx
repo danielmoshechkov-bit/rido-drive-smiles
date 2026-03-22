@@ -569,14 +569,46 @@ export function AgencyCRMSettings({ agencyId }: AgencyCRMSettingsProps) {
               <SelectContent>
                 {providers.map(provider => (
                   <SelectItem key={provider.provider_code} value={provider.provider_code}>
-                    {provider.provider_name}
+                    <span className="flex items-center gap-2">
+                      <span>{provider.logo}</span>
+                      <span>{provider.provider_name}</span>
+                    </span>
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
 
-          {selectedProvider && (
+          {/* CRM instruction card */}
+          {selectedProvider && (() => {
+            const prov = CRM_PROVIDERS.find(p => p.provider_code === selectedProvider);
+            if (!prov) return null;
+            return (
+              <div className="p-3 rounded-lg bg-blue-50 border border-blue-200 dark:bg-blue-950/30 dark:border-blue-800">
+                <p className="text-sm font-semibold text-blue-800 dark:text-blue-300 mb-1">
+                  {prov.logo} {prov.provider_name} — jak skonfigurować eksport
+                </p>
+                <p className="text-sm text-blue-700 dark:text-blue-400 mb-2">{prov.help_text}</p>
+                <div className="p-2 rounded bg-amber-50 border border-amber-200 dark:bg-amber-950/30 dark:border-amber-800">
+                  <p className="text-xs font-semibold text-amber-800 dark:text-amber-300 mb-1">📡 Dane do wpisania w swoim programie CRM:</p>
+                  <div className="grid grid-cols-2 gap-0.5 text-xs text-amber-700 dark:text-amber-400">
+                    <span className="font-semibold">Serwer FTP:</span><span>ftp.getrido.pl</span>
+                    <span className="font-semibold">Login:</span><span>agent_{agencyId?.slice(0, 8)}</span>
+                    <span className="font-semibold">Hasło:</span><span className="italic">(z pola poniżej)</span>
+                    <span className="font-semibold">Katalog XML:</span><span>/import/xml/</span>
+                    <span className="font-semibold">Format:</span><span>{prov.xml_format}</span>
+                    <span className="font-semibold">Port FTP:</span><span>21</span>
+                  </div>
+                </div>
+                {prov.help_url && (
+                  <a href={prov.help_url} target="_blank" rel="noopener noreferrer"
+                    className="text-xs text-blue-600 underline mt-1 inline-block dark:text-blue-400">
+                    → Dokumentacja {prov.provider_name}
+                  </a>
+                )}
+              </div>
+            );
+          })()}
             <>
               {/* Import Mode */}
               <div>
