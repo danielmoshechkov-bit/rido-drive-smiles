@@ -569,10 +569,29 @@ export default function ServiceProviderDashboard() {
 
           {/* Calendar Tab */}
           <TabsContent value="calendar" className="mt-6">
-            {providerId ? (
-              <WorkshopScheduler providerId={providerId} onBack={() => setActiveTab('dashboard')} title="" />
-            ) : (
-              <CalendarView />
+            <UniversalSubTabBar
+              activeTab={calendarSubTab}
+              onTabChange={(v) => setCalendarSubTab(v as 'calendar' | 'bookings')}
+              tabs={[
+                { value: 'calendar', label: 'Kalendarz' },
+                { value: 'bookings', label: 'Rezerwacje' },
+              ]}
+            />
+            {calendarSubTab === 'calendar' && (
+              <div className="mt-4">
+                {providerId ? (
+                  <WorkshopScheduler providerId={providerId} onBack={() => setActiveTab('dashboard')} title="" />
+                ) : (
+                  <CalendarView />
+                )}
+              </div>
+            )}
+            {calendarSubTab === 'bookings' && (
+              <div className="mt-4">
+                <Card>
+                  <CardContent className="pt-6"><p className="text-muted-foreground text-center py-8">Brak aktywnych rezerwacji</p></CardContent>
+                </Card>
+              </div>
             )}
           </TabsContent>
 
