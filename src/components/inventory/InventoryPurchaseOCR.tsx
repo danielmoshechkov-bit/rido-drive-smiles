@@ -430,7 +430,7 @@ Odpowiedz TYLKO samym JSON bez żadnego tekstu, bez markdown.`,
         total_gross: invoiceHeader.gross_total,
         pdf_url: uploadedFileUrl,
         status: 'approved',
-        ocr_raw: { items: ocrItems, header: invoiceHeader },
+        ocr_raw: { items: ocrItems, header: invoiceHeader, mode: invoiceMode },
       };
 
       const { data: invoice, error: invError } = await supabase
@@ -448,7 +448,7 @@ Odpowiedz TYLKO samym JSON bez żadnego tekstu, bez markdown.`,
       for (const item of ocrItems) {
         await supabase.from('purchase_invoice_items').insert({
           purchase_invoice_id: invoice.id,
-          product_id: item.mapped_product_id || null,
+          product_id: (invoiceMode === 'magazyn' && item.mapped_product_id) ? item.mapped_product_id : null,
           name: item.name,
           supplier_symbol: item.supplier_symbol || null,
           quantity: item.quantity,
@@ -460,7 +460,8 @@ Odpowiedz TYLKO samym JSON bez żadnego tekstu, bez markdown.`,
           gtu_code: item.gtu_code || null,
         });
 
-        if (item.mapped_product_id) {
+        // Only update stock if mode is 'magazyn' and product is mapped
+        if (invoiceMode === 'magazyn' && item.mapped_product_id) {
           const product = products.find(p => p.id === item.mapped_product_id);
           if (product) {
             const newQty = (product.stock_quantity || 0) + item.quantity;
@@ -480,6 +481,7 @@ Odpowiedz TYLKO samym JSON bez żadnego tekstu, bez markdown.`,
             } as any);
           }
 
+          // Save supplier mapping for future auto-match
           if (item.supplier_symbol || item.name) {
             await (supabase as any).from('supplier_mappings').insert({
               supplier_name: item.name,
@@ -490,14 +492,19 @@ Odpowiedz TYLKO samym JSON bez żadnego tekstu, bez markdown.`,
         }
       }
 
-      toast.success('✅ Faktura zatwierdzona! Stany magazynowe zaktualizowane.');
+      const modeLabel = invoiceMode === 'magazyn' 
+        ? '✅ Faktura zatwierdzona! Stany magazynowe zaktualizowane.' 
+        : '✅ Faktura kosztowa zapisana!';
+      toast.success(modeLabel);
       setOcrItems([]);
       setInvoiceHeader(null);
       setFileBase64(null);
       setUploadedFileUrl(null);
       setOcrDone(false);
+      setAutoMatchedCount(0);
       await fetchProducts();
       await fetchInvoices();
+      await fetchSupplierMappings();
     } catch {
       toast.error('Błąd zatwierdzania faktury');
     } finally {
