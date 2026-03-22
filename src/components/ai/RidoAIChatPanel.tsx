@@ -975,28 +975,90 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
                   {annotationTool === 'brush' ? 'Zamaluj obszar który chcesz zmienić' : annotationTool === 'ellipse' ? 'Przeciągnij, aby zaznaczyć owal' : 'Przeciągnij, aby zaznaczyć prostokąt'}
                 </div>
               )}
-              {/* Numbered circles on image showing annotation positions */}
+              {/* Numbered circles + resize/move handles on image */}
               {annotations.map(ann => {
                 const canvas = maskCanvasRef.current;
                 if (!canvas) return null;
                 const rect = canvas.getBoundingClientRect();
                 const scaleX = rect.width / canvas.width;
                 const scaleY = rect.height / canvas.height;
+
+                // Render shape handles for rectangle/ellipse annotations
+                const isShape = ann.type !== 'brush' && ann.start && ann.end;
+                const isSelected = activeAnnotation === ann.id;
+                const x1 = isShape ? Math.min(ann.start!.x, ann.end!.x) * scaleX : 0;
+                const y1 = isShape ? Math.min(ann.start!.y, ann.end!.y) * scaleY : 0;
+                const x2 = isShape ? Math.max(ann.start!.x, ann.end!.x) * scaleX : 0;
+                const y2 = isShape ? Math.max(ann.start!.y, ann.end!.y) * scaleY : 0;
+
                 return (
-                  <div
-                    key={ann.id}
-                    className={cn(
-                      'absolute w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold pointer-events-none border-2 shadow-lg',
-                      ann.description.trim()
-                        ? 'bg-primary text-primary-foreground border-primary-foreground/30'
-                        : 'bg-accent text-accent-foreground border-border'
+                  <div key={ann.id}>
+                    {/* Shape bounding box + handles (only when brush is active and shape is selected) */}
+                    {isShape && brushActive && isSelected && (
+                      <>
+                        {/* Bounding box outline */}
+                        <div
+                          className="absolute border-2 border-primary pointer-events-none"
+                          style={{ left: x1, top: y1, width: x2 - x1, height: y2 - y1 }}
+                        />
+                        {/* Corner handles */}
+                        {[
+                          { cx: x1, cy: y1, cursor: 'nwse-resize', label: '↖' },
+                          { cx: x2, cy: y1, cursor: 'nesw-resize', label: '↗' },
+                          { cx: x1, cy: y2, cursor: 'nesw-resize', label: '↙' },
+                          { cx: x2, cy: y2, cursor: 'nwse-resize', label: '↘' },
+                        ].map((h, i) => (
+                          <div
+                            key={`corner-${i}`}
+                            className="absolute w-3 h-3 bg-background border-2 border-primary rounded-full pointer-events-none shadow-sm"
+                            style={{ left: h.cx - 6, top: h.cy - 6 }}
+                          />
+                        ))}
+                        {/* Edge midpoint handles */}
+                        {[
+                          { cx: (x1 + x2) / 2, cy: y1, w: 12, h: 5 },
+                          { cx: (x1 + x2) / 2, cy: y2, w: 12, h: 5 },
+                          { cx: x1, cy: (y1 + y2) / 2, w: 5, h: 12 },
+                          { cx: x2, cy: (y1 + y2) / 2, w: 5, h: 12 },
+                        ].map((h, i) => (
+                          <div
+                            key={`edge-${i}`}
+                            className="absolute bg-background border-2 border-primary rounded-sm pointer-events-none shadow-sm"
+                            style={{ left: h.cx - h.w / 2, top: h.cy - h.h / 2, width: h.w, height: h.h }}
+                          />
+                        ))}
+                        {/* Move icon below shape */}
+                        <div
+                          className="absolute flex items-center gap-1.5 pointer-events-none"
+                          style={{ left: (x1 + x2) / 2 - 28, top: y2 + 8 }}
+                        >
+                          <div className="w-6 h-6 rounded-full bg-background border border-border shadow-sm flex items-center justify-center" title="Obróć">
+                            <RotateCcw className="h-3 w-3 text-muted-foreground" />
+                          </div>
+                          <div className="w-6 h-6 rounded-full bg-background border border-border shadow-sm flex items-center justify-center" title="Przesuń">
+                            <svg className="h-3 w-3 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M5 9l-3 3 3 3" /><path d="M9 5l3-3 3 3" /><path d="M15 19l-3 3-3-3" /><path d="M19 9l3 3-3 3" />
+                              <line x1="2" y1="12" x2="22" y2="12" /><line x1="12" y1="2" x2="12" y2="22" />
+                            </svg>
+                          </div>
+                        </div>
+                      </>
                     )}
-                    style={{
-                      left: ann.center.x * scaleX - 14,
-                      top: ann.center.y * scaleY - 14,
-                    }}
-                  >
-                    {ann.id}
+                    {/* Numbered circle */}
+                    <div
+                      className={cn(
+                        'absolute w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold pointer-events-none border-2 shadow-lg',
+                        ann.description.trim()
+                          ? 'bg-primary text-primary-foreground border-primary-foreground/30'
+                          : 'bg-accent text-accent-foreground border-border'
+                      )}
+                      style={{
+                        left: ann.center.x * scaleX - 14,
+                        top: ann.center.y * scaleY - 14,
+                      }}
+                    >
+                      {ann.id}
+                    </div>
                   </div>
                 );
               })}
