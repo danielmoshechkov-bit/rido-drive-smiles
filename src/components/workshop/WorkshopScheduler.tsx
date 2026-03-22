@@ -17,6 +17,7 @@ interface Props {
   providerId: string;
   onBack: () => void;
   title?: string;
+  focusOrderId?: string;
 }
 
 const HOURS = Array.from({ length: 11 }, (_, i) => i + 8);
