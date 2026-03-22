@@ -918,33 +918,35 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
                             : 'bg-primary text-primary-foreground rounded-2xl rounded-bl-sm px-4 py-3'
                         )}>
                           {msg.role === 'assistant' ? (
-                            <div className="prose prose-sm max-w-none [&>p]:mb-2 [&>p:last-child]:mb-0 [&>ul]:mb-2 [&>ol]:mb-2 [&>li]:mb-0.5 [&_strong]:font-bold [&>p]:text-[14px] [&>p]:leading-relaxed [&>p]:font-medium [&>li]:text-[14px] [&>li]:font-medium text-primary-foreground [&_strong]:text-primary-foreground [&_li]:text-primary-foreground [&_a]:text-primary-foreground/80">
-                              {(() => {
-                                const cleanContent = (msg.content || '')
-                                  .replace(/ACTION:\{.*?\}/s, '')
-                                  .replace(/IMAGE_REQUEST:true/g, '')
-                                  .trim();
-                                return cleanContent ? <ReactMarkdown>{cleanContent}</ReactMarkdown> : null;
-                              })()}
-                            </div>
-                            {msg.images?.map((img, idx) => (
-                              <div key={idx} className="relative group mt-2 -mx-4 -mb-3">
-                                <img
-                                  src={img}
-                                  alt="Wygenerowana grafika"
-                                  className="w-full rounded-b-2xl cursor-pointer hover:opacity-95 transition-opacity"
-                                  onClick={() => openEditor(img)}
-                                />
-                                <div className="absolute top-2 left-2 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <button onClick={(e) => { e.stopPropagation(); downloadImage(img); }} className="bg-background/90 backdrop-blur-sm text-foreground p-2 rounded-lg shadow-md border border-border/50 hover:bg-background transition-colors" title="Pobierz">
-                                    <Download className="h-4 w-4" />
-                                  </button>
-                                  <button onClick={(e) => { e.stopPropagation(); openEditor(img); }} className="bg-background/90 backdrop-blur-sm text-foreground p-2 rounded-lg shadow-md border border-border/50 hover:bg-background transition-colors" title="Edytuj pędzlem">
-                                    <Paintbrush className="h-4 w-4" />
-                                  </button>
-                                </div>
+                            <>
+                              <div className="prose prose-sm max-w-none [&>p]:mb-2 [&>p:last-child]:mb-0 [&>ul]:mb-2 [&>ol]:mb-2 [&>li]:mb-0.5 [&_strong]:font-bold [&>p]:text-[14px] [&>p]:leading-relaxed [&>p]:font-medium [&>li]:text-[14px] [&>li]:font-medium text-primary-foreground [&_strong]:text-primary-foreground [&_li]:text-primary-foreground [&_a]:text-primary-foreground/80">
+                                {(() => {
+                                  const cleanContent = (msg.content || '')
+                                    .replace(/ACTION:\{.*?\}/s, '')
+                                    .replace(/IMAGE_REQUEST:true/g, '')
+                                    .trim();
+                                  return cleanContent ? <ReactMarkdown>{cleanContent}</ReactMarkdown> : null;
+                                })()}
                               </div>
-                            ))}
+                              {msg.images?.map((img, idx) => (
+                                <div key={idx} className="relative group mt-2 -mx-4 -mb-3">
+                                  <img
+                                    src={img}
+                                    alt="Wygenerowana grafika"
+                                    className="w-full rounded-b-2xl cursor-pointer hover:opacity-95 transition-opacity"
+                                    onClick={() => openEditor(img)}
+                                  />
+                                  <div className="absolute top-2 left-2 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button onClick={(e) => { e.stopPropagation(); downloadImage(img); }} className="bg-background/90 backdrop-blur-sm text-foreground p-2 rounded-lg shadow-md border border-border/50 hover:bg-background transition-colors" title="Pobierz">
+                                      <Download className="h-4 w-4" />
+                                    </button>
+                                    <button onClick={(e) => { e.stopPropagation(); openEditor(img); }} className="bg-background/90 backdrop-blur-sm text-foreground p-2 rounded-lg shadow-md border border-border/50 hover:bg-background transition-colors" title="Edytuj pędzlem">
+                                      <Paintbrush className="h-4 w-4" />
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </>
                           ) : (
                             <p className="whitespace-pre-wrap text-[14px] font-semibold text-foreground">{msg.content}</p>
                           )}
