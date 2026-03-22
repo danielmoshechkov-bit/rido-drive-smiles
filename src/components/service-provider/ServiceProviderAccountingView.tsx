@@ -268,27 +268,24 @@ export function ServiceProviderAccountingView() {
       {/* Modals */}
       {showNewInvoice && (
         <SimpleFreeInvoice
-          open={showNewInvoice}
           onClose={() => { setShowNewInvoice(false); loadData(); }}
-          entityId={userEntities[0]?.id}
+          onSaved={() => { setShowNewInvoice(false); loadData(); }}
         />
       )}
 
-      {showCostInvoice && (
-        <CostInvoiceModal
-          open={showCostInvoice}
-          onClose={() => { setShowCostInvoice(false); loadData(); }}
-          entityId={userEntities[0]?.id}
-        />
-      )}
+      <CostInvoiceModal
+        open={showCostInvoice}
+        onOpenChange={(v) => { setShowCostInvoice(v); if (!v) loadData(); }}
+        entityId={userEntities[0]?.id}
+        onCreated={() => { setShowCostInvoice(false); loadData(); }}
+      />
 
-      {showCompanySetup && (
-        <CompanySetupWizard
-          open={showCompanySetup}
-          onClose={() => { setShowCompanySetup(false); setEditingEntity(null); loadData(); }}
-          editingEntity={editingEntity}
-        />
-      )}
+      <CompanySetupWizard
+        open={showCompanySetup}
+        onOpenChange={(v) => { setShowCompanySetup(v); if (!v) { setEditingEntity(null); loadData(); } }}
+        onCreated={() => { setShowCompanySetup(false); setEditingEntity(null); loadData(); }}
+        editEntity={editingEntity}
+      />
     </div>
   );
 }
