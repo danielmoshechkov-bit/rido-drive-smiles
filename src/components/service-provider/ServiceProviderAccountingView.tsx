@@ -256,6 +256,12 @@ export function ServiceProviderAccountingView() {
       {/* Zakupy */}
       {subTab === 'zakupy' && <InventoryPurchaseOCR entityId={userEntities[0]?.id} />}
 
+      {/* Oczekujące na sprawdzenie */}
+      {subTab === 'oczekujace' && <PendingInvoicesReview />}
+
+      {/* Email faktury setup */}
+      {subTab === 'email-faktury' && <InvoiceEmailSetup />}
+
       {/* Stan magazynowy */}
       {subTab === 'magazyn' && <InventoryModuleView entityId={userEntities[0]?.id} />}
 
