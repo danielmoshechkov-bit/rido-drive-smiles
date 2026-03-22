@@ -724,10 +724,48 @@ Odpowiedz TYLKO samym JSON bez żadnego tekstu, bez markdown.`,
                           </a>
                         )}
                       </div>
-                      <Badge variant="outline">{ocrItems.filter(i => i.mapped_product_id).length}/{ocrItems.length} powiązanych</Badge>
+                      {invoiceMode === 'magazyn' && (
+                        <Badge variant="outline">{ocrItems.filter(i => i.mapped_product_id).length}/{ocrItems.length} powiązanych</Badge>
+                      )}
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    {/* Mode toggle */}
+                    <div className="flex gap-2 p-1 bg-muted rounded-lg">
+                      <button
+                        onClick={() => setInvoiceMode('magazyn')}
+                        className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium transition-colors ${
+                          invoiceMode === 'magazyn' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        <Package className="h-4 w-4" />
+                        📦 Dodaj do magazynu
+                      </button>
+                      <button
+                        onClick={() => setInvoiceMode('kosztowa')}
+                        className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium transition-colors ${
+                          invoiceMode === 'kosztowa' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        <FileText className="h-4 w-4" />
+                        📄 Tylko faktura kosztowa
+                      </button>
+                    </div>
+
+                    {invoiceMode === 'kosztowa' && (
+                      <div className="p-3 rounded-lg bg-muted/50 border border-muted text-sm text-muted-foreground">
+                        💡 Tryb kosztowy — faktura zostanie zapisana bez powiązania z magazynem. Pozycje nie aktualizują stanów.
+                      </div>
+                    )}
+
+                    {/* Auto-match info */}
+                    {invoiceMode === 'magazyn' && autoMatchedCount > 0 && (
+                      <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 text-sm">
+                        <span className="font-medium">🧠 System rozpoznał {autoMatchedCount} z {ocrItems.length} pozycji</span>
+                        <span className="text-muted-foreground ml-1">— dopasowane automatycznie po indeksie/nazwie dostawcy</span>
+                      </div>
+                    )}
+
                     {/* Header info */}
                     <div className="p-4 rounded-lg bg-muted/50 space-y-2">
                       <div className="flex items-center justify-between">
@@ -761,7 +799,7 @@ Odpowiedz TYLKO samym JSON bez żadnego tekstu, bez markdown.`,
                                 <TableHead className="w-24 text-right">Cena netto</TableHead>
                                 <TableHead className="w-20 text-right">VAT</TableHead>
                                 <TableHead className="w-24 text-right">Brutto</TableHead>
-                                <TableHead className="w-48">Produkt</TableHead>
+                                {invoiceMode === 'magazyn' && <TableHead className="w-48">Produkt w magazynie</TableHead>}
                                 <TableHead className="w-10"></TableHead>
                               </TableRow>
                             </TableHeader>
@@ -770,35 +808,37 @@ Odpowiedz TYLKO samym JSON bez żadnego tekstu, bez markdown.`,
                                 <TableRow key={index}>
                                   <TableCell>
                                     <p className="font-medium text-sm">{item.name}</p>
-                                    {item.supplier_symbol && <p className="text-xs text-muted-foreground">Kod: {item.supplier_symbol}</p>}
+                                    {item.supplier_symbol && <p className="text-xs text-muted-foreground">Indeks: {item.supplier_symbol}</p>}
                                     {item.gtu_code && <Badge variant="outline" className="text-[10px] mt-1">{item.gtu_code}</Badge>}
                                   </TableCell>
                                   <TableCell className="text-right text-sm">{item.quantity} {item.unit}</TableCell>
                                   <TableCell className="text-right text-sm font-mono">{item.unit_price_net.toFixed(2)}</TableCell>
                                   <TableCell className="text-right text-sm">{item.vat_rate}%</TableCell>
                                   <TableCell className="text-right text-sm font-mono font-semibold">{item.total_gross.toFixed(2)}</TableCell>
-                                  <TableCell>
-                                    <div className="flex items-center gap-1">
-                                      <Select value={item.mapped_product_id || '_none'} onValueChange={(v) => handleMapProduct(index, v === '_none' ? '' : v)}>
-                                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Wybierz..." /></SelectTrigger>
-                                        <SelectContent>
-                                          <SelectItem value="_none">— brak —</SelectItem>
-                                          {products.map(p => (
-                                            <SelectItem key={p.id} value={p.id}>{p.name} {p.sku ? `(${p.sku})` : ''}</SelectItem>
-                                          ))}
-                                        </SelectContent>
-                                      </Select>
-                                      <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => openNewProductDialog(index)} title="Utwórz nowy produkt">
-                                        <Plus className="h-3 w-3" />
-                                      </Button>
-                                    </div>
-                                    {item.mapped_product_id && (
-                                      <div className="flex items-center gap-1 mt-1">
-                                        <CheckCircle className="h-3 w-3 text-green-600" />
-                                        <span className="text-[10px] text-green-600">Powiązany</span>
+                                  {invoiceMode === 'magazyn' && (
+                                    <TableCell>
+                                      <div className="flex items-center gap-1">
+                                        <Select value={item.mapped_product_id || '_none'} onValueChange={(v) => handleMapProduct(index, v === '_none' ? '' : v)}>
+                                          <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Wybierz..." /></SelectTrigger>
+                                          <SelectContent>
+                                            <SelectItem value="_none">— brak —</SelectItem>
+                                            {products.map(p => (
+                                              <SelectItem key={p.id} value={p.id}>{p.name} {p.sku ? `(${p.sku})` : ''}</SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => openNewProductDialog(index)} title="Utwórz nowy produkt">
+                                          <Plus className="h-3 w-3" />
+                                        </Button>
                                       </div>
-                                    )}
-                                  </TableCell>
+                                      {item.mapped_product_id && (
+                                        <div className="flex items-center gap-1 mt-1">
+                                          <CheckCircle className="h-3 w-3 text-primary" />
+                                          <span className="text-[10px] text-primary">Powiązany</span>
+                                        </div>
+                                      )}
+                                    </TableCell>
+                                  )}
                                   <TableCell>
                                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeItem(index)}>
                                       <Trash2 className="h-3 w-3 text-destructive" />
@@ -811,13 +851,28 @@ Odpowiedz TYLKO samym JSON bez żadnego tekstu, bez markdown.`,
                         </div>
 
                         {/* Approve */}
-                        <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
+                        <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg gap-4">
                           <div>
-                            <p className="text-sm font-medium">{ocrItems.filter(i => i.mapped_product_id).length} z {ocrItems.length} pozycji powiązanych</p>
-                            <p className="text-xs text-muted-foreground">Niepowiązane pozycje zapisane bez aktualizacji stanu</p>
+                            {invoiceMode === 'magazyn' ? (
+                              <>
+                                <p className="text-sm font-medium">{ocrItems.filter(i => i.mapped_product_id).length} z {ocrItems.length} pozycji powiązanych z magazynem</p>
+                                <p className="text-xs text-muted-foreground">Niepowiązane pozycje zapisane bez aktualizacji stanu</p>
+                              </>
+                            ) : (
+                              <>
+                                <p className="text-sm font-medium">{ocrItems.length} pozycji do zapisania</p>
+                                <p className="text-xs text-muted-foreground">Faktura kosztowa — bez wpływu na stany magazynowe</p>
+                              </>
+                            )}
                           </div>
                           <Button onClick={handleApprove} disabled={processing} size="lg">
-                            {processing ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Zatwierdzanie...</> : <><CheckCircle className="h-4 w-4 mr-2" />Zatwierdź i dodaj do magazynu</>}
+                            {processing ? (
+                              <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Zatwierdzanie...</>
+                            ) : invoiceMode === 'magazyn' ? (
+                              <><CheckCircle className="h-4 w-4 mr-2" />Zatwierdź i dodaj do magazynu</>
+                            ) : (
+                              <><CheckCircle className="h-4 w-4 mr-2" />Zapisz fakturę kosztową</>
+                            )}
                           </Button>
                         </div>
                       </div>
