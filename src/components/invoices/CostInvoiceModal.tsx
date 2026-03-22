@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -73,6 +73,7 @@ export function CostInvoiceModal({ open, onOpenChange, entityId, onCreated }: Co
   const [saving, setSaving] = useState(false);
   const [searchingNip, setSearchingNip] = useState(false);
   const [fileUrl, setFileUrl] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const resetForm = () => {
     setStep('upload');
@@ -91,10 +92,7 @@ export function CostInvoiceModal({ open, onOpenChange, entityId, onCreated }: Co
     setFileUrl('');
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const processFile = async (file: File) => {
     setUploading(true);
     try {
       // Upload to storage
@@ -113,49 +111,69 @@ export function CostInvoiceModal({ open, onOpenChange, entityId, onCreated }: Co
 
       setFileUrl(publicUrl);
 
-      // Extract data using AI
+      // Read file as base64
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          resolve(result.split(',')[1]);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      // Extract data using Claude AI
       setExtracting(true);
-      const { data: extractedData, error: extractError } = await supabase.functions.invoke('extract-invoice-data', {
+      const { data: extractedData, error: extractError } = await supabase.functions.invoke('analyze-invoice', {
         body: { 
-          fileUrl: publicUrl,
-          fileType: file.type 
+          fileBase64: base64,
+          mimeType: file.type
         }
       });
 
       if (extractError) {
         console.error('Extraction error:', extractError);
-        toast.error('Błąd ekstrakcji danych. Wprowadź ręcznie.');
+        toast.error('Nie udało się odczytać faktury — sprawdź plik lub wprowadź ręcznie.');
+        setItems([createEmptyItem()]);
         setStep('confirm');
         return;
       }
 
       if (extractedData?.success && extractedData?.data) {
         const d = extractedData.data;
-        setInvoiceNumber(d.invoiceNumber || '');
-        setSupplierName(d.supplierName || '');
-        setSupplierNip(d.supplierNip || '');
-        setSupplierAddress(d.supplierAddress || '');
-        setIssueDate(d.issueDate || new Date().toISOString().split('T')[0]);
-        setSaleDate(d.saleDate || d.issueDate || '');
-        setDueDate(d.dueDate || '');
-        setPaymentAccount(d.paymentAccount || '');
-        setPaymentBank(d.paymentBank || '');
-        setNotes(d.notes || '');
+        setInvoiceNumber(d.numer_faktury || '');
+        setSupplierName(d.sprzedawca?.nazwa || '');
+        setSupplierNip(d.sprzedawca?.nip || '');
+        setSupplierAddress(d.sprzedawca?.adres || '');
+        setIssueDate(d.data_wystawienia || new Date().toISOString().split('T')[0]);
+        setSaleDate(d.data_sprzedazy || d.data_wystawienia || '');
+        setDueDate(d.termin_platnosci || '');
+        setPaymentAccount(d.sprzedawca?.numer_konta || '');
+        setPaymentBank(d.sprzedawca?.bank || '');
+        setNotes('');
 
-        // Map items
-        if (d.items && Array.isArray(d.items)) {
-          setItems(d.items.map((item: any) => ({
-            name: item.name || '',
-            quantity: item.quantity || 1,
-            unit: item.unit || 'szt.',
-            netPrice: item.netPrice || 0,
-            vatRate: item.vatRate || '23',
-            netAmount: item.netAmount || 0,
-            vatAmount: item.vatAmount || 0,
-            grossAmount: item.grossAmount || 0,
+        if (d.pozycje && Array.isArray(d.pozycje)) {
+          setItems(d.pozycje.map((item: any) => {
+            const qty = item.ilosc || 1;
+            const net = item.cena_netto || 0;
+            const vr = String(item.vat_proc || '23').replace('%', '');
+            const netAmt = item.wartosc_netto || qty * net;
+            const vatNum = parseFloat(vr) || 0;
+            const vatAmt = item.wartosc_vat || netAmt * (vatNum / 100);
+            const grossAmt = item.wartosc_brutto || netAmt + vatAmt;
+            return {
+            name: item.nazwa || '',
+            quantity: qty,
+            unit: item.jednostka || 'szt.',
+            netPrice: net,
+            vatRate: vr,
+            netAmount: netAmt,
+            vatAmount: vatAmt,
+            grossAmount: grossAmt,
             addToInventory: false,
             inventoryProductId: undefined
-          })));
+            };
+          }));
         } else {
           setItems([createEmptyItem()]);
         }
@@ -167,7 +185,7 @@ export function CostInvoiceModal({ open, onOpenChange, entityId, onCreated }: Co
       }
 
       setStep('confirm');
-    } catch (err: any) {
+    } catch (err) {
       console.error('Upload error:', err);
       toast.error('Błąd przesyłania pliku');
     } finally {
@@ -175,6 +193,23 @@ export function CostInvoiceModal({ open, onOpenChange, entityId, onCreated }: Co
       setExtracting(false);
     }
   };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processFile(file);
+  };
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const file = e.dataTransfer.files?.[0];
+    if (file) processFile(file);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
 
   const createEmptyItem = (): ExtractedItem => ({
     name: '',
@@ -379,7 +414,12 @@ export function CostInvoiceModal({ open, onOpenChange, entityId, onCreated }: Co
         {/* STEP 1: Upload */}
         {step === 'upload' && (
           <div className="space-y-6 py-8">
-            <div className="border-2 border-dashed rounded-lg p-12 text-center">
+            <div
+              className="border-2 border-dashed rounded-lg p-12 text-center hover:border-primary/50 transition-colors cursor-pointer"
+              onDrop={handleDrop}
+              onDragOver={handleDragOver}
+              onClick={() => !uploading && !extracting && fileInputRef.current?.click()}
+            >
               {uploading || extracting ? (
                 <div className="flex flex-col items-center gap-4">
                   <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -395,20 +435,16 @@ export function CostInvoiceModal({ open, onOpenChange, entityId, onCreated }: Co
                     Obsługujemy PDF, JPG, PNG. System automatycznie odczyta dane.
                   </p>
                   <input
+                    ref={fileInputRef}
                     type="file"
                     accept=".pdf,.jpg,.jpeg,.png"
                     onChange={handleFileUpload}
                     className="hidden"
-                    id="cost-invoice-upload"
                   />
-                  <label htmlFor="cost-invoice-upload">
-                    <Button asChild>
-                      <span>
-                        <Upload className="h-4 w-4 mr-2" />
-                        Wybierz plik
-                      </span>
-                    </Button>
-                  </label>
+                  <Button type="button" onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}>
+                    <Upload className="h-4 w-4 mr-2" />
+                    Wybierz plik
+                  </Button>
                 </>
               )}
             </div>
