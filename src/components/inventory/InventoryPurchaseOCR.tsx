@@ -1,15 +1,14 @@
-// InventoryPurchaseOCR v2 - Real AI OCR integration
-import { useState, useRef } from 'react';
+// InventoryPurchaseOCR v3 - Uses products, purchase_invoices, purchase_invoice_items tables
+import { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
-import { useInventoryProducts } from '@/hooks/useInventoryProducts';
 import { useGetRidoAI } from '@/hooks/useGetRidoAI';
 import { toast } from 'sonner';
 import {
@@ -21,45 +20,62 @@ import {
   Scan,
   Eye,
   AlertCircle,
+  Trash2,
+  History,
+  Package,
 } from 'lucide-react';
 
 /* ─── Types ──────────────────────────────────────────────────────────── */
 
+interface Product {
+  id: string;
+  name: string;
+  sku?: string;
+  unit?: string;
+  purchase_price?: number;
+  sale_price?: number;
+  vat_rate?: number;
+  stock_quantity?: number;
+  low_stock_alert?: number;
+  gtu_code?: string;
+}
+
 interface OCRItem {
-  raw_name: string;
-  qty: number;
+  name: string;
+  quantity: number;
   unit: string;
-  unit_net: number;
-  vat_rate: string;
-  net_total: number;
-  gross_total: number;
-  supplier_code?: string;
+  unit_price_net: number;
+  vat_rate: number;
+  total_net: number;
+  total_gross: number;
+  supplier_symbol?: string;
+  gtu_code?: string;
   mapped_product_id?: string;
-  remember_mapping: boolean;
 }
 
 interface InvoiceHeader {
-  seller_name?: string;
-  seller_nip?: string;
-  seller_address?: string;
-  invoice_number?: string;
-  issue_date?: string;
-  due_date?: string;
-  net_total?: number;
-  vat_total?: number;
-  gross_total?: number;
-  currency?: string;
-}
-
-interface PurchaseDocument {
-  id: string;
   supplier_name?: string;
   supplier_nip?: string;
   document_number?: string;
-  status: string;
-  file_url?: string;
-  created_at: string;
+  purchase_date?: string;
+  payment_method?: string;
+  net_total?: number;
+  vat_total?: number;
   gross_total?: number;
+}
+
+interface PurchaseInvoice {
+  id: string;
+  document_number: string;
+  supplier_name?: string;
+  supplier_nip?: string;
+  purchase_date?: string;
+  total_net?: number;
+  total_vat?: number;
+  total_gross?: number;
+  status?: string;
+  pdf_url?: string;
+  created_at: string;
 }
 
 interface Props {
@@ -70,21 +86,66 @@ interface Props {
 
 export function InventoryPurchaseOCR({ entityId }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { products, createProduct } = useInventoryProducts(entityId);
   const { execute: executeAI, isLoading: aiLoading } = useGetRidoAI();
 
+  // Products from DB
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(true);
+
+  // Past invoices
+  const [pastInvoices, setPastInvoices] = useState<PurchaseInvoice[]>([]);
+  const [loadingInvoices, setLoadingInvoices] = useState(true);
+
+  // Current flow
   const [uploading, setUploading] = useState(false);
   const [processing, setProcessing] = useState(false);
-  const [selectedDoc, setSelectedDoc] = useState<PurchaseDocument | null>(null);
+  const [fileBase64, setFileBase64] = useState<string | null>(null);
+  const [uploadedFileUrl, setUploadedFileUrl] = useState<string | null>(null);
+
+  // OCR results
   const [invoiceHeader, setInvoiceHeader] = useState<InvoiceHeader | null>(null);
   const [ocrItems, setOcrItems] = useState<OCRItem[]>([]);
-  const [fileBase64, setFileBase64] = useState<string | null>(null);
+  const [ocrDone, setOcrDone] = useState(false);
 
   // New product dialog
   const [newProductOpen, setNewProductOpen] = useState(false);
   const [newProductName, setNewProductName] = useState('');
-  const [newProductPrice, setNewProductPrice] = useState('');
+  const [newProductSalePrice, setNewProductSalePrice] = useState('');
+  const [newProductUnit, setNewProductUnit] = useState('szt.');
   const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
+
+  // View mode
+  const [viewMode, setViewMode] = useState<'upload' | 'history'>('upload');
+
+  /* ── Fetch products ────────────────────────────────────────────────── */
+
+  const fetchProducts = async () => {
+    setLoadingProducts(true);
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .order('name');
+    if (!error && data) setProducts(data);
+    setLoadingProducts(false);
+  };
+
+  /* ── Fetch past invoices ───────────────────────────────────────────── */
+
+  const fetchInvoices = async () => {
+    setLoadingInvoices(true);
+    const { data, error } = await supabase
+      .from('purchase_invoices')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(50);
+    if (!error && data) setPastInvoices(data);
+    setLoadingInvoices(false);
+  };
+
+  useEffect(() => {
+    fetchProducts();
+    fetchInvoices();
+  }, []);
 
   /* ── File upload ─────────────────────────────────────────────────── */
 
@@ -93,7 +154,6 @@ export function InventoryPurchaseOCR({ entityId }: Props) {
       const reader = new FileReader();
       reader.onload = () => {
         const result = reader.result as string;
-        // Remove data:...;base64, prefix
         resolve(result.split(',')[1] || result);
       };
       reader.onerror = reject;
@@ -105,22 +165,20 @@ export function InventoryPurchaseOCR({ entityId }: Props) {
     if (!file) return;
 
     setUploading(true);
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      toast.error('Musisz być zalogowany');
-      setUploading(false);
-      return;
-    }
+    setOcrDone(false);
+    setOcrItems([]);
+    setInvoiceHeader(null);
 
     try {
-      // Convert to base64 for AI
       const b64 = await fileToBase64(file);
       setFileBase64(b64);
 
-      // Upload file to storage
+      // Upload to storage
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { toast.error('Musisz być zalogowany'); setUploading(false); return; }
+
       const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+      const fileName = `purchase-invoices/${user.id}/${Date.now()}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
         .from('documents')
@@ -137,28 +195,8 @@ export function InventoryPurchaseOCR({ entityId }: Props) {
         .from('documents')
         .getPublicUrl(fileName);
 
-      // Create purchase document record
-      const { data: doc, error: docError } = await (supabase as any)
-        .from('purchase_documents')
-        .insert({
-          user_id: user.id,
-          entity_id: entityId || null,
-          file_url: publicUrl,
-          file_name: file.name,
-          status: 'new',
-        })
-        .select()
-        .single();
-
-      if (docError) {
-        console.error('Document error:', docError);
-        toast.error('Błąd tworzenia dokumentu');
-        setUploading(false);
-        return;
-      }
-
-      toast.success('Dokument przesłany. Kliknij "Rozpoznaj (OCR)" aby przetworzyć.');
-      setSelectedDoc(doc);
+      setUploadedFileUrl(publicUrl);
+      toast.success('Plik przesłany. Kliknij "Rozpoznaj" aby AI odczytało fakturę.');
     } catch (err) {
       console.error('File processing error:', err);
       toast.error('Błąd przetwarzania pliku');
@@ -171,7 +209,7 @@ export function InventoryPurchaseOCR({ entityId }: Props) {
   /* ── OCR via AI ──────────────────────────────────────────────────── */
 
   const handleOCR = async () => {
-    if (!selectedDoc || !fileBase64) return;
+    if (!fileBase64) return;
 
     setProcessing(true);
 
@@ -179,7 +217,31 @@ export function InventoryPurchaseOCR({ entityId }: Props) {
       const result = await executeAI({
         feature: 'ocr',
         taskType: 'ocr',
-        query: 'Odczytaj tę fakturę zakupową i zwróć JSON z polami: { seller_name, seller_nip, seller_address, invoice_number, issue_date, due_date, items: [{name, quantity, unit, unit_price_net, vat_rate, total_net, total_gross, supplier_code}], net_total, vat_total, gross_total, currency }. Odpowiedz TYLKO samym JSON bez żadnego tekstu, bez markdown, bez komentarzy.',
+        query: `Odczytaj tę fakturę zakupową i zwróć JSON z polami:
+{
+  "supplier_name": "...",
+  "supplier_nip": "...",
+  "document_number": "...",
+  "purchase_date": "YYYY-MM-DD",
+  "payment_method": "przelew/gotówka/karta",
+  "items": [
+    {
+      "name": "nazwa towaru",
+      "quantity": 1,
+      "unit": "szt.",
+      "unit_price_net": 10.00,
+      "vat_rate": 23,
+      "total_net": 10.00,
+      "total_gross": 12.30,
+      "supplier_symbol": "kod dostawcy jeśli jest",
+      "gtu_code": "GTU_XX jeśli jest"
+    }
+  ],
+  "net_total": 0,
+  "vat_total": 0,
+  "gross_total": 0
+}
+Odpowiedz TYLKO samym JSON bez żadnego tekstu, bez markdown.`,
         imageBase64: fileBase64,
       });
 
@@ -189,10 +251,8 @@ export function InventoryPurchaseOCR({ entityId }: Props) {
         return;
       }
 
-      // Parse JSON from AI response
       let parsed: any;
       try {
-        // Try to extract JSON from response (may contain markdown code blocks)
         let jsonStr = result.result;
         const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
         if (jsonMatch) jsonStr = jsonMatch[1];
@@ -205,50 +265,33 @@ export function InventoryPurchaseOCR({ entityId }: Props) {
         return;
       }
 
-      // Set header info
       setInvoiceHeader({
-        seller_name: parsed.seller_name,
-        seller_nip: parsed.seller_nip,
-        seller_address: parsed.seller_address,
-        invoice_number: parsed.invoice_number,
-        issue_date: parsed.issue_date,
-        due_date: parsed.due_date,
+        supplier_name: parsed.supplier_name,
+        supplier_nip: parsed.supplier_nip,
+        document_number: parsed.document_number,
+        purchase_date: parsed.purchase_date,
+        payment_method: parsed.payment_method,
         net_total: parsed.net_total,
         vat_total: parsed.vat_total,
         gross_total: parsed.gross_total,
-        currency: parsed.currency || 'PLN',
       });
 
-      // Map items
       const items: OCRItem[] = (parsed.items || []).map((item: any) => ({
-        raw_name: item.name || '',
-        qty: Number(item.quantity) || 1,
+        name: item.name || '',
+        quantity: Number(item.quantity) || 1,
         unit: item.unit || 'szt.',
-        unit_net: Number(item.unit_price_net) || 0,
-        vat_rate: String(item.vat_rate || '23').replace('%', ''),
-        net_total: Number(item.total_net) || 0,
-        gross_total: Number(item.total_gross) || 0,
-        supplier_code: item.supplier_code || '',
+        unit_price_net: Number(item.unit_price_net) || 0,
+        vat_rate: Number(String(item.vat_rate || '23').replace('%', '')),
+        total_net: Number(item.total_net) || 0,
+        total_gross: Number(item.total_gross) || 0,
+        supplier_symbol: item.supplier_symbol || '',
+        gtu_code: item.gtu_code || '',
         mapped_product_id: autoMatchProduct(item.name),
-        remember_mapping: false,
       }));
 
       setOcrItems(items);
-      toast.success(`OCR zakończony! Rozpoznano ${items.length} pozycji.`);
-
-      // Update document status
-      await (supabase as any)
-        .from('purchase_documents')
-        .update({
-          status: 'parsed',
-          supplier_name: parsed.seller_name,
-          supplier_nip: parsed.seller_nip,
-          document_number: parsed.invoice_number,
-          gross_total: parsed.gross_total,
-        })
-        .eq('id', selectedDoc.id);
-
-      setSelectedDoc(prev => prev ? { ...prev, status: 'parsed' } : null);
+      setOcrDone(true);
+      toast.success(`Rozpoznano ${items.length} pozycji na fakturze.`);
     } catch (err) {
       console.error('OCR error:', err);
       toast.error('Błąd OCR. Sprawdź konfigurację AI.');
@@ -262,11 +305,10 @@ export function InventoryPurchaseOCR({ entityId }: Props) {
   const autoMatchProduct = (name?: string): string | undefined => {
     if (!name || !products.length) return undefined;
     const lower = name.toLowerCase().trim();
-    const found = products.find(p =>
-      p.name_sales.toLowerCase().includes(lower) ||
-      lower.includes(p.name_sales.toLowerCase())
-    );
-    return found?.id;
+    return products.find(p =>
+      p.name.toLowerCase().includes(lower) ||
+      lower.includes(p.name.toLowerCase())
+    )?.id;
   };
 
   /* ── Product mapping ─────────────────────────────────────────────── */
@@ -280,8 +322,9 @@ export function InventoryPurchaseOCR({ entityId }: Props) {
   const openNewProductDialog = (index: number) => {
     const item = ocrItems[index];
     setEditingItemIndex(index);
-    setNewProductName(item.raw_name);
-    setNewProductPrice(String(Math.round(item.unit_net * 1.3 * 100) / 100));
+    setNewProductName(item.name);
+    setNewProductSalePrice(String(Math.round(item.unit_price_net * 1.3 * 100) / 100));
+    setNewProductUnit(item.unit);
     setNewProductOpen(true);
   };
 
@@ -289,110 +332,119 @@ export function InventoryPurchaseOCR({ entityId }: Props) {
     if (!newProductName.trim() || editingItemIndex === null) return;
 
     const item = ocrItems[editingItemIndex];
-    const product = await createProduct({
-      name_sales: newProductName,
-      vat_rate: item.vat_rate,
-      unit: item.unit,
-      default_sale_price_net: Number(newProductPrice) || item.unit_net * 1.3,
-      default_purchase_price_net: item.unit_net,
-    });
 
-    if (product) {
-      handleMapProduct(editingItemIndex, product.id);
+    const { data, error } = await supabase
+      .from('products')
+      .insert({
+        name: newProductName,
+        unit: newProductUnit,
+        purchase_price: item.unit_price_net,
+        sale_price: Number(newProductSalePrice) || item.unit_price_net * 1.3,
+        vat_rate: item.vat_rate,
+        stock_quantity: 0,
+        gtu_code: item.gtu_code || null,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      toast.error('Błąd tworzenia produktu');
+      return;
+    }
+
+    if (data) {
+      handleMapProduct(editingItemIndex, data.id);
+      setProducts(prev => [...prev, data]);
       setNewProductOpen(false);
       setNewProductName('');
-      setNewProductPrice('');
+      setNewProductSalePrice('');
       setEditingItemIndex(null);
-      toast.success(`Produkt "${newProductName}" utworzony i powiązany`);
+      toast.success(`Produkt "${newProductName}" utworzony`);
     }
   };
 
   /* ── Approve invoice ─────────────────────────────────────────────── */
 
   const handleApprove = async () => {
-    if (!selectedDoc || ocrItems.length === 0) return;
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!invoiceHeader || ocrItems.length === 0) return;
 
     setProcessing(true);
 
     try {
+      // 1. Create purchase_invoice
+      const insertPayload: any = {
+        document_number: invoiceHeader.document_number || `FZ-${Date.now()}`,
+        supplier_name: invoiceHeader.supplier_name,
+        supplier_nip: invoiceHeader.supplier_nip,
+        purchase_date: invoiceHeader.purchase_date,
+        payment_method: invoiceHeader.payment_method,
+        total_net: invoiceHeader.net_total,
+        total_vat: invoiceHeader.vat_total,
+        total_gross: invoiceHeader.gross_total,
+        pdf_url: uploadedFileUrl,
+        status: 'approved',
+        ocr_raw: { items: ocrItems, header: invoiceHeader },
+      };
+
+      const { data: invoice, error: invError } = await supabase
+        .from('purchase_invoices')
+        .insert(insertPayload)
+        .select()
+        .single();
+
+      if (invError || !invoice) {
+        console.error('Invoice create error:', invError);
+        toast.error('Błąd tworzenia faktury');
+        setProcessing(false);
+        return;
+      }
+
+      // 2. Create purchase_invoice_items and update stock
       for (const item of ocrItems) {
-        // Create purchase document item
-        await (supabase as any)
-          .from('purchase_document_items')
+        await supabase
+          .from('purchase_invoice_items')
           .insert({
-            purchase_document_id: selectedDoc.id,
-            raw_name_from_invoice: item.raw_name,
-            qty: item.qty,
+            purchase_invoice_id: invoice.id,
+            product_id: item.mapped_product_id || null,
+            name: item.name,
+            supplier_symbol: item.supplier_symbol || null,
+            quantity: item.quantity,
             unit: item.unit,
-            unit_net: item.unit_net,
+            unit_price_net: item.unit_price_net,
+            total_net: item.total_net,
             vat_rate: item.vat_rate,
-            net_total: item.net_total,
-            vat_total: item.gross_total - item.net_total,
-            gross_total: item.gross_total,
-            mapped_product_id: item.mapped_product_id || null,
-            remember_mapping: item.remember_mapping,
+            total_gross: item.total_gross,
+            gtu_code: item.gtu_code || null,
           });
 
-        // If mapped to product, create batch and movement
+        // 3. Update stock_quantity for mapped products
         if (item.mapped_product_id) {
-          await (supabase as any)
-            .from('inventory_batches')
-            .insert({
-              product_id: item.mapped_product_id,
-              purchase_document_id: selectedDoc.id,
-              qty_in: item.qty,
-              qty_remaining: item.qty,
-              unit_cost_net: item.unit_net,
-              vat_rate: item.vat_rate,
-            });
-
-          await (supabase as any)
-            .from('inventory_movements')
-            .insert({
-              product_id: item.mapped_product_id,
-              direction: 'in',
-              qty: item.qty,
-              source_type: 'purchase',
-              source_id: selectedDoc.id,
-              unit_cost_net: item.unit_net,
-              created_by: user.id,
-            });
-
-          // Remember mapping as alias
-          if (item.remember_mapping) {
-            await (supabase as any)
-              .from('inventory_product_aliases')
-              .insert({
-                user_id: user.id,
-                entity_id: entityId || null,
-                product_id: item.mapped_product_id,
-                source_label: item.raw_name,
-                normalized_label: item.raw_name.toLowerCase().trim(),
-                supplier_name: invoiceHeader?.seller_name,
-                supplier_nip: invoiceHeader?.seller_nip,
-              });
+          const product = products.find(p => p.id === item.mapped_product_id);
+          if (product) {
+            const newQty = (product.stock_quantity || 0) + item.quantity;
+            await supabase
+              .from('products')
+              .update({
+                stock_quantity: newQty,
+                purchase_price: item.unit_price_net,
+              })
+              .eq('id', item.mapped_product_id);
           }
         }
       }
 
-      // Update document status
-      await (supabase as any)
-        .from('purchase_documents')
-        .update({
-          status: 'approved',
-          approved_at: new Date().toISOString(),
-          approved_by: user.id,
-        })
-        .eq('id', selectedDoc.id);
+      toast.success('✅ Faktura zatwierdzona! Stany magazynowe zaktualizowane.');
 
-      toast.success('Faktura zatwierdzona! Towar dodany do magazynu.');
-      setSelectedDoc(null);
+      // Reset
       setOcrItems([]);
       setInvoiceHeader(null);
       setFileBase64(null);
+      setUploadedFileUrl(null);
+      setOcrDone(false);
+
+      // Refresh data
+      await fetchProducts();
+      await fetchInvoices();
     } catch (error) {
       console.error('Error approving:', error);
       toast.error('Błąd zatwierdzania faktury');
@@ -401,210 +453,345 @@ export function InventoryPurchaseOCR({ entityId }: Props) {
     }
   };
 
+  /* ── Remove item ─────────────────────────────────────────────────── */
+
+  const removeItem = (index: number) => {
+    setOcrItems(prev => prev.filter((_, i) => i !== index));
+  };
+
   /* ── Render ──────────────────────────────────────────────────────── */
 
   return (
     <div className="space-y-6">
-      {/* Upload Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Upload className="h-5 w-5" />
-            Faktury zakupowe (OCR)
-          </CardTitle>
-          <CardDescription>
-            Prześlij zdjęcie lub PDF faktury — AI odczyta pozycje automatycznie
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center gap-4 p-8 border-2 border-dashed rounded-lg">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*,.pdf"
-              onChange={handleFileSelect}
-              className="hidden"
-            />
-            <Button
-              size="lg"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-            >
-              {uploading ? (
-                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Przesyłanie...</>
-              ) : (
-                <><Upload className="h-4 w-4 mr-2" />Wybierz plik lub zrób zdjęcie</>
-              )}
-            </Button>
-            <p className="text-sm text-muted-foreground">
-              Obsługiwane formaty: JPG, PNG, HEIC, PDF
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      {/* View toggle */}
+      <div className="flex gap-2">
+        <Button
+          variant={viewMode === 'upload' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setViewMode('upload')}
+          className="rounded-full"
+        >
+          <Upload className="h-4 w-4 mr-2" />
+          Nowa faktura
+        </Button>
+        <Button
+          variant={viewMode === 'history' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setViewMode('history')}
+          className="rounded-full"
+        >
+          <History className="h-4 w-4 mr-2" />
+          Historia ({pastInvoices.length})
+        </Button>
+      </div>
 
-      {/* Selected Document */}
-      {selectedDoc && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  Przetwarzanie dokumentu
-                </CardTitle>
-                <CardDescription>
-                  {selectedDoc.file_url && (
-                    <a
-                      href={selectedDoc.file_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline flex items-center gap-1"
-                    >
-                      <Eye className="h-3 w-3" />
-                      Podgląd pliku
-                    </a>
-                  )}
-                </CardDescription>
-              </div>
-              <Badge>
-                {selectedDoc.status === 'new' && 'Nowy'}
-                {selectedDoc.status === 'parsed' && 'Rozpoznany'}
-                {selectedDoc.status === 'approved' && 'Zatwierdzony'}
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* OCR Button */}
-            {selectedDoc.status === 'new' && (
-              <Button onClick={handleOCR} disabled={processing || aiLoading} className="w-full">
-                {(processing || aiLoading) ? (
-                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Rozpoznawanie przez AI...</>
-                ) : (
-                  <><Scan className="h-4 w-4 mr-2" />Rozpoznaj fakturę (AI OCR)</>
-                )}
-              </Button>
-            )}
-
-            {/* Invoice Header */}
-            {invoiceHeader && (
-              <div className="p-4 rounded-lg bg-muted/50 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-semibold text-sm">{invoiceHeader.seller_name}</p>
-                    {invoiceHeader.seller_nip && (
-                      <p className="text-xs text-muted-foreground">NIP: {invoiceHeader.seller_nip}</p>
-                    )}
-                    {invoiceHeader.seller_address && (
-                      <p className="text-xs text-muted-foreground">{invoiceHeader.seller_address}</p>
-                    )}
-                  </div>
-                  <div className="text-right">
-                    {invoiceHeader.invoice_number && (
-                      <p className="text-sm font-mono">{invoiceHeader.invoice_number}</p>
-                    )}
-                    {invoiceHeader.issue_date && (
-                      <p className="text-xs text-muted-foreground">Data: {invoiceHeader.issue_date}</p>
-                    )}
-                  </div>
-                </div>
-                <div className="flex gap-4 text-xs pt-2 border-t">
-                  <span>Netto: <strong>{invoiceHeader.net_total?.toFixed(2)} {invoiceHeader.currency}</strong></span>
-                  <span>VAT: <strong>{invoiceHeader.vat_total?.toFixed(2)} {invoiceHeader.currency}</strong></span>
-                  <span>Brutto: <strong>{invoiceHeader.gross_total?.toFixed(2)} {invoiceHeader.currency}</strong></span>
-                </div>
-              </div>
-            )}
-
-            {/* OCR Items */}
-            {ocrItems.length > 0 && (
-              <div className="space-y-4">
-                <h3 className="font-medium">Rozpoznane pozycje ({ocrItems.length}):</h3>
-
-                {ocrItems.map((item, index) => (
-                  <div key={index} className="p-4 border rounded-lg space-y-3">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="font-medium">{item.raw_name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {item.qty} {item.unit} × {item.unit_net.toFixed(2)} zł = {item.net_total.toFixed(2)} zł netto
-                        </p>
-                        {item.supplier_code && (
-                          <p className="text-xs text-muted-foreground">Kod dostawcy: {item.supplier_code}</p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline">VAT {item.vat_rate}%</Badge>
-                        {item.mapped_product_id ? (
-                          <Badge variant="default" className="bg-green-600"><CheckCircle className="h-3 w-3 mr-1" />Powiązany</Badge>
-                        ) : (
-                          <Badge variant="secondary"><AlertCircle className="h-3 w-3 mr-1" />Niepowiązany</Badge>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-4">
-                      <div className="flex-1">
-                        <Label className="text-xs">Powiąż z produktem magazynowym:</Label>
-                        <Select
-                          value={item.mapped_product_id || ''}
-                          onValueChange={(v) => handleMapProduct(index, v)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Wybierz produkt..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {products.map(p => (
-                              <SelectItem key={p.id} value={p.id}>
-                                {p.name_sales} {p.sku ? `(${p.sku})` : ''}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="mt-5"
-                        onClick={() => openNewProductDialog(index)}
-                      >
-                        <Plus className="h-4 w-4 mr-1" />
-                        Nowy produkt
-                      </Button>
-                    </div>
-
-                    {item.mapped_product_id && (
-                      <div className="flex items-center gap-2">
-                        <Checkbox
-                          id={`remember-${index}`}
-                          checked={item.remember_mapping}
-                          onCheckedChange={(checked) => {
-                            setOcrItems(prev => prev.map((it, i) =>
-                              i === index ? { ...it, remember_mapping: !!checked } : it
-                            ));
-                          }}
-                        />
-                        <Label htmlFor={`remember-${index}`} className="text-sm">
-                          Zapamiętaj powiązanie dla przyszłych faktur od tego dostawcy
-                        </Label>
-                      </div>
-                    )}
-                  </div>
-                ))}
-
-                {/* Approve Button */}
+      {viewMode === 'upload' && (
+        <>
+          {/* Upload Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Upload className="h-5 w-5" />
+                Dodaj fakturę zakupową
+              </CardTitle>
+              <CardDescription>
+                Prześlij zdjęcie lub PDF faktury — AI odczyta pozycje automatycznie
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col items-center gap-4 p-8 border-2 border-dashed rounded-lg">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*,.pdf"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
                 <Button
-                  onClick={handleApprove}
-                  disabled={processing}
-                  className="w-full"
                   size="lg"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
                 >
-                  {processing ? (
-                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Zatwierdzanie...</>
+                  {uploading ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Przesyłanie...</>
                   ) : (
-                    <><CheckCircle className="h-4 w-4 mr-2" />Zatwierdź fakturę i dodaj do magazynu</>
+                    <><Upload className="h-4 w-4 mr-2" />Wybierz plik lub zrób zdjęcie</>
                   )}
                 </Button>
+                <p className="text-sm text-muted-foreground">
+                  JPG, PNG, HEIC, PDF — max 20 MB
+                </p>
+              </div>
+
+              {/* OCR Button */}
+              {fileBase64 && !ocrDone && (
+                <Button
+                  onClick={handleOCR}
+                  disabled={processing || aiLoading}
+                  className="w-full mt-4"
+                  size="lg"
+                >
+                  {(processing || aiLoading) ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Rozpoznawanie przez AI...</>
+                  ) : (
+                    <><Scan className="h-4 w-4 mr-2" />Rozpoznaj fakturę (AI OCR)</>
+                  )}
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Invoice Preview */}
+          {invoiceHeader && (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileText className="h-5 w-5" />
+                      Podgląd faktury
+                    </CardTitle>
+                    {uploadedFileUrl && (
+                      <a
+                        href={uploadedFileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-primary hover:underline flex items-center gap-1 mt-1"
+                      >
+                        <Eye className="h-3 w-3" />
+                        Otwórz plik źródłowy
+                      </a>
+                    )}
+                  </div>
+                  <Badge variant="outline">
+                    {ocrItems.filter(i => i.mapped_product_id).length}/{ocrItems.length} powiązanych
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Header info */}
+                <div className="p-4 rounded-lg bg-muted/50 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold text-sm">{invoiceHeader.supplier_name || 'Brak nazwy'}</p>
+                      {invoiceHeader.supplier_nip && (
+                        <p className="text-xs text-muted-foreground">NIP: {invoiceHeader.supplier_nip}</p>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-mono">{invoiceHeader.document_number}</p>
+                      {invoiceHeader.purchase_date && (
+                        <p className="text-xs text-muted-foreground">Data: {invoiceHeader.purchase_date}</p>
+                      )}
+                      {invoiceHeader.payment_method && (
+                        <p className="text-xs text-muted-foreground">Płatność: {invoiceHeader.payment_method}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-4 text-xs pt-2 border-t">
+                    <span>Netto: <strong>{invoiceHeader.net_total?.toFixed(2)} zł</strong></span>
+                    <span>VAT: <strong>{invoiceHeader.vat_total?.toFixed(2)} zł</strong></span>
+                    <span>Brutto: <strong>{invoiceHeader.gross_total?.toFixed(2)} zł</strong></span>
+                  </div>
+                </div>
+
+                {/* Items table */}
+                {ocrItems.length > 0 && (
+                  <div className="space-y-4">
+                    <h3 className="font-medium flex items-center gap-2">
+                      <Package className="h-4 w-4" />
+                      Pozycje ({ocrItems.length})
+                    </h3>
+
+                    <div className="border rounded-lg overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Nazwa z faktury</TableHead>
+                            <TableHead className="w-20 text-right">Ilość</TableHead>
+                            <TableHead className="w-24 text-right">Cena netto</TableHead>
+                            <TableHead className="w-20 text-right">VAT</TableHead>
+                            <TableHead className="w-24 text-right">Brutto</TableHead>
+                            <TableHead className="w-48">Produkt</TableHead>
+                            <TableHead className="w-10"></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {ocrItems.map((item, index) => (
+                            <TableRow key={index}>
+                              <TableCell>
+                                <p className="font-medium text-sm">{item.name}</p>
+                                {item.supplier_symbol && (
+                                  <p className="text-xs text-muted-foreground">Kod: {item.supplier_symbol}</p>
+                                )}
+                                {item.gtu_code && (
+                                  <Badge variant="outline" className="text-[10px] mt-1">{item.gtu_code}</Badge>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-right text-sm">
+                                {item.quantity} {item.unit}
+                              </TableCell>
+                              <TableCell className="text-right text-sm font-mono">
+                                {item.unit_price_net.toFixed(2)}
+                              </TableCell>
+                              <TableCell className="text-right text-sm">
+                                {item.vat_rate}%
+                              </TableCell>
+                              <TableCell className="text-right text-sm font-mono font-semibold">
+                                {item.total_gross.toFixed(2)}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-1">
+                                  <Select
+                                    value={item.mapped_product_id || '_none'}
+                                    onValueChange={(v) => handleMapProduct(index, v === '_none' ? '' : v)}
+                                  >
+                                    <SelectTrigger className="h-8 text-xs">
+                                      <SelectValue placeholder="Wybierz..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="_none">— brak —</SelectItem>
+                                      {products.map(p => (
+                                        <SelectItem key={p.id} value={p.id}>
+                                          {p.name} {p.sku ? `(${p.sku})` : ''}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 shrink-0"
+                                    onClick={() => openNewProductDialog(index)}
+                                    title="Utwórz nowy produkt"
+                                  >
+                                    <Plus className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                                {item.mapped_product_id && (
+                                  <div className="flex items-center gap-1 mt-1">
+                                    <CheckCircle className="h-3 w-3 text-green-600" />
+                                    <span className="text-[10px] text-green-600">Powiązany</span>
+                                  </div>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={() => removeItem(index)}
+                                >
+                                  <Trash2 className="h-3 w-3 text-destructive" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+
+                    {/* Approve */}
+                    <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
+                      <div>
+                        <p className="text-sm font-medium">
+                          {ocrItems.filter(i => i.mapped_product_id).length} z {ocrItems.length} pozycji powiązanych z produktami
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Niepowiązane pozycje zostaną zapisane bez aktualizacji stanu magazynowego
+                        </p>
+                      </div>
+                      <Button
+                        onClick={handleApprove}
+                        disabled={processing}
+                        size="lg"
+                      >
+                        {processing ? (
+                          <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Zatwierdzanie...</>
+                        ) : (
+                          <><CheckCircle className="h-4 w-4 mr-2" />Zatwierdź fakturę</>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </>
+      )}
+
+      {/* History view */}
+      {viewMode === 'history' && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <History className="h-5 w-5" />
+              Historia faktur zakupowych
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loadingInvoices ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin" />
+              </div>
+            ) : pastInvoices.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>Brak faktur zakupowych</p>
+                <p className="text-sm mt-1">Dodaj pierwszą fakturę w zakładce "Nowa faktura"</p>
+              </div>
+            ) : (
+              <div className="border rounded-lg overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nr dokumentu</TableHead>
+                      <TableHead>Dostawca</TableHead>
+                      <TableHead>Data</TableHead>
+                      <TableHead className="text-right">Netto</TableHead>
+                      <TableHead className="text-right">Brutto</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {pastInvoices.map(inv => (
+                      <TableRow key={inv.id}>
+                        <TableCell className="font-mono text-sm">{inv.document_number}</TableCell>
+                        <TableCell>
+                          <p className="text-sm">{inv.supplier_name || '—'}</p>
+                          {inv.supplier_nip && (
+                            <p className="text-xs text-muted-foreground">NIP: {inv.supplier_nip}</p>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {inv.purchase_date || new Date(inv.created_at).toLocaleDateString('pl-PL')}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-sm">
+                          {inv.total_net?.toFixed(2) || '—'}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-sm font-semibold">
+                          {inv.total_gross?.toFixed(2) || '—'}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={inv.status === 'approved' ? 'default' : 'secondary'}>
+                            {inv.status === 'approved' ? 'Zatwierdzona' : inv.status || 'Nowa'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {inv.pdf_url && (
+                            <a href={inv.pdf_url} target="_blank" rel="noopener noreferrer">
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </a>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
             )}
           </CardContent>
@@ -615,37 +802,59 @@ export function InventoryPurchaseOCR({ entityId }: Props) {
       <Dialog open={newProductOpen} onOpenChange={setNewProductOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Nowy produkt magazynowy</DialogTitle>
+            <DialogTitle>Nowy produkt</DialogTitle>
+            <DialogDescription>
+              Dodaj nowy towar do bazy produktów
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div>
-              <Label>Nazwa produktu (sprzedażowa)</Label>
+              <Label>Nazwa produktu</Label>
               <Input
                 value={newProductName}
                 onChange={(e) => setNewProductName(e.target.value)}
-                placeholder="Jak ten produkt nazywasz w swoim sklepie?"
+                placeholder="Jak ten produkt nazywasz?"
               />
             </div>
-            <div>
-              <Label>Cena sprzedaży netto (PLN)</Label>
-              <Input
-                type="number"
-                step="0.01"
-                value={newProductPrice}
-                onChange={(e) => setNewProductPrice(e.target.value)}
-                placeholder="0.00"
-              />
-              {editingItemIndex !== null && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Cena zakupu: {ocrItems[editingItemIndex]?.unit_net.toFixed(2)} zł netto.
-                  Sugerowana cena sprzedaży (+30%): {(ocrItems[editingItemIndex]?.unit_net * 1.3).toFixed(2)} zł
-                </p>
-              )}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Cena sprzedaży netto (PLN)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={newProductSalePrice}
+                  onChange={(e) => setNewProductSalePrice(e.target.value)}
+                  placeholder="0.00"
+                />
+              </div>
+              <div>
+                <Label>Jednostka</Label>
+                <Select value={newProductUnit} onValueChange={setNewProductUnit}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="szt.">szt.</SelectItem>
+                    <SelectItem value="kg">kg</SelectItem>
+                    <SelectItem value="l">l</SelectItem>
+                    <SelectItem value="m">m</SelectItem>
+                    <SelectItem value="m²">m²</SelectItem>
+                    <SelectItem value="opak.">opak.</SelectItem>
+                    <SelectItem value="usł.">usł.</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+            {editingItemIndex !== null && ocrItems[editingItemIndex] && (
+              <p className="text-xs text-muted-foreground">
+                Cena zakupu: {ocrItems[editingItemIndex].unit_price_net.toFixed(2)} zł netto.
+                Sugerowana marża +30%: {(ocrItems[editingItemIndex].unit_price_net * 1.3).toFixed(2)} zł
+              </p>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setNewProductOpen(false)}>Anuluj</Button>
-            <Button onClick={handleCreateProduct}>Utwórz i powiąż</Button>
+            <Button onClick={handleCreateProduct}>Utwórz produkt</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
