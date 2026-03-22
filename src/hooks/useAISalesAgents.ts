@@ -140,7 +140,7 @@ export function useAISalesQuestionnaire(agentId: string | null) {
         .eq('agent_id', agentId)
         .maybeSingle();
       if (error) throw error;
-      return data;
+      return data as any;
     }
   });
 }
