@@ -1,3 +1,4 @@
+// PropertyListingCard v2 - CRM photos fix deployed
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
