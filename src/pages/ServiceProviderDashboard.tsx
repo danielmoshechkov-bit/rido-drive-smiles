@@ -30,6 +30,9 @@ import { DEFAULT_SERVICE_PROVIDER_PRIMARY_TABS, SERVICE_PROVIDER_TAB_ORDER } fro
 import { CalendarView } from '@/components/calendar/CalendarView';
 import { AgentTypeSelector } from '@/components/ai-agents/AgentTypeSelector';
 import { AISalesAgentsDashboard } from '@/components/ai-sales/AISalesAgentsDashboard';
+import { LeadsTab } from '@/components/leads/LeadsTab';
+import { AdsTab } from '@/components/ads/AdsTab';
+import { AdOrderModal } from '@/components/ads/AdOrderModal';
 import { KnowledgeBaseEditor } from '@/components/ai-agents/KnowledgeBaseEditor';
 import { ConversationAnalytics } from '@/components/ai-agents/ConversationAnalytics';
 import { GlobalLearningPanel } from '@/components/ai-agents/GlobalLearningPanel';
@@ -37,7 +40,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   LayoutDashboard, Wrench, Calendar, ClipboardList, Settings, Phone,
   Users, Clock, Star, Globe, Bot, Hammer, Plus, Trash2, Edit, Save, Image,
-  Upload, X, ImageIcon, Briefcase, MoreHorizontal, Calculator, ChevronDown
+  Upload, X, ImageIcon, Briefcase, MoreHorizontal, Calculator, ChevronDown,
+  Megaphone, Target
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { UniversalSubTabBar } from '@/components/UniversalSubTabBar';
