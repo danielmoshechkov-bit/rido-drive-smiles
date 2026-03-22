@@ -6,11 +6,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const supabase = createClient(
-  Deno.env.get("SUPABASE_URL")!,
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-);
-
 const SOURCES = [
   { url: "https://ksef.podatki.gov.pl/komunikaty-techniczne/", name: "Komunikaty techniczne MF" },
   { url: "https://ksef.podatki.gov.pl/etapy-wdrozenia-ksef/", name: "Harmonogram wdrożenia KSeF" },
@@ -51,46 +46,26 @@ async function fetchPage(url: string): Promise<string> {
   return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").slice(0, 8000);
 }
 
-async function analyzeWithAI(text: string, sourceName: string): Promise<any> {
-  const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
-  if (!ANTHROPIC_API_KEY) throw new Error("Brak ANTHROPIC_API_KEY");
-
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": ANTHROPIC_API_KEY,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 1000,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: `Źródło: ${sourceName}\n\nTreść:\n${text}` }],
-    }),
-  });
-  const data = await res.json();
-  const raw = data.content?.[0]?.text?.replace(/```json|```/g, "").trim();
-  return JSON.parse(raw || '{"has_changes":false,"summary":"Brak danych","alerts":[]}');
-}
-
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+  );
 
   const startTime = Date.now();
 
   try {
-    // Get user_id from request body or auth
     let userId: string | null = null;
     try {
       const body = await req.json();
       userId = body.user_id || null;
     } catch { /* no body */ }
 
-    // Find settings for this user
     const settingsQuery = userId
-      ? supabase.from("ksef_settings").select("*").eq("user_id", userId).single()
-      : supabase.from("ksef_settings").select("*").eq("scan_enabled", true).limit(1).single();
+      ? supabase.from("ksef_monitor_config").select("*").eq("user_id", userId).single()
+      : supabase.from("ksef_monitor_config").select("*").eq("scan_enabled", true).limit(1).single();
 
     const { data: settings, error: settingsError } = await settingsQuery;
 
@@ -102,9 +77,15 @@ serve(async (req) => {
     }
 
     const targetUserId = settings.user_id;
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!ANTHROPIC_API_KEY) {
+      return new Response(
+        JSON.stringify({ error: "Brak ANTHROPIC_API_KEY w sekretach" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
-    // Update status to running
-    await supabase.from("ksef_settings").update({ last_scan_status: "running" }).eq("id", settings.id);
+    await supabase.from("ksef_monitor_config").update({ last_scan_status: "running" }).eq("id", settings.id);
 
     const allAlerts: any[] = [];
     let sourcesChecked = 0;
@@ -112,11 +93,29 @@ serve(async (req) => {
     for (const source of SOURCES) {
       try {
         const text = await fetchPage(source.url);
-        const result = await analyzeWithAI(text, source.name);
+
+        const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": ANTHROPIC_API_KEY,
+            "anthropic-version": "2023-06-01",
+          },
+          body: JSON.stringify({
+            model: "claude-haiku-4-5-20251001",
+            max_tokens: 1000,
+            system: SYSTEM_PROMPT,
+            messages: [{ role: "user", content: `Źródło: ${source.name}\n\nTreść:\n${text}` }],
+          }),
+        });
+
+        const aiData = await aiRes.json();
+        const raw = aiData.content?.[0]?.text?.replace(/```json|```/g, "").trim();
+        const result = JSON.parse(raw || '{"has_changes":false,"summary":"Brak danych","alerts":[]}');
 
         if (result.has_changes && result.alerts?.length) {
           for (const alert of result.alerts) {
-            await supabase.from("ksef_alerts").insert({
+            await supabase.from("ksef_monitor_alerts").insert({
               user_id: targetUserId,
               severity: alert.severity,
               title: alert.title,
@@ -141,8 +140,7 @@ serve(async (req) => {
 
     const duration = Date.now() - startTime;
 
-    // Save scan history
-    await supabase.from("ksef_scan_history").insert({
+    await supabase.from("ksef_monitor_scans").insert({
       user_id: targetUserId,
       status: "ok",
       sources_checked: sourcesChecked,
@@ -150,8 +148,7 @@ serve(async (req) => {
       duration_ms: duration,
     });
 
-    // Update settings
-    await supabase.from("ksef_settings").update({
+    await supabase.from("ksef_monitor_config").update({
       last_scan_at: new Date().toISOString(),
       last_scan_status: "ok",
       last_scan_alerts_count: allAlerts.length,
@@ -167,7 +164,7 @@ serve(async (req) => {
           : `⚠️ KSeF Monitor — ${allAlerts.length} alert(y)`;
 
         const html = `<div style="font-family:sans-serif;max-width:600px;margin:0 auto">
-          <h2 style="color:#1a1a1a">KSeF AI Monitor — Get Rido</h2>
+          <h2>KSeF AI Monitor — Get Rido</h2>
           <p>Skan z ${new Date().toLocaleString("pl-PL")}:</p>
           ${allAlerts.map((a: any) => `
             <div style="border-left:4px solid ${a.severity === 'critical' ? '#ef4444' : a.severity === 'warning' ? '#f59e0b' : '#3b82f6'};padding:12px;margin:8px 0;background:#f9fafb;border-radius:4px">
@@ -190,11 +187,9 @@ serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
-    const duration = Date.now() - startTime;
     console.error("KSeF monitor error:", e);
-
     return new Response(
-      JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error", duration_ms: duration }),
+      JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
