@@ -108,7 +108,13 @@ export function PropertyListingCard({
     : [];
   const mainPhotoUrl = photos[0] ?? '/placeholder.svg';
 
+  // Debug: log photos for CRM listings
+  if (photos.length > 0 && photos[0]?.includes('foto-proxy')) {
+    console.log('[PropertyCard] CRM photos:', listing.id, photos[0]);
+  }
+
   const handleImageError = (index: number) => {
+    console.warn('[PropertyCard] Image load error:', photos[index]);
     setImageErrors(prev => new Set(prev).add(index));
   };
 
