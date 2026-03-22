@@ -848,9 +848,7 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
   };
 
   // ── Display ───────────────────────────────────────────────
-  const displayMsgs = messages.length === 0
-    ? [{ role: 'assistant' as const, content: WELCOME[mainMode] || '' }]
-    : messages;
+  const displayMsgs = messages;
 
   const filteredConvs = searchQuery
     ? conversations.filter(c => c.title?.toLowerCase().includes(searchQuery.toLowerCase()))
