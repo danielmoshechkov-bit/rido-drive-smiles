@@ -725,18 +725,18 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1220px] text-xs" style={{ tableLayout: 'fixed' }}>
+            <table className="w-full min-w-[980px] text-xs" style={{ tableLayout: 'fixed' }}>
               <colgroup>
-                <col style={{ width: '40px' }} />
-                <col style={{ width: '26%' }} />
-                <col style={{ width: '96px' }} />
+                <col style={{ width: '36px' }} />
+                <col style={{ width: '28%' }} />
+                <col style={{ width: '72px' }} />
+                <col style={{ width: '64px' }} />
+                <col style={{ width: '100px' }} />
+                <col style={{ width: '100px' }} />
                 <col style={{ width: '92px' }} />
-                <col style={{ width: '124px' }} />
-                <col style={{ width: '132px' }} />
-                <col style={{ width: '112px' }} />
-                <col style={{ width: '124px' }} />
                 <col style={{ width: '108px' }} />
-                <col style={{ width: '56px' }} />
+                <col style={{ width: '88px' }} />
+                <col style={{ width: '44px' }} />
               </colgroup>
               <thead>
                 <tr className="border-b bg-muted/10">
