@@ -8,7 +8,7 @@ import ReactMarkdown from 'react-markdown';
 import {
   Loader2, Send, Plus, MessageCircle, Briefcase,
   Sparkles, X, Search, PanelLeftOpen, PanelLeftClose, Lock,
-  Download, Paintbrush, RotateCcw, Paperclip, FileText, Trash2
+  Download, Paintbrush, RotateCcw, Paperclip, FileText, Trash2, Circle, Square
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ridoMascot from '@/assets/rido-mascot.png';
@@ -50,6 +50,36 @@ interface RidoAIChatPanelProps {
   onClose: () => void;
 }
 
+type AnnotationTool = 'brush' | 'ellipse' | 'rectangle';
+
+const IMAGE_REPLY_VARIANTS = {
+  create: [
+    'Gotowe — przygotowałem grafikę.',
+    'Jasne, oto przygotowany obraz.',
+    'Stworzyłem nową wersję grafiki.',
+    'Mam to — poniżej masz obraz.',
+    'Grafika jest gotowa.',
+    'Przygotowałem to tak, jak prosiłeś.',
+    'Oto efekt tej prośby.',
+    'Wrzucam gotową grafikę poniżej.',
+  ],
+  edit: [
+    'Gotowe — wprowadziłem zmiany na obrazie.',
+    'Mam poprawioną wersję grafiki.',
+    'Zmiany zostały naniesione.',
+    'Przygotowałem zaktualizowany obraz.',
+    'To jest poprawiona wersja.',
+    'Dodałem wskazane poprawki.',
+    'Poniżej masz nową wersję po edycji.',
+    'Obraz został zaktualizowany.',
+  ],
+} as const;
+
+const pickImageReply = (type: keyof typeof IMAGE_REPLY_VARIANTS) => {
+  const variants = IMAGE_REPLY_VARIANTS[type];
+  return variants[Math.floor(Math.random() * variants.length)];
+};
+
 export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
   const navigate = useNavigate();
   const [mainMode, setMainMode] = useState<MainMode>('chat');
@@ -68,12 +98,15 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
   // Image editor state
   const [editorImage, setEditorImage] = useState<string | null>(null);
   const [brushActive, setBrushActive] = useState(false);
+  const [annotationTool, setAnnotationTool] = useState<AnnotationTool>('brush');
   const [isDrawing, setIsDrawing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const maskCanvasRef = useRef<HTMLCanvasElement>(null);
   const lastPoint = useRef<{ x: number; y: number } | null>(null);
   const currentPath = useRef<{ x: number; y: number }[]>([]);
+  const shapeStart = useRef<{ x: number; y: number } | null>(null);
+  const baseMaskData = useRef<ImageData | null>(null);
 
   // Multi-annotation system
   interface Annotation {
@@ -81,10 +114,10 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
     maskData: ImageData;
     center: { x: number; y: number };
     description: string;
+    tool: AnnotationTool;
   }
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [activeAnnotation, setActiveAnnotation] = useState<number | null>(null);
-  const annotationCounter = useRef(0);
 
   const { streamExecute, execute, isLoading } = useGetRidoAI();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -276,7 +309,11 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
     if (isImg && fileContents.length === 0) {
       setMessages(prev => [...prev, { role: 'assistant', content: '🎨 Generuję grafikę...' }]);
       const result = await execute({ taskType: 'image', query: text, mode: 'rido_create', stream: false });
-      const aMsg: Msg = { role: 'assistant', content: result?.result || '❌ Nie udało się wygenerować.', images: result?.images };
+      const aMsg: Msg = {
+        role: 'assistant',
+        content: result?.images?.length ? pickImageReply('create') : (result?.result || '❌ Nie udało się wygenerować.'),
+        images: result?.images
+      };
       setMessages(prev => { const u = [...prev]; u[u.length - 1] = aMsg; return u; });
       if (convId) await saveMsg(convId, aMsg);
       loadConversations();
@@ -318,12 +355,14 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
   const openEditor = (imgSrc: string) => {
     setEditorImage(imgSrc);
     setBrushActive(false);
+    setAnnotationTool('brush');
     setIsDrawing(false);
     setAnnotations([]);
     setActiveAnnotation(null);
-    annotationCounter.current = 0;
     lastPoint.current = null;
     currentPath.current = [];
+    shapeStart.current = null;
+    baseMaskData.current = null;
   };
 
   const downloadImage = (imgSrc: string) => {
@@ -345,6 +384,8 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
       [canvasRef.current!, maskCanvasRef.current!].forEach(c => { c.width = w; c.height = h; });
       canvasRef.current!.getContext('2d')!.drawImage(img, 0, 0, w, h);
       maskCanvasRef.current!.getContext('2d')!.clearRect(0, 0, w, h);
+      shapeStart.current = null;
+      baseMaskData.current = null;
     };
     img.src = editorImage;
   }, [editorImage]);
@@ -380,50 +421,111 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
     ctx.stroke();
   };
 
+  const drawShape = (start: { x: number; y: number }, end: { x: number; y: number }, tool: Exclude<AnnotationTool, 'brush'>) => {
+    if (!maskCanvasRef.current) return;
+    const ctx = maskCanvasRef.current.getContext('2d')!;
+    const x = Math.min(start.x, end.x);
+    const y = Math.min(start.y, end.y);
+    const w = Math.abs(end.x - start.x);
+    const h = Math.abs(end.y - start.y);
+
+    ctx.fillStyle = 'rgba(108, 60, 240, 0.45)';
+
+    if (tool === 'rectangle') {
+      ctx.fillRect(x, y, w, h);
+      return;
+    }
+
+    ctx.beginPath();
+    ctx.ellipse(x + w / 2, y + h / 2, Math.max(w / 2, 1), Math.max(h / 2, 1), 0, 0, Math.PI * 2);
+    ctx.fill();
+  };
+
+  const addAnnotationFromMask = (maskData: ImageData, center: { x: number; y: number }, tool: AnnotationTool) => {
+    setAnnotations(prev => {
+      const next = [...prev, {
+        id: prev.length + 1,
+        maskData,
+        center,
+        description: '',
+        tool,
+      }];
+      setActiveAnnotation(next.length);
+      return next;
+    });
+  };
+
+  const setActiveTool = (tool: AnnotationTool) => {
+    setAnnotationTool(tool);
+    setBrushActive(current => (annotationTool === tool ? !current : true));
+  };
+
   const onBrushDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!brushActive) return;
     setIsDrawing(true);
     const pt = getCanvasCoords(e);
+    shapeStart.current = pt;
     lastPoint.current = pt;
-    currentPath.current = [pt];
-    // Draw initial dot
-    drawStroke(pt, pt);
+
+    if (annotationTool === 'brush') {
+      currentPath.current = [pt];
+      drawStroke(pt, pt);
+      return;
+    }
+
+    currentPath.current = [];
+    const ctx = maskCanvasRef.current?.getContext('2d');
+    if (ctx && maskCanvasRef.current) {
+      baseMaskData.current = ctx.getImageData(0, 0, maskCanvasRef.current.width, maskCanvasRef.current.height);
+    }
   };
 
   const onBrushMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!isDrawing || !brushActive || !lastPoint.current) return;
     const pt = getCanvasCoords(e);
-    drawStroke(lastPoint.current, pt);
+
+    if (annotationTool === 'brush') {
+      drawStroke(lastPoint.current, pt);
+      lastPoint.current = pt;
+      currentPath.current.push(pt);
+      return;
+    }
+
+    if (!shapeStart.current || !maskCanvasRef.current || !baseMaskData.current) return;
+    const ctx = maskCanvasRef.current.getContext('2d')!;
+    ctx.putImageData(baseMaskData.current, 0, 0);
+    drawShape(shapeStart.current, pt, annotationTool);
     lastPoint.current = pt;
-    currentPath.current.push(pt);
   };
 
   const onBrushUp = () => {
     if (!isDrawing || !maskCanvasRef.current) return;
     setIsDrawing(false);
-    lastPoint.current = null;
-
-    // Calculate center of drawn path
-    const path = currentPath.current;
-    if (path.length === 0) return;
-    const cx = path.reduce((s, p) => s + p.x, 0) / path.length;
-    const cy = path.reduce((s, p) => s + p.y, 0) / path.length;
-
-    // Save current mask as annotation
     const ctx = maskCanvasRef.current.getContext('2d')!;
     const maskData = ctx.getImageData(0, 0, maskCanvasRef.current.width, maskCanvasRef.current.height);
-    
-    annotationCounter.current += 1;
-    const newAnnotation = {
-      id: annotationCounter.current,
-      maskData,
-      center: { x: cx, y: cy },
-      description: '',
-    };
-    
-    setAnnotations(prev => [...prev, newAnnotation]);
-    setActiveAnnotation(annotationCounter.current);
+
+    let center: { x: number; y: number } | null = null;
+    if (annotationTool === 'brush') {
+      const path = currentPath.current;
+      if (path.length > 0) {
+        center = {
+          x: path.reduce((s, p) => s + p.x, 0) / path.length,
+          y: path.reduce((s, p) => s + p.y, 0) / path.length,
+        };
+      }
+    } else if (shapeStart.current && lastPoint.current) {
+      center = {
+        x: (shapeStart.current.x + lastPoint.current.x) / 2,
+        y: (shapeStart.current.y + lastPoint.current.y) / 2,
+      };
+    }
+
+    if (center) addAnnotationFromMask(maskData, center, annotationTool);
+
+    lastPoint.current = null;
     currentPath.current = [];
+    shapeStart.current = null;
+    baseMaskData.current = null;
   };
 
   const updateAnnotationDesc = (id: number, desc: string) => {
@@ -431,25 +533,20 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
   };
 
   const removeAnnotation = (id: number) => {
+    let nextActive: number | null = activeAnnotation;
     setAnnotations(prev => {
-      const updated = prev.filter(a => a.id !== id);
-      // Redraw remaining masks
-      if (maskCanvasRef.current) {
-        const ctx = maskCanvasRef.current.getContext('2d')!;
-        ctx.clearRect(0, 0, maskCanvasRef.current.width, maskCanvasRef.current.height);
-        // Re-overlay remaining annotation masks
-        updated.forEach(ann => {
-          const tempCanvas = document.createElement('canvas');
-          tempCanvas.width = maskCanvasRef.current!.width;
-          tempCanvas.height = maskCanvasRef.current!.height;
-          const tctx = tempCanvas.getContext('2d')!;
-          tctx.putImageData(ann.maskData, 0, 0);
-          ctx.drawImage(tempCanvas, 0, 0);
-        });
-      }
+      const updated = prev
+        .filter(a => a.id !== id)
+        .map((ann, index) => ({ ...ann, id: index + 1 }));
+
+      redrawAnnotations(updated);
+
+      if (activeAnnotation === id) nextActive = updated[0]?.id ?? null;
+      else if (activeAnnotation && activeAnnotation > id) nextActive = activeAnnotation - 1;
+
       return updated;
     });
-    if (activeAnnotation === id) setActiveAnnotation(null);
+    setActiveAnnotation(nextActive);
   };
 
   const clearAllAnnotations = () => {
@@ -458,7 +555,10 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
     ctx.clearRect(0, 0, maskCanvasRef.current.width, maskCanvasRef.current.height);
     setAnnotations([]);
     setActiveAnnotation(null);
-    annotationCounter.current = 0;
+    lastPoint.current = null;
+    currentPath.current = [];
+    shapeStart.current = null;
+    baseMaskData.current = null;
   };
 
   const applyAllEdits = async () => {
@@ -494,12 +594,24 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
           }
           clearAllAnnotations();
           setBrushActive(false);
+          setAnnotationTool('brush');
           setEditorImage(editedSrc);
         };
         newImg.onerror = () => {
           console.error('[RidoAI] Failed to load edited image');
         };
         newImg.src = editedSrc;
+
+        const imageMsg: Msg = {
+          role: 'assistant',
+          content: pickImageReply('edit'),
+          images: [editedSrc],
+        };
+        setMessages(prev => [...prev, imageMsg]);
+        if (currentConvId) {
+          await saveMsg(currentConvId, imageMsg);
+          loadConversations();
+        }
       } else {
         console.error('[RidoAI] No edited image returned:', result?.result);
       }
@@ -556,17 +668,41 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setBrushActive(!brushActive)}
-              className={cn(
-                'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold border transition-all',
-                brushActive
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'hover:bg-muted border-border'
-              )}
-            >
-              <Paintbrush className="h-4 w-4" />
-              {brushActive ? 'Pędzel ON' : 'Pędzel'}
-            </button>
+                onClick={() => setActiveTool('brush')}
+                className={cn(
+                  'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold border transition-all',
+                  brushActive && annotationTool === 'brush'
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'hover:bg-muted border-border'
+                )}
+              >
+                <Paintbrush className="h-4 w-4" />
+                {brushActive && annotationTool === 'brush' ? 'Pędzel ON' : 'Pędzel'}
+              </button>
+              <button
+                onClick={() => setActiveTool('ellipse')}
+                className={cn(
+                  'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold border transition-all',
+                  brushActive && annotationTool === 'ellipse'
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'hover:bg-muted border-border'
+                )}
+              >
+                <Circle className="h-4 w-4" />
+                Owal
+              </button>
+              <button
+                onClick={() => setActiveTool('rectangle')}
+                className={cn(
+                  'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold border transition-all',
+                  brushActive && annotationTool === 'rectangle'
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'hover:bg-muted border-border'
+                )}
+              >
+                <Square className="h-4 w-4" />
+                Prostokąt
+              </button>
             {annotations.length > 0 && (
               <button onClick={clearAllAnnotations} className="p-2 rounded-lg hover:bg-muted border border-border" title="Wyczyść wszystko">
                 <RotateCcw className="h-4 w-4" />
@@ -611,7 +747,7 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
               </div>
               {brushActive && annotations.length === 0 && !isDrawing && (
                 <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-primary/90 text-primary-foreground text-xs px-3 py-1.5 rounded-full pointer-events-none font-semibold">
-                  Zamaluj obszar który chcesz zmienić
+                  {annotationTool === 'brush' ? 'Zamaluj obszar który chcesz zmienić' : annotationTool === 'ellipse' ? 'Przeciągnij, aby zaznaczyć owal' : 'Przeciągnij, aby zaznaczyć prostokąt'}
                 </div>
               )}
               {/* Numbered circles on image showing annotation positions */}
@@ -919,21 +1055,23 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
                         )}>
                           {msg.role === 'assistant' ? (
                             <>
-                              <div className="prose prose-sm max-w-none [&>p]:mb-2 [&>p:last-child]:mb-0 [&>ul]:mb-2 [&>ol]:mb-2 [&>li]:mb-0.5 [&_strong]:font-bold [&>p]:text-[14px] [&>p]:leading-relaxed [&>p]:font-medium [&>li]:text-[14px] [&>li]:font-medium text-primary-foreground [&_strong]:text-primary-foreground [&_li]:text-primary-foreground [&_a]:text-primary-foreground/80">
-                                {(() => {
-                                  const cleanContent = (msg.content || '')
-                                    .replace(/ACTION:\{.*?\}/s, '')
-                                    .replace(/IMAGE_REQUEST:true/g, '')
-                                    .trim();
-                                  return cleanContent ? <ReactMarkdown>{cleanContent}</ReactMarkdown> : null;
-                                })()}
-                              </div>
+                              {(() => {
+                                const cleanContent = (msg.content || '')
+                                  .replace(/ACTION:\{.*?\}/s, '')
+                                  .replace(/IMAGE_REQUEST:true/g, '')
+                                  .trim();
+                                return cleanContent ? (
+                                  <div className="prose prose-sm max-w-none [&>p]:mb-2 [&>p:last-child]:mb-0 [&>ul]:mb-2 [&>ol]:mb-2 [&>li]:mb-0.5 [&_strong]:font-bold [&>p]:text-[14px] [&>p]:leading-relaxed [&>p]:font-medium [&>li]:text-[14px] [&>li]:font-medium text-primary-foreground [&_strong]:text-primary-foreground [&_li]:text-primary-foreground [&_a]:text-primary-foreground/80">
+                                    <ReactMarkdown>{cleanContent}</ReactMarkdown>
+                                  </div>
+                                ) : null;
+                              })()}
                               {msg.images?.map((img, idx) => (
-                                <div key={idx} className="relative group mt-2 -mx-4 -mb-3">
+                                <div key={idx} className="relative group mt-4 overflow-hidden rounded-2xl border border-border/50 bg-background shadow-sm">
                                   <img
                                     src={img}
                                     alt="Wygenerowana grafika"
-                                    className="w-full rounded-b-2xl cursor-pointer hover:opacity-95 transition-opacity"
+                                    className="w-full cursor-pointer hover:opacity-95 transition-opacity"
                                     onClick={() => openEditor(img)}
                                   />
                                   <div className="absolute top-2 left-2 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
