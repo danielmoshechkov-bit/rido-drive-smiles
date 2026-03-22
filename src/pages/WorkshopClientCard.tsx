@@ -61,6 +61,15 @@ export default function WorkshopClientCard() {
         .select('*')
         .eq('order_id', data.id);
       setSignatures(sigs || []);
+
+      // Auto-open kosztorys if reception is already signed
+      if (!initialTabSet) {
+        const receptionIsSigned = (sigs || []).some((s: any) => s.document_type === 'reception_protocol');
+        if (receptionIsSigned) {
+          setActiveTab('estimate');
+        }
+        setInitialTabSet(true);
+      }
     }
     setLoading(false);
   };
