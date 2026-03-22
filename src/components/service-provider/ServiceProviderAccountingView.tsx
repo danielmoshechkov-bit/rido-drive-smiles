@@ -12,9 +12,10 @@ import { InventoryPurchaseOCR } from '@/components/inventory/InventoryPurchaseOC
 import { PendingInvoicesReview } from '@/components/invoices/PendingInvoicesReview';
 import { InvoiceEmailSetup } from '@/components/invoices/InvoiceEmailSetup';
 import { InvoiceNotificationBell } from '@/components/invoices/InvoiceNotificationBell';
+import { KsefMonitorView } from '@/components/ksef/KsefMonitorView';
 import {
   FileText, Plus, FileSpreadsheet, BarChart3, Clock, Package,
-  CreditCard, ShoppingBag, Calculator, Building2, ChevronRight, Mail
+  CreditCard, ShoppingBag, Calculator, Building2, ChevronRight, Mail, Shield
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -27,6 +28,7 @@ const accountingSubTabs = [
   { value: 'platnosci', label: 'Płatności', icon: CreditCard, visible: true },
   { value: 'magazyn', label: 'Stan magazynowy', icon: Package, visible: true },
   { value: 'email-faktury', label: 'Email faktury', icon: Mail, visible: true },
+  { value: 'ksef', label: 'KSeF Monitor', icon: Shield, visible: true },
   { value: 'cykliczne', label: 'Cykliczne', icon: Clock, visible: true },
 ];
 
