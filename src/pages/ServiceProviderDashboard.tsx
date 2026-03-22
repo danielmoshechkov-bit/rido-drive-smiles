@@ -100,7 +100,7 @@ export default function ServiceProviderDashboard() {
     if (roleLoading) return;
     const isServiceProvider = roles.some(r => r === 'service_provider');
     if (!isServiceProvider) {
-      toast.error('Brak uprawnień do panelu usługodawcy');
+      toast.error(t('sp.noPermission'));
       navigate('/auth');
       return;
     }
@@ -201,7 +201,7 @@ export default function ServiceProviderDashboard() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['provider-services'] });
-      toast.success('Usługa dodana');
+      toast.success(t('sp.services.added'));
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -216,7 +216,7 @@ export default function ServiceProviderDashboard() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['provider-services'] });
-      toast.success('Usługa zaktualizowana');
+      toast.success(t('sp.services.updated'));
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -231,18 +231,18 @@ export default function ServiceProviderDashboard() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['provider-services'] });
-      toast.success('Usługa usunięta');
+      toast.success(t('sp.services.deleted'));
     },
     onError: (e: any) => toast.error(e.message),
   });
 
   const handleSaveService = async () => {
     if (!serviceForm.name.trim()) {
-      toast.error('Podaj nazwę usługi');
+      toast.error(t('sp.services.enterName'));
       return;
     }
     if (!providerId) {
-      toast.error('Brak ID usługodawcy — odśwież stronę');
+      toast.error(t('sp.services.noProviderId'));
       return;
     }
 
@@ -281,7 +281,7 @@ export default function ServiceProviderDashboard() {
       resetServiceForm();
     } catch (err: any) {
       console.error('Save service error:', err);
-      toast.error('Błąd zapisu: ' + (err?.message || 'Spróbuj ponownie'));
+      toast.error(t('sp.services.saveError') + ': ' + (err?.message || ''));
     }
   };
 
