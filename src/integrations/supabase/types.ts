@@ -12865,6 +12865,38 @@ export type Database = {
           },
         ]
       }
+      supplier_mappings: {
+        Row: {
+          created_at: string | null
+          id: string
+          product_id: string | null
+          supplier_name: string
+          supplier_symbol: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          product_id?: string | null
+          supplier_name: string
+          supplier_symbol?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          product_id?: string | null
+          supplier_name?: string
+          supplier_symbol?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_mappings_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       support_ticket_whitelist: {
         Row: {
           created_at: string

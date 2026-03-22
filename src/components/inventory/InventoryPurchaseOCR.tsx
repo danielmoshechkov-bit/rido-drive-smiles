@@ -92,6 +92,9 @@ export function InventoryPurchaseOCR({ entityId }: Props) {
   const [products, setProducts] = useState<Product[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
 
+  // Supplier mappings
+  const [supplierMappings, setSupplierMappings] = useState<Array<{supplier_name: string; supplier_symbol?: string; product_id?: string}>>([]);
+
   // Past invoices
   const [pastInvoices, setPastInvoices] = useState<PurchaseInvoice[]>([]);
   const [loadingInvoices, setLoadingInvoices] = useState(true);
@@ -129,6 +132,13 @@ export function InventoryPurchaseOCR({ entityId }: Props) {
     setLoadingProducts(false);
   };
 
+  const fetchSupplierMappings = async () => {
+    const { data } = await (supabase as any)
+      .from('supplier_mappings')
+      .select('supplier_name, supplier_symbol, product_id');
+    if (data) setSupplierMappings(data);
+  };
+
   /* ── Fetch past invoices ───────────────────────────────────────────── */
 
   const fetchInvoices = async () => {
@@ -145,6 +155,7 @@ export function InventoryPurchaseOCR({ entityId }: Props) {
   useEffect(() => {
     fetchProducts();
     fetchInvoices();
+    fetchSupplierMappings();
   }, []);
 
   /* ── File upload ─────────────────────────────────────────────────── */
@@ -305,6 +316,13 @@ Odpowiedz TYLKO samym JSON bez żadnego tekstu, bez markdown.`,
   const autoMatchProduct = (name?: string): string | undefined => {
     if (!name || !products.length) return undefined;
     const lower = name.toLowerCase().trim();
+    // First try supplier_mappings (loaded with products)
+    const mapping = supplierMappings.find(m =>
+      m.supplier_name.toLowerCase() === lower ||
+      (m.supplier_symbol && m.supplier_symbol.toLowerCase() === lower)
+    );
+    if (mapping?.product_id) return mapping.product_id;
+    // Fallback: fuzzy match by product name
     return products.find(p =>
       p.name.toLowerCase().includes(lower) ||
       lower.includes(p.name.toLowerCase())
@@ -417,7 +435,7 @@ Odpowiedz TYLKO samym JSON bez żadnego tekstu, bez markdown.`,
             gtu_code: item.gtu_code || null,
           });
 
-        // 3. Update stock_quantity for mapped products
+        // 3. Update stock_quantity + create stock_movement + supplier_mapping
         if (item.mapped_product_id) {
           const product = products.find(p => p.id === item.mapped_product_id);
           if (product) {
@@ -429,6 +447,31 @@ Odpowiedz TYLKO samym JSON bez żadnego tekstu, bez markdown.`,
                 purchase_price: item.unit_price_net,
               })
               .eq('id', item.mapped_product_id);
+
+            // stock_movements record
+            await supabase
+              .from('stock_movements')
+              .insert({
+                product_id: item.mapped_product_id,
+                movement_type: 'purchase',
+                quantity: item.quantity,
+                unit_price: item.unit_price_net,
+                invoice_id: invoice.id,
+                invoice_number: invoiceHeader.document_number || null,
+                supplier: invoiceHeader.supplier_name || null,
+                notes: `OCR import: ${item.name}`,
+              } as any);
+          }
+
+          // supplier_mappings — zapamiętaj powiązanie nazwy dostawcy z produktem
+          if (item.supplier_symbol || item.name) {
+            await supabase
+              .from('supplier_mappings' as any)
+              .insert({
+                supplier_name: item.name,
+                supplier_symbol: item.supplier_symbol || null,
+                product_id: item.mapped_product_id,
+              });
           }
         }
       }
