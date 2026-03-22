@@ -227,87 +227,169 @@ serve(async (req) => {
       ) || null
     }
 
-    // ── INPAINTING ───────────────────────────────────────────────
+    // ── EDYCJA OBRAZÓW (Inpainting) — Gemini Nano Banana Pro ────────
     if (taskType === 'inpaint') {
-      const lovKey = Deno.env.get('LOVABLE_API_KEY')
-      if (!lovKey) {
-        return jsonResp({ result: '⚠️ Edycja obrazów jest tymczasowo niedostępna.' })
-      }
-      usedProvider = 'lovable'
-      usedModel = 'google/gemini-2.5-flash-image'
-      console.log('[ai-chat] Inpaint using Lovable Gateway')
+      const geminiProv = allProviders?.find((p: any) =>
+        hasKey(p) && (
+          p.provider_key?.toLowerCase().includes('gemini') ||
+          p.display_name?.toLowerCase().includes('gemini')
+        )
+      )
+      const geminiKey = geminiProv?.api_key_encrypted || Deno.env.get('GEMINI_API_KEY')
 
-      const res = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${lovKey}`,
-        },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash-image',
-          messages: [{
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: `Edit the image ONLY in the areas marked with purple/violet masks. The masks show EXACTLY where changes should be made. Do NOT change anything outside the masked areas. Each numbered change corresponds to a masked area:\n${query}\n\nIMPORTANT: Apply each change precisely to the masked area it corresponds to. Keep the rest of the image completely unchanged.`,
-              },
-              { type: 'image_url', image_url: { url: `data:image/png;base64,${imageBase64}` } },
-              { type: 'image_url', image_url: { url: `data:image/png;base64,${maskBase64}` } },
-            ],
-          }],
-          modalities: ['image', 'text'],
-        }),
-      })
-      if (!res.ok) {
-        const errText = await res.text()
-        console.error('[ai-chat] Inpaint error:', res.status, errText)
-        await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'error', errorMessage: errText, ms: Date.now() - t0 })
-        return jsonResp({ result: mapError('image', res.status, errText) })
+      if (!geminiKey) {
+        return jsonResp({ result: '⚠️ Brak klucza Gemini API. Dodaj go w Centrum AI → Dostawcy & API.' })
       }
-      const d = await res.json()
-      const imgUrl = d?.choices?.[0]?.message?.images?.[0]?.image_url?.url
-      await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: imgUrl ? 'success' : 'error', ms: Date.now() - t0 })
-      return jsonResp({ result: imgUrl ? '✨ Gotowe!' : '❌ Nie udało się edytować obrazu.', images: imgUrl ? [imgUrl] : [] })
+
+      usedProvider = 'gemini_nano_banana_pro'
+      usedModel = 'gemini-3-pro-image-preview'
+      console.log('[ai-chat] Inpainting: Gemini Nano Banana Pro')
+
+      const contentParts: any[] = [
+        {
+          text: `Edit the image ONLY in the areas marked with purple/violet masks. The masks show EXACTLY where changes should be made. Do NOT change anything outside the masked areas. Each numbered change corresponds to a masked area:\n${query}\n\nIMPORTANT: Apply each change precisely to the masked area. Keep everything outside masks completely unchanged.`
+        },
+        {
+          inlineData: {
+            mimeType: 'image/png',
+            data: imageBase64
+          }
+        }
+      ]
+
+      if (maskBase64) {
+        contentParts.push({
+          inlineData: {
+            mimeType: 'image/png',
+            data: maskBase64
+          }
+        })
+      }
+
+      const inpaintRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${geminiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ role: 'user', parts: contentParts }],
+            generationConfig: {
+              responseModalities: ['IMAGE', 'TEXT'],
+            }
+          })
+        }
+      )
+
+      if (!inpaintRes.ok) {
+        const errText = await inpaintRes.text()
+        console.error('[ai-chat] Inpaint Nano Banana Pro error:', inpaintRes.status, errText.slice(0, 300))
+        await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'error', errorMessage: errText, ms: Date.now() - t0 })
+        return jsonResp({ result: '⚠️ Edycja obrazu nie powiodła się. Spróbuj ponownie.' })
+      }
+
+      const inpaintData = await inpaintRes.json()
+      const inpaintParts = inpaintData?.candidates?.[0]?.content?.parts || []
+      const inpaintImg = inpaintParts.find((p: any) => p.inlineData)
+      const inpaintText = inpaintParts.find((p: any) => p.text)?.text || ''
+
+      if (inpaintImg?.inlineData) {
+        const { mimeType, data } = inpaintImg.inlineData
+        const imgUrl = `data:${mimeType};base64,${data}`
+        console.log('[ai-chat] ✅ Inpainting Nano Banana Pro: sukces')
+        await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'success', ms: Date.now() - t0 })
+        return jsonResp({ result: inpaintText || '✨ Gotowe!', images: [imgUrl] })
+      }
+
+      await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'error', errorMessage: 'no image in response', ms: Date.now() - t0 })
+      return jsonResp({ result: '⚠️ Nie udało się edytować obrazu. Spróbuj ponownie z innym opisem.' })
     }
 
-    // ── GENEROWANIE OBRAZÓW (Nano Banana) ────────────────────────
+    // ── GENEROWANIE OBRAZÓW — Gemini Nano Banana Pro ────────────────
     if (taskType === 'image') {
-      // Use Lovable Gateway for image generation (Nano Banana)
-      const lovKey = Deno.env.get('LOVABLE_API_KEY')
-      if (!lovKey) {
-        return jsonResp({ result: '⚠️ Generowanie obrazów jest tymczasowo niedostępne.' })
-      }
-      usedProvider = 'lovable'
-      usedModel = 'google/gemini-2.5-flash-image'
-      console.log(`[ai-chat] Image generation using Lovable Gateway (Nano Banana)`)
+      const geminiProv = allProviders?.find((p: any) =>
+        hasKey(p) && (
+          p.provider_key?.toLowerCase().includes('gemini') ||
+          p.display_name?.toLowerCase().includes('gemini')
+        )
+      )
+      const geminiKey = geminiProv?.api_key_encrypted || Deno.env.get('GEMINI_API_KEY')
 
-      const res = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${lovKey}` },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash-image',
-          messages: [{ role: 'user', content: query }],
-          modalities: ['image', 'text']
-        })
-      })
-
-      if (!res.ok) {
-        const errText = await res.text()
-        console.error('[ai-chat] Image gen error:', res.status, errText)
-        await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'error', errorMessage: errText, ms: Date.now() - t0 })
-        return jsonResp({ result: mapError('image', res.status, errText) })
+      if (!geminiKey) {
+        return jsonResp({ result: '⚠️ Brak klucza Gemini API. Dodaj go w Centrum AI → Dostawcy & API.' })
       }
 
-      const d = await res.json()
-      const imgData = d?.choices?.[0]?.message?.images?.[0]?.image_url?.url
-      const textReply = d?.choices?.[0]?.message?.content || ''
-      
-      await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: imgData ? 'success' : 'error', ms: Date.now() - t0 })
-      return jsonResp({
-        result: imgData ? '' : (textReply || '❌ Nie udało się wygenerować obrazu.'),
-        images: imgData ? [imgData] : []
-      })
+      usedProvider = 'gemini_nano_banana_pro'
+      usedModel = 'gemini-3-pro-image-preview'
+      console.log('[ai-chat] Image generation: Gemini Nano Banana Pro (gemini-3-pro-image-preview)')
+
+      const geminiRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${geminiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{
+              role: 'user',
+              parts: [{ text: query }]
+            }],
+            generationConfig: {
+              responseModalities: ['IMAGE', 'TEXT'],
+              responseMimeType: 'text/plain',
+            }
+          })
+        }
+      )
+
+      if (!geminiRes.ok) {
+        const errText = await geminiRes.text()
+        console.error('[ai-chat] Nano Banana Pro error:', geminiRes.status, errText.slice(0, 300))
+
+        // Fallback na Nano Banana (gemini-2.5-flash-image)
+        console.log('[ai-chat] Fallback: trying Nano Banana (gemini-2.5-flash-image)')
+        const fallbackRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${geminiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ role: 'user', parts: [{ text: query }] }],
+              generationConfig: { responseModalities: ['IMAGE', 'TEXT'] }
+            })
+          }
+        )
+
+        if (!fallbackRes.ok) {
+          const fallbackErr = await fallbackRes.text()
+          await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'error', errorMessage: fallbackErr, ms: Date.now() - t0 })
+          return jsonResp({ result: '⚠️ Nie udało się wygenerować obrazu. Spróbuj ponownie.' })
+        }
+
+        const fallbackData = await fallbackRes.json()
+        const fallbackImgB64 = fallbackData?.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData)?.inlineData
+        if (fallbackImgB64) {
+          const imgUrl = `data:${fallbackImgB64.mimeType};base64,${fallbackImgB64.data}`
+          await logReq(supabase, { feature, provider: 'gemini_nano_banana', model: 'gemini-2.5-flash-image', userId, status: 'success', ms: Date.now() - t0 })
+          return jsonResp({ result: '✨ Gotowe! (Nano Banana)', images: [imgUrl] })
+        }
+        return jsonResp({ result: '⚠️ Nie udało się wygenerować obrazu.' })
+      }
+
+      const geminiData = await geminiRes.json()
+      const parts = geminiData?.candidates?.[0]?.content?.parts || []
+      const imgPart = parts.find((p: any) => p.inlineData)
+      const textPart = parts.find((p: any) => p.text)?.text || ''
+
+      if (imgPart?.inlineData) {
+        const { mimeType, data } = imgPart.inlineData
+        const imgUrl = `data:${mimeType};base64,${data}`
+        console.log('[ai-chat] ✅ Nano Banana Pro: obraz wygenerowany')
+        await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'success', ms: Date.now() - t0 })
+        return jsonResp({ result: textPart || '✨ Gotowe!', images: [imgUrl] })
+      }
+
+      console.error('[ai-chat] Nano Banana Pro: brak obrazu w odpowiedzi', JSON.stringify(geminiData).slice(0, 500))
+      await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'error', errorMessage: 'no image in response', ms: Date.now() - t0 })
+      return jsonResp({ result: textPart || '⚠️ Nie udało się wygenerować obrazu. Spróbuj bardziej szczegółowego opisu.' })
     }
 
     // ── ROUTING TEKSTU ───────────────────────────────────────────
