@@ -173,6 +173,10 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
     const { data } = await (supabase as any).from('ai_messages').select('*').eq('conversation_id', convId).order('created_at', { ascending: true });
     if (data) setMessages(data.map((m: any) => ({ id: m.id, role: m.role, content: m.content, images: m.images })));
     setCurrentConvId(convId);
+    // Auto-scroll to bottom after loading
+    setTimeout(() => {
+      if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }, 100);
   };
 
   const handleNewChat = () => { setMessages([]); setCurrentConvId(null); setInput(''); setAttachedFiles([]); };
@@ -265,8 +269,7 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
     }
     if (convId) await saveMsg(convId, userMsg);
 
-    const isImgMode = mainMode as string === 'grafika';
-    const isImg = isImgMode || IMAGE_PATTERNS.test(text);
+    const isImg = IMAGE_PATTERNS.test(text);
 
     if (isImg && fileContents.length === 0) {
       setMessages(prev => [...prev, { role: 'assistant', content: '🎨 Generuję grafikę...' }]);
@@ -280,7 +283,7 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
 
     setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
     let acc = '';
-    const activeMode = mainMode === 'cowork' ? 'cowork' : mainMode === 'grafika' ? 'rido_create' : 'rido_chat';
+    const activeMode = mainMode === 'cowork' ? 'cowork' : 'rido_chat';
 
     await streamExecute(
       { taskType: 'text', query: text, mode: activeMode, messages: newMsgs.map(m => ({ role: m.role, content: m.content })), stream: true, files: fileContents.length > 0 ? fileContents : undefined },
@@ -791,7 +794,6 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
             <div className="flex items-center gap-0.5 bg-muted/50 rounded-xl p-0.5">
               {([
                 { key: 'chat' as const, label: 'Chat', icon: MessageCircle },
-                { key: 'grafika' as const, label: 'Grafika', icon: Image },
                 { key: 'cowork' as const, label: 'Cowork', icon: Briefcase, locked: true },
               ]).map(({ key, label, icon: Icon, locked }) => (
                 <button
@@ -866,11 +868,11 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
                         <div className={cn(
                           'max-w-[85%] leading-relaxed',
                           msg.role === 'user'
-                            ? 'bg-primary text-primary-foreground rounded-2xl rounded-br-sm px-4 py-2.5 shadow-sm'
-                            : 'bg-muted/60 rounded-2xl rounded-bl-sm px-4 py-3'
+                            ? 'bg-muted rounded-2xl rounded-br-sm px-4 py-2.5 shadow-sm text-foreground'
+                            : 'bg-primary text-primary-foreground rounded-2xl rounded-bl-sm px-4 py-3'
                         )}>
                           {msg.role === 'assistant' ? (
-                            <div className="prose prose-sm dark:prose-invert max-w-none [&>p]:mb-2 [&>p:last-child]:mb-0 [&>ul]:mb-2 [&>ol]:mb-2 [&>li]:mb-0.5 [&_strong]:text-foreground [&_strong]:font-bold [&>p]:text-[14px] [&>p]:leading-relaxed [&>p]:font-medium [&>li]:text-[14px] [&>li]:font-medium">
+                            <div className="prose prose-sm max-w-none [&>p]:mb-2 [&>p:last-child]:mb-0 [&>ul]:mb-2 [&>ol]:mb-2 [&>li]:mb-0.5 [&_strong]:font-bold [&>p]:text-[14px] [&>p]:leading-relaxed [&>p]:font-medium [&>li]:text-[14px] [&>li]:font-medium text-primary-foreground [&_strong]:text-primary-foreground [&_li]:text-primary-foreground [&_a]:text-primary-foreground/80">
                               <ReactMarkdown>
                                 {(msg.content || '...')
                                   .replace(/ACTION:\{.*?\}/s, '')
@@ -882,7 +884,7 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
                                   <img
                                     src={img}
                                     alt="Wygenerowana grafika"
-                                    className="rounded-xl max-w-full shadow-lg border border-border/50 cursor-pointer hover:opacity-95 transition-opacity"
+                                    className="rounded-xl max-w-full shadow-lg border border-primary-foreground/20 cursor-pointer hover:opacity-95 transition-opacity"
                                     onClick={() => openEditor(img)}
                                   />
                                   <div className="absolute top-2 left-2 flex items-center gap-1.5">
@@ -897,7 +899,7 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
                               ))}
                             </div>
                           ) : (
-                            <p className="whitespace-pre-wrap text-[14px] font-semibold">{msg.content}</p>
+                            <p className="whitespace-pre-wrap text-[14px] font-semibold text-foreground">{msg.content}</p>
                           )}
                         </div>
                         {msg.role === 'user' && (
@@ -913,10 +915,10 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
                   {isLoading && (
                     <div className="flex gap-3">
                       <img src={ridoMascot} alt="AI" className="w-9 h-9 object-contain flex-shrink-0 mt-0.5" />
-                      <div className="bg-muted/60 rounded-2xl rounded-bl-sm px-5 py-3.5">
+                      <div className="bg-primary rounded-2xl rounded-bl-sm px-5 py-3.5">
                         <div className="flex items-center gap-2">
                           {[0, 200, 400].map(d => (
-                            <span key={d} className="w-2.5 h-2.5 rounded-full bg-primary/50 animate-bounce" style={{ animationDelay: `${d}ms` }} />
+                            <span key={d} className="w-2.5 h-2.5 rounded-full bg-primary-foreground/50 animate-bounce" style={{ animationDelay: `${d}ms` }} />
                           ))}
                         </div>
                       </div>
@@ -965,7 +967,7 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
                     value={input}
                     onChange={e => setInput(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-                    placeholder={mainMode === 'grafika' ? 'Opisz grafikę którą chcesz stworzyć...' : 'Zadaj pytanie RidoAI...'}
+                    placeholder="Zadaj pytanie RidoAI..."
                     disabled={isLoading}
                     className="flex-1 min-h-[44px] max-h-[120px] resize-none rounded-xl text-sm font-medium border border-border/50 bg-background px-4 py-3 outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 placeholder:text-muted-foreground/50 transition-all"
                     rows={1}
@@ -1004,38 +1006,25 @@ function ConvItemInline({ title, active, onClick, onDelete }: {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       className={cn(
-        'relative flex items-center px-3 py-2.5 rounded-xl cursor-pointer transition-all',
+        'flex items-center gap-2 px-3 py-2.5 rounded-xl cursor-pointer transition-all',
         active
           ? 'bg-primary text-primary-foreground'
           : 'text-foreground hover:bg-accent hover:text-accent-foreground'
       )}
-      style={{ minWidth: 0 }}
     >
-      <button
-        onClick={onDelete}
-        title="Usuń rozmowę"
-        style={{
-          opacity: hovered || active ? 1 : 0,
-          transition: 'opacity 0.15s',
-          lineHeight: 0,
-        }}
-        className="absolute left-1 top-1 p-1 rounded-md hover:bg-destructive/20"
-      >
-        <Trash2 className="h-3.5 w-3.5 text-destructive" />
-      </button>
-      <MessageCircle className="h-4 w-4 flex-shrink-0 opacity-60 mr-2 ml-4" />
-      <span
-        style={{
-          flex: 1,
-          minWidth: 0,
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-        }}
-        className="text-sm font-medium"
-      >
+      <MessageCircle className="h-4 w-4 flex-shrink-0 opacity-60" />
+      <span className="text-sm font-medium flex-1 truncate min-w-0">
         {title || 'Nowa rozmowa'}
       </span>
+      {(hovered || active) && (
+        <button
+          onClick={onDelete}
+          title="Usuń rozmowę"
+          className="p-1 rounded-md hover:bg-destructive/20 flex-shrink-0 transition-colors"
+        >
+          <Trash2 className="h-3.5 w-3.5 text-destructive" />
+        </button>
+      )}
     </div>
   );
 }
