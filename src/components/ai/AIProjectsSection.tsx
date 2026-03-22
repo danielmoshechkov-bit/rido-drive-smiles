@@ -139,7 +139,7 @@ export function AIProjectsSection({ userId, onSelectProject, activeProjectId }: 
   const COLORS = ['#6C3CF0', '#F59E0B', '#22C55E', '#EF4444', '#3B82F6', '#EC4899'];
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col overflow-hidden" style={{ maxWidth: '100%' }}>
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2">
         <p className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-wider">Projekty</p>
@@ -232,7 +232,7 @@ export function AIProjectsSection({ userId, onSelectProject, activeProjectId }: 
       )}
 
       {/* Project list */}
-      <div className="px-2 space-y-0.5">
+      <div className="px-2 space-y-0.5 overflow-hidden max-h-[120px] overflow-y-auto">
         {projects.length === 0 && !showCreate && (
           <div className="text-center py-4 px-4">
             <FolderOpen className="h-6 w-6 text-muted-foreground/30 mx-auto mb-1" />
@@ -250,14 +250,14 @@ export function AIProjectsSection({ userId, onSelectProject, activeProjectId }: 
               onMouseEnter={() => setHovered(project.id)}
               onMouseLeave={() => setHovered(null)}
               className={cn(
-                'flex items-center gap-2 px-3 py-2.5 rounded-xl cursor-pointer transition-all',
+                'flex items-center gap-2 px-3 py-2 rounded-xl cursor-pointer transition-all overflow-hidden',
                 isActive
                   ? 'bg-primary text-primary-foreground'
                   : 'text-foreground hover:bg-accent hover:text-accent-foreground'
               )}
             >
               <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-              <span className="text-sm font-medium flex-1 truncate min-w-0">
+              <span className="text-xs font-medium min-w-0 block" style={{ flex: '1 1 0%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {project.name}
               </span>
               {(isHovered || isActive) && (
