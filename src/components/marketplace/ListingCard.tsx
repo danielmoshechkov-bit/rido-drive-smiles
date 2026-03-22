@@ -100,6 +100,9 @@ export function ListingCard({
   const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
   const [showLightbox, setShowLightbox] = useState(false);
   
+  const { text: translatedTitle } = useContentTranslation('listing', listing.id, 'title', listing.title);
+  const { text: translatedDescription } = useContentTranslation('listing', listing.id, 'description', listing.description);
+
   const isCompact = compact || variant === 'compact';
   const isList = variant === 'list';
 
