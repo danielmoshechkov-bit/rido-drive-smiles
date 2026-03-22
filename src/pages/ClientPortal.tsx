@@ -1464,7 +1464,11 @@ export default function ClientPortal() {
                 <InventoryModuleView entityId={userEntities[0]?.id} />
               )}
 
-              {accountingSubTab !== 'przeglad' && accountingSubTab !== 'faktury' && accountingSubTab !== 'magazyn' && (
+              {accountingSubTab === 'zakupy' && (
+                <InventoryPurchaseOCR entityId={userEntities[0]?.id} />
+              )}
+
+              {accountingSubTab !== 'przeglad' && accountingSubTab !== 'faktury' && accountingSubTab !== 'magazyn' && accountingSubTab !== 'zakupy' && (
                 <Card>
                   <CardContent className="py-12 text-center">
                     <Calculator className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
