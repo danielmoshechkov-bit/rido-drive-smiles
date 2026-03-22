@@ -1154,12 +1154,8 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
                         {msg.role === 'assistant' && (
                           <img src={ridoMascot} alt="AI" className="w-9 h-9 object-contain flex-shrink-0 mt-0.5" />
                         )}
-                        <div className={cn(
-                          'max-w-[85%] leading-relaxed',
-                          msg.role === 'user'
-                            ? 'bg-muted rounded-2xl rounded-br-sm px-4 py-2.5 shadow-sm text-foreground'
-                            : 'bg-primary text-primary-foreground rounded-2xl rounded-bl-sm px-4 py-3'
-                        )}>
+                        <div className="max-w-[85%] flex flex-col gap-2">
+                          {/* Text bubble */}
                           {msg.role === 'assistant' ? (
                             <>
                               {(() => {
@@ -1168,17 +1164,20 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
                                   .replace(/IMAGE_REQUEST:true/g, '')
                                   .trim();
                                 return cleanContent ? (
-                                  <div className="prose prose-sm max-w-none [&>p]:mb-2 [&>p:last-child]:mb-0 [&>ul]:mb-2 [&>ol]:mb-2 [&>li]:mb-0.5 [&_strong]:font-bold [&>p]:text-[14px] [&>p]:leading-relaxed [&>p]:font-medium [&>li]:text-[14px] [&>li]:font-medium text-primary-foreground [&_strong]:text-primary-foreground [&_li]:text-primary-foreground [&_a]:text-primary-foreground/80">
-                                    <ReactMarkdown>{cleanContent}</ReactMarkdown>
+                                  <div className="bg-primary text-primary-foreground rounded-2xl rounded-bl-sm px-4 py-3">
+                                    <div className="prose prose-sm max-w-none [&>p]:mb-2 [&>p:last-child]:mb-0 [&>ul]:mb-2 [&>ol]:mb-2 [&>li]:mb-0.5 [&_strong]:font-bold [&>p]:text-[14px] [&>p]:leading-relaxed [&>p]:font-medium [&>li]:text-[14px] [&>li]:font-medium text-primary-foreground [&_strong]:text-primary-foreground [&_li]:text-primary-foreground [&_a]:text-primary-foreground/80">
+                                      <ReactMarkdown>{cleanContent}</ReactMarkdown>
+                                    </div>
                                   </div>
                                 ) : null;
                               })()}
+                              {/* Images OUTSIDE the purple bubble */}
                               {msg.images?.map((img, idx) => (
-                                <div key={idx} className="relative group mt-4 overflow-hidden rounded-2xl border border-border/50 bg-background shadow-sm">
+                                <div key={idx} className="relative group overflow-hidden rounded-2xl">
                                   <img
                                     src={img}
                                     alt="Wygenerowana grafika"
-                                    className="w-full cursor-pointer hover:opacity-95 transition-opacity"
+                                    className="w-full cursor-pointer hover:opacity-95 transition-opacity rounded-2xl"
                                     onClick={() => openEditor(img)}
                                   />
                                   <div className="absolute top-2 left-2 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -1194,13 +1193,15 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
                             </>
                           ) : (
                             <>
-                              <p className="whitespace-pre-wrap text-[14px] font-semibold text-foreground">{msg.content}</p>
+                              <div className="bg-muted rounded-2xl rounded-br-sm px-4 py-2.5 shadow-sm text-foreground">
+                                <p className="whitespace-pre-wrap text-[14px] font-semibold">{msg.content}</p>
+                              </div>
                               {msg.images?.map((img, idx) => (
-                                <div key={idx} className="relative group mt-3 overflow-hidden rounded-2xl border border-border/50 bg-background shadow-sm">
+                                <div key={idx} className="relative group overflow-hidden rounded-2xl">
                                   <img
                                     src={img}
                                     alt="Załączony obraz"
-                                    className="w-full cursor-pointer hover:opacity-95 transition-opacity"
+                                    className="w-full cursor-pointer hover:opacity-95 transition-opacity rounded-2xl"
                                     onClick={() => openEditor(img)}
                                   />
                                   <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity">

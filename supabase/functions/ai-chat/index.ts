@@ -56,6 +56,35 @@ const FILE_ACCESS_FAILURE_PATTERNS = [
   /не (?:могу|удалось).{0,80}(откры|прочита|проанализирова|обработа)/i,
 ]
 
+// General "I can't answer" patterns — triggers fallback to next provider
+const GENERAL_LOW_CONFIDENCE_PATTERNS = [
+  // Polish
+  /nie mog[eę].{0,60}(odpowiedzie[ćc]|pom[oó]c|udzieli[ćc]|poradzi[ćc])/i,
+  /nie mam.{0,40}(dost[eę]pu|mo[żz]liwo[śs]ci|informacji|danych)/i,
+  /nie jestem w stanie.{0,60}(odpowiedzie[ćc]|sprawdzi[ćc]|pom[oó]c|udzieli[ćc])/i,
+  /nie posiadam.{0,40}(informacji|danych|wiedzy|dost[eę]pu)/i,
+  /jako (?:model|asystent|AI).{0,40}nie/i,
+  /sprawd[źz].{0,30}(na|w|u) (?:internecie|google|stron)/i,
+  /odwied[źz].{0,30}(stron|serwis|portal)/i,
+  /zalecam.{0,30}(sprawdzi[ćc]|odwiedzi[ćc]|skontaktowa[ćc])/i,
+  // English
+  /i (?:can'?t|cannot|don'?t|am not able to).{0,60}(answer|help|provide|access|check|verify)/i,
+  /i don'?t have.{0,40}(access|ability|information|data|capability)/i,
+  /as an? (?:AI|language model|assistant).{0,40}(?:can'?t|cannot|don'?t|unable)/i,
+  /please (?:check|visit|consult).{0,40}(website|google|online)/i,
+  // Russian
+  /не (?:могу|в состоянии).{0,60}(ответ|помочь|предостав|дать)/i,
+  /у меня нет.{0,40}(доступ|возможност|информац|данн)/i,
+  /как (?:модель|ИИ|ассистент).{0,40}не/i,
+  /рекомендую.{0,40}(обратиться|проверить|посетить|поискать)/i,
+  // Ukrainian
+  /не (?:можу|в змозі).{0,60}(відповіст|допомогт|надат)/i,
+  /не маю.{0,40}(доступ|можливост|інформац|дан)/i,
+  // German
+  /ich (?:kann|bin) nicht.{0,60}(antwort|helfen|bereitstell|zugreif)/i,
+  /(?:bitte|empfehle).{0,40}(besuchen|überprüf|nachschau)/i,
+]
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
 
@@ -252,10 +281,12 @@ serve(async (req) => {
     } else {
       chain.push(findByKey('claude_haiku'))
     }
-    // Always add general fallbacks (skip for weather since already added)
+    // Always add general fallbacks
     if (!weatherQuery) {
       chain.push(findByKey('kimi'), findGemini(), findByKey('openai_mini', 'openai_gpt4o', 'openai'))
     }
+    // Always add Lovable Gateway as ultimate fallback for all queries
+    chain.push({ id: '__lovable_gateway__', provider_key: '__lovable_gateway__', api_key_encrypted: 'lovable', display_name: 'Lovable Gateway', is_enabled: true })
 
     // Deduplicate and filter to providers with keys
     const seen = new Set<string>()
@@ -569,9 +600,16 @@ function shouldRetryWithNextProvider(query: string, answer: string, hasFiles: bo
   const normalized = String(answer || '').trim()
   if (!normalized) return true
   if (WEATHER_QUERY_PATTERNS.test(query) && LOW_CONFIDENCE_WEATHER_PATTERNS.some((pattern) => pattern.test(normalized))) {
+    console.log('[ai-chat] Low confidence weather answer, retrying with next provider')
     return true
   }
   if (hasFiles && FILE_ACCESS_FAILURE_PATTERNS.some((pattern) => pattern.test(normalized))) {
+    console.log('[ai-chat] File access failure, retrying with next provider')
+    return true
+  }
+  // General "I can't answer" — fallback to next provider instead of showing refusal
+  if (GENERAL_LOW_CONFIDENCE_PATTERNS.some((pattern) => pattern.test(normalized))) {
+    console.log('[ai-chat] General low confidence answer detected, retrying with next provider')
     return true
   }
   return false
