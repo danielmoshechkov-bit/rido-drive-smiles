@@ -455,7 +455,7 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
         style={{
           position: 'fixed', top: 0, right: 0, bottom: 0,
           zIndex: 9999,
-          width: isMobile ? '100vw' : 400,
+          width: isMobile ? '100vw' : 420,
           maxWidth: '100vw',
           background: '#FAFAF8',
           boxShadow: '-8px 0 30px rgba(0,0,0,0.12)',
@@ -466,55 +466,52 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
           overflow: 'hidden',
         }}
       >
-        {/* Desktop: split layout */}
+        {/* Desktop: no split — show list or chat like mobile */}
         {!isMobile ? (
-          <div style={{ display: 'flex', height: '100%' }}>
-            <div style={{ width: 260, flexShrink: 0, borderRight: '1px solid #F0EDE7', height: '100%', display: 'flex', flexDirection: 'column' }}>
-              <ChatListView
-                searchQuery={searchQuery}
-                setSearchQuery={setSearchQuery}
-                groupedConvs={groupedConvs}
-                currentConvId={currentConvId}
-                userId={userId}
-                activeProjectId={activeProjectId}
-                setActiveProjectId={setActiveProjectId}
-                loadConversation={loadConversation}
-                deleteConversation={deleteConversation}
-                toggleStar={toggleStar}
-                setRenamingConvId={setRenamingConvId}
-                setRenameValue={setRenameValue}
-                openProjectPicker={openProjectPicker}
-                handleNewChat={handleNewChat}
-                onClose={onClose}
-              />
-            </div>
-            <div style={{ flex: 1, minWidth: 0, height: '100%', display: 'flex', flexDirection: 'column' }}>
-              <ChatView
-                isMobile={false}
-                messages={messages}
-                isLoading={isLoading}
-                input={input}
-                setInput={setInput}
-                handleSend={handleSend}
-                handleNewChat={handleNewChat}
-                onClose={onClose}
-                onBack={() => {}}
-                attachedFiles={attachedFiles}
-                isDragging={isDragging}
-                onDragOver={onDragOver}
-                onDragLeave={onDragLeave}
-                onDrop={onDrop}
-                fileInputRef={fileInputRef}
-                inputRef={inputRef}
-                handleFileSelect={handleFileSelect}
-                removeFile={removeFile}
-                openAttachedImageEditor={openAttachedImageEditor}
-                messagesEndRef={messagesEndRef}
-                openEditor={openEditor}
-                downloadImage={downloadImage}
-              />
-            </div>
-          </div>
+          activeView === 'list' && !currentConvId ? (
+            <ChatListView
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              groupedConvs={groupedConvs}
+              currentConvId={currentConvId}
+              userId={userId}
+              activeProjectId={activeProjectId}
+              setActiveProjectId={setActiveProjectId}
+              loadConversation={loadConversation}
+              deleteConversation={deleteConversation}
+              toggleStar={toggleStar}
+              setRenamingConvId={setRenamingConvId}
+              setRenameValue={setRenameValue}
+              openProjectPicker={openProjectPicker}
+              handleNewChat={handleNewChat}
+              onClose={onClose}
+            />
+          ) : (
+            <ChatView
+              isMobile={false}
+              messages={messages}
+              isLoading={isLoading}
+              input={input}
+              setInput={setInput}
+              handleSend={handleSend}
+              handleNewChat={handleNewChat}
+              onClose={onClose}
+              onBack={() => { setActiveView('list'); setCurrentConvId(null); }}
+              attachedFiles={attachedFiles}
+              isDragging={isDragging}
+              onDragOver={onDragOver}
+              onDragLeave={onDragLeave}
+              onDrop={onDrop}
+              fileInputRef={fileInputRef}
+              inputRef={inputRef}
+              handleFileSelect={handleFileSelect}
+              removeFile={removeFile}
+              openAttachedImageEditor={openAttachedImageEditor}
+              messagesEndRef={messagesEndRef}
+              openEditor={openEditor}
+              downloadImage={downloadImage}
+            />
+          )
         ) : (
           /* Mobile: one view at a time */
           activeView === 'list' ? (
@@ -853,11 +850,9 @@ function ChatView({
         padding: '10px 12px', borderBottom: '1px solid #F0EDE7',
         background: '#fff', minHeight: 56,
       }}>
-        {isMobile && (
-          <button onClick={onBack} style={{ padding: 6, borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', color: '#6B7280', flexShrink: 0 }}>
-            <ChevronLeft size={20} />
-          </button>
-        )}
+        <button onClick={onBack} style={{ padding: 6, borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', color: '#6B7280', flexShrink: 0 }}>
+          <ChevronLeft size={20} />
+        </button>
 
         <div style={{ position: 'relative', flexShrink: 0 }}>
           <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'linear-gradient(135deg, #7F77DD, #534AB7)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
@@ -876,12 +871,10 @@ function ChatView({
             onMouseEnter={e => (e.currentTarget.style.background = '#F5F4F0')} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
             <Plus size={18} />
           </button>
-          {!isMobile && (
-            <button onClick={onClose} style={{ padding: 7, borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', color: '#9CA3AF' }} title="Zamknij"
-              onMouseEnter={e => (e.currentTarget.style.background = '#F5F4F0')} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-              <X size={18} />
-            </button>
-          )}
+          <button onClick={onClose} style={{ padding: 7, borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', color: '#9CA3AF' }} title="Zamknij"
+            onMouseEnter={e => (e.currentTarget.style.background = '#F5F4F0')} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+            <X size={18} />
+          </button>
         </div>
       </div>
 
