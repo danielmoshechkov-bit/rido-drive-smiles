@@ -24,6 +24,7 @@ import { SimpleFreeInvoice } from '@/components/invoices/SimpleFreeInvoice';
 import { InvoiceExpandableRow } from '@/components/invoices/InvoiceExpandableRow';
 import { SearchCategoryModal } from '@/components/search/SearchCategoryModal';
 import { InventoryModuleView } from '@/components/inventory';
+import { InventoryPurchaseOCR } from '@/components/inventory/InventoryPurchaseOCR';
 import { 
   Car,
   Home,
