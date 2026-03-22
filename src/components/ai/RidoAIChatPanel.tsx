@@ -14,6 +14,7 @@ import {
 import { cn } from '@/lib/utils';
 import ridoMascot from '@/assets/rido-mascot.png';
 import { AIProjectsSection } from './AIProjectsSection';
+import { ImageEditorMobile } from './ImageEditorMobile';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
