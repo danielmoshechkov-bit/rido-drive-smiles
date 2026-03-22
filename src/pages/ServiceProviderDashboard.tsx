@@ -25,16 +25,17 @@ import { WorkshopDashboard } from '@/components/workshop/WorkshopDashboard';
 import { WorkshopScheduler } from '@/components/workshop/WorkshopScheduler';
 import { SettingsPanel } from '@/components/workshop/SettingsPanel';
 import { ServiceProviderAccountingView } from '@/components/service-provider/ServiceProviderAccountingView';
+import { DEFAULT_SERVICE_PROVIDER_PRIMARY_TABS, SERVICE_PROVIDER_TAB_ORDER } from '@/components/service-provider/navConfig';
 import { CalendarView } from '@/components/calendar/CalendarView';
 import { AgentTypeSelector } from '@/components/ai-agents/AgentTypeSelector';
 import { KnowledgeBaseEditor } from '@/components/ai-agents/KnowledgeBaseEditor';
 import { ConversationAnalytics } from '@/components/ai-agents/ConversationAnalytics';
 import { GlobalLearningPanel } from '@/components/ai-agents/GlobalLearningPanel';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { 
+import {
   LayoutDashboard, Wrench, Calendar, ClipboardList, Settings, Phone,
   Users, Clock, Star, Globe, Bot, Hammer, Plus, Trash2, Edit, Save, Image,
-  Upload, X, ImageIcon, Briefcase, MoreHorizontal, Calculator
+  Upload, X, ImageIcon, Briefcase, MoreHorizontal, Calculator, ChevronDown
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { UniversalSubTabBar } from '@/components/UniversalSubTabBar';

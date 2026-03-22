@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,9 +9,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Save, Plus, Trash2, Users, Building2, Monitor, UserPlus, Sparkles } from 'lucide-react';
 import { WorkshopPartsIntegrationsSettings } from './parts/WorkshopPartsIntegrationsSettings';
 import { RidoPriceSettingsTab } from './pricing/RidoPriceSettingsTab';
+import { DEFAULT_SERVICE_PROVIDER_PRIMARY_TABS, SERVICE_PROVIDER_TAB_LABELS, SERVICE_PROVIDER_TAB_ORDER, type ServiceProviderNavTabKey } from '@/components/service-provider/navConfig';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -20,14 +22,17 @@ interface SettingsPanelProps {
   providerId: string | null;
   settingsForm: any;
   setSettingsForm: (fn: (prev: any) => any) => void;
+  websiteBuilderEnabled?: boolean;
+  onPrimaryTabsSaved?: (tabs: string[]) => void;
 }
 
-export function SettingsPanel({ providerId, settingsForm, setSettingsForm }: SettingsPanelProps) {
+export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websiteBuilderEnabled = false, onPrimaryTabsSaved }: SettingsPanelProps) {
   const [settingsTab, setSettingsTab] = useState('konto');
   const [showAddEmployee, setShowAddEmployee] = useState(false);
   const [showAddWorkstation, setShowAddWorkstation] = useState(false);
   const [empForm, setEmpForm] = useState({ name: '', phone: '', email: '', salary: '' });
   const [wsName, setWsName] = useState('');
+  const [primaryTabs, setPrimaryTabs] = useState<ServiceProviderNavTabKey[]>(DEFAULT_SERVICE_PROVIDER_PRIMARY_TABS);
   const queryClient = useQueryClient();
 
   // Employees
