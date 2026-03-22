@@ -269,7 +269,7 @@ export function ServiceProviderAccountingView() {
       {subTab === 'magazyn' && <InventoryModuleView entityId={userEntities[0]?.id} />}
 
       {/* Placeholder for unbuilt tabs */}
-      {!['przeglad', 'faktury', 'zakupy', 'magazyn'].includes(subTab) && (
+      {!['przeglad', 'faktury', 'zakupy', 'magazyn', 'oczekujace', 'email-faktury'].includes(subTab) && (
         <Card>
           <CardContent className="py-12 text-center">
             <Calculator className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
