@@ -92,6 +92,9 @@ export function InventoryPurchaseOCR({ entityId }: Props) {
   const [products, setProducts] = useState<Product[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
 
+  // Supplier mappings
+  const [supplierMappings, setSupplierMappings] = useState<Array<{supplier_name: string; supplier_symbol?: string; product_id?: string}>>([]);
+
   // Past invoices
   const [pastInvoices, setPastInvoices] = useState<PurchaseInvoice[]>([]);
   const [loadingInvoices, setLoadingInvoices] = useState(true);
