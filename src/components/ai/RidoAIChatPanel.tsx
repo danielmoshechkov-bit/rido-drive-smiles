@@ -84,6 +84,27 @@ const pickImageReply = (type: keyof typeof IMAGE_REPLY_VARIANTS) => {
   return variants[Math.floor(Math.random() * variants.length)];
 };
 
+const MAX_CONV_TITLE_WORDS = 3;
+const MAX_CONV_TITLE_CHARS = 22;
+
+function formatConversationTitle(title?: string | null) {
+  const normalized = (title || '')
+    .replace(/\s+/g, ' ')
+    .replace(/[\n\r]+/g, ' ')
+    .trim();
+
+  if (!normalized) return 'Nowa rozmowa';
+
+  const shortWords = normalized
+    .split(' ')
+    .slice(0, MAX_CONV_TITLE_WORDS)
+    .join(' ');
+
+  return shortWords.length > MAX_CONV_TITLE_CHARS
+    ? `${shortWords.slice(0, MAX_CONV_TITLE_CHARS - 1).trimEnd()}…`
+    : shortWords;
+}
+
 export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
   const navigate = useNavigate();
   const [mainMode, setMainMode] = useState<MainMode>('chat');
@@ -171,13 +192,7 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
   }, [messages, currentConvId, open, scrollToBottom]);
 
   const createConv = async (text: string, mode: string): Promise<string> => {
-    const shortTitle = text
-      .replace(/\s+/g, ' ')
-      .trim()
-      .split(' ')
-      .slice(0, 4)
-      .join(' ')
-      .slice(0, 32);
+    const shortTitle = formatConversationTitle(text);
 
     let uid = userId;
     if (!uid) {
@@ -1338,9 +1353,9 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
                   {displayMsgs.map((msg, i) => {
                     if (msg.role === 'assistant' && msg.content === '' && isLoading && i === displayMsgs.length - 1) return null;
                     return (
-                      <div key={i} className={cn('flex gap-3', msg.role === 'user' ? 'flex-row-reverse' : 'flex-row')}>
+                      <div key={i} className={cn('flex gap-3', msg.role === 'user' ? 'flex-row-reverse' : 'flex-row items-start')}>
                         {msg.role === 'assistant' && (
-                          <img src={ridoMascot} alt="AI" className="w-9 h-9 object-contain flex-shrink-0 mt-0.5" />
+                          <img src={ridoMascot} alt="AI" className="w-9 h-9 object-contain flex-shrink-0 mt-0.5 self-start" />
                         )}
                         <div className="max-w-[85%] flex flex-col gap-2">
                           {/* Text bubble */}
@@ -1511,6 +1526,7 @@ function ConvItemInline({ title, active, onClick, onDelete }: {
 }) {
   const [hovered, setHovered] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const displayTitle = formatConversationTitle(title);
 
   return (
     <div
@@ -1518,7 +1534,7 @@ function ConvItemInline({ title, active, onClick, onDelete }: {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       className={cn(
-        'flex items-center gap-1.5 px-2.5 py-2 cursor-pointer transition-all w-full overflow-hidden',
+        'flex min-w-0 max-w-full items-center gap-1.5 px-2.5 py-2 pr-1.5 cursor-pointer transition-all w-full overflow-hidden',
         active
           ? 'bg-primary text-primary-foreground rounded-l-2xl rounded-r-none'
           : 'text-foreground hover:bg-accent hover:text-accent-foreground rounded-l-2xl rounded-r-none'
@@ -1527,12 +1543,12 @@ function ConvItemInline({ title, active, onClick, onDelete }: {
       <MessageCircle className="h-3.5 w-3.5 flex-shrink-0 opacity-60" />
       <span
         className="text-xs font-medium min-w-0 block"
-        style={{ flex: '1 1 0%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+        style={{ flex: '1 1 auto', maxWidth: 'calc(100% - 1.75rem)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
       >
-        {title || 'Nowa rozmowa'}
+        {displayTitle}
       </span>
       <div
-        className="flex-shrink-0"
+        className="flex w-6 flex-shrink-0 justify-center"
         style={{ opacity: hovered || active || menuOpen ? 1 : 0, transition: 'opacity 0.15s' }}
         onClick={(e) => e.stopPropagation()}
       >
