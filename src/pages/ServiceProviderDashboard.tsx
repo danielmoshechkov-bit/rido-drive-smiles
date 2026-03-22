@@ -74,6 +74,7 @@ export default function ServiceProviderDashboard() {
   const [calendarSubTab, setCalendarSubTab] = useState<'calendar' | 'bookings'>('calendar');
   const [moreOpen, setMoreOpen] = useState(false);
   const [primaryTabs, setPrimaryTabs] = useState<string[]>(DEFAULT_SERVICE_PROVIDER_PRIMARY_TABS);
+  const [adOrderService, setAdOrderService] = useState<{ id: string; name: string } | null>(null);
   
   const [stats, setStats] = useState({
     totalBookings: 0,
