@@ -136,6 +136,8 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
   const [renameValue, setRenameValue] = useState('');
   const [projectPickerConvId, setProjectPickerConvId] = useState<string | null>(null);
   const [projectsList, setProjectsList] = useState<{ id: string; name: string; color: string | null }[]>([]);
+  const [newProjectInline, setNewProjectInline] = useState(false);
+  const [newProjectName, setNewProjectName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Image editor state
@@ -299,8 +301,36 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
   const assignToProject = async (convId: string, projectId: string | null) => {
     await (supabase as any).from('ai_conversations').update({ project_id: projectId }).eq('id', convId);
     setProjectPickerConvId(null);
+    setNewProjectInline(false);
+    setNewProjectName('');
     loadConversations();
     toast.success(projectId ? 'Dodano do projektu' : 'Usunięto z projektu');
+  };
+
+  const createProjectInPicker = async () => {
+    if (!newProjectName.trim() || !userId) return;
+    try {
+      const { data, error } = await (supabase as any)
+        .from('workspace_projects')
+        .insert({ name: newProjectName.trim(), owner_user_id: userId, status: 'active' })
+        .select('id,name,color')
+        .single();
+      if (error) throw error;
+      // Add self as member
+      await (supabase as any).from('workspace_project_members').insert({
+        project_id: data.id,
+        user_id: userId,
+        role: 'owner',
+      });
+      setProjectsList(prev => [data, ...prev]);
+      // Assign conversation to the new project
+      if (projectPickerConvId) {
+        await assignToProject(projectPickerConvId, data.id);
+      }
+      toast.success(`Projekt "${data.name}" utworzony`);
+    } catch {
+      toast.error('Nie udało się utworzyć projektu');
+    }
   };
 
   const loadConversation = async (convId: string) => {
@@ -1343,10 +1373,40 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
                       {p.name}
                     </button>
                   ))}
-                  {projectsList.length === 0 && (
-                    <p className="text-xs text-muted-foreground text-center py-4">Brak projektów — stwórz nowy w sekcji Projekty</p>
-                  )}
                 </div>
+                {/* Inline create new project */}
+                {!newProjectInline ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full gap-1.5 text-xs"
+                    onClick={() => setNewProjectInline(true)}
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Stwórz nowy projekt
+                  </Button>
+                ) : (
+                  <div className="space-y-2 border-t pt-2">
+                    <input
+                      autoFocus
+                      placeholder="Nazwa projektu..."
+                      value={newProjectName}
+                      onChange={e => setNewProjectName(e.target.value)}
+                      className="w-full px-3 py-1.5 text-sm border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && newProjectName.trim()) createProjectInPicker();
+                        if (e.key === 'Escape') { setNewProjectInline(false); setNewProjectName(''); }
+                      }}
+                    />
+                    <div className="flex gap-1.5">
+                      <Button size="sm" className="flex-1 text-xs h-7" disabled={!newProjectName.trim()} onClick={createProjectInPicker}>
+                        Utwórz
+                      </Button>
+                      <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => { setNewProjectInline(false); setNewProjectName(''); }}>
+                        Anuluj
+                      </Button>
+                    </div>
+                  </div>
+                )}
                 {conversations.find(c => c.id === projectPickerConvId)?.project_id && (
                   <Button variant="ghost" size="sm" className="w-full text-xs text-destructive" onClick={() => assignToProject(projectPickerConvId, null)}>
                     Usuń z projektu
