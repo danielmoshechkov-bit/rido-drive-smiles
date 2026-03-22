@@ -567,32 +567,171 @@ export default function RidoAIChatPage() {
           </div>
         </div>
       )}
+
+      {/* Add to project dialog */}
+      <AddToProjectDialog
+        convId={projectDialogConvId}
+        userId={userId}
+        onClose={() => setProjectDialogConvId(null)}
+        onDone={() => { setProjectDialogConvId(null); loadConversations(); }}
+      />
     </div>
   );
 }
 
+/* Add to project dialog */
+function AddToProjectDialog({ convId, userId, onClose, onDone }: {
+  convId: string | null; userId: string | null; onClose: () => void; onDone: () => void;
+}) {
+  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
+  const [search, setSearch] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState('');
+
+  useEffect(() => {
+    if (!convId || !userId) return;
+    (supabase as any).from('workspace_projects').select('id,name')
+      .eq('owner_user_id', userId).order('name').then(({ data }: any) => {
+        if (data) setProjects(data);
+      });
+  }, [convId, userId]);
+
+  const filtered = projects.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
+
+  const assignProject = async (projectId: string) => {
+    if (!convId) return;
+    await (supabase as any).from('ai_conversations').update({ project_id: projectId }).eq('id', convId);
+    onDone();
+  };
+
+  const createAndAssign = async () => {
+    if (!newName.trim() || !userId || !convId) return;
+    const { data } = await (supabase as any).from('workspace_projects')
+      .insert({ name: newName.trim(), owner_user_id: userId, status: 'active' }).select().single();
+    if (data) {
+      await (supabase as any).from('workspace_project_members')
+        .insert({ project_id: data.id, user_id: userId, role: 'owner' });
+      await assignProject(data.id);
+    }
+  };
+
+  return (
+    <Dialog open={!!convId} onOpenChange={open => { if (!open) onClose(); }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Dodaj do projektu</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">Wybierz projekt, do którego chcesz przypisać tę rozmowę.</p>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Szukaj lub utwórz projekt..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <div className="max-h-[240px] overflow-auto space-y-1">
+          {filtered.map(p => (
+            <button key={p.id} onClick={() => assignProject(p.id)}
+              className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-lg hover:bg-muted transition-colors text-sm text-left">
+              <FolderPlus className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              <span className="truncate">{p.name}</span>
+            </button>
+          ))}
+          {filtered.length === 0 && !creating && (
+            <p className="text-center text-xs text-muted-foreground py-4">Brak projektów</p>
+          )}
+        </div>
+        {!creating ? (
+          <Button variant="outline" size="sm" onClick={() => { setCreating(true); setNewName(search); }} className="w-full gap-2">
+            <Plus className="h-4 w-4" /> Nowy projekt
+          </Button>
+        ) : (
+          <div className="flex gap-2">
+            <Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Nazwa projektu..." autoFocus
+              onKeyDown={e => { if (e.key === 'Enter') createAndAssign(); }} />
+            <Button onClick={createAndAssign} disabled={!newName.trim()} size="sm">Utwórz</Button>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 /* Conversation list item component */
-function ConvItem({ conv, active, onClick, onDelete }: { conv: Conv; active: boolean; onClick: () => void; onDelete: () => void }) {
+function ConvItem({ conv, active, onClick, onStar, onRename, onAddToProject, onDelete }: {
+  conv: Conv; active: boolean; onClick: () => void;
+  onStar: () => void; onRename: (title: string) => void;
+  onAddToProject: () => void; onDelete: () => void;
+}) {
   const [hovered, setHovered] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState(conv.title || '');
+
+  if (renaming) {
+    return (
+      <div className="flex items-center gap-1 px-2 py-1">
+        <input
+          autoFocus
+          value={renameValue}
+          onChange={e => setRenameValue(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'Enter') { onRename(renameValue); setRenaming(false); }
+            if (e.key === 'Escape') setRenaming(false);
+          }}
+          onBlur={() => { onRename(renameValue); setRenaming(false); }}
+          className="flex-1 text-sm px-2 py-1.5 rounded-lg bg-muted border border-border outline-none focus:ring-1 focus:ring-primary"
+        />
+      </div>
+    );
+  }
+
   return (
     <div
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       className={cn(
-        'flex items-center gap-2 px-3 py-2.5 rounded-xl cursor-pointer text-sm transition-colors',
+        'group flex items-center gap-1 px-3 py-2 rounded-xl cursor-pointer text-sm transition-colors',
         active ? 'bg-primary text-primary-foreground font-medium' : 'text-foreground hover:bg-accent hover:text-accent-foreground'
       )}
     >
-      <span className="flex-1 truncate font-medium">{conv.title || 'Nowa rozmowa'}</span>
+      {conv.is_starred && <Star className="h-3 w-3 fill-yellow-400 text-yellow-400 flex-shrink-0" />}
+      <span className="flex-1 truncate">{conv.title || 'Nowa rozmowa'}</span>
       {(hovered || active) && (
-        <button
-          onClick={e => { e.preventDefault(); e.stopPropagation(); onDelete(); }}
-          className="p-1 hover:bg-destructive/20 rounded-lg transition-colors flex-shrink-0 opacity-70 hover:opacity-100"
-          title="Usuń rozmowę"
-        >
-          <Trash2 className="h-3.5 w-3.5 text-destructive" />
-        </button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              onClick={e => { e.preventDefault(); e.stopPropagation(); }}
+              className={cn(
+                'p-1 rounded-lg transition-colors flex-shrink-0',
+                active ? 'hover:bg-primary-foreground/20' : 'hover:bg-muted'
+              )}
+            >
+              <MoreHorizontal className="h-3.5 w-3.5" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-[160px]" onClick={e => e.stopPropagation()}>
+            <DropdownMenuItem onClick={onStar}>
+              <Star className={cn("h-4 w-4 mr-2", conv.is_starred && "fill-yellow-400 text-yellow-400")} />
+              {conv.is_starred ? 'Usuń z ulubionych' : 'Dodaj do ulubionych'}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => { setRenameValue(conv.title || ''); setRenaming(true); }}>
+              <Pencil className="h-4 w-4 mr-2" />
+              Zmień nazwę
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onAddToProject}>
+              <FolderPlus className="h-4 w-4 mr-2" />
+              Dodaj do projektu
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={onDelete} className="text-destructive focus:text-destructive">
+              <Trash2 className="h-4 w-4 mr-2" />
+              Usuń
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       )}
     </div>
   );
