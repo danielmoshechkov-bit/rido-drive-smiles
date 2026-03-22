@@ -261,8 +261,8 @@ export default function RidoAIChatPage() {
         <div className="border-t mx-3" />
 
         {/* Conversations list */}
-        <ScrollArea className="flex-1 px-1">
-          <div className="px-2 py-2">
+        <ScrollArea className="flex-1 px-1 overflow-hidden">
+          <div className="px-2 py-2 overflow-hidden">
             {/* Starred section */}
             {!searchQuery && filteredConversations.some(c => c.is_starred) && (
               <div className="mb-3">
@@ -696,15 +696,21 @@ function ConvItem({ conv, active, onClick, onStar, onRename, onAddToProject, onD
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       className={cn(
-        'group flex items-center gap-1.5 px-2.5 py-2 rounded-xl cursor-pointer text-sm transition-colors overflow-hidden',
+        'group flex items-center px-2.5 py-2 rounded-xl cursor-pointer text-sm transition-colors',
         active ? 'bg-primary text-primary-foreground font-medium' : 'text-foreground hover:bg-accent hover:text-accent-foreground'
       )}
+      style={{ maxWidth: '100%', overflow: 'hidden' }}
     >
-      {conv.is_starred && <Star className="h-3 w-3 fill-yellow-400 text-yellow-400 flex-shrink-0" />}
-      <span className="flex-1 truncate min-w-0 block" style={{ maxWidth: showMenu ? 'calc(100% - 28px)' : '100%' }}>
-        {conv.title || 'Nowa rozmowa'}
-      </span>
-      <div className="flex-shrink-0" style={{ width: '24px', opacity: showMenu ? 1 : 0, transition: 'opacity 0.15s' }}>
+      {conv.is_starred && <Star className="h-3 w-3 fill-yellow-400 text-yellow-400 flex-shrink-0 mr-1.5" />}
+      <span className="truncate flex-1 min-w-0">{conv.title || 'Nowa rozmowa'}</span>
+      <div
+        className="flex-shrink-0 ml-1"
+        style={{
+          opacity: showMenu ? 1 : 0,
+          pointerEvents: showMenu ? 'auto' : 'none',
+          transition: 'opacity 0.15s',
+        }}
+      >
         <DropdownMenu onOpenChange={setMenuOpen}>
           <DropdownMenuTrigger asChild>
             <button
