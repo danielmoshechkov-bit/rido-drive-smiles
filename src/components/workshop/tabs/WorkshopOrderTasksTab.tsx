@@ -28,6 +28,7 @@ const VAT_RATE = 1.23;
 type DiscountType = 'percent' | 'amount';
 
 interface TaskRow {
+  draftKey?: string;
   name: string;
   mechanic: string;
   quantity: number;
@@ -40,6 +41,7 @@ interface TaskRow {
 }
 
 interface GoodsRow {
+  draftKey?: string;
   name: string;
   quantity: number;
   unit: string;
@@ -122,13 +124,16 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   const isTaskGross = taskPriceMode === 'gross';
   const isGoodsGross = goodsPriceMode === 'gross';
 
-  const emptyTask: TaskRow = { name: '', mechanic: '', quantity: 1, price_net: 0, price_gross: 0, cost_net: 0, cost_gross: 0, discount: 0, discountType: 'percent' };
+  const createEmptyTask = (): TaskRow => ({ draftKey: crypto.randomUUID(), name: '', mechanic: '', quantity: 1, price_net: 0, price_gross: 0, cost_net: 0, cost_gross: 0, discount: 0, discountType: 'percent' });
+  const emptyTask: TaskRow = createEmptyTask();
   const [taskRows, setTaskRows] = useState<TaskRow[]>([{ ...emptyTask }]);
   const [taskSearch, setTaskSearch] = useState('');
 
-  const emptyGoods: GoodsRow = { name: '', quantity: 1, unit: 'szt', price_net: 0, price_gross: 0, cost_net: 0, cost_gross: 0, discount: 0, discountType: 'percent', task_name: '' };
+  const createEmptyGoods = (): GoodsRow => ({ draftKey: crypto.randomUUID(), name: '', quantity: 1, unit: 'szt', price_net: 0, price_gross: 0, cost_net: 0, cost_gross: 0, discount: 0, discountType: 'percent', task_name: '' });
+  const emptyGoods: GoodsRow = createEmptyGoods();
   const [goodsRows, setGoodsRows] = useState<GoodsRow[]>([{ ...emptyGoods }]);
   const [goodsSearch, setGoodsSearch] = useState('');
+  const draftStorageKey = `workshop-order-draft:${order.id}`;
 
   const syncPrice = (val: number, field: 'net' | 'gross') => {
     if (field === 'net') return { net: val, gross: Math.round(val * VAT_RATE * 100) / 100 };
@@ -155,6 +160,9 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       ? (grossValue || (netValue > 0 ? netValue * VAT_RATE : 0))
       : (netValue || (grossValue > 0 ? grossValue / VAT_RATE : 0));
   };
+
+  const hasTaskDraftValue = (row: TaskRow) => row.name.trim().length > 0 || row.mechanic.trim().length > 0 || getDraftPrice(row, true) > 0 || getDraftCost(row, true) > 0;
+  const hasGoodsDraftValue = (row: GoodsRow) => row.name.trim().length > 0 || row.unit.trim().length > 0 || getDraftPrice(row, true) > 0 || getDraftCost(row, true) > 0;
 
   const isTaskDraftFilled = (row: TaskRow) => row.name.trim().length > 0 && getDraftPrice(row, isTaskGross) > 0;
   const isGoodsDraftFilled = (row: GoodsRow) => row.name.trim().length > 0 && getDraftPrice(row, isGoodsGross) > 0;
@@ -194,7 +202,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     updateTaskRow(idx, { price_net: net, price_gross: gross });
   };
 
-  const addTaskRow = () => setTaskRows(prev => [...prev, { ...emptyTask }]);
+  const addTaskRow = () => setTaskRows(prev => [...prev, createEmptyTask()]);
 
   const removeTaskRow = (idx: number) => {
     if (taskRows.length <= 1) return;
@@ -243,7 +251,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       });
     }
 
-    setTaskRows(prev => prev.map((r, i) => i === idx ? { ...emptyTask } : r));
+    setTaskRows(prev => prev.map((r, i) => i === idx ? createEmptyTask() : r));
     toast.success('Usługa dodana');
   };
 
@@ -262,7 +270,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     updateGoodsRow(idx, { cost_net: net, cost_gross: gross });
   };
 
-  const addGoodsRow = () => setGoodsRows(prev => [...prev, { ...emptyGoods }]);
+  const addGoodsRow = () => setGoodsRows(prev => [...prev, createEmptyGoods()]);
 
   const removeGoodsRow = (idx: number) => {
     if (goodsRows.length <= 1) return;
@@ -293,7 +301,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       total_net: isGoodsGross ? totalAfterDiscount / VAT_RATE : totalAfterDiscount,
     });
 
-    setGoodsRows(prev => prev.map((r, i) => i === idx ? { ...emptyGoods } : r));
+    setGoodsRows(prev => prev.map((r, i) => i === idx ? createEmptyGoods() : r));
     toast.success('Część dodana');
   };
 
@@ -378,6 +386,37 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   const displayGrandProfit = displayGrandTotal - displayGrandCost;
 
   useEffect(() => {
+    try {
+      const rawDraft = localStorage.getItem(draftStorageKey);
+      if (!rawDraft) return;
+
+      const parsed = JSON.parse(rawDraft);
+      if (Array.isArray(parsed?.tasks) && parsed.tasks.length > 0) {
+        setTaskRows(parsed.tasks.map((row: TaskRow) => ({ ...createEmptyTask(), ...row, draftKey: row.draftKey || crypto.randomUUID() })));
+      }
+      if (Array.isArray(parsed?.goods) && parsed.goods.length > 0) {
+        setGoodsRows(parsed.goods.map((row: GoodsRow) => ({ ...createEmptyGoods(), ...row, draftKey: row.draftKey || crypto.randomUUID() })));
+      }
+    } catch {
+      localStorage.removeItem(draftStorageKey);
+    }
+  }, [draftStorageKey]);
+
+  useEffect(() => {
+    const draftPayload = {
+      tasks: taskRows.filter(hasTaskDraftValue),
+      goods: goodsRows.filter(hasGoodsDraftValue),
+    };
+
+    if (draftPayload.tasks.length === 0 && draftPayload.goods.length === 0) {
+      localStorage.removeItem(draftStorageKey);
+      return;
+    }
+
+    localStorage.setItem(draftStorageKey, JSON.stringify(draftPayload));
+  }, [draftStorageKey, taskRows, goodsRows]);
+
+  useEffect(() => {
     const currentGross = safeNumber(order.total_gross);
     const currentNet = safeNumber(order.total_net);
     if (Math.abs(currentGross - savedGrandGrossTotal) < 0.01 && Math.abs(currentNet - savedGrandNetTotal) < 0.01) {
@@ -403,7 +442,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       await submitTask(row, sourceIndex >= 0 ? sourceIndex : 0);
     }
 
-    setTaskRows([{ ...emptyTask }]);
+    setTaskRows([createEmptyTask()]);
   };
 
   const saveGoodsDraftRows = async () => {
@@ -418,7 +457,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       await submitGoods(row, sourceIndex >= 0 ? sourceIndex : 0);
     }
 
-    setGoodsRows([{ ...emptyGoods }]);
+    setGoodsRows([createEmptyGoods()]);
   };
 
   // Inline editable cell renderer
@@ -629,10 +668,9 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                 {/* Sum row */}
                 <tr className="bg-muted/30 font-semibold text-sm border-b">
                   <td className="p-2"></td>
-                  <td className="p-2" colSpan={2}>Razem usługi</td>
+                  <td className="p-2" colSpan={4}>Razem usługi</td>
+                  <td className="p-2"></td>
                   <td className="p-2 text-right tabular-nums">{fmt(displayTasksTotal)}</td>
-                  <td className="p-2"></td>
-                  <td className="p-2"></td>
                   <td className="p-2"></td>
                 </tr>
                 <tr className="bg-primary/5">
@@ -836,10 +874,9 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                 {/* Sum row */}
                 <tr className="bg-muted/30 font-semibold text-sm border-b">
                   <td className="p-2"></td>
-                  <td className="p-2" colSpan={5}>Razem części</td>
+                  <td className="p-2" colSpan={7}>Razem części</td>
+                  <td className="p-2"></td>
                   <td className="p-2 text-right tabular-nums">{fmt(displayGoodsTotal)}</td>
-                  <td className="p-2"></td>
-                  <td className="p-2"></td>
                   <td className="p-2"></td>
                 </tr>
                 <tr className="bg-amber-500/5">
@@ -880,15 +917,15 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
         <CardContent className="py-4 space-y-4">
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-xl border bg-background/70 px-4 py-3 text-center">
-              <p className="text-xs text-muted-foreground mb-1">Robocizna</p>
+              <p className="text-xs text-muted-foreground mb-1">Robocizna od klienta</p>
               <p className="text-lg font-bold tabular-nums">{fmt(displayTasksTotal)}</p>
             </div>
             <div className="rounded-xl border bg-background/70 px-4 py-3 text-center">
-              <p className="text-xs text-muted-foreground mb-1">Części</p>
+              <p className="text-xs text-muted-foreground mb-1">Części od klienta</p>
               <p className="text-lg font-bold tabular-nums">{fmt(displayGoodsTotal)}</p>
             </div>
             <div className="rounded-xl border bg-background/70 px-4 py-3 text-center">
-              <p className="text-xs text-muted-foreground mb-1">Koszt własny</p>
+              <p className="text-xs text-muted-foreground mb-1">Wydasz łącznie</p>
               <p className="text-lg font-bold text-muted-foreground tabular-nums">{fmt(displayGrandCost)}</p>
             </div>
             <div className="rounded-xl border bg-background/70 px-4 py-3 text-center">
@@ -905,7 +942,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
               <p className="text-sm text-muted-foreground mt-1">Koszt części i robocizny vs. końcowa wartość sprzedaży.</p>
             </div>
             <div className="text-right">
-              <p className="text-xs text-muted-foreground mb-1">Razem do zapłaty</p>
+              <p className="text-xs text-muted-foreground mb-1">Łącznie od klienta</p>
               <p className="text-3xl font-bold tabular-nums">{fmt(displayGrandTotal)}</p>
               {displayGrandTotal > 0 && (
                 <p className="text-xs text-muted-foreground mt-1">
