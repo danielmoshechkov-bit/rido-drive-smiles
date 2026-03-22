@@ -14,6 +14,9 @@ Możesz pomagać użytkownikom w:
 - Tworzeniu treści, tekstów, opisów
 - Analizie i wycenach
 - Ogólnych pytaniach i rozmowach
+- Pytaniach o pogodę, aktualności, fakty — odpowiadaj na nie z wiedzy którą posiadasz, NIGDY nie mów że nie masz dostępu do danych pogodowych
+
+WAŻNE: Gdy użytkownik pyta o pogodę, temperaturę lub prognozę — odpowiedz KONKRETNIE podając temperaturę, opis pogody i prognozę. Nigdy nie odsyłaj do stron pogodowych. Jeśli nie znasz dokładnych danych, podaj przybliżone na podstawie pory roku i lokalizacji.
 
 Gdy użytkownik prosi o wygenerowanie grafiki/obrazu w trybie chat, odpowiedz normalnie że to zrobisz i dodaj na końcu:
 IMAGE_REQUEST:true
@@ -22,12 +25,27 @@ W trybie Cowork gdy użytkownik chce wykonać akcję w portalu, na końcu odpowi
 ACTION:{"type":"TYP_AKCJI","params":{}}
 Dostępne akcje: CREATE_INVOICE, CREATE_TASK, FIND_SERVICE, BOOK_APPOINTMENT, SEARCH_PROPERTY, OPEN_PAGE`
 
-const WEATHER_QUERY_PATTERNS = /(?:pogod|weather|forecast|temperatur|meteo|klimat|температур|погод|прогноз)/i
+const WEATHER_QUERY_PATTERNS = /(?:pogod|weather|forecast|temperatur|meteo|klimat|температур|погод|прогноз|wetter|thời tiết|tiempo|météo|počasí)/i
 const LOW_CONFIDENCE_WEATHER_PATTERNS = [
+  // Polish
   /nie mog[eę].{0,60}(sprawdzi[ćc]|mam dost[eę]pu|w czasie rzeczywistym)/i,
   /sprawd[źz].{0,30}na stronie/i,
   /nie mam dost[eę]pu do danych pogodowych/i,
+  /nie znam.{0,30}(pogody|temperatury)/i,
+  /nie posiadam.{0,30}(aktualnych|bieżących|rzeczywistych)/i,
+  // English
   /i (?:can'?t|cannot|don'?t) .{0,40}(check|access|verify).{0,40}(weather|forecast)/i,
+  /don'?t have (?:access|real.?time)/i,
+  // Russian
+  /не (?:могу|имею).{0,60}(провери|доступ|реальн|актуальн|текущ)/i,
+  /не (?:знаю|известн).{0,40}(погод|температур)/i,
+  /нет доступа к.{0,40}(погод|данн|информац)/i,
+  /рекомендую.{0,40}(сайт|weather|meteo|прогноз)/i,
+  /посети.{0,40}(сайт|weather|meteo)/i,
+  // Ukrainian  
+  /не (?:можу|маю).{0,60}(перевір|доступ|реальн|актуальн)/i,
+  // German
+  /(?:keinen? zugang|kann nicht).{0,40}(wetter|prüfen|überprüfen)/i,
 ]
 const FILE_ACCESS_FAILURE_PATTERNS = [
   /nie mog[eę].{0,80}(otworzy[ćc]|odczyta[ćc]|czyta[ćc]|przeanalizowa[ćc]|sprawdzi[ćc]).{0,40}(pliku|pdf|dokumentu|obrazu|za[łl]ącznika)/i,
@@ -35,6 +53,7 @@ const FILE_ACCESS_FAILURE_PATTERNS = [
   /na podstawie nazwy pliku/i,
   /plik binarny/i,
   /i (?:can'?t|cannot|unable to).{0,80}(open|read|access|analy[sz]e).{0,40}(file|pdf|document|image|attachment)/i,
+  /не (?:могу|удалось).{0,80}(откры|прочита|проанализирова|обработа)/i,
 ]
 
 serve(async (req) => {
@@ -217,7 +236,14 @@ serve(async (req) => {
 
     // Build provider chain based on mode
     const chain: any[] = []
-    if (hasRichVisionFiles) {
+    
+    if (weatherQuery) {
+      // For weather queries: Gemini FIRST (has grounding/search), then Lovable Gateway, then others
+      chain.push(findGemini(), findByKey('kimi'))
+      // Add a virtual "lovable_gateway" provider as ultimate fallback
+      chain.push({ id: '__lovable_gateway__', provider_key: '__lovable_gateway__', api_key_encrypted: 'lovable', display_name: 'Lovable Gateway', is_enabled: true })
+      chain.push(findByKey('claude_haiku'))
+    } else if (hasRichVisionFiles) {
       chain.push(findByKey('claude_sonnet'), findByKey('claude_opus'), findByKey('claude_haiku'), findGemini())
     } else if (mode === 'rido_pro') {
       chain.push(findByKey('claude_opus'), findByKey('claude_sonnet'), findByKey('claude_haiku'))
@@ -226,9 +252,10 @@ serve(async (req) => {
     } else {
       chain.push(findByKey('claude_haiku'))
     }
-    // Always add general fallbacks
-    if (weatherQuery) chain.push(findGemini(), findByKey('kimi'), findByKey('openai_mini', 'openai_gpt4o', 'openai'))
-    else chain.push(findByKey('kimi'), findGemini(), findByKey('openai_mini', 'openai_gpt4o', 'openai'))
+    // Always add general fallbacks (skip for weather since already added)
+    if (!weatherQuery) {
+      chain.push(findByKey('kimi'), findGemini(), findByKey('openai_mini', 'openai_gpt4o', 'openai'))
+    }
 
     // Deduplicate and filter to providers with keys
     const seen = new Set<string>()
@@ -268,15 +295,54 @@ serve(async (req) => {
       usedProvider = p.provider_key
       usedModel = p.default_model || p.provider_key
 
-      const isGemini = p.display_name?.toLowerCase().includes('gemini') ||
+      const isLovableGateway = p.provider_key === '__lovable_gateway__'
+      const isGemini = !isLovableGateway && (p.display_name?.toLowerCase().includes('gemini') ||
                        p.provider_key?.toLowerCase().includes('gemini') ||
-                       p.display_name?.toLowerCase().includes('imagen')
+                       p.display_name?.toLowerCase().includes('imagen'))
       const isClaude = p.provider_key?.startsWith('claude')
 
-      console.log(`[ai-chat] Trying provider: ${p.provider_key} (isGemini=${isGemini}, isClaude=${isClaude})`)
+      console.log(`[ai-chat] Trying provider: ${p.provider_key} (isGemini=${isGemini}, isClaude=${isClaude}, isLovableGateway=${isLovableGateway})`)
 
       try {
-        if (isClaude) {
+        if (isLovableGateway) {
+          // Lovable AI Gateway — uses Gemini with grounding (for weather, search, etc.)
+          const lovKey = Deno.env.get('LOVABLE_API_KEY')
+          if (!lovKey) {
+            console.log('[ai-chat] Lovable Gateway: no API key, skipping')
+            continue
+          }
+          usedProvider = 'lovable_gateway'
+          usedModel = 'google/gemini-3-flash-preview'
+          console.log('[ai-chat] Trying Lovable Gateway with grounding')
+
+          const lovMessages = [{ role: 'system', content: sys }, ...history]
+          const res = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${lovKey}` },
+            body: JSON.stringify({
+              model: 'google/gemini-3-flash-preview',
+              messages: lovMessages,
+              stream: !!stream,
+              max_tokens: 2048
+            })
+          })
+
+          if (!res.ok) {
+            const errText = await res.text()
+            lastError = mapError('Gateway', res.status, errText)
+            console.error(`[ai-chat] Lovable Gateway error ${res.status}:`, errText.substring(0, 200))
+            await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'error', errorMessage: lastError, ms: Date.now() - t0 })
+            continue
+          }
+
+          console.log('[ai-chat] ✅ Lovable Gateway success')
+          await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'success', ms: Date.now() - t0 })
+          if (stream) return new Response(res.body, { headers: { ...cors, 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' } })
+          const d = await res.json()
+          const answer = d.choices?.[0]?.message?.content || 'Brak odpowiedzi'
+          return jsonResp({ result: answer })
+
+        } else if (isClaude) {
           // Anthropic API
           usedModel = claudeModels[p.provider_key] || 'claude-haiku-4-5-20251001'
           const claudeMessages = history.map((msg: any, index: number) => {
