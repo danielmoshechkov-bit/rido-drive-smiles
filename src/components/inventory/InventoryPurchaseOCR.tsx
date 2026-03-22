@@ -417,7 +417,7 @@ Odpowiedz TYLKO samym JSON bez żadnego tekstu, bez markdown.`,
             gtu_code: item.gtu_code || null,
           });
 
-        // 3. Update stock_quantity for mapped products
+        // 3. Update stock_quantity + create stock_movement + supplier_mapping
         if (item.mapped_product_id) {
           const product = products.find(p => p.id === item.mapped_product_id);
           if (product) {
@@ -429,6 +429,31 @@ Odpowiedz TYLKO samym JSON bez żadnego tekstu, bez markdown.`,
                 purchase_price: item.unit_price_net,
               })
               .eq('id', item.mapped_product_id);
+
+            // stock_movements record
+            await supabase
+              .from('stock_movements')
+              .insert({
+                product_id: item.mapped_product_id,
+                movement_type: 'purchase',
+                quantity: item.quantity,
+                unit_price: item.unit_price_net,
+                invoice_id: invoice.id,
+                invoice_number: invoiceHeader.document_number || null,
+                supplier: invoiceHeader.supplier_name || null,
+                notes: `OCR import: ${item.name}`,
+              } as any);
+          }
+
+          // supplier_mappings — zapamiętaj powiązanie nazwy dostawcy z produktem
+          if (item.supplier_symbol || item.name) {
+            await supabase
+              .from('supplier_mappings' as any)
+              .insert({
+                supplier_name: item.name,
+                supplier_symbol: item.supplier_symbol || null,
+                product_id: item.mapped_product_id,
+              });
           }
         }
       }
