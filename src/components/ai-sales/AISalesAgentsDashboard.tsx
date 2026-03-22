@@ -3,7 +3,7 @@ import { UniversalSubTabBar } from '@/components/UniversalSubTabBar';
 import { AISalesOverview } from './AISalesOverview';
 import { AISalesLeadsList } from './AISalesLeadsList';
 import { AISalesConversationsList } from './AISalesConversationsList';
-import { AISalesKnowledgeBase } from './AISalesKnowledgeBase';
+import { MyAgentPanel } from './MyAgentPanel';
 import { AISalesAgentWizard } from './AISalesAgentWizard';
 
 export function AISalesAgentsDashboard() {
@@ -15,7 +15,7 @@ export function AISalesAgentsDashboard() {
     { value: 'overview', label: 'Dashboard', visible: true },
     { value: 'leads', label: 'Leady', visible: true },
     { value: 'conversations', label: 'Konwersacje', visible: true },
-    { value: 'knowledge', label: 'Wiedza AI', visible: true },
+    { value: 'my-agent', label: 'Mój Agent', visible: true },
   ];
 
   if (wizardOpen) {
@@ -39,7 +39,7 @@ export function AISalesAgentsDashboard() {
       )}
       {activeTab === 'leads' && <AISalesLeadsList />}
       {activeTab === 'conversations' && <AISalesConversationsList />}
-      {activeTab === 'knowledge' && <AISalesKnowledgeBase />}
+      {activeTab === 'my-agent' && <MyAgentPanel />}
     </div>
   );
 }

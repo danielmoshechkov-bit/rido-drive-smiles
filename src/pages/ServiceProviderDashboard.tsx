@@ -36,6 +36,7 @@ import { AdOrderModal } from '@/components/ads/AdOrderModal';
 import { KnowledgeBaseEditor } from '@/components/ai-agents/KnowledgeBaseEditor';
 import { ConversationAnalytics } from '@/components/ai-agents/ConversationAnalytics';
 import { GlobalLearningPanel } from '@/components/ai-agents/GlobalLearningPanel';
+import { CalendarAIAssistant } from '@/components/calendar/CalendarAIAssistant';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   LayoutDashboard, Wrench, Calendar, ClipboardList, Settings, Phone,
@@ -648,12 +649,17 @@ export default function ServiceProviderDashboard() {
               ]}
             />
             {calendarSubTab === 'calendar' && (
-              <div className="mt-4">
-                {providerId ? (
-                  <WorkshopScheduler providerId={providerId} onBack={() => setActiveTab('dashboard')} title="" />
-                ) : (
-                  <CalendarView />
-                )}
+              <div className="mt-4 flex gap-4">
+                <div className="flex-1 min-w-0">
+                  {providerId ? (
+                    <WorkshopScheduler providerId={providerId} onBack={() => setActiveTab('dashboard')} title="" />
+                  ) : (
+                    <CalendarView />
+                  )}
+                </div>
+                <div className="hidden lg:block w-[280px] flex-shrink-0">
+                  <CalendarAIAssistant providerId={providerId} />
+                </div>
               </div>
             )}
             {calendarSubTab === 'bookings' && (
