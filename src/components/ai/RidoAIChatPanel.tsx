@@ -779,11 +779,23 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
     if (validAnnotations.length === 0 || !canvasRef.current || !maskCanvasRef.current || isEditing) return;
     setIsEditing(true);
     try {
-      const combinedPrompt = validAnnotations.map((a, i) => `${i + 1}. ${a.description}`).join('\n');
+      // Ensure mask is fully redrawn from geometry before capturing
+      redrawAnnotations(annotations);
+      
+      // Build prompt with positional context 
+      const cw = canvasRef.current.width;
+      const ch = canvasRef.current.height;
+      const combinedPrompt = validAnnotations.map((a, i) => {
+        const posDesc = a.center 
+          ? `(pozycja: ${Math.round(a.center.x / cw * 100)}% od lewej, ${Math.round(a.center.y / ch * 100)}% od góry)`
+          : '';
+        return `${i + 1}. ${a.description} ${posDesc}`;
+      }).join('\n');
+      
       const imageBase64 = canvasRef.current.toDataURL('image/png').split(',')[1];
       const maskBase64 = maskCanvasRef.current.toDataURL('image/png').split(',')[1];
       
-      console.log('[RidoAI] Sending inpaint request with', validAnnotations.length, 'annotations');
+      console.log('[RidoAI] Sending inpaint request with', validAnnotations.length, 'annotations, prompt:', combinedPrompt);
       
       const result = await execute({
         taskType: 'inpaint',
