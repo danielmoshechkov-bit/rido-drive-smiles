@@ -233,7 +233,14 @@ serve(async (req) => {
 
     // Build provider chain based on mode
     const chain: any[] = []
-    if (hasRichVisionFiles) {
+    
+    if (weatherQuery) {
+      // For weather queries: Gemini FIRST (has grounding/search), then Lovable Gateway, then others
+      chain.push(findGemini(), findByKey('kimi'))
+      // Add a virtual "lovable_gateway" provider as ultimate fallback
+      chain.push({ id: '__lovable_gateway__', provider_key: '__lovable_gateway__', api_key_encrypted: 'lovable', display_name: 'Lovable Gateway', is_enabled: true })
+      chain.push(findByKey('claude_haiku'))
+    } else if (hasRichVisionFiles) {
       chain.push(findByKey('claude_sonnet'), findByKey('claude_opus'), findByKey('claude_haiku'), findGemini())
     } else if (mode === 'rido_pro') {
       chain.push(findByKey('claude_opus'), findByKey('claude_sonnet'), findByKey('claude_haiku'))
@@ -242,9 +249,10 @@ serve(async (req) => {
     } else {
       chain.push(findByKey('claude_haiku'))
     }
-    // Always add general fallbacks
-    if (weatherQuery) chain.push(findGemini(), findByKey('kimi'), findByKey('openai_mini', 'openai_gpt4o', 'openai'))
-    else chain.push(findByKey('kimi'), findGemini(), findByKey('openai_mini', 'openai_gpt4o', 'openai'))
+    // Always add general fallbacks (skip for weather since already added)
+    if (!weatherQuery) {
+      chain.push(findByKey('kimi'), findGemini(), findByKey('openai_mini', 'openai_gpt4o', 'openai'))
+    }
 
     // Deduplicate and filter to providers with keys
     const seen = new Set<string>()
