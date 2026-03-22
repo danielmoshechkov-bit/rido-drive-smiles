@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { UniversalSubTabBar } from '@/components/UniversalSubTabBar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
@@ -226,29 +226,20 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
     toast.success('Układ paska zapisany');
   };
 
-  return (
-    <Card>
-      <CardContent className="pt-6">
-        <Tabs value={settingsTab} onValueChange={setSettingsTab}>
-          <TabsList className="mb-6">
-            <TabsTrigger value="konto" className="gap-1.5">
-              <Building2 className="h-4 w-4" /> Konto i firma
-            </TabsTrigger>
-            <TabsTrigger value="pracownicy" className="gap-1.5">
-              <Users className="h-4 w-4" /> Pracownicy
-            </TabsTrigger>
-            <TabsTrigger value="stanowiska" className="gap-1.5">
-              <Monitor className="h-4 w-4" /> Stanowiska
-            </TabsTrigger>
-            <TabsTrigger value="integracje" className="gap-1.5">
-              <Building2 className="h-4 w-4" /> Integracje
-            </TabsTrigger>
-            <TabsTrigger value="rido-price" className="gap-1.5">
-              <Sparkles className="h-4 w-4" /> Rido Price
-            </TabsTrigger>
-          </TabsList>
+  const settingsSubTabs = [
+    { value: 'konto', label: 'Konto i firma', visible: true },
+    { value: 'pracownicy', label: 'Pracownicy', visible: true },
+    { value: 'stanowiska', label: 'Stanowiska', visible: true },
+    { value: 'integracje', label: 'Integracje', visible: true },
+    { value: 'rido-price', label: 'Rido Price', visible: true },
+  ];
 
-          <TabsContent value="konto" className="space-y-6">
+  return (
+    <div className="space-y-6">
+      <UniversalSubTabBar activeTab={settingsTab} onTabChange={setSettingsTab} tabs={settingsSubTabs} />
+
+      {settingsTab === 'konto' && (
+        <div className="space-y-6">
             <Card className="border-dashed">
               <CardContent className="pt-6 space-y-4">
                 <div>
@@ -306,9 +297,11 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
             <div className="flex justify-end">
               <Button className="gap-2" onClick={handleSaveSettings}><Save className="h-4 w-4" /> Zapisz ustawienia</Button>
             </div>
-          </TabsContent>
+          </div>
+        )}
 
-          <TabsContent value="pracownicy" className="space-y-4">
+        {settingsTab === 'pracownicy' && (
+          <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="font-semibold">Pracownicy</h3>
@@ -373,9 +366,11 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
                 </DialogFooter>
               </DialogContent>
             </Dialog>
-          </TabsContent>
+          </div>
+        )}
 
-          <TabsContent value="stanowiska" className="space-y-4">
+        {settingsTab === 'stanowiska' && (
+          <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="font-semibold">Stanowiska robocze</h3>
@@ -420,25 +415,28 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
                 </DialogFooter>
               </DialogContent>
             </Dialog>
-          </TabsContent>
+          </div>
+        )}
 
-          <TabsContent value="integracje" className="space-y-6">
+        {settingsTab === 'integracje' && (
+          <div className="space-y-6">
             {providerId ? (
               <WorkshopPartsIntegrationsSettings providerId={providerId} />
             ) : (
               <p className="text-center py-8 text-muted-foreground">Brak providera</p>
             )}
-          </TabsContent>
+          </div>
+        )}
 
-          <TabsContent value="rido-price" className="space-y-6">
+        {settingsTab === 'rido-price' && (
+          <div className="space-y-6">
             {providerId ? (
               <RidoPriceSettingsTab providerId={providerId} />
             ) : (
               <p className="text-center py-8 text-muted-foreground">Brak providera</p>
             )}
-          </TabsContent>
-        </Tabs>
-      </CardContent>
-    </Card>
+          </div>
+        )}
+    </div>
   );
 }
