@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { Loader2, AlertTriangle, Sparkles } from 'lucide-react';
 import { useGetRidoAI } from '@/hooks/useGetRidoAI';
 import { supabase } from '@/integrations/supabase/client';
@@ -47,6 +47,7 @@ export function RidoPriceModal({
 }: Props) {
   const [mode, setMode] = useState<'net' | 'gross'>(initialMode);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [priceInputs, setPriceInputs] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { execute } = useGetRidoAI();
@@ -54,6 +55,11 @@ export function RidoPriceModal({
   useEffect(() => {
     setMode(initialMode);
   }, [initialMode]);
+
+  useEffect(() => {
+    if (!open) return;
+    setPriceInputs(services.map(service => service.currentPrice > 0 ? String(service.currentPrice) : ''));
+  }, [open, services]);
 
   useEffect(() => {
     if (open && services.length > 0) {
@@ -191,22 +197,32 @@ Odpowiedz TYLKO w formacie JSON — tablica obiektów, kolejność taka sama jak
     }
   };
 
-  const convertPrice = (price: number, fromMode: 'net' | 'gross', toMode: 'net' | 'gross') => {
-    if (fromMode === toMode) return price;
-    if (toMode === 'gross') return Math.round(price * VAT_RATE * 100) / 100;
-    return Math.round((price / VAT_RATE) * 100) / 100;
-  };
-
   const fmt = (v: number) => v.toLocaleString('pl-PL', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 
+  const getSuggestedPrice = (index: number) => {
+    const typed = Number((priceInputs[index] || '').replace(',', '.'));
+    if (Number.isFinite(typed) && typed > 0) return typed;
+    const suggestion = suggestions[index];
+    if (!suggestion) return services[index]?.currentPrice || 0;
+    return Math.round(((suggestion.min + suggestion.max) / 2) * 100) / 100;
+  };
+
+  const handlePriceChange = (index: number, value: string) => {
+    setPriceInputs(prev => prev.map((item, idx) => idx === index ? value : item));
+  };
+
+  const handlePriceCommit = (index: number) => {
+    const price = getSuggestedPrice(index);
+    if (price > 0) {
+      onApplySuggestions([{ index, price }]);
+    }
+  };
+
   const handleApplyAll = () => {
-    const prices: { index: number; price: number }[] = [];
-    suggestions.forEach((s, i) => {
-      if (services[i] && services[i].currentPrice <= 0) {
-        const mid = Math.round((s.min + s.max) / 2);
-        prices.push({ index: i, price: mid });
-      }
-    });
+    const prices = services
+      .map((_, index) => ({ index, price: getSuggestedPrice(index) }))
+      .filter(item => item.price > 0);
+
     onApplySuggestions(prices);
     onOpenChange(false);
   };
@@ -217,7 +233,7 @@ Odpowiedz TYLKO w formacie JSON — tablica obiektów, kolejność taka sama jak
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-5xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-lg">
             <Sparkles className="h-5 w-5 text-primary" />
@@ -226,6 +242,10 @@ Odpowiedz TYLKO w formacie JSON — tablica obiektów, kolejność taka sama jak
             {city && <span className="text-muted-foreground font-normal">| {city}</span>}
           </DialogTitle>
         </DialogHeader>
+
+        <div className="rounded-xl border bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+          Sprawdź zakres cen od AI, popraw <span className="font-medium text-foreground">Twoją cenę</span> i zatwierdź — zmiany od razu trafią do kosztorysu.
+        </div>
 
         {/* Net/Gross toggle */}
         <div className="flex items-center gap-1 bg-muted rounded-lg p-0.5 w-fit">
@@ -262,27 +282,45 @@ Odpowiedz TYLKO w formacie JSON — tablica obiektów, kolejność taka sama jak
             </Button>
           </div>
         ) : suggestions.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto rounded-xl border">
+            <table className="w-full min-w-[980px] text-sm">
               <thead>
                 <tr className="border-b bg-muted/30">
                   <th className="p-2 text-left font-medium text-muted-foreground">USŁUGA</th>
-                  <th className="p-2 text-right font-medium text-muted-foreground w-24">OD</th>
-                  <th className="p-2 text-right font-medium text-muted-foreground w-24">DO</th>
-                  <th className="p-2 text-left font-medium text-muted-foreground w-48">UWAGA AI</th>
+                  <th className="p-2 text-right font-medium text-muted-foreground w-36">TWOJA CENA</th>
+                  <th className="p-2 text-right font-medium text-muted-foreground w-28">OD</th>
+                  <th className="p-2 text-right font-medium text-muted-foreground w-28">DO</th>
+                  <th className="p-2 text-left font-medium text-muted-foreground min-w-[320px]">UWAGI RidoAI</th>
                 </tr>
               </thead>
               <tbody>
                 {suggestions.map((s, i) => (
-                  <tr key={i} className="border-b hover:bg-accent/30 transition-colors">
-                    <td className="p-2 font-medium">{s.name}</td>
+                  <tr key={i} className="border-b align-top hover:bg-accent/20 transition-colors">
+                    <td className="p-3 font-medium">
+                      <div className="line-clamp-2">{s.name}</div>
+                    </td>
+                    <td className="p-3">
+                      <Input
+                        value={priceInputs[i] ?? ''}
+                        onChange={(e) => handlePriceChange(i, e.target.value)}
+                        onBlur={() => handlePriceCommit(i)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.currentTarget.blur();
+                          }
+                        }}
+                        inputMode="decimal"
+                        className="h-10 text-right tabular-nums"
+                        placeholder={s.min && s.max ? fmt(Math.round((s.min + s.max) / 2)) : '0'}
+                      />
+                    </td>
                     <td className="p-2 text-right tabular-nums">{fmt(s.min)} zł</td>
                     <td className="p-2 text-right tabular-nums">{fmt(s.max)} zł</td>
-                    <td className="p-2">
+                    <td className="p-3">
                       {s.note ? (
-                        <span className="text-xs text-amber-600">{s.note}</span>
+                        <p className="text-sm leading-6 text-foreground/80">{s.note}</p>
                       ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
+                        <span className="text-sm text-muted-foreground">Brak dodatkowych uwag</span>
                       )}
                     </td>
                   </tr>
@@ -299,7 +337,7 @@ Odpowiedz TYLKO w formacie JSON — tablica obiektów, kolejność taka sama jak
           {suggestions.length > 0 && (
             <Button onClick={handleApplyAll} className="gap-2">
               <Sparkles className="h-4 w-4" />
-              Użyj wszystkich sugestii (środkowa cena)
+              Zastosuj ceny do kosztorysu
             </Button>
           )}
         </DialogFooter>
