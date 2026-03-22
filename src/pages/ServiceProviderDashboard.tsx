@@ -520,49 +520,49 @@ export default function ServiceProviderDashboard() {
             <Dialog open={serviceDialog} onOpenChange={setServiceDialog}>
               <DialogContent className="max-w-lg">
                 <DialogHeader>
-                  <DialogTitle>{editingService ? 'Edytuj usługę' : 'Dodaj nową usługę'}</DialogTitle>
+                  <DialogTitle>{editingService ? t('sp.services.editService') : t('sp.services.addNewService')}</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 max-h-[60vh] overflow-y-auto">
                   <div className="space-y-2">
-                    <Label>Nazwa usługi *</Label>
-                    <Input value={serviceForm.name} onChange={e => setServiceForm(p => ({ ...p, name: e.target.value }))} placeholder="np. Wymiana oleju, Korekta lakieru" />
+                    <Label>{t('sp.services.serviceNameLabel')}</Label>
+                    <Input value={serviceForm.name} onChange={e => setServiceForm(p => ({ ...p, name: e.target.value }))} placeholder={t('sp.services.serviceNamePlaceholder')} />
                   </div>
                   <div className="space-y-2">
-                    <Label>Krótki opis</Label>
-                    <Input value={serviceForm.short_description} onChange={e => setServiceForm(p => ({ ...p, short_description: e.target.value }))} placeholder="Krótkie podsumowanie widoczne na liście" />
+                    <Label>{t('sp.services.shortDesc')}</Label>
+                    <Input value={serviceForm.short_description} onChange={e => setServiceForm(p => ({ ...p, short_description: e.target.value }))} placeholder={t('sp.services.shortDescPlaceholder')} />
                   </div>
                   <div className="space-y-2">
-                    <Label>Pełny opis</Label>
-                    <Textarea rows={4} value={serviceForm.description} onChange={e => setServiceForm(p => ({ ...p, description: e.target.value }))} placeholder="Szczegółowy opis usługi..." />
+                    <Label>{t('sp.services.fullDesc')}</Label>
+                    <Textarea rows={4} value={serviceForm.description} onChange={e => setServiceForm(p => ({ ...p, description: e.target.value }))} placeholder={t('sp.services.fullDescPlaceholder')} />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Cena od (zł)</Label>
+                      <Label>{t('sp.services.priceFromLabel')}</Label>
                       <Input type="number" value={serviceForm.price_from} onChange={e => setServiceForm(p => ({ ...p, price_from: e.target.value }))} placeholder="0" />
                     </div>
                     <div className="space-y-2">
-                      <Label>Cena do (zł)</Label>
+                      <Label>{t('sp.services.priceToLabel')}</Label>
                       <Input type="number" value={serviceForm.price_to} onChange={e => setServiceForm(p => ({ ...p, price_to: e.target.value }))} placeholder="0" />
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label>Kategoria</Label>
+                    <Label>{t('sp.services.category')}</Label>
                     <Select value={serviceForm.category} onValueChange={v => setServiceForm(p => ({ ...p, category: v }))}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="ogolne">Ogólne</SelectItem>
-                        <SelectItem value="mechanika">Mechanika</SelectItem>
-                        <SelectItem value="detailing">Detailing</SelectItem>
-                        <SelectItem value="lakiernictwo">Lakiernictwo</SelectItem>
-                        <SelectItem value="elektryka">Elektryka</SelectItem>
-                        <SelectItem value="opony">Opony / Wulkanizacja</SelectItem>
-                        <SelectItem value="diagnostyka">Diagnostyka</SelectItem>
-                        <SelectItem value="inne">Inne</SelectItem>
+                        <SelectItem value="ogolne">{t('sp.services.categories.ogolne')}</SelectItem>
+                        <SelectItem value="mechanika">{t('sp.services.categories.mechanika')}</SelectItem>
+                        <SelectItem value="detailing">{t('sp.services.categories.detailing')}</SelectItem>
+                        <SelectItem value="lakiernictwo">{t('sp.services.categories.lakiernictwo')}</SelectItem>
+                        <SelectItem value="elektryka">{t('sp.services.categories.elektryka')}</SelectItem>
+                        <SelectItem value="opony">{t('sp.services.categories.opony')}</SelectItem>
+                        <SelectItem value="diagnostyka">{t('sp.services.categories.diagnostyka')}</SelectItem>
+                        <SelectItem value="inne">{t('sp.services.categories.inne')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Zdjęcia usługi</Label>
+                    <Label>{t('sp.services.photos')}</Label>
                     <div
                       className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${isDraggingService ? 'border-primary bg-primary/5' : 'border-muted-foreground/30 hover:border-primary/50'}`}
                       onClick={() => serviceFileRef.current?.click()}
@@ -571,7 +571,7 @@ export default function ServiceProviderDashboard() {
                       onDrop={handleServiceFileDrop}
                     >
                       <Upload className="h-8 w-8 mx-auto mb-2 opacity-40" />
-                      <p className="text-sm text-muted-foreground">Przeciągnij zdjęcia lub <span className="text-primary font-medium">kliknij aby wybrać</span></p>
+                      <p className="text-sm text-muted-foreground">{t('sp.services.photosHint')}</p>
                       <input ref={serviceFileRef} type="file" multiple accept="image/*" className="hidden" onChange={handleServiceFileSelect} />
                     </div>
                     {/* Show existing photos */}
@@ -601,13 +601,13 @@ export default function ServiceProviderDashboard() {
                   </div>
                   <div className="flex items-center gap-3">
                     <Switch checked={serviceForm.is_active} onCheckedChange={v => setServiceForm(p => ({ ...p, is_active: v }))} />
-                    <Label>Usługa aktywna (widoczna w portalu)</Label>
+                    <Label>{t('sp.services.serviceActive')}</Label>
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setServiceDialog(false)}>Anuluj</Button>
+                  <Button variant="outline" onClick={() => setServiceDialog(false)}>{t('sp.services.cancel')}</Button>
                   <Button onClick={handleSaveService} disabled={!serviceForm.name || createServiceMut.isPending || updateServiceMut.isPending}>
-                    <Save className="h-4 w-4 mr-2" />Zapisz
+                    <Save className="h-4 w-4 mr-2" />{t('sp.services.save')}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -620,8 +620,8 @@ export default function ServiceProviderDashboard() {
               activeTab={calendarSubTab}
               onTabChange={(v) => setCalendarSubTab(v as 'calendar' | 'bookings')}
               tabs={[
-                { value: 'calendar', label: 'Kalendarz' },
-                { value: 'bookings', label: 'Rezerwacje' },
+                { value: 'calendar', label: t('sp.calendar.calendar') },
+                { value: 'bookings', label: t('sp.calendar.bookings') },
               ]}
             />
             {calendarSubTab === 'calendar' && (
@@ -636,7 +636,7 @@ export default function ServiceProviderDashboard() {
             {calendarSubTab === 'bookings' && (
               <div className="mt-4">
                 <Card>
-                  <CardContent className="pt-6"><p className="text-muted-foreground text-center py-8">Brak aktywnych rezerwacji</p></CardContent>
+                  <CardContent className="pt-6"><p className="text-muted-foreground text-center py-8">{t('sp.calendar.noBookings')}</p></CardContent>
                 </Card>
               </div>
             )}
@@ -645,7 +645,7 @@ export default function ServiceProviderDashboard() {
           {/* Bookings Tab */}
            <TabsContent value="bookings" className="mt-6">
             <Card>
-              <CardContent className="pt-6"><p className="text-muted-foreground text-center py-8">Brak aktywnych rezerwacji</p></CardContent>
+              <CardContent className="pt-6"><p className="text-muted-foreground text-center py-8">{t('sp.calendar.noBookings')}</p></CardContent>
             </Card>
           </TabsContent>
 
