@@ -8,12 +8,13 @@ import ReactMarkdown from 'react-markdown';
 import {
   Loader2, Send, Plus, MessageCircle, Briefcase,
   Sparkles, X, Search, Lock,
-  Download, Paintbrush, RotateCcw, Paperclip, FileText, Trash2, Circle, Square, MoreHorizontal,
+  Download, Paintbrush, Paperclip, FileText, Trash2, MoreHorizontal,
   ChevronLeft
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ridoMascot from '@/assets/rido-mascot.png';
 import { AIProjectsSection } from './AIProjectsSection';
+import { ImageEditorMobile } from './ImageEditorMobile';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
@@ -104,33 +105,8 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
 
   // Image editor state
   const [editorImage, setEditorImage] = useState<string | null>(null);
-  const [brushActive, setBrushActive] = useState(false);
-  const [annotationTool, setAnnotationTool] = useState<AnnotationTool>('brush');
-  const [isDrawing, setIsDrawing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const maskCanvasRef = useRef<HTMLCanvasElement>(null);
-  const lastPoint = useRef<{ x: number; y: number } | null>(null);
-  const currentPath = useRef<{ x: number; y: number }[]>([]);
-  const shapeStart = useRef<{ x: number; y: number } | null>(null);
-  const baseMaskData = useRef<ImageData | null>(null);
 
-  interface Annotation {
-    id: number;
-    type: AnnotationTool;
-    start?: { x: number; y: number };
-    end?: { x: number; y: number };
-    brushPoints?: { x: number; y: number }[];
-    center: { x: number; y: number };
-    description: string;
-  }
-  const [annotations, setAnnotations] = useState<Annotation[]>([]);
-  const [activeAnnotation, setActiveAnnotation] = useState<number | null>(null);
-
-  type InteractionMode = 'none' | 'move' | 'resize-tl' | 'resize-tr' | 'resize-bl' | 'resize-br';
-  const [interactionMode, setInteractionMode] = useState<InteractionMode>('none');
-  const [interactingAnnotation, setInteractingAnnotation] = useState<number | null>(null);
-  const interactionStart = useRef<{ x: number; y: number; origStart: { x: number; y: number }; origEnd: { x: number; y: number } } | null>(null);
 
   const { streamExecute, execute, isLoading } = useGetRidoAI();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -377,176 +353,17 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
   }, [input, isLoading, messages, mainMode, currentConvId, userId, streamExecute, execute, navigate, loadConversations, attachedFiles]);
 
   // ── Image Editor ──
-  const openEditor = (imgSrc: string) => { setEditorImage(imgSrc); setBrushActive(false); setAnnotationTool('brush'); setIsDrawing(false); setAnnotations([]); setActiveAnnotation(null); lastPoint.current = null; currentPath.current = []; shapeStart.current = null; baseMaskData.current = null; };
+  const openEditor = (imgSrc: string) => { setEditorImage(imgSrc); };
   const downloadImage = (imgSrc: string) => { const a = document.createElement('a'); a.href = imgSrc; a.download = 'rido-grafika.png'; a.click(); };
 
-  useEffect(() => {
-    if (!editorImage || !canvasRef.current || !maskCanvasRef.current) return;
-    const img = new window.Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      const maxW = Math.min(img.width, 900);
-      const ratio = img.height / img.width;
-      const w = maxW; const h = Math.round(maxW * ratio);
-      [canvasRef.current!, maskCanvasRef.current!].forEach(c => { c.width = w; c.height = h; });
-      canvasRef.current!.getContext('2d')!.drawImage(img, 0, 0, w, h);
-      maskCanvasRef.current!.getContext('2d')!.clearRect(0, 0, w, h);
-      shapeStart.current = null; baseMaskData.current = null;
-    };
-    img.src = editorImage;
-  }, [editorImage]);
-
-  const redrawAnnotations = useCallback((anns: Annotation[]) => {
-    if (!maskCanvasRef.current) return;
-    const ctx = maskCanvasRef.current.getContext('2d')!;
-    ctx.clearRect(0, 0, maskCanvasRef.current.width, maskCanvasRef.current.height);
-    anns.forEach(ann => {
-      if (ann.type === 'brush' && ann.brushPoints && ann.brushPoints.length > 1) {
-        ctx.strokeStyle = 'rgba(108, 60, 240, 0.45)'; ctx.lineWidth = 36; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-        for (let i = 1; i < ann.brushPoints.length; i++) { ctx.beginPath(); ctx.moveTo(ann.brushPoints[i - 1].x, ann.brushPoints[i - 1].y); ctx.lineTo(ann.brushPoints[i].x, ann.brushPoints[i].y); ctx.stroke(); }
-      } else if (ann.start && ann.end) {
-        const x = Math.min(ann.start.x, ann.end.x), y = Math.min(ann.start.y, ann.end.y), w = Math.abs(ann.end.x - ann.start.x), h = Math.abs(ann.end.y - ann.start.y);
-        ctx.fillStyle = 'rgba(108, 60, 240, 0.45)';
-        if (ann.type === 'rectangle') { ctx.fillRect(x, y, w, h); } else { ctx.beginPath(); ctx.ellipse(x + w / 2, y + h / 2, Math.max(w / 2, 1), Math.max(h / 2, 1), 0, 0, Math.PI * 2); ctx.fill(); }
-      }
-    });
-  }, []);
-
-  const getCanvasCoords = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const rect = maskCanvasRef.current!.getBoundingClientRect();
-    return { x: (e.clientX - rect.left) * (maskCanvasRef.current!.width / rect.width), y: (e.clientY - rect.top) * (maskCanvasRef.current!.height / rect.height) };
-  };
-  const drawStroke = (from: { x: number; y: number }, to: { x: number; y: number }) => {
-    if (!maskCanvasRef.current) return;
-    const ctx = maskCanvasRef.current.getContext('2d')!;
-    ctx.strokeStyle = 'rgba(108, 60, 240, 0.45)'; ctx.lineWidth = 36; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    ctx.beginPath(); ctx.moveTo(from.x, from.y); ctx.lineTo(to.x, to.y); ctx.stroke();
-  };
-  const drawShape = (start: { x: number; y: number }, end: { x: number; y: number }, tool: Exclude<AnnotationTool, 'brush'>) => {
-    if (!maskCanvasRef.current) return;
-    const ctx = maskCanvasRef.current.getContext('2d')!;
-    const x = Math.min(start.x, end.x), y = Math.min(start.y, end.y), w = Math.abs(end.x - start.x), h = Math.abs(end.y - start.y);
-    ctx.fillStyle = 'rgba(108, 60, 240, 0.45)';
-    if (tool === 'rectangle') { ctx.fillRect(x, y, w, h); } else { ctx.beginPath(); ctx.ellipse(x + w / 2, y + h / 2, Math.max(w / 2, 1), Math.max(h / 2, 1), 0, 0, Math.PI * 2); ctx.fill(); }
-  };
-  const addAnnotation = (ann: Omit<Annotation, 'id' | 'description'>) => {
-    setAnnotations(prev => { const next = [...prev, { ...ann, id: prev.length + 1, description: '' }]; setActiveAnnotation(next.length); return next; });
-  };
-  const setActiveTool = (tool: AnnotationTool) => { setAnnotationTool(tool); setBrushActive(c => (annotationTool === tool ? !c : true)); };
-
-  const findShapeAtPoint = (pt: { x: number; y: number }): { annId: number; mode: InteractionMode } | null => {
-    for (let i = annotations.length - 1; i >= 0; i--) {
-      const ann = annotations[i];
-      if (ann.type === 'brush' || !ann.start || !ann.end) continue;
-      const x1 = Math.min(ann.start.x, ann.end.x), y1 = Math.min(ann.start.y, ann.end.y), x2 = Math.max(ann.start.x, ann.end.x), y2 = Math.max(ann.start.y, ann.end.y);
-      const hs = 16;
-      if (Math.abs(pt.x - x1) < hs && Math.abs(pt.y - y1) < hs) return { annId: ann.id, mode: 'resize-tl' };
-      if (Math.abs(pt.x - x2) < hs && Math.abs(pt.y - y1) < hs) return { annId: ann.id, mode: 'resize-tr' };
-      if (Math.abs(pt.x - x1) < hs && Math.abs(pt.y - y2) < hs) return { annId: ann.id, mode: 'resize-bl' };
-      if (Math.abs(pt.x - x2) < hs && Math.abs(pt.y - y2) < hs) return { annId: ann.id, mode: 'resize-br' };
-      if (pt.x >= x1 && pt.x <= x2 && pt.y >= y1 && pt.y <= y2) return { annId: ann.id, mode: 'move' };
-    }
-    return null;
+  const handleApplyEdit = async (imageBase64: string, maskBase64: string, prompt: string) => {
+    return await execute({ taskType: 'inpaint', query: prompt, imageBase64, maskBase64 });
   };
 
-  const onBrushDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!brushActive) return;
-    const pt = getCanvasCoords(e);
-    const hit = findShapeAtPoint(pt);
-    if (hit) { const ann = annotations.find(a => a.id === hit.annId); if (ann?.start && ann?.end) { setInteractionMode(hit.mode); setInteractingAnnotation(hit.annId); interactionStart.current = { x: pt.x, y: pt.y, origStart: { ...ann.start }, origEnd: { ...ann.end } }; setActiveAnnotation(hit.annId); return; } }
-    setIsDrawing(true); shapeStart.current = pt; lastPoint.current = pt;
-    if (annotationTool === 'brush') { currentPath.current = [pt]; drawStroke(pt, pt); return; }
-    currentPath.current = [];
-    const ctx = maskCanvasRef.current?.getContext('2d');
-    if (ctx && maskCanvasRef.current) baseMaskData.current = ctx.getImageData(0, 0, maskCanvasRef.current.width, maskCanvasRef.current.height);
-  };
-
-  const onBrushMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const pt = getCanvasCoords(e);
-    if (interactionMode !== 'none' && interactingAnnotation && interactionStart.current) {
-      const dx = pt.x - interactionStart.current.x, dy = pt.y - interactionStart.current.y;
-      const { origStart, origEnd } = interactionStart.current;
-      setAnnotations(prev => prev.map(ann => {
-        if (ann.id !== interactingAnnotation) return ann;
-        let ns = ann.start!, ne = ann.end!;
-        if (interactionMode === 'move') { ns = { x: origStart.x + dx, y: origStart.y + dy }; ne = { x: origEnd.x + dx, y: origEnd.y + dy }; }
-        else if (interactionMode === 'resize-tl') { ns = { x: origStart.x + dx, y: origStart.y + dy }; ne = { ...origEnd }; }
-        else if (interactionMode === 'resize-tr') { ns = { x: origStart.x, y: origStart.y + dy }; ne = { x: origEnd.x + dx, y: origEnd.y }; }
-        else if (interactionMode === 'resize-bl') { ns = { x: origStart.x + dx, y: origStart.y }; ne = { x: origEnd.x, y: origEnd.y + dy }; }
-        else if (interactionMode === 'resize-br') { ns = { ...origStart }; ne = { x: origEnd.x + dx, y: origEnd.y + dy }; }
-        return { ...ann, start: ns, end: ne, center: { x: (ns.x + ne.x) / 2, y: (ns.y + ne.y) / 2 } };
-      }));
-      setAnnotations(prev => { redrawAnnotations(prev); return prev; });
-      return;
-    }
-    if (!isDrawing || !brushActive || !lastPoint.current) return;
-    if (annotationTool === 'brush') { drawStroke(lastPoint.current, pt); lastPoint.current = pt; currentPath.current.push(pt); return; }
-    if (!shapeStart.current || !maskCanvasRef.current || !baseMaskData.current) return;
-    maskCanvasRef.current.getContext('2d')!.putImageData(baseMaskData.current, 0, 0);
-    drawShape(shapeStart.current, pt, annotationTool);
-    lastPoint.current = pt;
-  };
-
-  const onBrushUp = () => {
-    if (interactionMode !== 'none') { setInteractionMode('none'); setInteractingAnnotation(null); interactionStart.current = null; return; }
-    if (!isDrawing || !maskCanvasRef.current) return;
-    setIsDrawing(false);
-    if (annotationTool === 'brush') {
-      const path = currentPath.current;
-      if (path.length > 1) { const center = { x: path.reduce((s, p) => s + p.x, 0) / path.length, y: path.reduce((s, p) => s + p.y, 0) / path.length }; addAnnotation({ type: 'brush', brushPoints: [...path], center }); }
-    } else if (shapeStart.current && lastPoint.current) {
-      const center = { x: (shapeStart.current.x + lastPoint.current.x) / 2, y: (shapeStart.current.y + lastPoint.current.y) / 2 };
-      addAnnotation({ type: annotationTool, start: { ...shapeStart.current }, end: { ...lastPoint.current }, center });
-    }
-    lastPoint.current = null; currentPath.current = []; shapeStart.current = null; baseMaskData.current = null;
-  };
-
-  const updateAnnotationDesc = (id: number, desc: string) => setAnnotations(prev => prev.map(a => a.id === id ? { ...a, description: desc } : a));
-  const removeAnnotation = (id: number) => {
-    let nextActive: number | null = activeAnnotation;
-    setAnnotations(prev => {
-      const updated = prev.filter(a => a.id !== id).map((ann, i) => ({ ...ann, id: i + 1 }));
-      redrawAnnotations(updated);
-      if (activeAnnotation === id) nextActive = updated[0]?.id ?? null;
-      else if (activeAnnotation && activeAnnotation > id) nextActive = activeAnnotation - 1;
-      return updated;
-    });
-    setActiveAnnotation(nextActive);
-  };
-  const clearAllAnnotations = () => {
-    if (!maskCanvasRef.current) return;
-    maskCanvasRef.current.getContext('2d')!.clearRect(0, 0, maskCanvasRef.current.width, maskCanvasRef.current.height);
-    setAnnotations([]); setActiveAnnotation(null); lastPoint.current = null; currentPath.current = []; shapeStart.current = null; baseMaskData.current = null;
-  };
-
-  const applyAllEdits = async () => {
-    const validAnnotations = annotations.filter(a => a.description.trim());
-    if (validAnnotations.length === 0 || !canvasRef.current || !maskCanvasRef.current || isEditing) return;
-    setIsEditing(true);
-    try {
-      redrawAnnotations(annotations);
-      const cw = canvasRef.current.width, ch = canvasRef.current.height;
-      const combinedPrompt = validAnnotations.map((a, i) => {
-        const posDesc = a.center ? `(pozycja: ${Math.round(a.center.x / cw * 100)}% od lewej, ${Math.round(a.center.y / ch * 100)}% od góry)` : '';
-        return `${i + 1}. ${a.description} ${posDesc}`;
-      }).join('\n');
-      const imageBase64 = canvasRef.current.toDataURL('image/png').split(',')[1];
-      const maskBase64 = maskCanvasRef.current.toDataURL('image/png').split(',')[1];
-      const result = await execute({ taskType: 'inpaint', query: combinedPrompt, imageBase64, maskBase64 });
-      if (result?.images?.[0]) {
-        const editedSrc = result.images[0];
-        const newImg = new window.Image();
-        newImg.crossOrigin = 'anonymous';
-        newImg.onload = () => {
-          if (canvasRef.current) { const ctx = canvasRef.current.getContext('2d')!; ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height); ctx.drawImage(newImg, 0, 0, canvasRef.current.width, canvasRef.current.height); }
-          clearAllAnnotations(); setBrushActive(false); setAnnotationTool('brush'); setEditorImage(editedSrc);
-        };
-        newImg.src = editedSrc;
-        const imageMsg: Msg = { role: 'assistant', content: pickImageReply('edit'), images: [editedSrc] };
-        setMessages(prev => [...prev, imageMsg]);
-        if (currentConvId) { await saveMsg(currentConvId, imageMsg); loadConversations(); }
-      }
-    } catch {} finally { setIsEditing(false); }
+  const handleSaveEditedImage = async (editedSrc: string) => {
+    const imageMsg: Msg = { role: 'assistant', content: pickImageReply('edit'), images: [editedSrc] };
+    setMessages(prev => [...prev, imageMsg]);
+    if (currentConvId) { await saveMsg(currentConvId, imageMsg); loadConversations(); }
   };
 
   // ── Display helpers ──
@@ -569,73 +386,19 @@ export function RidoAIChatPanel({ open, onClose }: RidoAIChatPanelProps) {
 
   // ── Image Editor (fullscreen) ──
   if (editorImage) {
-    const validAnnotationCount = annotations.filter(a => a.description.trim()).length;
     return (
-      <div className="fixed inset-0 z-[60] bg-background flex flex-col">
-        <div className="flex items-center justify-between px-5 py-3 border-b bg-background shadow-sm flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <img src={ridoMascot} alt="RidoAI" className="w-9 h-9 object-contain flex-shrink-0" />
-            <span className="font-bold text-sm">Edytor grafiki</span>
-            {annotations.length > 0 && <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-semibold">{annotations.length} zaznaczeń</span>}
-          </div>
-          <div className="flex items-center gap-2">
-            <button onClick={() => setActiveTool('brush')} className={cn('flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold border transition-all', brushActive && annotationTool === 'brush' ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-muted border-border')}><Paintbrush className="h-4 w-4" /><span className="hidden sm:inline">{brushActive && annotationTool === 'brush' ? 'Pędzel ON' : 'Pędzel'}</span></button>
-            <button onClick={() => setActiveTool('ellipse')} className={cn('flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold border transition-all', brushActive && annotationTool === 'ellipse' ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-muted border-border')}><Circle className="h-4 w-4" /><span className="hidden sm:inline">Owal</span></button>
-            <button onClick={() => setActiveTool('rectangle')} className={cn('flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold border transition-all', brushActive && annotationTool === 'rectangle' ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-muted border-border')}><Square className="h-4 w-4" /><span className="hidden sm:inline">Prostokąt</span></button>
-            {annotations.length > 0 && <button onClick={clearAllAnnotations} className="p-2 rounded-lg hover:bg-muted border border-border" title="Wyczyść wszystko"><RotateCcw className="h-4 w-4" /></button>}
-            {validAnnotationCount > 0 && <Button size="sm" onClick={applyAllEdits} disabled={isEditing} className="rounded-lg text-xs font-semibold gap-1.5">{isEditing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}Popraw ({validAnnotationCount})</Button>}
-            <button onClick={() => downloadImage(editorImage)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold hover:bg-muted border border-border"><Download className="h-4 w-4" /><span className="hidden sm:inline">Pobierz</span></button>
-            <button onClick={() => setEditorImage(null)} className="p-2 rounded-lg hover:bg-muted border border-border"><X className="h-4 w-4" /></button>
-          </div>
-        </div>
-        <div className="flex-1 flex overflow-hidden">
-          <div className="flex-1 overflow-auto flex items-center justify-center p-6 bg-muted/20">
-            <div className="relative inline-block shadow-2xl rounded-2xl overflow-visible">
-              <div className="rounded-2xl overflow-hidden border border-border">
-                <canvas ref={canvasRef} className="block max-w-full max-h-[70vh]" style={{ touchAction: 'none' }} />
-                <canvas ref={maskCanvasRef} className={cn('absolute inset-0 w-full h-full', brushActive ? 'cursor-crosshair' : 'pointer-events-none')} style={{ touchAction: 'none' }} onMouseDown={onBrushDown} onMouseMove={onBrushMove} onMouseUp={onBrushUp} onMouseLeave={() => { if (isDrawing) { setIsDrawing(false); lastPoint.current = null; } }} />
-              </div>
-              {brushActive && annotations.length === 0 && !isDrawing && (
-                <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-primary/90 text-primary-foreground text-xs px-3 py-1.5 rounded-full pointer-events-none font-semibold">
-                  {annotationTool === 'brush' ? 'Zamaluj obszar' : annotationTool === 'ellipse' ? 'Przeciągnij owal' : 'Przeciągnij prostokąt'}
-                </div>
-              )}
-              {annotations.map(ann => {
-                const canvas = maskCanvasRef.current;
-                if (!canvas) return null;
-                const rect = canvas.getBoundingClientRect();
-                const sx = rect.width / canvas.width, sy = rect.height / canvas.height;
-                return (
-                  <div key={ann.id} className={cn('absolute w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold pointer-events-none border-2 shadow-lg', ann.description.trim() ? 'bg-primary text-primary-foreground border-primary-foreground/30' : 'bg-accent text-accent-foreground border-border')} style={{ left: ann.center.x * sx - 14, top: ann.center.y * sy - 14 }}>{ann.id}</div>
-                );
-              })}
-            </div>
-          </div>
-          {annotations.length > 0 && (
-            <div className="w-[320px] border-l bg-background flex flex-col flex-shrink-0 hidden md:flex">
-              <div className="px-4 py-3 border-b"><h3 className="font-bold text-sm">Zaznaczenia</h3><p className="text-[11px] text-muted-foreground">Opisz co zmienić</p></div>
-              <div className="flex-1 overflow-y-auto p-3 space-y-3">
-                {annotations.map(ann => (
-                  <div key={ann.id} className={cn('rounded-xl border p-3 transition-all', activeAnnotation === ann.id ? 'border-primary bg-primary/5' : 'border-border')} onClick={() => setActiveAnnotation(ann.id)}>
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center">{ann.id}</span><span className="text-xs font-semibold">Obszar {ann.id}</span></div>
-                      <button onClick={e => { e.stopPropagation(); removeAnnotation(ann.id); }} className="p-1 hover:bg-destructive/10 rounded-lg"><X className="h-3.5 w-3.5 text-destructive" /></button>
-                    </div>
-                    <input type="text" value={ann.description} onChange={e => updateAnnotationDesc(ann.id, e.target.value)} placeholder='np. "zmień kolor"' className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:border-primary outline-none" autoFocus={activeAnnotation === ann.id} />
-                  </div>
-                ))}
-              </div>
-              {validAnnotationCount > 0 && (
-                <div className="p-3 border-t"><Button onClick={applyAllEdits} disabled={isEditing} className="w-full rounded-xl font-semibold gap-2">{isEditing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}Popraw obrazek ({validAnnotationCount})</Button></div>
-              )}
-            </div>
-          )}
-        </div>
+      <div className="fixed inset-0 z-[60]">
+        <ImageEditorMobile
+          imageSrc={editorImage}
+          onClose={() => setEditorImage(null)}
+          onApplyEdit={handleApplyEdit}
+          onSaveEditedImage={handleSaveEditedImage}
+          isEditing={isEditing}
+          setIsEditing={setIsEditing}
+        />
       </div>
     );
   }
-
-  // ── MAIN LAYOUT ──
   const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 768;
 
   const listView = (
