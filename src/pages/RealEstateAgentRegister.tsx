@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Building2, User, Users, FileCheck, Mail, AlertCircle, AlertTriangle } from "lucide-react";
+import { NipLookupField } from "@/components/NipLookupField";
+import { CompanyData } from "@/hooks/useNipLookup";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -320,6 +322,21 @@ export default function RealEstateAgentRegister() {
       case 1:
         return (
           <div className="space-y-4">
+            {/* NIP Lookup - auto-fills all company fields */}
+            <NipLookupField
+              label="Wyszukaj firmę po NIP"
+              onCompanyFound={(data: CompanyData) => {
+                updateField("companyNip", data.nip);
+                updateField("companyName", data.name);
+                updateField("companyRegon", data.regon);
+                updateField("companyStreet", data.street);
+                updateField("companyBuildingNumber", data.buildingNumber);
+                updateField("companyApartmentNumber", data.apartmentNumber);
+                updateField("companyCity", data.city);
+                updateField("companyPostalCode", data.postalCode);
+              }}
+            />
+
             <div>
               <Label htmlFor="companyName">Nazwa firmy *</Label>
               <Input
@@ -357,6 +374,7 @@ export default function RealEstateAgentRegister() {
                   placeholder="0000000000"
                   maxLength={13}
                   className={errors.companyNip ? "border-destructive" : ""}
+                  readOnly
                 />
                 {errors.companyNip && (
                   <p className="text-destructive text-sm mt-1">{errors.companyNip}</p>
@@ -369,6 +387,7 @@ export default function RealEstateAgentRegister() {
                   value={formData.companyRegon}
                   onChange={(e) => updateField("companyRegon", e.target.value)}
                   placeholder="000000000"
+                  readOnly
                 />
               </div>
             </div>
