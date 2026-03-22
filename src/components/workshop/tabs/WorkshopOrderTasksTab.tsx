@@ -381,6 +381,8 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
 
   const displayTasksTotal = tasksTotal + draftTasksTotal;
   const displayGoodsTotal = goodsTotal + draftGoodsTotal;
+  const displayTasksProfit = displayTasksTotal - (tasksCost + draftTasksCost);
+  const displayGoodsProfit = displayGoodsTotal - (goodsCost + draftGoodsCost);
   const displayGrandTotal = displayTasksTotal + displayGoodsTotal;
   const displayGrandCost = tasksCost + goodsCost + draftTasksCost + draftGoodsCost;
   const displayGrandProfit = displayGrandTotal - displayGrandCost;
@@ -549,15 +551,15 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-xs" style={{ tableLayout: 'fixed' }}>
+            <table className="w-full min-w-[980px] text-xs" style={{ tableLayout: 'fixed' }}>
               <colgroup>
                 <col style={{ width: '40px' }} />
-                <col />
-                <col style={{ width: '136px' }} />
+                <col style={{ width: '34%' }} />
+                <col style={{ width: '180px' }} />
                 <col style={{ width: '116px' }} />
                 <col style={{ width: '132px' }} />
                 <col style={{ width: '116px' }} />
-                <col style={{ width: '44px' }} />
+                <col style={{ width: '56px' }} />
               </colgroup>
               <thead>
                 <tr className="border-b bg-muted/10">
@@ -579,14 +581,14 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                   return (
                     <tr key={t.id} className="border-b hover:bg-accent/30 transition-colors text-sm">
                       <td className="p-2 text-center text-muted-foreground">{i + 1}</td>
-                       <td className="p-2 font-medium truncate max-w-0">{renderEditableCell(t, 'name', t.name)}</td>
-                       <td className="p-2 text-muted-foreground truncate max-w-0">{renderEditableCell(t, 'mechanic', t.mechanic || '—')}</td>
+                       <td className="p-2 font-medium"><div className="truncate">{renderEditableCell(t, 'name', t.name)}</div></td>
+                        <td className="p-2 text-muted-foreground"><div className="truncate">{renderEditableCell(t, 'mechanic', t.mechanic || '—')}</div></td>
                       <td className="p-2 text-right tabular-nums">{renderEditableCell(t, 'price', fmt(price), 'tabular-nums')}</td>
                       <td className="p-2 text-right">{hasDiscount ? `${Math.round(getDiscountPercent(t))}%` : '—'}</td>
                       <td className="p-2 text-right font-semibold tabular-nums">{fmt(total)}</td>
                       <td className="p-2 text-center">
-                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => handleDeleteItem(t.id)}>
-                          <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => handleDeleteItem(t.id)}>
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </td>
                     </tr>
@@ -612,8 +614,8 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           onSelectSuggestion={(name, priceNet, priceGross) => {
                             updateTaskRow(idx, { name, price_net: priceNet, price_gross: priceGross });
                           }}
-                          providerId={providerId}
-                           className="h-9 text-sm min-w-0"
+                           providerId={providerId}
+                            className="h-9 w-full text-sm min-w-0"
                           onKeyDown={e => e.key === 'Enter' && submitTask(row, idx)}
                         />
                       </td>
@@ -622,7 +624,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           placeholder="Pracownik"
                           value={row.mechanic}
                           onChange={e => updateTaskRow(idx, { mechanic: e.target.value })}
-                           className="h-9 text-sm min-w-0"
+                            className="h-9 w-full text-sm min-w-0"
                         />
                       </td>
                       <td className="p-1.5">
@@ -631,13 +633,13 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           placeholder={isTaskGross ? 'Brutto' : 'Netto'}
                           value={isTaskGross ? (row.price_gross || '') : (row.price_net || '')}
                           onChange={e => updateTaskRowPrice(idx, Number(e.target.value))}
-                           className="h-9 text-sm text-right min-w-0"
+                            className="h-9 w-full text-sm text-right min-w-0"
                         />
                       </td>
                       <td className="p-1.5">
                         <div className="flex items-center gap-1">
                           <Select value={row.discountType} onValueChange={(v: DiscountType) => updateTaskRow(idx, { discountType: v })}>
-                             <SelectTrigger className="h-9 text-xs w-16 min-w-0"><SelectValue /></SelectTrigger>
+                             <SelectTrigger className="h-9 text-xs w-16 shrink-0"><SelectValue /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="percent">%</SelectItem>
                               <SelectItem value="amount">zł</SelectItem>
@@ -648,7 +650,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                             placeholder="0"
                             value={row.discount || ''}
                             onChange={e => updateTaskRow(idx, { discount: Number(e.target.value) })}
-                             className="h-9 text-sm text-right w-16 min-w-0"
+                              className="h-9 text-sm text-right w-16 shrink-0"
                           />
                         </div>
                       </td>
@@ -657,8 +659,8 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                       </td>
                       <td className="p-1.5 text-center">
                         {taskRows.length > 1 && (
-                          <Button onClick={() => removeTaskRow(idx)} size="sm" variant="ghost" className="h-8 w-8 p-0">
-                            <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+                           <Button onClick={() => removeTaskRow(idx)} size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive hover:text-destructive">
+                             <Trash2 className="h-4 w-4" />
                           </Button>
                         )}
                       </td>
@@ -720,18 +722,18 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-xs" style={{ tableLayout: 'fixed' }}>
+            <table className="w-full min-w-[1220px] text-xs" style={{ tableLayout: 'fixed' }}>
               <colgroup>
                 <col style={{ width: '40px' }} />
-                <col />
+                <col style={{ width: '26%' }} />
                 <col style={{ width: '96px' }} />
-                <col style={{ width: '84px' }} />
+                <col style={{ width: '92px' }} />
                 <col style={{ width: '124px' }} />
                 <col style={{ width: '132px' }} />
                 <col style={{ width: '112px' }} />
                 <col style={{ width: '124px' }} />
                 <col style={{ width: '108px' }} />
-                <col style={{ width: '36px' }} />
+                <col style={{ width: '56px' }} />
               </colgroup>
               <thead>
                 <tr className="border-b bg-muted/10">
@@ -763,7 +765,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                   return (
                     <tr key={g.id} className="border-b hover:bg-accent/30 transition-colors text-sm">
                       <td className="p-2 text-center text-muted-foreground">{i + 1}</td>
-                       <td className="p-2 font-medium truncate max-w-0">{renderEditableCell(g, 'name', g.name)}</td>
+                        <td className="p-2 font-medium"><div className="truncate">{renderEditableCell(g, 'name', g.name)}</div></td>
                       <td className="p-2 text-center">{g.quantity}</td>
                       <td className="p-2 text-center">{g.unit}</td>
                       <td className="p-2 text-right tabular-nums">{renderEditableCell(g, 'price', fmt(itemPrice), 'tabular-nums')}</td>
@@ -772,8 +774,8 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                        <td className="p-2 text-right">{hasDiscount ? `${Math.round(getDiscountPercent(g))}%` : '—'}</td>
                        <td className="p-2 text-right font-semibold tabular-nums">{fmt(itemTotal)}</td>
                       <td className="p-2 text-center">
-                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => handleDeleteItem(g.id)}>
-                          <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => handleDeleteItem(g.id)}>
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </td>
                     </tr>
@@ -797,7 +799,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           placeholder="Wpisz nazwę części..."
                           value={row.name}
                           onChange={e => updateGoodsRow(idx, { name: e.target.value })}
-                           className="h-9 text-sm min-w-0"
+                            className="h-9 w-full text-sm min-w-0"
                           onKeyDown={e => e.key === 'Enter' && submitGoods(row, idx)}
                         />
                       </td>
@@ -807,7 +809,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           min={1}
                           value={row.quantity}
                           onChange={e => updateGoodsRow(idx, { quantity: Number(e.target.value) })}
-                           className="h-9 text-sm text-center min-w-0 px-2"
+                            className="h-9 w-full text-sm text-center min-w-0 px-2"
                         />
                       </td>
                       <td className="p-1.5">
@@ -815,7 +817,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           placeholder="szt"
                           value={row.unit}
                           onChange={e => updateGoodsRow(idx, { unit: e.target.value })}
-                           className="h-9 text-sm text-center min-w-0 px-2"
+                            className="h-9 w-full text-sm text-center min-w-0 px-2"
                         />
                       </td>
                       <td className="p-1.5">
@@ -824,7 +826,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           placeholder={isGoodsGross ? 'Brutto' : 'Netto'}
                           value={isGoodsGross ? (row.price_gross || '') : (row.price_net || '')}
                           onChange={e => updateGoodsRowPrice(idx, Number(e.target.value))}
-                           className="h-9 text-sm text-right min-w-0 px-2"
+                            className="h-9 w-full text-sm text-right min-w-0 px-2"
                         />
                       </td>
                       <td className="p-1.5">
@@ -834,7 +836,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           title="Koszt zakupu — widoczne tylko dla serwisu"
                           value={isGoodsGross ? (row.cost_gross || '') : (row.cost_net || '')}
                           onChange={e => updateGoodsRowCost(idx, Number(e.target.value))}
-                           className="h-9 text-sm text-right min-w-0 px-2"
+                            className="h-9 w-full text-sm text-right min-w-0 px-2"
                         />
                       </td>
                       <td className="p-1.5 text-right text-sm tabular-nums">
@@ -843,7 +845,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                       <td className="p-1.5">
                         <div className="flex items-center gap-1">
                           <Select value={row.discountType} onValueChange={(v: DiscountType) => updateGoodsRow(idx, { discountType: v })}>
-                            <SelectTrigger className="h-9 text-xs w-16 min-w-0"><SelectValue /></SelectTrigger>
+                            <SelectTrigger className="h-9 text-xs w-16 shrink-0"><SelectValue /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="percent">%</SelectItem>
                               <SelectItem value="amount">zł</SelectItem>
@@ -854,7 +856,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                             placeholder="0"
                             value={row.discount || ''}
                             onChange={e => updateGoodsRow(idx, { discount: Number(e.target.value) })}
-                             className="h-9 text-sm text-right w-16 min-w-0"
+                             className="h-9 text-sm text-right w-16 shrink-0"
                           />
                         </div>
                       </td>
@@ -863,8 +865,8 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                       </td>
                       <td className="p-1.5 text-center">
                         {goodsRows.length > 1 && (
-                          <Button onClick={() => removeGoodsRow(idx)} size="sm" variant="ghost" className="h-8 w-8 p-0">
-                            <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+                           <Button onClick={() => removeGoodsRow(idx)} size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive hover:text-destructive">
+                             <Trash2 className="h-4 w-4" />
                           </Button>
                         )}
                       </td>
@@ -913,7 +915,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       </Card>
 
       {/* GRAND TOTAL */}
-      <Card className="bg-muted/50 max-w-4xl">
+      <Card className="bg-muted/50 max-w-5xl">
         <CardContent className="py-4 space-y-4">
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-xl border bg-background/70 px-4 py-3 text-center">
@@ -929,10 +931,43 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
               <p className="text-lg font-bold text-muted-foreground tabular-nums">{fmt(displayGrandCost)}</p>
             </div>
             <div className="rounded-xl border bg-background/70 px-4 py-3 text-center">
-              <p className="text-xs text-muted-foreground mb-1">Zysk</p>
+              <p className="text-xs text-muted-foreground mb-1">Zysk łącznie</p>
               <p className={`text-lg font-bold tabular-nums ${displayGrandProfit >= 0 ? 'text-primary' : 'text-destructive'}`}>
                 {fmt(displayGrandProfit)}
               </p>
+            </div>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="rounded-xl border bg-background/70 px-4 py-3">
+              <p className="text-xs text-muted-foreground mb-2">Robocizna</p>
+              <div className="flex items-center justify-between gap-3 text-sm">
+                <span>Od klienta</span>
+                <span className="font-semibold tabular-nums">{fmt(displayTasksTotal)}</span>
+              </div>
+              <div className="mt-1 flex items-center justify-between gap-3 text-sm text-muted-foreground">
+                <span>Koszt własny</span>
+                <span className="font-semibold tabular-nums">{fmt(tasksCost + draftTasksCost)}</span>
+              </div>
+              <div className="mt-2 flex items-center justify-between gap-3 text-sm font-semibold">
+                <span>Zysk</span>
+                <span className="tabular-nums">{fmt(displayTasksProfit)}</span>
+              </div>
+            </div>
+            <div className="rounded-xl border bg-background/70 px-4 py-3">
+              <p className="text-xs text-muted-foreground mb-2">Części i materiały</p>
+              <div className="flex items-center justify-between gap-3 text-sm">
+                <span>Od klienta</span>
+                <span className="font-semibold tabular-nums">{fmt(displayGoodsTotal)}</span>
+              </div>
+              <div className="mt-1 flex items-center justify-between gap-3 text-sm text-muted-foreground">
+                <span>Koszt zakupu</span>
+                <span className="font-semibold tabular-nums">{fmt(goodsCost + draftGoodsCost)}</span>
+              </div>
+              <div className="mt-2 flex items-center justify-between gap-3 text-sm font-semibold">
+                <span>Zysk</span>
+                <span className="tabular-nums">{fmt(displayGoodsProfit)}</span>
+              </div>
             </div>
           </div>
 
@@ -990,6 +1025,26 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
         priceMode={taskPriceMode}
         onApplySuggestions={(prices) => {
           const savedCount = tasks.length;
+          prices.forEach(({ index, price }) => {
+            if (index < savedCount && tasks[index]) {
+              const target = tasks[index];
+              const net = isTaskGross ? Math.round((price / VAT_RATE) * 100) / 100 : price;
+              const gross = isTaskGross ? price : Math.round(price * VAT_RATE * 100) / 100;
+              const quantity = safeNumber(target.quantity) || 1;
+              const discountPercent = safeNumber(target.discount_percent);
+              const raw = (isTaskGross ? gross : net) * quantity;
+              const discounted = raw - (raw * discountPercent / 100);
+
+              updateItem.mutate({
+                id: target.id,
+                unit_price_net: net,
+                unit_price_gross: gross,
+                total_gross: isTaskGross ? discounted : discounted * VAT_RATE,
+                total_net: isTaskGross ? discounted / VAT_RATE : discounted,
+              });
+            }
+          });
+
           setTaskRows(prev => {
             const updated = [...prev];
             prices.forEach(({ index, price }) => {
