@@ -407,9 +407,9 @@ function VehicleEditDialog({ vehicle, onClose }: { vehicle: any; onClose: () => 
     model: vehicle.model || '',
     plate: vehicle.plate || '',
     vin: vehicle.vin || '',
-    year: vehicle.year || '',
-    engine_capacity: vehicle.engine_capacity || '',
-    engine_power: vehicle.engine_power || '',
+    year: vehicle.year ? String(vehicle.year) : '',
+    engine_capacity_cm3: vehicle.engine_capacity_cm3 ? String(vehicle.engine_capacity_cm3) : '',
+    engine_power_kw: vehicle.engine_power_kw ? String(vehicle.engine_power_kw) : '',
     fuel_type: vehicle.fuel_type || '',
     color: vehicle.color || '',
   });
@@ -424,15 +424,40 @@ function VehicleEditDialog({ vehicle, onClose }: { vehicle: any; onClose: () => 
 
   const set = (key: string, val: string) => setForm(p => ({ ...p, [key]: val }));
 
+  const normalizeFuelType = (value?: string) => {
+    const normalized = (value || '').trim().toLowerCase();
+    if (!normalized) return '';
+    if (normalized.includes('diesel') || normalized === 'olej napędowy') return 'Diesel';
+    if (normalized.includes('benz') || normalized.includes('petrol')) return 'Benzyna';
+    if (normalized.includes('lpg')) return 'LPG';
+    if (normalized.includes('hyb')) return 'Hybryda';
+    if (normalized.includes('elek')) return 'Elektryczny';
+    if (normalized.includes('cng')) return 'CNG';
+    return value;
+  };
+
+  const extractDigits = (value?: string | number) => {
+    if (value === null || value === undefined) return '';
+    const text = String(value);
+    const match = text.match(/\d+/g);
+    return match ? match.join('') : '';
+  };
+
   const applyLookup = (data: any) => {
     if (data.make) set('brand', data.make);
     if (data.model) set('model', data.model.replace(/\s+\d+\.\d+(\s+\S+)*$/, '').trim());
     if (data.registration_year) set('year', String(data.registration_year));
-    if (data.vin) set('vin', data.vin);
+    if (data.vin) set('vin', String(data.vin).toUpperCase());
     if (data.color) set('color', data.color);
-    if (data.fuel_type) set('fuel_type', data.fuel_type);
-    if (data.engine_size) set('engine_capacity', data.engine_size);
-    if (data.engine_power_kw) set('engine_power', data.engine_power_kw);
+
+    const normalizedFuel = normalizeFuelType(data.fuel_type);
+    if (normalizedFuel) set('fuel_type', normalizedFuel);
+
+    const capacity = extractDigits(data.engine_size);
+    if (capacity) set('engine_capacity_cm3', capacity);
+
+    const power = extractDigits(data.engine_power_kw || data.power_kw || data.engine_power);
+    if (power) set('engine_power_kw', power);
   };
 
   const handlePlateSearch = async () => {
@@ -450,23 +475,26 @@ function VehicleEditDialog({ vehicle, onClose }: { vehicle: any; onClose: () => 
   const handleSave = async () => {
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from('workshop_vehicles' as any)
+      const { error } = await (supabase as any)
+        .from('workshop_vehicles')
         .update({
           brand: form.brand || null,
           model: form.model || null,
           plate: form.plate || null,
           vin: form.vin || null,
-          year: form.year ? parseInt(form.year) : null,
-          engine_capacity: form.engine_capacity || null,
-          engine_power: form.engine_power || null,
+          year: form.year ? parseInt(form.year, 10) : null,
+          engine_capacity_cm3: form.engine_capacity_cm3 ? parseInt(form.engine_capacity_cm3, 10) : null,
+          engine_power_kw: form.engine_power_kw ? parseInt(form.engine_power_kw, 10) : null,
           fuel_type: form.fuel_type || null,
           color: form.color || null,
         })
         .eq('id', vehicle.id);
       if (error) throw error;
       toast.success('Dane pojazdu zapisane');
-      qc.invalidateQueries({ queryKey: ['workshopOrders'] });
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['workshopOrders'] }),
+        qc.invalidateQueries({ queryKey: ['workshopVehicles'] }),
+      ]);
       onClose();
     } catch (e: any) {
       toast.error(e.message || 'Błąd zapisu');
@@ -518,11 +546,11 @@ function VehicleEditDialog({ vehicle, onClose }: { vehicle: any; onClose: () => 
           </div>
           <div>
             <Label className="text-xs">Pojemność silnika (cc)</Label>
-            <Input value={form.engine_capacity} onChange={e => set('engine_capacity', e.target.value)} placeholder="1998" />
+            <Input value={form.engine_capacity_cm3} onChange={e => set('engine_capacity_cm3', e.target.value)} placeholder="1998" />
           </div>
           <div>
             <Label className="text-xs">Moc silnika (kW)</Label>
-            <Input value={form.engine_power} onChange={e => set('engine_power', e.target.value)} placeholder="150" />
+            <Input value={form.engine_power_kw} onChange={e => set('engine_power_kw', e.target.value)} placeholder="150" />
           </div>
           <div>
             <Label className="text-xs">Rodzaj paliwa</Label>
