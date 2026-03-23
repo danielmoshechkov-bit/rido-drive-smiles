@@ -252,6 +252,11 @@ export default function AdminPortal() {
           <TabsContent value="workspace" className="space-y-6">
             <WorkspaceManagement />
           </TabsContent>
+
+          {/* KSeF Admin Tab */}
+          <TabsContent value="ksef-admin">
+            <KsefAdminPanel />
+          </TabsContent>
         </Tabs>
       </div>
     </div>
