@@ -4355,6 +4355,96 @@ export type Database = {
           },
         ]
       }
+      company_settings: {
+        Row: {
+          apartment_number: string | null
+          bank_account: string | null
+          bank_name: string | null
+          building_number: string | null
+          city: string | null
+          company_name: string | null
+          country: string | null
+          created_at: string | null
+          email: string | null
+          id: string
+          invoice_currency: string | null
+          invoice_notes: string | null
+          invoice_payment_days: number | null
+          invoice_prefix: string | null
+          invoice_vat_rate: number | null
+          ksef_environment: string | null
+          ksef_last_test_at: string | null
+          ksef_last_test_result: string | null
+          ksef_status: string | null
+          ksef_token: string | null
+          nip: string | null
+          phone: string | null
+          postal_code: string | null
+          regon: string | null
+          street: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          apartment_number?: string | null
+          bank_account?: string | null
+          bank_name?: string | null
+          building_number?: string | null
+          city?: string | null
+          company_name?: string | null
+          country?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          invoice_currency?: string | null
+          invoice_notes?: string | null
+          invoice_payment_days?: number | null
+          invoice_prefix?: string | null
+          invoice_vat_rate?: number | null
+          ksef_environment?: string | null
+          ksef_last_test_at?: string | null
+          ksef_last_test_result?: string | null
+          ksef_status?: string | null
+          ksef_token?: string | null
+          nip?: string | null
+          phone?: string | null
+          postal_code?: string | null
+          regon?: string | null
+          street?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          apartment_number?: string | null
+          bank_account?: string | null
+          bank_name?: string | null
+          building_number?: string | null
+          city?: string | null
+          company_name?: string | null
+          country?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          invoice_currency?: string | null
+          invoice_notes?: string | null
+          invoice_payment_days?: number | null
+          invoice_prefix?: string | null
+          invoice_vat_rate?: number | null
+          ksef_environment?: string | null
+          ksef_last_test_at?: string | null
+          ksef_last_test_result?: string | null
+          ksef_status?: string | null
+          ksef_token?: string | null
+          nip?: string | null
+          phone?: string | null
+          postal_code?: string | null
+          regon?: string | null
+          street?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       contract_signature_logs: {
         Row: {
           action_type: string
@@ -8310,6 +8400,36 @@ export type Database = {
           slack_webhook_url?: string | null
           updated_at?: string | null
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      ksef_monitor_log: {
+        Row: {
+          checked_by: string | null
+          created_at: string | null
+          details: Json | null
+          id: string
+          message: string | null
+          source: string | null
+          status: string | null
+        }
+        Insert: {
+          checked_by?: string | null
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          message?: string | null
+          source?: string | null
+          status?: string | null
+        }
+        Update: {
+          checked_by?: string | null
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          message?: string | null
+          source?: string | null
+          status?: string | null
         }
         Relationships: []
       }
