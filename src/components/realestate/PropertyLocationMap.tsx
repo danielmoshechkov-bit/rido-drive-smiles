@@ -748,69 +748,79 @@ export function PropertyLocationMap({ latitude, longitude, address, listingId, h
             </div>
           )}
 
-          {/* POI Categories - Inside the same Card */}
-          <div className="mt-6 pt-4 border-t space-y-3">
-          {/* Grocery */}
-            <PoiCategoryRow
-              icon={<ShoppingBag className="h-5 w-5 text-primary" />}
-              label="Sklepy spożywcze"
-              radius={categoryRadii.grocery}
-              onRadiusChange={(r) => handleCategoryRadiusChange('grocery', r)}
-              loading={categoryLoading.grocery}
-              data={categoryPoiData.grocery}
-            />
+          {/* POI Categories - Only show when we have a specific address */}
+          {hasStreetAddress ? (
+            <div className="mt-6 pt-4 border-t space-y-3">
+            {/* Grocery */}
+              <PoiCategoryRow
+                icon={<ShoppingBag className="h-5 w-5 text-primary" />}
+                label="Sklepy spożywcze"
+                radius={categoryRadii.grocery}
+                onRadiusChange={(r) => handleCategoryRadiusChange('grocery', r)}
+                loading={categoryLoading.grocery}
+                data={categoryPoiData.grocery}
+              />
 
-            {/* Schools */}
-            <PoiCategoryRow
-              icon={<GraduationCap className="h-5 w-5 text-primary" />}
-              label="Szkoły"
-              radius={categoryRadii.school}
-              onRadiusChange={(r) => handleCategoryRadiusChange('school', r)}
-              loading={categoryLoading.school}
-              data={categoryPoiData.school}
-            />
+              {/* Schools */}
+              <PoiCategoryRow
+                icon={<GraduationCap className="h-5 w-5 text-primary" />}
+                label="Szkoły"
+                radius={categoryRadii.school}
+                onRadiusChange={(r) => handleCategoryRadiusChange('school', r)}
+                loading={categoryLoading.school}
+                data={categoryPoiData.school}
+              />
 
-            {/* Pharmacy */}
-            <PoiCategoryRow
-              icon={<Pill className="h-5 w-5 text-primary" />}
-              label="Apteki"
-              radius={categoryRadii.pharmacy}
-              onRadiusChange={(r) => handleCategoryRadiusChange('pharmacy', r)}
-              loading={categoryLoading.pharmacy}
-              data={categoryPoiData.pharmacy}
-            />
+              {/* Pharmacy */}
+              <PoiCategoryRow
+                icon={<Pill className="h-5 w-5 text-primary" />}
+                label="Apteki"
+                radius={categoryRadii.pharmacy}
+                onRadiusChange={(r) => handleCategoryRadiusChange('pharmacy', r)}
+                loading={categoryLoading.pharmacy}
+                data={categoryPoiData.pharmacy}
+              />
 
-            {/* Restaurants */}
-            <PoiCategoryRow
-              icon={<Building2 className="h-5 w-5 text-primary" />}
-              label="Restauracje i kawiarnie"
-              radius={categoryRadii.restaurant}
-              onRadiusChange={(r) => handleCategoryRadiusChange('restaurant', r)}
-              loading={categoryLoading.restaurant}
-              data={categoryPoiData.restaurant}
-            />
+              {/* Restaurants */}
+              <PoiCategoryRow
+                icon={<Building2 className="h-5 w-5 text-primary" />}
+                label="Restauracje i kawiarnie"
+                radius={categoryRadii.restaurant}
+                onRadiusChange={(r) => handleCategoryRadiusChange('restaurant', r)}
+                loading={categoryLoading.restaurant}
+                data={categoryPoiData.restaurant}
+              />
 
-            {/* Health */}
-            <PoiCategoryRow
-              icon={<Heart className="h-5 w-5 text-primary" />}
-              label="Służba zdrowia"
-              radius={categoryRadii.health}
-              onRadiusChange={(r) => handleCategoryRadiusChange('health', r)}
-              loading={categoryLoading.health}
-              data={categoryPoiData.health}
-            />
+              {/* Health */}
+              <PoiCategoryRow
+                icon={<Heart className="h-5 w-5 text-primary" />}
+                label="Służba zdrowia"
+                radius={categoryRadii.health}
+                onRadiusChange={(r) => handleCategoryRadiusChange('health', r)}
+                loading={categoryLoading.health}
+                data={categoryPoiData.health}
+              />
 
-            {/* Parks */}
-            <PoiCategoryRow
-              icon={<TreePine className="h-5 w-5 text-primary" />}
-              label="Parki i zieleń"
-              radius={categoryRadii.park}
-              onRadiusChange={(r) => handleCategoryRadiusChange('park', r)}
-              loading={categoryLoading.park}
-              data={categoryPoiData.park}
-            />
+              {/* Parks */}
+              <PoiCategoryRow
+                icon={<TreePine className="h-5 w-5 text-primary" />}
+                label="Parki i zieleń"
+                radius={categoryRadii.park}
+                onRadiusChange={(r) => handleCategoryRadiusChange('park', r)}
+                loading={categoryLoading.park}
+                data={categoryPoiData.park}
+              />
 
-          </div>
+            </div>
+          ) : (
+            <div className="mt-6 pt-4 border-t">
+              <div className="p-4 bg-muted/50 rounded-lg text-sm text-muted-foreground text-center">
+                <MapPin className="h-5 w-5 mx-auto mb-2 opacity-50" />
+                <p>Wskaźniki otoczenia są dostępne gdy ogłoszenie zawiera dokładny adres ulicy.</p>
+                <p className="text-xs mt-1 opacity-70">Lokalizacja wskazuje na miejscowość: {address}</p>
+              </div>
+            </div>
+          )}
         </Card>
       </div>
     </div>
