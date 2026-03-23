@@ -11,6 +11,7 @@ import { FeatureTogglesManagement } from './FeatureTogglesManagement';
 import { PaidServicesPanel } from './admin/PaidServicesPanel';
 import { UISettingsPanel } from './admin/UISettingsPanel';
 import { RoadmapPanel } from './admin/RoadmapPanel';
+import { KsefSettingsPanel } from './admin/KsefSettingsPanel';
 
 export function AdminSettingsView() {
   const [activeSubTab, setActiveSubTab] = useState("system");
@@ -26,7 +27,8 @@ export function AdminSettingsView() {
     { value: "visibility", label: "Widoczność", visible: true },
     { value: "tab-visibility", label: "Widoczność zakładek", visible: true },
     { value: "email", label: "Ustawienia poczty", visible: true },
-    { value: "roadmap", label: "Roadmap / Zadania", visible: true }
+    { value: "roadmap", label: "Roadmap / Zadania", visible: true },
+    { value: "ksef", label: "Ustawienia KSeF", visible: true }
   ];
 
   return (
@@ -48,6 +50,7 @@ export function AdminSettingsView() {
       {activeSubTab === "tab-visibility" && <TabVisibilityManager />}
       {activeSubTab === "email" && <EmailSettings />}
       {activeSubTab === "roadmap" && <RoadmapPanel />}
+      {activeSubTab === "ksef" && <KsefSettingsPanel />}
     </div>
   );
 }
