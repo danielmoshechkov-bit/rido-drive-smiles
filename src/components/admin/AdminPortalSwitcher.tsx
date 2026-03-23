@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Building2, Car, ShoppingCart, ChevronDown, Map, Globe, Wrench, Calculator, Briefcase, Brain } from 'lucide-react';
+import { Building2, Car, ShoppingCart, ChevronDown, Map, Globe, Wrench, Calculator, Briefcase, Brain, Shield } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -85,6 +85,13 @@ const portals: Portal[] = [
     path: '/ksiegowosc',
     description: 'Panel księgowy i faktury',
   },
+  {
+    id: 'ksef',
+    name: 'KSeF',
+    icon: Shield,
+    path: '/admin/portal?tab=ksef-admin',
+    description: 'Monitor KSeF i zarządzanie firmami',
+  },
 ];
 
 export function AdminPortalSwitcher() {
@@ -115,6 +122,9 @@ export function AdminPortalSwitcher() {
     }
     if (location.pathname.includes('/sprzedaz') || location.pathname.includes('/handlowiec')) {
       return portals.find((p) => p.id === 'sales');
+    }
+    if (location.search.includes('tab=ksef-admin')) {
+      return portals.find((p) => p.id === 'ksef');
     }
     return portals.find((p) => p.id === 'fleet');
   };
