@@ -75,6 +75,38 @@ export function UnmappedDriversModal({
     !d.uber_id && !d.bolt_id && !d.freenow_id
   );
 
+  // Auto-match unmapped drivers to existing drivers by name
+  const autoMatchDrivers = (drivers: ExistingDriver[]) => {
+    const newMappings: Record<string, string> = {};
+    
+    for (const unmapped of unmappedDrivers) {
+      if (!unmapped.full_name) continue;
+      
+      const nameParts = unmapped.full_name.trim().toLowerCase().split(/\s+/);
+      if (nameParts.length < 2) continue;
+      
+      // Try to find exact match by first_name + last_name
+      const match = drivers.find(d => {
+        const existingFirst = (d.first_name || '').trim().toLowerCase();
+        const existingLast = (d.last_name || '').trim().toLowerCase();
+        const existingFull = `${existingFirst} ${existingLast}`;
+        const unmappedFull = unmapped.full_name.trim().toLowerCase();
+        
+        return existingFull === unmappedFull || 
+               (`${nameParts[0]} ${nameParts.slice(1).join(' ')}` === existingFull);
+      });
+      
+      if (match) {
+        newMappings[unmapped.id] = match.id;
+      }
+    }
+    
+    if (Object.keys(newMappings).length > 0) {
+      setMappings(prev => ({ ...prev, ...newMappings }));
+      toast.info(`Automatycznie dopasowano ${Object.keys(newMappings).length} kierowców`);
+    }
+  };
+
   useEffect(() => {
     if (open && fleetId) {
       fetchExistingDrivers();
@@ -93,6 +125,10 @@ export function UnmappedDriversModal({
 
       if (error) throw error;
       setExistingDrivers(data || []);
+      // Auto-match after loading existing drivers
+      if (data?.length) {
+        autoMatchDrivers(data);
+      }
     } catch (err) {
       console.error("Error fetching drivers:", err);
       toast.error("Błąd pobierania listy kierowców");
