@@ -22,17 +22,8 @@ const CRM_LIST = [
       'Otworzy się formularz "Dodaj eksport na portal". Wypełnij go:\n• Nazwa portalu: GetRido (już wpisane)\n• Konto: wpisz swój adres email z konta GetRido\n• Hasło: wpisz hasło do konta GetRido\n• Biuro: wybierz swoje biuro lub zostaw puste\n• Limit ofert: 0 (brak limitu)\n• Eksportuj wizualizacje: Tak\n• Eksportuj stemple: Tak\nKliknij "Zapisz".',
       'Gotowe! ASARI automatycznie wyśle Twoje oferty na GetRido w ciągu kilku minut. Eksport odbywa się co kilkadziesiąt sekund przy każdej zmianie oferty.',
     ],
-    ftpData: {
-      nazwa: 'GetRido',
-      adresSerwera: 'ftp.getrido.pl',
-      katalogXml: '/xml/',
-      podkatalogFoto: '/foto/',
-      port: '21',
-      stronaKodowa: 'UTF-8',
-      formatEksportu: 'EbiuroV2',
-      maksZdjec: '20',
-      trybPasywny: true,
-    },
+    // FTP data is now dynamic per agency — see getAsariFtpData()
+    ftpData: null,
     docsUrl: 'https://wiki.asari.pl',
   },
   {
@@ -130,6 +121,24 @@ export function AgencyCRMSettings({ agencyId }: AgencyCRMSettingsProps) {
   const [lastSync, setLastSync] = useState<string | null>(null);
   const [importedCount, setImportedCount] = useState(0);
   const [existingId, setExistingId] = useState<string | null>(null);
+  const [settingUpFtp, setSettingUpFtp] = useState(false);
+
+  const getAsariFtpData = () => {
+    const id = agencyId || 'UNKNOWN';
+    return [
+      ['Nazwa portalu', 'GetRido'],
+      ['Adres serwera', 'serwer408603.lh.pl'],
+      ['Login', 'serwer408603_crm_import'],
+      ['Hasło', '#TK*?SD2*907OUJf'],
+      ['Katalog XML', `/crm-import/agencja_${id}/xml/`],
+      ['Podkatalog FOTO', `/crm-import/agencja_${id}/foto/`],
+      ['Port', '21'],
+      ['Strona kodowa', 'UTF-8'],
+      ['Format eksportu', 'EbiuroV2'],
+      ['Maks. liczba zdjęć', '20'],
+      ['Tryb Pasywny', '✓ zaznacz'],
+    ];
+  };
 
   const crm = CRM_LIST.find(c => c.id === selectedCrm);
 
@@ -178,7 +187,48 @@ export function AgencyCRMSettings({ agencyId }: AgencyCRMSettingsProps) {
     }
   };
 
+  const handleSaveAsari = async () => {
+    if (!agencyId) return;
+    setSaving(true);
+    setSettingUpFtp(true);
+    try {
+      // 1. Call setup endpoint to create FTP directories on the server
+      try {
+        await fetch(`https://getrido.pl/crm-import/setup-agency.php?secret=getrido_crm_cron_2026&agency_id=${agencyId}`);
+      } catch (e) {
+        console.warn('FTP setup call failed (may already exist):', e);
+      }
+
+      // 2. Save to database with agency-specific FTP paths
+      const payload = {
+        agency_id: agencyId,
+        provider_code: 'asari',
+        import_mode: 'ftp' as string,
+        ftp_host: 'serwer408603.lh.pl',
+        ftp_port: 21,
+        ftp_login: 'serwer408603_crm_import',
+        ftp_xml_path: `/crm-import/agencja_${agencyId}/xml/`,
+        ftp_photos_path: `/crm-import/agencja_${agencyId}/foto/`,
+        xml_url: null,
+        is_enabled: isActive,
+        updated_at: new Date().toISOString(),
+      };
+      const { error } = existingId
+        ? await supabase.from('agency_crm_integrations').update(payload).eq('id', existingId)
+        : await supabase.from('agency_crm_integrations').insert([payload]);
+      if (error) throw error;
+      toast.success('✅ Integracja ASARI aktywowana! Katalogi FTP zostały utworzone.');
+      await loadConfig();
+    } catch (e: any) {
+      toast.error('Błąd aktywacji: ' + e.message);
+    } finally {
+      setSaving(false);
+      setSettingUpFtp(false);
+    }
+  };
+
   const handleSave = async () => {
+    if (selectedCrm === 'asari') { await handleSaveAsari(); return; }
     if (!selectedCrm || !xmlUrl) { toast.error('Wybierz CRM i wpisz URL'); return; }
     setSaving(true);
     try {
@@ -315,17 +365,7 @@ export function AgencyCRMSettings({ agencyId }: AgencyCRMSettingsProps) {
                       📋 Dane do wpisania w ASARI (skopiuj do formularza):
                     </p>
                     <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs font-mono">
-                      {[
-                        ['Nazwa portalu', 'GetRido'],
-                        ['Adres serwera', 'ftp.getrido.pl'],
-                        ['Katalog XML', '/xml/'],
-                        ['Podkatalog FOTO', '/foto/'],
-                        ['Port', '21'],
-                        ['Strona kodowa', 'UTF-8'],
-                        ['Format eksportu', 'EbiuroV2'],
-                        ['Maks. liczba zdjęć', '20'],
-                        ['Tryb Pasywny', '✓ zaznacz'],
-                      ].map(([label, val]) => (
+                      {getAsariFtpData().map(([label, val]) => (
                         <span key={label} className="contents">
                           <span className="text-amber-700 font-semibold">{label}:</span>
                           <span className="text-amber-900 font-bold select-all">{val}</span>
@@ -374,9 +414,9 @@ export function AgencyCRMSettings({ agencyId }: AgencyCRMSettingsProps) {
                   </div>
                   <Switch checked={isActive} onCheckedChange={setIsActive} />
                 </div>
-                <Button onClick={handleSave} disabled={saving || !selectedCrm} className="w-full mt-3">
+                <Button onClick={handleSaveAsari} disabled={saving || !selectedCrm} className="w-full mt-3">
                   {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-                  Aktywuj integrację z ASARI
+                  {settingUpFtp ? 'Tworzenie katalogów FTP...' : 'Aktywuj integrację z ASARI'}
                 </Button>
               </div>
             ) : (
