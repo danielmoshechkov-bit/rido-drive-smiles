@@ -22,17 +22,8 @@ const CRM_LIST = [
       'Otworzy się formularz "Dodaj eksport na portal". Wypełnij go:\n• Nazwa portalu: GetRido (już wpisane)\n• Konto: wpisz swój adres email z konta GetRido\n• Hasło: wpisz hasło do konta GetRido\n• Biuro: wybierz swoje biuro lub zostaw puste\n• Limit ofert: 0 (brak limitu)\n• Eksportuj wizualizacje: Tak\n• Eksportuj stemple: Tak\nKliknij "Zapisz".',
       'Gotowe! ASARI automatycznie wyśle Twoje oferty na GetRido w ciągu kilku minut. Eksport odbywa się co kilkadziesiąt sekund przy każdej zmianie oferty.',
     ],
-    ftpData: {
-      nazwa: 'GetRido',
-      adresSerwera: 'ftp.getrido.pl',
-      katalogXml: '/xml/',
-      podkatalogFoto: '/foto/',
-      port: '21',
-      stronaKodowa: 'UTF-8',
-      formatEksportu: 'EbiuroV2',
-      maksZdjec: '20',
-      trybPasywny: true,
-    },
+    // FTP data is now dynamic per agency — see getAsariFtpData()
+    ftpData: null,
     docsUrl: 'https://wiki.asari.pl',
   },
   {
