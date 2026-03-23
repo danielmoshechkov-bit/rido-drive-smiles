@@ -19,7 +19,7 @@ import { KsefAdminPanel } from '@/components/admin/KsefAdminPanel';
 import { AdminPaymentsTab } from '@/components/admin/AdminPaymentsTab';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { UserDropdown } from '@/components/UserDropdown';
-import { Loader2, Palette, Users, Wrench, Calculator, LayoutGrid, Bot, Key, TicketCheck, Briefcase, Plug, Wallet } from 'lucide-react';
+import { Loader2, Palette, Users, Wrench, Calculator, LayoutGrid, Bot, Key, TicketCheck, Briefcase, Plug, Wallet, Shield } from 'lucide-react';
 
 export default function AdminPortal() {
   const navigate = useNavigate();
@@ -99,6 +99,7 @@ export default function AdminPortal() {
     { value: 'branding', label: 'Wygląd', icon: Palette },
     { value: 'users', label: 'Użytkownicy', icon: Users },
     { value: 'workspace', label: 'Workspace', icon: Briefcase },
+    { value: 'ksef-admin', label: 'KSeF Admin', icon: Shield },
   ];
 
   return (
