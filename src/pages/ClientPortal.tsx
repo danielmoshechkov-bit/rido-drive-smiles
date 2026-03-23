@@ -49,7 +49,8 @@ import {
   BarChart3,
   Clock,
   ChevronRight,
-  Lock
+  Lock,
+  Shield
 } from 'lucide-react';
 import { toast } from 'sonner';
 import LanguageSelector from '@/components/LanguageSelector';
