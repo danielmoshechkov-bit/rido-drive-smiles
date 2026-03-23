@@ -16,6 +16,7 @@ interface PropertyLocationMapProps {
   longitude?: number;
   address?: string;
   listingId?: string;
+  hasStreetAddress?: boolean;
 }
 
 interface TransitStop {
@@ -155,7 +156,7 @@ function getCacheKey(lat: number, lng: number, category: string, radius: number)
   return `${lat.toFixed(5)}_${lng.toFixed(5)}_${category}_${radius}`;
 }
 
-export function PropertyLocationMap({ latitude, longitude, address, listingId }: PropertyLocationMapProps) {
+export function PropertyLocationMap({ latitude, longitude, address, listingId, hasStreetAddress = true }: PropertyLocationMapProps) {
   const { isLoaded, error, isTimedOut, retryLoad, google } = useGoogleMaps();
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
