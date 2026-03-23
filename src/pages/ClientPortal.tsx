@@ -1470,7 +1470,11 @@ export default function ClientPortal() {
                 <InventoryPurchaseOCR entityId={userEntities[0]?.id} />
               )}
 
-              {accountingSubTab !== 'przeglad' && accountingSubTab !== 'faktury' && accountingSubTab !== 'magazyn' && accountingSubTab !== 'zakupy' && (
+              {accountingSubTab === 'ksef' && (
+                <KsefUserSettings />
+              )}
+
+              {accountingSubTab !== 'przeglad' && accountingSubTab !== 'faktury' && accountingSubTab !== 'magazyn' && accountingSubTab !== 'zakupy' && accountingSubTab !== 'ksef' && (
                 <Card>
                   <CardContent className="py-12 text-center">
                     <Calculator className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
