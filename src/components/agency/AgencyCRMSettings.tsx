@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { Loader2, Save, RefreshCw, CheckCircle, AlertCircle, Info, ChevronDown, ChevronUp } from 'lucide-react';
+import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
 
 const CRM_LIST = [
   {
@@ -16,11 +17,9 @@ const CRM_LIST = [
     logo: '🏢',
     urlExample: '',
     steps: [
-      'Zaloguj się do ASARI CRM (login.asari.pro)',
-      'Przejdź do: Administracja → Eksport na portale → Dodaj własny FTP → kliknij "Dodaj"',
-      'Wypełnij formularz FTP danymi z tabeli poniżej (skopiuj każde pole):\n• Adres serwera FTP\n• Login FTP\n• Hasło FTP\n• Katalog XML\n• Podkatalog FOTO\n• Port: 21\n• Strona kodowa: UTF-8\n• Format eksportu: EbiuroV2\n• Maks. liczba zdjęć: 20\n• Tryb pasywny: ✓ zaznacz',
-      'Kliknij "Zapisz" — ASARI zacznie wysyłać oferty na serwer FTP GetRido automatycznie.',
-      'Wróć tutaj i kliknij "Aktywuj integrację" poniżej, żeby GetRido zaczął importować Twoje oferty.',
+      'Zaloguj się do ASARI (login.asari.pro).',
+      'Kliknij menu ☰ → Administracja → Eksport na portale → Dodaj własny FTP → "+ Dodaj".',
+      'Wpisz dane z tabeli poniżej i kliknij „Zapisz”.',
     ],
     // FTP data is now dynamic per agency — see getAsariFtpData()
     ftpData: null,
@@ -126,10 +125,8 @@ export function AgencyCRMSettings({ agencyId }: AgencyCRMSettingsProps) {
   const getAsariFtpData = () => {
     const id = agencyId || 'UNKNOWN';
     return [
-      ['Nazwa portalu', 'GetRido'],
+      ['Nazwa', 'GetRido'],
       ['Adres serwera', 'serwer408603.lh.pl'],
-      ['Login', 'serwer408603_crm_import'],
-      ['Hasło', '#TK*?SD2*907OUJf'],
       ['Katalog XML', `/crm-import/agencja_${id}/xml/`],
       ['Podkatalog FOTO', `/crm-import/agencja_${id}/foto/`],
       ['Port', '21'],
@@ -137,7 +134,18 @@ export function AgencyCRMSettings({ agencyId }: AgencyCRMSettingsProps) {
       ['Format eksportu', 'EbiuroV2'],
       ['Maks. liczba zdjęć', '20'],
       ['Tryb Pasywny', '✓ zaznacz'],
+      ['Login FTP', 'serwer408603_crm_import'],
+      ['Hasło FTP', '#TK*?SD2*907OUJf'],
     ];
+  };
+
+  const handleCopyValue = async (value: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast.success('Skopiowano');
+    } catch {
+      toast.error('Nie udało się skopiować');
+    }
   };
 
   const crm = CRM_LIST.find(c => c.id === selectedCrm);
@@ -360,21 +368,30 @@ export function AgencyCRMSettings({ agencyId }: AgencyCRMSettingsProps) {
                   </div>
                 ))}
                 {crm.id === 'asari' && (
-                  <div className="mt-3 p-3 rounded-lg bg-amber-50 border border-amber-200">
-                    <p className="text-xs font-bold text-amber-800 mb-2">
-                      📋 Dane do wpisania w ASARI (skopiuj do formularza):
-                    </p>
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs font-mono">
-                      {getAsariFtpData().map(([label, val]) => (
-                        <span key={label} className="contents">
-                          <span className="text-amber-700 font-semibold">{label}:</span>
-                          <span className="text-amber-900 font-bold select-all">{val}</span>
-                        </span>
-                      ))}
+                  <div className="mt-3 rounded-lg border bg-card">
+                    <div className="border-b px-4 py-3">
+                      <p className="text-sm font-semibold">Dane do wpisania w ASARI</p>
                     </div>
-                    <p className="text-xs text-amber-700 mt-2">
-                      💡 Po kliknięciu "Zapisz" w ASARI — skopiuj wygenerowany URL eksportu i wklej go poniżej w Kroku 3.
-                    </p>
+                    <Table>
+                      <TableBody>
+                        {getAsariFtpData().map(([label, val]) => (
+                          <TableRow key={label}>
+                            <TableCell className="text-sm font-medium">{label}</TableCell>
+                            <TableCell className="font-mono text-xs sm:text-sm break-all">{val}</TableCell>
+                            <TableCell className="w-[92px] text-right">
+                              <Button type="button" variant="outline" size="sm" onClick={() => handleCopyValue(val)}>
+                                Kopiuj
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                    <div className="border-t px-4 py-3">
+                      <p className="text-sm font-medium text-green-700">
+                        ✓ Po zapisaniu w ASARI Twoje oferty pojawią się na GetRido automatycznie w ciągu godziny.
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>
@@ -402,10 +419,10 @@ export function AgencyCRMSettings({ agencyId }: AgencyCRMSettingsProps) {
               <div className="p-4 rounded-xl border-2 border-green-200 bg-green-50 text-center">
                 <div className="text-2xl mb-2">✅</div>
                 <p className="font-semibold text-green-800 text-sm">
-                  ASARI nie wymaga URL — wysyła oferty automatycznie przez FTP
+                  ASARI wysyła oferty automatycznie przez FTP
                 </p>
                 <p className="text-xs text-green-700 mt-1">
-                  Po kliknięciu "Zapisz" w ASARI, Twoje oferty pojawią się na GetRido w ciągu kilku minut.
+                  Po zapisaniu ustawień w ASARI aktywuj tutaj odbiór ofert do GetRido.
                 </p>
                 <div className="mt-3 flex items-center justify-between p-3 rounded-lg border border-green-200 bg-white">
                   <div className="text-left">
