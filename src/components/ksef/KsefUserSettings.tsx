@@ -255,7 +255,19 @@ export function KsefUserSettings() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div><Label>Stawka VAT (%)</Label><Input type="number" value={form.invoice_vat_rate} onChange={e => update('invoice_vat_rate', Number(e.target.value))} /></div>
+            <div>
+              <Label>Domyślny VAT</Label>
+              <Select value={String(form.invoice_vat_rate)} onValueChange={v => update('invoice_vat_rate', Number(v))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="23">23%</SelectItem>
+                  <SelectItem value="8">8%</SelectItem>
+                  <SelectItem value="5">5%</SelectItem>
+                  <SelectItem value="0">0%</SelectItem>
+                  <SelectItem value="-1">zw. (zwolniony)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div><Label>Prefix faktury</Label><Input value={form.invoice_prefix} onChange={e => update('invoice_prefix', e.target.value)} placeholder="FV" /></div>
             <div>
               <Label>Waluta</Label>

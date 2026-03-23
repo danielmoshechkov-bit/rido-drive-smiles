@@ -322,6 +322,8 @@ function KsefMonitorSection() {
         status: healthStatus,
         source: 'admin_manual_check',
         message: healthMessage,
+        endpoint_checked: 'https://ksef-test.mf.gov.pl/api/v2/health',
+        change_detected: false,
         details: { timestamp: new Date().toISOString() } as any,
       } as any);
 
@@ -376,6 +378,14 @@ function KsefMonitorSection() {
           </Button>
         </div>
 
+        {/* Alert zmiana wykryta */}
+        {lastLog && (lastLog as any).change_detected && (
+          <div className="bg-yellow-50 border border-yellow-300 rounded-md p-3 flex items-center gap-2 text-sm text-yellow-800">
+            <AlertTriangle className="h-4 w-4 text-yellow-600 shrink-0" />
+            ⚠️ Wykryto zmianę w API KSeF — sprawdź logi i zaktualizuj integrację
+          </div>
+        )}
+
         {/* Logi */}
         <p className="text-sm font-medium">Ostatnie logi</p>
         {isLoading ? (
@@ -386,8 +396,9 @@ function KsefMonitorSection() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-10">Status</TableHead>
-                  <TableHead>Źródło</TableHead>
+                  <TableHead>Endpoint</TableHead>
                   <TableHead>Wiadomość</TableHead>
+                  <TableHead className="w-20">Zmiana</TableHead>
                   <TableHead className="w-40">Data</TableHead>
                 </TableRow>
               </TableHeader>
@@ -395,8 +406,9 @@ function KsefMonitorSection() {
                 {logs.map((log: any) => (
                   <TableRow key={log.id}>
                     <TableCell>{logStatusIcon(log.status)}</TableCell>
-                    <TableCell className="text-xs">{log.source || '—'}</TableCell>
-                    <TableCell className="text-sm">{log.message || '—'}</TableCell>
+                    <TableCell className="text-xs font-mono">{(log as any).endpoint_checked || log.source || '—'}</TableCell>
+                    <TableCell className="text-sm">{(log as any).notes || log.message || '—'}</TableCell>
+                    <TableCell>{(log as any).change_detected ? <Badge variant="destructive" className="text-xs">TAK</Badge> : <span className="text-xs text-muted-foreground">Nie</span>}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">{new Date(log.created_at).toLocaleString('pl-PL')}</TableCell>
                   </TableRow>
                 ))}
