@@ -8429,31 +8429,46 @@ export type Database = {
       }
       ksef_monitor_log: {
         Row: {
+          change_detected: boolean | null
           checked_by: string | null
           created_at: string | null
           details: Json | null
+          endpoint_checked: string | null
           id: string
           message: string | null
+          notes: string | null
+          response_code: number | null
           source: string | null
           status: string | null
+          version_detected: string | null
         }
         Insert: {
+          change_detected?: boolean | null
           checked_by?: string | null
           created_at?: string | null
           details?: Json | null
+          endpoint_checked?: string | null
           id?: string
           message?: string | null
+          notes?: string | null
+          response_code?: number | null
           source?: string | null
           status?: string | null
+          version_detected?: string | null
         }
         Update: {
+          change_detected?: boolean | null
           checked_by?: string | null
           created_at?: string | null
           details?: Json | null
+          endpoint_checked?: string | null
           id?: string
           message?: string | null
+          notes?: string | null
+          response_code?: number | null
           source?: string | null
           status?: string | null
+          version_detected?: string | null
         }
         Relationships: []
       }
