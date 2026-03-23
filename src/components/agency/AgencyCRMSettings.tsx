@@ -414,9 +414,9 @@ export function AgencyCRMSettings({ agencyId }: AgencyCRMSettingsProps) {
                   </div>
                   <Switch checked={isActive} onCheckedChange={setIsActive} />
                 </div>
-                <Button onClick={handleSave} disabled={saving || !selectedCrm} className="w-full mt-3">
+                <Button onClick={handleSaveAsari} disabled={saving || !selectedCrm} className="w-full mt-3">
                   {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-                  Aktywuj integrację z ASARI
+                  {settingUpFtp ? 'Tworzenie katalogów FTP...' : 'Aktywuj integrację z ASARI'}
                 </Button>
               </div>
             ) : (
