@@ -221,13 +221,14 @@ export const DriverSettlements = ({
       // Get driver's current frequency setting
       const { data: appUser } = await supabase
         .from('driver_app_users')
-        .select('settlement_frequency')
+        .select('settlement_frequency, payout_requested_at')
         .eq('driver_id', driverId)
         .maybeSingle();
       
       if (appUser?.settlement_frequency) {
         setSettlementFrequency(appUser.settlement_frequency);
       }
+      setPayoutRequested(!!(appUser as any)?.payout_requested_at);
       
       // Get accumulated earnings
       const { data: accumulated } = await supabase
