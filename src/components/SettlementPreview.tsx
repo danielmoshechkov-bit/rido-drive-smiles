@@ -108,7 +108,7 @@ export const SettlementPreview = ({ periodId, periodFrom, periodTo }: Settlement
         const fuel = amounts.fuel || 0;
         const fuel_vat_refund = amounts.fuelVATRefund || amounts.fuel_vat_refund || 0;
         const rental_fee = item.rental_fee || 0;
-        const plan_fee = 50; // Default
+        const plan_fee = (item.drivers as any)?.custom_weekly_fee ?? 50;
         
         // Gotówka z każdej platformy
         const uber_cash_f = amounts.uber_cash_f || 0;
