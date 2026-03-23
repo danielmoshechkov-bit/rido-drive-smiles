@@ -4357,6 +4357,7 @@ export type Database = {
       }
       company_settings: {
         Row: {
+          address: string | null
           apartment_number: string | null
           bank_account: string | null
           bank_name: string | null
@@ -4365,6 +4366,8 @@ export type Database = {
           company_name: string | null
           country: string | null
           created_at: string | null
+          currency: string | null
+          default_vat: number | null
           email: string | null
           id: string
           invoice_currency: string | null
@@ -4373,19 +4376,25 @@ export type Database = {
           invoice_prefix: string | null
           invoice_vat_rate: number | null
           ksef_environment: string | null
+          ksef_last_check: string | null
           ksef_last_test_at: string | null
           ksef_last_test_result: string | null
           ksef_status: string | null
           ksef_token: string | null
+          ksef_token_encrypted: string | null
+          next_invoice_number: number | null
           nip: string | null
+          payment_days: number | null
           phone: string | null
           postal_code: string | null
           regon: string | null
           street: string | null
           updated_at: string | null
           user_id: string | null
+          zip_city: string | null
         }
         Insert: {
+          address?: string | null
           apartment_number?: string | null
           bank_account?: string | null
           bank_name?: string | null
@@ -4394,6 +4403,8 @@ export type Database = {
           company_name?: string | null
           country?: string | null
           created_at?: string | null
+          currency?: string | null
+          default_vat?: number | null
           email?: string | null
           id?: string
           invoice_currency?: string | null
@@ -4402,19 +4413,25 @@ export type Database = {
           invoice_prefix?: string | null
           invoice_vat_rate?: number | null
           ksef_environment?: string | null
+          ksef_last_check?: string | null
           ksef_last_test_at?: string | null
           ksef_last_test_result?: string | null
           ksef_status?: string | null
           ksef_token?: string | null
+          ksef_token_encrypted?: string | null
+          next_invoice_number?: number | null
           nip?: string | null
+          payment_days?: number | null
           phone?: string | null
           postal_code?: string | null
           regon?: string | null
           street?: string | null
           updated_at?: string | null
           user_id?: string | null
+          zip_city?: string | null
         }
         Update: {
+          address?: string | null
           apartment_number?: string | null
           bank_account?: string | null
           bank_name?: string | null
@@ -4423,6 +4440,8 @@ export type Database = {
           company_name?: string | null
           country?: string | null
           created_at?: string | null
+          currency?: string | null
+          default_vat?: number | null
           email?: string | null
           id?: string
           invoice_currency?: string | null
@@ -4431,17 +4450,22 @@ export type Database = {
           invoice_prefix?: string | null
           invoice_vat_rate?: number | null
           ksef_environment?: string | null
+          ksef_last_check?: string | null
           ksef_last_test_at?: string | null
           ksef_last_test_result?: string | null
           ksef_status?: string | null
           ksef_token?: string | null
+          ksef_token_encrypted?: string | null
+          next_invoice_number?: number | null
           nip?: string | null
+          payment_days?: number | null
           phone?: string | null
           postal_code?: string | null
           regon?: string | null
           street?: string | null
           updated_at?: string | null
           user_id?: string | null
+          zip_city?: string | null
         }
         Relationships: []
       }
