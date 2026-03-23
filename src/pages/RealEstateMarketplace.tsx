@@ -53,6 +53,18 @@ function isPointInPolygon(
   return inside;
 }
 
+function getCorrectedArea(area: number | null | undefined, description?: string | null): number {
+  const numericArea = Number(area) || 0;
+  if (numericArea >= 10) return numericArea;
+
+  if (description) {
+    const match = description.match(/(\d{2,})\s*m(?:2|²)/i);
+    if (match) return Number(match[1]);
+  }
+
+  return numericArea;
+}
+
 // Check if point is within circle (Haversine)
 function isPointInCircle(
   lat: number, 
@@ -287,6 +299,7 @@ function mapDbToListing(db: DbListing) {
     wynajem: { label: "Wynajem", color: "#3b82f6" },
   };
   const trans = transTypeMap[db.transaction_type || ''] || { label: db.transaction_type, color: "#6b7280" };
+  const correctedArea = getCorrectedArea(db.area, db.description);
   
   return {
     id: db.id,
@@ -297,7 +310,7 @@ function mapDbToListing(db: DbListing) {
     location: db.city || db.location || '',
     district: db.district,
     buildYear: db.build_year,
-    areaM2: db.area || 0,
+    areaM2: correctedArea,
     rooms: db.rooms,
     floor: db.floor,
     floorsTotal: db.total_floors,
