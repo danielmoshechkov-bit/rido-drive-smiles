@@ -146,6 +146,7 @@ export const DriverSettlements = ({
   const [isB2BDriver, setIsB2BDriver] = useState(false);
   const [b2bVatPayer, setB2bVatPayer] = useState<boolean>(false);
   const [driverFleetId, setDriverFleetId] = useState<string | null>(null);
+  const [payoutRequested, setPayoutRequested] = useState(false);
   const [driverName, setDriverName] = useState<string>('');
   const [fleetContact, setFleetContact] = useState<{ name: string; phone: string } | null>(null);
   const [fleetHasSettlement, setFleetHasSettlement] = useState<boolean | null>(null);
