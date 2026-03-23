@@ -88,7 +88,8 @@ export const SettlementPreview = ({ periodId, periodFrom, periodTo }: Settlement
             first_name,
             last_name,
             email,
-            getrido_id
+            getrido_id,
+            custom_weekly_fee
           )
         `)
         .eq('period_from', periodFrom)
