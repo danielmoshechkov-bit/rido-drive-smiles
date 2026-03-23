@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Building2, Car, ShoppingCart, ChevronDown, Map, Globe, Wrench, Calculator, Briefcase, Brain } from 'lucide-react';
+import { Building2, Car, ShoppingCart, ChevronDown, Map, Globe, Wrench, Calculator, Briefcase, Brain, Shield } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -84,6 +84,13 @@ const portals: Portal[] = [
     icon: Calculator,
     path: '/ksiegowosc',
     description: 'Panel księgowy i faktury',
+  },
+  {
+    id: 'ksef',
+    name: 'KSeF',
+    icon: Shield,
+    path: '/admin/portal?tab=ksef-admin',
+    description: 'Monitor KSeF i zarządzanie firmami',
   },
 ];
 
