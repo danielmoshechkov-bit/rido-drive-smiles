@@ -359,6 +359,7 @@ export default function PropertyDetailPage() {
               latitude={listing.latitude} 
               longitude={listing.longitude}
               address={`${listing.address || ''} ${listing.district || ''} ${listing.location || ''}`}
+              hasStreetAddress={!!listing.address && listing.address.trim().length > 0}
             />
 
             {/* Ad Banner - pod mapą na pełną szerokość */}
