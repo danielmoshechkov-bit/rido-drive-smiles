@@ -1574,6 +1574,51 @@ export const DriverSettlements = ({
                             {(typeof payout === 'number' ? payout : 0).toFixed(2)} zł
                           </span>
                         </div>
+                        {/* Zleć wypłatę button for non-weekly drivers */}
+                        {settlementFrequency !== 'weekly' && (
+                          <div className="mt-3">
+                            <Button
+                              variant={payoutRequested ? "secondary" : "default"}
+                              className="w-full gap-2"
+                              onClick={async () => {
+                                try {
+                                  const { error } = await supabase
+                                    .from('driver_app_users')
+                                    .update({ payout_requested_at: new Date().toISOString() })
+                                    .eq('driver_id', driverId);
+                                  
+                                  if (error) throw error;
+                                  setPayoutRequested(true);
+                                  
+                                  // Calculate nearest Monday (next payout date)
+                                  const now = new Date();
+                                  const dayOfWeek = now.getDay();
+                                  const daysUntilMonday = dayOfWeek === 0 ? 1 : (8 - dayOfWeek);
+                                  const nextMonday = new Date(now);
+                                  nextMonday.setDate(now.getDate() + daysUntilMonday);
+                                  const formattedDate = format(nextMonday, 'd MMMM', { locale: pl });
+                                  
+                                  toast.success(`Wypłata zlecona! Trafi na listę wypłat ${formattedDate}. Opłata 50 zł za rozliczenie.`);
+                                } catch (error) {
+                                  console.error('Error requesting payout:', error);
+                                  toast.error('Błąd zlecania wypłaty');
+                                }
+                              }}
+                              disabled={payoutRequested}
+                            >
+                              {payoutRequested ? (
+                                <>✓ Wypłata zlecona</>
+                              ) : (
+                                <>💰 Zleć wypłatę</>
+                              )}
+                            </Button>
+                            {payoutRequested && (
+                              <p className="text-xs text-green-600 mt-2 text-center">
+                                Twoja wypłata trafi do najbliższej listy wypłat (opłata 50 zł)
+                              </p>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                     
