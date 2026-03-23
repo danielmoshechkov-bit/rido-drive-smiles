@@ -123,6 +123,9 @@ export function AdminPortalSwitcher() {
     if (location.pathname.includes('/sprzedaz') || location.pathname.includes('/handlowiec')) {
       return portals.find((p) => p.id === 'sales');
     }
+    if (location.search.includes('tab=ksef-admin')) {
+      return portals.find((p) => p.id === 'ksef');
+    }
     return portals.find((p) => p.id === 'fleet');
   };
 
