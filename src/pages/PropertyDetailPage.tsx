@@ -319,7 +319,7 @@ export default function PropertyDetailPage() {
             {/* Description */}
             <div>
               <h2 className="text-xl font-semibold mb-4">Opis</h2>
-              <div className="prose prose-sm max-w-none text-muted-foreground whitespace-pre-line">
+              <div className="prose prose-sm max-w-none text-foreground/80 whitespace-pre-line leading-relaxed">
                 {listing.description || "Brak opisu"}
               </div>
             </div>
