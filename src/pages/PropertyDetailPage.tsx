@@ -43,6 +43,16 @@ function mapDbToDisplayListing(db: any) {
   };
   const trans = transTypeMap[db.transaction_type || ''] || { label: db.transaction_type, color: "#6b7280" };
   
+  // Try to extract real area from description if DB area seems wrong
+  const dbArea = Number(db.area) || 0;
+  let correctedArea = dbArea;
+  if (dbArea < 10 && db.description) {
+    const areaMatch = db.description.match(/(\d{2,})\s*m2/i) || db.description.match(/(\d{2,})\s*m²/i);
+    if (areaMatch) {
+      correctedArea = Number(areaMatch[1]);
+    }
+  }
+
   return {
     id: db.id,
     title: db.title,
@@ -54,7 +64,7 @@ function mapDbToDisplayListing(db: any) {
     district: db.district,
     address: db.address,
     buildYear: db.build_year,
-    areaM2: Number(db.area) || 0,
+    areaM2: correctedArea,
     rooms: db.rooms,
     floor: db.floor,
     floorsTotal: db.total_floors,
@@ -349,6 +359,7 @@ export default function PropertyDetailPage() {
               latitude={listing.latitude} 
               longitude={listing.longitude}
               address={`${listing.address || ''} ${listing.district || ''} ${listing.location || ''}`}
+              hasStreetAddress={!!listing.address && listing.address.trim().length > 0}
             />
 
             {/* Ad Banner - pod mapą na pełną szerokość */}
