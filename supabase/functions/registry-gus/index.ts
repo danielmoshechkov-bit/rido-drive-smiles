@@ -65,10 +65,8 @@ async function getGusApiKey(): Promise<{ key: string | null; isEnabled: boolean;
 // GUS BIR 1.1 API helper
 async function queryGUS(nip: string, gusApiKey: string | null, environment: string): Promise<GUSResponse> {
   if (!gusApiKey) {
-    console.log('GUS_API_KEY not configured, using simulation mode');
-    const result = simulateGUSResponse(nip);
-    result.mode = 'simulation';
-    return result;
+    console.log('GUS_API_KEY not configured, falling back to MF white list API');
+    return await queryMFWhiteList(nip);
   }
 
   // Use correct endpoint based on environment
@@ -194,66 +192,70 @@ async function queryGUS(nip: string, gusApiKey: string | null, environment: stri
 
   } catch (error) {
     console.error('GUS API error:', error);
-    // Fallback to simulation in case of API errors
-    const result = simulateGUSResponse(nip);
-    result.mode = 'simulation';
-    result.error = `API GUS niedostępne: ${String(error)}. Używam danych symulowanych.`;
-    return result;
+    // Fallback to MF white list API
+    console.log('Falling back to MF white list API');
+    return await queryMFWhiteList(nip);
   }
 }
 
-// Simulation for development without API key
-function simulateGUSResponse(nip: string): GUSResponse {
-  // Validate NIP format
-  const cleanNip = nip.replace(/[\s-]/g, '');
-  if (!/^\d{10}$/.test(cleanNip)) {
-    return { success: false, error: 'Nieprawidłowy format NIP' };
+// Fallback: query Ministry of Finance white list API (free, no API key needed)
+async function queryMFWhiteList(nip: string): Promise<GUSResponse> {
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const url = `https://wl-api.mf.gov.pl/api/search/nip/${nip}?date=${today}`;
+    
+    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+    
+    if (!res.ok) {
+      console.error('MF API error:', res.status);
+      return { success: false, error: 'Nie można pobrać danych z rejestru MF' };
+    }
+
+    const data = await res.json();
+    const subject = data?.result?.subject;
+
+    if (!subject) {
+      return { success: false, error: 'Firma o podanym NIP nie została znaleziona' };
+    }
+
+    // Parse address
+    const rawAddress = subject.workingAddress || subject.residenceAddress || '';
+    const postalCityMatch = rawAddress.match(/(\d{2}-\d{3})\s+(.+)$/);
+    const postalCode = postalCityMatch ? postalCityMatch[1] : '';
+    const city = postalCityMatch ? postalCityMatch[2].split(',')[0].trim() : '';
+    
+    const streetPart = postalCityMatch
+      ? rawAddress.substring(0, rawAddress.indexOf(postalCityMatch[1])).trim().replace(/,\s*$/, '')
+      : rawAddress;
+    
+    const streetMatch = streetPart.match(/^(.+?)\s+(\d+\w*(?:\/\d+\w*)?)$/);
+    const street = streetMatch ? streetMatch[1] : streetPart;
+    const buildingFull = streetMatch ? streetMatch[2] : '';
+    const buildingParts = buildingFull.split('/');
+    const propertyNumber = buildingParts[0] || '';
+    const apartmentNumber = buildingParts[1] || '';
+
+    return {
+      success: true,
+      mode: 'api',
+      data: {
+        name: subject.name || '',
+        nip: nip,
+        regon: subject.regon || '',
+        street,
+        propertyNumber,
+        apartmentNumber,
+        address: `${street} ${propertyNumber}${apartmentNumber ? '/' + apartmentNumber : ''}`.trim(),
+        city,
+        postalCode,
+        voivodeship: '',
+        status: subject.statusVat || 'active',
+      },
+    };
+  } catch (err) {
+    console.error('MF white list fallback error:', err);
+    return { success: false, error: 'Błąd połączenia z rejestrem' };
   }
-
-  // Simulate response based on NIP
-  const mockCompanies: Record<string, GUSResponse['data']> = {
-    '5252344078': {
-      name: 'RIDO SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ',
-      nip: '5252344078',
-      regon: '147302566',
-      address: 'ul. Przykładowa 10',
-      city: 'Warszawa',
-      postalCode: '00-001',
-      voivodeship: 'mazowieckie',
-      status: 'active',
-    },
-    '1234567890': {
-      name: 'PRZYKŁADOWA FIRMA SP. Z O.O.',
-      nip: '1234567890',
-      regon: '123456789',
-      address: 'ul. Testowa 5',
-      city: 'Kraków',
-      postalCode: '30-001',
-      voivodeship: 'małopolskie',
-      status: 'active',
-    },
-  };
-
-  const mockData = mockCompanies[cleanNip];
-  
-  if (mockData) {
-    return { success: true, data: mockData };
-  }
-
-  // Generate random data for unknown NIPs (for testing)
-  return {
-    success: true,
-    data: {
-      name: `Firma NIP ${cleanNip}`,
-      nip: cleanNip,
-      regon: `${cleanNip.slice(0, 9)}`,
-      address: 'ul. Nieznana 1',
-      city: 'Warszawa',
-      postalCode: '00-000',
-      voivodeship: 'mazowieckie',
-      status: 'active',
-    },
-  };
 }
 
 serve(async (req) => {
