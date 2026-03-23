@@ -121,6 +121,24 @@ export function AgencyCRMSettings({ agencyId }: AgencyCRMSettingsProps) {
   const [lastSync, setLastSync] = useState<string | null>(null);
   const [importedCount, setImportedCount] = useState(0);
   const [existingId, setExistingId] = useState<string | null>(null);
+  const [settingUpFtp, setSettingUpFtp] = useState(false);
+
+  const getAsariFtpData = () => {
+    const id = agencyId || 'UNKNOWN';
+    return [
+      ['Nazwa portalu', 'GetRido'],
+      ['Adres serwera', 'serwer408603.lh.pl'],
+      ['Login', 'serwer408603_crm_import'],
+      ['Hasło', '#TK*?SD2*907OUJf'],
+      ['Katalog XML', `/crm-import/agencja_${id}/xml/`],
+      ['Podkatalog FOTO', `/crm-import/agencja_${id}/foto/`],
+      ['Port', '21'],
+      ['Strona kodowa', 'UTF-8'],
+      ['Format eksportu', 'EbiuroV2'],
+      ['Maks. liczba zdjęć', '20'],
+      ['Tryb Pasywny', '✓ zaznacz'],
+    ];
+  };
 
   const crm = CRM_LIST.find(c => c.id === selectedCrm);
 
