@@ -145,8 +145,8 @@ export function PropertyListingCard({
   };
 
   // Calculate price per m2
-  const pricePerM2 = listing.areaM2 && listing.price 
-    ? Math.round(listing.price / listing.areaM2) 
+  const pricePerM2 = displayArea && listing.price 
+    ? Math.round(listing.price / displayArea) 
     : null;
 
   const handleShowContact = async () => {
