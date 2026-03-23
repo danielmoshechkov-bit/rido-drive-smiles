@@ -25,6 +25,7 @@ import { InvoiceExpandableRow } from '@/components/invoices/InvoiceExpandableRow
 import { SearchCategoryModal } from '@/components/search/SearchCategoryModal';
 import { InventoryModuleView } from '@/components/inventory';
 import { InventoryPurchaseOCR } from '@/components/inventory/InventoryPurchaseOCR';
+import { KsefUserSettings } from '@/components/ksef/KsefUserSettings';
 import { 
   Car,
   Home,
@@ -49,7 +50,8 @@ import {
   BarChart3,
   Clock,
   ChevronRight,
-  Lock
+  Lock,
+  Shield
 } from 'lucide-react';
 import { toast } from 'sonner';
 import LanguageSelector from '@/components/LanguageSelector';
@@ -91,6 +93,7 @@ const accountingSubTabs = [
   { id: 'platnosci', label: 'Płatności', icon: CreditCard },
   { id: 'magazyn', label: 'Stan magazynowy', icon: Package },
   { id: 'cykliczne', label: 'Cykliczne', icon: Clock },
+  { id: 'ksef', label: 'KSeF', icon: Shield },
 ];
 
 export default function ClientPortal() {
@@ -1468,7 +1471,11 @@ export default function ClientPortal() {
                 <InventoryPurchaseOCR entityId={userEntities[0]?.id} />
               )}
 
-              {accountingSubTab !== 'przeglad' && accountingSubTab !== 'faktury' && accountingSubTab !== 'magazyn' && accountingSubTab !== 'zakupy' && (
+              {accountingSubTab === 'ksef' && (
+                <KsefUserSettings />
+              )}
+
+              {accountingSubTab !== 'przeglad' && accountingSubTab !== 'faktury' && accountingSubTab !== 'magazyn' && accountingSubTab !== 'zakupy' && accountingSubTab !== 'ksef' && (
                 <Card>
                   <CardContent className="py-12 text-center">
                     <Calculator className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
