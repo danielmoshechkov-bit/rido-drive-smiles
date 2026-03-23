@@ -430,17 +430,15 @@ export function RealEstateSearch({ onSearch, onShowMapResults, onDrawSearch, cla
             </CollapsibleTrigger>
           </Collapsible>
 
-          {onDrawSearch && (
-            <Button
-              variant="default"
-              size="sm"
-              onClick={onDrawSearch}
-              className="gap-2"
-            >
-              <PenTool className="h-4 w-4" />
-              Zaznacz na mapie
-            </Button>
-          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowMapModal(true)}
+            className="gap-2"
+          >
+            <PenTool className="h-4 w-4" />
+            Zaznacz na mapie
+          </Button>
 
           {onShowMapResults && (
             <Button
