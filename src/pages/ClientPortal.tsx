@@ -91,6 +91,7 @@ const accountingSubTabs = [
   { id: 'platnosci', label: 'Płatności', icon: CreditCard },
   { id: 'magazyn', label: 'Stan magazynowy', icon: Package },
   { id: 'cykliczne', label: 'Cykliczne', icon: Clock },
+  { id: 'ksef', label: 'KSeF', icon: Shield },
 ];
 
 export default function ClientPortal() {
