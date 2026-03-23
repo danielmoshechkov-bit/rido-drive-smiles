@@ -95,6 +95,16 @@ export function PropertyListingCard({
   const [showLightbox, setShowLightbox] = useState(false);
   const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
 
+  // Area correction: if area < 10m², try to extract from description
+  const displayArea = (() => {
+    if (listing.areaM2 && listing.areaM2 >= 10) return listing.areaM2;
+    if (listing.description) {
+      const match = listing.description.match(/(\d{2,})\s*m2/i);
+      if (match) return parseInt(match[1]);
+    }
+    return listing.areaM2;
+  })();
+
   const rawPhotos = typeof listing.photos === 'string'
     ? (() => {
         try {
@@ -135,8 +145,8 @@ export function PropertyListingCard({
   };
 
   // Calculate price per m2
-  const pricePerM2 = listing.areaM2 && listing.price 
-    ? Math.round(listing.price / listing.areaM2) 
+  const pricePerM2 = displayArea && listing.price 
+    ? Math.round(listing.price / displayArea) 
     : null;
 
   const handleShowContact = async () => {
@@ -271,10 +281,10 @@ export function PropertyListingCard({
                     {PROPERTY_TYPE_LABELS[listing.propertyType] || listing.propertyType}
                   </span>
                 )}
-                {listing.areaM2 && (
+            {displayArea && (
                   <span className="flex items-center gap-1">
                     <Maximize className="h-3.5 w-3.5" />
-                    {listing.areaM2} m²
+                    {displayArea} m²
                   </span>
                 )}
                 {listing.rooms && (
@@ -523,10 +533,10 @@ export function PropertyListingCard({
                 {PROPERTY_TYPE_LABELS[listing.propertyType] || listing.propertyType}
               </span>
             )}
-            {listing.areaM2 && (
+            {displayArea && (
               <span className="flex items-center gap-1">
                 <Maximize className={cn(compact ? "h-3 w-3" : "h-3.5 w-3.5")} />
-                {listing.areaM2} m²
+                {displayArea} m²
               </span>
             )}
             {listing.rooms && (
