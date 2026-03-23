@@ -25,6 +25,7 @@ import { InvoiceExpandableRow } from '@/components/invoices/InvoiceExpandableRow
 import { SearchCategoryModal } from '@/components/search/SearchCategoryModal';
 import { InventoryModuleView } from '@/components/inventory';
 import { InventoryPurchaseOCR } from '@/components/inventory/InventoryPurchaseOCR';
+import { KsefUserSettings } from '@/components/ksef/KsefUserSettings';
 import { 
   Car,
   Home,

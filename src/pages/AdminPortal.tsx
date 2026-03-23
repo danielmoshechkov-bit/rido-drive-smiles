@@ -15,6 +15,7 @@ import { SupportTicketsPanel } from '@/components/admin/SupportTicketsPanel';
 import { AdminAuthUsersPanel } from '@/components/admin/AdminAuthUsersPanel';
 import { AdminApiKeysTab } from '@/components/admin/AdminApiKeysTab';
 import { AdminIntegrationsTab } from '@/components/admin/AdminIntegrationsTab';
+import { KsefAdminPanel } from '@/components/admin/KsefAdminPanel';
 import { AdminPaymentsTab } from '@/components/admin/AdminPaymentsTab';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { UserDropdown } from '@/components/UserDropdown';
