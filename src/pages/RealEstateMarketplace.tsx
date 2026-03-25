@@ -57,14 +57,17 @@ function getCorrectedArea(area: number | null | undefined, description?: string 
   const numericArea = Number(area) || 0;
 
   if (description) {
-    // Extract all area-like numbers from description (e.g. "3780m2", "150 m²", "powierzchni 2000 m2")
-    const matches = [...description.matchAll(/(\d{2,})\s*m(?:2|²)/gi)];
-    if (matches.length > 0) {
-      // Pick the largest area mentioned in description
-      const descAreas = matches.map(m => Number(m[1])).filter(n => n >= 10 && n < 100000);
+    // Extract area numbers, handling space as thousand separator: "11 921 m2", "3780m2", "150 m²"
+    const matches = [...description.matchAll(/(\d[\d\s]*\d)\s*m(?:2|²)/gi)];
+    // Also match simple 2+ digit numbers directly before m2
+    const simpleMatches = [...description.matchAll(/(\d{2,})\s*m(?:2|²)/gi)];
+    const allMatches = [...matches, ...simpleMatches];
+    if (allMatches.length > 0) {
+      const descAreas = allMatches
+        .map(m => Number(m[1].replace(/\s/g, '')))
+        .filter(n => n >= 10 && n < 100000);
       if (descAreas.length > 0) {
         const maxDescArea = Math.max(...descAreas);
-        // If DB area is clearly wrong (much smaller than description), use description value
         if (numericArea < 10 || (maxDescArea > numericArea * 3 && maxDescArea >= 50)) {
           return maxDescArea;
         }
