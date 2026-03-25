@@ -70,12 +70,12 @@ export function PropertySpecsTable({ listing }: PropertySpecsTableProps) {
     {
       icon: Layers,
       label: "Piętro",
-      value: listing.floor !== null && listing.floor !== undefined
+      value: (listing.floor !== null && listing.floor !== undefined && String(listing.floor) !== 'null')
         ? (listing.floorsTotal 
             ? `${listing.floor === 0 ? 'Parter' : listing.floor} / ${listing.floorsTotal}` 
             : listing.floor === 0 ? 'Parter' : `${listing.floor}`)
         : null,
-      show: listing.floor !== null && listing.floor !== undefined,
+      show: listing.floor !== null && listing.floor !== undefined && String(listing.floor) !== 'null',
     },
     {
       icon: Calendar,
