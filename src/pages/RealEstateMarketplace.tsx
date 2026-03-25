@@ -788,7 +788,13 @@ export default function RealEstateMarketplace() {
             </p>
           </div>
         )}
-      </section>
+      </section>}
+
+      {loading && (
+        <section className="container mx-auto px-4 py-12 text-center">
+          <div className="animate-pulse text-muted-foreground">Ładowanie ogłoszeń...</div>
+        </section>
+      )}
 
       {/* CTA for Agencies */}
       <section className="container mx-auto px-4 py-12">
