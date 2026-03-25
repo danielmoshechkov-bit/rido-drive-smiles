@@ -755,7 +755,7 @@ export default function RealEstateMarketplace() {
       </section>
 
       {/* Listings Grid */}
-      <section className="container mx-auto px-4 py-6">
+      {!loading && <section className="container mx-auto px-4 py-6">
         <div className={cn(
           "grid gap-4 md:gap-6 max-w-7xl mx-auto",
           viewMode === 'list' 
