@@ -8334,6 +8334,30 @@ export type Database = {
           },
         ]
       }
+      ksef_alert_emails: {
+        Row: {
+          active: boolean | null
+          created_at: string | null
+          email: string
+          id: string
+          user_id: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          created_at?: string | null
+          email: string
+          id?: string
+          user_id?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          created_at?: string | null
+          email?: string
+          id?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       ksef_monitor_alerts: {
         Row: {
           action_required: string | null
@@ -11110,6 +11134,7 @@ export type Database = {
           created_at: string | null
           document_number: string
           id: string
+          ksef_number: string | null
           ocr_raw: Json | null
           payment_method: string | null
           pdf_url: string | null
@@ -11125,6 +11150,7 @@ export type Database = {
           created_at?: string | null
           document_number: string
           id?: string
+          ksef_number?: string | null
           ocr_raw?: Json | null
           payment_method?: string | null
           pdf_url?: string | null
@@ -11140,6 +11166,7 @@ export type Database = {
           created_at?: string | null
           document_number?: string
           id?: string
+          ksef_number?: string | null
           ocr_raw?: Json | null
           payment_method?: string | null
           pdf_url?: string | null
