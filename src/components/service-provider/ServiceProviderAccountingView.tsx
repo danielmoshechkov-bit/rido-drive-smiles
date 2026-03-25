@@ -77,8 +77,11 @@ export function ServiceProviderAccountingView() {
     <div className="space-y-4">
       <UniversalSubTabBar
         activeTab={subTab}
-        onTabChange={setSubTab}
-        tabs={accountingSubTabs}
+        onTabChange={(tab) => {
+          setSubTab(tab);
+          if (tab === 'ksef') markKsefRead();
+        }}
+        tabs={accountingSubTabs.map(t => t.value === 'ksef' && ksefUnread > 0 ? { ...t, label: `KSeF (${ksefUnread})` } : t)}
       />
 
       {/* Przegląd */}
