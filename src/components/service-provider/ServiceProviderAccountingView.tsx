@@ -35,6 +35,7 @@ const accountingSubTabs = [
 
 export function ServiceProviderAccountingView() {
   const [subTab, setSubTab] = useState('przeglad');
+  const { count: ksefUnread, markAllRead: markKsefRead } = useKsefUnreadCount();
   const [user, setUser] = useState<any>(null);
   const [userEntities, setUserEntities] = useState<any[]>([]);
   const [invoices, setInvoices] = useState<any[]>([]);
