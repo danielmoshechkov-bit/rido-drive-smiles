@@ -104,6 +104,7 @@ export default function ClientPortal() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('start');
   const [accountingSubTab, setAccountingSubTab] = useState('przeglad');
+  const { count: ksefUnread, markAllRead: markKsefRead } = useKsefUnreadCount();
   
   // Account types
   const [isDriverAccount, setIsDriverAccount] = useState(false);
