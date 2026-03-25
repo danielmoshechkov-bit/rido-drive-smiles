@@ -64,8 +64,8 @@ export function PropertySpecsTable({ listing }: PropertySpecsTableProps) {
     {
       icon: Building2,
       label: "Liczba pokoi",
-      value: listing.rooms ? `${listing.rooms} ${listing.rooms === 1 ? 'pokój' : listing.rooms < 5 ? 'pokoje' : 'pokoi'}` : null,
-      show: !!listing.rooms,
+      value: listing.rooms && listing.rooms > 0 ? `${listing.rooms} ${listing.rooms === 1 ? 'pokój' : listing.rooms < 5 ? 'pokoje' : 'pokoi'}` : null,
+      show: !!listing.rooms && listing.rooms > 0,
     },
     {
       icon: Layers,
