@@ -46,10 +46,16 @@ function mapDbToDisplayListing(db: any) {
   // Try to extract real area from description if DB area seems wrong
   const dbArea = Number(db.area) || 0;
   let correctedArea = dbArea;
-  if (dbArea < 10 && db.description) {
-    const areaMatch = db.description.match(/(\d{2,})\s*m2/i) || db.description.match(/(\d{2,})\s*m²/i);
-    if (areaMatch) {
-      correctedArea = Number(areaMatch[1]);
+  if (db.description) {
+    const matches = [...db.description.matchAll(/(\d{2,})\s*m(?:2|²)/gi)];
+    if (matches.length > 0) {
+      const descAreas = matches.map(m => Number(m[1])).filter(n => n >= 10 && n < 100000);
+      if (descAreas.length > 0) {
+        const maxDescArea = Math.max(...descAreas);
+        if (dbArea < 10 || (maxDescArea > dbArea * 3 && maxDescArea >= 50)) {
+          correctedArea = maxDescArea;
+        }
+      }
     }
   }
 

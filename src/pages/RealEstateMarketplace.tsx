@@ -55,11 +55,21 @@ function isPointInPolygon(
 
 function getCorrectedArea(area: number | null | undefined, description?: string | null): number {
   const numericArea = Number(area) || 0;
-  if (numericArea >= 10) return numericArea;
 
   if (description) {
-    const match = description.match(/(\d{2,})\s*m(?:2|²)/i);
-    if (match) return Number(match[1]);
+    // Extract all area-like numbers from description (e.g. "3780m2", "150 m²", "powierzchni 2000 m2")
+    const matches = [...description.matchAll(/(\d{2,})\s*m(?:2|²)/gi)];
+    if (matches.length > 0) {
+      // Pick the largest area mentioned in description
+      const descAreas = matches.map(m => Number(m[1])).filter(n => n >= 10 && n < 100000);
+      if (descAreas.length > 0) {
+        const maxDescArea = Math.max(...descAreas);
+        // If DB area is clearly wrong (much smaller than description), use description value
+        if (numericArea < 10 || (maxDescArea > numericArea * 3 && maxDescArea >= 50)) {
+          return maxDescArea;
+        }
+      }
+    }
   }
 
   return numericArea;
@@ -703,7 +713,11 @@ export default function RealEstateMarketplace() {
       <section className="container mx-auto px-4 py-2">
         <div className="flex items-center justify-between max-w-5xl mx-auto">
           <p className="text-sm text-muted-foreground">
-            Znaleziono: <span className="font-medium text-foreground">{listings.length}</span> ogłoszeń
+            {loading ? (
+              <span className="text-muted-foreground">Ładowanie...</span>
+            ) : (
+              <>Znaleziono: <span className="font-medium text-foreground">{listings.length}</span> ogłoszeń</>
+            )}
           </p>
           <div className="flex items-center gap-3">
             {/* View Mode Toggle */}
@@ -741,7 +755,7 @@ export default function RealEstateMarketplace() {
       </section>
 
       {/* Listings Grid */}
-      <section className="container mx-auto px-4 py-6">
+      {!loading && <section className="container mx-auto px-4 py-6">
         <div className={cn(
           "grid gap-4 md:gap-6 max-w-7xl mx-auto",
           viewMode === 'list' 
@@ -774,7 +788,13 @@ export default function RealEstateMarketplace() {
             </p>
           </div>
         )}
-      </section>
+      </section>}
+
+      {loading && (
+        <section className="container mx-auto px-4 py-12 text-center">
+          <div className="animate-pulse text-muted-foreground">Ładowanie ogłoszeń...</div>
+        </section>
+      )}
 
       {/* CTA for Agencies */}
       <section className="container mx-auto px-4 py-12">

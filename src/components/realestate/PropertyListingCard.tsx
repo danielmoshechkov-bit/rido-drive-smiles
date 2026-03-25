@@ -95,14 +95,22 @@ export function PropertyListingCard({
   const [showLightbox, setShowLightbox] = useState(false);
   const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
 
-  // Area correction: if area < 10m², try to extract from description
+  // Area correction: compare DB area with description-extracted area
   const displayArea = (() => {
-    if (listing.areaM2 && listing.areaM2 >= 10) return listing.areaM2;
+    const dbArea = listing.areaM2 || 0;
     if (listing.description) {
-      const match = listing.description.match(/(\d{2,})\s*m2/i);
-      if (match) return parseInt(match[1]);
+      const matches = [...listing.description.matchAll(/(\d{2,})\s*m(?:2|²)/gi)];
+      if (matches.length > 0) {
+        const descAreas = matches.map((m: RegExpMatchArray) => Number(m[1])).filter((n: number) => n >= 10 && n < 100000);
+        if (descAreas.length > 0) {
+          const maxDescArea = Math.max(...descAreas);
+          if (dbArea < 10 || (maxDescArea > dbArea * 3 && maxDescArea >= 50)) {
+            return maxDescArea;
+          }
+        }
+      }
     }
-    return listing.areaM2;
+    return dbArea;
   })();
 
   const rawPhotos = typeof listing.photos === 'string'
