@@ -7,7 +7,6 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import {
   Shield, RefreshCw, CheckCircle2, XCircle, Clock, ExternalLink,
@@ -17,7 +16,6 @@ import {
 export function KsefUserSettings() {
   const queryClient = useQueryClient();
   const [ksefToken, setKsefToken] = useState('');
-  const [ksefEnvironment, setKsefEnvironment] = useState('test');
   const [ksefStatus, setKsefStatus] = useState('not_configured');
   const [ksefLastTestAt, setKsefLastTestAt] = useState<string | null>(null);
   const [ksefLastTestResult, setKsefLastTestResult] = useState<string | null>(null);
@@ -26,6 +24,7 @@ export function KsefUserSettings() {
   const [userEmail, setUserEmail] = useState('');
   const [settingsId, setSettingsId] = useState<string | null>(null);
   const [alertEmail, setAlertEmail] = useState('');
+  const [userNip, setUserNip] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -33,6 +32,33 @@ export function KsefUserSettings() {
       setUserEmail(data.user?.email || '');
     });
   }, []);
+
+  // Fetch user NIP from company_settings or entities
+  const { data: nipData } = useQuery({
+    queryKey: ['user-nip', userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      // Try company_settings first
+      const { data: cs } = await supabase
+        .from('company_settings')
+        .select('nip')
+        .eq('user_id', userId!)
+        .maybeSingle();
+      if (cs?.nip) return cs.nip;
+      // Fallback: entities owned by user
+      const { data: ent } = await supabase
+        .from('entities')
+        .select('nip')
+        .eq('owner_user_id', userId!)
+        .limit(1)
+        .maybeSingle();
+      return ent?.nip || null;
+    },
+  });
+
+  useEffect(() => {
+    if (nipData) setUserNip(nipData);
+  }, [nipData]);
 
   const { isLoading } = useQuery({
     queryKey: ['user-ksef-settings', userId],
@@ -47,7 +73,6 @@ export function KsefUserSettings() {
       if (data) {
         setSettingsId(data.id);
         setKsefToken(data.ksef_token || '');
-        setKsefEnvironment(data.ksef_environment || 'test');
         setKsefStatus(data.ksef_status || 'not_configured');
         setKsefLastTestAt(data.ksef_last_test_at || null);
         setKsefLastTestResult(data.ksef_last_test_result || null);
@@ -76,7 +101,7 @@ export function KsefUserSettings() {
       const payload = {
         user_id: userId,
         ksef_token: ksefToken,
-        ksef_environment: ksefEnvironment,
+        ksef_environment: 'production',
         ksef_status: ksefStatus,
         ksef_last_test_at: ksefLastTestAt,
         ksef_last_test_result: ksefLastTestResult,
@@ -100,30 +125,36 @@ export function KsefUserSettings() {
   const handleTestConnection = async () => {
     setTesting(true);
     try {
-      const hasToken = !!ksefToken?.trim();
-      if (!hasToken) {
+      if (!ksefToken?.trim()) {
         setKsefStatus('error');
         setKsefLastTestAt(new Date().toISOString());
         setKsefLastTestResult('Brak tokenu KSeF');
         toast.error('Wklej token KSeF');
         return;
       }
+      if (!userNip) {
+        setKsefStatus('error');
+        setKsefLastTestAt(new Date().toISOString());
+        setKsefLastTestResult('Brak NIP w ustawieniach firmy');
+        toast.error('Najpierw uzupełnij NIP w ustawieniach firmy');
+        return;
+      }
 
-      const env = ksefEnvironment === 'production' ? 'ksef' : 'ksef-test';
+      // Test against production KSeF API
       try {
-        const res = await fetch(`https://${env}.mf.gov.pl/api/v2/health`, { signal: AbortSignal.timeout(8000) });
+        const res = await fetch('https://ksef.mf.gov.pl/api/v2/health', { signal: AbortSignal.timeout(8000) });
         if (res.ok) {
           setKsefStatus('connected');
           setKsefLastTestAt(new Date().toISOString());
-          setKsefLastTestResult(`API KSeF dostępne (${ksefEnvironment === 'production' ? 'PRODUKCJA' : 'TEST'})`);
-          toast.success(`Połączenie z KSeF — OK ✓`);
+          setKsefLastTestResult(`API KSeF dostępne. NIP: ${userNip}`);
+          toast.success('Połączenie z KSeF — OK ✓');
         } else {
           throw new Error(`HTTP ${res.status}`);
         }
       } catch {
         setKsefStatus('connected');
         setKsefLastTestAt(new Date().toISOString());
-        setKsefLastTestResult('Token zapisany, weryfikacja po stronie serwera');
+        setKsefLastTestResult(`Token zapisany z NIP ${userNip}. Weryfikacja przy pierwszej fakturze.`);
         toast.success('Token zapisany. Pełna weryfikacja nastąpi przy pierwszej fakturze.');
       }
     } finally {
@@ -172,56 +203,40 @@ export function KsefUserSettings() {
 
   return (
     <div className="space-y-6">
-      {/* ═══ Baner środowiska ═══ */}
-      {ksefEnvironment === 'test' && ksefStatus === 'connected' && (
-        <Alert className="border-amber-300 bg-amber-50 dark:bg-amber-950/20">
-          <AlertTriangle className="h-4 w-4 text-amber-600" />
-          <AlertDescription className="text-amber-800 dark:text-amber-200 font-medium">
-            ⚠️ TRYB TESTOWY KSeF — faktury nie trafiają do urzędu skarbowego
-          </AlertDescription>
-        </Alert>
-      )}
-      {ksefEnvironment === 'production' && ksefStatus === 'connected' && (
-        <Alert className="border-green-300 bg-green-50 dark:bg-green-950/20">
-          <CheckCircle2 className="h-4 w-4 text-green-600" />
-          <AlertDescription className="text-green-800 dark:text-green-200 font-medium">
-            ✓ Środowisko produkcyjne — faktury mają skutki prawne
-          </AlertDescription>
-        </Alert>
-      )}
-
       {/* ═══ Token KSeF ═══ */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2"><Shield className="h-5 w-5" /> Token KSeF</CardTitle>
+          <CardTitle className="flex items-center gap-2"><Shield className="h-5 w-5" /> Token autoryzacyjny KSeF</CardTitle>
           <CardDescription className="flex items-center gap-2">
-            Wklej token autoryzacyjny z Krajowego Systemu e-Faktur {statusBadge()}
+            Wklej token z Krajowego Systemu e-Faktur {statusBadge()}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label>Środowisko</Label>
-              <Select value={ksefEnvironment} onValueChange={setKsefEnvironment}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="test">🧪 Testowe (ksef-test.mf.gov.pl)</SelectItem>
-                  <SelectItem value="production">🏭 Produkcyjne (ksef.mf.gov.pl)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="space-y-4">
+            {userNip && (
+              <div className="flex items-center gap-2 text-sm">
+                <Badge variant="outline" className="font-mono">NIP: {userNip}</Badge>
+                <span className="text-muted-foreground">— token zostanie powiązany z tym NIP-em</span>
+              </div>
+            )}
+            {!userNip && (
+              <Alert className="border-amber-300 bg-amber-50 dark:bg-amber-950/20">
+                <AlertTriangle className="h-4 w-4 text-amber-600" />
+                <AlertDescription className="text-amber-800 dark:text-amber-200 text-sm">
+                  Uzupełnij NIP w ustawieniach firmy — jest wymagany do połączenia z KSeF.
+                </AlertDescription>
+              </Alert>
+            )}
             <div>
               <Label>Token autoryzacyjny KSeF</Label>
-              <Input type="password" value={ksefToken} onChange={e => setKsefToken(e.target.value)} placeholder="Wklej token z KSeF..." />
+              <Input
+                type="password"
+                value={ksefToken}
+                onChange={e => setKsefToken(e.target.value)}
+                placeholder="Wklej token z KSeF..."
+              />
             </div>
           </div>
-
-          <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-950/20">
-            <Info className="h-4 w-4 text-blue-600" />
-            <AlertDescription className="text-blue-800 dark:text-blue-200 text-sm">
-              Token testowy generujesz na <strong>ksef-test.mf.gov.pl</strong>, a produkcyjny na <strong>ksef.mf.gov.pl</strong> — to dwa osobne tokeny!
-            </AlertDescription>
-          </Alert>
 
           {ksefLastTestAt && (
             <div className="text-sm text-muted-foreground flex items-center gap-1">
@@ -266,7 +281,7 @@ export function KsefUserSettings() {
             <div className="flex gap-2">
               <Input
                 type="email"
-                placeholder={userEmail || 'twoj@email.pl'}
+                placeholder="Wpisz swój adres email"
                 value={alertEmail}
                 onChange={e => setAlertEmail(e.target.value)}
                 className="flex-1"
@@ -296,11 +311,11 @@ export function KsefUserSettings() {
               <li className="flex gap-3">
                 <Badge variant="outline" className="h-6 w-6 shrink-0 flex items-center justify-center rounded-full">1</Badge>
                 <div>
-                  <p className="font-medium">Wejdź na ksef.mf.gov.pl</p>
+                  <p className="font-medium">Wejdź na Aplikację KSeF</p>
                   <p className="text-muted-foreground">
                     Otwórz{' '}
-                    <a href="https://ksef.mf.gov.pl" target="_blank" rel="noopener noreferrer" className="text-primary underline inline-flex items-center gap-1">
-                      ksef.mf.gov.pl <ExternalLink className="h-3 w-3" />
+                    <a href="https://ap.ksef.mf.gov.pl/web/" target="_blank" rel="noopener noreferrer" className="text-primary underline inline-flex items-center gap-1">
+                      ap.ksef.mf.gov.pl/web/ <ExternalLink className="h-3 w-3" />
                     </a>{' '}
                     i kliknij „Zaloguj się do KSeF"
                   </p>
