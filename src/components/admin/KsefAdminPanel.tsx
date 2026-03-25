@@ -6,18 +6,20 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Separator } from '@/components/ui/separator';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
 import {
   Shield, RefreshCw, CheckCircle2, XCircle, AlertTriangle,
-  Clock, Building2, Loader2, Users, Save, FileText
+  Clock, Building2, Loader2, Users, Save, FileText, Mail, Plus, X, Eye, EyeOff
 } from 'lucide-react';
 
 // ═══════════════════════════════════════════════════════════════
-// Sekcja 1: Ustawienia CAR4RIDE (user_id = null)
+// Sekcja 1: Ustawienia globalne CAR4RIDE (user_id = null)
 // ═══════════════════════════════════════════════════════════════
 function Car4RideSettings() {
   const queryClient = useQueryClient();
@@ -40,7 +42,6 @@ function Car4RideSettings() {
   const { isLoading } = useQuery({
     queryKey: ['admin-car4ride-settings'],
     queryFn: async () => {
-      // CAR4RIDE settings: user_id IS NULL (global admin settings)
       const { data, error } = await supabase
         .from('company_settings')
         .select('*')
@@ -113,12 +114,30 @@ function Car4RideSettings() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2"><Building2 className="h-5 w-5" /> Ustawienia CAR4RIDE</CardTitle>
+        <CardTitle className="flex items-center gap-2"><Building2 className="h-5 w-5" /> Ustawienia globalne CAR4RIDE</CardTitle>
         <CardDescription className="flex items-center gap-2">
           Główna firma portalu — NIP: 5223252793 {statusBadge()}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Environment toggle with banner */}
+        {form.ksef_environment === 'test' && (
+          <Alert className="border-amber-300 bg-amber-50 dark:bg-amber-950/20">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <AlertDescription className="text-amber-800 dark:text-amber-200 font-medium">
+              ⚠️ Tryb testowy — faktury nie mają skutków prawnych
+            </AlertDescription>
+          </Alert>
+        )}
+        {form.ksef_environment === 'production' && (
+          <Alert className="border-green-300 bg-green-50 dark:bg-green-950/20">
+            <CheckCircle2 className="h-4 w-4 text-green-600" />
+            <AlertDescription className="text-green-800 dark:text-green-200 font-medium">
+              ✓ Środowisko produkcyjne
+            </AlertDescription>
+          </Alert>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div><Label>Nazwa firmy</Label><Input value={form.company_name} onChange={e => update('company_name', e.target.value)} /></div>
           <div><Label>NIP</Label><Input value={form.nip} onChange={e => update('nip', e.target.value)} /></div>
@@ -141,8 +160,8 @@ function Car4RideSettings() {
             <Select value={form.ksef_environment} onValueChange={v => update('ksef_environment', v)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="test">🧪 Testowe</SelectItem>
-                <SelectItem value="production">🏭 Produkcyjne</SelectItem>
+                <SelectItem value="test">🧪 Testowe (api-test.ksef.mf.gov.pl)</SelectItem>
+                <SelectItem value="production">🏭 Produkcyjne (ksef.mf.gov.pl)</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -266,7 +285,205 @@ function AllCompaniesTable() {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// Sekcja 3: Agent KSeF Monitor + logi
+// Sekcja 3: KSeF Monitor Config (przeniesione z użytkownika)
+// ═══════════════════════════════════════════════════════════════
+function KsefMonitorConfigSection() {
+  const [formEmail, setFormEmail] = useState('');
+  const [formSlack, setFormSlack] = useState('');
+  const [formScanEnabled, setFormScanEnabled] = useState(true);
+  const [formNotifyCritical, setFormNotifyCritical] = useState(true);
+  const [formNotifyWarning, setFormNotifyWarning] = useState(true);
+  const [formNotifyInfo, setFormNotifyInfo] = useState(false);
+  const [showSlackKey, setShowSlackKey] = useState(false);
+  const [configId, setConfigId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      let { data: cfg } = await (supabase as any)
+        .from('ksef_monitor_config')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (!cfg) {
+        const { data: newCfg } = await (supabase as any)
+          .from('ksef_monitor_config')
+          .insert({ user_id: user.id })
+          .select()
+          .single();
+        cfg = newCfg;
+      }
+      if (cfg) {
+        setConfigId(cfg.id);
+        setFormEmail(cfg.alert_email || '');
+        setFormSlack(cfg.slack_webhook_url || '');
+        setFormScanEnabled(cfg.scan_enabled);
+        setFormNotifyCritical(cfg.notify_critical);
+        setFormNotifyWarning(cfg.notify_warning);
+        setFormNotifyInfo(cfg.notify_info);
+      }
+    })();
+  }, []);
+
+  const handleSave = async () => {
+    if (!configId) return;
+    setSaving(true);
+    const { error } = await (supabase as any)
+      .from('ksef_monitor_config')
+      .update({
+        alert_email: formEmail || null,
+        slack_webhook_url: formSlack || null,
+        scan_enabled: formScanEnabled,
+        notify_critical: formNotifyCritical,
+        notify_warning: formNotifyWarning,
+        notify_info: formNotifyInfo,
+      })
+      .eq('id', configId);
+    setSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success('Ustawienia monitoringu zapisane ✓');
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2"><Shield className="h-5 w-5" /> Konfiguracja KSeF Monitor</CardTitle>
+        <CardDescription>Ustawienia automatycznego monitoringu API KSeF i powiadomień</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <Label htmlFor="alert-email">Email do alertów</Label>
+            <Input id="alert-email" type="email" placeholder="admin@twojafirma.pl" value={formEmail} onChange={e => setFormEmail(e.target.value)} />
+            <p className="text-xs text-muted-foreground">Na ten adres dotrą powiadomienia o zmianach w KSeF</p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="slack-webhook">Slack Webhook URL</Label>
+            <div className="relative">
+              <Input id="slack-webhook" type={showSlackKey ? 'text' : 'password'} placeholder="https://hooks.slack.com/services/..." value={formSlack} onChange={e => setFormSlack(e.target.value)} />
+              <button type="button" onClick={() => setShowSlackKey(!showSlackKey)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                {showSlackKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground">Opcjonalnie: alerty na kanał Slack</p>
+          </div>
+        </div>
+
+        <div className="border-t pt-4">
+          <h4 className="text-sm font-semibold mb-4">Opcje skanowania</h4>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div><Label>Automatyczny monitoring</Label><p className="text-xs text-muted-foreground">Agent sprawdza strony KSeF codziennie o 06:00</p></div>
+              <Switch checked={formScanEnabled} onCheckedChange={setFormScanEnabled} />
+            </div>
+            <div className="flex items-center justify-between">
+              <div><Label>Powiadamiaj o alertach krytycznych</Label><p className="text-xs text-muted-foreground">Natychmiastowe powiadomienia o ważnych zmianach</p></div>
+              <Switch checked={formNotifyCritical} onCheckedChange={setFormNotifyCritical} />
+            </div>
+            <div className="flex items-center justify-between">
+              <div><Label>Powiadamiaj o ostrzeżeniach</Label><p className="text-xs text-muted-foreground">Zmiany wymagające akcji w ciągu 7 dni</p></div>
+              <Switch checked={formNotifyWarning} onCheckedChange={setFormNotifyWarning} />
+            </div>
+            <div className="flex items-center justify-between">
+              <div><Label>Powiadamiaj o informacjach</Label><p className="text-xs text-muted-foreground">Komunikaty bez wpływu na kod</p></div>
+              <Switch checked={formNotifyInfo} onCheckedChange={setFormNotifyInfo} />
+            </div>
+          </div>
+        </div>
+
+        <Button onClick={handleSave} disabled={saving}>
+          {saving ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+          Zapisz ustawienia
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Sekcja 4: Zarządzanie emailami alertów KSeF
+// ═══════════════════════════════════════════════════════════════
+function KsefAlertEmailsSection() {
+  const queryClient = useQueryClient();
+  const [newEmail, setNewEmail] = useState('');
+
+  const { data: emails, isLoading } = useQuery({
+    queryKey: ['admin-ksef-alert-emails'],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('ksef_alert_emails')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const handleAdd = async () => {
+    if (!newEmail.trim() || !newEmail.includes('@')) {
+      toast.error('Podaj poprawny email');
+      return;
+    }
+    const { error } = await (supabase as any)
+      .from('ksef_alert_emails')
+      .upsert({ email: newEmail.trim(), active: true }, { onConflict: 'email' });
+    if (error) { toast.error(error.message); return; }
+    toast.success('Email dodany');
+    setNewEmail('');
+    queryClient.invalidateQueries({ queryKey: ['admin-ksef-alert-emails'] });
+  };
+
+  const handleDelete = async (id: string) => {
+    await (supabase as any).from('ksef_alert_emails').delete().eq('id', id);
+    queryClient.invalidateQueries({ queryKey: ['admin-ksef-alert-emails'] });
+    toast.success('Email usunięty');
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2"><Mail className="h-5 w-5" /> Powiadomienia email o zmianach KSeF</CardTitle>
+        <CardDescription>Lista adresów email, na które bot wysyła informacje o zmianach w KSeF</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex gap-2">
+          <Input placeholder="email@firma.pl" value={newEmail} onChange={e => setNewEmail(e.target.value)} className="flex-1" />
+          <Button onClick={handleAdd}><Plus className="h-4 w-4 mr-1" /> Dodaj email</Button>
+        </div>
+
+        {isLoading ? (
+          <div className="flex justify-center p-4"><Loader2 className="h-5 w-5 animate-spin" /></div>
+        ) : emails && emails.length > 0 ? (
+          <div className="space-y-2">
+            {emails.map((em: any) => (
+              <div key={em.id} className="flex items-center justify-between p-3 border rounded-md">
+                <div className="flex items-center gap-2">
+                  <Mail className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">{em.email}</span>
+                  {em.active ? (
+                    <Badge className="bg-green-600 text-xs">Aktywny</Badge>
+                  ) : (
+                    <Badge variant="secondary" className="text-xs">Nieaktywny</Badge>
+                  )}
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => handleDelete(em.id)} className="text-destructive hover:text-destructive">
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground text-center py-4">Brak emaili — dodaj pierwszy adres</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Sekcja 5: Agent KSeF Monitor + logi
 // ═══════════════════════════════════════════════════════════════
 function KsefMonitorSection() {
   const queryClient = useQueryClient();
@@ -288,25 +505,19 @@ function KsefMonitorSection() {
   const handleCheckNow = async () => {
     setChecking(true);
     try {
-      // Sprawdź health endpoint KSeF
       let healthStatus = 'ok';
       let healthMessage = '';
-
       try {
-        const res = await fetch('https://ksef-test.mf.gov.pl/api/v2/health', {
-          signal: AbortSignal.timeout(10000),
-        });
+        const res = await fetch('https://ksef-test.mf.gov.pl/api/v2/health', { signal: AbortSignal.timeout(10000) });
         if (res.ok) {
           healthMessage = 'API KSeF testowe — dostępne ✓';
         } else {
           healthStatus = 'warning';
           healthMessage = `API KSeF testowe — HTTP ${res.status}`;
         }
-      } catch (err: any) {
-        // CORS block is expected from browser — try via edge function
+      } catch {
         healthStatus = 'ok';
         healthMessage = 'Sprawdzanie przez przeglądarkę zablokowane (CORS). Uruchamiam przez serwer...';
-
         try {
           const { error } = await supabase.functions.invoke('ksef-monitor');
           if (error) throw error;
@@ -317,7 +528,6 @@ function KsefMonitorSection() {
         }
       }
 
-      // Zapisz log
       await supabase.from('ksef_monitor_log').insert({
         status: healthStatus,
         source: 'admin_manual_check',
@@ -355,7 +565,6 @@ function KsefMonitorSection() {
         <CardDescription>Monitoruje dostępność API KSeF i zmiany w systemie</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Status bar */}
         <div className="flex items-center gap-4 flex-wrap p-3 bg-muted/50 rounded-md">
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">Status API:</span>
@@ -378,7 +587,6 @@ function KsefMonitorSection() {
           </Button>
         </div>
 
-        {/* Alert zmiana wykryta */}
         {lastLog && (lastLog as any).change_detected && (
           <div className="bg-yellow-50 border border-yellow-300 rounded-md p-3 flex items-center gap-2 text-sm text-yellow-800">
             <AlertTriangle className="h-4 w-4 text-yellow-600 shrink-0" />
@@ -386,7 +594,6 @@ function KsefMonitorSection() {
           </div>
         )}
 
-        {/* Logi */}
         <p className="text-sm font-medium">Ostatnie logi</p>
         {isLoading ? (
           <div className="flex justify-center p-4"><Loader2 className="h-5 w-5 animate-spin" /></div>
@@ -432,6 +639,10 @@ export function KsefAdminPanel() {
       <Car4RideSettings />
       <Separator />
       <AllCompaniesTable />
+      <Separator />
+      <KsefMonitorConfigSection />
+      <Separator />
+      <KsefAlertEmailsSection />
       <Separator />
       <KsefMonitorSection />
     </div>
