@@ -12,7 +12,7 @@ import { InventoryPurchaseOCR } from '@/components/inventory/InventoryPurchaseOC
 import { PendingInvoicesReview } from '@/components/invoices/PendingInvoicesReview';
 import { InvoiceEmailSetup } from '@/components/invoices/InvoiceEmailSetup';
 import { InvoiceNotificationBell } from '@/components/invoices/InvoiceNotificationBell';
-import { KsefMonitorView } from '@/components/ksef/KsefMonitorView';
+import { KsefUserSettings } from '@/components/ksef/KsefUserSettings';
 import { useKsefUnreadCount } from '@/hooks/useKsefUnreadCount';
 import {
   FileText, Plus, FileSpreadsheet, BarChart3, Clock, Package,
@@ -272,8 +272,8 @@ export function ServiceProviderAccountingView() {
       {/* Email faktury setup */}
       {subTab === 'email-faktury' && <InvoiceEmailSetup />}
 
-      {/* KSeF Monitor */}
-      {subTab === 'ksef' && <KsefMonitorView />}
+      {/* KSeF */}
+      {subTab === 'ksef' && <KsefUserSettings />}
 
       {/* Stan magazynowy */}
       {subTab === 'magazyn' && <InventoryModuleView entityId={userEntities[0]?.id} />}
