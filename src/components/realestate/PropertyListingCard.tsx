@@ -99,9 +99,11 @@ export function PropertyListingCard({
   const displayArea = (() => {
     const dbArea = listing.areaM2 || 0;
     if (listing.description) {
-      const matches = [...listing.description.matchAll(/(\d{2,})\s*m(?:2|²)/gi)];
-      if (matches.length > 0) {
-        const descAreas = matches.map((m: RegExpMatchArray) => Number(m[1])).filter((n: number) => n >= 10 && n < 100000);
+      const matches = [...listing.description.matchAll(/(\d[\d\s]*\d)\s*m(?:2|²)/gi)];
+      const simpleMatches = [...listing.description.matchAll(/(\d{2,})\s*m(?:2|²)/gi)];
+      const allMatches = [...matches, ...simpleMatches];
+      if (allMatches.length > 0) {
+        const descAreas = allMatches.map((m: RegExpMatchArray) => Number(m[1].replace(/\s/g, ''))).filter((n: number) => n >= 10 && n < 100000);
         if (descAreas.length > 0) {
           const maxDescArea = Math.max(...descAreas);
           if (dbArea < 10 || (maxDescArea > dbArea * 3 && maxDescArea >= 50)) {
@@ -295,7 +297,7 @@ export function PropertyListingCard({
                     {displayArea} m²
                   </span>
                 )}
-                {listing.rooms && (
+                {listing.rooms > 0 && (
                   <span>{listing.rooms} {listing.rooms === 1 ? 'pokój' : listing.rooms < 5 ? 'pokoje' : 'pokoi'}</span>
                 )}
                 {listing.floor !== undefined && listing.floorsTotal && (
@@ -547,7 +549,7 @@ export function PropertyListingCard({
                 {displayArea} m²
               </span>
             )}
-            {listing.rooms && (
+            {listing.rooms > 0 && (
               <span>{listing.rooms} {listing.rooms === 1 ? 'pokój' : listing.rooms < 5 ? 'pokoje' : 'pokoi'}</span>
             )}
           </div>

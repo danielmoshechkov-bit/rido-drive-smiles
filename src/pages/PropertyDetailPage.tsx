@@ -47,9 +47,13 @@ function mapDbToDisplayListing(db: any) {
   const dbArea = Number(db.area) || 0;
   let correctedArea = dbArea;
   if (db.description) {
-    const matches = [...db.description.matchAll(/(\d{2,})\s*m(?:2|²)/gi)];
-    if (matches.length > 0) {
-      const descAreas = matches.map(m => Number(m[1])).filter(n => n >= 10 && n < 100000);
+    const matches = [...db.description.matchAll(/(\d[\d\s]*\d)\s*m(?:2|²)/gi)];
+    const simpleMatches = [...db.description.matchAll(/(\d{2,})\s*m(?:2|²)/gi)];
+    const allMatches = [...matches, ...simpleMatches];
+    if (allMatches.length > 0) {
+      const descAreas = allMatches
+        .map(m => Number(m[1].replace(/\s/g, '')))
+        .filter(n => n >= 10 && n < 100000);
       if (descAreas.length > 0) {
         const maxDescArea = Math.max(...descAreas);
         if (dbArea < 10 || (maxDescArea > dbArea * 3 && maxDescArea >= 50)) {
