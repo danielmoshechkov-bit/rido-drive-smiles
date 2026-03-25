@@ -26,6 +26,7 @@ import { SearchCategoryModal } from '@/components/search/SearchCategoryModal';
 import { InventoryModuleView } from '@/components/inventory';
 import { InventoryPurchaseOCR } from '@/components/inventory/InventoryPurchaseOCR';
 import { KsefUserSettings } from '@/components/ksef/KsefUserSettings';
+import { useKsefUnreadCount } from '@/hooks/useKsefUnreadCount';
 import { 
   Car,
   Home,
@@ -716,18 +717,28 @@ export default function ClientPortal() {
         {activeTab === 'ksiegowosc' && (
           <div className="mb-6">
             <div className="flex flex-wrap gap-2 justify-center md:justify-start">
-              {accountingSubTabs.map(sub => (
-                <Button
-                  key={sub.id}
-                  variant={accountingSubTab === sub.id ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setAccountingSubTab(sub.id)}
-                  className="rounded-full"
-                >
-                  <sub.icon className="h-4 w-4 mr-2" />
-                  {sub.label}
-                </Button>
-              ))}
+              {accountingSubTabs.map(sub => {
+                const isKsef = sub.id === 'ksef';
+                const hasUnread = isKsef && ksefUnread > 0;
+                return (
+                  <Button
+                    key={sub.id}
+                    variant={accountingSubTab === sub.id ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => {
+                      setAccountingSubTab(sub.id);
+                      if (isKsef) markKsefRead();
+                    }}
+                    className={`rounded-full ${hasUnread ? 'border-destructive text-destructive hover:bg-destructive/10' : ''}`}
+                  >
+                    <sub.icon className="h-4 w-4 mr-2" />
+                    {sub.label}
+                    {hasUnread && (
+                      <Badge variant="destructive" className="ml-1.5 h-5 min-w-[20px] px-1 text-[10px]">{ksefUnread}</Badge>
+                    )}
+                  </Button>
+                );
+              })}
             </div>
           </div>
         )}
