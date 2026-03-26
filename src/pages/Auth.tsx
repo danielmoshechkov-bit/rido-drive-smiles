@@ -85,7 +85,7 @@ const Auth = () => {
           navigate('/uslugi/panel');
           return;
         } else if (roles.includes('marketplace_user')) {
-          navigate('/gielda/panel');
+          navigate('/klient');
           return;
         }
       }

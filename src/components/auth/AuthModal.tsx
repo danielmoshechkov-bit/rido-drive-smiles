@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, User, Mail, Lock, ShieldCheck, ArrowLeft, CheckCircle } from "lucide-react";
+import { Loader2, User, Mail, Lock, ShieldCheck, ArrowLeft, CheckCircle, Phone } from "lucide-react";
 import { PasswordStrengthIndicator, validatePassword } from "./PasswordStrengthIndicator";
 interface AuthModalProps {
   open: boolean;
@@ -41,6 +41,7 @@ export function AuthModal({
   const [registerData, setRegisterData] = useState({
     first_name: "",
     last_name: "",
+    phone: "",
     email: "",
     password: "",
     confirmPassword: "",
@@ -178,6 +179,7 @@ export function AuthModal({
         body: {
           first_name: registerData.first_name,
           last_name: registerData.last_name,
+          phone: registerData.phone,
           email: registerData.email,
           password: registerData.password,
         },
@@ -525,6 +527,25 @@ export function AuthModal({
                 </div>
                 {fieldErrors.email && (
                   <p className="text-xs text-destructive">{fieldErrors.email}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="reg-phone">Numer telefonu *</Label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="reg-phone"
+                    type="tel"
+                    value={registerData.phone}
+                    onChange={(e) => setRegisterData({ ...registerData, phone: e.target.value })}
+                    placeholder="+48 123 456 789"
+                    className={`pl-10 ${fieldErrors.phone ? 'border-destructive' : ''}`}
+                    required
+                  />
+                </div>
+                {fieldErrors.phone && (
+                  <p className="text-xs text-destructive">{fieldErrors.phone}</p>
                 )}
               </div>
               

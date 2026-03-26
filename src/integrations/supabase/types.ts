@@ -4272,6 +4272,173 @@ export type Database = {
           },
         ]
       }
+      client_vehicle_ownership_requests: {
+        Row: {
+          created_at: string | null
+          engine_capacity: string | null
+          id: string
+          make: string | null
+          model: string | null
+          phone: string
+          plate_number: string | null
+          status: string | null
+          verified_at: string | null
+          verified_by_user_id: string | null
+          vin: string | null
+          workshop_vehicle_id: string | null
+          year: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          engine_capacity?: string | null
+          id?: string
+          make?: string | null
+          model?: string | null
+          phone: string
+          plate_number?: string | null
+          status?: string | null
+          verified_at?: string | null
+          verified_by_user_id?: string | null
+          vin?: string | null
+          workshop_vehicle_id?: string | null
+          year?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          engine_capacity?: string | null
+          id?: string
+          make?: string | null
+          model?: string | null
+          phone?: string
+          plate_number?: string | null
+          status?: string | null
+          verified_at?: string | null
+          verified_by_user_id?: string | null
+          vin?: string | null
+          workshop_vehicle_id?: string | null
+          year?: number | null
+        }
+        Relationships: []
+      }
+      client_vehicle_service_history: {
+        Row: {
+          client_vehicle_id: string
+          cost: number | null
+          created_at: string | null
+          description: string | null
+          id: string
+          mileage: number | null
+          service_date: string
+          signed_estimate_url: string | null
+          workshop_name: string | null
+          workshop_order_id: string | null
+        }
+        Insert: {
+          client_vehicle_id: string
+          cost?: number | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          mileage?: number | null
+          service_date: string
+          signed_estimate_url?: string | null
+          workshop_name?: string | null
+          workshop_order_id?: string | null
+        }
+        Update: {
+          client_vehicle_id?: string
+          cost?: number | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          mileage?: number | null
+          service_date?: string
+          signed_estimate_url?: string | null
+          workshop_name?: string | null
+          workshop_order_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_vehicle_service_history_client_vehicle_id_fkey"
+            columns: ["client_vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "client_vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_vehicles: {
+        Row: {
+          color: string | null
+          created_at: string | null
+          engine_capacity: string | null
+          fuel_type: string | null
+          id: string
+          is_sold: boolean | null
+          is_verified: boolean | null
+          make: string | null
+          model: string | null
+          mot_expiry: string | null
+          oc_expiry: string | null
+          photos: string[] | null
+          plate_number: string | null
+          sold_at: string | null
+          transfer_history_to_new_owner: boolean | null
+          updated_at: string | null
+          user_id: string
+          verified_at: string | null
+          vin: string | null
+          workshop_vehicle_id: string | null
+          year: number | null
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string | null
+          engine_capacity?: string | null
+          fuel_type?: string | null
+          id?: string
+          is_sold?: boolean | null
+          is_verified?: boolean | null
+          make?: string | null
+          model?: string | null
+          mot_expiry?: string | null
+          oc_expiry?: string | null
+          photos?: string[] | null
+          plate_number?: string | null
+          sold_at?: string | null
+          transfer_history_to_new_owner?: boolean | null
+          updated_at?: string | null
+          user_id: string
+          verified_at?: string | null
+          vin?: string | null
+          workshop_vehicle_id?: string | null
+          year?: number | null
+        }
+        Update: {
+          color?: string | null
+          created_at?: string | null
+          engine_capacity?: string | null
+          fuel_type?: string | null
+          id?: string
+          is_sold?: boolean | null
+          is_verified?: boolean | null
+          make?: string | null
+          model?: string | null
+          mot_expiry?: string | null
+          oc_expiry?: string | null
+          photos?: string[] | null
+          plate_number?: string | null
+          sold_at?: string | null
+          transfer_history_to_new_owner?: boolean | null
+          updated_at?: string | null
+          user_id?: string
+          verified_at?: string | null
+          vin?: string | null
+          workshop_vehicle_id?: string | null
+          year?: number | null
+        }
+        Relationships: []
+      }
       coin_transactions: {
         Row: {
           amount: number

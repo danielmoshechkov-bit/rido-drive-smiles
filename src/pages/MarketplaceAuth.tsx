@@ -94,7 +94,7 @@ const MarketplaceAuth = () => {
           navigate('/driver');
           return;
         } else if (roles.includes('marketplace_user')) {
-          navigate('/gielda/panel');
+          navigate('/klient');
           return;
         }
       }
@@ -107,7 +107,7 @@ const MarketplaceAuth = () => {
         .maybeSingle();
 
       if (marketplaceProfile) {
-        navigate("/gielda/panel");
+        navigate("/klient");
         return;
       }
 
@@ -124,7 +124,7 @@ const MarketplaceAuth = () => {
       }
 
       // Default to marketplace panel for marketplace login page
-      navigate("/gielda/panel");
+      navigate("/klient");
     } catch (error) {
       console.error('Login error:', error);
       toast.error('Wystąpił błąd podczas logowania!');

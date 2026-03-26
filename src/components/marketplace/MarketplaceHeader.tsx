@@ -144,7 +144,7 @@ export function MarketplaceHeader({ user, favoritesCount = 0 }: MarketplaceHeade
                 <Button variant="ghost" size="icon">
                   <Bell className="h-5 w-5" />
                 </Button>
-                <Button variant="outline" onClick={() => navigate("/gielda/panel")}>
+                <Button variant="outline" onClick={() => navigate("/klient")}>
                   <User className="h-4 w-4 mr-2" />
                   {t('marketplace.myAccount')}
                 </Button>

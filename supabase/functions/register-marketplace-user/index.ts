@@ -8,6 +8,7 @@ const corsHeaders = {
 interface RegisterMarketplaceUserRequest {
   first_name: string;
   last_name?: string;
+  phone?: string;
   email: string;
   password: string;
 }
@@ -26,7 +27,7 @@ Deno.serve(async (req) => {
     });
 
     const body: RegisterMarketplaceUserRequest = await req.json();
-    const { first_name, last_name, email, password } = body;
+    const { first_name, last_name, phone, email, password } = body;
 
     console.log("📝 Starting marketplace user registration for:", email);
 
@@ -44,8 +45,8 @@ Deno.serve(async (req) => {
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
-      email_confirm: !requireEmailConfirmation, // true = auto-confirm, false = requires email link
-      user_metadata: { first_name, last_name, account_type: 'marketplace' }
+      email_confirm: !requireEmailConfirmation,
+      user_metadata: { first_name, last_name, phone, account_type: 'marketplace' }
     });
 
     if (authError) {
@@ -98,9 +99,9 @@ Deno.serve(async (req) => {
         first_name,
         last_name: last_name || null,
         email,
-        phone: null,
+        phone: phone || null,
         city_id: null,
-        account_mode: 'buyer' // Start as buyer, can upgrade later
+        account_mode: 'buyer'
       });
 
     if (profileError) {
