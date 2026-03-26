@@ -150,31 +150,71 @@ export function ClientMyVehicles({ userId, userPhone }: Props) {
     if (data) setServiceHistory(prev => ({ ...prev, [vehicleId]: data as any }));
   };
 
+  const applyVehicleData = (data: any) => {
+    if (data.make) setBrand(data.make);
+    if (data.model) setModel(data.model);
+    if (data.body_style) setBodyType(data.body_style);
+    if (data.color) setColor(data.color);
+    if (data.registration_year) setYear(data.registration_year);
+    if (data.fuel_type) setFuelType(data.fuel_type.toLowerCase());
+    if (data.vin && !vin) setVin(data.vin);
+    if (data.registration_number && !plate) setPlate(data.registration_number);
+  };
+
+  const handleSearchPlate = async () => {
+    if (!plate || plate.length < 3) { toast.error('Wpisz numer rejestracyjny'); return; }
+    if (!credits || credits.remaining_credits < 1) { setShowCreditsModal(true); return; }
+    const data = await checkRegistration(plate);
+    if (!data && credits && credits.remaining_credits < 1) setShowCreditsModal(true);
+    else if (data) applyVehicleData(data);
+  };
+
+  const handleSearchVin = async () => {
+    if (!vin || vin.length < 5) { toast.error('Wpisz numer VIN'); return; }
+    if (!credits || credits.remaining_credits < 1) { setShowCreditsModal(true); return; }
+    const data = await checkVin(vin);
+    if (!data && credits && credits.remaining_credits < 1) setShowCreditsModal(true);
+    else if (data) applyVehicleData(data);
+  };
+
+  const resetAddForm = () => {
+    setPlate(''); setVin(''); setBrand(''); setModel(''); setYear('');
+    setColor(''); setBodyType(''); setFuelType(''); setEngineCapacity('');
+    setMotExpiry(''); setOcExpiry(''); setHasAC(false); setAcExpiry('');
+    setValidationErrors(new Set());
+  };
+
   const handleAddVehicle = async () => {
-    // Check max 1 free vehicle
     const activeVehicles = vehicles.filter(v => !v.is_sold);
     if (activeVehicles.length >= 1) {
       toast.error('Możesz dodać maksymalnie 1 auto za darmo. Kolejne będą płatne.');
       return;
     }
 
-    if (!newVehicle.plate_number || !newVehicle.make || !newVehicle.model) {
-      toast.error('Wypełnij co najmniej: nr rejestracyjny, markę i model');
+    const errors = new Set<string>();
+    if (!plate) errors.add('plate');
+    if (!brand) errors.add('brand');
+    if (!model) errors.add('model');
+    if (!fuelType) errors.add('fuelType');
+    setValidationErrors(errors);
+    if (errors.size > 0) {
+      toast.error("Uzupełnij wymagane pola podświetlone na czerwono.");
       return;
     }
 
+    setSavingVehicle(true);
     const { error } = await supabase.from('client_vehicles').insert({
       user_id: userId,
-      plate_number: newVehicle.plate_number,
-      vin: newVehicle.vin || null,
-      make: newVehicle.make,
-      model: newVehicle.model,
-      year: newVehicle.year ? parseInt(newVehicle.year) : null,
-      engine_capacity: newVehicle.engine_capacity || null,
-      fuel_type: newVehicle.fuel_type || null,
-      color: newVehicle.color || null,
-      mot_expiry: newVehicle.mot_expiry || null,
-      oc_expiry: newVehicle.oc_expiry || null,
+      plate_number: plate.trim().toUpperCase(),
+      vin: vin || null,
+      make: brand,
+      model: model,
+      year: year === "" ? null : Number(year),
+      engine_capacity: engineCapacity || null,
+      fuel_type: fuelType || null,
+      color: color || null,
+      mot_expiry: motExpiry || null,
+      oc_expiry: ocExpiry || null,
     });
 
     if (error) {
@@ -183,9 +223,10 @@ export function ClientMyVehicles({ userId, userPhone }: Props) {
     } else {
       toast.success('Pojazd dodany!');
       setShowAddVehicle(false);
-      setNewVehicle({ plate_number: '', vin: '', make: '', model: '', year: '', engine_capacity: '', fuel_type: '', color: '', mot_expiry: '', oc_expiry: '' });
+      resetAddForm();
       fetchVehicles();
     }
+    setSavingVehicle(false);
   };
 
   const handleVerifyOwnership = async (requestId: string) => {
