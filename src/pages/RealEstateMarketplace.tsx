@@ -306,6 +306,17 @@ interface DbListing {
   real_estate_agents?: { company_name?: string } | null;
 }
 
+// Fix Polish diacritics capitalization (OŻarÓw → Ożarów)
+function fixPolishCase(text: string | undefined | null): string {
+  if (!text) return '';
+  return text.replace(/\b\S+/g, word => {
+    if (/[A-ZĄĆĘŁŃÓŚŹŻ]/.test(word.slice(1))) {
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    }
+    return word;
+  });
+}
+
 function mapDbToListing(db: DbListing) {
   const transTypeMap: Record<string, { label: string; color: string }> = {
     sprzedaz: { label: "Na sprzedaż", color: "#10b981" },
@@ -320,8 +331,8 @@ function mapDbToListing(db: DbListing) {
     price: db.price,
     priceType: db.price_type || 'sale',
     photos: (typeof db.photos === 'string' ? (() => { try { return JSON.parse(db.photos as string); } catch { return []; } })() : db.photos) || [],
-    location: db.city || db.location || '',
-    district: db.district,
+    location: fixPolishCase(db.city || db.location || ''),
+    district: fixPolishCase(db.district),
     buildYear: db.build_year,
     areaM2: correctedArea,
     rooms: db.rooms,
