@@ -1736,11 +1736,79 @@ export default function ClientPortal() {
         }}
       />
 
-      {/* Search Category Modal */}
-      <SearchCategoryModal
-        open={showSearchModal}
-        onOpenChange={setShowSearchModal}
-      />
+      {/* Search Category Modal - controlled externally */}
+      {showSearchModal && (
+        <SearchCategoryModal 
+          trigger={<span style={{ display: 'none' }} />}
+        />
+      )}
+
+      {/* Sell Category Modal */}
+      <Dialog open={showSellModal} onOpenChange={setShowSellModal}>
+        <DialogContent className="max-w-lg p-0 overflow-hidden">
+          <DialogHeader className="p-6 pb-4 bg-gradient-to-r from-amber-50 to-amber-100">
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <Plus className="h-5 w-5 text-amber-600" />
+              Co chcesz dodać?
+            </DialogTitle>
+            <DialogDescription>
+              Wybierz kategorię ogłoszenia
+            </DialogDescription>
+          </DialogHeader>
+          <div className="p-6 pt-2 grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* Motoryzacja - każdy może */}
+            <Card 
+              className="cursor-pointer hover:shadow-lg hover:scale-[1.02] transition-all border-0 shadow-md overflow-hidden"
+              onClick={() => { setShowSellModal(false); navigate('/gielda/dodaj-pojazd'); }}
+            >
+              <div className="relative h-28 bg-cover bg-center" style={{ backgroundImage: `url(${tileCars})` }}>
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/20" />
+                <div className="absolute bottom-3 left-3 z-10">
+                  <div className="p-1.5 rounded-lg w-fit bg-white/20 backdrop-blur-sm mb-1">
+                    <Car className="h-4 w-4 text-white" />
+                  </div>
+                  <h3 className="font-bold text-sm text-white">Motoryzacja</h3>
+                  <p className="text-[11px] text-white/80">Dodaj ogłoszenie pojazdu</p>
+                </div>
+              </div>
+            </Card>
+
+            {/* Nieruchomości - wymaga rejestracji agenta */}
+            <Card 
+              className="cursor-pointer hover:shadow-lg hover:scale-[1.02] transition-all border-0 shadow-md overflow-hidden"
+              onClick={() => { setShowSellModal(false); navigate('/nieruchomosci/agent/rejestracja'); }}
+            >
+              <div className="relative h-28 bg-cover bg-center" style={{ backgroundImage: `url(${tileRealEstate})` }}>
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/20" />
+                <div className="absolute bottom-3 left-3 z-10">
+                  <div className="p-1.5 rounded-lg w-fit bg-white/20 backdrop-blur-sm mb-1">
+                    <Building2 className="h-4 w-4 text-white" />
+                  </div>
+                  <h3 className="font-bold text-sm text-white">Nieruchomości</h3>
+                  <p className="text-[11px] text-white/80">Wymaga konta agenta</p>
+                </div>
+              </div>
+            </Card>
+
+            {/* Usługi - wymaga rejestracji */}
+            <Card 
+              className="cursor-pointer hover:shadow-lg hover:scale-[1.02] transition-all border-0 shadow-md overflow-hidden"
+              onClick={() => { setShowSellModal(false); navigate('/uslugi/panel'); }}
+            >
+              <div className="relative h-28 bg-cover bg-center" style={{ backgroundImage: `url(${tileHandyman})` }}>
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/20" />
+                <div className="absolute bottom-3 left-3 z-10">
+                  <div className="p-1.5 rounded-lg w-fit bg-white/20 backdrop-blur-sm mb-1">
+                    <Sparkles className="h-4 w-4 text-white" />
+                  </div>
+                  <h3 className="font-bold text-sm text-white">Usługi</h3>
+                  <p className="text-[11px] text-white/80">Firma lub osoba fizyczna</p>
+                </div>
+              </div>
+            </Card>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* New Invoice Dialog */}
       <Dialog 
