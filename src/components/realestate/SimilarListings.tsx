@@ -172,19 +172,22 @@ export function SimilarListings({ currentListingId, propertyType, location }: Si
     async function fetchSimilar() {
       setLoading(true);
       try {
-        let query = supabase
-          .from("real_estate_listings")
-          .select("*")
-          .eq("is_active", true as any)
-          .neq("id", currentListingId)
-          .limit(8);
+        const baseQuery = propertyType
+          ? supabase
+              .from("real_estate_listings")
+              .select("*")
+              .eq("is_active", true)
+              .eq("property_type", propertyType)
+              .neq("id", currentListingId)
+              .limit(8)
+          : supabase
+              .from("real_estate_listings")
+              .select("*")
+              .eq("is_active", true)
+              .neq("id", currentListingId)
+              .limit(8);
 
-        // Prefer same property type
-        if (propertyType) {
-          query = query.eq("property_type", propertyType);
-        }
-
-        const { data, error } = await query;
+        const { data, error } = await baseQuery;
 
         if (error) {
           console.error("Error fetching similar listings:", error);
