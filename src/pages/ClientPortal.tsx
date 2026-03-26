@@ -580,25 +580,13 @@ export default function ClientPortal() {
               </div>
             </div>
             <div className="flex items-center space-x-3">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      className={`bg-primary hover:bg-primary/90 ${!isOwner ? 'opacity-60 cursor-not-allowed' : ''}`}
-                      onClick={() => !isOwner && toast.info('Wkrótce udostępnimy tę funkcję')}
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Dodaj ogłoszenie
-                      {!isOwner && <Lock className="h-3 w-3 ml-1" />}
-                    </Button>
-                  </TooltipTrigger>
-                  {!isOwner && (
-                    <TooltipContent>
-                      <p>Wkrótce udostępnimy tę funkcję</p>
-                    </TooltipContent>
-                  )}
-                </Tooltip>
-              </TooltipProvider>
+              <Button 
+                className="bg-primary hover:bg-primary/90"
+                onClick={() => setShowSellModal(true)}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Dodaj ogłoszenie
+              </Button>
               <div className="scale-90">
                 <LanguageSelector />
               </div>
