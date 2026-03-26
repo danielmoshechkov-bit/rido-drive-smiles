@@ -38,7 +38,7 @@ export default function MarketplaceRegister() {
     // Check if user is already logged in
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
-        navigate("/gielda/panel");
+        navigate("/klient");
       }
     });
   }, [navigate]);

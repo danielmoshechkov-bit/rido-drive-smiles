@@ -635,7 +635,7 @@ export default function AddVehicleListing() {
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={() => navigate("/gielda/panel")} className="gap-2">
+            <Button variant="ghost" size="sm" onClick={() => navigate("/klient")} className="gap-2">
               <ArrowLeft className="h-4 w-4" />
               <span className="hidden sm:inline">Anuluj</span>
             </Button>
@@ -1182,7 +1182,7 @@ export default function AddVehicleListing() {
 
           {/* Submit Button */}
           <div className="flex justify-end gap-4 pt-4">
-            <Button variant="outline" onClick={() => navigate("/gielda/panel")}>
+            <Button variant="outline" onClick={() => navigate("/klient")}>
               Anuluj
             </Button>
             <Button onClick={handleSubmit} disabled={submitting} size="lg" className="gap-2">
