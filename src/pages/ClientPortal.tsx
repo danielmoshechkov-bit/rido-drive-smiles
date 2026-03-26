@@ -28,6 +28,7 @@ import { InventoryPurchaseOCR } from '@/components/inventory/InventoryPurchaseOC
 import { KsefUserSettings } from '@/components/ksef/KsefUserSettings';
 import { useKsefUnreadCount } from '@/hooks/useKsefUnreadCount';
 import { ServiceRegistrationModal } from '@/components/services/ServiceRegistrationModal';
+import { ClientMyVehicles } from '@/components/client/ClientMyVehicles';
 import { 
   Car,
   Home,
@@ -551,6 +552,7 @@ export default function ClientPortal() {
   const mainTabs = [
     { id: 'start', label: 'Start', icon: Home },
     { id: 'ogloszenia', label: 'Ogłoszenia', icon: Package },
+    { id: 'mojeauta', label: 'Moje auta', icon: Car },
     // Księgowość - tylko dla użytkowników z firmą
     ...(hasCompanySetup ? [{ id: 'ksiegowosc', label: 'Księgowość', icon: Calculator }] : []),
     { id: 'wiadomosci', label: 'Wiadomości', icon: MessageSquare },
@@ -1149,6 +1151,11 @@ export default function ClientPortal() {
                 </div>
               )}
             </div>
+          )}
+
+          {/* Moje Auta Tab */}
+          {activeTab === 'mojeauta' && (
+            <ClientMyVehicles userId={user?.id || ''} userPhone={user?.user_metadata?.phone || accountPhone} />
           )}
 
           {/* Messages Tab */}
