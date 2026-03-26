@@ -172,51 +172,31 @@ export function SimilarListings({ currentListingId, propertyType, location }: Si
     async function fetchSimilar() {
       setLoading(true);
       try {
-        // Use RPC-style to avoid deep type instantiation
-        const { data, error } = await supabase.rpc("get_similar_listings" as any, {
-          exclude_id: currentListingId,
-          p_type: propertyType || "",
-          max_count: 8,
-        }).then(() => {
-          // Fallback: direct fetch
-          return { data: null as any, error: { message: "rpc not found" } };
-        }).catch(() => ({ data: null, error: { message: "rpc not found" } }));
+        // Fetch active listings excluding current
+        const { data, error } = await (supabase
+          .from("real_estate_listings")
+          .select("id,title,price,transaction_type,photos,city,location,district,area,rooms,property_type,is_active")
+          .eq("is_active", true)
+          .neq("id", currentListingId)
+          .limit(8) as any);
 
-        // Direct query approach
-        const res = await fetch(
-          `${(supabase as any).supabaseUrl}/rest/v1/real_estate_listings?is_active=eq.true&id=neq.${currentListingId}${propertyType ? `&property_type=eq.${propertyType}` : ''}&limit=8&select=*`,
-          {
-            headers: {
-              'apikey': (supabase as any).supabaseKey,
-              'Authorization': `Bearer ${(supabase as any).supabaseKey}`,
-            },
-          }
-        );
-        const listings: any[] = await res.json();
-
-        let results = (listings || []).map(mapDbToSimilar);
-
-        // If too few results with same type, fetch more without filter
-        if (results.length < 3 && propertyType) {
-          const res2 = await fetch(
-            `${(supabase as any).supabaseUrl}/rest/v1/real_estate_listings?is_active=eq.true&id=neq.${currentListingId}&limit=8&select=*`,
-            {
-              headers: {
-                'apikey': (supabase as any).supabaseKey,
-                'Authorization': `Bearer ${(supabase as any).supabaseKey}`,
-              },
-            }
-          );
-          const moreData: any[] = await res2.json();
-
-          if (moreData && Array.isArray(moreData)) {
-            const existingIds = new Set(results.map(r => r.id));
-            const additional = moreData
-              .filter((d: any) => !existingIds.has(d.id))
-              .map(mapDbToSimilar);
-            results = [...results, ...additional].slice(0, 6);
-          }
+        if (error) {
+          console.error("Error fetching similar listings:", error);
+          setSimilarListings([]);
+          return;
         }
+
+        let results: SimilarListing[] = (data || []).map(mapDbToSimilar);
+
+        // Sort: same property type and location first
+        results.sort((a, b) => {
+          let scoreA = 0, scoreB = 0;
+          if (a.propertyType === propertyType) scoreA += 2;
+          if (b.propertyType === propertyType) scoreB += 2;
+          if (a.location === location) scoreA += 1;
+          if (b.location === location) scoreB += 1;
+          return scoreB - scoreA;
+        });
 
         // Sort: same location first
         results.sort((a, b) => {
