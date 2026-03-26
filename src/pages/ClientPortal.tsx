@@ -1740,12 +1740,11 @@ export default function ClientPortal() {
         }}
       />
 
-      {/* Search Category Modal - controlled externally */}
-      {showSearchModal && (
-        <SearchCategoryModal 
-          trigger={<span style={{ display: 'none' }} />}
-        />
-      )}
+      {/* Search Category Modal */}
+      <SearchCategoryModal
+        open={showSearchModal}
+        onOpenChange={setShowSearchModal}
+      />
 
       {/* Sell Category Modal */}
       <Dialog open={showSellModal} onOpenChange={setShowSellModal}>
