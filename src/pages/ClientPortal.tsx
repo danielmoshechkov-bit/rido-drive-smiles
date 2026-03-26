@@ -1770,10 +1770,10 @@ export default function ClientPortal() {
               </div>
             </Card>
 
-            {/* Usługi - wymaga rejestracji */}
+            {/* Usługi - otwiera modal rejestracji */}
             <Card 
               className="cursor-pointer hover:shadow-lg hover:scale-[1.02] transition-all border-0 shadow-md overflow-hidden"
-              onClick={() => { setShowSellModal(false); navigate('/uslugi/panel'); }}
+              onClick={() => { setShowSellModal(false); setShowServiceRegistration(true); }}
             >
               <div className="relative h-28 bg-cover bg-center" style={{ backgroundImage: `url(${tileHandyman})` }}>
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/20" />
