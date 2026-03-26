@@ -13,7 +13,7 @@ import { TabsPill } from '@/components/ui/TabsPill';
 import { TabsTrigger } from '@/components/ui/tabs';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { AddListingModal } from '@/components/AddListingModal';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { isOwnerEmail } from '@/hooks/useOwnerAccess';
@@ -52,8 +52,12 @@ import {
   Clock,
   ChevronRight,
   Lock,
-  Shield
+  Shield,
+  Sparkles
 } from 'lucide-react';
+import tileCars from '@/assets/tile-cars.jpg';
+import tileRealEstate from '@/assets/tile-realestate.jpg';
+import tileHandyman from '@/assets/tile-handyman.jpg';
 import { toast } from 'sonner';
 import LanguageSelector from '@/components/LanguageSelector';
 
