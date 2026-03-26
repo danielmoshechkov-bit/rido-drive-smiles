@@ -172,13 +172,14 @@ export function SimilarListings({ currentListingId, propertyType, location }: Si
     async function fetchSimilar() {
       setLoading(true);
       try {
-        // Fetch active listings excluding current
-        const { data, error } = await (supabase
+        // Use any-typed client to avoid TS2589 deep instantiation
+        const client: any = supabase;
+        const { data, error } = await client
           .from("real_estate_listings")
           .select("id,title,price,transaction_type,photos,city,location,district,area,rooms,property_type,is_active")
           .eq("is_active", true)
           .neq("id", currentListingId)
-          .limit(8) as any);
+          .limit(8);
 
         if (error) {
           console.error("Error fetching similar listings:", error);
@@ -186,7 +187,7 @@ export function SimilarListings({ currentListingId, propertyType, location }: Si
           return;
         }
 
-        let results: SimilarListing[] = (data || []).map(mapDbToSimilar);
+        let results: SimilarListing[] = ((data as any[]) || []).map(mapDbToSimilar);
 
         // Sort: same property type and location first
         results.sort((a, b) => {
