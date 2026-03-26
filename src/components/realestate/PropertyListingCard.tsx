@@ -331,7 +331,7 @@ export function PropertyListingCard({
                 <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
                   <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
                   <span className="truncate">
-                    {listing.district ? `${listing.district}, ${listing.location}` : listing.location}
+                    {listing.district ? `${fixPolishCase(listing.district)}, ${fixPolishCase(listing.location)}` : fixPolishCase(listing.location)}
                   </span>
                 </div>
               )}
@@ -592,7 +592,7 @@ export function PropertyListingCard({
             )}>
               <MapPin className={cn(compact ? "h-3 w-3 flex-shrink-0" : "h-3.5 w-3.5 flex-shrink-0")} />
               <span className="truncate">
-                {listing.district ? `${listing.district}, ${listing.location}` : listing.location}
+                {listing.district ? `${fixPolishCase(listing.district)}, ${fixPolishCase(listing.location)}` : fixPolishCase(listing.location)}
               </span>
             </div>
           )}
