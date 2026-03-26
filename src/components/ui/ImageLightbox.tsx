@@ -111,7 +111,7 @@ export function ImageLightbox({
           
           {/* Thumbnails - always visible */}
           {images.length > 1 && (
-            <div className="flex justify-center gap-2 overflow-x-auto pb-2">
+            <div className="flex justify-center gap-2 overflow-x-auto pb-2 touch-pan-x" style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
               {images.map((img, idx) => (
                 <button
                   key={idx}
