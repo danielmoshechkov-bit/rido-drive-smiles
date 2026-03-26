@@ -751,70 +751,43 @@ export default function ClientPortal() {
             <div className="space-y-6">
               {/* Quick Actions Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Szukam - zablokowane dla non-owners */}
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Card 
-                        className={`transition-shadow ${isOwner ? 'cursor-pointer hover:shadow-lg' : 'opacity-60 cursor-not-allowed'}`}
-                        onClick={() => isOwner && setShowSearchModal(true)}
-                      >
-                        <CardContent className="p-6 flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            <div className="p-3 rounded-lg bg-primary/10">
-                              <Search className="h-8 w-8 text-primary" />
-                            </div>
-                            <div>
-                              <h3 className="font-bold text-lg flex items-center gap-2">
-                                Szukam
-                                {!isOwner && <Lock className="h-4 w-4 text-muted-foreground" />}
-                              </h3>
-                              <p className="text-sm text-muted-foreground">Przeglądaj oferty pojazdów, nieruchomości i usług</p>
-                            </div>
-                          </div>
-                          <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                        </CardContent>
-                      </Card>
-                    </TooltipTrigger>
-                    {!isOwner && (
-                      <TooltipContent>
-                        <p>Wkrótce udostępnimy tę funkcję</p>
-                      </TooltipContent>
-                    )}
-                  </Tooltip>
-                </TooltipProvider>
+                {/* Szukam - dostępne dla wszystkich */}
+                <Card 
+                  className="cursor-pointer hover:shadow-lg transition-shadow"
+                  onClick={() => setShowSearchModal(true)}
+                >
+                  <CardContent className="p-6 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="p-3 rounded-lg bg-primary/10">
+                        <Search className="h-8 w-8 text-primary" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-lg">Szukam</h3>
+                        <p className="text-sm text-muted-foreground">Przeglądaj oferty pojazdów, nieruchomości i usług</p>
+                      </div>
+                    </div>
+                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                  </CardContent>
+                </Card>
 
-                {/* Sprzedaję - zablokowane dla non-owners */}
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Card 
-                        className={`transition-shadow ${isOwner ? 'cursor-pointer hover:shadow-lg' : 'opacity-60 cursor-not-allowed'}`}
-                      >
-                        <CardContent className="p-6 flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            <div className="p-3 rounded-lg bg-amber-100">
-                              <Plus className="h-8 w-8 text-amber-600" />
-                            </div>
-                            <div>
-                              <h3 className="font-bold text-lg flex items-center gap-2">
-                                Sprzedaję
-                                {!isOwner && <Lock className="h-4 w-4 text-muted-foreground" />}
-                              </h3>
-                              <p className="text-sm text-muted-foreground">Aktywuj tryb sprzedawcy, aby wystawiać ogłoszenia</p>
-                            </div>
-                          </div>
-                          <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                        </CardContent>
-                      </Card>
-                    </TooltipTrigger>
-                    {!isOwner && (
-                      <TooltipContent>
-                        <p>Wkrótce udostępnimy tę funkcję</p>
-                      </TooltipContent>
-                    )}
-                  </Tooltip>
-                </TooltipProvider>
+                {/* Sprzedaję - dostępne dla wszystkich, z 3 kategoriami */}
+                <Card 
+                  className="cursor-pointer hover:shadow-lg transition-shadow"
+                  onClick={() => setShowSellModal(true)}
+                >
+                  <CardContent className="p-6 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="p-3 rounded-lg bg-amber-100">
+                        <Plus className="h-8 w-8 text-amber-600" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-lg">Sprzedaję</h3>
+                        <p className="text-sm text-muted-foreground">Dodaj ogłoszenie w wybranej kategorii</p>
+                      </div>
+                    </div>
+                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                  </CardContent>
+                </Card>
 
                 <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setActiveTab('konta')}>
                   <CardContent className="p-6 flex items-center justify-between">
