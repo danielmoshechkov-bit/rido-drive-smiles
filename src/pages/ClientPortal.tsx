@@ -1153,6 +1153,11 @@ export default function ClientPortal() {
             </div>
           )}
 
+          {/* Moje Auta Tab */}
+          {activeTab === 'mojeauta' && (
+            <ClientMyVehicles userId={user?.id || ''} userPhone={user?.user_metadata?.phone || accountPhone} />
+          )}
+
           {/* Messages Tab */}
           {activeTab === 'wiadomosci' && (
             <Card>
@@ -1698,11 +1703,6 @@ export default function ClientPortal() {
           )}
         </div>
       </main>
-
-          {/* Moje Auta Tab */}
-          {activeTab === 'mojeauta' && (
-            <ClientMyVehicles userId={user?.id || ''} userPhone={user?.user_metadata?.phone || accountPhone} />
-          )}
 
 
       {/* Company Setup Wizard */}
