@@ -221,7 +221,7 @@ export default function PropertyDetailPage() {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
         <h1 className="text-2xl font-bold">Nie znaleziono ogłoszenia</h1>
-        <Button onClick={() => navigate("/nieruchomosci")}>
+         <Button onClick={() => navigate(-1)}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Wróć do listy
         </Button>
@@ -238,7 +238,7 @@ export default function PropertyDetailPage() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => navigate("/nieruchomosci")}
+              onClick={() => navigate(-1)}
               className="gap-2"
             >
               <ArrowLeft className="h-4 w-4" />
