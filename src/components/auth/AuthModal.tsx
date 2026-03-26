@@ -41,6 +41,7 @@ export function AuthModal({
   const [registerData, setRegisterData] = useState({
     first_name: "",
     last_name: "",
+    phone: "",
     email: "",
     password: "",
     confirmPassword: "",
