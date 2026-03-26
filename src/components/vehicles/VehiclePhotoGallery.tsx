@@ -213,7 +213,10 @@ export function VehiclePhotoGallery({ photos, title }: VehiclePhotoGalleryProps)
             </div>
 
             {/* Thumbnails */}
-            <div className="absolute bottom-16 left-1/2 -translate-x-1/2 flex gap-2 max-w-full overflow-x-auto px-4">
+            <div 
+              className="absolute bottom-16 left-1/2 -translate-x-1/2 flex gap-2 max-w-full overflow-x-auto px-4 touch-pan-x"
+              style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}
+            >
               {displayPhotos.map((photo, idx) => (
                 <button
                   key={idx}

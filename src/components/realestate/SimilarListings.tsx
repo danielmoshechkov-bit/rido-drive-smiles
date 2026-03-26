@@ -3,14 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Home, Maximize, MapPin } from "lucide-react";
+import { ChevronLeft, ChevronRight, Maximize, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-// Import images for mock data
-import heroImage from "@/assets/realestate-hero.jpg";
-import tileRealestate from "@/assets/tile-realestate.jpg";
-import tileFleet from "@/assets/tile-fleet.jpg";
-import tileCars from "@/assets/tile-cars.jpg";
+import { supabase } from "@/integrations/supabase/client";
 
 interface SimilarListingsProps {
   currentListingId: string;
@@ -18,88 +13,58 @@ interface SimilarListingsProps {
   location?: string;
 }
 
-// Mock similar listings with multiple photos
-const ALL_MOCK_LISTINGS = [
-  {
-    id: "2",
-    title: "Nowoczesne studio w centrum",
-    price: 2800,
-    priceType: "rent_monthly",
-    photos: [heroImage, tileRealestate, tileCars],
-    location: "Warszawa",
-    district: "Śródmieście",
-    areaM2: 35,
-    rooms: 1,
-    propertyType: "kawalerka",
-    transactionType: "Wynajem",
-    transactionColor: "#3b82f6",
-  },
-  {
-    id: "3",
-    title: "Dom jednorodzinny z ogrodem",
-    price: 890000,
-    priceType: "sale",
-    photos: [tileFleet, heroImage, tileRealestate],
-    location: "Gdańsk",
-    district: "Osowa",
-    areaM2: 180,
-    rooms: 5,
-    propertyType: "dom",
-    transactionType: "Na sprzedaż",
-    transactionColor: "#10b981",
-  },
-  {
-    id: "4",
-    title: "Działka budowlana 1200m²",
-    price: 320000,
-    priceType: "sale",
-    photos: [tileRealestate, tileCars, heroImage],
-    location: "Wrocław",
-    district: "Krzyki",
-    areaM2: 1200,
-    propertyType: "dzialka",
-    transactionType: "Na sprzedaż",
-    transactionColor: "#10b981",
-  },
-  {
-    id: "5",
-    title: "Przytulne 2-pokojowe na Starym Mieście",
-    price: 380000,
-    priceType: "sale",
-    photos: [tileCars, tileFleet, heroImage, tileRealestate],
-    location: "Kraków",
-    district: "Stare Miasto",
-    areaM2: 48,
-    rooms: 2,
-    propertyType: "mieszkanie",
-    transactionType: "Na sprzedaż",
-    transactionColor: "#10b981",
-  },
-  {
-    id: "1",
-    title: "Przestronne mieszkanie 3-pokojowe",
-    price: 450000,
-    priceType: "sale",
-    photos: [heroImage, tileRealestate, tileFleet, tileCars],
-    location: "Kraków",
-    district: "Kazimierz",
-    areaM2: 65,
-    rooms: 3,
-    propertyType: "mieszkanie",
-    transactionType: "Na sprzedaż",
-    transactionColor: "#10b981",
-  },
-];
+interface SimilarListing {
+  id: string;
+  title: string;
+  price: number;
+  priceType: string;
+  photos: string[];
+  location: string;
+  district: string;
+  areaM2: number;
+  rooms: number | null;
+  propertyType: string;
+  transactionType: string;
+  transactionColor: string;
+}
 
 const PRICE_TYPE_LABELS: Record<string, string> = {
   sale: "",
   rent_monthly: "/mies.",
+  rent_daily: "/dzień",
 };
 
-// Individual listing card with photo carousel
-function SimilarListingCard({ listing, onClick }: { listing: typeof ALL_MOCK_LISTINGS[0]; onClick: () => void }) {
+const TRANS_MAP: Record<string, { label: string; color: string }> = {
+  sprzedaz: { label: "Na sprzedaż", color: "#10b981" },
+  wynajem: { label: "Wynajem", color: "#3b82f6" },
+};
+
+function mapDbToSimilar(db: any): SimilarListing {
+  const trans = TRANS_MAP[db.transaction_type || ""] || { label: db.transaction_type, color: "#6b7280" };
+  const priceTypeMap: Record<string, string> = {
+    sprzedaz: "sale",
+    wynajem: "rent_monthly",
+  };
+
+  return {
+    id: db.id,
+    title: db.title || "Ogłoszenie",
+    price: db.price || 0,
+    priceType: priceTypeMap[db.transaction_type] || "sale",
+    photos: db.photos || ["/placeholder.svg"],
+    location: db.city || db.location || "",
+    district: db.district || "",
+    areaM2: Number(db.area) || 0,
+    rooms: db.rooms,
+    propertyType: db.property_type || "",
+    transactionType: trans.label,
+    transactionColor: trans.color,
+  };
+}
+
+function SimilarListingCard({ listing, onClick }: { listing: SimilarListing; onClick: () => void }) {
   const [currentPhoto, setCurrentPhoto] = useState(0);
-  const photos = listing.photos || ["/placeholder.svg"];
+  const photos = listing.photos.length > 0 ? listing.photos : ["/placeholder.svg"];
 
   const nextPhoto = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -116,7 +81,6 @@ function SimilarListingCard({ listing, onClick }: { listing: typeof ALL_MOCK_LIS
       className="shrink-0 w-[280px] snap-start overflow-hidden cursor-pointer group hover:shadow-lg transition-all"
       onClick={onClick}
     >
-      {/* Photo with carousel */}
       <div className="relative aspect-[4/3] overflow-hidden">
         <img
           src={photos[currentPhoto]}
@@ -124,7 +88,6 @@ function SimilarListingCard({ listing, onClick }: { listing: typeof ALL_MOCK_LIS
           className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
         />
         
-        {/* Photo Navigation Arrows */}
         {photos.length > 1 && (
           <>
             <button
@@ -140,7 +103,6 @@ function SimilarListingCard({ listing, onClick }: { listing: typeof ALL_MOCK_LIS
               <ChevronRight className="h-4 w-4" />
             </button>
             
-            {/* Photo Indicators */}
             <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1 z-10">
               {photos.slice(0, 5).map((_, idx) => (
                 <div
@@ -151,9 +113,6 @@ function SimilarListingCard({ listing, onClick }: { listing: typeof ALL_MOCK_LIS
                   )}
                 />
               ))}
-              {photos.length > 5 && (
-                <span className="text-white text-xs ml-1">+{photos.length - 5}</span>
-              )}
             </div>
           </>
         )}
@@ -168,12 +127,11 @@ function SimilarListingCard({ listing, onClick }: { listing: typeof ALL_MOCK_LIS
         )}
       </div>
 
-      {/* Content */}
       <div className="p-4">
         <h3 className="font-medium line-clamp-1 mb-2">{listing.title}</h3>
         
         <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground mb-2">
-          {listing.areaM2 && (
+          {listing.areaM2 > 0 && (
             <span className="flex items-center gap-1">
               <Maximize className="h-3.5 w-3.5" />
               {listing.areaM2} m²
@@ -207,26 +165,58 @@ function SimilarListingCard({ listing, onClick }: { listing: typeof ALL_MOCK_LIS
 export function SimilarListings({ currentListingId, propertyType, location }: SimilarListingsProps) {
   const navigate = useNavigate();
   const [scrollPosition, setScrollPosition] = useState(0);
-  const [similarListings, setSimilarListings] = useState<typeof ALL_MOCK_LISTINGS>([]);
+  const [similarListings, setSimilarListings] = useState<SimilarListing[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Filter out current listing and get similar ones
-    const filtered = ALL_MOCK_LISTINGS.filter(l => l.id !== currentListingId);
-    
-    // Prioritize by property type and location
-    const sorted = filtered.sort((a, b) => {
-      let scoreA = 0;
-      let scoreB = 0;
-      
-      if (a.propertyType === propertyType) scoreA += 2;
-      if (b.propertyType === propertyType) scoreB += 2;
-      if (a.location === location) scoreA += 1;
-      if (b.location === location) scoreB += 1;
-      
-      return scoreB - scoreA;
-    });
+    async function fetchSimilar() {
+      setLoading(true);
+      try {
+        // Use any-typed client to avoid TS2589 deep instantiation
+        const client: any = supabase;
+        const { data, error } = await client
+          .from("real_estate_listings")
+          .select("id,title,price,transaction_type,photos,city,location,district,area,rooms,property_type,is_active")
+          .eq("is_active", true)
+          .neq("id", currentListingId)
+          .limit(8);
 
-    setSimilarListings(sorted.slice(0, 6));
+        if (error) {
+          console.error("Error fetching similar listings:", error);
+          setSimilarListings([]);
+          return;
+        }
+
+        let results: SimilarListing[] = ((data as any[]) || []).map(mapDbToSimilar);
+
+        // Sort: same property type and location first
+        results.sort((a, b) => {
+          let scoreA = 0, scoreB = 0;
+          if (a.propertyType === propertyType) scoreA += 2;
+          if (b.propertyType === propertyType) scoreB += 2;
+          if (a.location === location) scoreA += 1;
+          if (b.location === location) scoreB += 1;
+          return scoreB - scoreA;
+        });
+
+        // Sort: same location first
+        results.sort((a, b) => {
+          let scoreA = 0, scoreB = 0;
+          if (a.location === location) scoreA += 1;
+          if (b.location === location) scoreB += 1;
+          return scoreB - scoreA;
+        });
+
+        setSimilarListings(results.slice(0, 6));
+      } catch (err) {
+        console.error("Error:", err);
+        setSimilarListings([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchSimilar();
   }, [currentListingId, propertyType, location]);
 
   const scroll = (direction: "left" | "right") => {
@@ -242,7 +232,7 @@ export function SimilarListings({ currentListingId, propertyType, location }: Si
     }
   };
 
-  if (similarListings.length === 0) {
+  if (!loading && similarListings.length === 0) {
     return null;
   }
 
@@ -272,19 +262,23 @@ export function SimilarListings({ currentListingId, propertyType, location }: Si
         </div>
       </div>
 
-      <div 
-        id="similar-listings-container"
-        className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory"
-        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
-      >
-        {similarListings.map((listing) => (
-          <SimilarListingCard
-            key={listing.id}
-            listing={listing}
-            onClick={() => navigate(`/nieruchomosci/ogloszenie/${listing.id}`)}
-          />
-        ))}
-      </div>
+      {loading ? (
+        <div className="text-center text-muted-foreground py-8">Ładowanie podobnych ogłoszeń...</div>
+      ) : (
+        <div 
+          id="similar-listings-container"
+          className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory touch-pan-x"
+          style={{ scrollbarWidth: "none", msOverflowStyle: "none", WebkitOverflowScrolling: "touch" }}
+        >
+          {similarListings.map((listing) => (
+            <SimilarListingCard
+              key={listing.id}
+              listing={listing}
+              onClick={() => navigate(`/nieruchomosci/ogloszenie/${listing.id}`)}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

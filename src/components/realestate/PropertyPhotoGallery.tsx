@@ -52,7 +52,7 @@ export function PropertyPhotoGallery({ photos, title }: PropertyPhotoGalleryProp
   return (
     <>
       {/* Desktop Grid Layout */}
-      <div className="hidden md:grid grid-cols-4 grid-rows-2 gap-2 h-[400px] lg:h-[500px] rounded-xl overflow-hidden">
+      <div className="hidden md:grid grid-cols-4 grid-rows-2 gap-2 h-[450px] lg:h-[550px] xl:h-[600px] rounded-xl overflow-hidden">
         {/* Main Photo - spans 2 cols and 2 rows */}
         <div 
           className="col-span-2 row-span-2 relative group cursor-pointer"
@@ -96,11 +96,11 @@ export function PropertyPhotoGallery({ photos, title }: PropertyPhotoGalleryProp
       </div>
 
       {/* Mobile Carousel */}
-      <div className="md:hidden relative aspect-[4/3] rounded-xl overflow-hidden">
+      <div className="md:hidden relative aspect-[16/10] rounded-xl overflow-hidden">
         <img
           src={getPhotoSrc(currentIndex)}
           alt={`${title} - zdjęcie ${currentIndex + 1}`}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-cover object-center"
           onError={() => handleImageError(currentIndex)}
           onClick={() => openLightbox(currentIndex)}
         />
@@ -201,13 +201,16 @@ export function PropertyPhotoGallery({ photos, title }: PropertyPhotoGalleryProp
             )}
 
             {/* Thumbnail Strip */}
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 max-w-[80vw] overflow-x-auto p-2">
+            <div 
+              className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 max-w-[80vw] overflow-x-auto p-2 touch-pan-x"
+              style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}
+            >
               {displayPhotos.map((photo, index) => (
                 <button
                   key={index}
                   onClick={() => setLightboxIndex(index)}
                   className={cn(
-                    "shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all",
+                    "shrink-0 w-16 h-12 md:w-20 md:h-14 rounded-lg overflow-hidden border-2 transition-all",
                     index === lightboxIndex ? "border-white" : "border-transparent opacity-50 hover:opacity-100"
                   )}
                 >
