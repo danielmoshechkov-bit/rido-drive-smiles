@@ -207,7 +207,7 @@ export function AccountSwitcherPanel({
       <CardContent>
         {hasNoSpecializedAccounts ? (
           /* Show registration options as tiles when no accounts */
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-3 md:grid-cols-5 gap-3">
             {availableRegistrationOptions.map((option) => (
               <div
                 key={option.id}
@@ -218,7 +218,7 @@ export function AccountSwitcherPanel({
                 }`}
                 onClick={() => option.available && handleRegistrationClick(option)}
               >
-                <div className="aspect-[4/3] relative overflow-hidden">
+                <div className="aspect-[16/9] relative overflow-hidden">
                   <img 
                     src={option.image} 
                     alt={option.label}
@@ -242,7 +242,7 @@ export function AccountSwitcherPanel({
           </div>
         ) : (
           /* Show account tiles when user has accounts */
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-3 md:grid-cols-5 gap-3">
             {/* Portal Klienta - always first */}
             <div 
               className={`border-2 rounded-xl overflow-hidden transition-all ${
@@ -252,7 +252,7 @@ export function AccountSwitcherPanel({
               }`}
               onClick={() => currentAccountType !== 'client' && navigate('/klient')}
             >
-              <div className="aspect-[4/3] relative overflow-hidden">
+              <div className="aspect-[16/9] relative overflow-hidden">
                 <img 
                   src={clientPortalImg} 
                   alt="Portal Klienta"
@@ -282,7 +282,7 @@ export function AccountSwitcherPanel({
                   }`}
                   onClick={() => !isActive && handleAccountClick(account)}
                 >
-                  <div className="aspect-[4/3] relative overflow-hidden">
+                  <div className="aspect-[16/9] relative overflow-hidden">
                     <img 
                       src={account.image} 
                       alt={account.label}
@@ -307,7 +307,7 @@ export function AccountSwitcherPanel({
               className="border-2 border-dashed rounded-xl overflow-hidden cursor-pointer hover:bg-muted/50 hover:border-primary/50 transition-all flex flex-col"
               onClick={() => setShowAddAccountDialog(true)}
             >
-              <div className="aspect-[4/3] flex items-center justify-center bg-muted/30">
+              <div className="aspect-[16/9] flex items-center justify-center bg-muted/30">
                 <Plus className="h-12 w-12 text-muted-foreground" />
               </div>
               <div className="p-3 text-center bg-background">
