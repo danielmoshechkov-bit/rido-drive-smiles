@@ -173,19 +173,19 @@ export function SimilarListings({ currentListingId, propertyType, location }: Si
       setLoading(true);
       try {
         const baseQuery = propertyType
-          ? supabase
+          ? (supabase
               .from("real_estate_listings")
               .select("*")
               .eq("is_active", true)
               .eq("property_type", propertyType)
               .neq("id", currentListingId)
-              .limit(8)
-          : supabase
+              .limit(8) as any)
+          : (supabase
               .from("real_estate_listings")
               .select("*")
               .eq("is_active", true)
               .neq("id", currentListingId)
-              .limit(8);
+              .limit(8) as any);
 
         const { data, error } = await baseQuery;
 
