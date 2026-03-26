@@ -104,7 +104,7 @@ const App = () => (
                 <Route path="/gielda/porownaj" element={<VehicleCompare />} />
                 <Route path="/gielda/logowanie" element={<MarketplaceAuth />} />
                 <Route path="/gielda/rejestracja" element={<MarketplaceRegister />} />
-                <Route path="/gielda/panel" element={<MarketplaceDashboard />} />
+                <Route path="/gielda/panel" element={<Navigate to="/klient" replace />} />
                 <Route path="/gielda/dodaj-pojazd" element={<AddVehicleListing />} />
                 <Route path="/easy" element={<EasyHub />} />
                 <Route path="/easy/login" element={<Navigate to="/easy" replace />} />

@@ -94,7 +94,7 @@ const MarketplaceAuth = () => {
           navigate('/driver');
           return;
         } else if (roles.includes('marketplace_user')) {
-          navigate('/gielda/panel');
+          navigate('/klient');
           return;
         }
       }
