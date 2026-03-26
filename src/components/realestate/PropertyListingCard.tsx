@@ -1,4 +1,16 @@
 // PropertyListingCard v2 - CRM photos fix deployed
+// Fix Polish diacritics capitalization (OŻarÓw → Ożarów)
+function fixPolishCase(text: string | undefined | null): string {
+  if (!text) return '';
+  // If text has wrong capitalization pattern (uppercase diacritics mid-word), fix it
+  return text.replace(/\b\S+/g, word => {
+    // If word has uppercase letters after first char (e.g. OŻarÓw), fix it
+    if (/[A-ZĄĆĘŁŃÓŚŹŻ]/.test(word.slice(1))) {
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    }
+    return word;
+  });
+}
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
