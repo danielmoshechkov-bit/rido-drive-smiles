@@ -27,6 +27,7 @@ import { InventoryModuleView } from '@/components/inventory';
 import { InventoryPurchaseOCR } from '@/components/inventory/InventoryPurchaseOCR';
 import { KsefUserSettings } from '@/components/ksef/KsefUserSettings';
 import { useKsefUnreadCount } from '@/hooks/useKsefUnreadCount';
+import { ServiceRegistrationModal } from '@/components/services/ServiceRegistrationModal';
 import { 
   Car,
   Home,
