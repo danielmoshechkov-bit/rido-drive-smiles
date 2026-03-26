@@ -105,18 +105,28 @@ export function AdBannerSlot({ placement, className = "", height }: AdBannerSlot
   }
 
   if (!ad) {
+    // Default GetRido promotional banner instead of empty placeholder
     return (
       <div 
-        className={`bg-gradient-to-br from-muted/50 to-muted/30 rounded-xl border border-dashed border-muted-foreground/20 flex flex-col items-center justify-center gap-2 ${className}`}
+        className={`relative rounded-xl overflow-hidden border bg-gradient-to-r from-primary via-primary/90 to-primary/70 cursor-pointer group transition-all hover:shadow-lg ${className}`}
+        onClick={() => window.open("/klient", "_self")}
         style={{ height: containerHeight, minHeight: "80px" }}
       >
-        <div className="flex items-center gap-2 text-muted-foreground/60">
-          <ImageIcon className="h-5 w-5" />
-          <span className="text-sm font-medium">Miejsce na reklamę</span>
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxIiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMDUpIi8+PC9zdmc+')] opacity-50" />
+        <div className="relative h-full flex items-center justify-center gap-4 px-6">
+          <div className="flex flex-col items-center md:flex-row md:items-center gap-3">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">🚀</span>
+              <span className="text-white font-bold text-lg md:text-xl">Dołącz do GetRido!</span>
+            </div>
+            <span className="text-white/80 text-sm md:text-base text-center">
+              Sprzedawaj, wynajmuj i zarządzaj — auta, nieruchomości, usługi w jednym miejscu
+            </span>
+            <span className="bg-white text-primary font-semibold text-sm px-4 py-1.5 rounded-full whitespace-nowrap hover:bg-white/90 transition-colors">
+              Załóż konto za darmo →
+            </span>
+          </div>
         </div>
-        <p className="text-xs text-muted-foreground/40">
-          Skontaktuj się, aby wykupić przestrzeń reklamową
-        </p>
       </div>
     );
   }
