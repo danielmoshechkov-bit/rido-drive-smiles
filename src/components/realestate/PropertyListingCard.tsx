@@ -1,4 +1,16 @@
 // PropertyListingCard v2 - CRM photos fix deployed
+// Fix Polish diacritics capitalization (OŻarÓw → Ożarów)
+function fixPolishCase(text: string | undefined | null): string {
+  if (!text) return '';
+  // If text has wrong capitalization pattern (uppercase diacritics mid-word), fix it
+  return text.replace(/\b\S+/g, word => {
+    // If word has uppercase letters after first char (e.g. OŻarÓw), fix it
+    if (/[A-ZĄĆĘŁŃÓŚŹŻ]/.test(word.slice(1))) {
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    }
+    return word;
+  });
+}
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
@@ -319,7 +331,7 @@ export function PropertyListingCard({
                 <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
                   <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
                   <span className="truncate">
-                    {listing.district ? `${listing.district}, ${listing.location}` : listing.location}
+                    {listing.district ? `${fixPolishCase(listing.district)}, ${fixPolishCase(listing.location)}` : fixPolishCase(listing.location)}
                   </span>
                 </div>
               )}
@@ -580,7 +592,7 @@ export function PropertyListingCard({
             )}>
               <MapPin className={cn(compact ? "h-3 w-3 flex-shrink-0" : "h-3.5 w-3.5 flex-shrink-0")} />
               <span className="truncate">
-                {listing.district ? `${listing.district}, ${listing.location}` : listing.location}
+                {listing.district ? `${fixPolishCase(listing.district)}, ${fixPolishCase(listing.location)}` : fixPolishCase(listing.location)}
               </span>
             </div>
           )}

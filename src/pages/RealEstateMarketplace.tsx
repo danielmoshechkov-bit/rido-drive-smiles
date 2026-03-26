@@ -306,6 +306,17 @@ interface DbListing {
   real_estate_agents?: { company_name?: string } | null;
 }
 
+// Fix Polish diacritics capitalization (OŻarÓw → Ożarów)
+function fixPolishCase(text: string | undefined | null): string {
+  if (!text) return '';
+  return text.replace(/\b\S+/g, word => {
+    if (/[A-ZĄĆĘŁŃÓŚŹŻ]/.test(word.slice(1))) {
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    }
+    return word;
+  });
+}
+
 function mapDbToListing(db: DbListing) {
   const transTypeMap: Record<string, { label: string; color: string }> = {
     sprzedaz: { label: "Na sprzedaż", color: "#10b981" },
@@ -320,8 +331,8 @@ function mapDbToListing(db: DbListing) {
     price: db.price,
     priceType: db.price_type || 'sale',
     photos: (typeof db.photos === 'string' ? (() => { try { return JSON.parse(db.photos as string); } catch { return []; } })() : db.photos) || [],
-    location: db.city || db.location || '',
-    district: db.district,
+    location: fixPolishCase(db.city || db.location || ''),
+    district: fixPolishCase(db.district),
     buildYear: db.build_year,
     areaM2: correctedArea,
     rooms: db.rooms,
@@ -799,25 +810,27 @@ export default function RealEstateMarketplace() {
         </section>
       )}
 
-      {/* CTA for Agencies */}
-      <section className="container mx-auto px-4 py-12">
-        <div className="max-w-3xl mx-auto bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl p-8 text-center border border-primary/20">
-          <Building className="h-12 w-12 mx-auto text-primary mb-4" />
-          <h2 className="text-2xl font-bold mb-2">Jesteś agentem nieruchomości?</h2>
-          <p className="text-muted-foreground mb-6">
-            Dołącz do GetRido i docieraj do tysięcy potencjalnych klientów. 
-            Dodawaj ogłoszenia, zarządzaj zespołem agentów.
-          </p>
-          <Button 
-            size="lg" 
-            onClick={() => navigate('/nieruchomosci/agent/rejestracja')}
-            className="rounded-full"
-          >
-            Zarejestruj agencję
-            <ArrowRight className="h-4 w-4 ml-2" />
-          </Button>
-        </div>
-      </section>
+      {/* CTA for Agencies - only show when not loading */}
+      {!loading && (
+        <section className="container mx-auto px-4 py-12">
+          <div className="max-w-3xl mx-auto bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl p-8 text-center border border-primary/20">
+            <Building className="h-12 w-12 mx-auto text-primary mb-4" />
+            <h2 className="text-2xl font-bold mb-2">Jesteś agentem nieruchomości?</h2>
+            <p className="text-muted-foreground mb-6">
+              Dołącz do GetRido i docieraj do tysięcy potencjalnych klientów. 
+              Dodawaj ogłoszenia, zarządzaj zespołem agentów.
+            </p>
+            <Button 
+              size="lg" 
+              onClick={() => navigate('/nieruchomosci/agent/rejestracja')}
+              className="rounded-full"
+            >
+              Zarejestruj agencję
+              <ArrowRight className="h-4 w-4 ml-2" />
+            </Button>
+          </div>
+        </section>
+      )}
 
       {/* Footer with back link */}
       <footer className="border-t py-12 bg-card">

@@ -35,6 +35,17 @@ const PROPERTY_TYPE_LABELS: Record<string, string> = {
   inwestycja: "Inwestycja",
 };
 
+// Fix Polish diacritics capitalization (OŻarÓw → Ożarów)
+function fixPolishCase(text: string | undefined | null): string {
+  if (!text) return '';
+  return text.replace(/\b\S+/g, word => {
+    if (/[A-ZĄĆĘŁŃÓŚŹŻ]/.test(word.slice(1))) {
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    }
+    return word;
+  });
+}
+
 // Map DB listing to display format
 function mapDbToDisplayListing(db: any) {
   const transTypeMap: Record<string, { label: string; color: string }> = {
@@ -70,9 +81,9 @@ function mapDbToDisplayListing(db: any) {
     price: Number(db.price) || 0,
     priceType: db.price_type || 'sale',
     photos: db.photos || [],
-    location: db.city || db.location || '',
-    district: db.district,
-    address: db.address,
+    location: fixPolishCase(db.city || db.location || ''),
+    district: fixPolishCase(db.district),
+    address: fixPolishCase(db.address),
     buildYear: db.build_year,
     areaM2: correctedArea,
     rooms: db.rooms,
