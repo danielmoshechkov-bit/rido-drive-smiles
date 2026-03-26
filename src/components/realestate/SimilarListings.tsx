@@ -175,7 +175,7 @@ export function SimilarListings({ currentListingId, propertyType, location }: Si
         let query = supabase
           .from("real_estate_listings")
           .select("*")
-          .eq("is_active", true)
+          .eq("is_active", true as any)
           .neq("id", currentListingId)
           .limit(8);
 
