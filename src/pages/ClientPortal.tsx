@@ -138,6 +138,8 @@ export default function ClientPortal() {
   const [showSearchModal, setShowSearchModal] = useState(false);
   // Sell category modal
   const [showSellModal, setShowSellModal] = useState(false);
+  // Service registration modal
+  const [showServiceRegistration, setShowServiceRegistration] = useState(false);
   
   // Mobile tab dropdown state
   const [mobileTabOpen, setMobileTabOpen] = useState(false);
