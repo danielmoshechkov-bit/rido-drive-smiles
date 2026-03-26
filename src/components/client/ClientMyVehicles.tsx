@@ -5,10 +5,34 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
-import { Car, Plus, Calendar, Shield, FileText, Camera, Wrench, ChevronDown, ChevronRight, AlertTriangle, CheckCircle, Info } from "lucide-react";
+import { Car, Plus, Calendar, Shield, FileText, Camera, Wrench, ChevronDown, ChevronRight, AlertTriangle, CheckCircle, Info, Search, Loader2 } from "lucide-react";
+import { CarBrandModelSelector } from "@/components/CarBrandModelSelector";
+import { useVehicleLookup } from "@/hooks/useVehicleLookup";
+import { VehicleLookupCreditsModal } from "@/components/vehicle/VehicleLookupCreditsModal";
+
+const BODY_TYPES = [
+  { value: "sedan", label: "Sedan" },
+  { value: "kombi", label: "Kombi" },
+  { value: "hatchback", label: "Hatchback" },
+  { value: "suv", label: "SUV" },
+  { value: "coupe", label: "Coupe" },
+  { value: "cabrio", label: "Cabrio" },
+  { value: "minivan", label: "Minivan" },
+  { value: "pickup", label: "Pickup" },
+];
+
+const FUEL_TYPES = [
+  { value: "benzyna", label: "Benzyna" },
+  { value: "diesel", label: "Diesel" },
+  { value: "hybryda", label: "Hybryda" },
+  { value: "elektryczny", label: "Elektryczny" },
+  { value: "lpg", label: "LPG" },
+  { value: "hybryda_gaz", label: "Hybryda + Gaz" },
+];
 import { format } from "date-fns";
 import { pl } from "date-fns/locale";
 
@@ -68,13 +92,26 @@ export function ClientMyVehicles({ userId, userPhone }: Props) {
   const [ownershipRequests, setOwnershipRequests] = useState<OwnershipRequest[]>([]);
   const [verifyForm, setVerifyForm] = useState({ plate: '', vin: '', make: '', model: '', year: '', engine: '' });
   const [verifyingRequestId, setVerifyingRequestId] = useState<string | null>(null);
+  const [showCreditsModal, setShowCreditsModal] = useState(false);
+  const [savingVehicle, setSavingVehicle] = useState(false);
 
-  // Add vehicle form
-  const [newVehicle, setNewVehicle] = useState({
-    plate_number: '', vin: '', make: '', model: '', year: '',
-    engine_capacity: '', fuel_type: '', color: '',
-    mot_expiry: '', oc_expiry: ''
-  });
+  // Add vehicle form - fleet-style fields
+  const [plate, setPlate] = useState("");
+  const [vin, setVin] = useState("");
+  const [brand, setBrand] = useState("");
+  const [model, setModel] = useState("");
+  const [year, setYear] = useState<number | "">("");
+  const [color, setColor] = useState("");
+  const [bodyType, setBodyType] = useState("");
+  const [fuelType, setFuelType] = useState("");
+  const [engineCapacity, setEngineCapacity] = useState("");
+  const [motExpiry, setMotExpiry] = useState("");
+  const [ocExpiry, setOcExpiry] = useState("");
+  const [hasAC, setHasAC] = useState(false);
+  const [acExpiry, setAcExpiry] = useState("");
+  const [validationErrors, setValidationErrors] = useState<Set<string>>(new Set());
+
+  const { credits, loading: lookupLoading, checkRegistration, checkVin, purchaseCredits } = useVehicleLookup(userId || undefined);
 
   useEffect(() => {
     fetchVehicles();
@@ -113,31 +150,71 @@ export function ClientMyVehicles({ userId, userPhone }: Props) {
     if (data) setServiceHistory(prev => ({ ...prev, [vehicleId]: data as any }));
   };
 
+  const applyVehicleData = (data: any) => {
+    if (data.make) setBrand(data.make);
+    if (data.model) setModel(data.model);
+    if (data.body_style) setBodyType(data.body_style);
+    if (data.color) setColor(data.color);
+    if (data.registration_year) setYear(data.registration_year);
+    if (data.fuel_type) setFuelType(data.fuel_type.toLowerCase());
+    if (data.vin && !vin) setVin(data.vin);
+    if (data.registration_number && !plate) setPlate(data.registration_number);
+  };
+
+  const handleSearchPlate = async () => {
+    if (!plate || plate.length < 3) { toast.error('Wpisz numer rejestracyjny'); return; }
+    if (!credits || credits.remaining_credits < 1) { setShowCreditsModal(true); return; }
+    const data = await checkRegistration(plate);
+    if (!data && credits && credits.remaining_credits < 1) setShowCreditsModal(true);
+    else if (data) applyVehicleData(data);
+  };
+
+  const handleSearchVin = async () => {
+    if (!vin || vin.length < 5) { toast.error('Wpisz numer VIN'); return; }
+    if (!credits || credits.remaining_credits < 1) { setShowCreditsModal(true); return; }
+    const data = await checkVin(vin);
+    if (!data && credits && credits.remaining_credits < 1) setShowCreditsModal(true);
+    else if (data) applyVehicleData(data);
+  };
+
+  const resetAddForm = () => {
+    setPlate(''); setVin(''); setBrand(''); setModel(''); setYear('');
+    setColor(''); setBodyType(''); setFuelType(''); setEngineCapacity('');
+    setMotExpiry(''); setOcExpiry(''); setHasAC(false); setAcExpiry('');
+    setValidationErrors(new Set());
+  };
+
   const handleAddVehicle = async () => {
-    // Check max 1 free vehicle
     const activeVehicles = vehicles.filter(v => !v.is_sold);
     if (activeVehicles.length >= 1) {
       toast.error('Możesz dodać maksymalnie 1 auto za darmo. Kolejne będą płatne.');
       return;
     }
 
-    if (!newVehicle.plate_number || !newVehicle.make || !newVehicle.model) {
-      toast.error('Wypełnij co najmniej: nr rejestracyjny, markę i model');
+    const errors = new Set<string>();
+    if (!plate) errors.add('plate');
+    if (!brand) errors.add('brand');
+    if (!model) errors.add('model');
+    if (!fuelType) errors.add('fuelType');
+    setValidationErrors(errors);
+    if (errors.size > 0) {
+      toast.error("Uzupełnij wymagane pola podświetlone na czerwono.");
       return;
     }
 
+    setSavingVehicle(true);
     const { error } = await supabase.from('client_vehicles').insert({
       user_id: userId,
-      plate_number: newVehicle.plate_number,
-      vin: newVehicle.vin || null,
-      make: newVehicle.make,
-      model: newVehicle.model,
-      year: newVehicle.year ? parseInt(newVehicle.year) : null,
-      engine_capacity: newVehicle.engine_capacity || null,
-      fuel_type: newVehicle.fuel_type || null,
-      color: newVehicle.color || null,
-      mot_expiry: newVehicle.mot_expiry || null,
-      oc_expiry: newVehicle.oc_expiry || null,
+      plate_number: plate.trim().toUpperCase(),
+      vin: vin || null,
+      make: brand,
+      model: model,
+      year: year === "" ? null : Number(year),
+      engine_capacity: engineCapacity || null,
+      fuel_type: fuelType || null,
+      color: color || null,
+      mot_expiry: motExpiry || null,
+      oc_expiry: ocExpiry || null,
     });
 
     if (error) {
@@ -146,9 +223,10 @@ export function ClientMyVehicles({ userId, userPhone }: Props) {
     } else {
       toast.success('Pojazd dodany!');
       setShowAddVehicle(false);
-      setNewVehicle({ plate_number: '', vin: '', make: '', model: '', year: '', engine_capacity: '', fuel_type: '', color: '', mot_expiry: '', oc_expiry: '' });
+      resetAddForm();
       fetchVehicles();
     }
+    setSavingVehicle(false);
   };
 
   const handleVerifyOwnership = async (requestId: string) => {
@@ -428,66 +506,141 @@ export function ClientMyVehicles({ userId, userPhone }: Props) {
         </div>
       )}
 
-      {/* Add Vehicle Dialog */}
-      <Dialog open={showAddVehicle} onOpenChange={setShowAddVehicle}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><Car className="h-5 w-5 text-primary" /> Dodaj swoje auto</DialogTitle>
-            <DialogDescription>Wprowadź dane pojazdu z dowodu rejestracyjnego</DialogDescription>
+      {/* Add Vehicle Dialog - Fleet Style */}
+      <Dialog open={showAddVehicle} onOpenChange={(o) => { if (!o) { setShowAddVehicle(false); resetAddForm(); } else setShowAddVehicle(true); }}>
+        <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] flex flex-col p-0">
+          <DialogHeader className="p-4 sm:p-6 pb-0">
+            <DialogTitle>Dodaj pojazd</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Nr rejestracyjny *</Label>
-                <Input value={newVehicle.plate_number} onChange={e => setNewVehicle({...newVehicle, plate_number: e.target.value.toUpperCase()})} placeholder="XX 12345" />
+
+          <div className="overflow-y-auto flex-1 px-4 sm:px-6 pb-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Nr rejestracyjny */}
+              <div>
+                <Label className={validationErrors.has('plate') ? 'text-destructive' : ''}>Nr rejestracyjny *</Label>
+                <div className="relative">
+                  <Input value={plate} onChange={(e) => { setPlate(e.target.value.toUpperCase()); setValidationErrors(prev => { const n = new Set(prev); n.delete('plate'); return n; }); }} placeholder="NP. WX1234A" className={`uppercase pr-10 ${validationErrors.has('plate') ? 'border-destructive ring-1 ring-destructive' : ''}`} />
+                  <button type="button" onClick={handleSearchPlate} disabled={lookupLoading} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-accent transition-colors">
+                    {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : <Search className="h-4 w-4 text-muted-foreground hover:text-primary cursor-pointer" />}
+                  </button>
+                </div>
               </div>
-              <div className="space-y-1.5">
+              {/* VIN */}
+              <div>
                 <Label>VIN</Label>
-                <Input value={newVehicle.vin} onChange={e => setNewVehicle({...newVehicle, vin: e.target.value.toUpperCase()})} placeholder="17 znaków" maxLength={17} />
+                <div className="relative">
+                  <Input value={vin} onChange={(e) => setVin(e.target.value.toUpperCase())} placeholder="17 ZNAKÓW" className="uppercase pr-10" />
+                  <button type="button" onClick={handleSearchVin} disabled={lookupLoading} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-accent transition-colors">
+                    {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : <Search className="h-4 w-4 text-muted-foreground hover:text-primary cursor-pointer" />}
+                  </button>
+                </div>
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Marka *</Label>
-                <Input value={newVehicle.make} onChange={e => setNewVehicle({...newVehicle, make: e.target.value})} placeholder="np. Toyota" />
+
+              {/* Brand/Model Selector */}
+              <div className={`md:col-span-2 ${(validationErrors.has('brand') || validationErrors.has('model')) ? 'ring-1 ring-destructive rounded-md p-1' : ''}`}>
+                <CarBrandModelSelector
+                  brand={brand}
+                  model={model}
+                  onBrandChange={v => { setBrand(v); setValidationErrors(prev => { const n = new Set(prev); n.delete('brand'); return n; }); }}
+                  onModelChange={v => { setModel(v); setValidationErrors(prev => { const n = new Set(prev); n.delete('model'); return n; }); }}
+                />
               </div>
-              <div className="space-y-1.5">
-                <Label>Model *</Label>
-                <Input value={newVehicle.model} onChange={e => setNewVehicle({...newVehicle, model: e.target.value})} placeholder="np. Corolla" />
-              </div>
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-1.5">
+
+              <div>
                 <Label>Rok</Label>
-                <Input type="number" value={newVehicle.year} onChange={e => setNewVehicle({...newVehicle, year: e.target.value})} placeholder="2020" />
+                <Input type="number" value={year} onChange={(e) => setYear(e.target.value === "" ? "" : Number(e.target.value))} placeholder="np. 2018" />
               </div>
-              <div className="space-y-1.5">
-                <Label>Pojemność</Label>
-                <Input value={newVehicle.engine_capacity} onChange={e => setNewVehicle({...newVehicle, engine_capacity: e.target.value})} placeholder="2.0" />
+              <div>
+                <Label>Kolor</Label>
+                <Input value={color} onChange={(e) => setColor(e.target.value)} placeholder="np. biały" />
               </div>
-              <div className="space-y-1.5">
-                <Label>Paliwo</Label>
-                <Input value={newVehicle.fuel_type} onChange={e => setNewVehicle({...newVehicle, fuel_type: e.target.value})} placeholder="Benzyna" />
+
+              <div>
+                <Label>Rodzaj nadwozia</Label>
+                <Select value={bodyType} onValueChange={setBodyType}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Wybierz rodzaj nadwozia" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {BODY_TYPES.map((type) => (
+                      <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
+              <div>
+                <Label className={validationErrors.has('fuelType') ? 'text-destructive' : ''}>Rodzaj paliwa *</Label>
+                <Select value={fuelType} onValueChange={v => { setFuelType(v); setValidationErrors(prev => { const n = new Set(prev); n.delete('fuelType'); return n; }); }}>
+                  <SelectTrigger className={validationErrors.has('fuelType') ? 'border-destructive ring-1 ring-destructive' : ''}>
+                    <SelectValue placeholder="Wybierz rodzaj paliwa" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {FUEL_TYPES.map((type) => (
+                      <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label>Pojemność silnika</Label>
+                <Input value={engineCapacity} onChange={(e) => setEngineCapacity(e.target.value)} placeholder="np. 2.0" />
+              </div>
+
+              <div>
+                <Label>Przegląd ważny do</Label>
+                <Input type="date" value={motExpiry} onChange={(e) => setMotExpiry(e.target.value)} />
+              </div>
+
+              {/* OC Section */}
+              <div className="md:col-span-2 border-t pt-4 mt-2">
+                <p className="text-sm font-medium text-muted-foreground mb-3">Ubezpieczenie OC</p>
+              </div>
+              <div>
+                <Label>Polisa OC ważna do</Label>
+                <Input type="date" value={ocExpiry} onChange={(e) => setOcExpiry(e.target.value)} />
+              </div>
+
+              {/* AC Section */}
+              <div className="md:col-span-2 border-t pt-4 mt-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="clientHasAC"
+                    checked={hasAC}
+                    onChange={(e) => setHasAC(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300"
+                  />
+                  <Label htmlFor="clientHasAC" className="text-sm font-medium text-muted-foreground cursor-pointer">
+                    Pojazd posiada ubezpieczenie AC
+                  </Label>
+                </div>
+              </div>
+
+              {hasAC && (
+                <div>
+                  <Label>Polisa AC ważna do</Label>
+                  <Input type="date" value={acExpiry} onChange={(e) => setAcExpiry(e.target.value)} />
+                </div>
+              )}
             </div>
-            <div className="space-y-1.5">
-              <Label>Kolor</Label>
-              <Input value={newVehicle.color} onChange={e => setNewVehicle({...newVehicle, color: e.target.value})} placeholder="np. Srebrny" />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="flex items-center gap-1"><Calendar className="h-3 w-3" /> Przegląd ważny do</Label>
-                <Input type="date" value={newVehicle.mot_expiry} onChange={e => setNewVehicle({...newVehicle, mot_expiry: e.target.value})} />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="flex items-center gap-1"><Shield className="h-3 w-3" /> OC ważne do</Label>
-                <Input type="date" value={newVehicle.oc_expiry} onChange={e => setNewVehicle({...newVehicle, oc_expiry: e.target.value})} />
-              </div>
-            </div>
-            <Button className="w-full" onClick={handleAddVehicle}>Dodaj pojazd</Button>
           </div>
+
+          <DialogFooter className="border-t p-4 sm:p-6 pt-4 shrink-0 bg-background">
+            <Button variant="outline" onClick={() => { setShowAddVehicle(false); resetAddForm(); }}>Anuluj</Button>
+            <Button onClick={handleAddVehicle} disabled={savingVehicle}>{savingVehicle ? "Zapisywanie..." : "Zapisz pojazd"}</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <VehicleLookupCreditsModal
+        open={showCreditsModal}
+        onOpenChange={setShowCreditsModal}
+        onPurchase={async (amount: number, priceNet: number) => {
+          const ok = await purchaseCredits(amount, priceNet);
+          if (ok) setShowCreditsModal(false);
+        }}
+      />
     </div>
   );
 }
