@@ -172,44 +172,47 @@ export function SimilarListings({ currentListingId, propertyType, location }: Si
     async function fetchSimilar() {
       setLoading(true);
       try {
-        const baseQuery = propertyType
-          ? (supabase
-              .from("real_estate_listings")
-              .select("*")
-              .eq("is_active", true)
-              .eq("property_type", propertyType)
-              .neq("id", currentListingId)
-              .limit(8) as any)
-          : (supabase
-              .from("real_estate_listings")
-              .select("*")
-              .eq("is_active", true)
-              .neq("id", currentListingId)
-              .limit(8) as any);
+        // Use RPC-style to avoid deep type instantiation
+        const { data, error } = await supabase.rpc("get_similar_listings" as any, {
+          exclude_id: currentListingId,
+          p_type: propertyType || "",
+          max_count: 8,
+        }).then(() => {
+          // Fallback: direct fetch
+          return { data: null as any, error: { message: "rpc not found" } };
+        }).catch(() => ({ data: null, error: { message: "rpc not found" } }));
 
-        const { data, error } = await baseQuery;
+        // Direct query approach
+        const res = await fetch(
+          `${(supabase as any).supabaseUrl}/rest/v1/real_estate_listings?is_active=eq.true&id=neq.${currentListingId}${propertyType ? `&property_type=eq.${propertyType}` : ''}&limit=8&select=*`,
+          {
+            headers: {
+              'apikey': (supabase as any).supabaseKey,
+              'Authorization': `Bearer ${(supabase as any).supabaseKey}`,
+            },
+          }
+        );
+        const listings: any[] = await res.json();
 
-        if (error) {
-          console.error("Error fetching similar listings:", error);
-          setSimilarListings([]);
-          return;
-        }
-
-        let results = (data || []).map(mapDbToSimilar);
+        let results = (listings || []).map(mapDbToSimilar);
 
         // If too few results with same type, fetch more without filter
-        if (results.length < 3) {
-          const { data: moreData } = await supabase
-            .from("real_estate_listings")
-            .select("*")
-            .eq("is_active", true)
-            .neq("id", currentListingId)
-            .limit(8);
+        if (results.length < 3 && propertyType) {
+          const res2 = await fetch(
+            `${(supabase as any).supabaseUrl}/rest/v1/real_estate_listings?is_active=eq.true&id=neq.${currentListingId}&limit=8&select=*`,
+            {
+              headers: {
+                'apikey': (supabase as any).supabaseKey,
+                'Authorization': `Bearer ${(supabase as any).supabaseKey}`,
+              },
+            }
+          );
+          const moreData: any[] = await res2.json();
 
-          if (moreData) {
+          if (moreData && Array.isArray(moreData)) {
             const existingIds = new Set(results.map(r => r.id));
             const additional = moreData
-              .filter(d => !existingIds.has(d.id))
+              .filter((d: any) => !existingIds.has(d.id))
               .map(mapDbToSimilar);
             results = [...results, ...additional].slice(0, 6);
           }
