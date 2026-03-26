@@ -1,0 +1,2 @@
+ALTER TABLE company_settings DROP CONSTRAINT IF EXISTS company_settings_ksef_environment_check;
+ALTER TABLE company_settings ADD CONSTRAINT company_settings_ksef_environment_check CHECK (ksef_environment = ANY (ARRAY['test'::text, 'production'::text, 'demo'::text, 'integration'::text]));

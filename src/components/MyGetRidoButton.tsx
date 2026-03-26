@@ -202,11 +202,13 @@ export function MyGetRidoButton({ user, variant = "outline", size = "sm", classN
           </DropdownMenuItem>
         )}
         
-        {/* Invoice button for all users */}
-        <DropdownMenuItem onClick={() => navigate('/faktury')}>
-          <FileText className="h-4 w-4 mr-2" />
-          Wystaw fakturę
-        </DropdownMenuItem>
+        {/* Invoice button - only for users with accounting/service provider accounts */}
+        {(accountTypes.isAccounting || accountTypes.isServiceProvider || accountTypes.isAdmin) && (
+          <DropdownMenuItem onClick={() => navigate('/faktury')}>
+            <FileText className="h-4 w-4 mr-2" />
+            Wystaw fakturę
+          </DropdownMenuItem>
+        )}
         
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleLogout} className="text-destructive">
