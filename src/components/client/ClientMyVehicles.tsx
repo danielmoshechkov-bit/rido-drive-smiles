@@ -5,10 +5,34 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
-import { Car, Plus, Calendar, Shield, FileText, Camera, Wrench, ChevronDown, ChevronRight, AlertTriangle, CheckCircle, Info } from "lucide-react";
+import { Car, Plus, Calendar, Shield, FileText, Camera, Wrench, ChevronDown, ChevronRight, AlertTriangle, CheckCircle, Info, Search, Loader2 } from "lucide-react";
+import { CarBrandModelSelector } from "@/components/CarBrandModelSelector";
+import { useVehicleLookup } from "@/hooks/useVehicleLookup";
+import { VehicleLookupCreditsModal } from "@/components/vehicle/VehicleLookupCreditsModal";
+
+const BODY_TYPES = [
+  { value: "sedan", label: "Sedan" },
+  { value: "kombi", label: "Kombi" },
+  { value: "hatchback", label: "Hatchback" },
+  { value: "suv", label: "SUV" },
+  { value: "coupe", label: "Coupe" },
+  { value: "cabrio", label: "Cabrio" },
+  { value: "minivan", label: "Minivan" },
+  { value: "pickup", label: "Pickup" },
+];
+
+const FUEL_TYPES = [
+  { value: "benzyna", label: "Benzyna" },
+  { value: "diesel", label: "Diesel" },
+  { value: "hybryda", label: "Hybryda" },
+  { value: "elektryczny", label: "Elektryczny" },
+  { value: "lpg", label: "LPG" },
+  { value: "hybryda_gaz", label: "Hybryda + Gaz" },
+];
 import { format } from "date-fns";
 import { pl } from "date-fns/locale";
 
