@@ -92,13 +92,26 @@ export function ClientMyVehicles({ userId, userPhone }: Props) {
   const [ownershipRequests, setOwnershipRequests] = useState<OwnershipRequest[]>([]);
   const [verifyForm, setVerifyForm] = useState({ plate: '', vin: '', make: '', model: '', year: '', engine: '' });
   const [verifyingRequestId, setVerifyingRequestId] = useState<string | null>(null);
+  const [showCreditsModal, setShowCreditsModal] = useState(false);
+  const [savingVehicle, setSavingVehicle] = useState(false);
 
-  // Add vehicle form
-  const [newVehicle, setNewVehicle] = useState({
-    plate_number: '', vin: '', make: '', model: '', year: '',
-    engine_capacity: '', fuel_type: '', color: '',
-    mot_expiry: '', oc_expiry: ''
-  });
+  // Add vehicle form - fleet-style fields
+  const [plate, setPlate] = useState("");
+  const [vin, setVin] = useState("");
+  const [brand, setBrand] = useState("");
+  const [model, setModel] = useState("");
+  const [year, setYear] = useState<number | "">("");
+  const [color, setColor] = useState("");
+  const [bodyType, setBodyType] = useState("");
+  const [fuelType, setFuelType] = useState("");
+  const [engineCapacity, setEngineCapacity] = useState("");
+  const [motExpiry, setMotExpiry] = useState("");
+  const [ocExpiry, setOcExpiry] = useState("");
+  const [hasAC, setHasAC] = useState(false);
+  const [acExpiry, setAcExpiry] = useState("");
+  const [validationErrors, setValidationErrors] = useState<Set<string>>(new Set());
+
+  const { credits, loading: lookupLoading, checkRegistration, checkVin, purchaseCredits } = useVehicleLookup(userId || undefined);
 
   useEffect(() => {
     fetchVehicles();
