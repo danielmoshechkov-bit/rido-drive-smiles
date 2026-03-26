@@ -604,25 +604,12 @@ export default function ClientPortal() {
               <User className="h-5 w-5 text-primary" />
             </div>
             <div className="flex items-center gap-2">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      size="sm"
-                      className={!isOwner ? 'opacity-60 cursor-not-allowed' : ''}
-                      onClick={() => !isOwner && toast.info('Wkrótce udostępnimy tę funkcję')}
-                    >
-                      <Plus className="h-4 w-4" />
-                      {!isOwner && <Lock className="h-3 w-3 ml-1" />}
-                    </Button>
-                  </TooltipTrigger>
-                  {!isOwner && (
-                    <TooltipContent>
-                      <p>Wkrótce</p>
-                    </TooltipContent>
-                  )}
-                </Tooltip>
-              </TooltipProvider>
+              <Button 
+                size="sm"
+                onClick={() => setShowSellModal(true)}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
               <LanguageSelector />
               <Button variant="ghost" size="icon" onClick={handleLogout}>
                 <LogOut className="h-4 w-4" />
