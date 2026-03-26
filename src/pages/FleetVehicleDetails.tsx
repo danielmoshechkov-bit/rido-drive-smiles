@@ -53,11 +53,11 @@ export default function FleetVehicleDetails() {
       </Card>
 
       <Tabs value={tab} onValueChange={setTab} className="space-y-4">
-        <TabsList className="flex flex-wrap gap-2">
-          <TabsTrigger value="info">Informacje</TabsTrigger>
-          <TabsTrigger value="docs">Dokumenty</TabsTrigger>
-          <TabsTrigger value="drivers">Historia kierowców</TabsTrigger>
-          <TabsTrigger value="service">Serwis</TabsTrigger>
+        <TabsList className="flex flex-wrap gap-2 bg-muted/50 p-1">
+          <TabsTrigger value="info" className="data-[state=active]:bg-[var(--nav-bar-color)] data-[state=active]:text-white hover:bg-[#F5C842] hover:text-gray-900 transition-colors rounded-md">Informacje</TabsTrigger>
+          <TabsTrigger value="docs" className="data-[state=active]:bg-[var(--nav-bar-color)] data-[state=active]:text-white hover:bg-[#F5C842] hover:text-gray-900 transition-colors rounded-md">Dokumenty</TabsTrigger>
+          <TabsTrigger value="drivers" className="data-[state=active]:bg-[var(--nav-bar-color)] data-[state=active]:text-white hover:bg-[#F5C842] hover:text-gray-900 transition-colors rounded-md">Historia kierowców</TabsTrigger>
+          <TabsTrigger value="service" className="data-[state=active]:bg-[var(--nav-bar-color)] data-[state=active]:text-white hover:bg-[#F5C842] hover:text-gray-900 transition-colors rounded-md">Serwis</TabsTrigger>
         </TabsList>
 
         {/* INFORMACJE */}

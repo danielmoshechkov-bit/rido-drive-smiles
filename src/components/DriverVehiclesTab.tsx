@@ -245,11 +245,11 @@ export function DriverVehiclesTab() {
             <CollapsibleContent>
               <div className="border-t p-4">
                 <Tabs defaultValue="info" className="w-full">
-                  <TabsList className="grid w-full grid-cols-4 rounded-lg">
-                    <TabsTrigger value="info">Info</TabsTrigger>
-                    <TabsTrigger value="documents">Dokumenty</TabsTrigger>
-                    <TabsTrigger value="history">Historia Kierowców</TabsTrigger>
-                    <TabsTrigger value="service">Serwis</TabsTrigger>
+                  <TabsList className="grid w-full grid-cols-4 rounded-lg bg-muted/50 p-1">
+                    <TabsTrigger value="info" className="data-[state=active]:bg-[var(--nav-bar-color)] data-[state=active]:text-white hover:bg-[#F5C842] hover:text-gray-900 transition-colors rounded-md">Info</TabsTrigger>
+                    <TabsTrigger value="documents" className="data-[state=active]:bg-[var(--nav-bar-color)] data-[state=active]:text-white hover:bg-[#F5C842] hover:text-gray-900 transition-colors rounded-md">Dokumenty</TabsTrigger>
+                    <TabsTrigger value="history" className="data-[state=active]:bg-[var(--nav-bar-color)] data-[state=active]:text-white hover:bg-[#F5C842] hover:text-gray-900 transition-colors rounded-md">Historia Kierowców</TabsTrigger>
+                    <TabsTrigger value="service" className="data-[state=active]:bg-[var(--nav-bar-color)] data-[state=active]:text-white hover:bg-[#F5C842] hover:text-gray-900 transition-colors rounded-md">Serwis</TabsTrigger>
                   </TabsList>
 
                   <div className="mt-4">
