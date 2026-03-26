@@ -179,6 +179,7 @@ export function AuthModal({
         body: {
           first_name: registerData.first_name,
           last_name: registerData.last_name,
+          phone: registerData.phone,
           email: registerData.email,
           password: registerData.password,
         },
