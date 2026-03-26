@@ -481,18 +481,7 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
       {/* Content based on active tab */}
       {activeTab === "vehicles" && (
         <Card className="rounded-lg overflow-x-hidden">
-          <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-            <div className="min-w-0 flex-1">
-              <CardTitle className="flex items-center gap-2">
-                <Car className="h-5 w-5 shrink-0" />
-                <span className="truncate">Flota - {cityName}</span>
-              </CardTitle>
-              <p className="text-sm text-muted-foreground mt-1 truncate">
-                Zarządzaj flotą w mieście {cityName}
-              </p>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-6 overflow-x-hidden">
+          <CardContent className="space-y-6 overflow-x-hidden pt-6">
 
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between mb-4 gap-3">
@@ -847,13 +836,13 @@ export function FleetManagement({ cityId, cityName, fleetId, userType = 'admin' 
                           
                           {/* Tabs - for both mobile and desktop */}
                           <Tabs defaultValue="info" className="w-full">
-                            <TabsList className="grid w-full grid-cols-5 rounded-lg text-xs md:text-sm">
-                              <TabsTrigger value="info">Info</TabsTrigger>
-                              <TabsTrigger value="documents">Dokumenty</TabsTrigger>
-                              <TabsTrigger value="history" className="hidden md:inline-flex">Historia Kierowców</TabsTrigger>
-                              <TabsTrigger value="history" className="md:hidden">Historia</TabsTrigger>
-                              <TabsTrigger value="service">Serwis</TabsTrigger>
-                              <TabsTrigger value="photos">Zdjęcia</TabsTrigger>
+                            <TabsList className="grid w-full grid-cols-5 rounded-lg text-xs md:text-sm bg-muted/50 p-1">
+                              <TabsTrigger value="info" className="data-[state=active]:bg-[var(--nav-bar-color)] data-[state=active]:text-white hover:bg-[#F5C842] hover:text-gray-900 transition-colors rounded-md">Info</TabsTrigger>
+                              <TabsTrigger value="documents" className="data-[state=active]:bg-[var(--nav-bar-color)] data-[state=active]:text-white hover:bg-[#F5C842] hover:text-gray-900 transition-colors rounded-md">Dokumenty</TabsTrigger>
+                              <TabsTrigger value="history" className="hidden md:inline-flex data-[state=active]:bg-[var(--nav-bar-color)] data-[state=active]:text-white hover:bg-[#F5C842] hover:text-gray-900 transition-colors rounded-md">Historia Kierowców</TabsTrigger>
+                              <TabsTrigger value="history" className="md:hidden data-[state=active]:bg-[var(--nav-bar-color)] data-[state=active]:text-white hover:bg-[#F5C842] hover:text-gray-900 transition-colors rounded-md">Historia</TabsTrigger>
+                              <TabsTrigger value="service" className="data-[state=active]:bg-[var(--nav-bar-color)] data-[state=active]:text-white hover:bg-[#F5C842] hover:text-gray-900 transition-colors rounded-md">Serwis</TabsTrigger>
+                              <TabsTrigger value="photos" className="data-[state=active]:bg-[var(--nav-bar-color)] data-[state=active]:text-white hover:bg-[#F5C842] hover:text-gray-900 transition-colors rounded-md">Zdjęcia</TabsTrigger>
                             </TabsList>
 
                             <div className="mt-4">
