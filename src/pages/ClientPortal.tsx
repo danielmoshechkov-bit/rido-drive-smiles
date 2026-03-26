@@ -1823,6 +1823,13 @@ export default function ClientPortal() {
         entityId={userEntities[0]?.id || ''}
         onCreated={() => user && fetchUserInvoices(user.id)}
       />
+
+      {/* Service Registration Modal */}
+      <ServiceRegistrationModal
+        open={showServiceRegistration}
+        onOpenChange={setShowServiceRegistration}
+        user={user}
+      />
     </div>
   );
 }
