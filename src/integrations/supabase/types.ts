@@ -13079,6 +13079,77 @@ export type Database = {
         }
         Relationships: []
       }
+      service_provider_verifications: {
+        Row: {
+          account_type: string
+          ceidg_nip: string | null
+          created_at: string | null
+          id: string
+          id_back_url: string | null
+          id_front_url: string | null
+          id_number: string | null
+          krs_number: string | null
+          pesel: string | null
+          provider_id: string | null
+          registered_address: string | null
+          selfie_url: string | null
+          updated_at: string | null
+          user_id: string
+          verification_notes: string | null
+          verification_status: string | null
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          account_type: string
+          ceidg_nip?: string | null
+          created_at?: string | null
+          id?: string
+          id_back_url?: string | null
+          id_front_url?: string | null
+          id_number?: string | null
+          krs_number?: string | null
+          pesel?: string | null
+          provider_id?: string | null
+          registered_address?: string | null
+          selfie_url?: string | null
+          updated_at?: string | null
+          user_id: string
+          verification_notes?: string | null
+          verification_status?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          account_type?: string
+          ceidg_nip?: string | null
+          created_at?: string | null
+          id?: string
+          id_back_url?: string | null
+          id_front_url?: string | null
+          id_number?: string | null
+          krs_number?: string | null
+          pesel?: string | null
+          provider_id?: string | null
+          registered_address?: string | null
+          selfie_url?: string | null
+          updated_at?: string | null
+          user_id?: string
+          verification_notes?: string | null
+          verification_status?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_provider_verifications_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       service_providers: {
         Row: {
           auto_confirm: boolean | null

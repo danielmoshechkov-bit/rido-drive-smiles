@@ -27,6 +27,7 @@ import { InventoryModuleView } from '@/components/inventory';
 import { InventoryPurchaseOCR } from '@/components/inventory/InventoryPurchaseOCR';
 import { KsefUserSettings } from '@/components/ksef/KsefUserSettings';
 import { useKsefUnreadCount } from '@/hooks/useKsefUnreadCount';
+import { ServiceRegistrationModal } from '@/components/services/ServiceRegistrationModal';
 import { 
   Car,
   Home,
@@ -138,6 +139,8 @@ export default function ClientPortal() {
   const [showSearchModal, setShowSearchModal] = useState(false);
   // Sell category modal
   const [showSellModal, setShowSellModal] = useState(false);
+  // Service registration modal
+  const [showServiceRegistration, setShowServiceRegistration] = useState(false);
   
   // Mobile tab dropdown state
   const [mobileTabOpen, setMobileTabOpen] = useState(false);
@@ -1768,10 +1771,10 @@ export default function ClientPortal() {
               </div>
             </Card>
 
-            {/* Usługi - wymaga rejestracji */}
+            {/* Usługi - otwiera modal rejestracji */}
             <Card 
               className="cursor-pointer hover:shadow-lg hover:scale-[1.02] transition-all border-0 shadow-md overflow-hidden"
-              onClick={() => { setShowSellModal(false); navigate('/uslugi/panel'); }}
+              onClick={() => { setShowSellModal(false); setShowServiceRegistration(true); }}
             >
               <div className="relative h-28 bg-cover bg-center" style={{ backgroundImage: `url(${tileHandyman})` }}>
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/20" />
@@ -1819,6 +1822,13 @@ export default function ClientPortal() {
         onOpenChange={setShowCostInvoice}
         entityId={userEntities[0]?.id || ''}
         onCreated={() => user && fetchUserInvoices(user.id)}
+      />
+
+      {/* Service Registration Modal */}
+      <ServiceRegistrationModal
+        open={showServiceRegistration}
+        onOpenChange={setShowServiceRegistration}
+        user={user}
       />
     </div>
   );
