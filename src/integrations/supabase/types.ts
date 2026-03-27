@@ -15387,6 +15387,45 @@ export type Database = {
         }
         Relationships: []
       }
+      user_workspace_settings: {
+        Row: {
+          created_at: string | null
+          focus_mode: boolean | null
+          id: string
+          notification_preferences: Json | null
+          preferred_language: string | null
+          status: string | null
+          status_emoji: string | null
+          status_text: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          focus_mode?: boolean | null
+          id?: string
+          notification_preferences?: Json | null
+          preferred_language?: string | null
+          status?: string | null
+          status_emoji?: string | null
+          status_text?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          focus_mode?: boolean | null
+          id?: string
+          notification_preferences?: Json | null
+          preferred_language?: string | null
+          status?: string | null
+          status_emoji?: string | null
+          status_text?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       vehicle_damages: {
         Row: {
           cost: number | null
@@ -17877,6 +17916,45 @@ export type Database = {
           },
         ]
       }
+      workspace_message_pins: {
+        Row: {
+          channel_id: string | null
+          created_at: string | null
+          id: string
+          message_id: string
+          pinned_by: string
+        }
+        Insert: {
+          channel_id?: string | null
+          created_at?: string | null
+          id?: string
+          message_id: string
+          pinned_by: string
+        }
+        Update: {
+          channel_id?: string | null
+          created_at?: string | null
+          id?: string
+          message_id?: string
+          pinned_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_message_pins_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "workspace_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_message_pins_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: true
+            referencedRelation: "workspace_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workspace_message_reactions: {
         Row: {
           created_at: string | null
@@ -17915,12 +17993,15 @@ export type Database = {
           channel_name: string
           content: string | null
           created_at: string | null
+          edited_at: string | null
           file_name: string | null
           file_size: number | null
           file_url: string | null
           id: string
+          is_edited: boolean | null
           is_pinned: boolean | null
           message_type: string | null
+          original_content: string | null
           project_id: string
           reply_to_id: string | null
           thread_parent_id: string | null
@@ -17932,12 +18013,15 @@ export type Database = {
           channel_name?: string
           content?: string | null
           created_at?: string | null
+          edited_at?: string | null
           file_name?: string | null
           file_size?: number | null
           file_url?: string | null
           id?: string
+          is_edited?: boolean | null
           is_pinned?: boolean | null
           message_type?: string | null
+          original_content?: string | null
           project_id: string
           reply_to_id?: string | null
           thread_parent_id?: string | null
@@ -17949,12 +18033,15 @@ export type Database = {
           channel_name?: string
           content?: string | null
           created_at?: string | null
+          edited_at?: string | null
           file_name?: string | null
           file_size?: number | null
           file_url?: string | null
           id?: string
+          is_edited?: boolean | null
           is_pinned?: boolean | null
           message_type?: string | null
+          original_content?: string | null
           project_id?: string
           reply_to_id?: string | null
           thread_parent_id?: string | null
