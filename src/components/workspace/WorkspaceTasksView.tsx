@@ -16,8 +16,10 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { 
   Plus, CheckCircle2, Circle, Clock, AlertTriangle, XCircle, Trash2, 
   ChevronDown, ChevronRight, MessageSquare, History, ListChecks, Send,
-  Users, CalendarDays
+  Users, CalendarDays, Timer, Link2, Play, Square, PlusCircle
 } from "lucide-react";
+import { useTaskTimeTracking } from "@/hooks/useTaskTimeTracking";
+import { useTaskDependencies } from "@/hooks/useTaskDependencies";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
