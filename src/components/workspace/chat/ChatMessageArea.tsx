@@ -5,14 +5,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import {
   Send, Paperclip, Mic, MicOff, Smile, MessageSquare,
   Pin, PinOff, MoreHorizontal, File, Hash, Lock, Reply,
-  Pencil, Trash2, X, Check, Upload, Code, Bold, Italic
+  Pencil, Trash2, X, Check, Upload, Code, Bold, Italic,
+  Globe, Loader2, Eye, EyeOff, Crown
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useMessageTranslation, SUPPORTED_LANGUAGES } from "@/hooks/useMessageTranslation";
 
 const EMOJI_LIST = ['👍', '❤️', '😂', '🎉', '😮', '😢', '🔥', '👏', '✅', '❌', '👀', '💯'];
 
@@ -90,11 +93,17 @@ export function ChatMessageArea({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
   const [isDragOver, setIsDragOver] = useState(false);
+  const [myLanguage, setMyLanguage] = useState(() => {
+    const browserLang = navigator.language?.slice(0, 2) || 'pl';
+    return SUPPORTED_LANGUAGES.find(l => l.code === browserLang)?.code || 'pl';
+  });
+  const [isPremium] = useState(true); // TODO: check actual plan
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const translation = useMessageTranslation();
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -251,6 +260,32 @@ export function ChatMessageArea({
           <span className="text-xs text-muted-foreground ml-2 hidden md:inline">{channel.description}</span>
         )}
         <div className="ml-auto flex items-center gap-1">
+          {/* Language selector */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 px-2">
+                <Globe className="h-3.5 w-3.5" />
+                {SUPPORTED_LANGUAGES.find(l => l.code === myLanguage)?.flag || '🌍'}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-48 p-2" align="end">
+              <p className="text-xs font-semibold mb-2 px-1">Mój język</p>
+              <div className="max-h-48 overflow-y-auto space-y-0.5">
+                {SUPPORTED_LANGUAGES.map(l => (
+                  <button
+                    key={l.code}
+                    className={cn(
+                      "w-full text-left text-xs px-2 py-1.5 rounded-md flex items-center gap-2 transition-colors",
+                      myLanguage === l.code ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+                    )}
+                    onClick={() => setMyLanguage(l.code)}
+                  >
+                    <span>{l.flag}</span> {l.label}
+                  </button>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
           <Button
             variant={showPinned ? "secondary" : "ghost"}
             size="icon" className="h-7 w-7"
@@ -357,11 +392,51 @@ export function ChatMessageArea({
                           <span>{msg.file_name || 'Plik'}</span>
                         </a>
                       )}
-                      {msg.content && msg.message_type !== 'file' && (
-                        <div className="text-sm whitespace-pre-wrap leading-relaxed">
-                          {formatText(msg.content)}
-                        </div>
-                      )}
+                      {msg.content && msg.message_type !== 'file' && (() => {
+                        const tr = translation.getTranslation(msg.id, myLanguage);
+                        const isLoadingTr = translation.isLoading(msg.id, myLanguage);
+                        const showOrig = translation.isShowingOriginal(msg.id);
+                        const displayText = (tr && !showOrig) ? tr.translated_text : msg.content;
+                        const srcLang = tr?.source_language;
+                        const srcLabel = SUPPORTED_LANGUAGES.find(l => l.code === srcLang);
+
+                        return (
+                          <div>
+                            <div className="text-sm whitespace-pre-wrap leading-relaxed">
+                              {formatText(displayText)}
+                            </div>
+                            {tr && (
+                              <div className="flex items-center gap-2 mt-1">
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                                        <Globe className="h-3 w-3" />
+                                        Przetłumaczono{srcLabel ? ` z ${srcLabel.flag} ${srcLabel.label}` : ''}
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p className="text-xs">Auto-tłumaczenie Premium 🌍</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                                <button
+                                  className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline"
+                                  onClick={() => translation.toggleOriginal(msg.id)}
+                                >
+                                  {showOrig ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                                  {showOrig ? 'Pokaż tłumaczenie' : 'Pokaż oryginał'}
+                                </button>
+                              </div>
+                            )}
+                            {isLoadingTr && (
+                              <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground mt-1">
+                                <Loader2 className="h-3 w-3 animate-spin" /> Tłumaczenie...
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })()}
 
                       {/* Reactions */}
                       {msg.reactions && msg.reactions.length > 0 && (
@@ -423,6 +498,37 @@ export function ChatMessageArea({
                         </div>
                       </PopoverContent>
                     </Popover>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => {
+                              if (!isPremium) {
+                                toast.info("Funkcja Premium — ulepsz plan aby włączyć auto-tłumaczenie");
+                                return;
+                              }
+                              if (msg.content) {
+                                translation.translateMessage(msg.id, msg.content, myLanguage);
+                              }
+                            }}
+                          >
+                            {!isPremium ? (
+                              <Crown className="h-3.5 w-3.5 text-amber-500" />
+                            ) : (
+                              <Globe className="h-3.5 w-3.5" />
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="text-xs">
+                            {isPremium ? `Przetłumacz na ${SUPPORTED_LANGUAGES.find(l => l.code === myLanguage)?.label || myLanguage}` : 'Premium — ulepsz plan'}
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onOpenThread(msg)}>
                       <MessageSquare className="h-3.5 w-3.5" />
                     </Button>

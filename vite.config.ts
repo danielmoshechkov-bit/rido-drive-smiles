@@ -56,7 +56,7 @@ export default defineConfig(({ mode }) => ({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        maximumFileSizeToCacheInBytes: 15 * 1024 * 1024, // 15 MB limit
+        maximumFileSizeToCacheInBytes: 20 * 1024 * 1024, // 20 MB limit
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/wclrrytmrscqvsyxyvnn\.supabase\.co\/.*/i,
