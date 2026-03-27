@@ -99,30 +99,45 @@ const isDateExpired = (dateStr: string | null) => {
   return new Date(dateStr).getTime() < Date.now();
 };
 
-const buildReminderBadges = (vehicle: ClientVehicle) => {
-  const badges: Array<{ label: string; variant: "destructive" | "accent" | "outline" }> = [];
+const buildDocumentBadges = (vehicle: ClientVehicle) => {
+  const badges: Array<{ label: string; variant: "destructive" | "success" | "warning" | "muted" }> = [];
 
-  if (isDateExpired(vehicle.mot_expiry)) badges.push({ label: "Przegląd minął", variant: "destructive" });
-  else if (isDateExpiringSoon(vehicle.mot_expiry)) badges.push({ label: "Przegląd wkrótce", variant: "accent" });
+  // OC badge
+  if (!vehicle.oc_expiry) {
+    badges.push({ label: "OC: —", variant: "destructive" });
+  } else if (isDateExpired(vehicle.oc_expiry)) {
+    badges.push({ label: `OC: ${formatDisplayDate(vehicle.oc_expiry)}`, variant: "destructive" });
+  } else if (isDateExpiringSoon(vehicle.oc_expiry)) {
+    badges.push({ label: `OC: ${formatDisplayDate(vehicle.oc_expiry)}`, variant: "warning" });
+  } else {
+    badges.push({ label: `OC: ${formatDisplayDate(vehicle.oc_expiry)}`, variant: "success" });
+  }
 
-  if (isDateExpired(vehicle.oc_expiry)) badges.push({ label: "OC minęło", variant: "destructive" });
-  else if (isDateExpiringSoon(vehicle.oc_expiry)) badges.push({ label: "OC wkrótce", variant: "accent" });
-
-  if (badges.length === 0) badges.push({ label: "Dokumenty aktualne", variant: "outline" });
+  // Przegląd badge
+  if (!vehicle.mot_expiry) {
+    badges.push({ label: "Przegląd: —", variant: "muted" });
+  } else if (isDateExpired(vehicle.mot_expiry)) {
+    badges.push({ label: `Przegląd: ${formatDisplayDate(vehicle.mot_expiry)}`, variant: "destructive" });
+  } else if (isDateExpiringSoon(vehicle.mot_expiry)) {
+    badges.push({ label: `Przegląd: ${formatDisplayDate(vehicle.mot_expiry)}`, variant: "warning" });
+  } else {
+    badges.push({ label: `Przegląd: ${formatDisplayDate(vehicle.mot_expiry)}`, variant: "success" });
+  }
 
   return badges;
 };
 
-function ReminderBadge({ label, variant }: { label: string; variant: "destructive" | "accent" | "outline" }) {
+function DocumentBadge({ label, variant }: { label: string; variant: "destructive" | "success" | "warning" | "muted" }) {
   if (variant === "destructive") {
-    return <Badge variant="destructive" className="rounded-full">{label}</Badge>;
+    return <Badge variant="destructive" className="rounded-full text-xs">{label}</Badge>;
   }
-
-  if (variant === "accent") {
-    return <Badge className="rounded-full bg-accent text-accent-foreground hover:bg-accent">{label}</Badge>;
+  if (variant === "warning") {
+    return <Badge className="rounded-full bg-orange-500 text-white hover:bg-orange-500 text-xs">{label}</Badge>;
   }
-
-  return <Badge variant="outline" className="rounded-full">{label}</Badge>;
+  if (variant === "success") {
+    return <Badge className="rounded-full bg-green-100 text-green-800 border border-green-300 hover:bg-green-100 text-xs">{label}</Badge>;
+  }
+  return <Badge variant="outline" className="rounded-full text-xs text-muted-foreground">{label}</Badge>;
 }
 
 function ClientVehicleInfoPanel({ vehicle, onSave }: { vehicle: ClientVehicle; onSave: (patch: Partial<ClientVehicle>) => Promise<void> }) {
@@ -628,7 +643,7 @@ function ClientVehicleCard({
   onPhotosUpdated: (photos: string[]) => void;
 }) {
   const [open, setOpen] = useState(!!defaultOpen);
-  const reminderBadges = buildReminderBadges(vehicle);
+  const reminderBadges = buildDocumentBadges(vehicle);
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
@@ -664,7 +679,7 @@ function ClientVehicleCard({
                   <span className="text-xs text-muted-foreground">Dokumenty:</span>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {reminderBadges.map((badge) => (
-                      <ReminderBadge key={badge.label} label={badge.label} variant={badge.variant} />
+                      <DocumentBadge key={badge.label} label={badge.label} variant={badge.variant} />
                     ))}
                   </div>
                 </div>
@@ -676,7 +691,7 @@ function ClientVehicleCard({
 
               <div className="mt-3 flex flex-wrap gap-2 md:hidden">
                 {reminderBadges.map((badge) => (
-                  <ReminderBadge key={badge.label} label={badge.label} variant={badge.variant} />
+                  <DocumentBadge key={badge.label} label={badge.label} variant={badge.variant} />
                 ))}
               </div>
             </div>
