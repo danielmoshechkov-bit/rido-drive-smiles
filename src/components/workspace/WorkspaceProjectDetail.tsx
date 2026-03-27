@@ -12,7 +12,7 @@ import { WorkspaceAutomationsView } from "./WorkspaceAutomationsView";
 import { WorkspaceWorkloadView } from "./WorkspaceWorkloadView";
 import { WorkspaceNotificationCenter } from "./WorkspaceNotificationCenter";
 import { WorkspaceGlobalSearch } from "./WorkspaceGlobalSearch";
-import { cn } from "@/lib/utils";
+
 import { TabsPill } from "@/components/ui/TabsPill";
 import { TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
