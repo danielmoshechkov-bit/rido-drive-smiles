@@ -34,14 +34,14 @@ export function TabsPill(props: React.ComponentProps<typeof Tabs>) {
   return (
     <Tabs {...props}>
       <div 
-        className="rounded-[9999px] p-1 shadow-[0_8px_30px_rgba(108,60,240,0.18)]"
+        className="rounded-[9999px] p-1.5 shadow-[0_8px_30px_rgba(108,60,240,0.18)]"
         style={{ backgroundColor: 'var(--nav-bar-color, #6C3CF0)' }}
       >
         <TabsList
           className="
             flex w-full items-center gap-1 overflow-x-auto scrollbar-hide
-            rounded-[9999px] px-1
-            min-h-[44px]
+            rounded-[9999px] px-2
+            min-h-[48px]
           "
           style={{ backgroundColor: 'var(--nav-bar-color, #6C3CF0)' }}
         >
@@ -50,7 +50,7 @@ export function TabsPill(props: React.ComponentProps<typeof Tabs>) {
               return React.cloneElement(child as React.ReactElement<{ className?: string }>, {
                 key: idx,
                 className:
-                  "px-5 h-10 flex items-center gap-2 rounded-full text-white text-sm whitespace-nowrap transition-colors " +
+                  "px-5 h-11 flex items-center gap-2 rounded-full text-white text-[15px] font-medium whitespace-nowrap transition-colors " +
                   "data-[state=active]:bg-white data-[state=active]:text-foreground data-[state=active]:font-semibold data-[state=active]:shadow-sm " +
                   "hover:bg-accent hover:text-accent-foreground focus-visible:outline-none",
               });
