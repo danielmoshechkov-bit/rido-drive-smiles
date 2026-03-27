@@ -29,7 +29,7 @@ const TABS = [
   { key: "chat", label: "Komunikacja", icon: MessageSquare },
   { key: "docs", label: "Dokumenty", icon: FileText },
   { key: "automations", label: "Automatyzacje", icon: Zap },
-  { key: "workload", label: "Obciążenie", icon: LayoutGrid },
+  { key: "workload", label: "Obciążenie", icon: BarChart3 },
   { key: "ai", label: "AI Planner", icon: Sparkles },
   { key: "members", label: "Zespół", icon: Users },
 ];
