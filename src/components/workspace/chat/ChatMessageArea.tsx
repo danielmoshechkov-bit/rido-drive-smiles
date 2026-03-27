@@ -251,7 +251,7 @@ export function ChatMessageArea({
       )}
 
       {/* Channel header */}
-      <div className="h-12 border-b flex items-center gap-2 px-4 shrink-0 bg-card">
+      <div className="h-12 border-b flex items-center gap-2 px-4 shrink-0 bg-card/80 backdrop-blur-sm">
         <ChannelIcon className="h-4 w-4 text-muted-foreground" />
         <span className="font-semibold text-sm">
           {channel.type === 'dm' ? channel.description?.replace('DM z ', '') : channel.name}
@@ -560,7 +560,7 @@ export function ChatMessageArea({
       </div>
 
       {/* Input */}
-      <div className="border-t p-3 shrink-0 bg-card">
+      <div className="border-t p-3 shrink-0 bg-card/80 backdrop-blur-sm">
         {mentionQuery !== null && filteredMentions.length > 0 && (
           <div className="mb-2 bg-popover border rounded-lg shadow-lg p-1 max-h-40 overflow-y-auto">
             {filteredMentions.map((m, i) => (
