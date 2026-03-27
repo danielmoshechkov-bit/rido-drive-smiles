@@ -5,14 +5,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import {
   Send, Paperclip, Mic, MicOff, Smile, MessageSquare,
   Pin, PinOff, MoreHorizontal, File, Hash, Lock, Reply,
-  Pencil, Trash2, X, Check, Upload, Code, Bold, Italic
+  Pencil, Trash2, X, Check, Upload, Code, Bold, Italic,
+  Globe, Loader2, Eye, EyeOff, Crown
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useMessageTranslation, SUPPORTED_LANGUAGES } from "@/hooks/useMessageTranslation";
 
 const EMOJI_LIST = ['👍', '❤️', '😂', '🎉', '😮', '😢', '🔥', '👏', '✅', '❌', '👀', '💯'];
 
@@ -90,11 +93,17 @@ export function ChatMessageArea({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
   const [isDragOver, setIsDragOver] = useState(false);
+  const [myLanguage, setMyLanguage] = useState(() => {
+    const browserLang = navigator.language?.slice(0, 2) || 'pl';
+    return SUPPORTED_LANGUAGES.find(l => l.code === browserLang)?.code || 'pl';
+  });
+  const [isPremium] = useState(true); // TODO: check actual plan
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const translation = useMessageTranslation();
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
