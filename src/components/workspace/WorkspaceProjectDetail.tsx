@@ -12,7 +12,9 @@ import { WorkspaceAutomationsView } from "./WorkspaceAutomationsView";
 import { WorkspaceWorkloadView } from "./WorkspaceWorkloadView";
 import { WorkspaceNotificationCenter } from "./WorkspaceNotificationCenter";
 import { WorkspaceGlobalSearch } from "./WorkspaceGlobalSearch";
-import { cn } from "@/lib/utils";
+
+import { TabsPill } from "@/components/ui/TabsPill";
+import { TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 interface Props {
   project: WorkspaceProject;
@@ -69,35 +71,29 @@ export function WorkspaceProjectDetail({ project, workspace, activeTab, onTabCha
         />
       </div>
 
-      {/* Tab Bar - pill style matching platform standard */}
-      <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
-        {TABS.map(tab => (
-          <button
-            key={tab.key}
-            className={cn(
-              "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors shrink-0",
-              activeTab === tab.key
-                ? "bg-[hsl(var(--nav-bar-color))] text-white"
-                : "text-muted-foreground hover:bg-[#F5C842] hover:text-gray-900"
-            )}
-            onClick={() => onTabChange(tab.key)}
-          >
-            <tab.icon className="h-3.5 w-3.5" />
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      {/* Tab Bar - TabsPill platform standard */}
+      <TabsPill value={activeTab} onValueChange={onTabChange}>
+        {TABS.map(tab => {
+          const Icon = tab.icon;
+          return (
+            <TabsTrigger key={tab.key} value={tab.key}>
+              <Icon className="h-4 w-4" />
+              <span>{tab.label}</span>
+            </TabsTrigger>
+          );
+        })}
 
-      {/* Content */}
-      {activeTab === "tasks" && <WorkspaceTasksView project={project} workspace={workspace} />}
-      {activeTab === "kanban" && <WorkspaceKanbanView project={project} workspace={workspace} />}
-      {activeTab === "calendar" && <WorkspaceCalendarView project={project} workspace={workspace} />}
-      {activeTab === "chat" && <WorkspaceChatView project={project} workspace={workspace} />}
-      {activeTab === "docs" && <WorkspaceDocsView project={project} workspace={workspace} />}
-      {activeTab === "automations" && <WorkspaceAutomationsView project={project} workspace={workspace} />}
-      {activeTab === "workload" && <WorkspaceWorkloadView project={project} workspace={workspace} />}
-      {activeTab === "ai" && <WorkspaceAIPlannerView project={project} workspace={workspace} />}
-      {activeTab === "members" && <WorkspaceMembersView project={project} workspace={workspace} />}
+        {/* Content */}
+        <TabsContent value="tasks"><WorkspaceTasksView project={project} workspace={workspace} /></TabsContent>
+        <TabsContent value="kanban"><WorkspaceKanbanView project={project} workspace={workspace} /></TabsContent>
+        <TabsContent value="calendar"><WorkspaceCalendarView project={project} workspace={workspace} /></TabsContent>
+        <TabsContent value="chat"><WorkspaceChatView project={project} workspace={workspace} /></TabsContent>
+        <TabsContent value="docs"><WorkspaceDocsView project={project} workspace={workspace} /></TabsContent>
+        <TabsContent value="automations"><WorkspaceAutomationsView project={project} workspace={workspace} /></TabsContent>
+        <TabsContent value="workload"><WorkspaceWorkloadView project={project} workspace={workspace} /></TabsContent>
+        <TabsContent value="ai"><WorkspaceAIPlannerView project={project} workspace={workspace} /></TabsContent>
+        <TabsContent value="members"><WorkspaceMembersView project={project} workspace={workspace} /></TabsContent>
+      </TabsPill>
     </div>
   );
 }

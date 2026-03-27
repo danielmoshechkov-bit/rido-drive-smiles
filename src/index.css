@@ -11,6 +11,11 @@ All colors MUST be HSL.
 */
 
 @layer base {
+  * {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
   :root {
     --background: 0 0% 100%;
     --foreground: 0 0% 6.7%;
