@@ -18263,36 +18263,42 @@ export type Database = {
       workspace_notifications: {
         Row: {
           body: string | null
-          created_at: string | null
+          created_at: string
           id: string
-          is_read: boolean | null
-          link: string | null
-          metadata: Json | null
+          is_read: boolean
+          link_id: string | null
+          link_type: string | null
           project_id: string | null
+          sender_name: string | null
+          sender_user_id: string | null
           title: string
           type: string
           user_id: string
         }
         Insert: {
           body?: string | null
-          created_at?: string | null
+          created_at?: string
           id?: string
-          is_read?: boolean | null
-          link?: string | null
-          metadata?: Json | null
+          is_read?: boolean
+          link_id?: string | null
+          link_type?: string | null
           project_id?: string | null
+          sender_name?: string | null
+          sender_user_id?: string | null
           title: string
-          type: string
+          type?: string
           user_id: string
         }
         Update: {
           body?: string | null
-          created_at?: string | null
+          created_at?: string
           id?: string
-          is_read?: boolean | null
-          link?: string | null
-          metadata?: Json | null
+          is_read?: boolean
+          link_id?: string | null
+          link_type?: string | null
           project_id?: string | null
+          sender_name?: string | null
+          sender_user_id?: string | null
           title?: string
           type?: string
           user_id?: string
