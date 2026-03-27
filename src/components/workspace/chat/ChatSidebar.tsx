@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Hash, Plus, Lock, MessageCircle, Users, Search, ChevronDown, ChevronRight, Circle, SmilePlus } from "lucide-react";
+import { Hash, Plus, Lock, MessageCircle, Users, Search, ChevronDown, ChevronRight, SmilePlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const STATUS_OPTIONS = [
@@ -79,22 +79,22 @@ export function ChatSidebar({
   };
 
   return (
-    <div className="w-[260px] shrink-0 flex flex-col bg-card/50 border-r h-full overflow-hidden">
+    <div className="w-[260px] shrink-0 flex flex-col bg-slate-900 dark:bg-slate-950 h-full overflow-hidden text-white">
       {/* Project header + Status */}
-      <div className="p-3 border-b space-y-2">
+      <div className="p-3 border-b border-white/10 space-y-2">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0"
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm font-bold shrink-0 shadow-lg"
             style={{ backgroundColor: projectColor || 'hsl(var(--primary))' }}>
             {projectName?.[0]?.toUpperCase() || 'P'}
           </div>
-          <span className="font-semibold text-sm truncate">{projectName || 'Projekt'}</span>
+          <span className="font-bold text-sm truncate text-white">{projectName || 'Projekt'}</span>
         </div>
 
         {/* My status */}
         <Popover>
           <PopoverTrigger asChild>
-            <button className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-accent/50 transition-colors text-xs text-muted-foreground">
-              <span className={cn("h-2 w-2 rounded-full shrink-0", myStatusColor)} />
+            <button className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/10 transition-colors text-xs text-white/70">
+              <span className={cn("h-2.5 w-2.5 rounded-full shrink-0 ring-2 ring-white/20", myStatusColor)} />
               <span className="truncate">{myStatus?.status_text || STATUS_OPTIONS.find(s => s.value === myStatus?.status)?.label || '🟢 Dostępny'}</span>
               <SmilePlus className="h-3 w-3 ml-auto opacity-50" />
             </button>
@@ -125,13 +125,16 @@ export function ChatSidebar({
 
       {/* Search */}
       <div className="px-3 py-2">
-        <Button variant="outline" className="w-full justify-start gap-2 text-xs text-muted-foreground h-8" onClick={onSearch}>
+        <button
+          className="w-full flex items-center gap-2 text-xs text-white/50 h-8 px-3 rounded-md bg-white/5 hover:bg-white/10 border border-white/10 transition-colors"
+          onClick={onSearch}
+        >
           <Search className="h-3.5 w-3.5" />
-          Szukaj... <kbd className="ml-auto text-[10px] bg-muted px-1 rounded">⌘K</kbd>
-        </Button>
+          Szukaj... <kbd className="ml-auto text-[10px] bg-white/10 px-1.5 py-0.5 rounded">⌘K</kbd>
+        </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-0.5">
+      <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-0.5 scrollbar-hide">
         {/* Channels */}
         <SectionHeader title="KANAŁY" expanded={expanded.channels} onToggle={() => toggleSection('channels')} onAdd={() => setShowCreateChannel(true)} />
         {expanded.channels && (
@@ -154,14 +157,14 @@ export function ChatSidebar({
               if (hasDM) return null;
               return (
                 <button key={m.id}
-                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs text-muted-foreground hover:bg-accent/50 transition-colors"
+                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs text-white/50 hover:bg-white/10 transition-colors"
                   onClick={() => onCreateDM(m.user_id, getMemberName(m))}
                 >
                   <div className="relative">
-                    <div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center text-[10px] font-medium">
+                    <div className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-[10px] font-medium text-white/70">
                       {getMemberName(m)[0]?.toUpperCase()}
                     </div>
-                    <span className={cn("absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-card", getStatusColor(m.user_id))} />
+                    <span className={cn("absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-slate-900", getStatusColor(m.user_id))} />
                   </div>
                   <span className="truncate">{getMemberName(m)}</span>
                 </button>
@@ -178,7 +181,7 @@ export function ChatSidebar({
               <ChannelItem key={ch.id} channel={ch} isActive={activeChannel?.id === ch.id} onClick={() => onSelectChannel(ch)} isGroup />
             ))}
             {groupChannels.length === 0 && (
-              <p className="text-[10px] text-muted-foreground px-2 py-1">Kliknij + aby utworzyć grupę</p>
+              <p className="text-[10px] text-white/30 px-2 py-1">Kliknij + aby utworzyć grupę</p>
             )}
           </div>
         )}
@@ -245,12 +248,12 @@ export function ChatSidebar({
 function SectionHeader({ title, expanded, onToggle, onAdd }: { title: string; expanded: boolean; onToggle: () => void; onAdd?: () => void }) {
   return (
     <div className="flex items-center justify-between px-2 py-1.5 mt-3 first:mt-0">
-      <button className="flex items-center gap-1 text-[10px] font-bold text-muted-foreground uppercase tracking-wider" onClick={onToggle}>
+      <button className="flex items-center gap-1 text-[11px] font-bold text-white/40 uppercase tracking-wider hover:text-white/60 transition-colors" onClick={onToggle}>
         {expanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
         {title}
       </button>
       {onAdd && (
-        <Button variant="ghost" size="icon" className="h-5 w-5" onClick={onAdd}><Plus className="h-3 w-3" /></Button>
+        <Button variant="ghost" size="icon" className="h-5 w-5 text-white/40 hover:text-white hover:bg-white/10" onClick={onAdd}><Plus className="h-3 w-3" /></Button>
       )}
     </div>
   );
@@ -262,15 +265,17 @@ function ChannelItem({ channel, isActive, onClick, isDM, isGroup }: { channel: C
   return (
     <button
       className={cn(
-        "w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm transition-colors",
-        isActive ? "bg-[hsl(var(--nav-bar-color))] text-white font-medium" : "text-foreground/80 hover:bg-accent/50"
+        "w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm transition-all",
+        isActive
+          ? "bg-primary text-white font-semibold shadow-md"
+          : "text-white/70 hover:bg-white/10 hover:text-white"
       )}
       onClick={onClick}
     >
-      <Icon className="h-4 w-4 shrink-0 opacity-70" />
+      <Icon className={cn("h-4 w-4 shrink-0", isActive ? "opacity-100" : "opacity-50")} />
       <span className="truncate">{displayName}</span>
       {(channel.unread_count ?? 0) > 0 && (
-        <span className="ml-auto bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center">
+        <span className="ml-auto bg-red-500 text-white text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center shadow-sm">
           {channel.unread_count}
         </span>
       )}
