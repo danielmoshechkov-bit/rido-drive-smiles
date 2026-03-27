@@ -1,5 +1,6 @@
 import { WorkspaceProject } from "@/hooks/useWorkspace";
 import { Button } from "@/components/ui/button";
+import { UniversalSubTabBar } from "@/components/UniversalSubTabBar";
 import { ArrowLeft, ListTodo, LayoutGrid, Calendar, MessageSquare, Sparkles, Users, FileText, Zap, BarChart3 } from "lucide-react";
 import { WorkspaceTasksView } from "./WorkspaceTasksView";
 import { WorkspaceKanbanView } from "./WorkspaceKanbanView";
