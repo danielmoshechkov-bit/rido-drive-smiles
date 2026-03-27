@@ -73,20 +73,69 @@ export function useWorkspaceChat(projectId: string, userId: string | null) {
   const [searchResults, setSearchResults] = useState<ChatMessage[]>([]);
 
   const loadChannels = useCallback(async () => {
-    const { data } = await (supabase as any)
+    // Load all project channels
+    const { data: allChannels } = await (supabase as any)
       .from("workspace_channels")
       .select("*")
       .eq("project_id", projectId)
       .eq("is_archived", false)
       .order("type")
       .order("name");
-    const chs = (data || []) as ChatChannel[];
-    setChannels(chs);
-    if (!activeChannel && chs.length > 0) {
-      setActiveChannel(chs.find(c => c.name === 'general') || chs[0]);
+
+    if (!allChannels || !userId) {
+      setChannels([]);
+      return [];
     }
-    return chs;
-  }, [projectId, activeChannel]);
+
+    // Get user's role in this project
+    const { data: memberData } = await supabase
+      .from("workspace_project_members")
+      .select("role")
+      .eq("project_id", projectId)
+      .eq("user_id", userId)
+      .single();
+
+    const role = memberData?.role || 'member';
+
+    // Get channels where user is a participant (for private/dm/group)
+    const { data: participations } = await (supabase as any)
+      .from("workspace_channel_participants")
+      .select("channel_id")
+      .eq("user_id", userId);
+    const participantChannelIds = new Set((participations || []).map((p: any) => p.channel_id));
+
+    // Filter channels based on role
+    let filtered: ChatChannel[];
+    if (role === 'owner') {
+      // CEO/Owner sees ALL channels
+      filtered = allChannels as ChatChannel[];
+    } else if (role === 'manager') {
+      // Manager sees: public channels + channels they participate in + channels created by their team members
+      // For now: public + participated + own created
+      filtered = (allChannels as ChatChannel[]).filter(ch =>
+        ch.type === 'public' ||
+        ch.created_by === userId ||
+        participantChannelIds.has(ch.id)
+      );
+    } else if (role === 'guest') {
+      // Guest sees only channels they're explicitly added to
+      filtered = (allChannels as ChatChannel[]).filter(ch =>
+        participantChannelIds.has(ch.id)
+      );
+    } else {
+      // Member sees: public + participated
+      filtered = (allChannels as ChatChannel[]).filter(ch =>
+        ch.type === 'public' ||
+        participantChannelIds.has(ch.id)
+      );
+    }
+
+    setChannels(filtered);
+    if (!activeChannel && filtered.length > 0) {
+      setActiveChannel(filtered.find(c => c.name === 'general') || filtered[0]);
+    }
+    return filtered;
+  }, [projectId, activeChannel, userId]);
 
   const loadMessages = useCallback(async (channelName: string) => {
     const { data } = await supabase
