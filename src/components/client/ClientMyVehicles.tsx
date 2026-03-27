@@ -99,16 +99,30 @@ const isDateExpired = (dateStr: string | null) => {
   return new Date(dateStr).getTime() < Date.now();
 };
 
-const buildReminderBadges = (vehicle: ClientVehicle) => {
-  const badges: Array<{ label: string; variant: "destructive" | "accent" | "outline" }> = [];
+const buildDocumentBadges = (vehicle: ClientVehicle) => {
+  const badges: Array<{ label: string; variant: "destructive" | "success" | "warning" | "muted" }> = [];
 
-  if (isDateExpired(vehicle.mot_expiry)) badges.push({ label: "Przegląd minął", variant: "destructive" });
-  else if (isDateExpiringSoon(vehicle.mot_expiry)) badges.push({ label: "Przegląd wkrótce", variant: "accent" });
+  // OC badge
+  if (!vehicle.oc_expiry) {
+    badges.push({ label: "OC: —", variant: "destructive" });
+  } else if (isDateExpired(vehicle.oc_expiry)) {
+    badges.push({ label: `OC: ${formatDisplayDate(vehicle.oc_expiry)}`, variant: "destructive" });
+  } else if (isDateExpiringSoon(vehicle.oc_expiry)) {
+    badges.push({ label: `OC: ${formatDisplayDate(vehicle.oc_expiry)}`, variant: "warning" });
+  } else {
+    badges.push({ label: `OC: ${formatDisplayDate(vehicle.oc_expiry)}`, variant: "success" });
+  }
 
-  if (isDateExpired(vehicle.oc_expiry)) badges.push({ label: "OC minęło", variant: "destructive" });
-  else if (isDateExpiringSoon(vehicle.oc_expiry)) badges.push({ label: "OC wkrótce", variant: "accent" });
-
-  if (badges.length === 0) badges.push({ label: "Dokumenty aktualne", variant: "outline" });
+  // Przegląd badge
+  if (!vehicle.mot_expiry) {
+    badges.push({ label: "Przegląd: —", variant: "muted" });
+  } else if (isDateExpired(vehicle.mot_expiry)) {
+    badges.push({ label: `Przegląd: ${formatDisplayDate(vehicle.mot_expiry)}`, variant: "destructive" });
+  } else if (isDateExpiringSoon(vehicle.mot_expiry)) {
+    badges.push({ label: `Przegląd: ${formatDisplayDate(vehicle.mot_expiry)}`, variant: "warning" });
+  } else {
+    badges.push({ label: `Przegląd: ${formatDisplayDate(vehicle.mot_expiry)}`, variant: "success" });
+  }
 
   return badges;
 };
