@@ -73,8 +73,8 @@ export function WorkspaceTasksView({ project, workspace }: Props) {
   const [history, setHistory] = useState<TaskHistoryEntry[]>([]);
   const [commentInput, setCommentInput] = useState("");
   const [checklistInput, setChecklistInput] = useState("");
-  const [detailTab, setDetailTab] = useState<'detail' | 'checklist' | 'comments' | 'history'>('detail');
-
+  const [detailTab, setDetailTab] = useState<'detail' | 'checklist' | 'comments' | 'history' | 'time' | 'deps'>('detail');
+  const [manualMinutes, setManualMinutes] = useState("");
   useEffect(() => { reload(); }, [project.id]);
 
   const reload = async () => {
@@ -125,6 +125,10 @@ export function WorkspaceTasksView({ project, workspace }: Props) {
     setTasks(prev => prev.filter(t => t.id !== taskId));
   };
 
+  // Time tracking & dependencies hooks
+  const timeTracking = useTaskTimeTracking(detailTask?.id || null, workspace.userId, workspace.userEmail);
+  const taskDeps = useTaskDependencies(detailTask?.id || null);
+
   // Task detail panel
   const openDetail = async (task: WorkspaceTask) => {
     setDetailTask(task);
@@ -133,6 +137,14 @@ export function WorkspaceTasksView({ project, workspace }: Props) {
     loadComments(task.id);
     loadHistory(task.id);
   };
+
+  // Load deps when detail opens
+  useEffect(() => {
+    if (detailTask) {
+      taskDeps.loadDependencies();
+      timeTracking.loadEntries();
+    }
+  }, [detailTask?.id]);
 
   const loadChecklist = async (taskId: string) => {
     const { data } = await (supabase as any)
