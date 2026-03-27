@@ -1,6 +1,6 @@
 import { WorkspaceProject } from "@/hooks/useWorkspace";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ListTodo, LayoutGrid, Calendar, MessageSquare, Sparkles, Users, FileText, Zap } from "lucide-react";
+import { ArrowLeft, ListTodo, LayoutGrid, Calendar, MessageSquare, Sparkles, Users, FileText, Zap, BarChart3 } from "lucide-react";
 import { WorkspaceTasksView } from "./WorkspaceTasksView";
 import { WorkspaceKanbanView } from "./WorkspaceKanbanView";
 import { WorkspaceCalendarView } from "./WorkspaceCalendarView";
@@ -11,6 +11,7 @@ import { WorkspaceDocsView } from "./WorkspaceDocsView";
 import { WorkspaceAutomationsView } from "./WorkspaceAutomationsView";
 import { WorkspaceWorkloadView } from "./WorkspaceWorkloadView";
 import { WorkspaceNotificationCenter } from "./WorkspaceNotificationCenter";
+import { WorkspaceGlobalSearch } from "./WorkspaceGlobalSearch";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -28,7 +29,7 @@ const TABS = [
   { key: "chat", label: "Komunikacja", icon: MessageSquare },
   { key: "docs", label: "Dokumenty", icon: FileText },
   { key: "automations", label: "Automatyzacje", icon: Zap },
-  { key: "workload", label: "Obciążenie", icon: LayoutGrid },
+  { key: "workload", label: "Obciążenie", icon: BarChart3 },
   { key: "ai", label: "AI Planner", icon: Sparkles },
   { key: "members", label: "Zespół", icon: Users },
 ];
@@ -50,6 +51,15 @@ export function WorkspaceProjectDetail({ project, workspace, activeTab, onTabCha
             <p className="text-xs text-muted-foreground truncate">{project.description}</p>
           )}
         </div>
+        <WorkspaceGlobalSearch
+          projectId={project.id}
+          onNavigate={(type, id) => {
+            if (type === 'task') onTabChange('tasks');
+            else if (type === 'message' || type === 'channel') onTabChange('chat');
+            else if (type === 'document') onTabChange('docs');
+            else if (type === 'member') onTabChange('members');
+          }}
+        />
         <WorkspaceNotificationCenter
           onNavigate={(type, id) => {
             if (type === 'task') onTabChange('tasks');
