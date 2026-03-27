@@ -1,12 +1,13 @@
 import { WorkspaceProject } from "@/hooks/useWorkspace";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ListTodo, LayoutGrid, Calendar, MessageSquare, Sparkles, Users, Search } from "lucide-react";
+import { ArrowLeft, ListTodo, LayoutGrid, Calendar, MessageSquare, Sparkles, Users, FileText } from "lucide-react";
 import { WorkspaceTasksView } from "./WorkspaceTasksView";
 import { WorkspaceKanbanView } from "./WorkspaceKanbanView";
 import { WorkspaceCalendarView } from "./WorkspaceCalendarView";
 import { WorkspaceChatView } from "./WorkspaceChatView";
 import { WorkspaceAIPlannerView } from "./WorkspaceAIPlannerView";
 import { WorkspaceMembersView } from "./WorkspaceMembersView";
+import { WorkspaceDocsView } from "./WorkspaceDocsView";
 import { cn } from "@/lib/utils";
 
 interface Props {
