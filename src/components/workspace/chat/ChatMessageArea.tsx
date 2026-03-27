@@ -260,6 +260,32 @@ export function ChatMessageArea({
           <span className="text-xs text-muted-foreground ml-2 hidden md:inline">{channel.description}</span>
         )}
         <div className="ml-auto flex items-center gap-1">
+          {/* Language selector */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 px-2">
+                <Globe className="h-3.5 w-3.5" />
+                {SUPPORTED_LANGUAGES.find(l => l.code === myLanguage)?.flag || '🌍'}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-48 p-2" align="end">
+              <p className="text-xs font-semibold mb-2 px-1">Mój język</p>
+              <div className="max-h-48 overflow-y-auto space-y-0.5">
+                {SUPPORTED_LANGUAGES.map(l => (
+                  <button
+                    key={l.code}
+                    className={cn(
+                      "w-full text-left text-xs px-2 py-1.5 rounded-md flex items-center gap-2 transition-colors",
+                      myLanguage === l.code ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+                    )}
+                    onClick={() => setMyLanguage(l.code)}
+                  >
+                    <span>{l.flag}</span> {l.label}
+                  </button>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
           <Button
             variant={showPinned ? "secondary" : "ghost"}
             size="icon" className="h-7 w-7"
