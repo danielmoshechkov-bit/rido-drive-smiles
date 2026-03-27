@@ -89,7 +89,7 @@ export function WorkspaceChatView({ project, workspace }: Props) {
   }
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col pb-24">
       {/* Mobile tab switcher */}
       <div className="flex md:hidden border-b mb-2">
         <button

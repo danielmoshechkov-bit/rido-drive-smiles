@@ -230,6 +230,36 @@ export function useWorkspaceChat(projectId: string, userId: string | null) {
     opts?: { messageType?: string; fileUrl?: string; fileName?: string; threadParentId?: string; channelId?: string; }
   ) => {
     if (!userId) return null;
+
+    // Optimistic update — add message to UI immediately
+    const optimisticId = `opt_${Date.now()}`;
+    const optimisticMsg: ChatMessage = {
+      id: optimisticId,
+      project_id: projectId,
+      channel_name: channelName,
+      channel_id: opts?.channelId || null,
+      user_id: userId,
+      user_name: null,
+      content,
+      original_content: null,
+      message_type: opts?.messageType || 'text',
+      file_url: opts?.fileUrl || null,
+      file_name: opts?.fileName || null,
+      file_size: null,
+      reply_to_id: null,
+      thread_parent_id: opts?.threadParentId || null,
+      is_pinned: false,
+      is_edited: false,
+      edited_at: null,
+      created_at: new Date().toISOString(),
+      reactions: [],
+      thread_count: 0,
+    };
+
+    if (!opts?.threadParentId) {
+      setMessages(prev => [...prev, optimisticMsg]);
+    }
+
     const { data, error } = await supabase
       .from("workspace_messages")
       .insert({
@@ -246,8 +276,19 @@ export function useWorkspaceChat(projectId: string, userId: string | null) {
       } as any)
       .select()
       .single();
-    if (error) { toast.error("Błąd wysyłania"); return null; }
-    // Check for @mentions and send notifications
+
+    if (error) {
+      // Remove optimistic message on error
+      setMessages(prev => prev.filter(m => m.id !== optimisticId));
+      toast.error("Błąd wysyłania");
+      return null;
+    }
+
+    // Replace optimistic with real message
+    if (!opts?.threadParentId) {
+      setMessages(prev => prev.map(m => m.id === optimisticId ? { ...m, ...data, id: data.id } : m));
+    }
+
     if (content.includes('@')) {
       notifyMentions(content, projectId, channelName);
     }
