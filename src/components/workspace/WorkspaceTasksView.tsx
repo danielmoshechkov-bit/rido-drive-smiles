@@ -622,6 +622,7 @@ export function WorkspaceTasksView({ project, workspace }: Props) {
                   </div>
                 </div>
               )}
+              {detailTab === 'checklist' && (
                 <div className="space-y-3">
                   {/* Progress */}
                   {checklist.length > 0 && (
