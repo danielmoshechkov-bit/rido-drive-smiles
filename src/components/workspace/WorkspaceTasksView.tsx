@@ -109,6 +109,10 @@ export function WorkspaceTasksView({ project, workspace }: Props) {
     const task = tasks.find(t => t.id === taskId);
     if (task) {
       await logHistory(taskId, 'status', STATUS_CONFIG[task.status]?.label, STATUS_CONFIG[newStatus]?.label);
+      // Notify task creator when completed
+      if (newStatus === 'done' && task.created_by && task.created_by !== workspace.userId) {
+        notifyTaskCompleted(project.id, task.title, taskId, task.created_by, workspace.userEmail || undefined);
+      }
     }
     await workspace.updateTask(taskId, { status: newStatus });
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
