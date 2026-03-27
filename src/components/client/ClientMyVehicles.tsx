@@ -643,7 +643,7 @@ function ClientVehicleCard({
   onPhotosUpdated: (photos: string[]) => void;
 }) {
   const [open, setOpen] = useState(!!defaultOpen);
-  const reminderBadges = buildReminderBadges(vehicle);
+  const reminderBadges = buildDocumentBadges(vehicle);
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
@@ -679,7 +679,7 @@ function ClientVehicleCard({
                   <span className="text-xs text-muted-foreground">Dokumenty:</span>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {reminderBadges.map((badge) => (
-                      <ReminderBadge key={badge.label} label={badge.label} variant={badge.variant} />
+                      <DocumentBadge key={badge.label} label={badge.label} variant={badge.variant} />
                     ))}
                   </div>
                 </div>
@@ -691,7 +691,7 @@ function ClientVehicleCard({
 
               <div className="mt-3 flex flex-wrap gap-2 md:hidden">
                 {reminderBadges.map((badge) => (
-                  <ReminderBadge key={badge.label} label={badge.label} variant={badge.variant} />
+                  <DocumentBadge key={badge.label} label={badge.label} variant={badge.variant} />
                 ))}
               </div>
             </div>
