@@ -18447,50 +18447,109 @@ export type Database = {
           },
         ]
       }
+      workspace_project_invitations: {
+        Row: {
+          accepted_at: string | null
+          created_at: string | null
+          email: string | null
+          expires_at: string | null
+          id: string
+          invited_by: string
+          phone: string | null
+          project_id: string
+          role: string | null
+          status: string | null
+          token: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          created_at?: string | null
+          email?: string | null
+          expires_at?: string | null
+          id?: string
+          invited_by: string
+          phone?: string | null
+          project_id: string
+          role?: string | null
+          status?: string | null
+          token?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          created_at?: string | null
+          email?: string | null
+          expires_at?: string | null
+          id?: string
+          invited_by?: string
+          phone?: string | null
+          project_id?: string
+          role?: string | null
+          status?: string | null
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_project_invitations_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "workspace_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workspace_project_members: {
         Row: {
+          avatar_url: string | null
           created_at: string | null
           display_name: string | null
           email: string | null
           first_name: string | null
           hierarchy_role: string | null
           id: string
+          invited_by: string | null
           is_online: boolean | null
           last_name: string | null
           last_seen_at: string | null
           phone: string | null
+          preferred_language: string | null
           project_id: string
           role: string
           status: string
           user_id: string | null
         }
         Insert: {
+          avatar_url?: string | null
           created_at?: string | null
           display_name?: string | null
           email?: string | null
           first_name?: string | null
           hierarchy_role?: string | null
           id?: string
+          invited_by?: string | null
           is_online?: boolean | null
           last_name?: string | null
           last_seen_at?: string | null
           phone?: string | null
+          preferred_language?: string | null
           project_id: string
           role?: string
           status?: string
           user_id?: string | null
         }
         Update: {
+          avatar_url?: string | null
           created_at?: string | null
           display_name?: string | null
           email?: string | null
           first_name?: string | null
           hierarchy_role?: string | null
           id?: string
+          invited_by?: string | null
           is_online?: boolean | null
           last_name?: string | null
           last_seen_at?: string | null
           phone?: string | null
+          preferred_language?: string | null
           project_id?: string
           role?: string
           status?: string
