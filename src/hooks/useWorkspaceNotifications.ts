@@ -33,7 +33,7 @@ export function useWorkspaceNotifications() {
       .limit(50);
 
     if (!error && data) {
-      setNotifications(data as WorkspaceNotification[]);
+      setNotifications(data as unknown as WorkspaceNotification[]);
       setUnreadCount(data.filter((n: any) => !n.is_read).length);
     }
     setLoading(false);
@@ -50,7 +50,7 @@ export function useWorkspaceNotifications() {
         schema: 'public',
         table: 'workspace_notifications',
       }, (payload) => {
-        const newNotif = payload.new as WorkspaceNotification;
+        const newNotif = payload.new as unknown as WorkspaceNotification;
         supabase.auth.getSession().then(({ data: { session } }) => {
           if (session?.user?.id === newNotif.user_id) {
             setNotifications(prev => [newNotif, ...prev].slice(0, 50));
