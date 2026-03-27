@@ -17778,6 +17778,113 @@ export type Database = {
           },
         ]
       }
+      workspace_automation_logs: {
+        Row: {
+          actions_executed: Json | null
+          automation_id: string
+          error_message: string | null
+          executed_at: string | null
+          id: string
+          project_id: string
+          status: string | null
+          trigger_data: Json | null
+        }
+        Insert: {
+          actions_executed?: Json | null
+          automation_id: string
+          error_message?: string | null
+          executed_at?: string | null
+          id?: string
+          project_id: string
+          status?: string | null
+          trigger_data?: Json | null
+        }
+        Update: {
+          actions_executed?: Json | null
+          automation_id?: string
+          error_message?: string | null
+          executed_at?: string | null
+          id?: string
+          project_id?: string
+          status?: string | null
+          trigger_data?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_automation_logs_automation_id_fkey"
+            columns: ["automation_id"]
+            isOneToOne: false
+            referencedRelation: "workspace_automations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_automation_logs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "workspace_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workspace_automations: {
+        Row: {
+          actions: Json | null
+          conditions: Json | null
+          created_at: string | null
+          created_by: string
+          description: string | null
+          id: string
+          is_active: boolean | null
+          last_triggered_at: string | null
+          name: string
+          project_id: string
+          trigger_config: Json | null
+          trigger_count: number | null
+          trigger_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          actions?: Json | null
+          conditions?: Json | null
+          created_at?: string | null
+          created_by: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_triggered_at?: string | null
+          name: string
+          project_id: string
+          trigger_config?: Json | null
+          trigger_count?: number | null
+          trigger_type: string
+          updated_at?: string | null
+        }
+        Update: {
+          actions?: Json | null
+          conditions?: Json | null
+          created_at?: string | null
+          created_by?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_triggered_at?: string | null
+          name?: string
+          project_id?: string
+          trigger_config?: Json | null
+          trigger_count?: number | null
+          trigger_type?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_automations_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "workspace_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workspace_channel_participants: {
         Row: {
           channel_id: string
