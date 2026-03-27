@@ -414,6 +414,7 @@ export function WorkspaceTasksView({ project, workspace }: Props) {
             <>
               <SheetHeader>
                 <SheetTitle className="text-left flex items-center gap-2">
+                  <span className="text-xs font-mono text-muted-foreground">#{(detailTask as any).task_number || '?'}</span>
                   <Badge className={cn("text-xs", PRIORITY_CONFIG[detailTask.priority]?.color)}>
                     {PRIORITY_CONFIG[detailTask.priority]?.emoji} {PRIORITY_CONFIG[detailTask.priority]?.label}
                   </Badge>
@@ -422,9 +423,11 @@ export function WorkspaceTasksView({ project, workspace }: Props) {
               </SheetHeader>
 
               {/* Sub tabs */}
-              <div className="flex gap-1 mt-4 mb-4 border-b pb-2">
+              <div className="flex gap-1 mt-4 mb-4 border-b pb-2 overflow-x-auto">
                 {[
                   { key: 'detail', label: 'Szczegóły', icon: CalendarDays },
+                  { key: 'time', label: `Czas`, icon: Timer },
+                  { key: 'deps', label: 'Zależności', icon: Link2 },
                   { key: 'checklist', label: `Checklist (${checklist.length})`, icon: ListChecks },
                   { key: 'comments', label: `Komentarze (${comments.length})`, icon: MessageSquare },
                   { key: 'history', label: 'Historia', icon: History },
