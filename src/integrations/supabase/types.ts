@@ -17739,30 +17739,68 @@ export type Database = {
           },
         ]
       }
+      workspace_channel_participants: {
+        Row: {
+          channel_id: string
+          created_at: string | null
+          id: string
+          last_read_at: string | null
+          user_id: string
+        }
+        Insert: {
+          channel_id: string
+          created_at?: string | null
+          id?: string
+          last_read_at?: string | null
+          user_id: string
+        }
+        Update: {
+          channel_id?: string
+          created_at?: string | null
+          id?: string
+          last_read_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_channel_participants_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "workspace_channels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workspace_channels: {
         Row: {
           created_at: string | null
           created_by: string
           description: string | null
           id: string
+          is_archived: boolean | null
           name: string
           project_id: string
+          type: string
         }
         Insert: {
           created_at?: string | null
           created_by: string
           description?: string | null
           id?: string
+          is_archived?: boolean | null
           name: string
           project_id: string
+          type?: string
         }
         Update: {
           created_at?: string | null
           created_by?: string
           description?: string | null
           id?: string
+          is_archived?: boolean | null
           name?: string
           project_id?: string
+          type?: string
         }
         Relationships: [
           {
@@ -17839,8 +17877,41 @@ export type Database = {
           },
         ]
       }
+      workspace_message_reactions: {
+        Row: {
+          created_at: string | null
+          emoji: string
+          id: string
+          message_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          emoji: string
+          id?: string
+          message_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          emoji?: string
+          id?: string
+          message_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_message_reactions_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "workspace_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workspace_messages: {
         Row: {
+          channel_id: string | null
           channel_name: string
           content: string | null
           created_at: string | null
@@ -17852,10 +17923,12 @@ export type Database = {
           message_type: string | null
           project_id: string
           reply_to_id: string | null
+          thread_parent_id: string | null
           user_id: string
           user_name: string | null
         }
         Insert: {
+          channel_id?: string | null
           channel_name?: string
           content?: string | null
           created_at?: string | null
@@ -17867,10 +17940,12 @@ export type Database = {
           message_type?: string | null
           project_id: string
           reply_to_id?: string | null
+          thread_parent_id?: string | null
           user_id: string
           user_name?: string | null
         }
         Update: {
+          channel_id?: string | null
           channel_name?: string
           content?: string | null
           created_at?: string | null
@@ -17882,10 +17957,18 @@ export type Database = {
           message_type?: string | null
           project_id?: string
           reply_to_id?: string | null
+          thread_parent_id?: string | null
           user_id?: string
           user_name?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "workspace_messages_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "workspace_channels"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "workspace_messages_project_id_fkey"
             columns: ["project_id"]
@@ -17900,6 +17983,60 @@ export type Database = {
             referencedRelation: "workspace_messages"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "workspace_messages_thread_parent_id_fkey"
+            columns: ["thread_parent_id"]
+            isOneToOne: false
+            referencedRelation: "workspace_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workspace_notifications: {
+        Row: {
+          body: string | null
+          created_at: string | null
+          id: string
+          is_read: boolean | null
+          link: string | null
+          metadata: Json | null
+          project_id: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          link?: string | null
+          metadata?: Json | null
+          project_id?: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          link?: string | null
+          metadata?: Json | null
+          project_id?: string | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_notifications_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "workspace_projects"
+            referencedColumns: ["id"]
+          },
         ]
       }
       workspace_project_members: {
@@ -17908,8 +18045,11 @@ export type Database = {
           display_name: string | null
           email: string | null
           first_name: string | null
+          hierarchy_role: string | null
           id: string
+          is_online: boolean | null
           last_name: string | null
+          last_seen_at: string | null
           phone: string | null
           project_id: string
           role: string
@@ -17921,8 +18061,11 @@ export type Database = {
           display_name?: string | null
           email?: string | null
           first_name?: string | null
+          hierarchy_role?: string | null
           id?: string
+          is_online?: boolean | null
           last_name?: string | null
+          last_seen_at?: string | null
           phone?: string | null
           project_id: string
           role?: string
@@ -17934,8 +18077,11 @@ export type Database = {
           display_name?: string | null
           email?: string | null
           first_name?: string | null
+          hierarchy_role?: string | null
           id?: string
+          is_online?: boolean | null
           last_name?: string | null
+          last_seen_at?: string | null
           phone?: string | null
           project_id?: string
           role?: string
@@ -17992,6 +18138,86 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workspace_task_assignees: {
+        Row: {
+          created_at: string | null
+          display_name: string | null
+          id: string
+          member_id: string | null
+          task_id: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          display_name?: string | null
+          id?: string
+          member_id?: string | null
+          task_id: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          display_name?: string | null
+          id?: string
+          member_id?: string | null
+          task_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_task_assignees_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "workspace_project_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_task_assignees_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "workspace_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workspace_task_checklist: {
+        Row: {
+          completed_by: string | null
+          created_at: string | null
+          id: string
+          is_completed: boolean | null
+          sort_order: number | null
+          task_id: string
+          title: string
+        }
+        Insert: {
+          completed_by?: string | null
+          created_at?: string | null
+          id?: string
+          is_completed?: boolean | null
+          sort_order?: number | null
+          task_id: string
+          title: string
+        }
+        Update: {
+          completed_by?: string | null
+          created_at?: string | null
+          id?: string
+          is_completed?: boolean | null
+          sort_order?: number | null
+          task_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_task_checklist_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "workspace_tasks"
             referencedColumns: ["id"]
           },
         ]

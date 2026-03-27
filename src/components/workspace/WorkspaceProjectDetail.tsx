@@ -1,12 +1,13 @@
 import { WorkspaceProject } from "@/hooks/useWorkspace";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ListTodo, LayoutGrid, Calendar, MessageSquare, Sparkles, Users, Settings } from "lucide-react";
+import { ArrowLeft, ListTodo, LayoutGrid, Calendar, MessageSquare, Sparkles, Users, Search } from "lucide-react";
 import { WorkspaceTasksView } from "./WorkspaceTasksView";
 import { WorkspaceKanbanView } from "./WorkspaceKanbanView";
 import { WorkspaceCalendarView } from "./WorkspaceCalendarView";
 import { WorkspaceChatView } from "./WorkspaceChatView";
 import { WorkspaceAIPlannerView } from "./WorkspaceAIPlannerView";
 import { WorkspaceMembersView } from "./WorkspaceMembersView";
+import { cn } from "@/lib/utils";
 
 interface Props {
   project: WorkspaceProject;
@@ -44,19 +45,22 @@ export function WorkspaceProjectDetail({ project, workspace, activeTab, onTabCha
         </div>
       </div>
 
-      {/* Tab Bar */}
+      {/* Tab Bar - pill style matching platform standard */}
       <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
         {TABS.map(tab => (
-          <Button
+          <button
             key={tab.key}
-            variant={activeTab === tab.key ? "default" : "ghost"}
-            size="sm"
-            className="gap-1.5 shrink-0 text-xs"
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors shrink-0",
+              activeTab === tab.key
+                ? "bg-[hsl(var(--nav-bar-color))] text-white"
+                : "text-muted-foreground hover:bg-[#F5C842] hover:text-gray-900"
+            )}
             onClick={() => onTabChange(tab.key)}
           >
             <tab.icon className="h-3.5 w-3.5" />
             {tab.label}
-          </Button>
+          </button>
         ))}
       </div>
 
