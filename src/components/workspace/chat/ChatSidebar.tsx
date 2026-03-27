@@ -24,7 +24,7 @@ interface Props {
   projectName?: string;
   projectColor?: string;
   onSelectChannel: (ch: ChatChannel) => void;
-  onCreateChannel: (name: string, type: string, desc?: string) => Promise<any>;
+  onCreateChannel: (name: string, type: string, desc?: string, participantIds?: string[]) => Promise<any>;
   onCreateDM: (userId: string, name: string) => Promise<any>;
   onSearch: () => void;
   onStatusChange: (status: string, text?: string) => Promise<void>;
