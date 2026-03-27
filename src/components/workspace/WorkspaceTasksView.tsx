@@ -499,7 +499,129 @@ export function WorkspaceTasksView({ project, workspace }: Props) {
                 </div>
               )}
 
-              {detailTab === 'checklist' && (
+              {detailTab === 'time' && (
+                <div className="space-y-4">
+                  {/* Timer */}
+                  <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                    {timeTracking.isTracking ? (
+                      <>
+                        <div className="flex-1">
+                          <p className="text-2xl font-mono font-bold text-primary">{timeTracking.formatDuration(timeTracking.elapsed)}</p>
+                          <p className="text-xs text-muted-foreground">Timer aktywny</p>
+                        </div>
+                        <Button size="sm" variant="destructive" onClick={() => timeTracking.stopTracking()} className="gap-1">
+                          <Square className="h-3.5 w-3.5" /> Stop
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">Czas łącznie: <span className="text-primary">{timeTracking.formatMinutes(timeTracking.totalMinutes)}</span></p>
+                        </div>
+                        <Button size="sm" onClick={() => timeTracking.startTracking()} className="gap-1">
+                          <Play className="h-3.5 w-3.5" /> Start
+                        </Button>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Manual entry */}
+                  <div className="flex gap-2 items-center">
+                    <Input
+                      type="number" min="1"
+                      value={manualMinutes}
+                      onChange={e => setManualMinutes(e.target.value)}
+                      placeholder="Min..."
+                      className="h-8 text-sm w-20"
+                    />
+                    <Button size="sm" variant="outline" disabled={!manualMinutes}
+                      onClick={() => { timeTracking.addManualEntry(parseInt(manualMinutes)); setManualMinutes(""); }}>
+                      <PlusCircle className="h-3.5 w-3.5 mr-1" /> Dodaj ręcznie
+                    </Button>
+                  </div>
+
+                  {/* Entries */}
+                  <div className="space-y-2">
+                    {timeTracking.entries.filter(e => e.ended_at).map(entry => (
+                      <div key={entry.id} className="flex items-center gap-2 text-xs p-2 border rounded group">
+                        <Timer className="h-3 w-3 text-muted-foreground shrink-0" />
+                        <span className="font-medium">{timeTracking.formatMinutes(entry.duration_minutes || 0)}</span>
+                        <span className="text-muted-foreground flex-1 truncate">{entry.user_name || 'Użytkownik'}</span>
+                        <span className="text-muted-foreground">
+                          {new Date(entry.started_at).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' })}
+                        </span>
+                        <Button variant="ghost" size="icon" className="h-5 w-5 opacity-0 group-hover:opacity-100 text-destructive"
+                          onClick={() => timeTracking.deleteEntry(entry.id)}>
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                    {timeTracking.entries.filter(e => e.ended_at).length === 0 && (
+                      <p className="text-sm text-muted-foreground text-center py-4">Brak wpisów czasu</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {detailTab === 'deps' && (
+                <div className="space-y-4">
+                  <div>
+                    <Label className="text-xs text-muted-foreground mb-2 block">To zadanie zależy od:</Label>
+                    {taskDeps.dependencies.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">Brak zależności</p>
+                    ) : (
+                      <div className="space-y-1">
+                        {taskDeps.dependencies.map(dep => {
+                          const depTask = tasks.find(t => t.id === dep.depends_on_task_id);
+                          return (
+                            <div key={dep.id} className="flex items-center gap-2 text-sm p-2 border rounded group">
+                              <Link2 className="h-3 w-3 text-muted-foreground" />
+                              <span className="flex-1 truncate">{depTask ? `#${(depTask as any).task_number} ${depTask.title}` : dep.depends_on_task_id}</span>
+                              <Badge variant="outline" className="text-[10px]">{dep.dependency_type}</Badge>
+                              <Button variant="ghost" size="icon" className="h-5 w-5 opacity-0 group-hover:opacity-100 text-destructive"
+                                onClick={() => taskDeps.removeDependency(dep.id)}>
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <Label className="text-xs text-muted-foreground mb-2 block">Blokuje zadania:</Label>
+                    {taskDeps.dependents.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">Nic nie blokuje</p>
+                    ) : (
+                      <div className="space-y-1">
+                        {taskDeps.dependents.map(dep => {
+                          const depTask = tasks.find(t => t.id === dep.task_id);
+                          return (
+                            <div key={dep.id} className="flex items-center gap-2 text-sm p-2 border rounded">
+                              <Link2 className="h-3 w-3 text-muted-foreground" />
+                              <span className="flex-1 truncate">{depTask ? `#${(depTask as any).task_number} ${depTask.title}` : dep.task_id}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Add dependency */}
+                  <div>
+                    <Label className="text-xs text-muted-foreground mb-2 block">Dodaj zależność:</Label>
+                    <Select onValueChange={v => taskDeps.addDependency(v)}>
+                      <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Wybierz zadanie..." /></SelectTrigger>
+                      <SelectContent>
+                        {tasks.filter(t => t.id !== detailTask?.id).map(t => (
+                          <SelectItem key={t.id} value={t.id}>#{(t as any).task_number} {t.title}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
                 <div className="space-y-3">
                   {/* Progress */}
                   {checklist.length > 0 && (
