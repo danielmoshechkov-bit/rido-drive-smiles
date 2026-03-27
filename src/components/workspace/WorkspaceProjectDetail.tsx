@@ -23,6 +23,7 @@ const TABS = [
   { key: "kanban", label: "Kanban", icon: LayoutGrid },
   { key: "calendar", label: "Kalendarz", icon: Calendar },
   { key: "chat", label: "Komunikacja", icon: MessageSquare },
+  { key: "docs", label: "Dokumenty", icon: FileText },
   { key: "ai", label: "AI Planner", icon: Sparkles },
   { key: "members", label: "Zespół", icon: Users },
 ];
