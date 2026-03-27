@@ -127,16 +127,17 @@ const buildDocumentBadges = (vehicle: ClientVehicle) => {
   return badges;
 };
 
-function ReminderBadge({ label, variant }: { label: string; variant: "destructive" | "accent" | "outline" }) {
+function DocumentBadge({ label, variant }: { label: string; variant: "destructive" | "success" | "warning" | "muted" }) {
   if (variant === "destructive") {
-    return <Badge variant="destructive" className="rounded-full">{label}</Badge>;
+    return <Badge variant="destructive" className="rounded-full text-xs">{label}</Badge>;
   }
-
-  if (variant === "accent") {
-    return <Badge className="rounded-full bg-accent text-accent-foreground hover:bg-accent">{label}</Badge>;
+  if (variant === "warning") {
+    return <Badge className="rounded-full bg-orange-500 text-white hover:bg-orange-500 text-xs">{label}</Badge>;
   }
-
-  return <Badge variant="outline" className="rounded-full">{label}</Badge>;
+  if (variant === "success") {
+    return <Badge className="rounded-full bg-green-100 text-green-800 border border-green-300 hover:bg-green-100 text-xs">{label}</Badge>;
+  }
+  return <Badge variant="outline" className="rounded-full text-xs text-muted-foreground">{label}</Badge>;
 }
 
 function ClientVehicleInfoPanel({ vehicle, onSave }: { vehicle: ClientVehicle; onSave: (patch: Partial<ClientVehicle>) => Promise<void> }) {
