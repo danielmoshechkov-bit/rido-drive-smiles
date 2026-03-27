@@ -71,6 +71,7 @@ export function WorkspaceProjectDetail({ project, workspace, activeTab, onTabCha
       {activeTab === "kanban" && <WorkspaceKanbanView project={project} workspace={workspace} />}
       {activeTab === "calendar" && <WorkspaceCalendarView project={project} workspace={workspace} />}
       {activeTab === "chat" && <WorkspaceChatView project={project} workspace={workspace} />}
+      {activeTab === "docs" && <WorkspaceDocsView project={project} workspace={workspace} />}
       {activeTab === "ai" && <WorkspaceAIPlannerView project={project} workspace={workspace} />}
       {activeTab === "members" && <WorkspaceMembersView project={project} workspace={workspace} />}
     </div>
