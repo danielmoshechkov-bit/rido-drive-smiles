@@ -166,7 +166,7 @@ export function WorkspaceKanbanView({ project, workspace }: Props) {
                       {/* Priority + Task number */}
                       <div className="flex items-center justify-between mb-1.5">
                         <span className="text-[11px] text-muted-foreground font-mono">
-                          {PRIORITY_EMOJI[task.priority]} #{task.task_number || '—'}
+                          {PRIORITY_EMOJI[task.priority]} #{(task as any).task_number || '—'}
                         </span>
                         {task.status === 'done' && <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />}
                       </div>
