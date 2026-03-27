@@ -8,6 +8,7 @@ import { WorkspaceChatView } from "./WorkspaceChatView";
 import { WorkspaceAIPlannerView } from "./WorkspaceAIPlannerView";
 import { WorkspaceMembersView } from "./WorkspaceMembersView";
 import { WorkspaceDocsView } from "./WorkspaceDocsView";
+import { WorkspaceNotificationCenter } from "./WorkspaceNotificationCenter";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -45,6 +46,13 @@ export function WorkspaceProjectDetail({ project, workspace, activeTab, onTabCha
             <p className="text-xs text-muted-foreground truncate">{project.description}</p>
           )}
         </div>
+        <WorkspaceNotificationCenter
+          onNavigate={(type, id) => {
+            if (type === 'task') onTabChange('tasks');
+            else if (type === 'chat') onTabChange('chat');
+            else if (type === 'document') onTabChange('docs');
+          }}
+        />
       </div>
 
       {/* Tab Bar - pill style matching platform standard */}

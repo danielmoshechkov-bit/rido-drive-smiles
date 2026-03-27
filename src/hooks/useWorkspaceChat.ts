@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { notifyMentions } from "@/utils/workspaceNotifications";
 
 export interface ChatChannel {
   id: string;
@@ -197,6 +198,10 @@ export function useWorkspaceChat(projectId: string, userId: string | null) {
       .select()
       .single();
     if (error) { toast.error("Błąd wysyłania"); return null; }
+    // Check for @mentions and send notifications
+    if (content.includes('@')) {
+      notifyMentions(content, projectId, channelName);
+    }
     return data as ChatMessage;
   }, [projectId, userId]);
 
