@@ -472,6 +472,37 @@ export function ChatMessageArea({
                         </div>
                       </PopoverContent>
                     </Popover>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => {
+                              if (!isPremium) {
+                                toast.info("Funkcja Premium — ulepsz plan aby włączyć auto-tłumaczenie");
+                                return;
+                              }
+                              if (msg.content) {
+                                translation.translateMessage(msg.id, msg.content, myLanguage);
+                              }
+                            }}
+                          >
+                            {!isPremium ? (
+                              <Crown className="h-3.5 w-3.5 text-amber-500" />
+                            ) : (
+                              <Globe className="h-3.5 w-3.5" />
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="text-xs">
+                            {isPremium ? `Przetłumacz na ${SUPPORTED_LANGUAGES.find(l => l.code === myLanguage)?.label || myLanguage}` : 'Premium — ulepsz plan'}
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onOpenThread(msg)}>
                       <MessageSquare className="h-3.5 w-3.5" />
                     </Button>
