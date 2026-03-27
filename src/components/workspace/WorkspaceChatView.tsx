@@ -40,7 +40,18 @@ export function WorkspaceChatView({ project, workspace }: Props) {
       }, (payload) => {
         const msg = payload.new as any;
         if (chat.activeChannel && msg.channel_name === chat.activeChannel.name && !msg.thread_parent_id) {
-          chat.setMessages(prev => [...prev, msg]);
+          // Only add if not already present (optimistic update may have added it)
+          chat.setMessages(prev => {
+            if (prev.some(m => m.id === msg.id)) {
+              return prev.map(m => m.id === msg.id ? { ...m, ...msg } : m);
+            }
+            // Also replace any optimistic message from same user sent at similar time
+            const optimistic = prev.find(m => m.id.startsWith('opt_') && m.user_id === msg.user_id && m.content === msg.content);
+            if (optimistic) {
+              return prev.map(m => m.id === optimistic.id ? { ...m, ...msg, id: msg.id } : m);
+            }
+            return [...prev, msg];
+          });
         }
         if (chat.activeThread && msg.thread_parent_id === chat.activeThread.id) {
           chat.loadThread(chat.activeThread.id);
@@ -89,7 +100,7 @@ export function WorkspaceChatView({ project, workspace }: Props) {
   }
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col pb-24">
       {/* Mobile tab switcher */}
       <div className="flex md:hidden border-b mb-2">
         <button

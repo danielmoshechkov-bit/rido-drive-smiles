@@ -1,4 +1,4 @@
-import { ListTodo, LayoutGrid, MessageSquare, FileText, MoreHorizontal } from "lucide-react";
+import { ListTodo, LayoutGrid, MessageSquare, FileText, MoreHorizontal, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar, Zap, BarChart3, Sparkles, Users } from "lucide-react";
@@ -17,6 +17,7 @@ const MORE_TABS = [
   { key: "workload", label: "Obciążenie", icon: BarChart3 },
   { key: "ai", label: "AI Planner", icon: Sparkles },
   { key: "members", label: "Zespół", icon: Users },
+  { key: "settings", label: "Ustawienia", icon: Settings },
 ];
 
 interface Props {
