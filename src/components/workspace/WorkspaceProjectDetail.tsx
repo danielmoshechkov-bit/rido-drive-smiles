@@ -1,7 +1,7 @@
 import { WorkspaceProject } from "@/hooks/useWorkspace";
 import { Button } from "@/components/ui/button";
 import { UniversalSubTabBar } from "@/components/UniversalSubTabBar";
-import { ArrowLeft, ListTodo, LayoutGrid, Calendar, MessageSquare, Sparkles, Users, FileText, Zap, BarChart3 } from "lucide-react";
+import { ArrowLeft, ListTodo, LayoutGrid, Calendar, MessageSquare, Sparkles, Users, FileText, Zap, BarChart3, Settings } from "lucide-react";
 import { WorkspaceTasksView } from "./WorkspaceTasksView";
 import { WorkspaceKanbanView } from "./WorkspaceKanbanView";
 import { WorkspaceCalendarView } from "./WorkspaceCalendarView";
@@ -11,6 +11,7 @@ import { WorkspaceMembersView } from "./WorkspaceMembersView";
 import { WorkspaceDocsView } from "./WorkspaceDocsView";
 import { WorkspaceAutomationsView } from "./WorkspaceAutomationsView";
 import { WorkspaceWorkloadView } from "./WorkspaceWorkloadView";
+import { WorkspaceSettingsView } from "./WorkspaceSettingsView";
 import { WorkspaceNotificationCenter } from "./WorkspaceNotificationCenter";
 import { WorkspaceGlobalSearch } from "./WorkspaceGlobalSearch";
 import { WorkspaceMobileNav } from "./WorkspaceMobileNav";
@@ -35,6 +36,7 @@ const TABS = [
   { key: "workload", label: "Obciążenie", icon: BarChart3 },
   { key: "ai", label: "AI Planner", icon: Sparkles },
   { key: "members", label: "Zespół", icon: Users },
+  { key: "settings", label: "Ustawienia", icon: Settings },
 ];
 
 export function WorkspaceProjectDetail({ project, workspace, activeTab, onTabChange, onBack }: Props) {
@@ -96,6 +98,7 @@ export function WorkspaceProjectDetail({ project, workspace, activeTab, onTabCha
       {activeTab === "workload" && <WorkspaceWorkloadView project={project} workspace={workspace} />}
       {activeTab === "ai" && <WorkspaceAIPlannerView project={project} workspace={workspace} />}
       {activeTab === "members" && <WorkspaceMembersView project={project} workspace={workspace} />}
+      {activeTab === "settings" && <WorkspaceSettingsView project={project} workspace={workspace} />}
 
       {/* Mobile Bottom Nav */}
       {isMobile && <WorkspaceMobileNav activeTab={activeTab} onTabChange={onTabChange} />}
