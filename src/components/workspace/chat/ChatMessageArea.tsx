@@ -366,11 +366,51 @@ export function ChatMessageArea({
                           <span>{msg.file_name || 'Plik'}</span>
                         </a>
                       )}
-                      {msg.content && msg.message_type !== 'file' && (
-                        <div className="text-sm whitespace-pre-wrap leading-relaxed">
-                          {formatText(msg.content)}
-                        </div>
-                      )}
+                      {msg.content && msg.message_type !== 'file' && (() => {
+                        const tr = translation.getTranslation(msg.id, myLanguage);
+                        const isLoadingTr = translation.isLoading(msg.id, myLanguage);
+                        const showOrig = translation.isShowingOriginal(msg.id);
+                        const displayText = (tr && !showOrig) ? tr.translated_text : msg.content;
+                        const srcLang = tr?.source_language;
+                        const srcLabel = SUPPORTED_LANGUAGES.find(l => l.code === srcLang);
+
+                        return (
+                          <div>
+                            <div className="text-sm whitespace-pre-wrap leading-relaxed">
+                              {formatText(displayText)}
+                            </div>
+                            {tr && (
+                              <div className="flex items-center gap-2 mt-1">
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                                        <Globe className="h-3 w-3" />
+                                        Przetłumaczono{srcLabel ? ` z ${srcLabel.flag} ${srcLabel.label}` : ''}
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p className="text-xs">Auto-tłumaczenie Premium 🌍</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                                <button
+                                  className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline"
+                                  onClick={() => translation.toggleOriginal(msg.id)}
+                                >
+                                  {showOrig ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                                  {showOrig ? 'Pokaż tłumaczenie' : 'Pokaż oryginał'}
+                                </button>
+                              </div>
+                            )}
+                            {isLoadingTr && (
+                              <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground mt-1">
+                                <Loader2 className="h-3 w-3 animate-spin" /> Tłumaczenie...
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })()}
 
                       {/* Reactions */}
                       {msg.reactions && msg.reactions.length > 0 && (
