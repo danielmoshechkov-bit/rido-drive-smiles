@@ -17851,6 +17851,187 @@ export type Database = {
           },
         ]
       }
+      workspace_document_comments: {
+        Row: {
+          content: string
+          created_at: string | null
+          document_id: string
+          id: string
+          is_resolved: boolean | null
+          resolved_by: string | null
+          selection_end: number | null
+          selection_start: number | null
+          selection_text: string | null
+          user_id: string
+          user_name: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          document_id: string
+          id?: string
+          is_resolved?: boolean | null
+          resolved_by?: string | null
+          selection_end?: number | null
+          selection_start?: number | null
+          selection_text?: string | null
+          user_id: string
+          user_name?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          document_id?: string
+          id?: string
+          is_resolved?: boolean | null
+          resolved_by?: string | null
+          selection_end?: number | null
+          selection_start?: number | null
+          selection_text?: string | null
+          user_id?: string
+          user_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_document_comments_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "workspace_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workspace_document_versions: {
+        Row: {
+          change_summary: string | null
+          content: string | null
+          content_html: string | null
+          created_at: string | null
+          document_id: string
+          edited_by: string
+          edited_by_name: string | null
+          id: string
+          title: string
+          version: number
+        }
+        Insert: {
+          change_summary?: string | null
+          content?: string | null
+          content_html?: string | null
+          created_at?: string | null
+          document_id: string
+          edited_by: string
+          edited_by_name?: string | null
+          id?: string
+          title: string
+          version: number
+        }
+        Update: {
+          change_summary?: string | null
+          content?: string | null
+          content_html?: string | null
+          created_at?: string | null
+          document_id?: string
+          edited_by?: string
+          edited_by_name?: string | null
+          id?: string
+          title?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_document_versions_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "workspace_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workspace_documents: {
+        Row: {
+          content: string | null
+          content_html: string | null
+          cover_color: string | null
+          created_at: string | null
+          created_by: string
+          icon: string | null
+          id: string
+          is_archived: boolean | null
+          is_pinned: boolean | null
+          is_template: boolean | null
+          last_edited_by: string | null
+          last_edited_by_name: string | null
+          parent_document_id: string | null
+          project_id: string
+          sort_order: number | null
+          template_category: string | null
+          title: string
+          updated_at: string | null
+          version: number | null
+          word_count: number | null
+        }
+        Insert: {
+          content?: string | null
+          content_html?: string | null
+          cover_color?: string | null
+          created_at?: string | null
+          created_by: string
+          icon?: string | null
+          id?: string
+          is_archived?: boolean | null
+          is_pinned?: boolean | null
+          is_template?: boolean | null
+          last_edited_by?: string | null
+          last_edited_by_name?: string | null
+          parent_document_id?: string | null
+          project_id: string
+          sort_order?: number | null
+          template_category?: string | null
+          title?: string
+          updated_at?: string | null
+          version?: number | null
+          word_count?: number | null
+        }
+        Update: {
+          content?: string | null
+          content_html?: string | null
+          cover_color?: string | null
+          created_at?: string | null
+          created_by?: string
+          icon?: string | null
+          id?: string
+          is_archived?: boolean | null
+          is_pinned?: boolean | null
+          is_template?: boolean | null
+          last_edited_by?: string | null
+          last_edited_by_name?: string | null
+          parent_document_id?: string | null
+          project_id?: string
+          sort_order?: number | null
+          template_category?: string | null
+          title?: string
+          updated_at?: string | null
+          version?: number | null
+          word_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_documents_parent_document_id_fkey"
+            columns: ["parent_document_id"]
+            isOneToOne: false
+            referencedRelation: "workspace_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_documents_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "workspace_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workspace_email_whitelist: {
         Row: {
           added_by: string | null
