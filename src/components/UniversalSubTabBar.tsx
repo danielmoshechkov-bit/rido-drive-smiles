@@ -38,7 +38,7 @@ export const UniversalSubTabBar = ({ activeTab, onTabChange, tabs }: UniversalSu
               }
             `}
             style={activeTab === tab.value
-              ? { backgroundColor: 'var(--nav-bar-color, #6C3CF0)' }
+              ? { backgroundColor: 'var(--nav-bar-color, #6C3CF0)', color: '#ffffff' }
               : undefined
             }
             onMouseEnter={(e) => {
