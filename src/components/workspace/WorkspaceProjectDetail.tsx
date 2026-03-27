@@ -16,8 +16,6 @@ import { WorkspaceGlobalSearch } from "./WorkspaceGlobalSearch";
 import { WorkspaceMobileNav } from "./WorkspaceMobileNav";
 import { WorkspaceOnboardingTour } from "./WorkspaceOnboardingTour";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { TabsPill } from "@/components/ui/TabsPill";
-import { TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 interface Props {
   project: WorkspaceProject;
@@ -79,44 +77,25 @@ export function WorkspaceProjectDetail({ project, workspace, activeTab, onTabCha
         />
       </div>
 
-      {/* Desktop Tab Bar */}
+      {/* Sub-tab bar (UniversalSubTabBar style) */}
       {!isMobile && (
-        <TabsPill value={activeTab} onValueChange={onTabChange}>
-          {TABS.map(tab => {
-            const Icon = tab.icon;
-            return (
-              <TabsTrigger key={tab.key} value={tab.key}>
-                <Icon className="h-4 w-4" />
-                <span>{tab.label}</span>
-              </TabsTrigger>
-            );
-          })}
-          <TabsContent value="tasks"><WorkspaceTasksView project={project} workspace={workspace} /></TabsContent>
-          <TabsContent value="kanban"><WorkspaceKanbanView project={project} workspace={workspace} /></TabsContent>
-          <TabsContent value="calendar"><WorkspaceCalendarView project={project} workspace={workspace} /></TabsContent>
-          <TabsContent value="chat"><WorkspaceChatView project={project} workspace={workspace} /></TabsContent>
-          <TabsContent value="docs"><WorkspaceDocsView project={project} workspace={workspace} /></TabsContent>
-          <TabsContent value="automations"><WorkspaceAutomationsView project={project} workspace={workspace} /></TabsContent>
-          <TabsContent value="workload"><WorkspaceWorkloadView project={project} workspace={workspace} /></TabsContent>
-          <TabsContent value="ai"><WorkspaceAIPlannerView project={project} workspace={workspace} /></TabsContent>
-          <TabsContent value="members"><WorkspaceMembersView project={project} workspace={workspace} /></TabsContent>
-        </TabsPill>
+        <UniversalSubTabBar
+          activeTab={activeTab}
+          onTabChange={onTabChange}
+          tabs={TABS.map(t => ({ value: t.key, label: t.label }))}
+        />
       )}
 
-      {/* Mobile Content (no TabsPill wrapper, nav is bottom bar) */}
-      {isMobile && (
-        <div className="mt-2">
-          {activeTab === "tasks" && <WorkspaceTasksView project={project} workspace={workspace} />}
-          {activeTab === "kanban" && <WorkspaceKanbanView project={project} workspace={workspace} />}
-          {activeTab === "calendar" && <WorkspaceCalendarView project={project} workspace={workspace} />}
-          {activeTab === "chat" && <WorkspaceChatView project={project} workspace={workspace} />}
-          {activeTab === "docs" && <WorkspaceDocsView project={project} workspace={workspace} />}
-          {activeTab === "automations" && <WorkspaceAutomationsView project={project} workspace={workspace} />}
-          {activeTab === "workload" && <WorkspaceWorkloadView project={project} workspace={workspace} />}
-          {activeTab === "ai" && <WorkspaceAIPlannerView project={project} workspace={workspace} />}
-          {activeTab === "members" && <WorkspaceMembersView project={project} workspace={workspace} />}
-        </div>
-      )}
+      {/* Content */}
+      {activeTab === "tasks" && <WorkspaceTasksView project={project} workspace={workspace} />}
+      {activeTab === "kanban" && <WorkspaceKanbanView project={project} workspace={workspace} />}
+      {activeTab === "calendar" && <WorkspaceCalendarView project={project} workspace={workspace} />}
+      {activeTab === "chat" && <WorkspaceChatView project={project} workspace={workspace} />}
+      {activeTab === "docs" && <WorkspaceDocsView project={project} workspace={workspace} />}
+      {activeTab === "automations" && <WorkspaceAutomationsView project={project} workspace={workspace} />}
+      {activeTab === "workload" && <WorkspaceWorkloadView project={project} workspace={workspace} />}
+      {activeTab === "ai" && <WorkspaceAIPlannerView project={project} workspace={workspace} />}
+      {activeTab === "members" && <WorkspaceMembersView project={project} workspace={workspace} />}
 
       {/* Mobile Bottom Nav */}
       {isMobile && <WorkspaceMobileNav activeTab={activeTab} onTabChange={onTabChange} />}
