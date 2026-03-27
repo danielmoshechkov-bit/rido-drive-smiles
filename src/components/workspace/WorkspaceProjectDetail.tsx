@@ -1,12 +1,13 @@
 import { WorkspaceProject } from "@/hooks/useWorkspace";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ListTodo, LayoutGrid, Calendar, MessageSquare, Sparkles, Users, Search } from "lucide-react";
+import { ArrowLeft, ListTodo, LayoutGrid, Calendar, MessageSquare, Sparkles, Users, FileText } from "lucide-react";
 import { WorkspaceTasksView } from "./WorkspaceTasksView";
 import { WorkspaceKanbanView } from "./WorkspaceKanbanView";
 import { WorkspaceCalendarView } from "./WorkspaceCalendarView";
 import { WorkspaceChatView } from "./WorkspaceChatView";
 import { WorkspaceAIPlannerView } from "./WorkspaceAIPlannerView";
 import { WorkspaceMembersView } from "./WorkspaceMembersView";
+import { WorkspaceDocsView } from "./WorkspaceDocsView";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -22,6 +23,7 @@ const TABS = [
   { key: "kanban", label: "Kanban", icon: LayoutGrid },
   { key: "calendar", label: "Kalendarz", icon: Calendar },
   { key: "chat", label: "Komunikacja", icon: MessageSquare },
+  { key: "docs", label: "Dokumenty", icon: FileText },
   { key: "ai", label: "AI Planner", icon: Sparkles },
   { key: "members", label: "Zespół", icon: Users },
 ];
@@ -69,6 +71,7 @@ export function WorkspaceProjectDetail({ project, workspace, activeTab, onTabCha
       {activeTab === "kanban" && <WorkspaceKanbanView project={project} workspace={workspace} />}
       {activeTab === "calendar" && <WorkspaceCalendarView project={project} workspace={workspace} />}
       {activeTab === "chat" && <WorkspaceChatView project={project} workspace={workspace} />}
+      {activeTab === "docs" && <WorkspaceDocsView project={project} workspace={workspace} />}
       {activeTab === "ai" && <WorkspaceAIPlannerView project={project} workspace={workspace} />}
       {activeTab === "members" && <WorkspaceMembersView project={project} workspace={workspace} />}
     </div>
