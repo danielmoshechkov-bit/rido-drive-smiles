@@ -260,9 +260,19 @@ export function WorkspaceTasksView({ project, workspace }: Props) {
 
           <div className="flex-1 min-w-0">
             <p className={cn("text-sm font-medium truncate", task.status === 'done' && "line-through text-muted-foreground")}>
+              <span className="text-xs text-muted-foreground font-mono mr-1">#{(task as any).task_number || '?'}</span>
               {task.title}
             </p>
           </div>
+
+          {(task as any).time_logged_minutes > 0 && (
+            <span className="text-[10px] text-muted-foreground flex items-center gap-0.5 shrink-0">
+              <Timer className="h-3 w-3" />
+              {(task as any).time_logged_minutes < 60 
+                ? `${(task as any).time_logged_minutes}m`
+                : `${Math.floor((task as any).time_logged_minutes / 60)}h`}
+            </span>
+          )}
 
           <Badge className={cn("text-[10px] px-1.5 py-0 shrink-0", priorityCfg.color)}>
             {priorityCfg.emoji} {priorityCfg.label}
