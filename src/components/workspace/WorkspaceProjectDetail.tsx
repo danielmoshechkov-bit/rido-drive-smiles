@@ -11,6 +11,7 @@ import { WorkspaceDocsView } from "./WorkspaceDocsView";
 import { WorkspaceAutomationsView } from "./WorkspaceAutomationsView";
 import { WorkspaceWorkloadView } from "./WorkspaceWorkloadView";
 import { WorkspaceNotificationCenter } from "./WorkspaceNotificationCenter";
+import { WorkspaceGlobalSearch } from "./WorkspaceGlobalSearch";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -50,6 +51,15 @@ export function WorkspaceProjectDetail({ project, workspace, activeTab, onTabCha
             <p className="text-xs text-muted-foreground truncate">{project.description}</p>
           )}
         </div>
+        <WorkspaceGlobalSearch
+          projectId={project.id}
+          onNavigate={(type, id) => {
+            if (type === 'task') onTabChange('tasks');
+            else if (type === 'message' || type === 'channel') onTabChange('chat');
+            else if (type === 'document') onTabChange('docs');
+            else if (type === 'member') onTabChange('members');
+          }}
+        />
         <WorkspaceNotificationCenter
           onNavigate={(type, id) => {
             if (type === 'task') onTabChange('tasks');
