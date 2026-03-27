@@ -18275,6 +18275,33 @@ export type Database = {
           },
         ]
       }
+      workspace_message_translations: {
+        Row: {
+          created_at: string | null
+          id: string
+          language_code: string
+          message_id: string
+          source_language: string | null
+          translated_text: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          language_code: string
+          message_id: string
+          source_language?: string | null
+          translated_text: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          language_code?: string
+          message_id?: string
+          source_language?: string | null
+          translated_text?: string
+        }
+        Relationships: []
+      }
       workspace_messages: {
         Row: {
           channel_id: string | null
