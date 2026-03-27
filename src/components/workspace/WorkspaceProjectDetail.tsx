@@ -9,6 +9,7 @@ import { WorkspaceAIPlannerView } from "./WorkspaceAIPlannerView";
 import { WorkspaceMembersView } from "./WorkspaceMembersView";
 import { WorkspaceDocsView } from "./WorkspaceDocsView";
 import { WorkspaceAutomationsView } from "./WorkspaceAutomationsView";
+import { WorkspaceWorkloadView } from "./WorkspaceWorkloadView";
 import { WorkspaceNotificationCenter } from "./WorkspaceNotificationCenter";
 import { cn } from "@/lib/utils";
 
@@ -27,6 +28,7 @@ const TABS = [
   { key: "chat", label: "Komunikacja", icon: MessageSquare },
   { key: "docs", label: "Dokumenty", icon: FileText },
   { key: "automations", label: "Automatyzacje", icon: Zap },
+  { key: "workload", label: "Obciążenie", icon: LayoutGrid },
   { key: "ai", label: "AI Planner", icon: Sparkles },
   { key: "members", label: "Zespół", icon: Users },
 ];
@@ -83,6 +85,7 @@ export function WorkspaceProjectDetail({ project, workspace, activeTab, onTabCha
       {activeTab === "chat" && <WorkspaceChatView project={project} workspace={workspace} />}
       {activeTab === "docs" && <WorkspaceDocsView project={project} workspace={workspace} />}
       {activeTab === "automations" && <WorkspaceAutomationsView project={project} workspace={workspace} />}
+      {activeTab === "workload" && <WorkspaceWorkloadView project={project} workspace={workspace} />}
       {activeTab === "ai" && <WorkspaceAIPlannerView project={project} workspace={workspace} />}
       {activeTab === "members" && <WorkspaceMembersView project={project} workspace={workspace} />}
     </div>
