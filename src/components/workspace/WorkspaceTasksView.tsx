@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { WorkspaceProject, WorkspaceTask, WorkspaceMember, WorkspaceTaskComment } from "@/hooks/useWorkspace";
 import { supabase } from "@/integrations/supabase/client";
+import { notifyTaskAssigned, notifyTaskCompleted } from "@/utils/workspaceNotifications";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -87,7 +88,7 @@ export function WorkspaceTasksView({ project, workspace }: Props) {
 
   const handleCreate = async () => {
     if (!form.title.trim()) return;
-    await workspace.createTask({
+    const newTask = await workspace.createTask({
       project_id: project.id,
       title: form.title.trim(),
       description: form.description || null,
@@ -95,6 +96,10 @@ export function WorkspaceTasksView({ project, workspace }: Props) {
       due_date: form.due_date || null,
       assigned_name: form.assigned_name || null,
     });
+    // Send notification if task is assigned
+    if (newTask && form.assigned_name) {
+      notifyTaskAssigned(project.id, form.title.trim(), form.assigned_name, newTask.id, workspace.userEmail || undefined);
+    }
     setShowCreate(false);
     setForm({ title: "", description: "", priority: "medium", due_date: "", assigned_name: "" });
     reload();
