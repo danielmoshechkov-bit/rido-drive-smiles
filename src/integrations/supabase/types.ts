@@ -1039,6 +1039,51 @@ export type Database = {
           },
         ]
       }
+      ai_agents_config: {
+        Row: {
+          agent_id: string
+          created_at: string | null
+          description: string | null
+          icon: string | null
+          id: string
+          is_active: boolean | null
+          last_test_at: string | null
+          last_test_result: string | null
+          model: string
+          name: string
+          system_prompt: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_test_at?: string | null
+          last_test_result?: string | null
+          model?: string
+          name: string
+          system_prompt?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_test_at?: string | null
+          last_test_result?: string | null
+          model?: string
+          name?: string
+          system_prompt?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       ai_call_audit_log: {
         Row: {
           action: string
@@ -11304,8 +11349,12 @@ export type Database = {
       }
       purchase_invoices: {
         Row: {
+          account_kpir: string | null
+          ai_category: string | null
+          ai_notes: string | null
           created_at: string | null
           document_number: string
+          entity_id: string | null
           id: string
           ksef_number: string | null
           ocr_raw: Json | null
@@ -11320,8 +11369,12 @@ export type Database = {
           total_vat: number | null
         }
         Insert: {
+          account_kpir?: string | null
+          ai_category?: string | null
+          ai_notes?: string | null
           created_at?: string | null
           document_number: string
+          entity_id?: string | null
           id?: string
           ksef_number?: string | null
           ocr_raw?: Json | null
@@ -11336,8 +11389,12 @@ export type Database = {
           total_vat?: number | null
         }
         Update: {
+          account_kpir?: string | null
+          ai_category?: string | null
+          ai_notes?: string | null
           created_at?: string | null
           document_number?: string
+          entity_id?: string | null
           id?: string
           ksef_number?: string | null
           ocr_raw?: Json | null
@@ -11351,7 +11408,15 @@ export type Database = {
           total_net?: number | null
           total_vat?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "purchase_invoices_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       real_estate_agents: {
         Row: {
