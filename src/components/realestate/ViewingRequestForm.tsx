@@ -50,8 +50,10 @@ export function ViewingRequestForm({ listingIds = [], listingTitles = [], onSucc
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      const requestId = crypto.randomUUID();
       
       const { error } = await supabase.from('viewing_requests' as any).insert({
+        id: requestId,
         client_id: user?.id,
         client_name: form.client_name,
         client_email: form.client_email,
@@ -65,7 +67,17 @@ export function ViewingRequestForm({ listingIds = [], listingTitles = [], onSucc
       } as any);
 
       if (error) throw error;
-      toast.success('Zgłoszenie wysłane! Skontaktujemy się z agentami.');
+
+      // Auto-trigger agent contact flow
+      try {
+        await supabase.functions.invoke('schedule-viewings', {
+          body: { action: 'process_new_request', request_id: requestId },
+        });
+      } catch (fnErr) {
+        console.error('Edge function error:', fnErr);
+      }
+
+      toast.success('Zgłoszenie wysłane! Kontaktujemy się z agentami.');
       onSuccess?.();
     } catch (err: any) {
       toast.error('Błąd: ' + err.message);

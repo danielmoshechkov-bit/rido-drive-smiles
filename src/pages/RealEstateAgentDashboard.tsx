@@ -10,11 +10,12 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { 
   Building, Plus, Home, Users, Settings,
   ArrowLeft, Eye, Edit, Trash2, AlertCircle, Heart, 
-  GitCompare, Phone, ChevronDown, ChevronUp, Repeat, GitBranch
+  GitCompare, Phone, ChevronDown, ChevronUp, Repeat, GitBranch, Calendar
 } from "lucide-react";
 import { AgencyCRMSettings } from "@/components/agency/AgencyCRMSettings";
 import { AgentCRM } from "@/components/realestate/AgentCRM";
 import { AIBatchProcessButton } from "@/components/realestate/AIBatchProcessButton";
+import { GoogleCalendarConnect } from "@/components/realestate/GoogleCalendarConnect";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { AccountSwitcherPanel } from "@/components/AccountSwitcherPanel";
@@ -368,6 +369,10 @@ export default function RealEstateAgentDashboard() {
             <Building className="h-4 w-4 mr-2" />
             Mój CRM
           </TabsTrigger>
+          <TabsTrigger value="calendar">
+            <Calendar className="h-4 w-4 mr-2" />
+            Kalendarz
+          </TabsTrigger>
           <TabsTrigger value="integration">
             <GitBranch className="h-4 w-4 mr-2" />
             Integracja CRM
@@ -565,6 +570,9 @@ export default function RealEstateAgentDashboard() {
           </TabsContent>
           <TabsContent value="crm">
             {agent && <AgentCRM agentId={agent.id} />}
+          </TabsContent>
+          <TabsContent value="calendar">
+            {agent && <GoogleCalendarConnect agentId={agent.id} />}
           </TabsContent>
           <TabsContent value="integration">
             {agent && <AgencyCRMSettings agencyId={agent.id} />}
