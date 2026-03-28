@@ -154,7 +154,7 @@ function mapDbToDisplayListing(db: any) {
     areaUsable: areaUsable,
     areaPlot: Number(db.area_plot) || 0,
     roomsData,
-    rooms: db.rooms,
+    rooms: correctedRooms || db.rooms,
     floor: db.floor,
     floorsTotal: db.total_floors,
     propertyType: db.property_type,
