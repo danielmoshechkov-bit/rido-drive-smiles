@@ -52,6 +52,7 @@ export function ResultsMapModal({
   const [showRent, setShowRent] = useState(true);
   const [maxPrice, setMaxPrice] = useState("");
   const [minArea, setMinArea] = useState("");
+  const [mapPropertyType, setMapPropertyType] = useState("");
 
   // Get user's geolocation when modal opens
   useEffect(() => {
