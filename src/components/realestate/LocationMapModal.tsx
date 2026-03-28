@@ -10,12 +10,31 @@ import {
   Circle, PenTool, Trash2, Check, Loader2, MapPin, RefreshCw, AlertCircle, X, Paintbrush
 } from "lucide-react";
 
+interface PropertyListingForMap {
+  id: string;
+  title: string;
+  price: number;
+  priceType?: string;
+  photos?: string[];
+  location: string;
+  district?: string;
+  areaM2: number;
+  rooms?: number;
+  propertyType?: string;
+  transactionType?: string;
+  transactionColor?: string;
+  lat?: number;
+  lng?: number;
+}
+
 interface LocationMapModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   initialCenter?: { lat: number; lng: number };
   initialArea?: AreaSelection | null;
   onConfirm: (area: AreaSelection | null) => void;
+  listings?: PropertyListingForMap[];
+  onViewListing?: (id: string) => void;
 }
 
 type DrawingMode = "points" | "brush";
