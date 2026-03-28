@@ -762,6 +762,59 @@ export function WorkspaceTasksView({ project, workspace }: Props) {
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Invite from task dialog */}
+      <Dialog open={showInviteFromTask} onOpenChange={setShowInviteFromTask}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" /> Zaproś osobę
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>Rola</Label>
+              <Select value={inviteForm.role} onValueChange={v => setInviteForm(p => ({ ...p, role: v }))}>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="member">Pracownik</SelectItem>
+                  <SelectItem value="manager">Menadżer</SelectItem>
+                  <SelectItem value="viewer">Obserwator</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Imię *</Label>
+                <Input className="mt-1" placeholder="Jan" value={inviteForm.firstName} onChange={e => setInviteForm(p => ({ ...p, firstName: e.target.value }))} />
+              </div>
+              <div>
+                <Label>Nazwisko</Label>
+                <Input className="mt-1" placeholder="Kowalski" value={inviteForm.lastName} onChange={e => setInviteForm(p => ({ ...p, lastName: e.target.value }))} />
+              </div>
+            </div>
+            <div>
+              <Label>Email *</Label>
+              <Input className="mt-1" placeholder="jan@example.com" value={inviteForm.email} onChange={e => setInviteForm(p => ({ ...p, email: e.target.value }))} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              disabled={!inviteForm.email.trim() || !inviteForm.firstName.trim()}
+              onClick={async () => {
+                await workspace.addMember(project.id, inviteForm.email.trim(), inviteForm.role, inviteForm.firstName.trim(), inviteForm.lastName.trim());
+                setInviteForm({ email: "", firstName: "", lastName: "", role: "member" });
+                setShowInviteFromTask(false);
+                const m = await workspace.loadMembers(project.id);
+                setMembers(m);
+              }}
+              className="gap-1"
+            >
+              <Users className="h-4 w-4" /> Wyślij zaproszenie
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
