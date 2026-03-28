@@ -104,45 +104,10 @@ export function CompareBar({ type, className }: CompareBarProps) {
                 <GitCompare className="h-4 w-4" />
                 Porównaj ({items.length})
               </Button>
-              {type === "property" && (
-                <Button
-                  size="sm"
-                  variant="default"
-                  onClick={() => setShowViewingForm(true)}
-                  className="gap-1 bg-green-600 hover:bg-green-700"
-                >
-                  <Eye className="h-4 w-4" />
-                  <span className="hidden sm:inline">Umów oglądanie</span>
-                  <span className="sm:hidden">Umów</span>
-                </Button>
-              )}
             </div>
           </div>
         </div>
       </div>
-
-      {/* Viewing Request Dialog */}
-      {type === "property" && (
-        <Dialog open={showViewingForm} onOpenChange={setShowViewingForm}>
-          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-primary" />
-                Umów oglądanie nieruchomości
-              </DialogTitle>
-            </DialogHeader>
-            <ViewingRequestForm
-              listingIds={items.map(i => i.id)}
-              listingTitles={items.map(i => i.title)}
-              onSuccess={() => {
-                setShowViewingForm(false);
-                clearItems();
-                navigate('/moje-ogladania');
-              }}
-            />
-          </DialogContent>
-        </Dialog>
-      )}
     </>
   );
 }
