@@ -357,9 +357,10 @@ export function ChatMessageArea({
         <div className="ml-auto flex items-center gap-1">
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 text-xs gap-1.5 px-3">
-                <Globe className="h-4 w-4" />
+              <Button variant={autoTranslateEnabled ? "secondary" : "ghost"} size="sm" className="h-8 text-xs gap-1.5 px-3">
+                <Globe className={cn("h-4 w-4", autoTranslateEnabled && "text-primary")} />
                 {SUPPORTED_LANGUAGES.find(l => l.code === myLanguage)?.flag || '🌍'}
+                {autoTranslateEnabled && <span className="text-[10px] text-primary">AUTO</span>}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-52 p-2" align="end">
