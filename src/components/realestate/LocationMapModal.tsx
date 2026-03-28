@@ -133,6 +133,9 @@ export function LocationMapModal({
   const circleRef = useRef<google.maps.Circle | null>(null);
   const polygonRef = useRef<google.maps.Polygon | null>(null);
   const markerRef = useRef<google.maps.Marker | null>(null);
+  const listingOverlaysRef = useRef<any[]>([]);
+  const infoWindowRef = useRef<google.maps.InfoWindow | null>(null);
+  const [selectedListing, setSelectedListing] = useState<PropertyListingForMap | null>(null);
   
   // Custom polygon drawing refs (no DrawingManager)
   const tempPolygonRef = useRef<google.maps.Polygon | null>(null);
