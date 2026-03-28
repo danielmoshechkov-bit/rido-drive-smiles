@@ -303,6 +303,9 @@ interface DbListing {
   longitude?: number;
   contact_person?: string;
   contact_phone?: string;
+  contact_email?: string;
+  listing_number?: string;
+  property_unique_id?: string;
   real_estate_agents?: { company_name?: string } | null;
 }
 
@@ -328,6 +331,7 @@ function mapDbToListing(db: DbListing) {
   return {
     id: db.id,
     title: db.title,
+    description: db.description,
     price: db.price,
     priceType: db.price_type || 'sale',
     photos: (typeof db.photos === 'string' ? (() => { try { return JSON.parse(db.photos as string); } catch { return []; } })() : db.photos) || [],
@@ -348,6 +352,9 @@ function mapDbToListing(db: DbListing) {
     agencyName: db.real_estate_agents?.company_name,
     contactName: db.contact_person,
     contactPhone: db.contact_phone,
+    contactEmail: db.contact_email,
+    listingNumber: db.listing_number,
+    propertyUniqueId: db.property_unique_id,
     lat: db.latitude ? Number(db.latitude) : undefined,
     lng: db.longitude ? Number(db.longitude) : undefined,
   };
