@@ -32,18 +32,25 @@ interface Props {
   onStatusChange: (status: string, text?: string) => Promise<void>;
   onEditChannel?: (channelId: string, name: string, description?: string) => Promise<void>;
   onDeleteChannel?: (channelId: string) => Promise<void>;
+  onGetChannelParticipantIds?: (channelId: string) => Promise<string[]>;
+  onInviteToChannel?: (channelId: string, participantIds: string[]) => Promise<void>;
 }
 
 export function ChatSidebar({
   channels, activeChannel, members, memberStatuses, userId,
   projectName, projectColor,
   onSelectChannel, onCreateChannel, onCreateDM, onSearch, onStatusChange,
-  onEditChannel, onDeleteChannel
+  onEditChannel, onDeleteChannel, onGetChannelParticipantIds, onInviteToChannel
 }: Props) {
   const [showCreateChannel, setShowCreateChannel] = useState(false);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [showEditChannel, setShowEditChannel] = useState(false);
+  const [showParticipants, setShowParticipants] = useState(false);
+  const [showInviteParticipants, setShowInviteParticipants] = useState(false);
   const [editingChannel, setEditingChannel] = useState<ChatChannel | null>(null);
+  const [viewingChannel, setViewingChannel] = useState<ChatChannel | null>(null);
+  const [channelParticipantIds, setChannelParticipantIds] = useState<string[]>([]);
+  const [inviteParticipantIds, setInviteParticipantIds] = useState<string[]>([]);
   const [editName, setEditName] = useState("");
   const [editDesc, setEditDesc] = useState("");
   const [newName, setNewName] = useState("");
@@ -71,18 +78,32 @@ export function ChatSidebar({
     const ch = await onCreateChannel(newName.trim(), newType, newDesc.trim());
     if (ch) {
       setShowCreateChannel(false); setNewName(""); setNewDesc("");
-      // Force reload channels and select new one
       setTimeout(() => onSelectChannel(ch), 100);
     }
   };
 
   const handleCreateGroup = async () => {
     if (!groupName.trim()) return;
-    const ch = await onCreateChannel(groupName.trim(), 'group', groupName.trim(), selectedGroupMembers.length > 0 ? selectedGroupMembers : undefined);
+    const ch = await onCreateChannel(groupName.trim(), 'group', groupName.trim(), selectedGroupMembers);
     if (ch) {
       setShowCreateGroup(false); setGroupName(""); setSelectedGroupMembers([]);
       setTimeout(() => onSelectChannel(ch), 100);
     }
+  };
+
+  const openParticipants = async (channel: ChatChannel) => {
+    setViewingChannel(channel);
+    const ids = await onGetChannelParticipantIds?.(channel.id);
+    setChannelParticipantIds(ids || []);
+    setShowParticipants(true);
+  };
+
+  const openInviteParticipants = async (channel: ChatChannel) => {
+    setViewingChannel(channel);
+    const ids = await onGetChannelParticipantIds?.(channel.id);
+    setChannelParticipantIds(ids || []);
+    setInviteParticipantIds([]);
+    setShowInviteParticipants(true);
   };
 
   const myStatus = userId ? memberStatuses[userId] : null;
@@ -161,6 +182,8 @@ export function ChatSidebar({
                 onClick={() => onSelectChannel(ch)}
                 onEdit={() => { setEditingChannel(ch); setEditName(ch.name); setEditDesc(ch.description || ''); setShowEditChannel(true); }}
                 onDelete={() => onDeleteChannel?.(ch.id)}
+                onViewParticipants={() => openParticipants(ch)}
+                onInviteParticipants={() => openInviteParticipants(ch)}
               />
             ))}
           </div>
@@ -204,6 +227,8 @@ export function ChatSidebar({
                 onClick={() => onSelectChannel(ch)} isGroup
                 onEdit={() => { setEditingChannel(ch); setEditName(ch.name); setEditDesc(ch.description || ''); setShowEditChannel(true); }}
                 onDelete={() => onDeleteChannel?.(ch.id)}
+                onViewParticipants={() => openParticipants(ch)}
+                onInviteParticipants={() => openInviteParticipants(ch)}
               />
             ))}
             {groupChannels.length === 0 && (
@@ -293,6 +318,60 @@ export function ChatSidebar({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={showParticipants} onOpenChange={setShowParticipants}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Uczestnicy kanału</DialogTitle></DialogHeader>
+          <div className="space-y-2 max-h-72 overflow-y-auto">
+            {members.filter(m => m.user_id && channelParticipantIds.includes(m.user_id)).map(m => (
+              <div key={m.id} className="flex items-center gap-2 rounded-lg border p-2 text-sm">
+                <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center font-semibold text-xs">
+                  {getMemberName(m).slice(0,2).toUpperCase()}
+                </div>
+                <div className="min-w-0">
+                  <div className="font-medium truncate">{getMemberName(m)}</div>
+                  <div className="text-xs text-muted-foreground truncate">{m.email || ''}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showInviteParticipants} onOpenChange={setShowInviteParticipants}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Zaproś uczestników</DialogTitle></DialogHeader>
+          <div className="space-y-2 max-h-72 overflow-y-auto">
+            {members.filter(m => m.user_id && !channelParticipantIds.includes(m.user_id)).map(m => (
+              <label key={m.id} className="flex items-center gap-2 rounded-lg border p-2 text-sm cursor-pointer hover:bg-muted/50">
+                <input
+                  type="checkbox"
+                  checked={inviteParticipantIds.includes(m.user_id)}
+                  onChange={e => setInviteParticipantIds(prev => e.target.checked ? [...prev, m.user_id] : prev.filter(id => id !== m.user_id))}
+                />
+                <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center font-semibold text-xs">
+                  {getMemberName(m).slice(0,2).toUpperCase()}
+                </div>
+                <div className="min-w-0">
+                  <div className="font-medium truncate">{getMemberName(m)}</div>
+                  <div className="text-xs text-muted-foreground truncate">{m.email || ''}</div>
+                </div>
+              </label>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowInviteParticipants(false)}>Anuluj</Button>
+            <Button onClick={async () => {
+              if (!viewingChannel || !inviteParticipantIds.length) return;
+              await onInviteToChannel?.(viewingChannel.id, inviteParticipantIds);
+              const ids = await onGetChannelParticipantIds?.(viewingChannel.id);
+              setChannelParticipantIds(ids || []);
+              setInviteParticipantIds([]);
+              setShowInviteParticipants(false);
+            }} disabled={!inviteParticipantIds.length}>Dodaj</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -311,9 +390,9 @@ function SectionHeader({ title, expanded, onToggle, onAdd }: { title: string; ex
   );
 }
 
-function ChannelItemWithMenu({ channel, isActive, onClick, isDM, isGroup, onEdit, onDelete }: {
+function ChannelItemWithMenu({ channel, isActive, onClick, isDM, isGroup, onEdit, onDelete, onViewParticipants, onInviteParticipants }: {
   channel: ChatChannel; isActive: boolean; onClick: () => void; isDM?: boolean; isGroup?: boolean;
-  onEdit?: () => void; onDelete?: () => void;
+  onEdit?: () => void; onDelete?: () => void; onViewParticipants?: () => void; onInviteParticipants?: () => void;
 }) {
   const Icon = isDM ? MessageCircle : isGroup ? Users : channel.type === 'private' ? Lock : Hash;
   const displayName = isDM ? (channel.description?.replace('DM z ', '') || channel.name) : channel.name;
@@ -349,10 +428,10 @@ function ChannelItemWithMenu({ channel, isActive, onClick, isDM, isGroup, onEdit
         <ContextMenuItem onClick={onEdit} className="gap-2 text-xs">
           <Pencil className="h-3.5 w-3.5" /> Edytuj kanał
         </ContextMenuItem>
-        <ContextMenuItem className="gap-2 text-xs">
+        <ContextMenuItem onClick={onViewParticipants} className="gap-2 text-xs">
           <Eye className="h-3.5 w-3.5" /> Zobacz uczestników
         </ContextMenuItem>
-        <ContextMenuItem className="gap-2 text-xs">
+        <ContextMenuItem onClick={onInviteParticipants} className="gap-2 text-xs">
           <UserPlus className="h-3.5 w-3.5" /> Zaproś uczestników
         </ContextMenuItem>
         <ContextMenuSeparator />
