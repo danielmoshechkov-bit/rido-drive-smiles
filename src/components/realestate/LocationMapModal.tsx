@@ -1323,7 +1323,7 @@ export function LocationMapModal({
         </div>
 
         {/* Instruction Line */}
-        <div className="px-2 sm:px-4 pb-1 sm:pb-2">
+        <div className="px-2 sm:px-4 pb-1 sm:pb-2 flex items-center gap-2">
           <p className="text-xs text-muted-foreground">
             {mode === "circle" 
               ? (circleCenter 
