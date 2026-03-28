@@ -364,11 +364,31 @@ export function AIListingParserSettings() {
           )}
 
           {batchDone && (
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
-              <CheckCircle className="h-5 w-5 text-green-500" />
-              <span className="text-sm font-medium text-green-700 dark:text-green-300">
-                Analiza zakończona! Odśwież stronę żeby zobaczyć wyniki.
-              </span>
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                <CheckCircle className="h-5 w-5 text-green-500" />
+                <span className="text-sm font-medium text-green-700 dark:text-green-300">
+                  Analiza zakończona! Sprawdź zmienione ogłoszenia poniżej.
+                </span>
+              </div>
+
+              {/* Processed listings links */}
+              {processedListings.length > 0 && (
+                <div className="max-h-48 overflow-y-auto border rounded-lg divide-y">
+                  {processedListings.map(listing => (
+                    <a
+                      key={listing.id}
+                      href={`/nieruchomosci/ogloszenie/${listing.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted/50 transition-colors"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5 text-primary shrink-0" />
+                      <span className="truncate">{listing.title}</span>
+                    </a>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
