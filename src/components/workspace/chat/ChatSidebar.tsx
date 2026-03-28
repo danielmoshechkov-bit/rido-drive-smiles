@@ -42,6 +42,10 @@ export function ChatSidebar({
 }: Props) {
   const [showCreateChannel, setShowCreateChannel] = useState(false);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const [showEditChannel, setShowEditChannel] = useState(false);
+  const [editingChannel, setEditingChannel] = useState<ChatChannel | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editDesc, setEditDesc] = useState("");
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
   const [newType, setNewType] = useState<"public" | "private">("public");
