@@ -15,6 +15,8 @@ import { RecipientEditor } from '@/components/accounting/RecipientEditor';
 import { DocumentInbox } from '@/components/accounting/DocumentInbox';
 import { ExportPanel } from '@/components/accounting/ExportPanel';
 import { MonthlyReportPanel } from '@/components/accounting/MonthlyReportPanel';
+import { MonthlyExportEmail } from '@/components/accounting/MonthlyExportEmail';
+import { PurchaseInvoicesKSeF } from '@/components/accounting/PurchaseInvoicesKSeF';
 import { FleetPaymentPanel } from '@/components/accounting/FleetPaymentPanel';
 import { RecurringInvoicesPanel } from '@/components/accounting/RecurringInvoicesPanel';
 import { HighValuePaymentsReport } from '@/components/accounting/HighValuePaymentsReport';
@@ -571,7 +573,9 @@ export default function AccountingDashboard() {
                 {/* High Value Payments Report */}
                 <HighValuePaymentsReport entityId={selectedEntityId} />
                 
+                <PurchaseInvoicesKSeF entityId={selectedEntityId} />
                 <MonthlyReportPanel entityId={selectedEntityId} />
+                <MonthlyExportEmail entityId={selectedEntityId} />
                 <ExportPanel entityId={selectedEntityId} />
               </div>
             ) : (
