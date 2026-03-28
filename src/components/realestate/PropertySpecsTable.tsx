@@ -1,10 +1,21 @@
+import { useState } from "react";
 import { Home, Maximize, Layers, Calendar, Thermometer, Key, Building2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+interface RoomData {
+  name: string;
+  area: number;
+}
 
 interface PropertySpecsTableProps {
   listing: {
     propertyType?: string;
     areaM2?: number;
+    areaTotal?: number;
+    areaUsable?: number;
+    areaPlot?: number;
     rooms?: number;
+    roomsData?: RoomData[];
     floor?: number;
     floorsTotal?: number;
     buildYear?: number;
@@ -47,7 +58,43 @@ const MARKET_TYPE_LABELS: Record<string, string> = {
   wtorny: "Rynek wtórny",
 };
 
+const ROOM_ICONS: Record<string, string> = {
+  salon: "🛋️",
+  "pokój dzienny": "🛋️",
+  "living room": "🛋️",
+  sypialnia: "🛏️",
+  "pokój": "🛏️",
+  bedroom: "🛏️",
+  kuchnia: "🍳",
+  kitchen: "🍳",
+  łazienka: "🚿",
+  bathroom: "🚿",
+  wc: "🚽",
+  toaleta: "🚽",
+  przedpokój: "🚪",
+  korytarz: "🚪",
+  hall: "🚪",
+  balkon: "🌿",
+  taras: "☀️",
+  garaż: "🚗",
+  garage: "🚗",
+  piwnica: "📦",
+  komórka: "📦",
+};
+
+function getRoomIcon(name: string): string {
+  const lower = name.toLowerCase();
+  for (const [key, icon] of Object.entries(ROOM_ICONS)) {
+    if (lower.includes(key)) return icon;
+  }
+  return "📐";
+}
+
 export function PropertySpecsTable({ listing }: PropertySpecsTableProps) {
+  const [activeTab, setActiveTab] = useState<"info" | "rooms">("info");
+  
+  const hasRoomsData = listing.roomsData && listing.roomsData.length > 0;
+
   const specs = [
     {
       icon: Home,
@@ -103,29 +150,101 @@ export function PropertySpecsTable({ listing }: PropertySpecsTableProps) {
     },
   ].filter(spec => spec.show && spec.value);
 
-  if (specs.length === 0) {
+  if (specs.length === 0 && !hasRoomsData) {
     return null;
   }
 
   return (
     <div>
-      <h2 className="text-xl font-semibold mb-4">Informacje o nieruchomości</h2>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {specs.map((spec, index) => (
-          <div 
-            key={index}
-            className="flex items-start gap-3 p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+      {/* Tab switcher - only show if rooms data exists */}
+      {hasRoomsData ? (
+        <div className="flex items-center gap-2 mb-4">
+          <button
+            onClick={() => setActiveTab("info")}
+            className={cn(
+              "px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+              activeTab === "info"
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            )}
           >
-            <div className="p-2 rounded-lg bg-primary/10">
-              <spec.icon className="h-5 w-5 text-primary" />
+            Informacje o nieruchomości
+          </button>
+          <button
+            onClick={() => setActiveTab("rooms")}
+            className={cn(
+              "px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+              activeTab === "rooms"
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            )}
+          >
+            Rozkład mieszkania
+          </button>
+        </div>
+      ) : (
+        <h2 className="text-xl font-semibold mb-4">Informacje o nieruchomości</h2>
+      )}
+
+      {/* Info tab */}
+      {activeTab === "info" && specs.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {specs.map((spec, index) => (
+            <div 
+              key={index}
+              className="flex items-start gap-3 p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+            >
+              <div className="p-2 rounded-lg bg-primary/10">
+                <spec.icon className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">{spec.label}</p>
+                <p className="font-medium">{spec.value}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm text-muted-foreground">{spec.label}</p>
-              <p className="font-medium">{spec.value}</p>
-            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Rooms tab */}
+      {activeTab === "rooms" && hasRoomsData && (
+        <div>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {listing.roomsData!.map((room, index) => (
+              <div
+                key={index}
+                className="flex flex-col items-center p-4 rounded-xl bg-card border shadow-sm hover:shadow-md hover:border-primary/30 transition-all cursor-default"
+              >
+                <span className="text-2xl mb-2">{getRoomIcon(room.name)}</span>
+                <p className="text-sm text-muted-foreground">{room.name || "Pokój"}</p>
+                <p className="font-bold text-lg">{room.area} m²</p>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+
+          {/* Summary row */}
+          <div className="mt-4 p-3 rounded-lg bg-muted/30 flex flex-wrap gap-4 text-sm">
+            {listing.areaTotal && listing.areaTotal > 0 && (
+              <span>
+                <span className="text-muted-foreground">Powierzchnia całkowita:</span>{" "}
+                <span className="font-semibold">{listing.areaTotal} m²</span>
+              </span>
+            )}
+            {listing.areaUsable && listing.areaUsable > 0 && listing.areaUsable !== listing.areaTotal && (
+              <span>
+                <span className="text-muted-foreground">Powierzchnia użytkowa:</span>{" "}
+                <span className="font-semibold">{listing.areaUsable} m²</span>
+              </span>
+            )}
+            {listing.areaPlot && listing.areaPlot > 0 && (
+              <span>
+                <span className="text-muted-foreground">Działka:</span>{" "}
+                <span className="font-semibold">{listing.areaPlot} m²</span>
+              </span>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
