@@ -382,6 +382,8 @@ export default function RealEstateMarketplace() {
   const [viewMode, setViewMode] = useState<'grid' | 'compact' | 'list'>('grid');
   const [showResultsMap, setShowResultsMap] = useState(false);
   const [initialQuery, setInitialQuery] = useState<string>("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [perPage, setPerPage] = useState(36);
   const aiSearchTriggered = useRef(false);
 
   // Compare context
