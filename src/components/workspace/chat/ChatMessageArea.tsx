@@ -10,7 +10,7 @@ import {
   Send, Paperclip, Mic, MicOff, Smile, MessageSquare,
   Pin, PinOff, MoreHorizontal, File, Hash, Lock, Reply,
   Pencil, Trash2, X, Check, Upload, Code, Bold, Italic,
-  Globe, Loader2, Eye, EyeOff, Crown
+  Globe, Loader2, Eye, EyeOff, Crown, Search, ChevronUp, ChevronDown
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
