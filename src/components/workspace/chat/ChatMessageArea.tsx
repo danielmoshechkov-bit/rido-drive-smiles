@@ -337,13 +337,13 @@ export function ChatMessageArea({
         <div className="ml-auto flex items-center gap-1">
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 px-2">
-                <Globe className="h-3.5 w-3.5" />
+              <Button variant="ghost" size="sm" className="h-8 text-xs gap-1.5 px-3">
+                <Globe className="h-4 w-4" />
                 {SUPPORTED_LANGUAGES.find(l => l.code === myLanguage)?.flag || '🌍'}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-48 p-2" align="end">
-              <p className="text-xs font-semibold mb-2 px-1">Mój język</p>
+              <p className="text-xs font-semibold mb-2 px-1">🌍 Włącz auto-tłumaczenie</p>
               <div className="max-h-48 overflow-y-auto space-y-0.5">
                 {SUPPORTED_LANGUAGES.map(l => (
                   <button
@@ -419,7 +419,7 @@ export function ChatMessageArea({
                       </Avatar>
                       {getStatusIndicator(msg.user_id)}
                     </div>
-                    <span className="font-semibold text-sm">{displayName}</span>
+                    <span className="font-semibold text-sm text-foreground">{displayName}</span>
                     <span className="text-[10px] text-muted-foreground">
                       {new Date(msg.created_at).toLocaleString('pl-PL', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' })}
                     </span>

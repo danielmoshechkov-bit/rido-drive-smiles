@@ -93,6 +93,7 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <CompareProvider>
+              <div className="pb-24">
               <Routes>
                 <Route path="/" element={<EasyHub />} />
                 <Route path="/auth" element={<Auth />} />
@@ -164,6 +165,7 @@ const App = () => (
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
+              </div>
               {/* Global RidoAI Button */}
               <GlobalRidoAIButton />
               {/* Global Onboarding Widget */}
