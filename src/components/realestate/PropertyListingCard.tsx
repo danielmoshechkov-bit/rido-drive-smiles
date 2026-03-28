@@ -246,14 +246,33 @@ export function PropertyListingCard({
                 />
               </button>
 
-              {/* Transaction Badge */}
+              {/* Transaction Badge - bottom right */}
               {listing.transactionType && (
                 <Badge 
                   style={{ backgroundColor: listing.transactionColor || '#10b981' }}
-                  className="absolute bottom-2 left-2 text-white"
+                  className="absolute bottom-2 right-2 text-white"
                 >
                   {listing.transactionType}
                 </Badge>
+              )}
+
+              {/* Schedule Viewing Badge - bottom left */}
+              {onToggleCompare && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleCompare();
+                  }}
+                  className={cn(
+                    "absolute bottom-2 left-2 px-2.5 py-1 rounded-md text-xs font-medium transition-all flex items-center gap-1 z-10",
+                    isSelectedForCompare
+                      ? "bg-primary text-primary-foreground shadow-lg"
+                      : "bg-white/90 hover:bg-white text-foreground shadow-md backdrop-blur-sm"
+                  )}
+                >
+                  <Eye className="h-3 w-3" />
+                  {isSelectedForCompare ? "Wybrano" : "Oglądanie"}
+                </button>
               )}
 
               {/* Photo Navigation */}
