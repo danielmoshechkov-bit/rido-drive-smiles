@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { WorkspaceProject } from "@/hooks/useWorkspace";
-import { useWorkspaceChat } from "@/hooks/useWorkspaceChat";
+import { useWorkspaceChat, ChatMessage } from "@/hooks/useWorkspaceChat";
 import { ChatSidebar } from "./chat/ChatSidebar";
 import { ChatMessageArea } from "./chat/ChatMessageArea";
 import { ChatThreadPanel } from "./chat/ChatThreadPanel";
@@ -28,6 +28,17 @@ export function WorkspaceChatView({ project, workspace }: Props) {
     return () => window.removeEventListener('keydown', handler);
   }, []);
 
+  // Use refs to avoid stale closures in realtime callback
+  const activeChannelRef = useRef(chat.activeChannel);
+  const activeThreadRef = useRef(chat.activeThread);
+  const setMessagesRef = useRef(chat.setMessages);
+  const loadThreadRef = useRef(chat.loadThread);
+
+  useEffect(() => { activeChannelRef.current = chat.activeChannel; }, [chat.activeChannel]);
+  useEffect(() => { activeThreadRef.current = chat.activeThread; }, [chat.activeThread]);
+  useEffect(() => { setMessagesRef.current = chat.setMessages; }, [chat.setMessages]);
+  useEffect(() => { loadThreadRef.current = chat.loadThread; }, [chat.loadThread]);
+
   // Realtime
   useEffect(() => {
     const channel = supabase
@@ -39,22 +50,25 @@ export function WorkspaceChatView({ project, workspace }: Props) {
         filter: `project_id=eq.${project.id}`,
       }, (payload) => {
         const msg = payload.new as any;
-        if (chat.activeChannel && msg.channel_name === chat.activeChannel.name && !msg.thread_parent_id) {
-          // Only add if not already present (optimistic update may have added it)
-          chat.setMessages(prev => {
-            if (prev.some(m => m.id === msg.id)) {
-              return prev.map(m => m.id === msg.id ? { ...m, ...msg } : m);
-            }
-            // Also replace any optimistic message from same user sent at similar time
+        const currentChannel = activeChannelRef.current;
+        const currentThread = activeThreadRef.current;
+
+        if (currentChannel && msg.channel_name === currentChannel.name && !msg.thread_parent_id) {
+          setMessagesRef.current(prev => {
+            // Replace optimistic message
             const optimistic = prev.find(m => m.id.startsWith('opt_') && m.user_id === msg.user_id && m.content === msg.content);
             if (optimistic) {
               return prev.map(m => m.id === optimistic.id ? { ...m, ...msg, id: msg.id } : m);
             }
+            // Skip if already present
+            if (prev.some(m => m.id === msg.id)) {
+              return prev;
+            }
             return [...prev, msg];
           });
         }
-        if (chat.activeThread && msg.thread_parent_id === chat.activeThread.id) {
-          chat.loadThread(chat.activeThread.id);
+        if (currentThread && msg.thread_parent_id === currentThread.id) {
+          loadThreadRef.current(currentThread.id);
         }
       })
       .on("postgres_changes", {
@@ -64,7 +78,7 @@ export function WorkspaceChatView({ project, workspace }: Props) {
         filter: `project_id=eq.${project.id}`,
       }, (payload) => {
         const msg = payload.new as any;
-        chat.setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, ...msg } : m));
+        setMessagesRef.current(prev => prev.map(m => m.id === msg.id ? { ...m, ...msg } : m));
       })
       .on("postgres_changes", {
         event: "DELETE",
@@ -73,11 +87,11 @@ export function WorkspaceChatView({ project, workspace }: Props) {
         filter: `project_id=eq.${project.id}`,
       }, (payload) => {
         const oldMsg = payload.old as any;
-        chat.setMessages(prev => prev.filter(m => m.id !== oldMsg.id));
+        setMessagesRef.current(prev => prev.filter(m => m.id !== oldMsg.id));
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [project.id, chat.activeChannel?.name, chat.activeThread?.id]);
+  }, [project.id]);
 
   const handleOpenThread = (msg: any) => {
     chat.setActiveThread(msg);
