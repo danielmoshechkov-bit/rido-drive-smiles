@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useGoogleMaps } from "@/hooks/useGoogleMaps";
 import { LocationSearchInput, LocationSelection, AreaSelection } from "./LocationSearchInput";
 import { 
-  Circle, Pentagon, Trash2, Check, Loader2, MapPin, RefreshCw, AlertCircle, X, Paintbrush
+  Circle, PenTool, Trash2, Check, Loader2, MapPin, RefreshCw, AlertCircle, X, Paintbrush
 } from "lucide-react";
 
 interface LocationMapModalProps {
@@ -1063,8 +1063,8 @@ export function LocationMapModal({
                   Okrąg
                 </TabsTrigger>
                 <TabsTrigger value="polygon" className="gap-1 px-2 sm:px-3 h-7 sm:h-8 text-xs">
-                  <Pentagon className="h-3 w-3" />
-                  Własny
+                  <PenTool className="h-3 w-3" />
+                  Zaznacz
                 </TabsTrigger>
               </TabsList>
             </Tabs>
