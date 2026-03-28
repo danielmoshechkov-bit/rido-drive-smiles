@@ -93,6 +93,7 @@ function mapDbToDisplayListing(db: any) {
 
   return {
     id: db.id,
+    agentId: db.agent_id,
     title: db.title,
     description: db.description,
     price: Number(db.price) || 0,
