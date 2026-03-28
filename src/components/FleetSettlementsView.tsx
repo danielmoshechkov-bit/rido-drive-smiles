@@ -3302,7 +3302,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                       {isColVisible('wyplata_1') && <TableHead className="text-right px-2 py-1.5 text-xs font-bold whitespace-nowrap text-blue-700 cursor-pointer select-none hover:bg-muted/50" onClick={() => handleSort('wyplata_1')}>
                         <span className="inline-flex items-center justify-end w-full">Wypłata{getSortIcon('wyplata_1')}</span>
                       </TableHead>}
-                      {isColVisible('rental') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap border-l-2 border-primary/20 cursor-pointer select-none hover:bg-muted/50" onClick={() => handleSort('rental')}>
+                      {isColVisible('rental') && <TableHead className={`text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap cursor-pointer select-none hover:bg-muted/50 ${showRentalColumns ? 'border-l-2 border-primary/20' : ''}`} onClick={() => handleSort('rental')}>
                         <span className="inline-flex items-center justify-end w-full">Wynajem{getSortIcon('rental')}</span>
                       </TableHead>}
                       {isColVisible('debt_rental') && <TableHead className="text-center px-2 py-1.5 text-xs font-medium whitespace-nowrap cursor-pointer select-none hover:bg-muted/50" onClick={() => handleSort('debt_rental')}>
@@ -3511,7 +3511,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                         })()}
                         {/* === PART 2: WYNAJEM === */}
                         {/* Editable: Wynajem */}
-                        {isColVisible('rental') && <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap border-l-2 border-primary/20">
+                        {isColVisible('rental') && <TableCell className={`text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${showRentalColumns ? 'border-l-2 border-primary/20' : ''}`}>
                           {renderEditableCell(settlement.driver_id, 'rental', settlement.rental || 0, hasAnyActivity)}
                         </TableCell>}
                         {/* Dług wynajmu - clickable to view debt history */}
@@ -3694,7 +3694,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                           </TableCell>
                         );
                       })()}
-                      {isColVisible('rental') && <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap border-l-2 border-primary/20">
+                      {isColVisible('rental') && <TableCell className={`text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${showRentalColumns ? 'border-l-2 border-primary/20' : ''}`}>
                         -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + (getEffectiveSettlement(s).rental || 0), 0))}
                       </TableCell>}
                       {isColVisible('debt_rental') && (() => {
