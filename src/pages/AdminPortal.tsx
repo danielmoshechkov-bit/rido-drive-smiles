@@ -17,9 +17,10 @@ import { AdminApiKeysTab } from '@/components/admin/AdminApiKeysTab';
 import { AdminIntegrationsTab } from '@/components/admin/AdminIntegrationsTab';
 import { KsefAdminPanel } from '@/components/admin/KsefAdminPanel';
 import { AdminPaymentsTab } from '@/components/admin/AdminPaymentsTab';
+import { AIAgentsPanel } from '@/components/admin/AIAgentsPanel';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { UserDropdown } from '@/components/UserDropdown';
-import { Loader2, Palette, Users, Wrench, Calculator, LayoutGrid, Bot, Key, TicketCheck, Briefcase, Plug, Wallet, Shield } from 'lucide-react';
+import { Loader2, Palette, Users, Wrench, Calculator, LayoutGrid, Bot, Key, TicketCheck, Briefcase, Plug, Wallet, Shield, Cpu } from 'lucide-react';
 
 export default function AdminPortal() {
   const navigate = useNavigate();
@@ -100,6 +101,7 @@ export default function AdminPortal() {
     { value: 'users', label: 'Użytkownicy', icon: Users },
     { value: 'workspace', label: 'Workspace', icon: Briefcase },
     { value: 'ksef-admin', label: 'KSeF Admin', icon: Shield },
+    { value: 'ai-agents', label: 'Agenci AI', icon: Cpu },
   ];
 
   return (
@@ -256,6 +258,11 @@ export default function AdminPortal() {
           {/* KSeF Admin Tab */}
           <TabsContent value="ksef-admin">
             <KsefAdminPanel />
+          </TabsContent>
+
+          {/* AI Agents Tab */}
+          <TabsContent value="ai-agents">
+            <AIAgentsPanel />
           </TabsContent>
         </Tabs>
       </div>
