@@ -737,26 +737,26 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             let actualPayout = 0;
 
             if (rawPayout < 0) {
-              remainingDebt = round2(runningDebt + Math.abs(rawPayout));
+              remainingDebt = round2Local(runningDebt + Math.abs(rawPayout));
             } else if (runningDebt <= 0) {
               remainingDebt = 0;
               actualPayout = rawPayout;
             } else if (rawPayout >= runningDebt) {
               debtPayment = runningDebt;
               remainingDebt = 0;
-              actualPayout = round2(rawPayout - runningDebt);
+              actualPayout = round2Local(rawPayout - runningDebt);
             } else {
               debtPayment = rawPayout;
-              remainingDebt = round2(runningDebt - rawPayout);
+              remainingDebt = round2Local(runningDebt - rawPayout);
             }
 
             await supabase
               .from('settlements')
               .update({
-                debt_before: round2(runningDebt),
-                debt_payment: round2(debtPayment),
-                debt_after: round2(remainingDebt),
-                actual_payout: round2(actualPayout),
+                debt_before: round2Local(runningDebt),
+                debt_payment: round2Local(debtPayment),
+                debt_after: round2Local(remainingDebt),
+                actual_payout: round2Local(actualPayout),
               })
               .eq('id', s.id);
 
