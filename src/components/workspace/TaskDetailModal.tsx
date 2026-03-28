@@ -332,7 +332,7 @@ export function TaskDetailModal({ task, open, onClose, onSave, onDelete, members
                   <Select value={form.assigned_name} onValueChange={v => setForm(p => ({ ...p, assigned_name: v }))}>
                     <SelectTrigger className="mt-1.5"><SelectValue placeholder="Wybierz osobę..." /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Brak przypisania</SelectItem>
+                      <SelectItem value="__none__">Brak przypisania</SelectItem>
                       {members.map((m: any) => (
                         <SelectItem key={m.id} value={m.display_name || m.email || m.user_id}>
                           <div className="flex items-center gap-2">
