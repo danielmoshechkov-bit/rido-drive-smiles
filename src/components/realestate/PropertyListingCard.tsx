@@ -111,6 +111,20 @@ export function PropertyListingCard({
   const displayArea = (() => {
     const dbArea = listing.areaM2 || 0;
     if (listing.description) {
+      // Look for explicit total area: "powierzchnia X m2", "pow. X m2", "łączna X m2"
+      const totalAreaPattern = /(?:powierzchni[aę]|pow\.|łączn[aey]|całkowit[aey]|użytkow[aey]|mieszkaln[aey])\s*[:\-–]?\s*(?:ok\.?\s*)?(\d[\d\s,.]*\d?)\s*m(?:2|²)/gi;
+      const totalMatches = [...listing.description.matchAll(totalAreaPattern)];
+      if (totalMatches.length > 0) {
+        const totalAreas = totalMatches.map(m => Number(m[1].replace(/[\s,]/g, '').replace(',', '.'))).filter(n => n >= 20 && n < 100000);
+        if (totalAreas.length > 0) {
+          const maxTotal = Math.max(...totalAreas);
+          if (maxTotal > dbArea * 1.5 && maxTotal >= 30) {
+            return maxTotal;
+          }
+        }
+      }
+      
+      // Fallback: find all m2 mentions and take the largest, but only correct if DB area is clearly wrong
       const matches = [...listing.description.matchAll(/(\d[\d\s]*\d)\s*m(?:2|²)/gi)];
       const simpleMatches = [...listing.description.matchAll(/(\d{2,})\s*m(?:2|²)/gi)];
       const allMatches = [...matches, ...simpleMatches];
@@ -118,6 +132,7 @@ export function PropertyListingCard({
         const descAreas = allMatches.map((m: RegExpMatchArray) => Number(m[1].replace(/\s/g, ''))).filter((n: number) => n >= 10 && n < 100000);
         if (descAreas.length > 0) {
           const maxDescArea = Math.max(...descAreas);
+          // Only correct if DB area is very small OR description has a much larger value
           if (dbArea < 10 || (maxDescArea > dbArea * 3 && maxDescArea >= 50)) {
             return maxDescArea;
           }
@@ -171,7 +186,9 @@ export function PropertyListingCard({
     ? Math.round(listing.price / displayArea) 
     : null;
 
-  const handleShowContact = async () => {
+  const handleShowContact = async (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    e?.preventDefault();
     if (!isLoggedIn) {
       setShowLoginDialog(true);
       return;
@@ -658,7 +675,7 @@ export function PropertyListingCard({
           {!compact && (
             <>
               <button
-                onClick={handleShowContact}
+                onClick={(e) => handleShowContact(e)}
                 className="w-full mt-3 pt-3 border-t text-sm text-muted-foreground hover:text-foreground transition-colors text-left flex items-center gap-2"
               >
                 {!isLoggedIn && <Lock className="h-3.5 w-3.5" />}

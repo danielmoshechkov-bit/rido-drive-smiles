@@ -18,6 +18,7 @@ import { PropertyLocationMap } from "@/components/realestate/PropertyLocationMap
 import { AIListingAssessment } from "@/components/realestate/AIListingAssessment";
 import { SimilarListings } from "@/components/realestate/SimilarListings";
 import { AdBannerSlot } from "@/components/realestate/AdBannerSlot";
+import { PropertyMessageDialog } from "@/components/realestate/PropertyMessageDialog";
 
 const PRICE_TYPE_LABELS: Record<string, string> = {
   sale: "",
@@ -58,17 +59,33 @@ function mapDbToDisplayListing(db: any) {
   const dbArea = Number(db.area) || 0;
   let correctedArea = dbArea;
   if (db.description) {
-    const matches = [...db.description.matchAll(/(\d[\d\s]*\d)\s*m(?:2|²)/gi)];
-    const simpleMatches = [...db.description.matchAll(/(\d{2,})\s*m(?:2|²)/gi)];
-    const allMatches = [...matches, ...simpleMatches];
-    if (allMatches.length > 0) {
-      const descAreas = allMatches
-        .map(m => Number(m[1].replace(/\s/g, '')))
-        .filter(n => n >= 10 && n < 100000);
-      if (descAreas.length > 0) {
-        const maxDescArea = Math.max(...descAreas);
-        if (dbArea < 10 || (maxDescArea > dbArea * 3 && maxDescArea >= 50)) {
-          correctedArea = maxDescArea;
+    // Look for explicit total area: "powierzchnia X m2", "pow. X m2", "łączna X m2"
+    const totalAreaPattern = /(?:powierzchni[aę]|pow\.|łączn[aey]|całkowit[aey]|użytkow[aey]|mieszkaln[aey])\s*[:\-–]?\s*(?:ok\.?\s*)?(\d[\d\s,.]*\d?)\s*m(?:2|²)/gi;
+    const totalMatches = [...db.description.matchAll(totalAreaPattern)];
+    if (totalMatches.length > 0) {
+      const totalAreas = totalMatches.map(m => Number(m[1].replace(/[\s,]/g, '').replace(',', '.'))).filter(n => n >= 20 && n < 100000);
+      if (totalAreas.length > 0) {
+        const maxTotal = Math.max(...totalAreas);
+        if (maxTotal > dbArea * 1.5 && maxTotal >= 30) {
+          correctedArea = maxTotal;
+        }
+      }
+    }
+    
+    // Fallback: find all m2 mentions and take the largest, but only correct if DB area is clearly wrong
+    if (correctedArea === dbArea) {
+      const matches = [...db.description.matchAll(/(\d[\d\s]*\d)\s*m(?:2|²)/gi)];
+      const simpleMatches = [...db.description.matchAll(/(\d{2,})\s*m(?:2|²)/gi)];
+      const allMatches = [...matches, ...simpleMatches];
+      if (allMatches.length > 0) {
+        const descAreas = allMatches
+          .map(m => Number(m[1].replace(/\s/g, '')))
+          .filter(n => n >= 10 && n < 100000);
+        if (descAreas.length > 0) {
+          const maxDescArea = Math.max(...descAreas);
+          if (dbArea < 10 || (maxDescArea > dbArea * 3 && maxDescArea >= 50)) {
+            correctedArea = maxDescArea;
+          }
         }
       }
     }
@@ -76,6 +93,7 @@ function mapDbToDisplayListing(db: any) {
 
   return {
     id: db.id,
+    agentId: db.agent_id,
     title: db.title,
     description: db.description,
     price: Number(db.price) || 0,
@@ -125,6 +143,7 @@ export default function PropertyDetailPage() {
   const [showContactPhone, setShowContactPhone] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
+  const [showMessageDialog, setShowMessageDialog] = useState(false);
 
   useEffect(() => {
     const checkUser = async () => {
@@ -455,6 +474,13 @@ export default function PropertyDetailPage() {
                   variant="outline" 
                   className="w-full mt-2"
                   size="lg"
+                  onClick={() => {
+                    if (!user) {
+                      setShowLoginDialog(true);
+                      return;
+                    }
+                    setShowMessageDialog(true);
+                  }}
                 >
                   <MessageCircle className="h-4 w-4 mr-2" />
                   Napisz wiadomość
@@ -527,6 +553,19 @@ export default function PropertyDetailPage() {
           });
         }}
       />
+
+      {/* Message Dialog */}
+      {listing && (
+        <PropertyMessageDialog
+          open={showMessageDialog}
+          onOpenChange={setShowMessageDialog}
+          listingId={listing.id}
+          listingTitle={listing.title}
+          agentId={listing.agentId || id || ''}
+          agentEmail={listing.contactEmail}
+          user={user}
+        />
+      )}
     </div>
   );
 }

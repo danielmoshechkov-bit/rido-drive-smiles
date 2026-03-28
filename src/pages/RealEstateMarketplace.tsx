@@ -303,6 +303,9 @@ interface DbListing {
   longitude?: number;
   contact_person?: string;
   contact_phone?: string;
+  contact_email?: string;
+  listing_number?: string;
+  property_unique_id?: string;
   real_estate_agents?: { company_name?: string } | null;
 }
 
@@ -328,6 +331,7 @@ function mapDbToListing(db: DbListing) {
   return {
     id: db.id,
     title: db.title,
+    description: db.description,
     price: db.price,
     priceType: db.price_type || 'sale',
     photos: (typeof db.photos === 'string' ? (() => { try { return JSON.parse(db.photos as string); } catch { return []; } })() : db.photos) || [],
@@ -348,6 +352,9 @@ function mapDbToListing(db: DbListing) {
     agencyName: db.real_estate_agents?.company_name,
     contactName: db.contact_person,
     contactPhone: db.contact_phone,
+    contactEmail: db.contact_email,
+    listingNumber: db.listing_number,
+    propertyUniqueId: db.property_unique_id,
     lat: db.latitude ? Number(db.latitude) : undefined,
     lng: db.longitude ? Number(db.longitude) : undefined,
   };
@@ -384,7 +391,8 @@ export default function RealEstateMarketplace() {
             location, city, district, address, area, rooms, floor, total_floors, build_year,
             property_type, transaction_type,
             has_balcony, has_elevator, has_parking, has_garden,
-            latitude, longitude, contact_person, contact_phone,
+            latitude, longitude, contact_person, contact_phone, contact_email,
+            listing_number, property_unique_id,
             real_estate_agents!agent_id(company_name)
           `)
           .eq('status', 'active')
@@ -397,8 +405,16 @@ export default function RealEstateMarketplace() {
           setListings(MOCK_LISTINGS);
         } else if (data && data.length > 0) {
           const mapped = data.map(d => mapDbToListing(d as unknown as DbListing));
-          setAllListings(mapped);
-          setListings(mapped);
+          // Deduplicate: by property_unique_id first, then by title+price as fallback
+          const seen = new Set<string>();
+          const deduped = mapped.filter(l => {
+            const key = l.propertyUniqueId || `${l.title}|${l.price}|${l.location}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+          setAllListings(deduped);
+          setListings(deduped);
         } else {
           // No data in DB, use mock
           setAllListings(MOCK_LISTINGS);
@@ -810,27 +826,6 @@ export default function RealEstateMarketplace() {
         </section>
       )}
 
-      {/* CTA for Agencies - only show when not loading */}
-      {!loading && (
-        <section className="container mx-auto px-4 py-12">
-          <div className="max-w-3xl mx-auto bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl p-8 text-center border border-primary/20">
-            <Building className="h-12 w-12 mx-auto text-primary mb-4" />
-            <h2 className="text-2xl font-bold mb-2">Jesteś agentem nieruchomości?</h2>
-            <p className="text-muted-foreground mb-6">
-              Dołącz do GetRido i docieraj do tysięcy potencjalnych klientów. 
-              Dodawaj ogłoszenia, zarządzaj zespołem agentów.
-            </p>
-            <Button 
-              size="lg" 
-              onClick={() => navigate('/nieruchomosci/agent/rejestracja')}
-              className="rounded-full"
-            >
-              Zarejestruj agencję
-              <ArrowRight className="h-4 w-4 ml-2" />
-            </Button>
-          </div>
-        </section>
-      )}
 
       {/* Footer with back link */}
       <footer className="border-t py-12 bg-card">

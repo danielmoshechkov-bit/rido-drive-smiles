@@ -176,8 +176,8 @@ export function SimilarListings({ currentListingId, propertyType, location }: Si
         const client: any = supabase;
         const { data, error } = await client
           .from("real_estate_listings")
-          .select("id,title,price,transaction_type,photos,city,location,district,area,rooms,property_type,is_active")
-          .eq("is_active", true)
+          .select("id,title,price,transaction_type,photos,city,location,district,area,rooms,property_type,status")
+          .eq("status", "active")
           .neq("id", currentListingId)
           .limit(8);
 
