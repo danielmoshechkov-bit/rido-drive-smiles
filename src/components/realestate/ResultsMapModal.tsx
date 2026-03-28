@@ -454,6 +454,11 @@ export function ResultsMapModal({
       // Create initial markers
       updateMarkers();
 
+      // Re-cluster on zoom change
+      map.addListener('zoom_changed', () => {
+        updateMarkers();
+      });
+
       // Force resize after render
       [50, 100, 200, 400, 800].forEach(delay => {
         setTimeout(() => {
