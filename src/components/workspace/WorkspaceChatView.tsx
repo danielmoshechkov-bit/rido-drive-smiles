@@ -114,7 +114,7 @@ export function WorkspaceChatView({ project, workspace }: Props) {
   }
 
   return (
-    <div className="flex flex-col pb-24">
+    <div className="flex flex-col" style={{ height: 'calc(100vh - 280px)', minHeight: '500px' }}>
       {/* Mobile tab switcher */}
       <div className="flex md:hidden border-b mb-2">
         <button
@@ -139,7 +139,7 @@ export function WorkspaceChatView({ project, workspace }: Props) {
         </button>
       </div>
 
-      <div className="flex h-[600px] rounded-xl border bg-card overflow-hidden">
+      <div className="flex flex-1 rounded-xl border bg-card overflow-hidden">
         {/* Desktop sidebar */}
         <div className="hidden md:flex">
           <ChatSidebar

@@ -28,7 +28,7 @@ interface Props {
 
 const TABS = [
   { key: "tasks", label: "Lista", icon: ListTodo },
-  { key: "kanban", label: "Kanban", icon: LayoutGrid },
+  { key: "kanban", label: "Tablica", icon: LayoutGrid },
   { key: "calendar", label: "Kalendarz", icon: Calendar },
   { key: "chat", label: "Komunikacja", icon: MessageSquare },
   { key: "docs", label: "Dokumenty", icon: FileText },
