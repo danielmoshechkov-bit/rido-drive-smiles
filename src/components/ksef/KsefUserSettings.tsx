@@ -158,7 +158,7 @@ export function KsefUserSettings() {
       
       // Step 1: Call KSeF auth/challenge to verify token+NIP work
       try {
-        const challengeRes = await fetch(`${env.apiBase}/online/Session/AuthorisationChallenge`, {
+        const challengeRes = await fetch(`${env.apiBase}/auth/challenge`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

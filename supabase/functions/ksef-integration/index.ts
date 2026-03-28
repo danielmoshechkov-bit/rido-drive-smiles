@@ -7,8 +7,8 @@ const corsHeaders = {
 };
 
 // KSeF API endpoints (demo/test)
-const KSEF_DEMO_URL = 'https://ksef-demo.mf.gov.pl/api';
-const KSEF_PROD_URL = 'https://ksef.mf.gov.pl/api';
+const KSEF_DEMO_URL = 'https://ksef-demo.mf.gov.pl/api/v2';
+const KSEF_PROD_URL = 'https://ksef.mf.gov.pl/api/v2';
 
 interface KSeFRequest {
   action: 'send' | 'status' | 'download' | 'generate_xml' | 'get_settings' | 'save_settings';
@@ -71,8 +71,8 @@ function generateInvoiceXML(invoice: any, entity: any, items: any[]): string {
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <Faktura xmlns="http://crd.gov.pl/wzor/2023/06/29/12648/">
   <Naglowek>
-    <KodFormularza kodSystemowy="FA (2)" wersjaSchemy="1-0E">FA</KodFormularza>
-    <WariantFormularza>2</WariantFormularza>
+    <KodFormularza kodSystemowy="FA (3)" wersjaSchemy="1-0E">FA</KodFormularza>
+    <WariantFormularza>3</WariantFormularza>
     <DataWytworzeniaFa>${new Date().toISOString()}</DataWytworzeniaFa>
     <SystemInfo>RIDO Fleet Management</SystemInfo>
   </Naglowek>
