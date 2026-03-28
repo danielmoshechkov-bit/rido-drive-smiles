@@ -28,9 +28,11 @@ import { InventoryPurchaseOCR } from '@/components/inventory/InventoryPurchaseOC
 import { KsefUserSettings } from '@/components/ksef/KsefUserSettings';
 import { useKsefUnreadCount } from '@/hooks/useKsefUnreadCount';
 import { ServiceRegistrationModal } from '@/components/services/ServiceRegistrationModal';
+import { MyViewingsPanel } from '@/components/realestate/MyViewingsPanel';
 import { ClientMyVehicles } from '@/components/client/ClientMyVehicles';
 import { 
   Car,
+  Eye,
   Home,
   FileText,
   User,
@@ -555,6 +557,7 @@ export default function ClientPortal() {
     { id: 'mojeauta', label: 'Moje auta', icon: Car },
     // Księgowość - tylko dla użytkowników z firmą
     ...(hasCompanySetup ? [{ id: 'ksiegowosc', label: 'Księgowość', icon: Calculator }] : []),
+    { id: 'ogladania', label: 'Oglądania', icon: Eye },
     { id: 'wiadomosci', label: 'Wiadomości', icon: MessageSquare },
     { id: 'ustawienia', label: 'Ustawienia', icon: Settings },
     { id: 'konta', label: 'Wybierz moduł', icon: RefreshCw },
@@ -1158,7 +1161,11 @@ export default function ClientPortal() {
             <ClientMyVehicles userId={user?.id || ''} userPhone={user?.user_metadata?.phone || accountPhone} />
           )}
 
-          {/* Messages Tab */}
+          {/* Oglądania Tab */}
+          {activeTab === 'ogladania' && (
+            <MyViewingsPanel />
+          )}
+
           {activeTab === 'wiadomosci' && (
             <Card>
               <CardHeader>

@@ -135,6 +135,9 @@ serve(async (req) => {
       errors: [],
     };
 
+    // Track IDs of new/updated listings for AI parsing
+    const newAndUpdatedIds: string[] = [];
+
     try {
       // Fetch XML content
       console.log(`Fetching XML from: ${xmlUrl}`);
@@ -226,18 +229,22 @@ serve(async (req) => {
               stats.errors.push(`Update error for ${offer.external_id}: ${updateError.message}`);
             } else {
               stats.updated_count++;
+              newAndUpdatedIds.push(existingId);
             }
           } else {
             // Insert new offer
-            const { error: insertError } = await supabase
+            const { data: insertData, error: insertError } = await supabase
               .from("real_estate_listings")
-              .insert(listingData);
+              .insert(listingData)
+              .select('id')
+              .single();
 
             if (insertError) {
               stats.error_count++;
               stats.errors.push(`Insert error for ${offer.external_id}: ${insertError.message}`);
             } else {
               stats.added_count++;
+              if (insertData?.id) newAndUpdatedIds.push(insertData.id);
             }
           }
         } catch (offerErr) {
@@ -312,6 +319,20 @@ serve(async (req) => {
           error_count: stats.error_count,
         })
         .eq("id", integration_id);
+
+      // Fire-and-forget AI parsing for new/updated listings
+      if (newAndUpdatedIds.length > 0) {
+        const parseUrl = `${SUPABASE_URL}/functions/v1/parse-listing-ai`;
+        fetch(parseUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+          },
+          body: JSON.stringify({ batch_ids: newAndUpdatedIds.slice(0, 50) }),
+        }).catch(e => console.error('AI parse trigger failed:', e));
+        console.log(`Triggered AI parse for ${Math.min(newAndUpdatedIds.length, 50)} listings`);
+      }
 
       return new Response(
         JSON.stringify({

@@ -104,8 +104,9 @@ export function PropertySelectionBar({
                   <div
                     key={item.id}
                     className="relative group shrink-0"
+                    style={{ overflow: 'visible' }}
                   >
-                    <div className="h-12 w-16 rounded-lg overflow-hidden bg-muted">
+                    <div className="h-12 w-16 rounded-lg bg-muted" style={{ overflow: 'hidden' }}>
                       <img
                         src={item.photo}
                         alt={item.title}
@@ -121,7 +122,7 @@ export function PropertySelectionBar({
                           onRemoveViewing(item.id);
                         }
                       }}
-                      className="absolute -top-1.5 -right-1.5 bg-destructive text-destructive-foreground rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity shadow-md z-10"
+                      className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-0.5 shadow-md z-20 hover:scale-110 transition-transform"
                     >
                       <X className="h-3 w-3" />
                     </button>
