@@ -19,7 +19,6 @@ interface CompareBarProps {
 
 export function CompareBar({ type, className }: CompareBarProps) {
   const navigate = useNavigate();
-  const [showViewingForm, setShowViewingForm] = useState(false);
   const { 
     vehicleItems, 
     propertyItems, 
