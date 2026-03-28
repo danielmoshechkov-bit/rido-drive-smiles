@@ -560,6 +560,9 @@ export default function RealEstateAgentDashboard() {
               </CardContent>
             </Card>
           </TabsContent>
+          <TabsContent value="crm">
+            {agent && <AgentCRM agentId={agent.id} />}
+          </TabsContent>
           <TabsContent value="integration">
             {agent && <AgencyCRMSettings agencyId={agent.id} />}
           </TabsContent>
