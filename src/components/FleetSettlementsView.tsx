@@ -718,6 +718,50 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           current_balance: newBalance,
           updated_at: new Date().toISOString()
         }, { onConflict: 'driver_id' });
+
+        // 3b. Recalculate debt chain on remaining settlements for this driver
+        const { data: remainingSettlements } = await supabase
+          .from('settlements')
+          .select('id, period_from, period_to, debt_before, debt_payment, debt_after, actual_payout')
+          .eq('driver_id', driverId)
+          .not('id', 'in', `(${settlementIds.join(',')})`)
+          .order('period_from', { ascending: true });
+
+        if (remainingSettlements && remainingSettlements.length > 0) {
+          let runningDebt = 0;
+          for (const s of remainingSettlements) {
+            const rawPayout = (s.actual_payout || 0) + (s.debt_payment || 0);
+            let debtPayment = 0;
+            let remainingDebt = runningDebt;
+            let actualPayout = 0;
+
+            if (rawPayout < 0) {
+              remainingDebt = round2(runningDebt + Math.abs(rawPayout));
+            } else if (runningDebt <= 0) {
+              remainingDebt = 0;
+              actualPayout = rawPayout;
+            } else if (rawPayout >= runningDebt) {
+              debtPayment = runningDebt;
+              remainingDebt = 0;
+              actualPayout = round2(rawPayout - runningDebt);
+            } else {
+              debtPayment = rawPayout;
+              remainingDebt = round2(runningDebt - rawPayout);
+            }
+
+            await supabase
+              .from('settlements')
+              .update({
+                debt_before: round2(runningDebt),
+                debt_payment: round2(debtPayment),
+                debt_after: round2(remainingDebt),
+                actual_payout: round2(actualPayout),
+              })
+              .eq('id', s.id);
+
+            runningDebt = remainingDebt;
+          }
+        }
       }
 
       // 4. Delete settlements from database
