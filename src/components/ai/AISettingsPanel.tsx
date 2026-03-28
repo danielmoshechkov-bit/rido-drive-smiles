@@ -75,17 +75,14 @@ const AI_PROVIDERS = [
   { value: 'google', label: 'Google AI (własny klucz)', requiresKey: true },
 ];
 
+import { AI_MODELS as SHARED_AI_MODELS } from '@/config/aiModels';
+
 const AI_MODELS = [
-  { value: 'openai/gpt-5.2', label: 'GPT-5.2 (najnowszy, zalecany)', provider: 'lovable' },
-  { value: 'openai/gpt-5', label: 'GPT-5 (stabilny)', provider: 'lovable' },
-  { value: 'openai/gpt-5-mini', label: 'GPT-5 Mini (szybki)', provider: 'lovable' },
-  { value: 'google/gemini-3-flash-preview', label: 'Gemini 3 Flash (szybki)', provider: 'lovable' },
-  { value: 'google/gemini-2.5-flash', label: 'Gemini 2.5 Flash', provider: 'lovable' },
-  { value: 'google/gemini-2.5-pro', label: 'Gemini 2.5 Pro', provider: 'lovable' },
-  { value: 'gpt-4o', label: 'GPT-4o', provider: 'openai' },
-  { value: 'gpt-4o-mini', label: 'GPT-4o Mini', provider: 'openai' },
-  { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash', provider: 'google' },
-  { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro', provider: 'google' },
+  ...SHARED_AI_MODELS.map(m => ({
+    value: m.value,
+    label: m.label,
+    provider: m.provider === 'lovable' ? 'lovable' as const : m.provider === 'anthropic' ? 'openai' as const : 'google' as const,
+  })),
 ];
 
 export function AISettingsPanel() {
