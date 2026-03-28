@@ -96,7 +96,12 @@ export function ChatMessageArea({
   const [channelSearch, setChannelSearch] = useState("");
   const [channelSearchActive, setChannelSearchActive] = useState(false);
   const [searchMatchIndex, setSearchMatchIndex] = useState(0);
+  const [autoTranslateEnabled, setAutoTranslateEnabled] = useState(() => {
+    return localStorage.getItem('workspace_auto_translate') === 'true';
+  });
   const [myLanguage, setMyLanguage] = useState(() => {
+    const saved = localStorage.getItem('workspace_translate_lang');
+    if (saved) return saved;
     const browserLang = navigator.language?.slice(0, 2) || 'pl';
     return SUPPORTED_LANGUAGES.find(l => l.code === browserLang)?.code || 'pl';
   });
