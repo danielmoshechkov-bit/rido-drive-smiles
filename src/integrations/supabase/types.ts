@@ -632,6 +632,33 @@ export type Database = {
           },
         ]
       }
+      agent_calendar_tokens: {
+        Row: {
+          agent_id: string
+          connected_at: string | null
+          google_access_token: string | null
+          google_calendar_id: string | null
+          google_refresh_token: string | null
+          token_expires_at: string | null
+        }
+        Insert: {
+          agent_id: string
+          connected_at?: string | null
+          google_access_token?: string | null
+          google_calendar_id?: string | null
+          google_refresh_token?: string | null
+          token_expires_at?: string | null
+        }
+        Update: {
+          agent_id?: string
+          connected_at?: string | null
+          google_access_token?: string | null
+          google_calendar_id?: string | null
+          google_refresh_token?: string | null
+          token_expires_at?: string | null
+        }
+        Relationships: []
+      }
       agent_contacts: {
         Row: {
           agent_id: string
@@ -16949,6 +16976,119 @@ export type Database = {
             columns: ["owner_id"]
             isOneToOne: false
             referencedRelation: "vehicle_owners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      viewing_requests: {
+        Row: {
+          client_email: string | null
+          client_id: string | null
+          client_name: string | null
+          client_phone: string | null
+          client_start_address: string | null
+          created_at: string | null
+          final_plan: Json | null
+          id: string
+          listing_ids: string[] | null
+          prefer_one_day: boolean | null
+          preferred_dates: Json | null
+          status: string | null
+          viewing_duration_minutes: number | null
+        }
+        Insert: {
+          client_email?: string | null
+          client_id?: string | null
+          client_name?: string | null
+          client_phone?: string | null
+          client_start_address?: string | null
+          created_at?: string | null
+          final_plan?: Json | null
+          id?: string
+          listing_ids?: string[] | null
+          prefer_one_day?: boolean | null
+          preferred_dates?: Json | null
+          status?: string | null
+          viewing_duration_minutes?: number | null
+        }
+        Update: {
+          client_email?: string | null
+          client_id?: string | null
+          client_name?: string | null
+          client_phone?: string | null
+          client_start_address?: string | null
+          created_at?: string | null
+          final_plan?: Json | null
+          id?: string
+          listing_ids?: string[] | null
+          prefer_one_day?: boolean | null
+          preferred_dates?: Json | null
+          status?: string | null
+          viewing_duration_minutes?: number | null
+        }
+        Relationships: []
+      }
+      viewing_slots: {
+        Row: {
+          agent_confirmed_slots: Json | null
+          agent_email: string | null
+          agent_id: string | null
+          agent_phone: string | null
+          agent_responded_at: string | null
+          confirmation_token: string | null
+          created_at: string | null
+          email_sent_at: string | null
+          id: string
+          listing_id: string | null
+          proposed_slots: Json | null
+          reminder_1h_sent_at: string | null
+          reminder_3h_sent_at: string | null
+          request_id: string | null
+          sms_sent_at: string | null
+          status: string | null
+        }
+        Insert: {
+          agent_confirmed_slots?: Json | null
+          agent_email?: string | null
+          agent_id?: string | null
+          agent_phone?: string | null
+          agent_responded_at?: string | null
+          confirmation_token?: string | null
+          created_at?: string | null
+          email_sent_at?: string | null
+          id?: string
+          listing_id?: string | null
+          proposed_slots?: Json | null
+          reminder_1h_sent_at?: string | null
+          reminder_3h_sent_at?: string | null
+          request_id?: string | null
+          sms_sent_at?: string | null
+          status?: string | null
+        }
+        Update: {
+          agent_confirmed_slots?: Json | null
+          agent_email?: string | null
+          agent_id?: string | null
+          agent_phone?: string | null
+          agent_responded_at?: string | null
+          confirmation_token?: string | null
+          created_at?: string | null
+          email_sent_at?: string | null
+          id?: string
+          listing_id?: string | null
+          proposed_slots?: Json | null
+          reminder_1h_sent_at?: string | null
+          reminder_3h_sent_at?: string | null
+          request_id?: string | null
+          sms_sent_at?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "viewing_slots_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "viewing_requests"
             referencedColumns: ["id"]
           },
         ]
