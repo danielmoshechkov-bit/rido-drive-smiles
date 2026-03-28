@@ -830,8 +830,10 @@ export default function RealEstateMarketplace() {
               onView={() => navigate(`/nieruchomosci/ogloszenie/${listing.id}`)}
               onFavorite={() => console.log("Favorite:", listing.id)}
               onToggleCompare={() => handleToggleCompare(listing)}
+              onToggleViewing={() => toggleViewing(listing.id, listing.title)}
               isLoggedIn={!!user}
               isSelectedForCompare={isPropertySelected(listing.id)}
+              isSelectedForViewing={viewingIds.includes(listing.id)}
               compact={viewMode === 'compact'}
               variant={viewMode}
             />
