@@ -37,7 +37,8 @@ interface Props {
 export function ChatSidebar({
   channels, activeChannel, members, memberStatuses, userId,
   projectName, projectColor,
-  onSelectChannel, onCreateChannel, onCreateDM, onSearch, onStatusChange
+  onSelectChannel, onCreateChannel, onCreateDM, onSearch, onStatusChange,
+  onEditChannel, onDeleteChannel
 }: Props) {
   const [showCreateChannel, setShowCreateChannel] = useState(false);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
