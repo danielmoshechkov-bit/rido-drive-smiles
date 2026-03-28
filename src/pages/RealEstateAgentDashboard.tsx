@@ -571,6 +571,9 @@ export default function RealEstateAgentDashboard() {
           <TabsContent value="crm">
             {agent && <AgentCRM agentId={agent.id} />}
           </TabsContent>
+          <TabsContent value="calendar">
+            {agent && <GoogleCalendarConnect agentId={agent.id} />}
+          </TabsContent>
           <TabsContent value="integration">
             {agent && <AgencyCRMSettings agencyId={agent.id} />}
           </TabsContent>
