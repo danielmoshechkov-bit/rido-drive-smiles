@@ -1,15 +1,11 @@
 import { useState, useEffect } from "react";
 import { WorkspaceProject, WorkspaceTask } from "@/hooks/useWorkspace";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
-import { Plus, GripVertical, Calendar, User, Clock, AlertTriangle, MessageSquare, CheckCircle2 } from "lucide-react";
+import { TaskDetailModal } from "./TaskDetailModal";
+import { Plus, Calendar, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -45,7 +41,6 @@ export function WorkspaceKanbanView({ project, workspace }: Props) {
   const [draggedTask, setDraggedTask] = useState<string | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
   const [showDetail, setShowDetail] = useState<WorkspaceTask | null>(null);
-  const [editForm, setEditForm] = useState({ title: "", description: "", priority: "medium", due_date: "", assigned_name: "" });
   const [members, setMembers] = useState<any[]>([]);
 
   useEffect(() => { reload(); }, [project.id]);
@@ -86,23 +81,21 @@ export function WorkspaceKanbanView({ project, workspace }: Props) {
 
   const openDetail = (task: WorkspaceTask) => {
     setShowDetail(task);
-    setEditForm({
-      title: task.title,
-      description: task.description || "",
-      priority: task.priority,
-      due_date: task.due_date || "",
-      assigned_name: task.assigned_name || "",
-    });
   };
 
-  const saveDetail = async () => {
-    if (!showDetail) return;
-    const ok = await workspace.updateTask(showDetail.id, editForm);
+  const handleSaveTask = async (id: string, data: any) => {
+    const ok = await workspace.updateTask(id, data);
     if (ok) {
-      setTasks(prev => prev.map(t => t.id === showDetail.id ? { ...t, ...editForm } : t));
-      toast.success("Zapisano");
+      setTasks(prev => prev.map(t => t.id === id ? { ...t, ...data } : t));
     }
     setShowDetail(null);
+    return ok;
+  };
+
+  const handleDeleteTask = async (id: string) => {
+    await workspace.deleteTask(id);
+    setTasks(prev => prev.filter(t => t.id !== id));
+    toast.success("Zadanie usunięte");
   };
 
   const isOverdue = (date: string | null) => {
@@ -246,60 +239,16 @@ export function WorkspaceKanbanView({ project, workspace }: Props) {
         })}
       </div>
 
-      {/* Task detail dialog */}
-      <Dialog open={!!showDetail} onOpenChange={v => !v && setShowDetail(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Edytuj zadanie</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div>
-              <Label className="text-xs">Tytuł</Label>
-              <Input value={editForm.title} onChange={e => setEditForm(p => ({ ...p, title: e.target.value }))} />
-            </div>
-            <div>
-              <Label className="text-xs">Opis</Label>
-              <Textarea value={editForm.description} onChange={e => setEditForm(p => ({ ...p, description: e.target.value }))} rows={3} />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs">Priorytet</Label>
-                <Select value={editForm.priority} onValueChange={v => setEditForm(p => ({ ...p, priority: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="low">🟢 Niski</SelectItem>
-                    <SelectItem value="medium">🔵 Średni</SelectItem>
-                    <SelectItem value="high">🟡 Wysoki</SelectItem>
-                    <SelectItem value="critical">🔴 Krytyczny</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-xs">Termin</Label>
-                <Input type="date" value={editForm.due_date} onChange={e => setEditForm(p => ({ ...p, due_date: e.target.value }))} />
-              </div>
-            </div>
-            <div>
-              <Label className="text-xs">Przypisz do</Label>
-              <Select value={editForm.assigned_name} onValueChange={v => setEditForm(p => ({ ...p, assigned_name: v }))}>
-                <SelectTrigger><SelectValue placeholder="Wybierz..." /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">Brak</SelectItem>
-                  {members.map((m: any) => (
-                    <SelectItem key={m.id} value={m.display_name || m.email || m.user_id}>
-                      {m.display_name || m.email || 'Użytkownik'}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setShowDetail(null)}>Anuluj</Button>
-            <Button onClick={saveDetail}>Zapisz</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Task detail modal */}
+      <TaskDetailModal
+        task={showDetail}
+        open={!!showDetail}
+        onClose={() => setShowDetail(null)}
+        onSave={handleSaveTask}
+        onDelete={handleDeleteTask}
+        members={members}
+        allTasks={tasks}
+      />
     </>
   );
 }
