@@ -197,7 +197,7 @@ export default function AdminAIAgentsPage() {
             <img src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" alt="Logo" className="h-6 w-6" />
             <AdminPortalSwitcher />
           </div>
-          <UserDropdown />
+          <UserDropdown userName="" onLogout={async () => { await supabase.auth.signOut(); navigate('/'); }} />
         </div>
       </div>
 
