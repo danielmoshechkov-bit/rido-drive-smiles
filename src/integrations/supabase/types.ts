@@ -1588,6 +1588,8 @@ export type Database = {
       }
       ai_function_mapping: {
         Row: {
+          allow_fallback: boolean | null
+          backup_provider_key: string | null
           category: string
           created_at: string | null
           custom_prompt: string | null
@@ -1602,6 +1604,8 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          allow_fallback?: boolean | null
+          backup_provider_key?: string | null
           category?: string
           created_at?: string | null
           custom_prompt?: string | null
@@ -1616,6 +1620,8 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          allow_fallback?: boolean | null
+          backup_provider_key?: string | null
           category?: string
           created_at?: string | null
           custom_prompt?: string | null

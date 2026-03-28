@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Loader2, Save, Route, Search, FileText, Image, Mic, Bot, ExternalLink } from "lucide-react";
+import { Loader2, Save, Route, Search, FileText, Image, Mic, Bot, ExternalLink, Zap, ShieldCheck } from "lucide-react";
 
 interface FunctionMapping {
   id: string;
@@ -20,6 +20,9 @@ interface FunctionMapping {
   is_enabled: boolean;
   custom_prompt: string | null;
   sort_order: number;
+  // extended fields for backup
+  backup_provider_key?: string | null;
+  allow_fallback?: boolean;
 }
 
 interface Provider {
@@ -44,7 +47,6 @@ const CATEGORY_LABELS: Record<string, string> = {
   general: "Ogólne",
 };
 
-// Links to where each function is used in the portal
 const FUNCTION_LINKS: Record<string, { path: string; label: string }> = {
   rido_price: { path: "/provider", label: "Warsztat → Wycena naprawy" },
   parts_pricing: { path: "/provider", label: "Warsztat → Wycena części" },
@@ -91,6 +93,7 @@ export function AIFunctionMappingPanel() {
   const [providers, setProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
+  const [testing, setTesting] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -102,7 +105,15 @@ export function AIFunctionMappingPanel() {
       supabase.from("ai_function_mapping" as any).select("*").order("sort_order"),
       supabase.from("ai_providers").select("provider_key, display_name, is_enabled").order("provider_key"),
     ]);
-    if (m.data) setMappings(m.data as unknown as FunctionMapping[]);
+    if (m.data) {
+      const data = m.data as unknown as FunctionMapping[];
+      // Initialize backup fields if not present
+      setMappings(data.map(d => ({
+        ...d,
+        backup_provider_key: (d as any).backup_provider_key ?? null,
+        allow_fallback: (d as any).allow_fallback ?? true,
+      })));
+    }
     if (p.data) setProviders(p.data);
     setLoading(false);
   };
@@ -115,11 +126,40 @@ export function AIFunctionMappingPanel() {
         provider_key: mapping.provider_key,
         model_override: mapping.model_override,
         is_enabled: mapping.is_enabled,
+        backup_provider_key: mapping.backup_provider_key,
+        allow_fallback: mapping.allow_fallback,
       } as any)
       .eq("id", mapping.id);
     if (error) toast.error("Błąd zapisu");
     else toast.success(`${mapping.function_name} – zapisano`);
     setSaving(null);
+  };
+
+  const testMapping = async (mapping: FunctionMapping) => {
+    if (!mapping.provider_key) {
+      toast.error("Brak przypisanego dostawcy AI");
+      return;
+    }
+    setTesting(mapping.id);
+    try {
+      const { data, error } = await supabase.functions.invoke("getrido-ai-execute", {
+        body: {
+          feature: mapping.function_key,
+          taskType: "text",
+          query: `Test połączenia dla funkcji: ${mapping.function_name}. Odpowiedz krótko: "Połączenie OK"`,
+          mode: "fast",
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const result = (data?.result || "").slice(0, 80);
+      const brand = data?._brand || mapping.provider_key;
+      toast.success(`✅ ${mapping.function_name} → ${brand}: ${result}`);
+    } catch (e: any) {
+      toast.error(`❌ ${mapping.function_name}: ${e.message}`);
+    } finally {
+      setTesting(null);
+    }
   };
 
   const updateMapping = (id: string, updates: Partial<FunctionMapping>) => {
@@ -130,6 +170,7 @@ export function AIFunctionMappingPanel() {
 
   const categories = [...new Set(mappings.map(m => m.category))];
   const enabledCount = mappings.filter(m => m.is_enabled).length;
+  const enabledProviders = providers.filter(p => p.is_enabled);
 
   return (
     <div className="space-y-6">
@@ -137,11 +178,12 @@ export function AIFunctionMappingPanel() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Route className="h-5 w-5" />
-            Mapowanie funkcji portalu → Dostawca AI
+            Centrum sterowania AI — Funkcje portalu
           </CardTitle>
           <CardDescription>
-            Każda funkcja AI w portalu jest tutaj wymieniona. Wybierz który dostawca (główny) obsługuje daną funkcję.
-            Kliknij link „→" aby przejść do miejsca w portalu gdzie ta funkcja działa.
+            Każda funkcja AI w portalu jest tutaj wymieniona. Wybierz dostawcę <strong>głównego</strong> i <strong>zapasowego</strong>.
+            Jeśli główny dostawca nie odpowie — system automatycznie przełączy się na zapasowy.
+            Kliknij „Testuj" aby sprawdzić czy połączenie działa.
           </CardDescription>
           <div className="flex gap-2 mt-2">
             <Badge variant="default">{enabledCount} aktywnych</Badge>
@@ -198,37 +240,90 @@ export function AIFunctionMappingPanel() {
                         onCheckedChange={(v) => updateMapping(mapping.id, { is_enabled: v })}
                       />
 
-                      <Select
-                        value={mapping.provider_key || "none"}
-                        onValueChange={(v) => updateMapping(mapping.id, { provider_key: v === "none" ? null : v })}
-                      >
-                        <SelectTrigger className="w-[160px] text-sm">
-                          <SelectValue placeholder="Wybierz AI" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">Brak</SelectItem>
-                          {providers.filter(p => p.is_enabled).map(p => (
-                            <SelectItem key={p.provider_key} value={p.provider_key}>
-                              {p.display_name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      {/* Główny dostawca */}
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-[10px] text-muted-foreground font-medium">Główny</span>
+                        <Select
+                          value={mapping.provider_key || "none"}
+                          onValueChange={(v) => updateMapping(mapping.id, { provider_key: v === "none" ? null : v })}
+                        >
+                          <SelectTrigger className="w-[140px] text-sm h-8">
+                            <SelectValue placeholder="Wybierz AI" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Brak</SelectItem>
+                            {enabledProviders.map(p => (
+                              <SelectItem key={p.provider_key} value={p.provider_key}>
+                                {p.display_name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
 
-                      <Input
-                        value={mapping.model_override || ""}
-                        onChange={(e) => updateMapping(mapping.id, { model_override: e.target.value || null })}
-                        placeholder="Model (opcj.)"
-                        className="w-[140px] text-sm"
-                      />
+                      {/* Zapasowy dostawca */}
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-[10px] text-muted-foreground font-medium">Zapasowy</span>
+                        <Select
+                          value={mapping.backup_provider_key || "none"}
+                          onValueChange={(v) => updateMapping(mapping.id, { backup_provider_key: v === "none" ? null : v })}
+                        >
+                          <SelectTrigger className="w-[140px] text-sm h-8">
+                            <SelectValue placeholder="Brak" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Brak</SelectItem>
+                            {enabledProviders.map(p => (
+                              <SelectItem key={p.provider_key} value={p.provider_key}>
+                                {p.display_name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
 
-                      <Button
-                        size="sm"
-                        onClick={() => saveMapping(mapping)}
-                        disabled={saving === mapping.id}
-                      >
-                        {saving === mapping.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-                      </Button>
+                      {/* Model override */}
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-[10px] text-muted-foreground font-medium">Model</span>
+                        <Input
+                          value={mapping.model_override || ""}
+                          onChange={(e) => updateMapping(mapping.id, { model_override: e.target.value || null })}
+                          placeholder="Domyślny"
+                          className="w-[120px] text-sm h-8"
+                        />
+                      </div>
+
+                      {/* Awaryjne przełączanie */}
+                      <div className="flex flex-col gap-0.5 items-center">
+                        <span className="text-[10px] text-muted-foreground font-medium">Auto-zamiana</span>
+                        <Switch
+                          checked={mapping.allow_fallback ?? true}
+                          onCheckedChange={(v) => updateMapping(mapping.id, { allow_fallback: v })}
+                          className="data-[state=checked]:bg-green-500"
+                        />
+                      </div>
+
+                      {/* Buttons */}
+                      <div className="flex gap-1 ml-auto">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => testMapping(mapping)}
+                          disabled={testing === mapping.id || !mapping.provider_key}
+                          className="h-8 text-xs"
+                        >
+                          {testing === mapping.id ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Zap className="h-3 w-3 mr-1" />}
+                          Testuj
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => saveMapping(mapping)}
+                          disabled={saving === mapping.id}
+                          className="h-8 text-xs"
+                        >
+                          {saving === mapping.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 );

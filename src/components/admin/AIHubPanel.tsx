@@ -113,8 +113,7 @@ export function AIHubPanel() {
 
   const tabs = [
     { value: "providers", label: "Dostawcy AI", visible: true },
-    { value: "routing", label: "Routing", visible: true },
-    { value: "flags", label: "Feature Flags", visible: true },
+    { value: "flags", label: "Przełączniki funkcji", visible: true },
     { value: "limits", label: "Limity", visible: true },
     { value: "logs", label: "Logi AI", visible: true },
   ];
@@ -347,58 +346,8 @@ export function AIHubPanel() {
         </div>
       )}
 
-      {activeTab === "routing" && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Route className="h-5 w-5" />Routing AI</CardTitle>
-            <CardDescription>Wybierz który dostawca obsługuje dany typ zadania</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {routing.map(rule => (
-                <div key={rule.id} className="flex flex-col gap-2 p-3 border rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="min-w-[100px] justify-center">{TASK_TYPE_LABELS[rule.task_type] || rule.task_type}</Badge>
-                    {TASK_TYPE_DESCRIPTIONS[rule.task_type] && (
-                      <span className="text-xs text-muted-foreground">{TASK_TYPE_DESCRIPTIONS[rule.task_type]}</span>
-                    )}
-                  </div>
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                    <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-2">
-                      <div className="space-y-1">
-                        <Label className="text-xs">Główny</Label>
-                        <Select value={rule.primary_provider_key || ""} onValueChange={v => setRouting(r => r.map(x => x.id === rule.id ? { ...x, primary_provider_key: v } : x))}>
-                          <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            {providers.filter(p => p.is_enabled).map(p => <SelectItem key={p.provider_key} value={p.provider_key}>{p.display_name}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Zapasowy</Label>
-                        <Select value={rule.secondary_provider_key || "none"} onValueChange={v => setRouting(r => r.map(x => x.id === rule.id ? { ...x, secondary_provider_key: v === "none" ? null : v } : x))}>
-                          <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">Brak</SelectItem>
-                            {providers.filter(p => p.is_enabled).map(p => <SelectItem key={p.provider_key} value={p.provider_key}>{p.display_name}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="flex items-end gap-2">
-                        <div className="flex items-center gap-1">
-                          <Switch checked={rule.allow_fallback} onCheckedChange={v => setRouting(r => r.map(x => x.id === rule.id ? { ...x, allow_fallback: v } : x))} />
-                          <Label className="text-xs">Fallback</Label>
-                        </div>
-                        <Button size="sm" onClick={() => saveRouting(rule)}><Save className="h-3 w-3" /></Button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+
+
 
       {activeTab === "flags" && (
         <Card>
