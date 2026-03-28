@@ -1,11 +1,12 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
-  Building, Search, Plus, Sparkles, ArrowRight, Home, LayoutGrid, Rows3, List
+  Building, Search, Plus, Sparkles, ArrowRight, Home, LayoutGrid, Rows3, List, ChevronLeft, ChevronRight
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Footer from "@/components/Footer";
@@ -381,6 +382,8 @@ export default function RealEstateMarketplace() {
   const [viewMode, setViewMode] = useState<'grid' | 'compact' | 'list'>('grid');
   const [showResultsMap, setShowResultsMap] = useState(false);
   const [initialQuery, setInitialQuery] = useState<string>("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [perPage, setPerPage] = useState(36);
   const aiSearchTriggered = useRef(false);
 
   // Compare context
@@ -417,6 +420,34 @@ export default function RealEstateMarketplace() {
     setViewingIds([]);
     setViewingTitles([]);
     setViewingPhotos({});
+  };
+
+  // Reset page when listings change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [listings.length, selectedPropertyType, selectedTransactionType]);
+
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(listings.length / perPage));
+  const paginatedListings = useMemo(() => {
+    const start = (currentPage - 1) * perPage;
+    return listings.slice(start, start + perPage);
+  }, [listings, currentPage, perPage]);
+
+  const getPageNumbers = () => {
+    const pages: (number | 'ellipsis')[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) pages.push('ellipsis');
+      for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
+        pages.push(i);
+      }
+      if (currentPage < totalPages - 2) pages.push('ellipsis');
+      pages.push(totalPages);
+    }
+    return pages;
   };
 
   // Fetch listings from database
@@ -790,6 +821,20 @@ export default function RealEstateMarketplace() {
             )}
           </p>
           <div className="flex items-center gap-3">
+            {/* Per Page Selector */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground hidden sm:inline">Na stronie</span>
+              <Select value={String(perPage)} onValueChange={(v) => { setPerPage(Number(v)); setCurrentPage(1); }}>
+                <SelectTrigger className="w-[70px] h-8 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[24, 36, 48, 72].map(n => (
+                    <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             {/* View Mode Toggle */}
             <div className="flex gap-0.5 bg-muted rounded-lg p-0.5">
               <Button 
@@ -834,7 +879,7 @@ export default function RealEstateMarketplace() {
               ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5" 
               : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
         )}>
-          {listings.map((listing) => (
+          {paginatedListings.map((listing) => (
             <PropertyListingCard
               key={listing.id}
               listing={listing}
@@ -858,6 +903,51 @@ export default function RealEstateMarketplace() {
             <p className="text-muted-foreground mb-4">
               Spróbuj zmienić kryteria wyszukiwania
             </p>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-8 pb-4">
+            <nav className="flex items-center gap-1" aria-label="Paginacja">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-1"
+                disabled={currentPage === 1}
+                onClick={() => { setCurrentPage(p => p - 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                <span className="hidden sm:inline">Poprzednia</span>
+              </Button>
+
+              {getPageNumbers().map((page, i) =>
+                page === 'ellipsis' ? (
+                  <span key={`e-${i}`} className="px-2 text-muted-foreground">…</span>
+                ) : (
+                  <Button
+                    key={page}
+                    variant={currentPage === page ? 'outline' : 'ghost'}
+                    size="sm"
+                    className={cn("h-8 w-8 p-0", currentPage === page && "border-primary font-semibold")}
+                    onClick={() => { setCurrentPage(page as number); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                  >
+                    {page}
+                  </Button>
+                )
+              )}
+
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-1"
+                disabled={currentPage === totalPages}
+                onClick={() => { setCurrentPage(p => p + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+              >
+                <span className="hidden sm:inline">Następna</span>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </nav>
           </div>
         )}
       </section>}
