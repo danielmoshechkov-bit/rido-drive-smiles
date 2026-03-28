@@ -27,7 +27,30 @@ interface IntegrationForm {
   sales_margin_percent: number;
   is_enabled: boolean;
   environment: string;
+  api_extra_json: Record<string, string>;
 }
+
+// Supplier-specific credential fields
+const SUPPLIER_FIELDS: Record<string, Array<{ key: string; label: string; placeholder: string; type?: string }>> = {
+  hart: [
+    { key: 'api_username', label: 'Login API', placeholder: 'Login z Hart' },
+    { key: 'api_password', label: 'Hasło API', placeholder: 'Hasło z Hart', type: 'password' },
+  ],
+  auto_partner: [
+    { key: 'clientCode', label: 'Client Code', placeholder: 'np. 3282058' },
+    { key: 'wsPassword', label: 'WS Password', placeholder: 'Hasło WebService', type: 'password' },
+    { key: 'clientPassword', label: 'Client Password', placeholder: 'Hasło klienta (hash)', type: 'password' },
+  ],
+  inter_cars: [
+    { key: 'api_username', label: 'Login IC Katalog', placeholder: 'Login Inter Cars' },
+    { key: 'api_password', label: 'Hasło IC Katalog', placeholder: 'Hasło', type: 'password' },
+  ],
+  // Generic for others
+  _default: [
+    { key: 'api_username', label: 'Login API', placeholder: 'Login' },
+    { key: 'api_password', label: 'Hasło / Klucz API', placeholder: 'Hasło lub klucz API', type: 'password' },
+  ],
+};
 
 const POLISH_WHOLESALERS = [
   { code: 'hart', name: 'HART', url: 'hartphp.com.pl', logo: '🟡', apiInfo: 'REST API — skontaktuj się z opiekunem handlowym Hart' },

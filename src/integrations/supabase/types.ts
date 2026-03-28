@@ -17398,7 +17398,9 @@ export type Database = {
       }
       workshop_parts_integrations: {
         Row: {
+          api_extra_json: Json | null
           api_password: string | null
+          api_url: string | null
           api_username: string | null
           created_at: string
           default_branch_id: string | null
@@ -17410,10 +17412,13 @@ export type Database = {
           provider_id: string
           sales_margin_percent: number
           supplier_code: string
+          supplier_name: string | null
           updated_at: string
         }
         Insert: {
+          api_extra_json?: Json | null
           api_password?: string | null
+          api_url?: string | null
           api_username?: string | null
           created_at?: string
           default_branch_id?: string | null
@@ -17425,10 +17430,13 @@ export type Database = {
           provider_id: string
           sales_margin_percent?: number
           supplier_code: string
+          supplier_name?: string | null
           updated_at?: string
         }
         Update: {
+          api_extra_json?: Json | null
           api_password?: string | null
+          api_url?: string | null
           api_username?: string | null
           created_at?: string
           default_branch_id?: string | null
@@ -17440,6 +17448,7 @@ export type Database = {
           provider_id?: string
           sales_margin_percent?: number
           supplier_code?: string
+          supplier_name?: string | null
           updated_at?: string
         }
         Relationships: [
