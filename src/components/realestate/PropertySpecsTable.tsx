@@ -238,7 +238,6 @@ export function PropertySpecsTable({ listing }: PropertySpecsTableProps) {
         <div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {filteredRooms
-              .filter(room => room.area > 0)
               .sort((a, b) => getRoomSortOrder(a.name) - getRoomSortOrder(b.name))
               .map((room, index) => (
               <div
