@@ -122,6 +122,8 @@ export function LocationMapModal({
   const lastBrushPointRef = useRef<{ x: number; y: number; time: number } | null>(null);
 
   const [mode, setMode] = useState<"circle" | "polygon">("circle");
+  const [mapPropertyType, setMapPropertyType] = useState("");
+  const [mapTransactionType, setMapTransactionType] = useState("");
   const [drawingMode, setDrawingMode] = useState<DrawingMode>("brush"); // Default to brush
   const [circleCenter, setCircleCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [radius, setRadius] = useState(DEFAULT_RADIUS);
