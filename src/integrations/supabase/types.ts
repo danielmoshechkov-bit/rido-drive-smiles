@@ -12013,6 +12013,7 @@ export type Database = {
           agent_id: string
           ai_amenities: Json | null
           ai_area_total: number | null
+          ai_assessment: Json | null
           ai_building_info: Json | null
           ai_confidence: number | null
           ai_description_html: string | null
@@ -12078,6 +12079,7 @@ export type Database = {
           agent_id: string
           ai_amenities?: Json | null
           ai_area_total?: number | null
+          ai_assessment?: Json | null
           ai_building_info?: Json | null
           ai_confidence?: number | null
           ai_description_html?: string | null
@@ -12143,6 +12145,7 @@ export type Database = {
           agent_id?: string
           ai_amenities?: Json | null
           ai_area_total?: number | null
+          ai_assessment?: Json | null
           ai_building_info?: Json | null
           ai_confidence?: number | null
           ai_description_html?: string | null

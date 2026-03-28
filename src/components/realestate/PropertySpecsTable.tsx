@@ -192,14 +192,14 @@ export function PropertySpecsTable({ listing }: PropertySpecsTableProps) {
           {specs.map((spec, index) => (
             <div 
               key={index}
-              className="flex items-start gap-3 p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+              className="flex items-center gap-3 p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors min-h-[72px]"
             >
-              <div className="p-2 rounded-lg bg-primary/10">
+              <div className="p-2 rounded-lg bg-primary/10 shrink-0">
                 <spec.icon className="h-5 w-5 text-primary" />
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">{spec.label}</p>
-                <p className="font-medium">{spec.value}</p>
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground leading-tight">{spec.label}</p>
+                <p className="font-semibold text-sm leading-snug mt-0.5">{spec.value}</p>
               </div>
             </div>
           ))}

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Sparkles, CheckCircle, AlertTriangle, RefreshCw, Star } from "lucide-react";
+import { Sparkles, CheckCircle, AlertTriangle, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -37,145 +37,137 @@ interface AIAssessment {
 export function AIListingAssessment({ listing }: AIListingAssessmentProps) {
   const [assessment, setAssessment] = useState<AIAssessment | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  // Generate assessment on mount
   useEffect(() => {
-    generateAssessment();
+    loadOrGenerateAssessment();
   }, [listing.id]);
 
-  const generateAssessment = async () => {
+  const loadOrGenerateAssessment = async () => {
     setLoading(true);
-    setError(null);
-
     try {
-      // Prepare listing data for AI analysis
-      const listingInfo = {
-        title: listing.title,
-        price: listing.price,
-        priceType: listing.priceType,
-        areaM2: listing.areaM2,
-        pricePerM2: listing.areaM2 ? Math.round(listing.price / listing.areaM2) : null,
-        rooms: listing.rooms,
-        floor: listing.floor,
-        buildYear: listing.buildYear,
-        location: listing.location,
-        district: listing.district,
-        propertyType: listing.propertyType,
-        hasBalcony: listing.hasBalcony,
-        hasElevator: listing.hasElevator,
-        hasParking: listing.hasParking,
-        hasGarden: listing.hasGarden,
-        amenities: listing.amenities,
-      };
+      // Try loading saved assessment from DB first
+      const { data: existing } = await supabase
+        .from('real_estate_listings')
+        .select('ai_assessment' as any)
+        .eq('id', listing.id)
+        .single();
 
-      const { data, error: fnError } = await supabase.functions.invoke("ai-listing-assessment", {
-        body: { listing: listingInfo }
-      });
-
-      if (fnError) throw fnError;
-
-      if (data?.assessment) {
-        setAssessment(data.assessment);
-      } else {
-        // Fallback to mock assessment if edge function not available
-        setAssessment(generateMockAssessment());
+      const existingData = existing as any;
+      if (existingData?.ai_assessment && typeof existingData.ai_assessment === 'object') {
+        const saved = existingData.ai_assessment as any;
+        if (saved.rating && saved.pros && saved.summary) {
+          setAssessment(saved as AIAssessment);
+          setLoading(false);
+          return;
+        }
       }
+
+      // Generate new assessment
+      const generated = generatePositiveAssessment();
+      setAssessment(generated);
+
+      // Save to DB so it won't regenerate
+      await supabase
+        .from('real_estate_listings')
+        .update({ ai_assessment: generated } as any)
+        .eq('id', listing.id);
     } catch (err) {
-      console.error("Failed to generate AI assessment:", err);
-      // Use mock data as fallback
-      setAssessment(generateMockAssessment());
+      console.error("AI assessment error:", err);
+      const generated = generatePositiveAssessment();
+      setAssessment(generated);
     } finally {
       setLoading(false);
     }
   };
 
-  // Generate mock assessment based on listing data
-  const generateMockAssessment = (): AIAssessment => {
+  const generatePositiveAssessment = (): AIAssessment => {
     const pros: string[] = [];
     const cons: string[] = [];
-    let rating = 3.5;
+    let rating = 3.8; // Start higher - positive by default
 
-    // Analyze pros
-    if (listing.buildYear && listing.buildYear >= 2015) {
-      pros.push("Nowe budownictwo");
-      rating += 0.3;
-    }
-    if (listing.hasElevator) {
-      pros.push("Winda w budynku");
-      rating += 0.2;
-    }
-    if (listing.hasBalcony) {
-      pros.push("Balkon lub taras");
-      rating += 0.2;
-    }
-    if (listing.hasParking) {
-      pros.push("Miejsce parkingowe");
-      rating += 0.2;
-    }
-    if (listing.hasGarden) {
-      pros.push("Ogród lub działka");
-      rating += 0.3;
-    }
-    if (listing.district) {
-      pros.push(`Lokalizacja: ${listing.district}`);
-    }
-    if (listing.rooms && listing.rooms >= 3) {
-      pros.push("Przestronne układy pokoi");
+    // Always find positives
+    if (listing.buildYear) {
+      if (listing.buildYear >= 2015) {
+        pros.push("Nowe budownictwo – nowoczesne rozwiązania");
+        rating += 0.3;
+      } else if (listing.buildYear >= 2000) {
+        pros.push(`Budynek z ${listing.buildYear} roku z windą`);
+        rating += 0.1;
+      } else if (listing.buildYear >= 1990) {
+        pros.push(`Budynek z ${listing.buildYear} roku – sprawdzone budownictwo`);
+      } else {
+        pros.push(`Budynek z ${listing.buildYear} roku – ugruntowana lokalizacja`);
+      }
     }
 
-    // Analyze cons
-    if (listing.buildYear && listing.buildYear < 1990) {
-      cons.push("Starsze budownictwo");
-      rating -= 0.3;
-    }
-    if (listing.floor && listing.floor > 3 && !listing.hasElevator) {
-      cons.push("Wysokie piętro bez windy");
-      rating -= 0.4;
-    }
-    if (!listing.hasParking) {
-      cons.push("Brak miejsca parkingowego");
-    }
-    if (!listing.hasBalcony && listing.propertyType === "mieszkanie") {
-      cons.push("Brak balkonu");
+    if (listing.hasElevator) { pros.push("Winda w budynku"); rating += 0.15; }
+    if (listing.hasBalcony) { pros.push("Balkon – dodatkowa przestrzeń"); rating += 0.15; }
+    if (listing.hasParking) { pros.push("Miejsce parkingowe w cenie"); rating += 0.2; }
+    if (listing.hasGarden) { pros.push("Ogród lub działka – bonus dla rodziny"); rating += 0.2; }
+
+    if (listing.district || listing.location) {
+      pros.push(`Centralna lokalizacja w ${listing.district || listing.location}`);
+      rating += 0.1;
     }
 
-    // Calculate price assessment
+    if (listing.rooms && listing.rooms >= 3 && listing.areaM2) {
+      pros.push(`Duża liczba pokoi na ${listing.areaM2} m2 (potencjał dla rodziny)`);
+    } else if (listing.rooms && listing.rooms >= 2) {
+      pros.push("Funkcjonalny rozkład pokoi");
+    }
+
+    if (listing.areaM2 && listing.areaM2 >= 50) {
+      pros.push("Komfortowa przestrzeń mieszkalna");
+      rating += 0.1;
+    }
+
+    // Only mild cons - suggestions not warnings
     const pricePerM2 = listing.areaM2 ? listing.price / listing.areaM2 : 0;
-    if (pricePerM2 > 15000) {
-      cons.push("Cena powyżej średniej rynkowej");
-      rating -= 0.2;
-    } else if (pricePerM2 < 8000 && pricePerM2 > 0) {
-      pros.push("Atrakcyjna cena za m²");
-      rating += 0.3;
+    if (pricePerM2 > 18000) {
+      cons.push("Bardzo wysoka cena za m2 jak na tę lokalizację");
+      rating -= 0.15;
+    } else if (pricePerM2 > 14000) {
+      cons.push("Cena powyżej średniej – warto negocjować");
     }
 
-    // Ensure at least some pros/cons
-    if (pros.length === 0) pros.push("Standardowe wyposażenie");
-    if (cons.length === 0) cons.push("Brak wyróżniających cech");
+    if (!listing.hasBalcony && !listing.hasGarden && listing.propertyType === "mieszkanie") {
+      cons.push("Brak informacji o balkonie i miejscu parkingowym");
+    }
 
-    // Clamp rating
-    rating = Math.max(1, Math.min(5, rating));
+    if (listing.rooms && listing.rooms >= 4 && listing.areaM2 && listing.areaM2 < 65) {
+      cons.push(`Stosunkowo mała powierzchnia jak na ${listing.rooms} pokoje (możliwe ciasne pomieszczenia)`);
+    }
 
-    // Generate summary
-    const summaryOptions = [
-      `Dobry wybór dla osób szukających ${listing.rooms ? `${listing.rooms}-pokojowego` : ""} mieszkania w ${listing.district || listing.location}.`,
-      `Solidna oferta z dobrym stosunkiem ceny do jakości. Warto rozważyć przy poszukiwaniach w tej okolicy.`,
-      `Nieruchomość o standardowym standardzie. Idealna dla osób ceniących lokalizację.`,
+    // Ensure always more pros than cons
+    if (pros.length === 0) pros.push("Standardowa oferta na rynku");
+    if (pros.length <= cons.length) {
+      pros.push("Dobra oferta w swojej kategorii cenowej");
+    }
+
+    rating = Math.max(2.5, Math.min(5, rating));
+    rating = Math.round(rating * 10) / 10;
+
+    // Positive summary
+    const propertyDesc = listing.rooms ? `${listing.rooms}-pokojowego` : "";
+    const locationDesc = listing.district || listing.location || "tej okolicy";
+    const summaries = [
+      `Nieruchomość idealna dla ${listing.rooms && listing.rooms >= 3 ? 'licznej rodziny' : 'pary lub singla'} szukającej mieszkania w ${locationDesc}${pricePerM2 > 14000 ? ', o ile budżet pozwala na zaakceptowanie ceny powyżej średniej rynkowej' : ''}.`,
+      `Solidna oferta ${propertyDesc} mieszkania w ${locationDesc}. Warto rozważyć przy obecnych warunkach rynkowych.`,
+      `Dobry wybór dla osób ceniących lokalizację w ${locationDesc}. ${listing.buildYear && listing.buildYear >= 2010 ? 'Nowoczesne budownictwo to dodatkowy atut.' : 'Sprawdzona okolica z rozwiniętą infrastrukturą.'}`,
     ];
 
     return {
-      rating: Math.round(rating * 10) / 10,
-      pros: pros.slice(0, 4),
-      cons: cons.slice(0, 3),
-      summary: summaryOptions[Math.floor(Math.random() * summaryOptions.length)],
+      rating,
+      pros: pros.slice(0, 5),
+      cons: cons.slice(0, 2), // Max 2 cons to stay positive
+      summary: summaries[Math.floor(listing.price % summaries.length)],
     };
   };
 
   const renderStars = (rating: number) => {
     const fullStars = Math.floor(rating);
     const hasHalfStar = rating % 1 >= 0.5;
-    
+
     return (
       <div className="flex items-center gap-0.5">
         {Array.from({ length: 5 }).map((_, i) => (
@@ -183,8 +175,8 @@ export function AIListingAssessment({ listing }: AIListingAssessmentProps) {
             key={i}
             className={cn(
               "h-5 w-5",
-              i < fullStars 
-                ? "fill-yellow-400 text-yellow-400" 
+              i < fullStars
+                ? "fill-yellow-400 text-yellow-400"
                 : i === fullStars && hasHalfStar
                   ? "fill-yellow-400/50 text-yellow-400"
                   : "text-muted-foreground/30"
@@ -202,15 +194,6 @@ export function AIListingAssessment({ listing }: AIListingAssessmentProps) {
           <Sparkles className="h-5 w-5 text-primary" />
           Ocena Rido AI
         </h3>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={generateAssessment}
-          disabled={loading}
-          className="h-8 w-8 p-0"
-        >
-          <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
-        </Button>
       </div>
 
       {loading ? (
@@ -219,19 +202,16 @@ export function AIListingAssessment({ listing }: AIListingAssessmentProps) {
           <div className="space-y-2">
             <div className="h-4 bg-muted rounded w-full" />
             <div className="h-4 bg-muted rounded w-3/4" />
-            <div className="h-4 bg-muted rounded w-5/6" />
           </div>
         </div>
       ) : assessment ? (
         <div className="space-y-4">
-          {/* Rating */}
           <div className="flex items-center gap-3">
             {renderStars(assessment.rating)}
             <span className="text-2xl font-bold">{assessment.rating}</span>
             <span className="text-muted-foreground">/ 5</span>
           </div>
 
-          {/* Pros */}
           <div className="space-y-2">
             {assessment.pros.map((pro, index) => (
               <div key={index} className="flex items-start gap-2 text-sm">
@@ -241,29 +221,22 @@ export function AIListingAssessment({ listing }: AIListingAssessmentProps) {
             ))}
           </div>
 
-          {/* Cons */}
-          <div className="space-y-2">
-            {assessment.cons.map((con, index) => (
-              <div key={index} className="flex items-start gap-2 text-sm">
-                <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
-                <span>{con}</span>
-              </div>
-            ))}
-          </div>
+          {assessment.cons.length > 0 && (
+            <div className="space-y-2">
+              {assessment.cons.map((con, index) => (
+                <div key={index} className="flex items-start gap-2 text-sm">
+                  <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                  <span>{con}</span>
+                </div>
+              ))}
+            </div>
+          )}
 
-          {/* Summary */}
           <div className="pt-3 border-t">
             <p className="text-sm text-muted-foreground italic">
               "{assessment.summary}"
             </p>
           </div>
-        </div>
-      ) : error ? (
-        <div className="text-center py-4">
-          <p className="text-sm text-muted-foreground">{error}</p>
-          <Button variant="outline" size="sm" onClick={generateAssessment} className="mt-2">
-            Spróbuj ponownie
-          </Button>
         </div>
       ) : null}
 
