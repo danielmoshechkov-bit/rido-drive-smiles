@@ -151,7 +151,11 @@ export function WorkspaceChatView({ project, workspace }: Props) {
             projectName={project.name}
             projectColor={project.color}
             onSelectChannel={ch => { chat.setActiveChannel(ch); chat.setActiveThread(null); }}
-            onCreateChannel={chat.createChannel}
+            onCreateChannel={async (name, type, desc, pIds) => {
+              const ch = await chat.createChannel(name, type, desc, pIds);
+              if (ch) { await chat.loadChannels(); chat.setActiveChannel(ch); }
+              return ch;
+            }}
             onCreateDM={async (uid, name) => {
               const dm = await chat.createOrGetDM(uid, name);
               if (dm) { await chat.loadChannels(); chat.setActiveChannel(dm); }
@@ -173,7 +177,11 @@ export function WorkspaceChatView({ project, workspace }: Props) {
               projectName={project.name}
               projectColor={project.color}
               onSelectChannel={ch => { chat.setActiveChannel(ch); chat.setActiveThread(null); setMobileTab('chat'); }}
-              onCreateChannel={chat.createChannel}
+              onCreateChannel={async (name, type, desc, pIds) => {
+                const ch = await chat.createChannel(name, type, desc, pIds);
+                if (ch) { await chat.loadChannels(); chat.setActiveChannel(ch); setMobileTab('chat'); }
+                return ch;
+              }}
               onCreateDM={async (uid, name) => {
                 const dm = await chat.createOrGetDM(uid, name);
                 if (dm) { await chat.loadChannels(); chat.setActiveChannel(dm); setMobileTab('chat'); }
