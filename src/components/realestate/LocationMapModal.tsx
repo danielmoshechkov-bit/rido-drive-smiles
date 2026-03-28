@@ -122,6 +122,8 @@ export function LocationMapModal({
   const lastBrushPointRef = useRef<{ x: number; y: number; time: number } | null>(null);
 
   const [mode, setMode] = useState<"circle" | "polygon">("circle");
+  const [mapPropertyType, setMapPropertyType] = useState("");
+  const [mapTransactionType, setMapTransactionType] = useState("");
   const [drawingMode, setDrawingMode] = useState<DrawingMode>("brush"); // Default to brush
   const [circleCenter, setCircleCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [radius, setRadius] = useState(DEFAULT_RADIUS);
@@ -989,7 +991,50 @@ export function LocationMapModal({
         </DialogHeader>
 
         {/* Controls Row - Location + Mode + Radius */}
-        <div className="px-2 sm:px-4 pb-2 sm:pb-3">
+        <div className="px-2 sm:px-4 pb-2 sm:pb-3 space-y-2">
+          {/* Property type & transaction pills */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-xs text-muted-foreground mr-1">Typ:</span>
+            {[
+              { key: "", label: "Wszystkie" },
+              { key: "mieszkanie", label: "Mieszkania" },
+              { key: "dom", label: "Domy" },
+              { key: "lokal", label: "Lokale" },
+              { key: "magazyn", label: "Magazyny" },
+            ].map(t => (
+              <button
+                key={t.key}
+                onClick={() => setMapPropertyType(t.key)}
+                className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors border ${
+                  mapPropertyType === t.key
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-background text-muted-foreground border-border hover:border-primary/50"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+            <div className="h-5 w-px bg-border mx-1" />
+            <span className="text-xs text-muted-foreground mr-1">Transakcja:</span>
+            {[
+              { key: "", label: "Wszystkie" },
+              { key: "sprzedaż", label: "Sprzedaż" },
+              { key: "wynajem", label: "Wynajem" },
+            ].map(t => (
+              <button
+                key={t.key}
+                onClick={() => setMapTransactionType(t.key)}
+                className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors border ${
+                  mapTransactionType === t.key
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-background text-muted-foreground border-border hover:border-primary/50"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
           <div className="flex flex-wrap items-center gap-2 sm:gap-3 border rounded-lg p-2 sm:p-3 bg-muted/30">
             {/* Location Search - Compact */}
             <div className="w-40 sm:w-56 max-w-[160px] sm:max-w-[220px]">

@@ -52,6 +52,7 @@ export function ResultsMapModal({
   const [showRent, setShowRent] = useState(true);
   const [maxPrice, setMaxPrice] = useState("");
   const [minArea, setMinArea] = useState("");
+  const [mapPropertyType, setMapPropertyType] = useState("");
 
   // Get user's geolocation when modal opens
   useEffect(() => {
@@ -80,15 +81,19 @@ export function ResultsMapModal({
     if (cityFilter && !listing.location?.toLowerCase().includes(cityFilter.toLowerCase())) {
       return false;
     }
+
+    // Property type filter
+    if (mapPropertyType && !listing.propertyType?.toLowerCase().includes(mapPropertyType)) {
+      return false;
+    }
     
-    // Transaction type filter - Fixed to match actual values
+    // Transaction type filter
     const transType = listing.transactionType?.toLowerCase() || '';
     const isSale = transType.includes('sprzedaż') || transType.includes('sprzedaz');
     const isRent = transType.includes('wynajem') || transType.includes('krótkoterminowy');
     
     if (isSale && !showSale) return false;
     if (isRent && !showRent) return false;
-    // If neither sale nor rent, show it when either checkbox is checked
     if (!isSale && !isRent && !showSale && !showRent) return false;
     
     // Max price filter
@@ -413,7 +418,30 @@ export function ResultsMapModal({
         </DialogHeader>
 
         {/* Filter Bar */}
-        <div className="px-2 sm:px-4 py-2 border-b bg-muted/50 shrink-0">
+        <div className="px-2 sm:px-4 py-2 border-b bg-muted/50 shrink-0 space-y-2">
+          {/* Property type pills */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            {[
+              { key: "", label: "Wszystkie" },
+              { key: "mieszkanie", label: "Mieszkania" },
+              { key: "dom", label: "Domy" },
+              { key: "lokal", label: "Lokale" },
+              { key: "magazyn", label: "Magazyny" },
+            ].map(t => (
+              <button
+                key={t.key}
+                onClick={() => setMapPropertyType(t.key)}
+                className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors border ${
+                  mapPropertyType === t.key
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-background text-muted-foreground border-border hover:border-primary/50"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             {/* City Filter */}
             <div className="relative">
@@ -426,7 +454,6 @@ export function ResultsMapModal({
               />
             </div>
             
-            {/* Separator */}
             <div className="h-6 w-px bg-border hidden sm:block" />
             
             {/* Checkbox Sprzedaż */}
@@ -453,7 +480,6 @@ export function ResultsMapModal({
               </div>
             </label>
             
-            {/* Separator */}
             <div className="h-6 w-px bg-border hidden sm:block" />
             
             {/* Max Price */}

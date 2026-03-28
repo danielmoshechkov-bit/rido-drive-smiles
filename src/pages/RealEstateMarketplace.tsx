@@ -908,7 +908,23 @@ export default function RealEstateMarketplace() {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-8 pb-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-8 pb-4">
+            {/* Per page selector */}
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span>Na stronie:</span>
+              <Select value={String(perPage)} onValueChange={(v) => { setPerPage(Number(v)); setCurrentPage(1); }}>
+                <SelectTrigger className="w-[72px] h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[24, 36, 48, 72].map(n => (
+                    <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Page numbers */}
             <nav className="flex items-center gap-1" aria-label="Paginacja">
               <Button
                 variant="ghost"
@@ -948,6 +964,11 @@ export default function RealEstateMarketplace() {
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </nav>
+
+            {/* Info */}
+            <span className="text-sm text-muted-foreground">
+              Strona {currentPage} z {totalPages}
+            </span>
           </div>
         )}
       </section>}
