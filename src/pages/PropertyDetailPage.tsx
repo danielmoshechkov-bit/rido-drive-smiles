@@ -424,8 +424,6 @@ export default function PropertyDetailPage() {
             {/* Property Specs */}
             <PropertySpecsTable listing={listing} />
 
-            <Separator />
-
             {/* AI Amenities - before description */}
             {listing.aiAmenities && Object.keys(listing.aiAmenities).some((k: string) => listing.aiAmenities[k] === true) && (
               <>

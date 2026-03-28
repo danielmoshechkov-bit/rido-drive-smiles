@@ -107,40 +107,8 @@ export function PropertyListingCard({
   const [showLightbox, setShowLightbox] = useState(false);
   const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
 
-  // Area correction: compare DB area with description-extracted area
-  const displayArea = (() => {
-    const dbArea = listing.areaM2 || 0;
-    if (listing.description) {
-      // Look for explicit total area: "powierzchnia X m2", "pow. X m2", "łączna X m2"
-      const totalAreaPattern = /(?:powierzchni[aę]|pow\.|łączn[aey]|całkowit[aey]|użytkow[aey]|mieszkaln[aey])\s*[:\-–]?\s*(?:ok\.?\s*)?(\d[\d\s,.]*\d?)\s*m(?:2|²)/gi;
-      const totalMatches = [...listing.description.matchAll(totalAreaPattern)];
-      if (totalMatches.length > 0) {
-        const totalAreas = totalMatches.map(m => Number(m[1].replace(/[\s,]/g, '').replace(',', '.'))).filter(n => n >= 20 && n < 100000);
-        if (totalAreas.length > 0) {
-          const maxTotal = Math.max(...totalAreas);
-          if (maxTotal > dbArea * 1.5 && maxTotal >= 30) {
-            return maxTotal;
-          }
-        }
-      }
-      
-      // Fallback: find all m2 mentions and take the largest, but only correct if DB area is clearly wrong
-      const matches = [...listing.description.matchAll(/(\d[\d\s]*\d)\s*m(?:2|²)/gi)];
-      const simpleMatches = [...listing.description.matchAll(/(\d{2,})\s*m(?:2|²)/gi)];
-      const allMatches = [...matches, ...simpleMatches];
-      if (allMatches.length > 0) {
-        const descAreas = allMatches.map((m: RegExpMatchArray) => Number(m[1].replace(/\s/g, ''))).filter((n: number) => n >= 10 && n < 100000);
-        if (descAreas.length > 0) {
-          const maxDescArea = Math.max(...descAreas);
-          // Only correct if DB area is very small OR description has a much larger value
-          if (dbArea < 10 || (maxDescArea > dbArea * 3 && maxDescArea >= 50)) {
-            return maxDescArea;
-          }
-        }
-      }
-    }
-    return dbArea;
-  })();
+  // Area is already corrected in the mapping layer (ai_area_total > area_total > area)
+  const displayArea = listing.areaM2 || 0;
 
   const rawPhotos = typeof listing.photos === 'string'
     ? (() => {
