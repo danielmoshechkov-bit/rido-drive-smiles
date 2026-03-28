@@ -35,14 +35,9 @@ const ICON_MAP: Record<string, React.ComponentType<any>> = {
 
 const ICON_OPTIONS = Object.keys(ICON_MAP);
 
-const MODELS = [
-  { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' },
-  { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4' },
-  { value: 'gpt-4o-mini', label: 'GPT-4o Mini' },
-  { value: 'gpt-4o', label: 'GPT-4o' },
-  { value: 'moonshot-v1-8k', label: 'Kimi (Moonshot)' },
-  { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
-];
+import { AI_MODELS as MODELS_LIST, DEFAULT_AI_MODEL } from '@/config/aiModels';
+
+const MODELS = MODELS_LIST;
 
 const MODULES = [
   { value: 'portal', label: 'Portal GetRido', icon: Globe },
