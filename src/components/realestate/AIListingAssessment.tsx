@@ -48,12 +48,13 @@ export function AIListingAssessment({ listing }: AIListingAssessmentProps) {
       // Try loading saved assessment from DB first
       const { data: existing } = await supabase
         .from('real_estate_listings')
-        .select('ai_assessment')
+        .select('ai_assessment' as any)
         .eq('id', listing.id)
         .single();
 
-      if (existing?.ai_assessment && typeof existing.ai_assessment === 'object') {
-        const saved = existing.ai_assessment as any;
+      const existingData = existing as any;
+      if (existingData?.ai_assessment && typeof existingData.ai_assessment === 'object') {
+        const saved = existingData.ai_assessment as any;
         if (saved.rating && saved.pros && saved.summary) {
           setAssessment(saved as AIAssessment);
           setLoading(false);
@@ -68,7 +69,7 @@ export function AIListingAssessment({ listing }: AIListingAssessmentProps) {
       // Save to DB so it won't regenerate
       await supabase
         .from('real_estate_listings')
-        .update({ ai_assessment: generated as any })
+        .update({ ai_assessment: generated } as any)
         .eq('id', listing.id);
     } catch (err) {
       console.error("AI assessment error:", err);
