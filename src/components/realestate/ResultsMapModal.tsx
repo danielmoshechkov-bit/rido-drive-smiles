@@ -456,6 +456,15 @@ export function ResultsMapModal({
       // Create initial markers
       updateMarkers();
 
+      // Fit bounds to all listings
+      if (fitBoundsAfter) {
+        const bounds = new google.maps.LatLngBounds();
+        filteredListings.forEach(l => {
+          if (l.lat && l.lng) bounds.extend({ lat: l.lat, lng: l.lng });
+        });
+        map.fitBounds(bounds, 50);
+      }
+
       // Re-cluster on zoom change
       map.addListener('zoom_changed', () => {
         updateMarkers();
