@@ -11984,6 +11984,15 @@ export type Database = {
           address: string | null
           agency_id: string | null
           agent_id: string
+          ai_amenities: Json | null
+          ai_area_total: number | null
+          ai_building_info: Json | null
+          ai_confidence: number | null
+          ai_description_html: string | null
+          ai_location_details: Json | null
+          ai_parsed_at: string | null
+          ai_rooms_data: Json | null
+          ai_summary: string | null
           area: number | null
           area_plot: number | null
           area_total: number | null
@@ -12040,6 +12049,15 @@ export type Database = {
           address?: string | null
           agency_id?: string | null
           agent_id: string
+          ai_amenities?: Json | null
+          ai_area_total?: number | null
+          ai_building_info?: Json | null
+          ai_confidence?: number | null
+          ai_description_html?: string | null
+          ai_location_details?: Json | null
+          ai_parsed_at?: string | null
+          ai_rooms_data?: Json | null
+          ai_summary?: string | null
           area?: number | null
           area_plot?: number | null
           area_total?: number | null
@@ -12096,6 +12114,15 @@ export type Database = {
           address?: string | null
           agency_id?: string | null
           agent_id?: string
+          ai_amenities?: Json | null
+          ai_area_total?: number | null
+          ai_building_info?: Json | null
+          ai_confidence?: number | null
+          ai_description_html?: string | null
+          ai_location_details?: Json | null
+          ai_parsed_at?: string | null
+          ai_rooms_data?: Json | null
+          ai_summary?: string | null
           area?: number | null
           area_plot?: number | null
           area_total?: number | null
