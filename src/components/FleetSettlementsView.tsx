@@ -632,6 +632,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
   // Delete settlements for selected period
   const handleDeleteSettlements = async () => {
+    const round2Local = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
     if (!currentWeek) {
       toast.error('Nie wybrano okresu rozliczeniowego');
       return;
