@@ -207,7 +207,7 @@ Zwróć JSON w dokładnie tym formacie:
     "cicha_okolica": true/false/null,
     "widok": "opis widoku" lub null
   },
-  "description_formatted": "Sformatowany opis w HTML z <h3> dla sekcji, <ul> dla list, <p> dla akapitów. Zachowaj treść, popraw formatowanie.",
+  "description_formatted": "Sformatowany opis w czystym HTML. WYMAGANIA: 1) Każdy akapit w <p>. 2) Sekcje jak 'Układ pomieszczeń', 'Wykończenie', 'Lokalizacja' w <h3>. 3) Listy pokoi/cech w <ul><li>. 4) Popraw błędy ortograficzne. 5) Dodaj <br/> między sekcjami. 6) NIE zmieniaj faktów, tylko formatuj czytelnie. Tekst musi być przyjemny wizualnie z wyraźnymi odstępami.",
   "ai_summary": "Jedno zdanie podsumowujące max 120 znaków",
   "confidence": liczba 0-100
 }

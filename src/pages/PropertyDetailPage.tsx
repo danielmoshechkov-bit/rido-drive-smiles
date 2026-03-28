@@ -518,12 +518,26 @@ export default function PropertyDetailPage() {
               </div>
               {listing.aiDescriptionHtml ? (
                 <div 
-                  className="prose prose-sm max-w-none text-foreground/80 leading-relaxed"
+                  className="prose prose-sm max-w-none text-foreground/80 leading-relaxed [&>p]:mb-3 [&>h3]:mt-5 [&>h3]:mb-2 [&>h3]:text-base [&>h3]:font-semibold [&>ul]:my-2 [&>ul]:pl-5 [&>ul]:list-disc"
                   dangerouslySetInnerHTML={{ __html: listing.aiDescriptionHtml }}
                 />
               ) : (
-                <div className="prose prose-sm max-w-none text-foreground/80 whitespace-pre-line leading-relaxed">
-                  {listing.description || "Brak opisu"}
+                <div className="prose prose-sm max-w-none text-foreground/80 leading-relaxed space-y-3">
+                  {(listing.description || "Brak opisu").split(/\n{2,}|\n(?=[A-ZŻŹĆĄŚĘŁÓŃ])/g).map((block, i) => {
+                    const trimmed = block.trim();
+                    if (!trimmed) return null;
+                    // Detect section headers (short lines ending with colon or all-caps-ish)
+                    const isHeader = trimmed.endsWith(':') && trimmed.length < 60;
+                    if (isHeader) {
+                      return <h3 key={i} className="text-base font-semibold text-foreground mt-4 mb-1">{trimmed}</h3>;
+                    }
+                    // Split remaining newlines into paragraphs
+                    return trimmed.split('\n').map((line, j) => {
+                      const l = line.trim();
+                      if (!l) return null;
+                      return <p key={`${i}-${j}`} className="mb-2">{l}</p>;
+                    });
+                  })}
                 </div>
               )}
             </div>
