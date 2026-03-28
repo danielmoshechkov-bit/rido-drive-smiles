@@ -21,10 +21,29 @@ import { cn } from "@/lib/utils";
 import { LocationSearchInput, LocationSelection, AreaSelection } from "./LocationSearchInput";
 import { LocationMapModal } from "./LocationMapModal";
 
+interface PropertyListingForMap {
+  id: string;
+  title: string;
+  price: number;
+  priceType?: string;
+  photos?: string[];
+  location: string;
+  district?: string;
+  areaM2: number;
+  rooms?: number;
+  propertyType?: string;
+  transactionType?: string;
+  transactionColor?: string;
+  lat?: number;
+  lng?: number;
+}
+
 interface RealEstateSearchProps {
   onSearch: (filters: RealEstateFilters) => void;
   onShowMapResults?: () => void;
   onDrawSearch?: () => void;
+  onViewListing?: (id: string) => void;
+  listings?: PropertyListingForMap[];
   className?: string;
 }
 
@@ -145,7 +164,7 @@ function serializeAreaToParams(area: AreaSelection | null, params: URLSearchPara
   }
 }
 
-export function RealEstateSearch({ onSearch, onShowMapResults, onDrawSearch, className }: RealEstateSearchProps) {
+export function RealEstateSearch({ onSearch, onShowMapResults, onDrawSearch, onViewListing, listings = [], className }: RealEstateSearchProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   
   // Initialize filters from URL params
@@ -431,26 +450,14 @@ export function RealEstateSearch({ onSearch, onShowMapResults, onDrawSearch, cla
           </Collapsible>
 
           <Button
-            variant="outline"
+            variant="default"
             size="sm"
             onClick={() => setShowMapModal(true)}
             className="gap-2"
           >
-            <PenTool className="h-4 w-4" />
-            Zaznacz na mapie
+            <Map className="h-4 w-4" />
+            Mapa
           </Button>
-
-          {onShowMapResults && (
-            <Button
-              variant="default"
-              size="sm"
-              onClick={onShowMapResults}
-              className="gap-2"
-            >
-              <Map className="h-4 w-4" />
-              Pokaż na mapie
-            </Button>
-          )}
         </div>
 
         <Collapsible open={showAdvanced} onOpenChange={setShowAdvanced}>
@@ -583,6 +590,8 @@ export function RealEstateSearch({ onSearch, onShowMapResults, onDrawSearch, cla
         }
         initialArea={selectedArea}
         onConfirm={handleAreaConfirm}
+        listings={listings}
+        onViewListing={onViewListing}
       />
     </>
   );
