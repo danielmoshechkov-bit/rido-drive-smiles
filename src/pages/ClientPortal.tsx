@@ -1161,7 +1161,11 @@ export default function ClientPortal() {
             <ClientMyVehicles userId={user?.id || ''} userPhone={user?.user_metadata?.phone || accountPhone} />
           )}
 
-          {/* Messages Tab */}
+          {/* Oglądania Tab */}
+          {activeTab === 'ogladania' && (
+            <MyViewingsPanel />
+          )}
+
           {activeTab === 'wiadomosci' && (
             <Card>
               <CardHeader>
