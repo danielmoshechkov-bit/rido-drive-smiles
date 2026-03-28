@@ -119,7 +119,8 @@ function getRoomSortOrder(name: string): number {
 export function PropertySpecsTable({ listing }: PropertySpecsTableProps) {
   const [activeTab, setActiveTab] = useState<"info" | "rooms">("info");
   
-  const hasRoomsData = listing.roomsData && listing.roomsData.length > 0;
+  const filteredRooms = listing.roomsData?.filter(r => r.area > 0) || [];
+  const hasRoomsData = filteredRooms.length > 0;
 
   const specs = [
     {
@@ -236,7 +237,7 @@ export function PropertySpecsTable({ listing }: PropertySpecsTableProps) {
       {activeTab === "rooms" && hasRoomsData && (
         <div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {[...listing.roomsData!]
+            {filteredRooms
               .filter(room => room.area > 0)
               .sort((a, b) => getRoomSortOrder(a.name) - getRoomSortOrder(b.name))
               .map((room, index) => (
