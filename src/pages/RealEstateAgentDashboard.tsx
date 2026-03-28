@@ -15,6 +15,7 @@ import {
 import { AgencyCRMSettings } from "@/components/agency/AgencyCRMSettings";
 import { AgentCRM } from "@/components/realestate/AgentCRM";
 import { AIBatchProcessButton } from "@/components/realestate/AIBatchProcessButton";
+import { AgentListingsGrid } from "@/components/realestate/AgentListingsGrid";
 import { GoogleCalendarConnect } from "@/components/realestate/GoogleCalendarConnect";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
