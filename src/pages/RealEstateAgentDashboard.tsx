@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { AgencyCRMSettings } from "@/components/agency/AgencyCRMSettings";
 import { AgentCRM } from "@/components/realestate/AgentCRM";
+import { AIBatchProcessButton } from "@/components/realestate/AIBatchProcessButton";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { AccountSwitcherPanel } from "@/components/AccountSwitcherPanel";
