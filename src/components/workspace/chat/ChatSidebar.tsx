@@ -244,7 +244,7 @@ export function ChatSidebar({
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCreateGroup(false)}>Anuluj</Button>
-            <Button onClick={handleCreateGroup} disabled={!groupName.trim() || selectedGroupMembers.length === 0}>Utwórz grupę</Button>
+            <Button onClick={handleCreateGroup} disabled={!groupName.trim()}>Utwórz grupę</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

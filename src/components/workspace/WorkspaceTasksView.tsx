@@ -344,20 +344,20 @@ export function WorkspaceTasksView({ project, workspace }: Props) {
         </div>
       </div>
 
-      <Card>
-        <CardContent className="p-0">
-          {loading ? (
-            <div className="p-8 text-center text-muted-foreground">Ładowanie...</div>
-          ) : filtered.length === 0 ? (
-            <div className="p-8 text-center text-muted-foreground">
-              <ListChecks className="h-12 w-12 mx-auto mb-2 opacity-30" />
-              <p>Brak zadań. Dodaj pierwsze zadanie!</p>
-            </div>
-          ) : (
-            filtered.map(t => renderTask(t))
-          )}
-        </CardContent>
-      </Card>
+      <div>
+        {loading ? (
+          <div className="p-8 text-center text-muted-foreground">Ładowanie...</div>
+        ) : filtered.length === 0 ? (
+          <div className="p-8 text-center text-muted-foreground">
+            <ListChecks className="h-12 w-12 mx-auto mb-2 opacity-30" />
+            <p>Brak zadań. Dodaj pierwsze zadanie!</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+            {filtered.map(t => renderTask(t))}
+          </div>
+        )}
+      </div>
 
       {/* Create task dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
@@ -487,10 +487,30 @@ export function WorkspaceTasksView({ project, workspace }: Props) {
                       </Select>
                     </div>
                   </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Przypisane do</Label>
-                    <p className="text-sm mt-1">{detailTask.assigned_name || 'Brak'}</p>
-                  </div>
+                   <div>
+                     <Label className="text-xs text-muted-foreground">Przypisane do</Label>
+                     <Select
+                       value={detailTask.assigned_name || '__none__'}
+                       onValueChange={async v => {
+                         const assignedName = v === '__none__' ? '' : v;
+                         await logHistory(detailTask.id, 'assigned_name', detailTask.assigned_name, assignedName);
+                         await workspace.updateTask(detailTask.id, { assigned_name: assignedName || null });
+                         setDetailTask(prev => prev ? { ...prev, assigned_name: assignedName } : null);
+                         setTasks(prev => prev.map(t => t.id === detailTask.id ? { ...t, assigned_name: assignedName } : t));
+                         if (assignedName) {
+                           notifyTaskAssigned(project.id, detailTask.title, assignedName, detailTask.id, workspace.userEmail || undefined);
+                         }
+                       }}
+                     >
+                       <SelectTrigger className="mt-1"><SelectValue placeholder="Wybierz osobę" /></SelectTrigger>
+                       <SelectContent>
+                         <SelectItem value="__none__">Brak</SelectItem>
+                         {members.map(m => (
+                           <SelectItem key={m.id} value={getMemberName(m)}>{getMemberName(m)}</SelectItem>
+                         ))}
+                       </SelectContent>
+                     </Select>
+                   </div>
                   {detailTask.due_date && (
                     <div>
                       <Label className="text-xs text-muted-foreground">Termin</Label>
