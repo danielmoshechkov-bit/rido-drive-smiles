@@ -84,6 +84,16 @@ const ROOM_ICONS: Record<string, string> = {
   piwnica: "📦",
   komórka: "📦",
   schowek: "📦",
+  // Commercial
+  magazyn: "🏭",
+  hala: "🏭",
+  biuro: "🏢",
+  "pomieszczeni": "🧑‍💼",
+  socjaln: "🧑‍💼",
+  recepcja: "🏢",
+  "sala konferencyjn": "📊",
+  rampa: "🚛",
+  plac: "🅿️",
 };
 
 function getRoomIcon(name: string): string {
