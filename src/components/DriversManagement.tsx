@@ -240,11 +240,13 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
       }
     }
 
-    // Fleet company filter - check both direct fleet_id AND partnerships
+    // Fleet company filter - check direct fleet_id, vehicle assignment fleet, AND partnerships
     if (filters.fleetCompanyId) {
       const isDirectFleet = driver.fleet_id === filters.fleetCompanyId;
+      const isAssignmentFleet = driver.vehicle_assignment?.fleet_id === filters.fleetCompanyId;
+      const isVehicleFleet = driver.vehicle_assignment?.vehicle?.fleet_id === filters.fleetCompanyId;
       const isPartnerFleet = partnershipDriverIds[filters.fleetCompanyId]?.includes(driver.id) ?? false;
-      if (!isDirectFleet && !isPartnerFleet) {
+      if (!isDirectFleet && !isAssignmentFleet && !isVehicleFleet && !isPartnerFleet) {
         return false;
       }
     }
