@@ -16,7 +16,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
-import { Search, ChevronDown, SlidersHorizontal, X, Map, PenTool } from "lucide-react";
+import { Search, ChevronDown, SlidersHorizontal, X, Map } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LocationSearchInput, LocationSelection, AreaSelection } from "./LocationSearchInput";
 import { LocationMapModal } from "./LocationMapModal";
