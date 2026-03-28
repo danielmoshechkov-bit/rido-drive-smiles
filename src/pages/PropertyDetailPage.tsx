@@ -552,6 +552,19 @@ export default function PropertyDetailPage() {
           });
         }}
       />
+
+      {/* Message Dialog */}
+      {listing && (
+        <PropertyMessageDialog
+          open={showMessageDialog}
+          onOpenChange={setShowMessageDialog}
+          listingId={listing.id}
+          listingTitle={listing.title}
+          agentId={listing.agentId || id || ''}
+          agentEmail={listing.contactEmail}
+          user={user}
+        />
+      )}
     </div>
   );
 }
