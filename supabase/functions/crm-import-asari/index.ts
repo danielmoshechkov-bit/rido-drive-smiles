@@ -320,6 +320,20 @@ serve(async (req) => {
         })
         .eq("id", integration_id);
 
+      // Fire-and-forget AI parsing for new/updated listings
+      if (newAndUpdatedIds.length > 0) {
+        const parseUrl = `${SUPABASE_URL}/functions/v1/parse-listing-ai`;
+        fetch(parseUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+          },
+          body: JSON.stringify({ batch_ids: newAndUpdatedIds.slice(0, 50) }),
+        }).catch(e => console.error('AI parse trigger failed:', e));
+        console.log(`Triggered AI parse for ${Math.min(newAndUpdatedIds.length, 50)} listings`);
+      }
+
       return new Response(
         JSON.stringify({
           success: true,
