@@ -239,7 +239,11 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     { key: 'paid', label: 'Opłacony' },
   ];
 
-  const isColVisible = (key: string) => !hiddenColumns.has(key);
+  const RENTAL_COLUMNS = new Set(['rental', 'debt_rental', 'do_wyplaty']);
+  const isColVisible = (key: string) => {
+    if (!showRentalColumns && RENTAL_COLUMNS.has(key)) return false;
+    return !hiddenColumns.has(key);
+  };
   const toggleColumn = (key: string) => {
     setHiddenColumns(prev => {
       const next = new Set(prev);
