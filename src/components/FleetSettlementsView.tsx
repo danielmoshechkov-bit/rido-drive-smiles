@@ -181,6 +181,12 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     } catch {}
     return new Set();
   });
+  // Toggle between detailed (with rental columns) and simple view
+  const [showRentalColumns, setShowRentalColumns] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(`fleet_show_rental_${fleetId}`) !== 'false';
+    } catch { return true; }
+  });
 
   // Sorting state
   const [sortColumn, setSortColumn] = useState<string | null>(null);
@@ -233,7 +239,11 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     { key: 'paid', label: 'Opłacony' },
   ];
 
-  const isColVisible = (key: string) => !hiddenColumns.has(key);
+  const RENTAL_COLUMNS = new Set(['rental', 'debt_rental', 'do_wyplaty']);
+  const isColVisible = (key: string) => {
+    if (!showRentalColumns && RENTAL_COLUMNS.has(key)) return false;
+    return !hiddenColumns.has(key);
+  };
   const toggleColumn = (key: string) => {
     setHiddenColumns(prev => {
       const next = new Set(prev);
@@ -622,6 +632,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
   // Delete settlements for selected period
   const handleDeleteSettlements = async () => {
+    const round2Local = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
     if (!currentWeek) {
       toast.error('Nie wybrano okresu rozliczeniowego');
       return;
@@ -708,6 +719,50 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           current_balance: newBalance,
           updated_at: new Date().toISOString()
         }, { onConflict: 'driver_id' });
+
+        // 3b. Recalculate debt chain on remaining settlements for this driver
+        const { data: remainingSettlements } = await supabase
+          .from('settlements')
+          .select('id, period_from, period_to, debt_before, debt_payment, debt_after, actual_payout')
+          .eq('driver_id', driverId)
+          .not('id', 'in', `(${settlementIds.join(',')})`)
+          .order('period_from', { ascending: true });
+
+        if (remainingSettlements && remainingSettlements.length > 0) {
+          let runningDebt = 0;
+          for (const s of remainingSettlements) {
+            const rawPayout = (s.actual_payout || 0) + (s.debt_payment || 0);
+            let debtPayment = 0;
+            let remainingDebt = runningDebt;
+            let actualPayout = 0;
+
+            if (rawPayout < 0) {
+              remainingDebt = round2Local(runningDebt + Math.abs(rawPayout));
+            } else if (runningDebt <= 0) {
+              remainingDebt = 0;
+              actualPayout = rawPayout;
+            } else if (rawPayout >= runningDebt) {
+              debtPayment = runningDebt;
+              remainingDebt = 0;
+              actualPayout = round2Local(rawPayout - runningDebt);
+            } else {
+              debtPayment = rawPayout;
+              remainingDebt = round2Local(runningDebt - rawPayout);
+            }
+
+            await supabase
+              .from('settlements')
+              .update({
+                debt_before: round2Local(runningDebt),
+                debt_payment: round2Local(debtPayment),
+                debt_after: round2Local(remainingDebt),
+                actual_payout: round2Local(actualPayout),
+              })
+              .eq('id', s.id);
+
+            runningDebt = remainingDebt;
+          }
+        }
       }
 
       // 4. Delete settlements from database
@@ -2717,6 +2772,18 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                   </div>
                 </PopoverContent>
               </Popover>
+              <Button
+                variant={showRentalColumns ? "default" : "outline"}
+                size="sm"
+                className="gap-1.5 text-xs"
+                onClick={() => {
+                  const next = !showRentalColumns;
+                  setShowRentalColumns(next);
+                  try { localStorage.setItem(`fleet_show_rental_${fleetId}`, String(next)); } catch {}
+                }}
+              >
+                {showRentalColumns ? '🚗 Z autami' : '📊 Bez aut'}
+              </Button>
               <div className="h-6 w-px bg-border hidden md:block" />
               <div className="flex flex-wrap items-center gap-2">
                 <Button 
