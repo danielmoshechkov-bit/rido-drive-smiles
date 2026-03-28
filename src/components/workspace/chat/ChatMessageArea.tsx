@@ -145,6 +145,21 @@ export function ChatMessageArea({
     }
   }, [messages]);
 
+  // Auto-translate new messages when enabled
+  useEffect(() => {
+    if (!autoTranslateEnabled || !isPremium || myLanguage === 'pl') return;
+    const untranslated = messages.filter(m => 
+      m.content && m.message_type !== 'file' && m.user_id !== userId &&
+      !translation.getTranslation(m.id, myLanguage) && !translation.isLoading(m.id, myLanguage)
+    );
+    untranslated.slice(-3).forEach(m => {
+      translation.translateMessage(m.id, m.content!, myLanguage);
+    });
+  }, [messages.length, autoTranslateEnabled, myLanguage, isPremium]);
+
+  useEffect(() => { localStorage.setItem('workspace_translate_lang', myLanguage); }, [myLanguage]);
+  useEffect(() => { localStorage.setItem('workspace_auto_translate', String(autoTranslateEnabled)); }, [autoTranslateEnabled]);
+
   const getMemberName = (member: any) => {
     if (member?.first_name) return `${member.first_name} ${member.last_name || ''}`.trim();
     return member?.display_name || member?.email || 'Użytkownik';
