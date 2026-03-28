@@ -6,6 +6,77 @@ const cors = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Determine API endpoint and key based on model
+function getApiConfig(model: string) {
+  if (model.startsWith('google/') || model.startsWith('openai/')) {
+    // Lovable AI Gateway
+    return {
+      url: 'https://ai.gateway.lovable.dev/v1/chat/completions',
+      keyEnv: 'LOVABLE_API_KEY',
+      model,
+    }
+  }
+  if (model.startsWith('claude-')) {
+    // Anthropic
+    return {
+      url: 'https://api.anthropic.com/v1/messages',
+      keyEnv: 'ANTHROPIC_API_KEY',
+      model,
+      isAnthropic: true,
+    }
+  }
+  // Kimi / Moonshot (default fallback)
+  return {
+    url: 'https://api.moonshot.ai/v1/chat/completions',
+    keyEnv: 'KIMI_API_KEY',
+    model: model || 'moonshot-v1-8k',
+  }
+}
+
+async function callAI(apiKey: string, config: any, systemPrompt: string, userPrompt: string): Promise<string> {
+  if (config.isAnthropic) {
+    const res = await fetch(config.url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: config.model,
+        max_tokens: 4000,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }],
+      }),
+    })
+    const data = await res.json()
+    return data.content?.[0]?.text?.trim() || '{}'
+  }
+
+  // OpenAI-compatible (Lovable Gateway, Kimi)
+  const res = await fetch(config.url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: config.model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      max_tokens: 4000,
+      temperature: 0.1,
+    }),
+  })
+  const data = await res.json()
+  if (data.error) {
+    throw new Error(`AI API error: ${JSON.stringify(data.error)}`)
+  }
+  return data.choices?.[0]?.message?.content?.trim() || '{}'
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
 
@@ -15,7 +86,7 @@ serve(async (req) => {
   )
 
   try {
-    const { listing_id, batch_ids } = await req.json()
+    const { listing_id, batch_ids, model: requestModel } = await req.json()
     const ids = batch_ids || (listing_id ? [listing_id] : [])
 
     if (ids.length === 0) {
@@ -24,29 +95,34 @@ serve(async (req) => {
       })
     }
 
-    // Get KIMI API key
-    const KIMI_KEY = Deno.env.get('KIMI_API_KEY')
-    if (!KIMI_KEY) {
-      // Fallback: try from ai_providers table
-      const { data: provider } = await sb
-        .from('ai_providers')
-        .select('api_key_encrypted')
-        .eq('provider_key', 'kimi')
-        .single()
-      
-      if (!provider?.api_key_encrypted) {
-        return new Response(JSON.stringify({ error: 'No KIMI API key configured' }), {
-          status: 500, headers: { ...cors, 'Content-Type': 'application/json' }
-        })
-      }
+    // Get configured model from portal_integrations or use request model
+    let selectedModel = requestModel || ''
+    if (!selectedModel) {
+      const { data: parserConfig } = await sb
+        .from('portal_integrations')
+        .select('config_json')
+        .eq('key', 'ai_listing_parser')
+        .maybeSingle()
+      selectedModel = (parserConfig?.config_json as any)?.model || 'google/gemini-3-flash-preview'
     }
 
-    const apiKey = KIMI_KEY || (await sb.from('ai_providers').select('api_key_encrypted').eq('provider_key', 'kimi').single()).data?.api_key_encrypted
+    const apiConfig = getApiConfig(selectedModel)
+    const apiKey = Deno.env.get(apiConfig.keyEnv)
 
-    // Fetch listings
+    if (!apiKey) {
+      return new Response(JSON.stringify({ 
+        error: `Brak klucza API: ${apiConfig.keyEnv}. Skonfiguruj go w ustawieniach Supabase.` 
+      }), {
+        status: 500, headers: { ...cors, 'Content-Type': 'application/json' }
+      })
+    }
+
+    console.log(`[parse-listing-ai] Model: ${selectedModel}, Provider: ${apiConfig.keyEnv}, Listings: ${ids.length}`)
+
+    // Fetch listings with ALL relevant fields
     const { data: listings, error: fetchErr } = await sb
       .from('real_estate_listings')
-      .select('id, title, description, area, area_total, rooms, price, city, district, has_balcony, has_elevator, has_parking, has_garden, floor, total_floors, build_year')
+      .select('id, title, description, area, area_total, area_usable, rooms, price, city, district, address, has_balcony, has_elevator, has_parking, has_garden, floor, total_floors, build_year, crm_raw_data')
       .in('id', ids)
 
     if (fetchErr || !listings) {
@@ -55,29 +131,50 @@ serve(async (req) => {
       })
     }
 
+    const systemPrompt = `Jesteś ekspertem od analizy ogłoszeń nieruchomości w Polsce. Analizujesz tekst ogłoszenia i wyciągasz dane strukturalne. 
+
+WAŻNE ZASADY:
+- Odpowiadasz WYŁĄCZNIE w formacie JSON, bez markdown, bez \`\`\`
+- Powierzchnia całkowita (area_total) to CAŁY metraż mieszkania/domu, NIE jednego pokoju
+- Jeśli w opisie są wymienione pokoje z metrażami, zsumuj je — to przybliżona powierzchnia całkowita
+- Każdy wymieniony pokój (salon, sypialnia, kuchnia, łazienka, garderoba, przedpokój) musi być w tablicy rooms
+- Adres i lokalizację wyciągnij z opisu jeśli jest podany`
+
     const results: Array<{ id: string; success: boolean; error?: string }> = []
 
     for (const listing of listings) {
       try {
-        if (!listing.description || listing.description.trim().length < 30) {
+        if (!listing.description || listing.description.trim().length < 20) {
           results.push({ id: listing.id, success: false, error: 'Description too short' })
           continue
         }
 
-        const prompt = `Przeanalizuj to ogłoszenie nieruchomości i wyciągnij wszystkie możliwe dane.
+        // Extract raw CRM data hints if available
+        const rawHints = listing.crm_raw_data ? 
+          Object.entries(listing.crm_raw_data as Record<string, any>)
+            .filter(([k, v]) => v && String(v).length > 0 && String(v).length < 200)
+            .map(([k, v]) => `${k}=${v}`)
+            .join(', ') : ''
+
+        const prompt = `Przeanalizuj to ogłoszenie nieruchomości i wyciągnij WSZYSTKIE możliwe dane.
 
 TYTUŁ: ${listing.title || 'brak'}
 OPIS: ${listing.description}
-DANE Z CRM: powierzchnia=${listing.area_total || listing.area || '?'}m², pokoje=${listing.rooms || '?'}, cena=${listing.price || '?'}zł, adres=${listing.city || ''} ${listing.district || ''}, piętro=${listing.floor || '?'}/${listing.total_floors || '?'}, rok=${listing.build_year || '?'}
+DANE Z CRM: powierzchnia_calkowita=${listing.area_total || listing.area || '?'}m², pow_uzytkowa=${listing.area_usable || '?'}m², pokoje=${listing.rooms || '?'}, cena=${listing.price || '?'}zł, miasto=${listing.city || ''}, dzielnica=${listing.district || ''}, adres=${listing.address || '?'}, piętro=${listing.floor || '?'}/${listing.total_floors || '?'}, rok=${listing.build_year || '?'}
+${rawHints ? `DANE DODATKOWE Z CRM: ${rawHints}` : ''}
 
 Zwróć JSON w dokładnie tym formacie:
 {
-  "area_total": liczba lub null,
+  "area_total": liczba (CAŁY metraż mieszkania, NIE jednego pokoju) lub null,
   "area_usable": liczba lub null,
   "rooms": [
     {"name": "Salon", "area": 29},
-    {"name": "Sypialnia 1", "area": 15}
+    {"name": "Sypialnia 1", "area": 15},
+    {"name": "Kuchnia", "area": 8},
+    {"name": "Łazienka", "area": 5},
+    {"name": "Przedpokój", "area": 4}
   ],
+  "address_extracted": "ul. Przykładowa 15, Warszawa" lub null,
   "amenities": {
     "balkon": true/false/null,
     "taras": true/false/null,
@@ -108,59 +205,73 @@ Zwróć JSON w dokładnie tym formacie:
     "blisko_parku": true/false/null,
     "blisko_centrum": true/false/null,
     "cicha_okolica": true/false/null,
-    "widok": null
+    "widok": "opis widoku" lub null
   },
   "description_formatted": "Sformatowany opis w HTML z <h3> dla sekcji, <ul> dla list, <p> dla akapitów. Zachowaj treść, popraw formatowanie.",
-  "ai_summary": "Jedno zdanie max 120 znaków",
+  "ai_summary": "Jedno zdanie podsumowujące max 120 znaków",
   "confidence": liczba 0-100
-}`
+}
 
-        const res = await fetch('https://api.moonshot.ai/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`
-          },
-          body: JSON.stringify({
-            model: 'moonshot-v1-8k',
-            messages: [
-              {
-                role: 'system',
-                content: 'Jesteś ekspertem od analizy ogłoszeń nieruchomości w Polsce. Analizujesz tekst ogłoszenia i wyciągasz dane strukturalne. Odpowiadasz WYŁĄCZNIE w formacie JSON, bez markdown, bez ```.'
-              },
-              { role: 'user', content: prompt }
-            ],
-            max_tokens: 2000,
-            temperature: 0.1
-          })
-        })
+UWAGA: Wypisz WSZYSTKIE pokoje wymienione w opisie, nie pomijaj żadnego!`
 
-        const data = await res.json()
-        const raw = data.choices?.[0]?.message?.content?.trim() || '{}'
+        const raw = await callAI(apiKey, apiConfig, systemPrompt, prompt)
         let parsed: any = {}
 
         try {
-          parsed = JSON.parse(raw.replace(/```json|```/g, '').trim())
+          // Clean up potential markdown fences
+          const cleaned = raw.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim()
+          parsed = JSON.parse(cleaned)
         } catch {
-          console.error('Failed to parse AI response for', listing.id, raw.slice(0, 200))
+          console.error('Failed to parse AI response for', listing.id, raw.slice(0, 300))
           results.push({ id: listing.id, success: false, error: 'JSON parse error' })
           continue
         }
 
-        // Update listing with AI data
-        const { error: updateErr } = await sb.from('real_estate_listings').update({
+        // Validate area_total — if AI returned it and it seems like a single room area, recalculate
+        let aiAreaTotal = parsed.area_total
+        if (parsed.rooms && parsed.rooms.length > 1) {
+          const roomsSum = parsed.rooms.reduce((s: number, r: any) => s + (r.area || 0), 0)
+          // If area_total is smaller than the sum of rooms, use the sum
+          if (aiAreaTotal && aiAreaTotal < roomsSum) {
+            aiAreaTotal = roomsSum
+          }
+          // If no area_total but we have rooms, use the sum
+          if (!aiAreaTotal && roomsSum > 0) {
+            aiAreaTotal = roomsSum
+          }
+        }
+
+        // Build update payload
+        const updatePayload: Record<string, any> = {
           ai_rooms_data: parsed.rooms || [],
           ai_amenities: parsed.amenities || {},
           ai_building_info: parsed.building_info || {},
           ai_location_details: parsed.location_details || {},
           ai_description_html: parsed.description_formatted || null,
           ai_summary: parsed.ai_summary || null,
-          ai_area_total: parsed.area_total || null,
+          ai_area_total: aiAreaTotal || null,
           ai_parsed_at: new Date().toISOString(),
           ai_confidence: parsed.confidence || 0,
-          // Also update area_total if we got a better value
-          ...(parsed.area_total && (!listing.area_total || listing.area_total === 0) ? { area_total: parsed.area_total } : {}),
-        }).eq('id', listing.id)
+        }
+
+        // Update area_total if we got a better value from AI
+        if (aiAreaTotal && aiAreaTotal > 0) {
+          const currentArea = listing.area_total || listing.area || 0
+          // If current area is 0, or AI area is significantly different (and AI has high confidence)
+          if (!currentArea || currentArea === 0 || (parsed.confidence >= 70 && Math.abs(aiAreaTotal - currentArea) > currentArea * 0.2)) {
+            updatePayload.area_total = aiAreaTotal
+            updatePayload.area = aiAreaTotal
+          }
+        }
+
+        // Update address if extracted
+        if (parsed.address_extracted && !listing.address) {
+          updatePayload.address = parsed.address_extracted
+        }
+
+        const { error: updateErr } = await sb.from('real_estate_listings')
+          .update(updatePayload)
+          .eq('id', listing.id)
 
         if (updateErr) {
           results.push({ id: listing.id, success: false, error: updateErr.message })
@@ -168,16 +279,23 @@ Zwróć JSON w dokładnie tym formacie:
           results.push({ id: listing.id, success: true })
         }
 
-        // Rate limit: wait between requests
+        // Rate limit between requests
         if (listings.length > 1) {
-          await new Promise(r => setTimeout(r, 500))
+          await new Promise(r => setTimeout(r, 600))
         }
       } catch (err) {
+        console.error('Error processing listing', listing.id, err)
         results.push({ id: listing.id, success: false, error: String(err) })
       }
     }
 
-    return new Response(JSON.stringify({ results, processed: results.length }), {
+    return new Response(JSON.stringify({ 
+      results, 
+      processed: results.length,
+      model: selectedModel,
+      success_count: results.filter(r => r.success).length,
+      error_count: results.filter(r => !r.success).length,
+    }), {
       headers: { ...cors, 'Content-Type': 'application/json' }
     })
   } catch (err) {
