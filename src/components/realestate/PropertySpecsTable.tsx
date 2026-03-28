@@ -236,13 +236,15 @@ export function PropertySpecsTable({ listing }: PropertySpecsTableProps) {
       {activeTab === "rooms" && hasRoomsData && (
         <div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {listing.roomsData!.map((room, index) => (
+            {[...listing.roomsData!]
+              .sort((a, b) => getRoomSortOrder(a.name) - getRoomSortOrder(b.name))
+              .map((room, index) => (
               <div
                 key={index}
                 className="flex flex-col items-center p-4 rounded-xl bg-card border shadow-sm hover:shadow-md hover:border-primary/30 transition-all cursor-default"
               >
                 <span className="text-2xl mb-2">{getRoomIcon(room.name)}</span>
-                <p className="text-sm text-muted-foreground">{room.name || "Pokój"}</p>
+                <p className="text-sm text-muted-foreground text-center">{room.name || "Pokój"}</p>
                 <p className="font-bold text-lg">{room.area} m²</p>
               </div>
             ))}
