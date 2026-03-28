@@ -14,8 +14,7 @@ import { RealEstateSearch, RealEstateFilters } from "@/components/realestate/Rea
 import { RealEstateAISearch } from "@/components/realestate/RealEstateAISearch";
 import { PropertyTypeSelector } from "@/components/realestate/PropertyTypeSelector";
 import { TransactionTypeChips } from "@/components/realestate/TransactionTypeChips";
-import { CompareBar } from "@/components/marketplace/CompareBar";
-import { ViewingSelectionBar } from "@/components/realestate/ViewingSelectionBar";
+import { PropertySelectionBar } from "@/components/realestate/PropertySelectionBar";
 import { useCompare, PropertyCompareItem } from "@/contexts/CompareContext";
 import { ResultsMapModal } from "@/components/realestate/ResultsMapModal";
 import { toast } from "sonner";
@@ -390,22 +389,34 @@ export default function RealEstateMarketplace() {
   // Viewing selection state (separate from compare)
   const [viewingIds, setViewingIds] = useState<string[]>([]);
   const [viewingTitles, setViewingTitles] = useState<string[]>([]);
+  const [viewingPhotos, setViewingPhotos] = useState<Record<string, string>>({});
 
-  const toggleViewing = (id: string, title: string) => {
+  const toggleViewing = (id: string, title: string, photo?: string) => {
     setViewingIds(prev => {
       if (prev.includes(id)) {
         setViewingTitles(t => t.filter((_, i) => prev.indexOf(id) !== i));
+        setViewingPhotos(p => { const np = { ...p }; delete np[id]; return np; });
         return prev.filter(x => x !== id);
       }
       if (prev.length >= 10) return prev;
       setViewingTitles(t => [...t, title]);
+      if (photo) setViewingPhotos(p => ({ ...p, [id]: photo }));
       return [...prev, id];
     });
+  };
+
+  const removeViewing = (id: string) => {
+    const idx = viewingIds.indexOf(id);
+    if (idx === -1) return;
+    setViewingIds(prev => prev.filter(x => x !== id));
+    setViewingTitles(prev => prev.filter((_, i) => i !== idx));
+    setViewingPhotos(p => { const np = { ...p }; delete np[id]; return np; });
   };
 
   const clearViewing = () => {
     setViewingIds([]);
     setViewingTitles([]);
+    setViewingPhotos({});
   };
 
   // Fetch listings from database
