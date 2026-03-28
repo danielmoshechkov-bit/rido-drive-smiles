@@ -255,19 +255,19 @@ export function PropertySpecsTable({ listing }: PropertySpecsTableProps) {
             {listing.areaTotal && listing.areaTotal > 0 && (
               <span>
                 <span className="text-muted-foreground">Powierzchnia całkowita:</span>{" "}
-                <span className="font-semibold">{listing.areaTotal} m²</span>
+                <span className="font-semibold">{Math.round(listing.areaTotal * 100) / 100} m²</span>
               </span>
             )}
-            {listing.areaUsable && listing.areaUsable > 0 && listing.areaUsable !== listing.areaTotal && (
+            {listing.areaUsable && listing.areaUsable > 1 && listing.areaUsable !== listing.areaTotal && (
               <span>
                 <span className="text-muted-foreground">Powierzchnia użytkowa:</span>{" "}
-                <span className="font-semibold">{listing.areaUsable} m²</span>
+                <span className="font-semibold">{Math.round(listing.areaUsable * 100) / 100} m²</span>
               </span>
             )}
             {listing.areaPlot && listing.areaPlot > 0 && (
               <span>
                 <span className="text-muted-foreground">Działka:</span>{" "}
-                <span className="font-semibold">{listing.areaPlot} m²</span>
+                <span className="font-semibold">{Math.round(listing.areaPlot * 100) / 100} m²</span>
               </span>
             )}
           </div>
