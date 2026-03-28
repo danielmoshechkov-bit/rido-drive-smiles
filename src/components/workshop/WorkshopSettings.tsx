@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { WholesalerIntegrationsSettings } from './parts/WholesalerIntegrationsSettings';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -81,10 +82,16 @@ export function WorkshopSettings({ providerId, onBack }: Props) {
         { key: 'p-szablony', label: 'Szablony zadań', icon: ClipboardList },
       ]
     },
+    integracje: {
+      title: 'INTEGRACJE',
+      items: [
+        { key: 'i-hurtownie', label: 'Integracje z hurtowniami', icon: Package },
+        { key: 'i-integracje', label: 'Inne integracje', icon: Wrench },
+      ]
+    },
     inne: {
       title: 'INNE',
       items: [
-        { key: 'i-integracje', label: 'Integracje', icon: Wrench },
         { key: 'i-import', label: 'Import danych', icon: FileText },
         { key: 'i-eksport', label: 'Eksport danych', icon: FileText },
       ]
@@ -147,6 +154,7 @@ function SettingSectionDetail({ sectionKey, providerId, onBack, onBackToMain }: 
     'w-godziny': 'Godziny pracy',
     'karta-zlecenia': 'Elektroniczna karta zlecenia',
     'w-szablony-zadan': 'Szablony zadań',
+    'i-hurtownie': 'Integracje z hurtowniami',
   };
 
   const title = titles[sectionKey] || 'Ustawienia';
@@ -167,8 +175,9 @@ function SettingSectionDetail({ sectionKey, providerId, onBack, onBackToMain }: 
       {sectionKey === 'w-pracownicy' && <WorkerSettings providerId={providerId} />}
       {sectionKey === 'w-godziny' && <WorkingHoursSettings />}
       {sectionKey === 'karta-zlecenia' && <OrderCardSettings />}
+      {sectionKey === 'i-hurtownie' && <WholesalerIntegrationsSettings providerId={providerId} />}
 
-      {!['dane-firmy', 'w-statusy', 'w-stanowiska', 'w-pracownicy', 'w-godziny', 'karta-zlecenia'].includes(sectionKey) && (
+      {!['dane-firmy', 'w-statusy', 'w-stanowiska', 'w-pracownicy', 'w-godziny', 'karta-zlecenia', 'i-hurtownie'].includes(sectionKey) && (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
             Konfiguracja sekcji „{title}" — wkrótce dostępna
