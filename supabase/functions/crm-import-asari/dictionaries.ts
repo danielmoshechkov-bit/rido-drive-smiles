@@ -83,6 +83,9 @@ export const ASARI_FIELD_MAP: Record<string, string> = {
   '82': 'amenities',       // przynależne (do parsowania)
   '496': 'video_url',      // link do wideo
   '497': 'virtual_tour_url', // link do spaceru wirtualnego
+  '59': 'area_total',       // powierzchnia całkowita [m2]
+  '60': 'area_usable',      // powierzchnia użytkowa [m2]
+  '61': 'area_plot',        // powierzchnia działki [m2]
 };
 
 // Parsowanie pola "przynależne" (ID:82) na cechy booleowskie

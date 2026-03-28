@@ -1,0 +1,5 @@
+ALTER TABLE real_estate_listings 
+ADD COLUMN IF NOT EXISTS area_total NUMERIC(8,2),
+ADD COLUMN IF NOT EXISTS area_usable NUMERIC(8,2),
+ADD COLUMN IF NOT EXISTS area_plot NUMERIC(8,2),
+ADD COLUMN IF NOT EXISTS rooms_data JSONB DEFAULT '[]'::jsonb;

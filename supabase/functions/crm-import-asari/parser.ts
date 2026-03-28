@@ -18,7 +18,11 @@ export interface ParsedOffer {
   transaction_type: string;
   price: number | null;
   area: number | null;
+  area_total: number | null;
+  area_usable: number | null;
+  area_plot: number | null;
   rooms: number | null;
+  rooms_data: Array<{ name: string; area: number }>;
   floor: number | null;
   total_floors: number | null;
   build_year: number | null;
@@ -114,6 +118,41 @@ function extractPhotos(offerXml: string): string[] {
   return photos;
 }
 
+// Extract rooms data from offer XML
+function extractRoomsData(offerXml: string): Array<{ name: string; area: number }> {
+  const rooms: Array<{ name: string; area: number }> = [];
+  
+  // Try <pokoje><pokoj nazwa="Salon" powierzchnia="29"/> format
+  const pokojMatches = offerXml.matchAll(/<pokoj[^>]*nazwa="([^"]*)"[^>]*powierzchnia="([^"]*)"[^>]*\/?>/gi);
+  for (const match of pokojMatches) {
+    const name = match[1]?.trim() || 'Pokój';
+    const area = parseFloat(match[2] || '0');
+    if (area > 0) rooms.push({ name, area });
+  }
+  
+  // Alternative: <pokoj powierzchnia="29" nazwa="Salon"/>
+  if (rooms.length === 0) {
+    const altMatches = offerXml.matchAll(/<pokoj[^>]*powierzchnia="([^"]*)"[^>]*nazwa="([^"]*)"[^>]*\/?>/gi);
+    for (const match of altMatches) {
+      const area = parseFloat(match[1] || '0');
+      const name = match[2]?.trim() || 'Pokój';
+      if (area > 0) rooms.push({ name, area });
+    }
+  }
+
+  // Try <room name="..." area="..."/> format
+  if (rooms.length === 0) {
+    const roomMatches = offerXml.matchAll(/<room[^>]*name="([^"]*)"[^>]*area="([^"]*)"[^>]*\/?>/gi);
+    for (const match of roomMatches) {
+      const name = match[1]?.trim() || 'Pokój';
+      const area = parseFloat(match[2] || '0');
+      if (area > 0) rooms.push({ name, area });
+    }
+  }
+  
+  return rooms;
+}
+
 // Extract signature (offer ID) from offer XML
 function extractSignature(offerXml: string): string | null {
   // Try <signature> element
@@ -141,6 +180,7 @@ export function parseOffer(offerXml: string): ParsedOffer | null {
   
   const params = extractParams(offerXml);
   const photos = extractPhotos(offerXml);
+  const roomsData = extractRoomsData(offerXml);
   
   // Build raw data for storage
   const rawData: Record<string, unknown> = {};
@@ -159,6 +199,12 @@ export function parseOffer(offerXml: string): ParsedOffer | null {
   
   // Build CRM agent ID (use email or name as identifier)
   const crmAgentId = agentEmail || agentName || null;
+
+  // Area fields - prioritize total area
+  const areaUsable = normalizePrice(params.get('58'));  // param 58 = pow. użytkowa
+  const areaTotal = normalizePrice(params.get('59')) || normalizePrice(params.get('58'));  // param 59 = pow. całkowita, fallback to 58
+  const areaUsableField = normalizePrice(params.get('60')) || areaUsable;  // param 60 = pow. użytkowa alt
+  const areaPlot = normalizePrice(params.get('61'));    // param 61 = pow. działki
   
   return {
     external_id: signature,
@@ -167,8 +213,12 @@ export function parseOffer(offerXml: string): ParsedOffer | null {
     property_type: mapPropertyType(params.get('36')),
     transaction_type: mapTransactionType(params.get('43')),
     price: normalizePrice(params.get('10')),
-    area: normalizePrice(params.get('58')),
+    area: areaTotal || areaUsable,
+    area_total: areaTotal,
+    area_usable: areaUsableField,
+    area_plot: areaPlot,
     rooms: normalizeInt(params.get('79')),
+    rooms_data: roomsData,
     floor: normalizeInt(params.get('62')),
     total_floors: normalizeInt(params.get('63')),
     build_year: normalizeInt(params.get('71')),

@@ -55,40 +55,27 @@ function mapDbToDisplayListing(db: any) {
   };
   const trans = transTypeMap[db.transaction_type || ''] || { label: db.transaction_type, color: "#6b7280" };
   
-  // Try to extract real area from description if DB area seems wrong
-  const dbArea = Number(db.area) || 0;
+  // Use area_total first, then area, then try description extraction as fallback
+  const areaTotal = Number(db.area_total) || 0;
+  const areaUsable = Number(db.area_usable) || 0;
+  const dbArea = areaTotal || Number(db.area) || 0;
   let correctedArea = dbArea;
-  if (db.description) {
-    // Look for explicit total area: "powierzchnia X m2", "pow. X m2", "łączna X m2"
+  
+  if (dbArea < 10 && db.description) {
     const totalAreaPattern = /(?:powierzchni[aę]|pow\.|łączn[aey]|całkowit[aey]|użytkow[aey]|mieszkaln[aey])\s*[:\-–]?\s*(?:ok\.?\s*)?(\d[\d\s,.]*\d?)\s*m(?:2|²)/gi;
     const totalMatches = [...db.description.matchAll(totalAreaPattern)];
     if (totalMatches.length > 0) {
-      const totalAreas = totalMatches.map(m => Number(m[1].replace(/[\s,]/g, '').replace(',', '.'))).filter(n => n >= 20 && n < 100000);
+      const totalAreas = totalMatches.map((m: RegExpMatchArray) => Number(m[1].replace(/[\s,]/g, '').replace(',', '.'))).filter((n: number) => n >= 20 && n < 100000);
       if (totalAreas.length > 0) {
-        const maxTotal = Math.max(...totalAreas);
-        if (maxTotal > dbArea * 1.5 && maxTotal >= 30) {
-          correctedArea = maxTotal;
-        }
+        correctedArea = Math.max(...totalAreas);
       }
     }
-    
-    // Fallback: find all m2 mentions and take the largest, but only correct if DB area is clearly wrong
-    if (correctedArea === dbArea) {
-      const matches = [...db.description.matchAll(/(\d[\d\s]*\d)\s*m(?:2|²)/gi)];
-      const simpleMatches = [...db.description.matchAll(/(\d{2,})\s*m(?:2|²)/gi)];
-      const allMatches = [...matches, ...simpleMatches];
-      if (allMatches.length > 0) {
-        const descAreas = allMatches
-          .map(m => Number(m[1].replace(/\s/g, '')))
-          .filter(n => n >= 10 && n < 100000);
-        if (descAreas.length > 0) {
-          const maxDescArea = Math.max(...descAreas);
-          if (dbArea < 10 || (maxDescArea > dbArea * 3 && maxDescArea >= 50)) {
-            correctedArea = maxDescArea;
-          }
-        }
-      }
-    }
+  }
+
+  // Parse rooms_data
+  let roomsData: Array<{ name: string; area: number }> = [];
+  if (db.rooms_data && Array.isArray(db.rooms_data) && db.rooms_data.length > 0) {
+    roomsData = db.rooms_data;
   }
 
   return {
@@ -104,6 +91,10 @@ function mapDbToDisplayListing(db: any) {
     address: fixPolishCase(db.address),
     buildYear: db.build_year,
     areaM2: correctedArea,
+    areaTotal: areaTotal || correctedArea,
+    areaUsable: areaUsable,
+    areaPlot: Number(db.area_plot) || 0,
+    roomsData,
     rooms: db.rooms,
     floor: db.floor,
     floorsTotal: db.total_floors,
