@@ -30,6 +30,8 @@ interface Props {
   onCreateDM: (userId: string, name: string) => Promise<any>;
   onSearch: () => void;
   onStatusChange: (status: string, text?: string) => Promise<void>;
+  onEditChannel?: (channelId: string, name: string, description?: string) => Promise<void>;
+  onDeleteChannel?: (channelId: string) => Promise<void>;
 }
 
 export function ChatSidebar({
