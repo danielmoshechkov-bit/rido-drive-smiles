@@ -422,6 +422,34 @@ export default function RealEstateMarketplace() {
     setViewingPhotos({});
   };
 
+  // Reset page when listings change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [listings.length, selectedPropertyType, selectedTransactionType]);
+
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(listings.length / perPage));
+  const paginatedListings = useMemo(() => {
+    const start = (currentPage - 1) * perPage;
+    return listings.slice(start, start + perPage);
+  }, [listings, currentPage, perPage]);
+
+  const getPageNumbers = () => {
+    const pages: (number | 'ellipsis')[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) pages.push('ellipsis');
+      for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
+        pages.push(i);
+      }
+      if (currentPage < totalPages - 2) pages.push('ellipsis');
+      pages.push(totalPages);
+    }
+    return pages;
+  };
+
   // Fetch listings from database
   useEffect(() => {
     const fetchListings = async () => {
