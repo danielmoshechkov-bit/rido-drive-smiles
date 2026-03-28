@@ -213,6 +213,8 @@ export function WorkspaceChatView({ project, workspace }: Props) {
               }}
               onSearch={() => setShowSearch(true)}
               onStatusChange={chat.updateMyStatus}
+              onEditChannel={handleEditChannel}
+              onDeleteChannel={handleDeleteChannel}
             />
           </div>
         )}
