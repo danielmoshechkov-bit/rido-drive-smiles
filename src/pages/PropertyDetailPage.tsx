@@ -509,15 +509,15 @@ export default function PropertyDetailPage() {
             {/* Description */}
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <h2 className="text-xl font-semibold">Opis</h2>
+                <h2 className="text-xl font-bold text-foreground">Opis</h2>
               </div>
               {listing.aiDescriptionHtml ? (
                 <div 
-                  className="prose prose-sm max-w-none text-foreground/80 leading-relaxed [&>p]:mb-3 [&>h3]:mt-5 [&>h3]:mb-2 [&>h3]:text-base [&>h3]:font-semibold [&>ul]:my-2 [&>ul]:pl-5 [&>ul]:list-disc"
+                  className="prose prose-sm max-w-none text-foreground leading-relaxed [&>p]:mb-3 [&>p]:text-foreground [&>h3]:mt-5 [&>h3]:mb-2 [&>h3]:text-base [&>h3]:font-bold [&>h3]:text-foreground [&>ul]:my-2 [&>ul]:pl-5 [&>ul]:list-disc [&>ul>li]:text-foreground"
                   dangerouslySetInnerHTML={{ __html: listing.aiDescriptionHtml }}
                 />
               ) : (
-                <div className="prose prose-sm max-w-none text-foreground/80 leading-relaxed space-y-3">
+                <div className="prose prose-sm max-w-none text-foreground leading-relaxed space-y-3">
                   {(listing.description || "Brak opisu").split(/\n{2,}|\n(?=[A-ZŻŹĆĄŚĘŁÓŃ])/g).map((block, i) => {
                     const trimmed = block.trim();
                     if (!trimmed) return null;
