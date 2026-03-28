@@ -289,6 +289,8 @@ interface DbListing {
   district?: string;
   address?: string;
   area?: number;
+  area_total?: number;
+  ai_area_total?: number;
   rooms?: number;
   floor?: number;
   total_floors?: number;
@@ -326,7 +328,7 @@ function mapDbToListing(db: DbListing) {
     wynajem: { label: "Wynajem", color: "#3b82f6" },
   };
   const trans = transTypeMap[db.transaction_type || ''] || { label: db.transaction_type, color: "#6b7280" };
-  const correctedArea = getCorrectedArea(db.area, db.description);
+  const correctedArea = Number(db.ai_area_total) || Number(db.area_total) || getCorrectedArea(db.area, db.description);
   
   return {
     id: db.id,
