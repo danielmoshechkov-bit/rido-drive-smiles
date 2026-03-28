@@ -411,39 +411,61 @@ export default function ServiceProviderDashboard() {
               {t('sp.tabs.selectModule')}
             </TabsTrigger>
           )}
-          <Popover open={moreOpen} onOpenChange={setMoreOpen}>
-            <PopoverTrigger asChild>
-              <button
-                type="button"
-                className="px-5 h-10 flex items-center gap-2 rounded-full text-white text-sm whitespace-nowrap transition-colors hover:bg-white/20 focus-visible:outline-none"
-              >
-                <ChevronDown className="h-4 w-4" />
-                {t('sp.tabs.more')}
-              </button>
-            </PopoverTrigger>
-            <PopoverContent className="w-52 p-1" align="end">
-              {!primaryTabs.includes('ai-agent') && (
-                <button className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-muted transition-colors" onClick={() => { setActiveTab('ai-agent'); setMoreOpen(false); }}>
-                  <Bot className="h-4 w-4" /> {t('sp.tabs.aiAgent')}
-                </button>
-              )}
-              {!primaryTabs.includes('workspace') && (
-                <button className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-muted transition-colors" onClick={() => { setActiveTab('workspace'); setMoreOpen(false); }}>
-                  <Briefcase className="h-4 w-4" /> {t('sp.tabs.workspace')}
-                </button>
-              )}
-              {features.website_builder_enabled && !primaryTabs.includes('website') && (
-                <button className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-muted transition-colors" onClick={() => { setActiveTab('website'); setMoreOpen(false); }}>
-                  <Globe className="h-4 w-4" /> {t('sp.tabs.website')}
-                </button>
-              )}
-              {!primaryTabs.includes('settings') && (
-                <button className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-muted transition-colors" onClick={() => { setActiveTab('settings'); setMoreOpen(false); }}>
-                  <Settings className="h-4 w-4" /> {t('sp.tabs.settings')}
-                </button>
-              )}
-            </PopoverContent>
-          </Popover>
+          {primaryTabs.includes('workspace') && (
+            <TabsTrigger value="workspace">
+              <Briefcase className="h-4 w-4 mr-1.5" />
+              Workspace
+            </TabsTrigger>
+          )}
+          {features.website_builder_enabled && primaryTabs.includes('website') && (
+            <TabsTrigger value="website">
+              <Globe className="h-4 w-4 mr-1.5" />
+              {t('sp.tabs.website')}
+            </TabsTrigger>
+          )}
+          {(() => {
+            const TAB_ICONS: Record<string, any> = {
+              dashboard: LayoutDashboard, services: Wrench, workshop: Hammer,
+              accounting: Calculator, calendar: Calendar, leads: Target,
+              ads: Megaphone, 'ai-agent': Bot, account: Users,
+              workspace: Briefcase, website: Globe, settings: Settings,
+            };
+            const TAB_LABELS: Record<string, string> = {
+              dashboard: t('sp.tabs.dashboard'), services: t('sp.tabs.services'),
+              workshop: t('sp.tabs.workshop'), accounting: t('sp.tabs.accounting'),
+              calendar: t('sp.tabs.calendar'), leads: 'Leady',
+              ads: 'Reklamy', 'ai-agent': t('sp.tabs.aiAgent'),
+              account: t('sp.tabs.selectModule'), workspace: 'Workspace',
+              website: t('sp.tabs.website'), settings: t('sp.tabs.settings'),
+            };
+            const nonPrimaryTabs = SERVICE_PROVIDER_TAB_ORDER.filter(
+              tab => !primaryTabs.includes(tab) && (features.website_builder_enabled || tab !== 'website')
+            );
+            if (nonPrimaryTabs.length === 0) return null;
+            return (
+              <Popover open={moreOpen} onOpenChange={setMoreOpen}>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className="px-5 h-10 flex items-center gap-2 rounded-full text-white text-sm whitespace-nowrap transition-colors hover:bg-white/20 focus-visible:outline-none"
+                  >
+                    <ChevronDown className="h-4 w-4" />
+                    {t('sp.tabs.more')}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-52 p-1" align="end">
+                  {nonPrimaryTabs.map(tab => {
+                    const Icon = TAB_ICONS[tab] || Settings;
+                    return (
+                      <button key={tab} className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-muted transition-colors" onClick={() => { setActiveTab(tab); setMoreOpen(false); }}>
+                        <Icon className="h-4 w-4" /> {TAB_LABELS[tab] || tab}
+                      </button>
+                    );
+                  })}
+                </PopoverContent>
+              </Popover>
+            );
+          })()}
 
           {/* Pulpit / Dashboard Tab */}
           <TabsContent value="dashboard" className="space-y-6 mt-6">

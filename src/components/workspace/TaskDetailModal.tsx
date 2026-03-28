@@ -60,9 +60,10 @@ interface Props {
   allTasks?: WorkspaceTask[];
   userId?: string | null;
   userName?: string | null;
+  onInviteMember?: () => void;
 }
 
-export function TaskDetailModal({ task, open, onClose, onSave, onDelete, members, allTasks = [], userId, userName }: Props) {
+export function TaskDetailModal({ task, open, onClose, onSave, onDelete, members, allTasks = [], userId, userName, onInviteMember }: Props) {
   const [form, setForm] = useState({
     title: "", description: "", priority: "medium", status: "todo",
     due_date: "", assigned_name: "", color: "#3b82f6",
@@ -329,25 +330,51 @@ export function TaskDetailModal({ task, open, onClose, onSave, onDelete, members
                   <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
                     <User className="h-3.5 w-3.5" /> Przypisz do
                   </Label>
-                  <Select value={form.assigned_name || "__none__"} onValueChange={v => setForm(p => ({ ...p, assigned_name: v === "__none__" ? "" : v }))}>
-                    <SelectTrigger className="mt-1.5"><SelectValue placeholder="Wybierz osobę..." /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">Brak przypisania</SelectItem>
-                      {members.map((m: any) => (
-                        <SelectItem key={m.id} value={m.display_name || m.email || m.user_id}>
-                          <div className="flex items-center gap-2">
-                            <Avatar className="h-5 w-5">
-                              <AvatarFallback className="text-[8px]">
-                                {(m.display_name || m.email || '?').slice(0, 2).toUpperCase()}
-                              </AvatarFallback>
-                            </Avatar>
-                            {m.display_name || m.email || 'Użytkownik'}
-                            {m.role && <Badge variant="outline" className="text-[9px] ml-1">{m.role}</Badge>}
+                  <div className="mt-1.5 space-y-1.5">
+                    {(form.assigned_name || "").split(",").filter(Boolean).map((name, idx) => (
+                      <div key={idx} className="flex items-center gap-1.5 bg-muted/50 rounded px-2 py-1 text-xs">
+                        <Avatar className="h-4 w-4"><AvatarFallback className="text-[7px]">{name.trim().slice(0,2).toUpperCase()}</AvatarFallback></Avatar>
+                        <span className="flex-1">{name.trim()}</span>
+                        <button onClick={() => {
+                          const names = (form.assigned_name || "").split(",").filter(Boolean).map(n => n.trim());
+                          names.splice(idx, 1);
+                          setForm(p => ({ ...p, assigned_name: names.join(", ") }));
+                        }} className="text-muted-foreground hover:text-destructive"><X className="h-3 w-3" /></button>
+                      </div>
+                    ))}
+                    <Select value="" onValueChange={v => {
+                      if (v === "__invite__") { onInviteMember?.(); return; }
+                      const current = (form.assigned_name || "").split(",").filter(Boolean).map(n => n.trim());
+                      if (!current.includes(v)) {
+                        setForm(p => ({ ...p, assigned_name: [...current, v].join(", ") }));
+                      }
+                    }}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="+ Dodaj osobę..." /></SelectTrigger>
+                      <SelectContent>
+                        {members.map((m: any) => {
+                          const name = m.display_name || m.email || m.user_id;
+                          return (
+                            <SelectItem key={m.id} value={name}>
+                              <div className="flex items-center gap-2">
+                                <Avatar className="h-5 w-5">
+                                  <AvatarFallback className="text-[8px]">
+                                    {(name || '?').slice(0, 2).toUpperCase()}
+                                  </AvatarFallback>
+                                </Avatar>
+                                {name}
+                                {m.role && <Badge variant="outline" className="text-[9px] ml-1">{m.role}</Badge>}
+                              </div>
+                            </SelectItem>
+                          );
+                        })}
+                        <SelectItem value="__invite__">
+                          <div className="flex items-center gap-2 text-primary">
+                            <Plus className="h-3.5 w-3.5" /> Zaproś nową osobę
                           </div>
                         </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
                 <div>

@@ -491,35 +491,50 @@ export function WorkspaceTasksView({ project, workspace }: Props) {
                   </div>
                    <div>
                      <Label className="text-xs text-muted-foreground">Przypisane do</Label>
-                     <Select
-                       value={detailTask.assigned_name || '__none__'}
-                       onValueChange={async v => {
-                         const assignedName = v === '__none__' ? '' : v;
-                         await logHistory(detailTask.id, 'assigned_name', detailTask.assigned_name, assignedName);
-                         await workspace.updateTask(detailTask.id, { assigned_name: assignedName || null });
-                         setDetailTask(prev => prev ? { ...prev, assigned_name: assignedName } : null);
-                         setTasks(prev => prev.map(t => t.id === detailTask.id ? { ...t, assigned_name: assignedName } : t));
-                         if (assignedName) {
-                           notifyTaskAssigned(project.id, detailTask.title, assignedName, detailTask.id, workspace.userEmail || undefined);
-                         }
-                       }}
-                     >
-                       <SelectTrigger className="mt-1"><SelectValue placeholder="Wybierz osobę" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__none__">Brak</SelectItem>
-                          {members.map(m => (
-                            <SelectItem key={m.id} value={getMemberName(m)}>{getMemberName(m)}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="mt-1 text-xs text-primary gap-1"
-                        onClick={() => setShowInviteFromTask(true)}
-                      >
-                        <PlusCircle className="h-3.5 w-3.5" /> Zaproś nową osobę
-                      </Button>
+                     <div className="mt-1 space-y-1">
+                       {(detailTask.assigned_name || "").split(",").filter(Boolean).map((name, idx) => (
+                         <div key={idx} className="flex items-center gap-1.5 bg-muted/50 rounded px-2 py-1 text-xs">
+                           <span className="flex-1">{name.trim()}</span>
+                           <button onClick={async () => {
+                             const names = (detailTask.assigned_name || "").split(",").filter(Boolean).map(n => n.trim());
+                             names.splice(idx, 1);
+                             const newVal = names.join(", ") || null;
+                             await workspace.updateTask(detailTask.id, { assigned_name: newVal });
+                             setDetailTask(prev => prev ? { ...prev, assigned_name: newVal } : null);
+                             setTasks(prev => prev.map(t => t.id === detailTask.id ? { ...t, assigned_name: newVal } : t));
+                           }} className="text-muted-foreground hover:text-destructive"><XCircle className="h-3 w-3" /></button>
+                         </div>
+                       ))}
+                       <Select
+                         value=""
+                         onValueChange={async v => {
+                           const current = (detailTask.assigned_name || "").split(",").filter(Boolean).map(n => n.trim());
+                           if (!current.includes(v)) {
+                             const newVal = [...current, v].join(", ");
+                             await logHistory(detailTask.id, 'assigned_name', detailTask.assigned_name, newVal);
+                             await workspace.updateTask(detailTask.id, { assigned_name: newVal });
+                             setDetailTask(prev => prev ? { ...prev, assigned_name: newVal } : null);
+                             setTasks(prev => prev.map(t => t.id === detailTask.id ? { ...t, assigned_name: newVal } : t));
+                             notifyTaskAssigned(project.id, detailTask.title, v, detailTask.id, workspace.userEmail || undefined);
+                           }
+                         }}
+                       >
+                         <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="+ Dodaj osobę..." /></SelectTrigger>
+                         <SelectContent>
+                           {members.map(m => (
+                             <SelectItem key={m.id} value={getMemberName(m)}>{getMemberName(m)}</SelectItem>
+                           ))}
+                         </SelectContent>
+                       </Select>
+                       <Button
+                         variant="ghost"
+                         size="sm"
+                         className="mt-1 text-xs text-primary gap-1"
+                         onClick={() => setShowInviteFromTask(true)}
+                       >
+                         <PlusCircle className="h-3.5 w-3.5" /> Zaproś nową osobę
+                       </Button>
+                     </div>
                    </div>
                   {detailTask.due_date && (
                     <div>

@@ -193,7 +193,7 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
   const handlePrimaryTabToggle = (tab: ServiceProviderNavTabKey, checked: boolean) => {
     setPrimaryTabs(prev => {
       if (checked) {
-        return SERVICE_PROVIDER_TAB_ORDER.filter(key => key !== 'settings' && (websiteBuilderEnabled || key !== 'website')).filter(key => key === tab || prev.includes(key));
+        return [...prev, tab];
       }
       return prev.filter(item => item !== tab);
     });
@@ -247,13 +247,35 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
                   <p className="text-sm text-muted-foreground">Wybierz, które moduły mają być widoczne bezpośrednio na pasku. Pozostałe trafią do zakładki „Więcej”.</p>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {SERVICE_PROVIDER_TAB_ORDER.filter(tab => tab !== 'settings' && (websiteBuilderEnabled || tab !== 'website')).map((tab) => (
+                  {SERVICE_PROVIDER_TAB_ORDER.filter(tab => tab !== 'settings' && (websiteBuilderEnabled || tab !== 'website')).map((tab, idx) => (
                     <label key={tab} className="flex items-center gap-3 rounded-lg border p-3 cursor-pointer hover:bg-muted/50">
                       <Checkbox
                         checked={primaryTabs.includes(tab)}
                         onCheckedChange={(checked) => handlePrimaryTabToggle(tab, checked === true)}
                       />
-                      <span className="text-sm font-medium">{SERVICE_PROVIDER_TAB_LABELS[tab]}</span>
+                      <span className="text-sm font-medium flex-1">{SERVICE_PROVIDER_TAB_LABELS[tab]}</span>
+                      {primaryTabs.includes(tab) && (
+                        <Select
+                          value={String(primaryTabs.indexOf(tab) + 1)}
+                          onValueChange={(v) => {
+                            const newIdx = parseInt(v) - 1;
+                            setPrimaryTabs(prev => {
+                              const filtered = prev.filter(t => t !== tab);
+                              filtered.splice(Math.min(newIdx, filtered.length), 0, tab);
+                              return [...filtered];
+                            });
+                          }}
+                        >
+                          <SelectTrigger className="w-16 h-7 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {primaryTabs.map((_, i) => (
+                              <SelectItem key={i} value={String(i + 1)}>{i + 1}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
                     </label>
                   ))}
                 </div>
