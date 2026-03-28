@@ -56,22 +56,27 @@ function isPointInPolygon(
 function getCorrectedArea(area: number | null | undefined, description?: string | null): number {
   const numericArea = Number(area) || 0;
 
-  if (description) {
-    // Extract area numbers, handling space as thousand separator: "11 921 m2", "3780m2", "150 m²"
-    const matches = [...description.matchAll(/(\d[\d\s]*\d)\s*m(?:2|²)/gi)];
-    // Also match simple 2+ digit numbers directly before m2
-    const simpleMatches = [...description.matchAll(/(\d{2,})\s*m(?:2|²)/gi)];
-    const allMatches = [...matches, ...simpleMatches];
-    if (allMatches.length > 0) {
-      const descAreas = allMatches
-        .map(m => Number(m[1].replace(/\s/g, '')))
-        .filter(n => n >= 10 && n < 100000);
-      if (descAreas.length > 0) {
-        const maxDescArea = Math.max(...descAreas);
-        if (numericArea < 10 || (maxDescArea > numericArea * 3 && maxDescArea >= 50)) {
-          return maxDescArea;
-        }
+  if (description && numericArea < 10) {
+    // Only look for explicit TOTAL area patterns — never extract single room areas
+    const totalAreaPatterns = [
+      /(?:powierzchni[aę]|pow\.)\s*(?:całkowit[aey]|użytkow[aey]|mieszkaln[aey]|łączn[aey])\s*[:\-–]?\s*(?:ok\.?\s*)?(\d[\d\s,.]*\d?)\s*m(?:2|²)/gi,
+      /(?:całkowit[aey]|łączn[aey])\s*(?:powierzchni[aę]|pow\.)\s*[:\-–]?\s*(?:ok\.?\s*)?(\d[\d\s,.]*\d?)\s*m(?:2|²)/gi,
+      /(\d[\d\s]*\d)\s*m(?:2|²)\s*(?:powierzchni|pow\.|łącznie|całkowit)/gi,
+    ];
+
+    for (const pattern of totalAreaPatterns) {
+      const matches = [...description.matchAll(pattern)];
+      const areas = matches.map(m => Number(m[1].replace(/[\s,]/g, '').replace(',', '.'))).filter(n => n >= 20 && n < 100000);
+      if (areas.length > 0) {
+        return Math.max(...areas);
       }
+    }
+
+    // If title has area like "1500m2" for commercial, use that
+    const titleAreaMatch = description.match(/(\d{3,})\s*m(?:2|²)/);
+    if (titleAreaMatch) {
+      const titleArea = Number(titleAreaMatch[1]);
+      if (titleArea >= 50) return titleArea;
     }
   }
 
