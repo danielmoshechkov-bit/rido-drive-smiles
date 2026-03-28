@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { X, GitCompare, Trash2, Calendar, Eye } from "lucide-react";
+import { X, GitCompare, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCompare, VehicleCompareItem, PropertyCompareItem } from "@/contexts/CompareContext";
 import {
