@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useGoogleMaps } from "@/hooks/useGoogleMaps";
 import { LocationSearchInput, LocationSelection, AreaSelection } from "./LocationSearchInput";
 import { 
@@ -123,7 +124,8 @@ export function LocationMapModal({
 
   const [mode, setMode] = useState<"circle" | "polygon">("circle");
   const [mapPropertyType, setMapPropertyType] = useState("");
-  const [mapTransactionType, setMapTransactionType] = useState("");
+  const [showSale, setShowSale] = useState(true);
+  const [showRent, setShowRent] = useState(true);
   const [drawingMode, setDrawingMode] = useState<DrawingMode>("brush"); // Default to brush
   const [circleCenter, setCircleCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [radius, setRadius] = useState(DEFAULT_RADIUS);
@@ -1015,24 +1017,30 @@ export function LocationMapModal({
               </button>
             ))}
             <div className="h-5 w-px bg-border mx-1" />
-            <span className="text-xs text-muted-foreground mr-1">Transakcja:</span>
-            {[
-              { key: "", label: "Wszystkie" },
-              { key: "sprzedaż", label: "Sprzedaż" },
-              { key: "wynajem", label: "Wynajem" },
-            ].map(t => (
-              <button
-                key={t.key}
-                onClick={() => setMapTransactionType(t.key)}
-                className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors border ${
-                  mapTransactionType === t.key
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-background text-muted-foreground border-border hover:border-primary/50"
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
+            
+            {/* Checkbox Sprzedaż */}
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <Checkbox 
+                checked={showSale} 
+                onCheckedChange={(checked) => setShowSale(!!checked)}
+              />
+              <div className="flex items-center gap-1">
+                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                <span className="text-xs">Sprzedaż</span>
+              </div>
+            </label>
+            
+            {/* Checkbox Wynajem */}
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <Checkbox 
+                checked={showRent} 
+                onCheckedChange={(checked) => setShowRent(!!checked)}
+              />
+              <div className="flex items-center gap-1">
+                <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+                <span className="text-xs">Wynajem</span>
+              </div>
+            </label>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 sm:gap-3 border rounded-lg p-2 sm:p-3 bg-muted/30">
