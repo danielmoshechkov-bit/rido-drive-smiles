@@ -58,17 +58,33 @@ function mapDbToDisplayListing(db: any) {
   const dbArea = Number(db.area) || 0;
   let correctedArea = dbArea;
   if (db.description) {
-    const matches = [...db.description.matchAll(/(\d[\d\s]*\d)\s*m(?:2|²)/gi)];
-    const simpleMatches = [...db.description.matchAll(/(\d{2,})\s*m(?:2|²)/gi)];
-    const allMatches = [...matches, ...simpleMatches];
-    if (allMatches.length > 0) {
-      const descAreas = allMatches
-        .map(m => Number(m[1].replace(/\s/g, '')))
-        .filter(n => n >= 10 && n < 100000);
-      if (descAreas.length > 0) {
-        const maxDescArea = Math.max(...descAreas);
-        if (dbArea < 10 || (maxDescArea > dbArea * 3 && maxDescArea >= 50)) {
-          correctedArea = maxDescArea;
+    // Look for explicit total area: "powierzchnia X m2", "pow. X m2", "łączna X m2"
+    const totalAreaPattern = /(?:powierzchni[aę]|pow\.|łączn[aey]|całkowit[aey]|użytkow[aey]|mieszkaln[aey])\s*[:\-–]?\s*(?:ok\.?\s*)?(\d[\d\s,.]*\d?)\s*m(?:2|²)/gi;
+    const totalMatches = [...db.description.matchAll(totalAreaPattern)];
+    if (totalMatches.length > 0) {
+      const totalAreas = totalMatches.map(m => Number(m[1].replace(/[\s,]/g, '').replace(',', '.'))).filter(n => n >= 20 && n < 100000);
+      if (totalAreas.length > 0) {
+        const maxTotal = Math.max(...totalAreas);
+        if (maxTotal > dbArea * 1.5 && maxTotal >= 30) {
+          correctedArea = maxTotal;
+        }
+      }
+    }
+    
+    // Fallback: find all m2 mentions and take the largest, but only correct if DB area is clearly wrong
+    if (correctedArea === dbArea) {
+      const matches = [...db.description.matchAll(/(\d[\d\s]*\d)\s*m(?:2|²)/gi)];
+      const simpleMatches = [...db.description.matchAll(/(\d{2,})\s*m(?:2|²)/gi)];
+      const allMatches = [...matches, ...simpleMatches];
+      if (allMatches.length > 0) {
+        const descAreas = allMatches
+          .map(m => Number(m[1].replace(/\s/g, '')))
+          .filter(n => n >= 10 && n < 100000);
+        if (descAreas.length > 0) {
+          const maxDescArea = Math.max(...descAreas);
+          if (dbArea < 10 || (maxDescArea > dbArea * 3 && maxDescArea >= 50)) {
+            correctedArea = maxDescArea;
+          }
         }
       }
     }
