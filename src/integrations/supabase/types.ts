@@ -571,6 +571,384 @@ export type Database = {
           },
         ]
       }
+      agent_activities: {
+        Row: {
+          activity_type: string
+          agent_id: string
+          completed_at: string | null
+          contact_id: string | null
+          created_at: string | null
+          id: string
+          listing_id: string | null
+          notes: string | null
+          scheduled_at: string | null
+          title: string | null
+        }
+        Insert: {
+          activity_type?: string
+          agent_id: string
+          completed_at?: string | null
+          contact_id?: string | null
+          created_at?: string | null
+          id?: string
+          listing_id?: string | null
+          notes?: string | null
+          scheduled_at?: string | null
+          title?: string | null
+        }
+        Update: {
+          activity_type?: string
+          agent_id?: string
+          completed_at?: string | null
+          contact_id?: string | null
+          created_at?: string | null
+          id?: string
+          listing_id?: string | null
+          notes?: string | null
+          scheduled_at?: string | null
+          title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_activities_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "real_estate_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_activities_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "agent_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_activities_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "agent_listings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_contacts: {
+        Row: {
+          agent_id: string
+          client_type: string | null
+          company: string | null
+          created_at: string | null
+          email: string | null
+          first_name: string
+          id: string
+          last_name: string | null
+          nip: string | null
+          notes: string | null
+          phone: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          agent_id: string
+          client_type?: string | null
+          company?: string | null
+          created_at?: string | null
+          email?: string | null
+          first_name?: string
+          id?: string
+          last_name?: string | null
+          nip?: string | null
+          notes?: string | null
+          phone?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          agent_id?: string
+          client_type?: string | null
+          company?: string | null
+          created_at?: string | null
+          email?: string | null
+          first_name?: string
+          id?: string
+          last_name?: string | null
+          nip?: string | null
+          notes?: string | null
+          phone?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_contacts_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "real_estate_agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_deals: {
+        Row: {
+          agent_id: string
+          commission: number | null
+          contact_id: string | null
+          created_at: string | null
+          id: string
+          listing_id: string | null
+          notes: string | null
+          stage: string
+          updated_at: string | null
+          value: number | null
+        }
+        Insert: {
+          agent_id: string
+          commission?: number | null
+          contact_id?: string | null
+          created_at?: string | null
+          id?: string
+          listing_id?: string | null
+          notes?: string | null
+          stage?: string
+          updated_at?: string | null
+          value?: number | null
+        }
+        Update: {
+          agent_id?: string
+          commission?: number | null
+          contact_id?: string | null
+          created_at?: string | null
+          id?: string
+          listing_id?: string | null
+          notes?: string | null
+          stage?: string
+          updated_at?: string | null
+          value?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_deals_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "real_estate_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_deals_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "agent_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_deals_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "agent_listings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_listings: {
+        Row: {
+          address: Json | null
+          agent_id: string
+          ai_description_generated: boolean | null
+          ai_valuation: Json | null
+          area_plot: number | null
+          area_total: number | null
+          area_usable: number | null
+          condition: string | null
+          created_at: string | null
+          custom_fields: Json | null
+          description: string | null
+          description_de: string | null
+          description_en: string | null
+          export_address: Json | null
+          exported_to: Json | null
+          floor: number | null
+          floors_total: number | null
+          has_balcony: boolean | null
+          has_elevator: boolean | null
+          has_garden: boolean | null
+          has_parking: boolean | null
+          heating: string | null
+          id: string
+          latitude: number | null
+          longitude: number | null
+          ownership_form: string | null
+          photos: Json | null
+          price: number | null
+          price_per_m2: number | null
+          property_type: string
+          publish_on_getrido: boolean | null
+          rooms_count: number | null
+          rooms_data: Json | null
+          status: string
+          title: string
+          transaction_type: string
+          updated_at: string | null
+          year_built: number | null
+        }
+        Insert: {
+          address?: Json | null
+          agent_id: string
+          ai_description_generated?: boolean | null
+          ai_valuation?: Json | null
+          area_plot?: number | null
+          area_total?: number | null
+          area_usable?: number | null
+          condition?: string | null
+          created_at?: string | null
+          custom_fields?: Json | null
+          description?: string | null
+          description_de?: string | null
+          description_en?: string | null
+          export_address?: Json | null
+          exported_to?: Json | null
+          floor?: number | null
+          floors_total?: number | null
+          has_balcony?: boolean | null
+          has_elevator?: boolean | null
+          has_garden?: boolean | null
+          has_parking?: boolean | null
+          heating?: string | null
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          ownership_form?: string | null
+          photos?: Json | null
+          price?: number | null
+          price_per_m2?: number | null
+          property_type?: string
+          publish_on_getrido?: boolean | null
+          rooms_count?: number | null
+          rooms_data?: Json | null
+          status?: string
+          title?: string
+          transaction_type?: string
+          updated_at?: string | null
+          year_built?: number | null
+        }
+        Update: {
+          address?: Json | null
+          agent_id?: string
+          ai_description_generated?: boolean | null
+          ai_valuation?: Json | null
+          area_plot?: number | null
+          area_total?: number | null
+          area_usable?: number | null
+          condition?: string | null
+          created_at?: string | null
+          custom_fields?: Json | null
+          description?: string | null
+          description_de?: string | null
+          description_en?: string | null
+          export_address?: Json | null
+          exported_to?: Json | null
+          floor?: number | null
+          floors_total?: number | null
+          has_balcony?: boolean | null
+          has_elevator?: boolean | null
+          has_garden?: boolean | null
+          has_parking?: boolean | null
+          heating?: string | null
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          ownership_form?: string | null
+          photos?: Json | null
+          price?: number | null
+          price_per_m2?: number | null
+          property_type?: string
+          publish_on_getrido?: boolean | null
+          rooms_count?: number | null
+          rooms_data?: Json | null
+          status?: string
+          title?: string
+          transaction_type?: string
+          updated_at?: string | null
+          year_built?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_listings_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "real_estate_agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_searches: {
+        Row: {
+          agent_id: string
+          area_max: number | null
+          area_min: number | null
+          budget_max: number | null
+          budget_min: number | null
+          contact_id: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          listing_type: string | null
+          locations: Json | null
+          requirements: Json | null
+          rooms_max: number | null
+          rooms_min: number | null
+          transaction_type: string | null
+        }
+        Insert: {
+          agent_id: string
+          area_max?: number | null
+          area_min?: number | null
+          budget_max?: number | null
+          budget_min?: number | null
+          contact_id?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          listing_type?: string | null
+          locations?: Json | null
+          requirements?: Json | null
+          rooms_max?: number | null
+          rooms_min?: number | null
+          transaction_type?: string | null
+        }
+        Update: {
+          agent_id?: string
+          area_max?: number | null
+          area_min?: number | null
+          budget_max?: number | null
+          budget_min?: number | null
+          contact_id?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          listing_type?: string | null
+          locations?: Json | null
+          requirements?: Json | null
+          rooms_max?: number | null
+          rooms_min?: number | null
+          transaction_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_searches_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "real_estate_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_searches_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "agent_contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_admin_audit_log: {
         Row: {
           action_details: Json
