@@ -18,6 +18,7 @@ import { PropertyLocationMap } from "@/components/realestate/PropertyLocationMap
 import { AIListingAssessment } from "@/components/realestate/AIListingAssessment";
 import { SimilarListings } from "@/components/realestate/SimilarListings";
 import { AdBannerSlot } from "@/components/realestate/AdBannerSlot";
+import { PropertyMessageDialog } from "@/components/realestate/PropertyMessageDialog";
 
 const PRICE_TYPE_LABELS: Record<string, string> = {
   sale: "",
@@ -141,6 +142,7 @@ export default function PropertyDetailPage() {
   const [showContactPhone, setShowContactPhone] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
+  const [showMessageDialog, setShowMessageDialog] = useState(false);
 
   useEffect(() => {
     const checkUser = async () => {
