@@ -1,0 +1,1 @@
+ALTER TABLE real_estate_listings ADD COLUMN IF NOT EXISTS ai_assessment jsonb;
