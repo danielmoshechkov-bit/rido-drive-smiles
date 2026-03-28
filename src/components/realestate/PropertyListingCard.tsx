@@ -18,7 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { 
   ChevronLeft, ChevronRight, Star, MapPin, Calendar, 
-  Heart, Phone, Mail, User, Home, Building2, Layers, Maximize, GitCompare, Lock
+  Heart, Phone, Mail, User, Home, Building2, Layers, Maximize, GitCompare, Lock, Eye
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
