@@ -17925,6 +17925,7 @@ export type Database = {
           id: string
           is_archived: boolean | null
           name: string
+          order_index: number | null
           project_id: string
           type: string
         }
@@ -17935,6 +17936,7 @@ export type Database = {
           id?: string
           is_archived?: boolean | null
           name: string
+          order_index?: number | null
           project_id: string
           type?: string
         }
@@ -17945,6 +17947,7 @@ export type Database = {
           id?: string
           is_archived?: boolean | null
           name?: string
+          order_index?: number | null
           project_id?: string
           type?: string
         }
