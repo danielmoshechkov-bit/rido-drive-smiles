@@ -13,6 +13,7 @@ import {
   GitCompare, Phone, ChevronDown, ChevronUp, Repeat, GitBranch
 } from "lucide-react";
 import { AgencyCRMSettings } from "@/components/agency/AgencyCRMSettings";
+import { AgentCRM } from "@/components/realestate/AgentCRM";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { AccountSwitcherPanel } from "@/components/AccountSwitcherPanel";
@@ -362,6 +363,10 @@ export default function RealEstateAgentDashboard() {
             <Settings className="h-4 w-4 mr-2" />
             Ustawienia
           </TabsTrigger>
+          <TabsTrigger value="crm">
+            <Building className="h-4 w-4 mr-2" />
+            Mój CRM
+          </TabsTrigger>
           <TabsTrigger value="integration">
             <GitBranch className="h-4 w-4 mr-2" />
             Integracja CRM
@@ -554,6 +559,9 @@ export default function RealEstateAgentDashboard() {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+          <TabsContent value="crm">
+            {agent && <AgentCRM agentId={agent.id} />}
           </TabsContent>
           <TabsContent value="integration">
             {agent && <AgencyCRMSettings agencyId={agent.id} />}

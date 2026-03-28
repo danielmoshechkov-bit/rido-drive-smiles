@@ -61,21 +61,80 @@ function mapDbToDisplayListing(db: any) {
   const dbArea = areaTotal || Number(db.area) || 0;
   let correctedArea = dbArea;
   
-  if (dbArea < 10 && db.description) {
-    const totalAreaPattern = /(?:powierzchni[aę]|pow\.|łączn[aey]|całkowit[aey]|użytkow[aey]|mieszkaln[aey])\s*[:\-–]?\s*(?:ok\.?\s*)?(\d[\d\s,.]*\d?)\s*m(?:2|²)/gi;
-    const totalMatches = [...db.description.matchAll(totalAreaPattern)];
-    if (totalMatches.length > 0) {
-      const totalAreas = totalMatches.map((m: RegExpMatchArray) => Number(m[1].replace(/[\s,]/g, '').replace(',', '.'))).filter((n: number) => n >= 20 && n < 100000);
-      if (totalAreas.length > 0) {
-        correctedArea = Math.max(...totalAreas);
-      }
-    }
-  }
-
-  // Parse rooms_data
+  // Parse rooms_data from DB or extract from description
   let roomsData: Array<{ name: string; area: number }> = [];
   if (db.rooms_data && Array.isArray(db.rooms_data) && db.rooms_data.length > 0) {
     roomsData = db.rooms_data;
+  }
+  
+  // Extract rooms count from description if DB has 0
+  let correctedRooms = Number(db.rooms) || 0;
+
+  if (db.description) {
+    const desc = db.description as string;
+    
+    // Extract total area from description if DB area is missing/small
+    if (dbArea < 10) {
+      // Try explicit total area patterns first
+      const totalAreaPattern = /(?:powierzchni[aę]|pow\.|łączn[aey]|całkowit[aey]|użytkow[aey]|mieszkaln[aey])\s*[:\-–]?\s*(?:ok\.?\s*)?(\d[\d\s,.]*\d?)\s*m(?:2|²)/gi;
+      const totalMatches = [...desc.matchAll(totalAreaPattern)];
+      if (totalMatches.length > 0) {
+        const totalAreas = totalMatches.map((m: RegExpMatchArray) => Number(m[1].replace(/[\s,]/g, '').replace(',', '.'))).filter((n: number) => n >= 20 && n < 100000);
+        if (totalAreas.length > 0) {
+          correctedArea = Math.max(...totalAreas);
+        }
+      }
+      
+      // If still no area, extract all room areas from description and sum them
+      if (correctedArea < 10 && roomsData.length === 0) {
+        const extractedRooms: Array<{ name: string; area: number }> = [];
+        
+        // Pattern: "salon z aneksem kuchennym(29 m2)" or "salon 29 m2" or "sypialnia główna 11m2"
+        const roomPatterns = [
+          /[-–]\s*(salon[^,\n]*?)[\s(]+(\d+(?:[.,]\d+)?)\s*m(?:2|²)/gi,
+          /[-–]\s*(sypialni[aey][^,\n]*?)[\s(]+(\d+(?:[.,]\d+)?)\s*m(?:2|²)/gi,
+          /[-–]\s*(kuchni[aey][^,\n]*?)[\s(]+(\d+(?:[.,]\d+)?)\s*m(?:2|²)/gi,
+          /[-–]\s*(łazienk[aiy][^,\n]*?)[\s(]+(\d+(?:[.,]\d+)?)\s*m(?:2|²)/gi,
+          /[-–]\s*(toalet[aiy][^,\n]*?)[\s(]+(\d+(?:[.,]\d+)?)\s*m(?:2|²)/gi,
+          /[-–]\s*(przedpok[oó]j[^,\n]*?)[\s(]+(\d+(?:[.,]\d+)?)\s*m(?:2|²)/gi,
+          /[-–]\s*(balkon[^,\n]*?)[\s(]+(\d+(?:[.,]\d+)?)\s*m(?:2|²)/gi,
+          /[-–]\s*(taras[^,\n]*?)[\s(]+(\d+(?:[.,]\d+)?)\s*m(?:2|²)/gi,
+          /[-–]\s*(garaż[^,\n]*?)[\s(]+(\d+(?:[.,]\d+)?)\s*m(?:2|²)/gi,
+          /[-–]\s*(korytarz[^,\n]*?)[\s(]+(\d+(?:[.,]\d+)?)\s*m(?:2|²)/gi,
+        ];
+        
+        for (const pattern of roomPatterns) {
+          const matches = [...desc.matchAll(pattern)];
+          for (const m of matches) {
+            const name = m[1].trim().replace(/\s*[\(,].*$/, '');
+            const area = parseFloat(m[2].replace(',', '.'));
+            if (area > 0 && area < 200) {
+              extractedRooms.push({ name: name.charAt(0).toUpperCase() + name.slice(1), area });
+            }
+          }
+        }
+        
+        // Also try: "pokoje wielkości 9m2 i 10m2"
+        const multiRoomMatch = desc.match(/pokoje\s+(?:wielkości|o\s+pow\.?)\s+(\d+)\s*m(?:2|²)\s+i\s+(\d+)\s*m(?:2|²)/i);
+        if (multiRoomMatch) {
+          extractedRooms.push({ name: 'Pokój', area: parseFloat(multiRoomMatch[1]) });
+          extractedRooms.push({ name: 'Pokój', area: parseFloat(multiRoomMatch[2]) });
+        }
+        
+        if (extractedRooms.length > 0) {
+          roomsData = extractedRooms;
+          correctedArea = extractedRooms.reduce((sum, r) => sum + r.area, 0);
+        }
+      }
+    }
+    
+    // Extract rooms count from "4-pokojowe" or "4 pokoje"
+    if (correctedRooms === 0) {
+      const roomCountMatch = desc.match(/(\d+)\s*[-–]?\s*pokoj(?:owe|ów|e|i|owego)/i);
+      if (roomCountMatch) {
+        correctedRooms = parseInt(roomCountMatch[1]);
+      }
+    }
   }
 
   return {
@@ -95,7 +154,7 @@ function mapDbToDisplayListing(db: any) {
     areaUsable: areaUsable,
     areaPlot: Number(db.area_plot) || 0,
     roomsData,
-    rooms: db.rooms,
+    rooms: correctedRooms || db.rooms,
     floor: db.floor,
     floorsTotal: db.total_floors,
     propertyType: db.property_type,
