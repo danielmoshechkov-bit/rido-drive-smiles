@@ -60,13 +60,20 @@ export function ChatSidebar({
   const handleCreate = async () => {
     if (!newName.trim()) return;
     const ch = await onCreateChannel(newName.trim(), newType, newDesc.trim());
-    if (ch) { onSelectChannel(ch); setShowCreateChannel(false); setNewName(""); setNewDesc(""); }
+    if (ch) {
+      setShowCreateChannel(false); setNewName(""); setNewDesc("");
+      // Force reload channels and select new one
+      setTimeout(() => onSelectChannel(ch), 100);
+    }
   };
 
   const handleCreateGroup = async () => {
-    if (!groupName.trim() || selectedGroupMembers.length === 0) return;
-    const ch = await onCreateChannel(groupName.trim(), 'group', groupName.trim(), selectedGroupMembers);
-    if (ch) { onSelectChannel(ch); setShowCreateGroup(false); setGroupName(""); setSelectedGroupMembers([]); }
+    if (!groupName.trim()) return;
+    const ch = await onCreateChannel(groupName.trim(), 'group', groupName.trim(), selectedGroupMembers.length > 0 ? selectedGroupMembers : undefined);
+    if (ch) {
+      setShowCreateGroup(false); setGroupName(""); setSelectedGroupMembers([]);
+      setTimeout(() => onSelectChannel(ch), 100);
+    }
   };
 
   const myStatus = userId ? memberStatuses[userId] : null;

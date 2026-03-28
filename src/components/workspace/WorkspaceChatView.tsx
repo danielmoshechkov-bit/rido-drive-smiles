@@ -114,7 +114,7 @@ export function WorkspaceChatView({ project, workspace }: Props) {
   }
 
   return (
-    <div className="flex flex-col pb-24">
+    <div className="flex flex-col" style={{ height: 'calc(100vh - 280px)', minHeight: '500px' }}>
       {/* Mobile tab switcher */}
       <div className="flex md:hidden border-b mb-2">
         <button
@@ -139,7 +139,7 @@ export function WorkspaceChatView({ project, workspace }: Props) {
         </button>
       </div>
 
-      <div className="flex h-[600px] rounded-xl border bg-card overflow-hidden">
+      <div className="flex flex-1 rounded-xl border bg-card overflow-hidden">
         {/* Desktop sidebar */}
         <div className="hidden md:flex">
           <ChatSidebar
@@ -151,7 +151,11 @@ export function WorkspaceChatView({ project, workspace }: Props) {
             projectName={project.name}
             projectColor={project.color}
             onSelectChannel={ch => { chat.setActiveChannel(ch); chat.setActiveThread(null); }}
-            onCreateChannel={chat.createChannel}
+            onCreateChannel={async (name, type, desc, pIds) => {
+              const ch = await chat.createChannel(name, type, desc, pIds);
+              if (ch) { await chat.loadChannels(); chat.setActiveChannel(ch); }
+              return ch;
+            }}
             onCreateDM={async (uid, name) => {
               const dm = await chat.createOrGetDM(uid, name);
               if (dm) { await chat.loadChannels(); chat.setActiveChannel(dm); }
@@ -173,7 +177,11 @@ export function WorkspaceChatView({ project, workspace }: Props) {
               projectName={project.name}
               projectColor={project.color}
               onSelectChannel={ch => { chat.setActiveChannel(ch); chat.setActiveThread(null); setMobileTab('chat'); }}
-              onCreateChannel={chat.createChannel}
+              onCreateChannel={async (name, type, desc, pIds) => {
+                const ch = await chat.createChannel(name, type, desc, pIds);
+                if (ch) { await chat.loadChannels(); chat.setActiveChannel(ch); setMobileTab('chat'); }
+                return ch;
+              }}
               onCreateDM={async (uid, name) => {
                 const dm = await chat.createOrGetDM(uid, name);
                 if (dm) { await chat.loadChannels(); chat.setActiveChannel(dm); setMobileTab('chat'); }

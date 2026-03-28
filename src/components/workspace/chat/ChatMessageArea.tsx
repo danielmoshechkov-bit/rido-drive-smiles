@@ -10,7 +10,7 @@ import {
   Send, Paperclip, Mic, MicOff, Smile, MessageSquare,
   Pin, PinOff, MoreHorizontal, File, Hash, Lock, Reply,
   Pencil, Trash2, X, Check, Upload, Code, Bold, Italic,
-  Globe, Loader2, Eye, EyeOff, Crown
+  Globe, Loader2, Eye, EyeOff, Crown, Search, ChevronUp, ChevronDown
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -93,6 +93,9 @@ export function ChatMessageArea({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
   const [isDragOver, setIsDragOver] = useState(false);
+  const [channelSearch, setChannelSearch] = useState("");
+  const [channelSearchActive, setChannelSearchActive] = useState(false);
+  const [searchMatchIndex, setSearchMatchIndex] = useState(0);
   const [myLanguage, setMyLanguage] = useState(() => {
     const browserLang = navigator.language?.slice(0, 2) || 'pl';
     return SUPPORTED_LANGUAGES.find(l => l.code === browserLang)?.code || 'pl';
@@ -103,7 +106,30 @@ export function ChatMessageArea({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const translation = useMessageTranslation();
+
+  // Search matches
+  const searchMatches = useMemo(() => {
+    if (!channelSearch.trim()) return [];
+    const q = channelSearch.toLowerCase();
+    return messages.filter(m => m.content?.toLowerCase().includes(q)).map(m => m.id);
+  }, [channelSearch, messages]);
+
+  // Scroll to current match
+  useEffect(() => {
+    if (searchMatches.length > 0 && searchMatchIndex < searchMatches.length) {
+      const el = document.getElementById(`msg-${searchMatches[searchMatchIndex]}`);
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [searchMatchIndex, searchMatches]);
+
+  // Reset search on channel change
+  useEffect(() => {
+    setChannelSearchActive(false);
+    setChannelSearch("");
+    setSearchMatchIndex(0);
+  }, [channel?.id]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -260,6 +286,46 @@ export function ChatMessageArea({
           <span className="text-xs text-muted-foreground ml-2 hidden md:inline">{channel.description}</span>
         )}
         <div className="ml-auto flex items-center gap-1">
+          {/* In-channel search */}
+          {channelSearchActive ? (
+            <div className="flex items-center gap-1 bg-muted rounded-md px-2 py-1">
+              <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              <input
+                ref={searchInputRef}
+                value={channelSearch}
+                onChange={e => { setChannelSearch(e.target.value); setSearchMatchIndex(0); }}
+                placeholder="Szukaj w rozmowie..."
+                className="bg-transparent border-none outline-none text-xs w-32 md:w-48"
+                autoFocus
+                onKeyDown={e => {
+                  if (e.key === 'Enter') setSearchMatchIndex(i => (i + 1) % Math.max(searchMatches.length, 1));
+                  if (e.key === 'Escape') { setChannelSearchActive(false); setChannelSearch(""); }
+                }}
+              />
+              {searchMatches.length > 0 && (
+                <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                  {searchMatchIndex + 1}/{searchMatches.length}
+                </span>
+              )}
+              {searchMatches.length > 1 && (
+                <>
+                  <button className="p-0.5 hover:bg-accent rounded" onClick={() => setSearchMatchIndex(i => (i - 1 + searchMatches.length) % searchMatches.length)}>
+                    <ChevronUp className="h-3.5 w-3.5" />
+                  </button>
+                  <button className="p-0.5 hover:bg-accent rounded" onClick={() => setSearchMatchIndex(i => (i + 1) % searchMatches.length)}>
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  </button>
+                </>
+              )}
+              <button className="p-0.5 hover:bg-accent rounded" onClick={() => { setChannelSearchActive(false); setChannelSearch(""); }}>
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ) : (
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setChannelSearchActive(true); setTimeout(() => searchInputRef.current?.focus(), 50); }}>
+              <Search className="h-3.5 w-3.5" />
+            </Button>
+          )}
           {/* Language selector */}
           <Popover>
             <PopoverTrigger asChild>
@@ -337,7 +403,7 @@ export function ChatMessageArea({
             const isEditing = editingId === msg.id;
 
             return (
-              <div key={msg.id} className="group relative hover:bg-accent/20 rounded-lg px-2 py-0.5 -mx-2 transition-colors">
+              <div key={msg.id} id={`msg-${msg.id}`} className={cn("group relative hover:bg-accent/20 rounded-lg px-2 py-0.5 -mx-2 transition-colors", searchMatches.includes(msg.id) && "bg-yellow-100/50 dark:bg-yellow-900/20", searchMatches[searchMatchIndex] === msg.id && "ring-2 ring-yellow-400")}>
                 {showHeader && (
                   <div className="flex items-center gap-2 mt-3 mb-0.5">
                     <div className="relative">

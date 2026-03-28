@@ -6,7 +6,7 @@ import { useState } from "react";
 
 const PRIMARY_TABS = [
   { key: "tasks", label: "Lista", icon: ListTodo },
-  { key: "kanban", label: "Kanban", icon: LayoutGrid },
+  { key: "kanban", label: "Tablica", icon: LayoutGrid },
   { key: "chat", label: "Chat", icon: MessageSquare },
   { key: "docs", label: "Docs", icon: FileText },
 ];
