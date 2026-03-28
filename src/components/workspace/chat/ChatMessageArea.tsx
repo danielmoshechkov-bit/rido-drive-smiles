@@ -362,8 +362,24 @@ export function ChatMessageArea({
                 {SUPPORTED_LANGUAGES.find(l => l.code === myLanguage)?.flag || '🌍'}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-48 p-2" align="end">
-              <p className="text-xs font-semibold mb-2 px-1">🌍 Włącz auto-tłumaczenie</p>
+            <PopoverContent className="w-52 p-2" align="end">
+              <p className="text-xs font-semibold mb-2 px-1">🌍 Auto-tłumaczenie</p>
+              <div className="flex items-center justify-between px-1 mb-2">
+                <span className="text-xs text-muted-foreground">Tłumacz automatycznie</span>
+                <button
+                  className={cn(
+                    "w-9 h-5 rounded-full transition-colors relative",
+                    autoTranslateEnabled ? "bg-primary" : "bg-muted-foreground/30"
+                  )}
+                  onClick={() => setAutoTranslateEnabled(!autoTranslateEnabled)}
+                >
+                  <span className={cn(
+                    "absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform",
+                    autoTranslateEnabled ? "translate-x-4" : "translate-x-0.5"
+                  )} />
+                </button>
+              </div>
+              <p className="text-[10px] text-muted-foreground px-1 mb-2">Wybierz język na jaki tłumaczyć:</p>
               <div className="max-h-48 overflow-y-auto space-y-0.5">
                 {SUPPORTED_LANGUAGES.map(l => (
                   <button
