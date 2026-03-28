@@ -131,8 +131,12 @@ export function ChatMessageArea({
     setSearchMatchIndex(0);
   }, [channel?.id]);
 
+  const shouldAutoScroll = useRef(true);
+
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (shouldAutoScroll.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages]);
 
   const getMemberName = (member: any) => {

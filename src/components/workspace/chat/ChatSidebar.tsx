@@ -2,10 +2,12 @@ import { useState } from "react";
 import { ChatChannel, UserStatus } from "@/hooks/useWorkspaceChat";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Hash, Plus, Lock, MessageCircle, Users, Search, ChevronDown, ChevronRight, SmilePlus } from "lucide-react";
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger, ContextMenuSeparator } from "@/components/ui/context-menu";
+import { Hash, Plus, Lock, MessageCircle, Users, Search, ChevronDown, ChevronRight, SmilePlus, Pencil, Trash2, Palette, UserPlus, Eye, GripVertical } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const STATUS_OPTIONS = [
