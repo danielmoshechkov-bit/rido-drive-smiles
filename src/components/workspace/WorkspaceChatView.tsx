@@ -103,6 +103,7 @@ export function WorkspaceChatView({ project, workspace }: Props) {
     if (chat.activeChannel) {
       chat.loadMessages(chat.activeChannel.name);
       chat.loadPinnedMessages(chat.activeChannel.name);
+      chat.loadChannels();
     }
   };
 
@@ -113,6 +114,30 @@ export function WorkspaceChatView({ project, workspace }: Props) {
       .eq("id", channelId);
     if (error) { toast.error("Błąd edycji kanału"); return; }
     toast.success("Kanał zaktualizowany");
+    await chat.loadChannels();
+  };
+
+  const handleGetChannelParticipantIds = async (channelId: string) => {
+    const { data } = await (supabase as any)
+      .from("workspace_channel_participants")
+      .select("user_id")
+      .eq("channel_id", channelId);
+    return (data || []).map((row: any) => row.user_id);
+  };
+
+  const handleInviteToChannel = async (channelId: string, participantIds: string[]) => {
+    if (!participantIds.length) return;
+    const existingIds = await handleGetChannelParticipantIds(channelId);
+    const missingIds = participantIds.filter(id => !existingIds.includes(id));
+    if (!missingIds.length) {
+      toast.success("Wszyscy uczestnicy są już dodani");
+      return;
+    }
+    const { error } = await (supabase as any)
+      .from("workspace_channel_participants")
+      .insert(missingIds.map(user_id => ({ channel_id: channelId, user_id })));
+    if (error) { toast.error("Nie udało się dodać uczestników"); return; }
+    toast.success("Dodano uczestników");
     await chat.loadChannels();
   };
 
@@ -137,7 +162,7 @@ export function WorkspaceChatView({ project, workspace }: Props) {
   }
 
   return (
-    <div className="flex flex-col" style={{ height: 'calc(100vh - 280px)', minHeight: '500px' }}>
+    <div className="flex flex-col overflow-hidden" style={{ height: 'calc(100vh - 280px)', minHeight: '500px' }}>
       {/* Mobile tab switcher */}
       <div className="flex md:hidden border-b mb-2">
         <button
@@ -187,6 +212,8 @@ export function WorkspaceChatView({ project, workspace }: Props) {
             onStatusChange={chat.updateMyStatus}
             onEditChannel={handleEditChannel}
             onDeleteChannel={handleDeleteChannel}
+            onGetChannelParticipantIds={handleGetChannelParticipantIds}
+            onInviteToChannel={handleInviteToChannel}
           />
         </div>
 
@@ -215,6 +242,8 @@ export function WorkspaceChatView({ project, workspace }: Props) {
               onStatusChange={chat.updateMyStatus}
               onEditChannel={handleEditChannel}
               onDeleteChannel={handleDeleteChannel}
+              onGetChannelParticipantIds={handleGetChannelParticipantIds}
+              onInviteToChannel={handleInviteToChannel}
             />
           </div>
         )}

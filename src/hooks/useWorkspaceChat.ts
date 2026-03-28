@@ -73,14 +73,13 @@ export function useWorkspaceChat(projectId: string, userId: string | null) {
   const [searchResults, setSearchResults] = useState<ChatMessage[]>([]);
 
   const loadChannels = useCallback(async () => {
-    // Load all project channels
     const { data: allChannels } = await (supabase as any)
       .from("workspace_channels")
       .select("*")
       .eq("project_id", projectId)
       .eq("is_archived", false)
-      .order("type")
-      .order("name");
+      .order("order_index", { ascending: true })
+      .order("created_at", { ascending: true });
 
     if (!allChannels || !userId) {
       setChannels([]);
@@ -348,17 +347,39 @@ export function useWorkspaceChat(projectId: string, userId: string | null) {
 
   const createChannel = useCallback(async (name: string, type: string = 'public', description?: string, participantIds?: string[]) => {
     if (!userId) return null;
+
+    const { data: maxOrderRow } = await (supabase as any)
+      .from("workspace_channels")
+      .select("order_index")
+      .eq("project_id", projectId)
+      .order("order_index", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
     const { data, error } = await (supabase as any)
       .from("workspace_channels")
-      .insert({ project_id: projectId, name: name.toLowerCase().replace(/\s+/g, '-'), type, description: description || null, created_by: userId })
+      .insert({
+        project_id: projectId,
+        name: name.toLowerCase().replace(/\s+/g, '-'),
+        type,
+        description: description || null,
+        created_by: userId,
+        order_index: (maxOrderRow?.order_index ?? -1) + 1,
+      })
       .select()
       .single();
     if (error) { toast.error("Błąd tworzenia kanału"); return null; }
-    if ((type === 'dm' || type === 'group') && participantIds) {
-      const inserts = [...participantIds, userId].map(uid => ({ channel_id: data.id, user_id: uid }));
-      await (supabase as any).from("workspace_channel_participants").insert(inserts);
+
+    if (type === 'dm' || type === 'group' || type === 'private') {
+      const uniqueIds = Array.from(new Set([...(participantIds || []), userId]));
+      if (uniqueIds.length > 0) {
+        await (supabase as any).from("workspace_channel_participants").insert(
+          uniqueIds.map(uid => ({ channel_id: data.id, user_id: uid }))
+        );
+      }
     }
-    toast.success("Kanał utworzony");
+
+    toast.success(type === 'group' ? "Grupa utworzona" : "Kanał utworzony");
     return data as ChatChannel;
   }, [projectId, userId]);
 
