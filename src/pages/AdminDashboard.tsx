@@ -23,6 +23,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Loader2, Menu, Download, ShoppingCart, ChevronDown, BarChart, DollarSign, Users, Car, FileText, Info, Settings } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { TabsPill } from "@/components/ui/TabsPill";
 import { AdminPortalSwitcher } from "@/components/admin/AdminPortalSwitcher";
