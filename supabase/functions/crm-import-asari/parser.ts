@@ -200,11 +200,19 @@ export function parseOffer(offerXml: string): ParsedOffer | null {
   // Build CRM agent ID (use email or name as identifier)
   const crmAgentId = agentEmail || agentName || null;
 
-  // Area fields - prioritize total area
-  const areaUsable = normalizePrice(params.get('58'));  // param 58 = pow. użytkowa
-  const areaTotal = normalizePrice(params.get('59')) || normalizePrice(params.get('58'));  // param 59 = pow. całkowita, fallback to 58
-  const areaUsableField = normalizePrice(params.get('60')) || areaUsable;  // param 60 = pow. użytkowa alt
-  const areaPlot = normalizePrice(params.get('61'));    // param 61 = pow. działki
+  // Area fields - check all possible EbiuroV2 area params
+  const p58 = normalizePrice(params.get('58'));   // pow. użytkowa
+  const p59 = normalizePrice(params.get('59'));   // pow. całkowita
+  const p60 = normalizePrice(params.get('60'));   // pow. użytkowa alt
+  const p61 = normalizePrice(params.get('61'));   // pow. działki
+  const p68 = normalizePrice(params.get('68'));   // pow. dodatkowa
+
+  // Total = largest of available values (a room can't be bigger than the whole flat)
+  const candidates = [p59, p60, p68, p58].filter(v => v !== null && v > 0) as number[];
+  const areaTotal = candidates.length > 0 ? Math.max(...candidates) : null;
+  const areaUsable = p58 || p60 || areaTotal;
+  const areaPlot = p61;
+  const areaUsableField = areaUsable;
   
   return {
     external_id: signature,
