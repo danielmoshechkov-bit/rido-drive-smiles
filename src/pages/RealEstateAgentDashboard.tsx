@@ -15,6 +15,7 @@ import {
 import { AgencyCRMSettings } from "@/components/agency/AgencyCRMSettings";
 import { AgentCRM } from "@/components/realestate/AgentCRM";
 import { AIBatchProcessButton } from "@/components/realestate/AIBatchProcessButton";
+import { AgentListingsGrid } from "@/components/realestate/AgentListingsGrid";
 import { GoogleCalendarConnect } from "@/components/realestate/GoogleCalendarConnect";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -384,108 +385,13 @@ export default function RealEstateAgentDashboard() {
 
           <TabsContent value="listings">
             <Card>
-              <CardHeader>
-                <CardTitle>Moje ogłoszenia</CardTitle>
-                <CardDescription>Zarządzaj swoimi ogłoszeniami nieruchomości</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {listings.length === 0 ? (
-                  <div className="text-center py-12">
-                    <Building className="h-16 w-16 mx-auto text-muted-foreground/30 mb-4" />
-                    <h3 className="text-lg font-medium mb-2">Brak ogłoszeń</h3>
-                    <p className="text-muted-foreground mb-4">
-                      Dodaj swoje pierwsze ogłoszenie nieruchomości
-                    </p>
-                    <Button 
-                      onClick={() => setActiveTab("add")}
-                      disabled={agent.status !== "verified"}
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Dodaj ogłoszenie
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {/* Mass AI Processing Button */}
-                    <AIBatchProcessButton agentId={agent.id} listingIds={listings.map((l: any) => l.id)} />
-                    {listings.map((listing) => (
-                      <Collapsible 
-                        key={listing.id}
-                        open={expandedListings[listing.id]}
-                        onOpenChange={() => toggleListingExpanded(listing.id)}
-                      >
-                        <div className="border rounded-lg overflow-hidden">
-                          <div className="flex items-center justify-between p-4">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <h4 className="font-medium">{listing.title}</h4>
-                                {getListingStatusBadge(listing.status)}
-                              </div>
-                              <p className="text-sm text-muted-foreground">
-                                {listing.property_type} • {listing.location}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <span className="font-bold text-primary text-lg">
-                                {listing.price.toLocaleString()} zł
-                              </span>
-                              <Button variant="ghost" size="icon">
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button variant="ghost" size="icon">
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                              <CollapsibleTrigger asChild>
-                                <Button variant="ghost" size="icon">
-                                  {expandedListings[listing.id] ? (
-                                    <ChevronUp className="h-4 w-4" />
-                                  ) : (
-                                    <ChevronDown className="h-4 w-4" />
-                                  )}
-                                </Button>
-                              </CollapsibleTrigger>
-                            </div>
-                          </div>
-                          
-                          <CollapsibleContent>
-                            <div className="px-4 pb-4 pt-2 border-t bg-muted/30">
-                              {/* Statistics */}
-                              <p className="text-sm font-medium mb-3">📊 Statystyki ogłoszenia</p>
-                              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                                <div className="flex items-center gap-2 text-sm">
-                                  <Eye className="h-4 w-4 text-blue-500" />
-                                  <span className="font-semibold">{listing.views.toLocaleString()}</span>
-                                  <span className="text-muted-foreground">wyśw.</span>
-                                </div>
-                                <div className="flex items-center gap-2 text-sm">
-                                  <Heart className="h-4 w-4 text-red-500" />
-                                  <span className="font-semibold">{listing.favorites}</span>
-                                  <span className="text-muted-foreground">polub.</span>
-                                </div>
-                                <div className="flex items-center gap-2 text-sm">
-                                  <GitCompare className="h-4 w-4 text-purple-500" />
-                                  <span className="font-semibold">{listing.compares}</span>
-                                  <span className="text-muted-foreground">porów.</span>
-                                </div>
-                                <div className="flex items-center gap-2 text-sm">
-                                  <Phone className="h-4 w-4 text-green-500" />
-                                  <span className="font-semibold">{listing.contact_reveals}</span>
-                                  <span className="text-muted-foreground">kontaktów</span>
-                                </div>
-                              </div>
-                              
-                              {/* Meta info */}
-                              <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
-                                <span>Nr oferty: <span className="font-mono font-medium">{listing.listing_number}</span></span>
-                                <span>Dodano: <span className="font-medium">{listing.created_at}</span></span>
-                              </div>
-                            </div>
-                          </CollapsibleContent>
-                        </div>
-                      </Collapsible>
-                    ))}
-                  </div>
-                )}
+              <CardContent className="pt-6">
+                <AgentListingsGrid
+                  listings={listings}
+                  onAddListing={() => setActiveTab("add")}
+                  agentVerified={agent.status === "verified"}
+                  agentId={agent.id}
+                />
               </CardContent>
             </Card>
           </TabsContent>
