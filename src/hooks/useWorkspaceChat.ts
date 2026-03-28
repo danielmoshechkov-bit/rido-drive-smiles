@@ -73,14 +73,13 @@ export function useWorkspaceChat(projectId: string, userId: string | null) {
   const [searchResults, setSearchResults] = useState<ChatMessage[]>([]);
 
   const loadChannels = useCallback(async () => {
-    // Load all project channels
     const { data: allChannels } = await (supabase as any)
       .from("workspace_channels")
       .select("*")
       .eq("project_id", projectId)
       .eq("is_archived", false)
-      .order("type")
-      .order("name");
+      .order("order_index", { ascending: true })
+      .order("created_at", { ascending: true });
 
     if (!allChannels || !userId) {
       setChannels([]);
