@@ -3210,25 +3210,36 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                         if (isColVisible('debt')) driverCols++;
                         if (isColVisible('wyplata_1')) driverCols++;
 
-                        // Count visible columns in the "rental settlement" section
-                        let rentalCols = 0;
-                        if (isColVisible('rental')) rentalCols++;
-                        if (isColVisible('debt_rental')) rentalCols++;
-                        if (isColVisible('do_wyplaty')) rentalCols++;
-                        if (isColVisible('paid')) rentalCols++;
+                        if (showRentalColumns) {
+                          // Count visible columns in the "rental settlement" section
+                          let rentalCols = 0;
+                          if (isColVisible('rental')) rentalCols++;
+                          if (isColVisible('debt_rental')) rentalCols++;
+                          if (isColVisible('do_wyplaty')) rentalCols++;
+                          if (isColVisible('paid')) rentalCols++;
 
-                        return (
-                          <>
-                            <TableHead colSpan={driverCols} className="text-center py-1 text-xs font-semibold text-blue-700 bg-blue-50/50 border-b-0">
+                          return (
+                            <>
+                              <TableHead colSpan={driverCols} className="text-center py-1 text-xs font-semibold text-blue-700 bg-blue-50/50 border-b-0">
+                                Rozliczenie kierowców
+                              </TableHead>
+                              {rentalCols > 0 && (
+                                <TableHead colSpan={rentalCols} className="text-center py-1 text-xs font-semibold text-green-700 bg-green-50/50 border-l-2 border-primary/20 border-b-0">
+                                  Rozliczenie wynajmu
+                                </TableHead>
+                              )}
+                            </>
+                          );
+                        } else {
+                          // "Bez aut" mode: no split, add do_wyplaty and paid to driver cols
+                          if (isColVisible('do_wyplaty')) driverCols++;
+                          if (isColVisible('paid')) driverCols++;
+                          return (
+                            <TableHead colSpan={driverCols} className="text-center py-1 text-xs font-semibold text-primary bg-primary/5 border-b-0">
                               Rozliczenie kierowców
                             </TableHead>
-                            {rentalCols > 0 && (
-                              <TableHead colSpan={rentalCols} className="text-center py-1 text-xs font-semibold text-green-700 bg-green-50/50 border-l-2 border-primary/20 border-b-0">
-                                Rozliczenie wynajmu
-                              </TableHead>
-                            )}
-                          </>
-                        );
+                          );
+                        }
                       })()}
                     </TableRow>
                     <TableRow>
