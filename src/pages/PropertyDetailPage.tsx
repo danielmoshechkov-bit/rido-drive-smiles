@@ -55,15 +55,17 @@ function mapDbToDisplayListing(db: any) {
   };
   const trans = transTypeMap[db.transaction_type || ''] || { label: db.transaction_type, color: "#6b7280" };
   
-  // Use area_total first, then area, then try description extraction as fallback
-  const areaTotal = Number(db.area_total) || 0;
+  // Use AI area first, then area_total, then area, then description extraction
+  const areaTotal = Number(db.ai_area_total) || Number(db.area_total) || 0;
   const areaUsable = Number(db.area_usable) || 0;
   const dbArea = areaTotal || Number(db.area) || 0;
   let correctedArea = dbArea;
   
-  // Parse rooms_data from DB or extract from description
+  // Parse rooms_data: AI data first, then DB, then extract from description
   let roomsData: Array<{ name: string; area: number }> = [];
-  if (db.rooms_data && Array.isArray(db.rooms_data) && db.rooms_data.length > 0) {
+  if (db.ai_rooms_data && Array.isArray(db.ai_rooms_data) && db.ai_rooms_data.length > 0) {
+    roomsData = db.ai_rooms_data;
+  } else if (db.rooms_data && Array.isArray(db.rooms_data) && db.rooms_data.length > 0) {
     roomsData = db.rooms_data;
   }
   
