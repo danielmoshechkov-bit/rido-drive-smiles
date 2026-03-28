@@ -239,13 +239,24 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     { key: 'paid', label: 'Opłacony' },
   ];
 
-  // In "Bez aut" mode: hide intermediate payout and rental debt columns, keep rental as regular column
-  // Show do_wyplaty as final "Wypłata", no section split headers
-  const BEZ_AUT_HIDDEN = new Set(['wyplata_1', 'debt_rental']);
+  // In "Bez aut" mode: only hide section headers, all columns remain toggleable by the user
   const isColVisible = (key: string) => {
-    if (!showRentalColumns && BEZ_AUT_HIDDEN.has(key)) return false;
     return !hiddenColumns.has(key);
   };
+
+  // When toggling "Bez aut" mode, set sensible defaults but let user override
+  useEffect(() => {
+    if (!showRentalColumns) {
+      // Default-hide intermediate columns when switching to "Bez aut"
+      setHiddenColumns(prev => {
+        const next = new Set(prev);
+        next.add('wyplata_1');
+        next.add('debt_rental');
+        try { localStorage.setItem(`fleet_hidden_cols_${fleetId}`, JSON.stringify([...next])); } catch {}
+        return next;
+      });
+    }
+  }, [showRentalColumns]);
   const toggleColumn = (key: string) => {
     setHiddenColumns(prev => {
       const next = new Set(prev);
