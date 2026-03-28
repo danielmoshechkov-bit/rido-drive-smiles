@@ -1,10 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { DOMParser } from "https://deno.land/x/deno_dom/deno-dom-wasm.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 
-// Auto Partner API URLs
-const AP_SANDBOX_URL = "https://api.autopartner.com/api";
-const AP_PROD_URL = "https://api.autopartner.com/api";
+// Auto Partner SOAP API URLs
+const AP_SANDBOX_URL = "https://sandbox.apcat.eu/webservice/index.php";
+const AP_PROD_URL = "https://apcat.eu/webservice/index.php";
 
 // Hart API URLs
 const HART_SANDBOX_URL = "https://sandbox.restapi.hartphp.com.pl";
@@ -66,7 +67,7 @@ serve(async (req) => {
       return await handleHart(supabase, baseUrl, integration, action, params);
     }
 
-    // Generic supplier - just test connectivity to their API URL
+    // Generic supplier
     if (action === "test_connection" && integration.api_url) {
       try {
         const testRes = await fetch(integration.api_url, { method: "GET" });
@@ -92,7 +93,45 @@ serve(async (req) => {
   }
 });
 
-// ==================== AUTO PARTNER ====================
+// ==================== SOAP HELPERS ====================
+function buildSoapEnvelope(headerXml: string, bodyXml: string): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:web="https://apcat.eu/webservice/">
+  <soapenv:Header>
+    ${headerXml}
+  </soapenv:Header>
+  <soapenv:Body>
+    ${bodyXml}
+  </soapenv:Body>
+</soapenv:Envelope>`;
+}
+
+function buildAuthHeader(clientCode: string, wsPassword: string): string {
+  return `<web:AuthHeader>
+      <web:ClientCode>${clientCode}</web:ClientCode>
+      <web:WsPassword>${wsPassword}</web:WsPassword>
+    </web:AuthHeader>`;
+}
+
+async function soapCall(url: string, soapAction: string, envelope: string): Promise<{ ok: boolean; text: string; status: number }> {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "text/xml; charset=utf-8",
+      "SOAPAction": soapAction,
+    },
+    body: envelope,
+  });
+  const text = await res.text();
+  return { ok: res.ok, text, status: res.status };
+}
+
+function parseXml(xmlText: string) {
+  const parser = new DOMParser();
+  return parser.parseFromString(xmlText, "text/xml");
+}
+
+// ==================== AUTO PARTNER (SOAP) ====================
 async function handleAutoPartner(
   supabase: any,
   integration: any,
@@ -108,119 +147,86 @@ async function handleAutoPartner(
     return json({ error: "Brak danych uwierzytelniających Auto Partner. Wypełnij: Client Code, WS Password, Client Password." }, 400);
   }
 
-  // Auto Partner uses SOAP-like REST API
-  // Try multiple known API endpoints
-  const apiUrls = [
-    integration.api_url || "",
-    "https://webservice.autopartner.com/CustomerAPI.svc/rest",
-    "https://customerapi.autopartner.dev/CustomerAPI.svc/rest",
-  ].filter(Boolean);
-
-  const authBody = {
-    clientCode: clientCode,
-    wsPassword: wsPassword,
-    clientPassword: clientPassword,
-  };
+  const isSandbox = integration.environment !== "production";
+  const baseUrl = isSandbox ? AP_SANDBOX_URL : AP_PROD_URL;
+  const authHeader = buildAuthHeader(clientCode, wsPassword);
 
   switch (action) {
     case "test_connection": {
-      let lastError = "";
-      for (const baseUrl of apiUrls) {
-        try {
-          console.log(`Testing Auto Partner at: ${baseUrl}/GetClientInfo`);
-          
-          // Try POST with JSON body (common for WCF REST)
-          const testRes = await fetch(`${baseUrl}/GetClientInfo`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(authBody),
-          });
+      try {
+        const envelope = buildSoapEnvelope(
+          authHeader,
+          `<web:GetWarehouses>
+            <web:clientPassword>${clientPassword}</web:clientPassword>
+          </web:GetWarehouses>`
+        );
 
-          const responseText = await testRes.text();
-          console.log(`AP response (${testRes.status}): ${responseText.substring(0, 300)}`);
+        console.log(`Testing Auto Partner SOAP at: ${baseUrl}`);
+        const result = await soapCall(baseUrl, "https://apcat.eu/webservice/GetWarehouses", envelope);
+        console.log(`AP SOAP response (${result.status}): ${result.text.substring(0, 500)}`);
 
-          if (testRes.ok || testRes.status === 200) {
-            await supabase
-              .from("workshop_parts_integrations")
-              .update({ 
-                last_connection_status: "ok", 
-                last_connection_at: new Date().toISOString(),
-                api_url: baseUrl, // Save working URL
-              })
-              .eq("id", integration.id);
-            return json({ success: true, message: `Połączono z Auto Partner API (${baseUrl})` });
-          }
-          
-          lastError = `HTTP ${testRes.status}: ${responseText.substring(0, 200)}`;
-        } catch (e) {
-          lastError = e.message;
-          console.log(`AP error at ${baseUrl}: ${e.message}`);
+        // Check for SOAP Fault
+        if (result.text.includes("Fault") || result.text.includes("faultstring")) {
+          const doc = parseXml(result.text);
+          const faultMsg = doc?.querySelector("faultstring")?.textContent || "Nieznany błąd SOAP";
+          await supabase
+            .from("workshop_parts_integrations")
+            .update({ last_connection_status: "error", last_connection_at: new Date().toISOString() })
+            .eq("id", integration.id);
+          return json({ error: `Auto Partner: ${faultMsg}` }, 400);
         }
-      }
 
-      // Also try GET with query params as fallback
-      for (const baseUrl of apiUrls) {
-        try {
-          const authParams = `clientCode=${encodeURIComponent(clientCode)}&wsPassword=${encodeURIComponent(wsPassword)}&clientPassword=${encodeURIComponent(clientPassword)}`;
-          const testRes = await fetch(`${baseUrl}/GetClientInfo?${authParams}`, {
-            method: "GET",
-          });
-          const responseText = await testRes.text();
-          
-          if (testRes.ok) {
-            await supabase
-              .from("workshop_parts_integrations")
-              .update({ 
-                last_connection_status: "ok", 
-                last_connection_at: new Date().toISOString(),
-                api_url: baseUrl,
-              })
-              .eq("id", integration.id);
-            return json({ success: true, message: `Połączono z Auto Partner API` });
-          }
-          lastError = `GET ${testRes.status}: ${responseText.substring(0, 200)}`;
-        } catch (e) {
-          lastError = e.message;
+        if (result.ok || result.status === 200) {
+          await supabase
+            .from("workshop_parts_integrations")
+            .update({
+              last_connection_status: "ok",
+              last_connection_at: new Date().toISOString(),
+              api_url: baseUrl,
+            })
+            .eq("id", integration.id);
+          return json({ success: true, message: `Połączono z Auto Partner (${isSandbox ? "Sandbox" : "Produkcja"})` });
         }
-      }
 
-      await supabase
-        .from("workshop_parts_integrations")
-        .update({ last_connection_status: "error", last_connection_at: new Date().toISOString() })
-        .eq("id", integration.id);
-      return json({ error: `Auto Partner: ${lastError}` }, 400);
+        await supabase
+          .from("workshop_parts_integrations")
+          .update({ last_connection_status: "error", last_connection_at: new Date().toISOString() })
+          .eq("id", integration.id);
+        return json({ error: `Auto Partner HTTP ${result.status}: ${result.text.substring(0, 200)}` }, 400);
+      } catch (e) {
+        console.error("AP SOAP test error:", e);
+        await supabase
+          .from("workshop_parts_integrations")
+          .update({ last_connection_status: "error", last_connection_at: new Date().toISOString() })
+          .eq("id", integration.id);
+        return json({ error: `Nie można połączyć z Auto Partner: ${e.message}` }, 500);
+      }
     }
 
     case "search": {
       const query = params?.query;
       if (!query) return json({ error: "Brak frazy wyszukiwania" }, 400);
 
-      const baseUrl = integration.api_url || apiUrls[0];
       try {
-        const searchRes = await fetch(`${baseUrl}/SearchArticles`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ...authBody,
-            searchPhrase: query,
-            pageSize: 50,
-            pageNumber: 1,
-          }),
-        });
-        if (!searchRes.ok) {
-          // Fallback to GET
-          const authParams = `clientCode=${encodeURIComponent(clientCode)}&wsPassword=${encodeURIComponent(wsPassword)}&clientPassword=${encodeURIComponent(clientPassword)}`;
-          const getRes = await fetch(
-            `${baseUrl}/SearchArticles?${authParams}&searchPhrase=${encodeURIComponent(query)}&pageSize=50&pageNumber=1`
-          );
-          if (!getRes.ok) return json({ error: `Wyszukiwanie nie powiodło się: ${getRes.status}` }, getRes.status);
-          const data = await getRes.json();
-          return json({ results: data });
+        const envelope = buildSoapEnvelope(
+          authHeader,
+          `<web:GetItemsByNumber>
+            <web:clientPassword>${clientPassword}</web:clientPassword>
+            <web:number>${escapeXml(query)}</web:number>
+          </web:GetItemsByNumber>`
+        );
+
+        const result = await soapCall(baseUrl, "https://apcat.eu/webservice/GetItemsByNumber", envelope);
+
+        if (!result.ok && !result.text.includes("GetItemsByNumberResponse")) {
+          return json({ error: `Wyszukiwanie Auto Partner: HTTP ${result.status}` }, result.status);
         }
-        const data = await searchRes.json();
-        return json({ results: data });
+
+        // Parse SOAP XML response into normalized JSON
+        const items = parseAutoPartnerItems(result.text);
+        return json({ results: items });
       } catch (e) {
-        return json({ error: `Błąd wyszukiwania: ${e.message}` }, 500);
+        return json({ error: `Błąd wyszukiwania AP: ${e.message}` }, 500);
       }
     }
 
@@ -228,23 +234,67 @@ async function handleAutoPartner(
       const codes = params?.codes;
       if (!codes?.length) return json({ error: "Brak kodów produktów" }, 400);
 
-      const baseUrl = integration.api_url || apiUrls[0];
       try {
-        const avRes = await fetch(`${baseUrl}/GetArticlesAvailability`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...authBody, articleCodes: codes }),
-        });
-        if (!avRes.ok) return json({ error: `Dostępność: ${avRes.status}` }, avRes.status);
-        const data = await avRes.json();
-        return json({ availability: data });
+        // Query availability for each code
+        const allItems: any[] = [];
+        for (const code of codes.slice(0, 20)) {
+          const envelope = buildSoapEnvelope(
+            authHeader,
+            `<web:GetItemsByNumber>
+              <web:clientPassword>${clientPassword}</web:clientPassword>
+              <web:number>${escapeXml(code)}</web:number>
+            </web:GetItemsByNumber>`
+          );
+          const result = await soapCall(baseUrl, "https://apcat.eu/webservice/GetItemsByNumber", envelope);
+          const items = parseAutoPartnerItems(result.text);
+          allItems.push(...items);
+        }
+        return json({ availability: allItems });
       } catch (e) {
-        return json({ error: `Błąd sprawdzania dostępności: ${e.message}` }, 500);
+        return json({ error: `Błąd dostępności AP: ${e.message}` }, 500);
       }
     }
 
     default:
       return json({ error: `Nieznana akcja: ${action}` }, 400);
+  }
+}
+
+function escapeXml(str: string): string {
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+}
+
+function parseAutoPartnerItems(xmlText: string): any[] {
+  try {
+    const doc = parseXml(xmlText);
+    if (!doc) return [];
+
+    const items: any[] = [];
+    // Try to find Item elements in the response
+    const itemNodes = doc.querySelectorAll("Item") || [];
+
+    for (const node of itemNodes) {
+      items.push({
+        partNumber: node.querySelector("Number")?.textContent || node.querySelector("Code")?.textContent || "",
+        name: node.querySelector("Name")?.textContent || node.querySelector("Description")?.textContent || "",
+        price: parseFloat(node.querySelector("Price")?.textContent || node.querySelector("NetPrice")?.textContent || "0"),
+        availability: node.querySelector("Availability")?.textContent || node.querySelector("Stock")?.textContent || "0",
+        warehouse: node.querySelector("Warehouse")?.textContent || node.querySelector("WarehouseName")?.textContent || "",
+        producer: node.querySelector("Producer")?.textContent || node.querySelector("Brand")?.textContent || "",
+      });
+    }
+
+    // Fallback: try generic element names if no Item elements found
+    if (items.length === 0) {
+      const resultNodes = doc.querySelectorAll("GetItemsByNumberResult *") || [];
+      // Return raw text for debugging
+      console.log("AP raw response elements count:", resultNodes.length);
+    }
+
+    return items;
+  } catch (e) {
+    console.error("AP XML parse error:", e);
+    return [];
   }
 }
 
