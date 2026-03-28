@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { WorkspaceProject } from "@/hooks/useWorkspace";
-import { useWorkspaceChat } from "@/hooks/useWorkspaceChat";
+import { useWorkspaceChat, ChatMessage } from "@/hooks/useWorkspaceChat";
 import { ChatSidebar } from "./chat/ChatSidebar";
 import { ChatMessageArea } from "./chat/ChatMessageArea";
 import { ChatThreadPanel } from "./chat/ChatThreadPanel";
