@@ -55,15 +55,17 @@ function mapDbToDisplayListing(db: any) {
   };
   const trans = transTypeMap[db.transaction_type || ''] || { label: db.transaction_type, color: "#6b7280" };
   
-  // Use area_total first, then area, then try description extraction as fallback
-  const areaTotal = Number(db.area_total) || 0;
+  // Use AI area first, then area_total, then area, then description extraction
+  const areaTotal = Number(db.ai_area_total) || Number(db.area_total) || 0;
   const areaUsable = Number(db.area_usable) || 0;
   const dbArea = areaTotal || Number(db.area) || 0;
   let correctedArea = dbArea;
   
-  // Parse rooms_data from DB or extract from description
+  // Parse rooms_data: AI data first, then DB, then extract from description
   let roomsData: Array<{ name: string; area: number }> = [];
-  if (db.rooms_data && Array.isArray(db.rooms_data) && db.rooms_data.length > 0) {
+  if (db.ai_rooms_data && Array.isArray(db.ai_rooms_data) && db.ai_rooms_data.length > 0) {
+    roomsData = db.ai_rooms_data;
+  } else if (db.rooms_data && Array.isArray(db.rooms_data) && db.rooms_data.length > 0) {
     roomsData = db.rooms_data;
   }
   
@@ -175,6 +177,14 @@ function mapDbToDisplayListing(db: any) {
     favoriteCount: db.favorites_count || 0,
     compareCount: db.comparison_count || 0,
     contactRevealCount: db.contact_reveals_count || 0,
+    // AI data
+    aiAmenities: db.ai_amenities || {},
+    aiBuildingInfo: db.ai_building_info || {},
+    aiLocationDetails: db.ai_location_details || {},
+    aiDescriptionHtml: db.ai_description_html || null,
+    aiSummary: db.ai_summary || null,
+    aiConfidence: db.ai_confidence || 0,
+    aiParsedAt: db.ai_parsed_at || null,
     amenities: [
       db.has_balcony && "Balkon",
       db.has_elevator && "Winda",
@@ -416,16 +426,42 @@ export default function PropertyDetailPage() {
 
             <Separator />
 
-            {/* Description */}
-            <div>
-              <h2 className="text-xl font-semibold mb-4">Opis</h2>
-              <div className="prose prose-sm max-w-none text-foreground/80 whitespace-pre-line leading-relaxed">
-                {listing.description || "Brak opisu"}
-              </div>
-            </div>
+            {/* AI Amenities - before description */}
+            {listing.aiAmenities && Object.keys(listing.aiAmenities).some((k: string) => listing.aiAmenities[k] === true) && (
+              <>
+                <Separator />
+                <div>
+                  <h2 className="text-xl font-semibold mb-4">Udogodnienia</h2>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    {Object.entries(listing.aiAmenities as Record<string, boolean | null>)
+                      .filter(([, v]) => v === true)
+                      .map(([key]) => {
+                        const icons: Record<string, string> = {
+                          balkon: '🌿', taras: '☀️', ogrodek: '🌳', garaz: '🚗',
+                          piwnica: '📦', winda: '🛗', klimatyzacja: '❄️', ochrona: '🔐',
+                          recepcja: '🏢', monitoring: '📹', domofon: '🔔', smart_home: '🏠',
+                          miejsce_postojowe: '🅿️'
+                        };
+                        const labels: Record<string, string> = {
+                          balkon: 'Balkon', taras: 'Taras', ogrodek: 'Ogródek', garaz: 'Garaż',
+                          piwnica: 'Piwnica', winda: 'Winda', klimatyzacja: 'Klimatyzacja', ochrona: 'Ochrona',
+                          recepcja: 'Recepcja', monitoring: 'Monitoring', domofon: 'Domofon', smart_home: 'Smart Home',
+                          miejsce_postojowe: 'Miejsce postojowe'
+                        };
+                        return (
+                          <div key={key} className="flex items-center gap-2 p-3 rounded-xl bg-card border shadow-sm">
+                            <span className="text-lg">{icons[key] || '✅'}</span>
+                            <span className="text-sm font-medium">{labels[key] || key}</span>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </div>
+              </>
+            )}
 
-            {/* Amenities */}
-            {listing.amenities?.length > 0 && (
+            {/* Fallback: simple amenities if no AI data */}
+            {(!listing.aiAmenities || !Object.keys(listing.aiAmenities).some((k: string) => listing.aiAmenities[k] === true)) && listing.amenities?.length > 0 && (
               <>
                 <Separator />
                 <div>
@@ -442,6 +478,57 @@ export default function PropertyDetailPage() {
               </>
             )}
 
+            {/* AI Building Info */}
+            {listing.aiBuildingInfo && Object.values(listing.aiBuildingInfo).some((v: any) => v !== null) && (
+              <>
+                <Separator />
+                <div>
+                  <h2 className="text-xl font-semibold mb-4">Informacje o budynku</h2>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {(() => {
+                      const info = listing.aiBuildingInfo as Record<string, any>;
+                      const labels: Record<string, string> = {
+                        rok_budowy: 'Rok budowy', material: 'Materiał', stan: 'Stan',
+                        ogrzewanie: 'Ogrzewanie', okna: 'Okna', pietro: 'Piętro', liczba_pieter: 'Pięter w budynku'
+                      };
+                      return Object.entries(info)
+                        .filter(([, v]) => v !== null && v !== undefined)
+                        .map(([k, v]) => (
+                          <div key={k} className="p-3 rounded-xl bg-card border shadow-sm">
+                            <p className="text-xs text-muted-foreground">{labels[k] || k}</p>
+                            <p className="font-medium text-sm capitalize">{String(v)}</p>
+                          </div>
+                        ));
+                    })()}
+                  </div>
+                </div>
+              </>
+            )}
+
+            <Separator />
+
+            {/* Description */}
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <h2 className="text-xl font-semibold">Opis</h2>
+                {listing.aiConfidence > 70 && (
+                  <Badge variant="secondary" className="text-xs gap-1">
+                    <Sparkles className="h-3 w-3" /> AI
+                  </Badge>
+                )}
+              </div>
+              {listing.aiDescriptionHtml ? (
+                <div 
+                  className="prose prose-sm max-w-none text-foreground/80 leading-relaxed"
+                  dangerouslySetInnerHTML={{ __html: listing.aiDescriptionHtml }}
+                />
+              ) : (
+                <div className="prose prose-sm max-w-none text-foreground/80 whitespace-pre-line leading-relaxed">
+                  {listing.description || "Brak opisu"}
+                </div>
+              )}
+            </div>
+
             <Separator />
 
             {/* Location Map */}
@@ -452,7 +539,7 @@ export default function PropertyDetailPage() {
               hasStreetAddress={!!listing.address && listing.address.trim().length > 0}
             />
 
-            {/* Ad Banner - pod mapą na pełną szerokość */}
+            {/* Ad Banner */}
             <div className="mt-4">
               <AdBannerSlot placement="property_detail_map" />
             </div>

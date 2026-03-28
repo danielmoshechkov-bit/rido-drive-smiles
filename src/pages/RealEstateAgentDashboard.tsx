@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { AgencyCRMSettings } from "@/components/agency/AgencyCRMSettings";
 import { AgentCRM } from "@/components/realestate/AgentCRM";
+import { AIBatchProcessButton } from "@/components/realestate/AIBatchProcessButton";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { AccountSwitcherPanel } from "@/components/AccountSwitcherPanel";
@@ -400,6 +401,8 @@ export default function RealEstateAgentDashboard() {
                   </div>
                 ) : (
                   <div className="space-y-4">
+                    {/* Mass AI Processing Button */}
+                    <AIBatchProcessButton agentId={agent.id} listingIds={listings.map((l: any) => l.id)} />
                     {listings.map((listing) => (
                       <Collapsible 
                         key={listing.id}
