@@ -2727,6 +2727,18 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                   </div>
                 </PopoverContent>
               </Popover>
+              <Button
+                variant={showRentalColumns ? "default" : "outline"}
+                size="sm"
+                className="gap-1.5 text-xs"
+                onClick={() => {
+                  const next = !showRentalColumns;
+                  setShowRentalColumns(next);
+                  try { localStorage.setItem(`fleet_show_rental_${fleetId}`, String(next)); } catch {}
+                }}
+              >
+                {showRentalColumns ? '🚗 Z autami' : '📊 Bez aut'}
+              </Button>
               <div className="h-6 w-px bg-border hidden md:block" />
               <div className="flex flex-wrap items-center gap-2">
                 <Button 
