@@ -427,6 +427,8 @@ export function LocationMapModal({
       polygonRef.current?.setMap(null);
       tempPolygonRef.current?.setMap(null);
       tempMarkersRef.current.forEach(m => m.setMap(null));
+      listingOverlaysRef.current.forEach(o => o.setMap?.(null));
+      listingOverlaysRef.current = [];
       markerRef.current = null;
     };
   }, [open, isLoaded, google, initialCenter]);
