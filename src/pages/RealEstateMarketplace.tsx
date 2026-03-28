@@ -810,27 +810,6 @@ export default function RealEstateMarketplace() {
         </section>
       )}
 
-      {/* CTA for Agencies - only show when not loading */}
-      {!loading && (
-        <section className="container mx-auto px-4 py-12">
-          <div className="max-w-3xl mx-auto bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl p-8 text-center border border-primary/20">
-            <Building className="h-12 w-12 mx-auto text-primary mb-4" />
-            <h2 className="text-2xl font-bold mb-2">Jesteś agentem nieruchomości?</h2>
-            <p className="text-muted-foreground mb-6">
-              Dołącz do GetRido i docieraj do tysięcy potencjalnych klientów. 
-              Dodawaj ogłoszenia, zarządzaj zespołem agentów.
-            </p>
-            <Button 
-              size="lg" 
-              onClick={() => navigate('/nieruchomosci/agent/rejestracja')}
-              className="rounded-full"
-            >
-              Zarejestruj agencję
-              <ArrowRight className="h-4 w-4 ml-2" />
-            </Button>
-          </div>
-        </section>
-      )}
 
       {/* Footer with back link */}
       <footer className="border-t py-12 bg-card">

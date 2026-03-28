@@ -171,7 +171,9 @@ export function PropertyListingCard({
     ? Math.round(listing.price / displayArea) 
     : null;
 
-  const handleShowContact = async () => {
+  const handleShowContact = async (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    e?.preventDefault();
     if (!isLoggedIn) {
       setShowLoginDialog(true);
       return;
@@ -658,7 +660,7 @@ export function PropertyListingCard({
           {!compact && (
             <>
               <button
-                onClick={handleShowContact}
+                onClick={(e) => handleShowContact(e)}
                 className="w-full mt-3 pt-3 border-t text-sm text-muted-foreground hover:text-foreground transition-colors text-left flex items-center gap-2"
               >
                 {!isLoggedIn && <Lock className="h-3.5 w-3.5" />}
