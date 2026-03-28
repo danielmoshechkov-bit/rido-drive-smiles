@@ -11,7 +11,7 @@ const KSEF_DEMO_URL = 'https://ksef-demo.mf.gov.pl/api/v2';
 const KSEF_PROD_URL = 'https://ksef.mf.gov.pl/api/v2';
 
 interface KSeFRequest {
-  action: 'send' | 'status' | 'download' | 'generate_xml' | 'get_settings' | 'save_settings';
+  action: 'send' | 'status' | 'download' | 'generate_xml' | 'get_settings' | 'save_settings' | 'fetch_received';
   invoice_id?: string;
   entity_id?: string;
   ksef_reference?: string;
@@ -19,6 +19,8 @@ interface KSeFRequest {
   environment?: 'demo' | 'production';
   token?: string;
   auto_send?: boolean;
+  date_from?: string;
+  date_to?: string;
 }
 
 // Generate FA(2) XML for invoice
@@ -195,6 +197,97 @@ serve(async (req) => {
         JSON.stringify({ success: true }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    // FETCH RECEIVED INVOICES FROM KSEF
+    if (action === 'fetch_received') {
+      // Get KSeF settings
+      const { data: ksefSettings } = await supabase
+        .from('ksef_settings')
+        .select('*')
+        .eq('entity_id', body.entity_id)
+        .single();
+
+      if (!ksefSettings?.is_enabled) {
+        throw new Error('KSeF nie jest włączony dla tej firmy');
+      }
+
+      const { data: entity } = await supabase
+        .from('entities')
+        .select('nip')
+        .eq('id', body.entity_id)
+        .single();
+
+      const baseUrl = ksefSettings.environment === 'production' ? KSEF_PROD_URL : KSEF_DEMO_URL;
+
+      // In demo mode, generate sample purchase invoices
+      if (ksefSettings.environment === 'demo' || ksefSettings.environment === 'integration') {
+        const sampleSuppliers = [
+          { name: 'Auto-Partner SA', nip: '6792881003', category: 'części_magazyn' },
+          { name: 'BP Europa SE', nip: '1070010978', category: 'paliwo' },
+          { name: 'PZU SA', nip: '5260300291', category: 'ubezpieczenie' },
+          { name: 'Serwis-IT Sp. z o.o.', nip: '7811934421', category: 'usługi_it' },
+          { name: 'MotoLeasing Sp. z o.o.', nip: '1132853869', category: 'leasing' },
+        ];
+
+        let insertedCount = 0;
+        for (const supplier of sampleSuppliers) {
+          const ksefNumber = `DEMO-${body.entity_id?.slice(0, 8)}-${supplier.nip}-${body.date_from}`;
+          const netAmount = Math.round((Math.random() * 5000 + 500) * 100) / 100;
+          const vatAmount = Math.round(netAmount * 0.23 * 100) / 100;
+
+          const { error: upsertError } = await supabase
+            .from('purchase_invoices')
+            .upsert({
+              document_number: `FV/${new Date().getFullYear()}/${Math.floor(Math.random() * 9999)}`,
+              ksef_number: ksefNumber,
+              supplier_name: supplier.name,
+              supplier_nip: supplier.nip,
+              total_net: netAmount,
+              total_vat: vatAmount,
+              total_gross: netAmount + vatAmount,
+              purchase_date: body.date_from,
+              status: 'new',
+              entity_id: body.entity_id,
+              ai_category: supplier.category,
+            }, { onConflict: 'ksef_number' });
+
+          if (!upsertError) insertedCount++;
+        }
+
+        return new Response(
+          JSON.stringify({ success: true, demo: true, count: insertedCount }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Production: Real KSeF API flow
+      try {
+        // Step 1: Challenge
+        const challengeRes = await fetch(`${baseUrl}/auth/challenge`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contextIdentifier: { type: 'onip', identifier: entity?.nip }
+          }),
+        });
+
+        if (!challengeRes.ok) {
+          throw new Error(`KSeF challenge failed: ${challengeRes.status}`);
+        }
+
+        const challengeData = await challengeRes.json();
+        const challenge = challengeData.challenge;
+
+        // Step 2: Token (simplified - needs real token signing in production)
+        // For now return error for prod
+        throw new Error('Produkcyjne pobieranie faktur wymaga konfiguracji certyfikatu');
+      } catch (prodError) {
+        return new Response(
+          JSON.stringify({ success: false, error: prodError.message }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
     // GENERATE XML
