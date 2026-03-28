@@ -239,9 +239,11 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     { key: 'paid', label: 'Opłacony' },
   ];
 
-  const RENTAL_COLUMNS = new Set(['rental', 'debt_rental', 'do_wyplaty']);
+  // In "Bez aut" mode: hide rental split columns AND intermediate wyplata_1, show do_wyplaty as final "Wypłata"
+  // In "Z autami" mode: show all columns
+  const RENTAL_ONLY_COLUMNS = new Set(['wyplata_1', 'rental', 'debt_rental']);
   const isColVisible = (key: string) => {
-    if (!showRentalColumns && RENTAL_COLUMNS.has(key)) return false;
+    if (!showRentalColumns && RENTAL_ONLY_COLUMNS.has(key)) return false;
     return !hiddenColumns.has(key);
   };
   const toggleColumn = (key: string) => {
@@ -3208,25 +3210,36 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                         if (isColVisible('debt')) driverCols++;
                         if (isColVisible('wyplata_1')) driverCols++;
 
-                        // Count visible columns in the "rental settlement" section
-                        let rentalCols = 0;
-                        if (isColVisible('rental')) rentalCols++;
-                        if (isColVisible('debt_rental')) rentalCols++;
-                        if (isColVisible('do_wyplaty')) rentalCols++;
-                        if (isColVisible('paid')) rentalCols++;
+                        if (showRentalColumns) {
+                          // Count visible columns in the "rental settlement" section
+                          let rentalCols = 0;
+                          if (isColVisible('rental')) rentalCols++;
+                          if (isColVisible('debt_rental')) rentalCols++;
+                          if (isColVisible('do_wyplaty')) rentalCols++;
+                          if (isColVisible('paid')) rentalCols++;
 
-                        return (
-                          <>
-                            <TableHead colSpan={driverCols} className="text-center py-1 text-xs font-semibold text-blue-700 bg-blue-50/50 border-b-0">
+                          return (
+                            <>
+                              <TableHead colSpan={driverCols} className="text-center py-1 text-xs font-semibold text-blue-700 bg-blue-50/50 border-b-0">
+                                Rozliczenie kierowców
+                              </TableHead>
+                              {rentalCols > 0 && (
+                                <TableHead colSpan={rentalCols} className="text-center py-1 text-xs font-semibold text-green-700 bg-green-50/50 border-l-2 border-primary/20 border-b-0">
+                                  Rozliczenie wynajmu
+                                </TableHead>
+                              )}
+                            </>
+                          );
+                        } else {
+                          // "Bez aut" mode: no split, add do_wyplaty and paid to driver cols
+                          if (isColVisible('do_wyplaty')) driverCols++;
+                          if (isColVisible('paid')) driverCols++;
+                          return (
+                            <TableHead colSpan={driverCols} className="text-center py-1 text-xs font-semibold text-primary bg-primary/5 border-b-0">
                               Rozliczenie kierowców
                             </TableHead>
-                            {rentalCols > 0 && (
-                              <TableHead colSpan={rentalCols} className="text-center py-1 text-xs font-semibold text-green-700 bg-green-50/50 border-l-2 border-primary/20 border-b-0">
-                                Rozliczenie wynajmu
-                              </TableHead>
-                            )}
-                          </>
-                        );
+                          );
+                        }
                       })()}
                     </TableRow>
                     <TableRow>
@@ -3297,7 +3310,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                         <span className="inline-flex items-center justify-center">Dług wynajmu{getSortIcon('debt_rental')}</span>
                       </TableHead>}
                       {isColVisible('do_wyplaty') && <TableHead className="text-right px-2 py-1.5 text-xs font-bold whitespace-nowrap text-green-700 cursor-pointer select-none hover:bg-muted/50" onClick={() => handleSort('do_wyplaty')}>
-                        <span className="inline-flex items-center justify-end w-full">Wypłata fin.{getSortIcon('do_wyplaty')}</span>
+                        <span className="inline-flex items-center justify-end w-full">{showRentalColumns ? 'Wypłata fin.' : 'Wypłata'}{getSortIcon('do_wyplaty')}</span>
                       </TableHead>}
                       {isColVisible('paid') && <TableHead className="text-center px-2 py-1.5 text-xs font-medium whitespace-nowrap">Opłacony</TableHead>}
                     </TableRow>
