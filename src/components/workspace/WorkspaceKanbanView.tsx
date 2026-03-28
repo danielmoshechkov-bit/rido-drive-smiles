@@ -1,13 +1,11 @@
 import { useState, useEffect } from "react";
 import { WorkspaceProject, WorkspaceTask } from "@/hooks/useWorkspace";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { TaskDetailModal } from "./TaskDetailModal";
-import { Plus, GripVertical, Calendar, User, Clock, AlertTriangle, MessageSquare, CheckCircle2 } from "lucide-react";
+import { Plus, Calendar, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
