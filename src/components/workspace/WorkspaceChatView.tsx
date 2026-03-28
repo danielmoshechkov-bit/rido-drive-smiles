@@ -137,7 +137,7 @@ export function WorkspaceChatView({ project, workspace }: Props) {
   }
 
   return (
-    <div className="flex flex-col" style={{ height: 'calc(100vh - 280px)', minHeight: '500px' }}>
+    <div className="flex flex-col overflow-hidden" style={{ height: 'calc(100vh - 280px)', minHeight: '500px' }}>
       {/* Mobile tab switcher */}
       <div className="flex md:hidden border-b mb-2">
         <button

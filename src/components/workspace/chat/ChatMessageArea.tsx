@@ -131,11 +131,12 @@ export function ChatMessageArea({
     setSearchMatchIndex(0);
   }, [channel?.id]);
 
+  const messageListRef = useRef<HTMLDivElement>(null);
   const shouldAutoScroll = useRef(true);
 
   useEffect(() => {
     if (shouldAutoScroll.current) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      messageListRef.current?.scrollTo({ top: messageListRef.current.scrollHeight, behavior: "smooth" });
     }
   }, [messages]);
 
