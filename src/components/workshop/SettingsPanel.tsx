@@ -193,7 +193,7 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
   const handlePrimaryTabToggle = (tab: ServiceProviderNavTabKey, checked: boolean) => {
     setPrimaryTabs(prev => {
       if (checked) {
-        return SERVICE_PROVIDER_TAB_ORDER.filter(key => key !== 'settings' && (websiteBuilderEnabled || key !== 'website')).filter(key => key === tab || prev.includes(key));
+        return [...prev, tab];
       }
       return prev.filter(item => item !== tab);
     });
