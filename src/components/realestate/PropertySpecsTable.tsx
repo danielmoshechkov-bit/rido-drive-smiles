@@ -116,6 +116,12 @@ const ROOM_SORT_ORDER: Record<string, number> = {
   piwnica: 8, komórka: 8, schowek: 8,
   garaż: 9,
   balkon: 10, taras: 10, loggia: 10,
+  // Commercial - show main area first
+  magazyn: 1, hala: 1,
+  biuro: 2,
+  "pomieszczeni": 3, socjaln: 3,
+  recepcja: 4,
+  rampa: 8, plac: 9,
 };
 
 function getRoomSortOrder(name: string): number {
