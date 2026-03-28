@@ -75,6 +75,8 @@ export function WorkspaceTasksView({ project, workspace }: Props) {
   const [checklistInput, setChecklistInput] = useState("");
   const [detailTab, setDetailTab] = useState<'detail' | 'checklist' | 'comments' | 'history' | 'time' | 'deps'>('detail');
   const [manualMinutes, setManualMinutes] = useState("");
+  const [showInviteFromTask, setShowInviteFromTask] = useState(false);
+  const [inviteForm, setInviteForm] = useState({ email: "", firstName: "", lastName: "", role: "member" });
   useEffect(() => { reload(); }, [project.id]);
 
   const reload = async () => {
