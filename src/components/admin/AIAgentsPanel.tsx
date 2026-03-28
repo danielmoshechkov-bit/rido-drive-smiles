@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { Shield, Calculator, FileText, Loader2, Play, Bot, CheckCircle, XCircle } from 'lucide-react';
+import { AI_MODELS } from '@/config/aiModels';
 
 const ICON_MAP: Record<string, React.ComponentType<any>> = {
   shield: Shield,
@@ -28,13 +29,6 @@ const ICON_MAP: Record<string, React.ComponentType<any>> = {
   'file-text': FileText,
   bot: Bot,
 };
-
-const MODELS = [
-  { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' },
-  { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4' },
-  { value: 'gpt-4o-mini', label: 'GPT-4o Mini' },
-  { value: 'gpt-4o', label: 'GPT-4o' },
-];
 
 interface AgentConfig {
   id: string;
@@ -188,9 +182,10 @@ export function AIAgentsPanel() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {MODELS.map((m) => (
+                        {AI_MODELS.map((m) => (
                           <SelectItem key={m.value} value={m.value}>
                             {m.label}
+                            {m.provider !== 'lovable' && ` (${m.provider})`}
                           </SelectItem>
                         ))}
                       </SelectContent>

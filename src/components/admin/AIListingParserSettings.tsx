@@ -9,14 +9,7 @@ import { Separator } from '@/components/ui/separator';
 import { Bot, Sparkles, FileText, Home, Layers, MapPin, CheckCircle, Loader2, Save } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-
-const AI_MODELS = [
-  { value: 'google/gemini-3-flash-preview', label: 'Gemini 3 Flash (szybki, zalecany)' },
-  { value: 'google/gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
-  { value: 'google/gemini-2.5-pro', label: 'Gemini 2.5 Pro (najlepszy)' },
-  { value: 'openai/gpt-5-mini', label: 'GPT-5 Mini' },
-  { value: 'openai/gpt-5', label: 'GPT-5 (najdroższy)' },
-];
+import { AI_MODELS, DEFAULT_AI_MODEL } from '@/config/aiModels';
 
 const PARSER_FEATURES = [
   { key: 'extract_rooms', label: 'Wyodrębnij pokoje z opisu', desc: 'Nazwy, metraże i typy pomieszczeń', icon: Home },
@@ -37,7 +30,7 @@ interface ParserSettings {
 export function AIListingParserSettings() {
   const [settings, setSettings] = useState<ParserSettings>({
     enabled: true,
-    model: 'google/gemini-3-flash-preview',
+    model: DEFAULT_AI_MODEL,
     auto_parse_on_import: true,
     features: {
       extract_rooms: true,
@@ -67,7 +60,7 @@ export function AIListingParserSettings() {
         const cfg = data.config_json as any;
         setSettings({
           enabled: data.is_enabled ?? true,
-          model: cfg.model || 'google/gemini-3-flash-preview',
+          model: cfg.model || DEFAULT_AI_MODEL,
           auto_parse_on_import: cfg.auto_parse_on_import ?? true,
           features: { ...settings.features, ...(cfg.features || {}) },
         });
@@ -157,7 +150,10 @@ export function AIListingParserSettings() {
               </SelectTrigger>
               <SelectContent>
                 {AI_MODELS.map(m => (
-                  <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                  <SelectItem key={m.value} value={m.value}>
+                    {m.label}
+                    {m.provider !== 'lovable' && ` (${m.provider})`}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
