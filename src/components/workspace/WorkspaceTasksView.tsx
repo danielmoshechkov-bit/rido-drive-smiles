@@ -505,13 +505,21 @@ export function WorkspaceTasksView({ project, workspace }: Props) {
                        }}
                      >
                        <SelectTrigger className="mt-1"><SelectValue placeholder="Wybierz osobę" /></SelectTrigger>
-                       <SelectContent>
-                         <SelectItem value="__none__">Brak</SelectItem>
-                         {members.map(m => (
-                           <SelectItem key={m.id} value={getMemberName(m)}>{getMemberName(m)}</SelectItem>
-                         ))}
-                       </SelectContent>
-                     </Select>
+                        <SelectContent>
+                          <SelectItem value="__none__">Brak</SelectItem>
+                          {members.map(m => (
+                            <SelectItem key={m.id} value={getMemberName(m)}>{getMemberName(m)}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="mt-1 text-xs text-primary gap-1"
+                        onClick={() => setShowInviteFromTask(true)}
+                      >
+                        <PlusCircle className="h-3.5 w-3.5" /> Zaproś nową osobę
+                      </Button>
                    </div>
                   {detailTask.due_date && (
                     <div>
