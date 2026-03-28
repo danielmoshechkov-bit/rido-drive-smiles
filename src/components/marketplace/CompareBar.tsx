@@ -1,16 +1,8 @@
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { X, GitCompare, Trash2, Calendar, Eye } from "lucide-react";
+import { X, GitCompare, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCompare, VehicleCompareItem, PropertyCompareItem } from "@/contexts/CompareContext";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { ViewingRequestForm } from "@/components/realestate/ViewingRequestForm";
 
 interface CompareBarProps {
   type: "vehicle" | "property";
@@ -19,7 +11,6 @@ interface CompareBarProps {
 
 export function CompareBar({ type, className }: CompareBarProps) {
   const navigate = useNavigate();
-  const [showViewingForm, setShowViewingForm] = useState(false);
   const { 
     vehicleItems, 
     propertyItems, 
@@ -59,7 +50,7 @@ export function CompareBar({ type, className }: CompareBarProps) {
                 {items.map((item: VehicleCompareItem | PropertyCompareItem) => (
                   <div
                     key={item.id}
-                    className="relative group shrink-0 bg-muted rounded-lg overflow-hidden"
+                    className="relative group shrink-0 bg-muted rounded-lg overflow-visible"
                   >
                     <img
                       src={item.photos?.[0] || "/placeholder.svg"}
@@ -105,45 +96,10 @@ export function CompareBar({ type, className }: CompareBarProps) {
                 <GitCompare className="h-4 w-4" />
                 Porównaj ({items.length})
               </Button>
-              {type === "property" && (
-                <Button
-                  size="sm"
-                  variant="default"
-                  onClick={() => setShowViewingForm(true)}
-                  className="gap-1 bg-green-600 hover:bg-green-700"
-                >
-                  <Eye className="h-4 w-4" />
-                  <span className="hidden sm:inline">Umów oglądanie</span>
-                  <span className="sm:hidden">Umów</span>
-                </Button>
-              )}
             </div>
           </div>
         </div>
       </div>
-
-      {/* Viewing Request Dialog */}
-      {type === "property" && (
-        <Dialog open={showViewingForm} onOpenChange={setShowViewingForm}>
-          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-primary" />
-                Umów oglądanie nieruchomości
-              </DialogTitle>
-            </DialogHeader>
-            <ViewingRequestForm
-              listingIds={items.map(i => i.id)}
-              listingTitles={items.map(i => i.title)}
-              onSuccess={() => {
-                setShowViewingForm(false);
-                clearItems();
-                navigate('/moje-ogladania');
-              }}
-            />
-          </DialogContent>
-        </Dialog>
-      )}
     </>
   );
 }

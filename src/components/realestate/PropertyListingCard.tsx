@@ -35,7 +35,7 @@ interface PropertyListingCardProps {
     id: string;
     title: string;
     price: number;
-    priceType?: string; // 'sale' | 'rent_monthly'
+    priceType?: string;
     photos: string[];
     location?: string;
     district?: string;
@@ -64,9 +64,11 @@ interface PropertyListingCardProps {
   onView?: () => void;
   onFavorite?: () => void;
   onToggleCompare?: () => void;
+  onToggleViewing?: () => void;
   isLoggedIn?: boolean;
   isFavorited?: boolean;
   isSelectedForCompare?: boolean;
+  isSelectedForViewing?: boolean;
   compact?: boolean;
   variant?: 'grid' | 'compact' | 'list';
 }
@@ -92,9 +94,11 @@ export function PropertyListingCard({
   onView, 
   onFavorite, 
   onToggleCompare,
+  onToggleViewing,
   isLoggedIn = false,
   isFavorited = false,
   isSelectedForCompare = false,
+  isSelectedForViewing = false,
   compact = false,
   variant = 'grid'
 }: PropertyListingCardProps) {
@@ -257,21 +261,21 @@ export function PropertyListingCard({
               )}
 
               {/* Schedule Viewing Badge - bottom left */}
-              {onToggleCompare && (
+              {onToggleViewing && (
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    onToggleCompare();
+                    onToggleViewing();
                   }}
                   className={cn(
                     "absolute bottom-2 left-2 px-2.5 py-1 rounded-md text-xs font-medium transition-all flex items-center gap-1 z-10",
-                    isSelectedForCompare
+                    isSelectedForViewing
                       ? "bg-primary text-primary-foreground shadow-lg"
                       : "bg-white/90 hover:bg-white text-foreground shadow-md backdrop-blur-sm"
                   )}
                 >
                   <Eye className="h-3 w-3" />
-                  {isSelectedForCompare ? "Wybrano" : "Oglądanie"}
+                  {isSelectedForViewing ? "Wybrano" : "Oglądanie"}
                 </button>
               )}
 
@@ -540,21 +544,21 @@ export function PropertyListingCard({
           )}
 
           {/* Schedule Viewing Badge - bottom left corner */}
-          {onToggleCompare && (
+          {onToggleViewing && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                onToggleCompare();
+                onToggleViewing();
               }}
               className={cn(
                 "absolute bottom-2 left-2 px-2.5 py-1 rounded-md text-xs font-medium transition-all flex items-center gap-1 z-10",
-                isSelectedForCompare
+                isSelectedForViewing
                   ? "bg-primary text-primary-foreground shadow-lg"
                   : "bg-white/90 hover:bg-white text-foreground shadow-md backdrop-blur-sm"
               )}
             >
               <Eye className="h-3 w-3" />
-              {isSelectedForCompare ? "Wybrano" : "Oglądanie"}
+              {isSelectedForViewing ? "Wybrano" : "Oglądanie"}
             </button>
           )}
         </div>

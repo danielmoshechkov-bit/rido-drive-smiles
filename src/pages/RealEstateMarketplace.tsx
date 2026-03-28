@@ -15,6 +15,7 @@ import { RealEstateAISearch } from "@/components/realestate/RealEstateAISearch";
 import { PropertyTypeSelector } from "@/components/realestate/PropertyTypeSelector";
 import { TransactionTypeChips } from "@/components/realestate/TransactionTypeChips";
 import { CompareBar } from "@/components/marketplace/CompareBar";
+import { ViewingSelectionBar } from "@/components/realestate/ViewingSelectionBar";
 import { useCompare, PropertyCompareItem } from "@/contexts/CompareContext";
 import { ResultsMapModal } from "@/components/realestate/ResultsMapModal";
 import { toast } from "sonner";
@@ -385,6 +386,27 @@ export default function RealEstateMarketplace() {
 
   // Compare context
   const { addProperty, removeProperty, isPropertySelected } = useCompare();
+
+  // Viewing selection state (separate from compare)
+  const [viewingIds, setViewingIds] = useState<string[]>([]);
+  const [viewingTitles, setViewingTitles] = useState<string[]>([]);
+
+  const toggleViewing = (id: string, title: string) => {
+    setViewingIds(prev => {
+      if (prev.includes(id)) {
+        setViewingTitles(t => t.filter((_, i) => prev.indexOf(id) !== i));
+        return prev.filter(x => x !== id);
+      }
+      if (prev.length >= 10) return prev;
+      setViewingTitles(t => [...t, title]);
+      return [...prev, id];
+    });
+  };
+
+  const clearViewing = () => {
+    setViewingIds([]);
+    setViewingTitles([]);
+  };
 
   // Fetch listings from database
   useEffect(() => {
@@ -808,8 +830,10 @@ export default function RealEstateMarketplace() {
               onView={() => navigate(`/nieruchomosci/ogloszenie/${listing.id}`)}
               onFavorite={() => console.log("Favorite:", listing.id)}
               onToggleCompare={() => handleToggleCompare(listing)}
+              onToggleViewing={() => toggleViewing(listing.id, listing.title)}
               isLoggedIn={!!user}
               isSelectedForCompare={isPropertySelected(listing.id)}
+              isSelectedForViewing={viewingIds.includes(listing.id)}
               compact={viewMode === 'compact'}
               variant={viewMode}
             />
@@ -866,6 +890,14 @@ export default function RealEstateMarketplace() {
 
       {/* Compare Bar */}
       <CompareBar type="property" className="pb-safe" />
+
+      {/* Viewing Selection Bar */}
+      <ViewingSelectionBar
+        selectedIds={viewingIds}
+        selectedTitles={viewingTitles}
+        onClear={clearViewing}
+        isLoggedIn={!!user}
+      />
 
       {/* Results Map Modal */}
       <ResultsMapModal
