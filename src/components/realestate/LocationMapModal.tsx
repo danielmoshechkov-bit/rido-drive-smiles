@@ -1338,6 +1338,11 @@ export function LocationMapModal({
                     : "Narysuj obszar na mapie")
             }
           </p>
+          {filteredMapListings.length > 0 && (
+            <Badge variant="secondary" className="text-xs ml-auto">
+              {filteredMapListings.length} ogłoszeń na mapie
+            </Badge>
+          )}
         </div>
 
         {/* Map - responsive dimensions */}
