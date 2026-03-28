@@ -112,12 +112,49 @@ export function ResultsMapModal({
       return `${(price / 1000000).toFixed(1)}M`;
     }
     if (price >= 1000) {
-      return `${(price / 1000).toFixed(0)}k`;
+      return `${Math.round(price / 1000)}k`;
     }
     return price.toString();
   };
 
-  // Create pin marker with SVG
+  const formatPriceFull = (price: number) => {
+    return price.toLocaleString('pl-PL') + ' zł';
+  };
+
+  // Clustering: group nearby listings based on zoom level
+  const clusterListings = useCallback((listings: PropertyListing[], zoom: number) => {
+    if (zoom >= 14) {
+      // At high zoom, show individual markers
+      return listings.map(l => ({ type: 'single' as const, listings: [l], lat: l.lat!, lng: l.lng! }));
+    }
+
+    // Grid-based clustering
+    const gridSize = zoom <= 8 ? 2 : zoom <= 10 ? 1 : zoom <= 12 ? 0.5 : 0.2;
+    const clusters: Map<string, { listings: PropertyListing[]; latSum: number; lngSum: number }> = new Map();
+
+    listings.forEach(l => {
+      if (!l.lat || !l.lng) return;
+      const key = `${Math.floor(l.lat / gridSize)}_${Math.floor(l.lng / gridSize)}`;
+      const existing = clusters.get(key);
+      if (existing) {
+        existing.listings.push(l);
+        existing.latSum += l.lat;
+        existing.lngSum += l.lng;
+      } else {
+        clusters.set(key, { listings: [l], latSum: l.lat, lngSum: l.lng });
+      }
+    });
+
+    return Array.from(clusters.values()).map(c => {
+      const count = c.listings.length;
+      if (count === 1) {
+        return { type: 'single' as const, listings: c.listings, lat: c.listings[0].lat!, lng: c.listings[0].lng! };
+      }
+      return { type: 'cluster' as const, listings: c.listings, lat: c.latSum / count, lng: c.lngSum / count };
+    });
+  }, []);
+
+  // Create individual price marker
   const createMarkerContent = useCallback((listing: PropertyListing): HTMLDivElement => {
     const transType = listing.transactionType?.toLowerCase() || '';
     const isRent = transType.includes('wynajem') || transType.includes('krótkoterminowy');
@@ -133,26 +170,62 @@ export function ResultsMapModal({
     `;
     div.innerHTML = `
       <div style="
-        background: linear-gradient(135deg, ${bgColor}, ${bgColor}dd);
-        color: white;
-        padding: 4px 8px;
-        border-radius: 6px;
-        font-size: 11px;
+        background: white;
+        color: #1a1a1a;
+        padding: 4px 10px;
+        border-radius: 8px;
+        font-size: 12px;
         font-weight: 700;
         white-space: nowrap;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+        border: 2px solid ${bgColor};
         display: flex;
         align-items: center;
         gap: 4px;
-        margin-bottom: -2px;
       ">
-        ${formatPrice(listing.price, listing.priceType)} zł
-        <span style="opacity: 0.8; font-weight: 400; font-size: 10px;">• ${listing.areaM2}m²</span>
+        ${formatPriceFull(listing.price)}
       </div>
-      <svg width="20" height="24" viewBox="0 0 20 24" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
-        <path d="M10 0C4.5 0 0 4.5 0 10c0 7.5 10 14 10 14s10-6.5 10-14c0-5.5-4.5-10-10-10z" fill="${bgColor}"/>
-        <circle cx="10" cy="10" r="4" fill="white"/>
-      </svg>
+      <div style="
+        width: 0; height: 0;
+        border-left: 6px solid transparent;
+        border-right: 6px solid transparent;
+        border-top: 6px solid ${bgColor};
+        margin-top: -1px;
+      "></div>
+    `;
+    return div;
+  }, []);
+
+  // Create cluster marker (circle with count)
+  const createClusterContent = useCallback((count: number): HTMLDivElement => {
+    const size = count > 100 ? 56 : count > 30 ? 48 : count > 10 ? 42 : 36;
+    const fontSize = count > 100 ? 15 : count > 30 ? 14 : 13;
+    
+    const div = document.createElement("div");
+    div.style.cssText = `
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transform: translate(-50%, -50%);
+      cursor: pointer;
+    `;
+    div.innerHTML = `
+      <div style="
+        width: ${size}px;
+        height: ${size}px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #7c3aed, #6d28d9);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: ${fontSize}px;
+        font-weight: 700;
+        box-shadow: 0 3px 12px rgba(124,58,237,0.4), 0 0 0 4px rgba(124,58,237,0.15);
+        border: 2px solid rgba(255,255,255,0.8);
+      ">
+        ${count}
+      </div>
     `;
     return div;
   }, []);
@@ -254,12 +327,13 @@ export function ResultsMapModal({
     };
   }, [google]);
 
-  // Update markers when filters change
+  // Update markers with clustering based on zoom
   const updateMarkers = useCallback(() => {
     if (!mapRef.current || !google || !infoWindowRef.current) return;
     
     const map = mapRef.current;
     const infoWindow = infoWindowRef.current;
+    const zoom = map.getZoom() || 10;
     
     // Clear existing overlays
     overlaysRef.current.forEach(o => o.setMap?.(null));
@@ -268,44 +342,46 @@ export function ResultsMapModal({
     const CustomMarkerOverlay = createOverlayClass();
     if (!CustomMarkerOverlay) return;
     
-    // Create markers for filtered listings
-    filteredListings.forEach(listing => {
-      if (!listing.lat || !listing.lng) return;
-
-      const markerContent = createMarkerContent(listing);
-      
-      const overlay = new CustomMarkerOverlay(
-        { lat: listing.lat, lng: listing.lng },
-        markerContent,
-        map,
-        () => {
-          setSelectedListing(listing);
-          showInfoWindow(map, infoWindow, listing);
-        }
-      );
-
-      overlaysRef.current.push(overlay);
+    const clusters = clusterListings(filteredListings, zoom);
+    
+    clusters.forEach(cluster => {
+      if (cluster.type === 'single') {
+        const listing = cluster.listings[0];
+        const markerContent = createMarkerContent(listing);
+        
+        const overlay = new CustomMarkerOverlay(
+          { lat: cluster.lat, lng: cluster.lng },
+          markerContent,
+          map,
+          () => {
+            setSelectedListing(listing);
+            showInfoWindow(map, infoWindow, listing);
+          }
+        );
+        overlaysRef.current.push(overlay);
+      } else {
+        // Cluster marker
+        const clusterContent = createClusterContent(cluster.listings.length);
+        
+        const overlay = new CustomMarkerOverlay(
+          { lat: cluster.lat, lng: cluster.lng },
+          clusterContent,
+          map,
+          () => {
+            // Zoom into the cluster
+            const bounds = new google.maps.LatLngBounds();
+            cluster.listings.forEach(l => {
+              if (l.lat && l.lng) bounds.extend({ lat: l.lat, lng: l.lng });
+            });
+            map.fitBounds(bounds, 50);
+          }
+        );
+        overlaysRef.current.push(overlay);
+      }
     });
 
-    console.log('[ResultsMapModal] Updated markers:', overlaysRef.current.length);
-
-    // Fit bounds to show all filtered markers
-    if (filteredListings.length > 1) {
-      const bounds = new google.maps.LatLngBounds();
-      filteredListings.forEach(l => {
-        if (l.lat && l.lng) {
-          bounds.extend({ lat: l.lat, lng: l.lng });
-        }
-      });
-      map.fitBounds(bounds, 50);
-    } else if (filteredListings.length === 1) {
-      const single = filteredListings[0];
-      if (single.lat && single.lng) {
-        map.setCenter({ lat: single.lat, lng: single.lng });
-        map.setZoom(14);
-      }
-    }
-  }, [google, filteredListings, createMarkerContent, showInfoWindow, createOverlayClass]);
+    console.log('[ResultsMapModal] Clusters:', clusters.length, 'at zoom:', zoom);
+  }, [google, filteredListings, createMarkerContent, createClusterContent, showInfoWindow, createOverlayClass, clusterListings]);
 
   // Update markers when filters change (after initial map creation)
   useEffect(() => {
@@ -345,6 +421,7 @@ export function ResultsMapModal({
       // Calculate center: prefer user location, then listings, then Poland center
       let center = { lat: 52.0, lng: 19.0 }; // Default: Poland center
       let initialZoom = 6;
+      let fitBoundsAfter = false;
       
       if (userLocation) {
         center = userLocation;
@@ -354,6 +431,7 @@ export function ResultsMapModal({
         const avgLng = filteredListings.reduce((sum, l) => sum + (l.lng || 0), 0) / filteredListings.length;
         center = { lat: avgLat, lng: avgLng };
         initialZoom = filteredListings.length === 1 ? 14 : 10;
+        fitBoundsAfter = filteredListings.length > 1;
       }
       
       console.log('[ResultsMapModal] Initializing map with center:', center);
@@ -377,6 +455,20 @@ export function ResultsMapModal({
 
       // Create initial markers
       updateMarkers();
+
+      // Fit bounds to all listings
+      if (fitBoundsAfter) {
+        const bounds = new google.maps.LatLngBounds();
+        filteredListings.forEach(l => {
+          if (l.lat && l.lng) bounds.extend({ lat: l.lat, lng: l.lng });
+        });
+        map.fitBounds(bounds, 50);
+      }
+
+      // Re-cluster on zoom change
+      map.addListener('zoom_changed', () => {
+        updateMarkers();
+      });
 
       // Force resize after render
       [50, 100, 200, 400, 800].forEach(delay => {
