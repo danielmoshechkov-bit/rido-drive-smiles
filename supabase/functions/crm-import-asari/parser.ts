@@ -18,7 +18,11 @@ export interface ParsedOffer {
   transaction_type: string;
   price: number | null;
   area: number | null;
+  area_total: number | null;
+  area_usable: number | null;
+  area_plot: number | null;
   rooms: number | null;
+  rooms_data: Array<{ name: string; area: number }>;
   floor: number | null;
   total_floors: number | null;
   build_year: number | null;
