@@ -182,6 +182,112 @@ export function LocationMapModal({
     }
   }, [mode]);
 
+  // === LISTING MARKERS WITH CLUSTERING ===
+  const listingsWithCoords = listings.filter(l => l.lat && l.lng);
+
+  const filteredMapListings = listingsWithCoords.filter(listing => {
+    if (mapPropertyType && !listing.propertyType?.toLowerCase().includes(mapPropertyType)) return false;
+    const transType = listing.transactionType?.toLowerCase() || '';
+    const isSale = transType.includes('sprzedaż') || transType.includes('sprzedaz');
+    const isRent = transType.includes('wynajem') || transType.includes('krótkoterminowy');
+    if (isSale && !showSale) return false;
+    if (isRent && !showRent) return false;
+    return true;
+  });
+
+  const formatPriceFull = (price: number) => price.toLocaleString('pl-PL') + ' zł';
+
+  const clusterListings = useCallback((items: PropertyListingForMap[], zoom: number) => {
+    if (zoom >= 14) return items.map(l => ({ type: 'single' as const, listings: [l], lat: l.lat!, lng: l.lng! }));
+    const gridSize = zoom <= 8 ? 2 : zoom <= 10 ? 1 : zoom <= 12 ? 0.5 : 0.2;
+    const clusters: Map<string, { listings: PropertyListingForMap[]; latSum: number; lngSum: number }> = new Map();
+    items.forEach(l => {
+      if (!l.lat || !l.lng) return;
+      const key = `${Math.floor(l.lat / gridSize)}_${Math.floor(l.lng / gridSize)}`;
+      const existing = clusters.get(key);
+      if (existing) { existing.listings.push(l); existing.latSum += l.lat; existing.lngSum += l.lng; }
+      else clusters.set(key, { listings: [l], latSum: l.lat, lngSum: l.lng });
+    });
+    return Array.from(clusters.values()).map(c => {
+      const count = c.listings.length;
+      if (count === 1) return { type: 'single' as const, listings: c.listings, lat: c.listings[0].lat!, lng: c.listings[0].lng! };
+      return { type: 'cluster' as const, listings: c.listings, lat: c.latSum / count, lng: c.lngSum / count };
+    });
+  }, []);
+
+  const createListingMarkerContent = useCallback((listing: PropertyListingForMap): HTMLDivElement => {
+    const transType = listing.transactionType?.toLowerCase() || '';
+    const isRentListing = transType.includes('wynajem') || transType.includes('krótkoterminowy');
+    const bgColor = isRentListing ? "#3b82f6" : "#10b981";
+    const div = document.createElement("div");
+    div.style.cssText = `display:flex;flex-direction:column;align-items:center;transform:translate(-50%,-100%);cursor:pointer;`;
+    div.innerHTML = `<div style="background:white;color:#1a1a1a;padding:4px 10px;border-radius:8px;font-size:12px;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.25);border:2px solid ${bgColor};">${formatPriceFull(listing.price)}</div><div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:6px solid ${bgColor};margin-top:-1px;"></div>`;
+    return div;
+  }, []);
+
+  const createClusterMarkerContent = useCallback((count: number): HTMLDivElement => {
+    const size = count > 100 ? 56 : count > 30 ? 48 : count > 10 ? 42 : 36;
+    const fontSize = count > 100 ? 15 : count > 30 ? 14 : 13;
+    const div = document.createElement("div");
+    div.style.cssText = `display:flex;align-items:center;justify-content:center;transform:translate(-50%,-50%);cursor:pointer;`;
+    div.innerHTML = `<div style="width:${size}px;height:${size}px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#6d28d9);color:white;display:flex;align-items:center;justify-content:center;font-size:${fontSize}px;font-weight:700;box-shadow:0 3px 12px rgba(124,58,237,0.4),0 0 0 4px rgba(124,58,237,0.15);border:2px solid rgba(255,255,255,0.8);">${count}</div>`;
+    return div;
+  }, []);
+
+  const createListingOverlayClass = useCallback(() => {
+    if (!google) return null;
+    return class extends google.maps.OverlayView {
+      private position: google.maps.LatLng;
+      private containerDiv: HTMLDivElement;
+      private handler: () => void;
+      constructor(pos: { lat: number; lng: number }, content: HTMLDivElement, map: google.maps.Map, onClick: () => void) {
+        super(); this.position = new google.maps.LatLng(pos.lat, pos.lng); this.handler = onClick;
+        this.containerDiv = document.createElement("div"); this.containerDiv.style.position = "absolute";
+        this.containerDiv.appendChild(content); this.containerDiv.addEventListener("click", this.handler); this.setMap(map);
+      }
+      onAdd() { this.getPanes()?.floatPane.appendChild(this.containerDiv); }
+      draw() { const p = this.getProjection().fromLatLngToDivPixel(this.position); if (p) { this.containerDiv.style.left = p.x + "px"; this.containerDiv.style.top = p.y + "px"; } }
+      onRemove() { this.containerDiv.removeEventListener("click", this.handler); this.containerDiv.parentNode?.removeChild(this.containerDiv); }
+    };
+  }, [google]);
+
+  const showListingInfo = useCallback((map: google.maps.Map, iw: google.maps.InfoWindow, listing: PropertyListingForMap) => {
+    iw.setContent(`<div style="max-width:280px;font-family:system-ui,sans-serif;">${listing.photos?.[0] ? `<img src="${listing.photos[0]}" style="width:100%;height:120px;object-fit:cover;border-radius:8px 8px 0 0;" />` : ''}<div style="padding:12px;"><h3 style="margin:0 0 6px;font-size:14px;font-weight:600;">${listing.title}</h3><div style="font-size:18px;font-weight:700;color:#7c3aed;">${formatPriceFull(listing.price)}</div><div style="font-size:12px;color:#6b7280;">${listing.areaM2} m² ${listing.rooms ? `• ${listing.rooms} pok.` : ''} • ${listing.location}</div></div></div>`);
+    iw.setPosition({ lat: listing.lat!, lng: listing.lng! });
+    iw.open(map);
+  }, []);
+
+  const updateListingMarkers = useCallback(() => {
+    if (!mapInstanceRef.current || !google) return;
+    const map = mapInstanceRef.current;
+    const zoom = map.getZoom() || 10;
+    listingOverlaysRef.current.forEach(o => o.setMap?.(null));
+    listingOverlaysRef.current = [];
+    if (filteredMapListings.length === 0) return;
+    if (!infoWindowRef.current) infoWindowRef.current = new google.maps.InfoWindow();
+    const iw = infoWindowRef.current;
+    const OverlayClass = createListingOverlayClass();
+    if (!OverlayClass) return;
+    const clusters = clusterListings(filteredMapListings, zoom);
+    clusters.forEach(cluster => {
+      if (cluster.type === 'single') {
+        const l = cluster.listings[0];
+        listingOverlaysRef.current.push(new OverlayClass({ lat: cluster.lat, lng: cluster.lng }, createListingMarkerContent(l), map, () => { setSelectedListing(l); showListingInfo(map, iw, l); }));
+      } else {
+        listingOverlaysRef.current.push(new OverlayClass({ lat: cluster.lat, lng: cluster.lng }, createClusterMarkerContent(cluster.listings.length), map, () => {
+          const bounds = new google.maps.LatLngBounds();
+          cluster.listings.forEach(l => { if (l.lat && l.lng) bounds.extend({ lat: l.lat, lng: l.lng }); });
+          map.fitBounds(bounds, 50);
+        }));
+      }
+    });
+  }, [google, filteredMapListings, createListingMarkerContent, createClusterMarkerContent, showListingInfo, createListingOverlayClass, clusterListings]);
+
+  // Re-render listing markers on filter change
+  useEffect(() => {
+    if (mapInstanceRef.current && google && listings.length > 0) updateListingMarkers();
+  }, [mapPropertyType, showSale, showRent, updateListingMarkers, google, listings.length]);
+
   // Auto-start brush drawing when switching to polygon mode
   useEffect(() => {
     if (mode === "polygon" && !isDrawing && polygonPoints.length === 0 && mapInstanceRef.current && isLoaded) {
