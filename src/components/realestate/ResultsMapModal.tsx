@@ -421,6 +421,7 @@ export function ResultsMapModal({
       // Calculate center: prefer user location, then listings, then Poland center
       let center = { lat: 52.0, lng: 19.0 }; // Default: Poland center
       let initialZoom = 6;
+      let fitBoundsAfter = false;
       
       if (userLocation) {
         center = userLocation;
@@ -430,6 +431,7 @@ export function ResultsMapModal({
         const avgLng = filteredListings.reduce((sum, l) => sum + (l.lng || 0), 0) / filteredListings.length;
         center = { lat: avgLat, lng: avgLng };
         initialZoom = filteredListings.length === 1 ? 14 : 10;
+        fitBoundsAfter = filteredListings.length > 1;
       }
       
       console.log('[ResultsMapModal] Initializing map with center:', center);
