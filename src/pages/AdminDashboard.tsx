@@ -40,6 +40,16 @@ const AdminDashboard = () => {
   const [userEmail, setUserEmail] = useState('');
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isAppInstalled, setIsAppInstalled] = useState(false);
+  const [adminFleets, setAdminFleets] = useState<Array<{ id: string; name: string }>>([]);
+  const [selectedAdminFleetId, setSelectedAdminFleetId] = useState<string>('');
+
+  useEffect(() => {
+    const loadFleets = async () => {
+      const { data } = await supabase.from('fleets').select('id, name').order('name');
+      if (data) setAdminFleets(data);
+    };
+    loadFleets();
+  }, []);
   
   const { cities } = useCities();
   const { drivers, loading: driversLoading, refetch: refetchDrivers } = useDrivers({ cityId: selectedCity?.id });
@@ -563,17 +573,34 @@ const AdminDashboard = () => {
           </TabsContent>
 
           <TabsContent value="drivers-list" className="space-y-6">
-            {!selectedCity ? (
+            <div className="flex items-center gap-4 mb-4">
+              <div className="flex items-center gap-2">
+                <Car className="h-4 w-4 text-muted-foreground" />
+                <Select value={selectedAdminFleetId} onValueChange={setSelectedAdminFleetId}>
+                  <SelectTrigger className="w-64">
+                    <SelectValue placeholder="Wybierz flotę" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Wszystkie (wg miasta)</SelectItem>
+                    {adminFleets.map(f => (
+                      <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {!selectedCity && !selectedAdminFleetId ? (
               <Card>
                 <CardContent className="p-8 text-center">
-                  <p className="text-muted-foreground">Wybierz miasto aby zobaczyć listę kierowców</p>
+                  <p className="text-muted-foreground">Wybierz miasto lub flotę aby zobaczyć listę kierowców</p>
                 </CardContent>
               </Card>
             ) : (
               <DriversManagement 
-                cityId={selectedCity.id}
-                cityName={selectedCity.name}
+                cityId={selectedAdminFleetId && selectedAdminFleetId !== 'all' ? undefined : selectedCity?.id}
+                cityName={selectedAdminFleetId && selectedAdminFleetId !== 'all' ? (adminFleets.find(f => f.id === selectedAdminFleetId)?.name || '') : (selectedCity?.name || '')}
                 onDriverUpdate={refetchDrivers}
+                fleetId={selectedAdminFleetId && selectedAdminFleetId !== 'all' ? selectedAdminFleetId : undefined}
               />
             )}
           </TabsContent>
