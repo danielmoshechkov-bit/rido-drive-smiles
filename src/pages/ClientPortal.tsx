@@ -557,6 +557,7 @@ export default function ClientPortal() {
     { id: 'mojeauta', label: 'Moje auta', icon: Car },
     // Księgowość - tylko dla użytkowników z firmą
     ...(hasCompanySetup ? [{ id: 'ksiegowosc', label: 'Księgowość', icon: Calculator }] : []),
+    { id: 'ogladania', label: 'Oglądania', icon: Eye },
     { id: 'wiadomosci', label: 'Wiadomości', icon: MessageSquare },
     { id: 'ustawienia', label: 'Ustawienia', icon: Settings },
     { id: 'konta', label: 'Wybierz moduł', icon: RefreshCw },
