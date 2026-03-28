@@ -267,6 +267,32 @@ export function ChatSidebar({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Channel */}
+      <Dialog open={showEditChannel} onOpenChange={setShowEditChannel}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Edytuj kanał</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-xs">Nazwa</Label>
+              <Input value={editName} onChange={e => setEditName(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs">Opis</Label>
+              <Input value={editDesc} onChange={e => setEditDesc(e.target.value)} placeholder="Opis kanału" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditChannel(false)}>Anuluj</Button>
+            <Button onClick={async () => {
+              if (editingChannel && onEditChannel) {
+                await onEditChannel(editingChannel.id, editName, editDesc);
+                setShowEditChannel(false);
+              }
+            }} disabled={!editName.trim()}>Zapisz</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -282,6 +308,59 @@ function SectionHeader({ title, expanded, onToggle, onAdd }: { title: string; ex
         <Button variant="ghost" size="icon" className="h-5 w-5 text-white/40 hover:text-white hover:bg-white/10" onClick={onAdd}><Plus className="h-3 w-3" /></Button>
       )}
     </div>
+  );
+}
+
+function ChannelItemWithMenu({ channel, isActive, onClick, isDM, isGroup, onEdit, onDelete }: {
+  channel: ChatChannel; isActive: boolean; onClick: () => void; isDM?: boolean; isGroup?: boolean;
+  onEdit?: () => void; onDelete?: () => void;
+}) {
+  const Icon = isDM ? MessageCircle : isGroup ? Users : channel.type === 'private' ? Lock : Hash;
+  const displayName = isDM ? (channel.description?.replace('DM z ', '') || channel.name) : channel.name;
+
+  const channelButton = (
+    <button
+      className={cn(
+        "w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm transition-all",
+        isActive
+          ? "bg-primary text-white font-semibold shadow-md"
+          : "text-white/70 hover:bg-white/10 hover:text-white"
+      )}
+      onClick={onClick}
+    >
+      <Icon className={cn("h-4 w-4 shrink-0", isActive ? "opacity-100" : "opacity-50")} />
+      <span className="truncate">{displayName}</span>
+      {(channel.unread_count ?? 0) > 0 && (
+        <span className="ml-auto bg-red-500 text-white text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center shadow-sm">
+          {channel.unread_count}
+        </span>
+      )}
+    </button>
+  );
+
+  if (isDM) return channelButton;
+
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        {channelButton}
+      </ContextMenuTrigger>
+      <ContextMenuContent className="w-48">
+        <ContextMenuItem onClick={onEdit} className="gap-2 text-xs">
+          <Pencil className="h-3.5 w-3.5" /> Edytuj kanał
+        </ContextMenuItem>
+        <ContextMenuItem className="gap-2 text-xs">
+          <Eye className="h-3.5 w-3.5" /> Zobacz uczestników
+        </ContextMenuItem>
+        <ContextMenuItem className="gap-2 text-xs">
+          <UserPlus className="h-3.5 w-3.5" /> Zaproś uczestników
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem onClick={onDelete} className="gap-2 text-xs text-red-500 focus:text-red-500">
+          <Trash2 className="h-3.5 w-3.5" /> Usuń kanał
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }
 
