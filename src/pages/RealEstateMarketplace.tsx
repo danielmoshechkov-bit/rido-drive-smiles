@@ -405,8 +405,16 @@ export default function RealEstateMarketplace() {
           setListings(MOCK_LISTINGS);
         } else if (data && data.length > 0) {
           const mapped = data.map(d => mapDbToListing(d as unknown as DbListing));
-          setAllListings(mapped);
-          setListings(mapped);
+          // Deduplicate: by property_unique_id first, then by title+price as fallback
+          const seen = new Set<string>();
+          const deduped = mapped.filter(l => {
+            const key = l.propertyUniqueId || `${l.title}|${l.price}|${l.location}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+          setAllListings(deduped);
+          setListings(deduped);
         } else {
           // No data in DB, use mock
           setAllListings(MOCK_LISTINGS);
