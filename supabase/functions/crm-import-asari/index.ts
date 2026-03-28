@@ -135,6 +135,9 @@ serve(async (req) => {
       errors: [],
     };
 
+    // Track IDs of new/updated listings for AI parsing
+    const newAndUpdatedIds: string[] = [];
+
     try {
       // Fetch XML content
       console.log(`Fetching XML from: ${xmlUrl}`);
@@ -226,18 +229,22 @@ serve(async (req) => {
               stats.errors.push(`Update error for ${offer.external_id}: ${updateError.message}`);
             } else {
               stats.updated_count++;
+              newAndUpdatedIds.push(existingId);
             }
           } else {
             // Insert new offer
-            const { error: insertError } = await supabase
+            const { data: insertData, error: insertError } = await supabase
               .from("real_estate_listings")
-              .insert(listingData);
+              .insert(listingData)
+              .select('id')
+              .single();
 
             if (insertError) {
               stats.error_count++;
               stats.errors.push(`Insert error for ${offer.external_id}: ${insertError.message}`);
             } else {
               stats.added_count++;
+              if (insertData?.id) newAndUpdatedIds.push(insertData.id);
             }
           }
         } catch (offerErr) {
