@@ -124,6 +124,8 @@ export function LocationMapModal({
   initialCenter,
   initialArea,
   onConfirm,
+  listings = [],
+  onViewListing,
 }: LocationMapModalProps) {
   const { isLoaded, error, isTimedOut, retryLoad, google } = useGoogleMaps();
   const mapRef = useRef<HTMLDivElement>(null);
