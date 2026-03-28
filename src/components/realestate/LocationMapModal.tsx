@@ -1361,6 +1361,36 @@ export function LocationMapModal({
               style={{ touchAction: isDrawing ? 'none' : 'auto' }}
             />
           )}
+
+          {/* Selected Listing Card */}
+          {selectedListing && (
+            <div className="absolute bottom-2 sm:bottom-4 right-2 sm:right-4 max-w-[calc(100%-1rem)] sm:max-w-xs bg-background rounded-lg shadow-xl border overflow-hidden z-10">
+              {selectedListing.photos?.[0] && (
+                <img src={selectedListing.photos[0]} alt={selectedListing.title} className="w-full h-20 sm:h-24 object-cover" />
+              )}
+              <div className="p-2 sm:p-3">
+                <h4 className="font-medium text-xs sm:text-sm line-clamp-2 mb-1">{selectedListing.title}</h4>
+                <div className="flex items-center gap-2 mb-2">
+                  <Badge style={{ backgroundColor: selectedListing.transactionColor }} className="text-white text-xs">{selectedListing.transactionType}</Badge>
+                  <span className="text-xs text-muted-foreground truncate">{selectedListing.location}</span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <span className="font-bold text-primary text-sm">{selectedListing.price.toLocaleString('pl-PL')} zł</span>
+                    <span className="text-xs text-muted-foreground ml-1">{selectedListing.areaM2}m²</span>
+                  </div>
+                  {onViewListing && (
+                    <Button size="sm" variant="outline" className="h-7 text-xs shrink-0" onClick={() => { onOpenChange(false); onViewListing(selectedListing.id); }}>
+                      Zobacz
+                    </Button>
+                  )}
+                </div>
+              </div>
+              <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 bg-background/80" onClick={() => setSelectedListing(null)}>
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Actions */}
