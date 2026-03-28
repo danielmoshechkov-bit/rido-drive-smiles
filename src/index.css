@@ -541,7 +541,7 @@ a.button,
 }
 
 /* Global bottom spacing so RidoAI floating button doesn't cover content */
-body > #root > * {
+main, [role="main"], .page-content {
   padding-bottom: 100px;
 }
 
