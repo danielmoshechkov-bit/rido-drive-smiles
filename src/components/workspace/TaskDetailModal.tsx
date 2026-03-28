@@ -80,7 +80,6 @@ export function TaskDetailModal({ task, open, onClose, onSave, onDelete, members
   const [newTag, setNewTag] = useState("");
   const [reminder, setReminder] = useState("");
   const [saving, setSaving] = useState(false);
-  const [showInvite, setShowInvite] = useState(false);
 
   const timeTracking = useTaskTimeTracking(task?.id || null, userId || null, userName || null);
 
