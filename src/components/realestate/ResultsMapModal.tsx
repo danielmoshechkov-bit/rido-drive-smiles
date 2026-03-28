@@ -81,15 +81,19 @@ export function ResultsMapModal({
     if (cityFilter && !listing.location?.toLowerCase().includes(cityFilter.toLowerCase())) {
       return false;
     }
+
+    // Property type filter
+    if (mapPropertyType && !listing.propertyType?.toLowerCase().includes(mapPropertyType)) {
+      return false;
+    }
     
-    // Transaction type filter - Fixed to match actual values
+    // Transaction type filter
     const transType = listing.transactionType?.toLowerCase() || '';
     const isSale = transType.includes('sprzedaż') || transType.includes('sprzedaz');
     const isRent = transType.includes('wynajem') || transType.includes('krótkoterminowy');
     
     if (isSale && !showSale) return false;
     if (isRent && !showRent) return false;
-    // If neither sale nor rent, show it when either checkbox is checked
     if (!isSale && !isRent && !showSale && !showRent) return false;
     
     // Max price filter
