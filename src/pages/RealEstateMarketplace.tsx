@@ -899,14 +899,13 @@ export default function RealEstateMarketplace() {
         </div>
       </footer>
 
-      {/* Compare Bar */}
-      <CompareBar type="property" className="pb-safe" />
-
-      {/* Viewing Selection Bar */}
-      <ViewingSelectionBar
-        selectedIds={viewingIds}
-        selectedTitles={viewingTitles}
-        onClear={clearViewing}
+      {/* Unified Selection Bar - compare + viewing */}
+      <PropertySelectionBar
+        viewingIds={viewingIds}
+        viewingTitles={viewingTitles}
+        viewingPhotos={viewingPhotos}
+        onClearViewing={clearViewing}
+        onRemoveViewing={removeViewing}
         isLoggedIn={!!user}
       />
 
