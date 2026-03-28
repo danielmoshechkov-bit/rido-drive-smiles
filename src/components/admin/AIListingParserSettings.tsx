@@ -52,6 +52,7 @@ export function AIListingParserSettings() {
   const [batchDone, setBatchDone] = useState(false);
   const [batchStats, setBatchStats] = useState({ unparsed: 0, total: 0 });
   const [forceReparse, setForceReparse] = useState(false);
+  const [processedListings, setProcessedListings] = useState<Array<{ id: string; title: string }>>([]);
 
   useEffect(() => {
     loadSettings();
