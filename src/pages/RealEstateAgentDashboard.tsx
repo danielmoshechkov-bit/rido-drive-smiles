@@ -15,6 +15,9 @@ import {
 import { AgencyCRMSettings } from "@/components/agency/AgencyCRMSettings";
 import { AgentCRM } from "@/components/realestate/AgentCRM";
 import { AIBatchProcessButton } from "@/components/realestate/AIBatchProcessButton";
+import { GoogleCalendarConnect } from "@/components/realestate/GoogleCalendarConnect";
+import { AgentCRM } from "@/components/realestate/AgentCRM";
+import { AIBatchProcessButton } from "@/components/realestate/AIBatchProcessButton";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { AccountSwitcherPanel } from "@/components/AccountSwitcherPanel";
@@ -367,6 +370,10 @@ export default function RealEstateAgentDashboard() {
           <TabsTrigger value="crm">
             <Building className="h-4 w-4 mr-2" />
             Mój CRM
+          </TabsTrigger>
+          <TabsTrigger value="calendar">
+            <Calendar className="h-4 w-4 mr-2" />
+            Kalendarz
           </TabsTrigger>
           <TabsTrigger value="integration">
             <GitBranch className="h-4 w-4 mr-2" />
