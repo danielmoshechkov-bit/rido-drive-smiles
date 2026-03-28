@@ -181,6 +181,12 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     } catch {}
     return new Set();
   });
+  // Toggle between detailed (with rental columns) and simple view
+  const [showRentalColumns, setShowRentalColumns] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(`fleet_show_rental_${fleetId}`) !== 'false';
+    } catch { return true; }
+  });
 
   // Sorting state
   const [sortColumn, setSortColumn] = useState<string | null>(null);
