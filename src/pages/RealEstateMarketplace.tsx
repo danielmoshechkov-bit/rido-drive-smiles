@@ -17,7 +17,7 @@ import { PropertyTypeSelector } from "@/components/realestate/PropertyTypeSelect
 import { TransactionTypeChips } from "@/components/realestate/TransactionTypeChips";
 import { PropertySelectionBar } from "@/components/realestate/PropertySelectionBar";
 import { useCompare, PropertyCompareItem } from "@/contexts/CompareContext";
-import { ResultsMapModal } from "@/components/realestate/ResultsMapModal";
+
 import { toast } from "sonner";
 import { UniversalHomeButton } from "@/components/UniversalHomeButton";
 import { MyGetRidoButton } from "@/components/MyGetRidoButton";
@@ -380,7 +380,7 @@ export default function RealEstateMarketplace() {
   const [isSearchingAI, setIsSearchingAI] = useState(false);
   const [aiExplanation, setAiExplanation] = useState("");
   const [viewMode, setViewMode] = useState<'grid' | 'compact' | 'list'>('grid');
-  const [showResultsMap, setShowResultsMap] = useState(false);
+  
   const [initialQuery, setInitialQuery] = useState<string>("");
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(36);
@@ -805,7 +805,12 @@ export default function RealEstateMarketplace() {
       <section className="container mx-auto px-4 py-4">
         <RealEstateSearch
           onSearch={handleSearch}
-          onShowMapResults={() => setShowResultsMap(true)}
+          listings={listings.map(l => ({
+            ...l,
+            lat: l.lat ?? undefined,
+            lng: l.lng ?? undefined,
+          }))}
+          onViewListing={(id) => navigate(`/nieruchomosci/ogloszenie/${id}`)}
           className="max-w-5xl mx-auto"
         />
       </section>
@@ -1020,20 +1025,6 @@ export default function RealEstateMarketplace() {
         isLoggedIn={!!user}
       />
 
-      {/* Results Map Modal */}
-      <ResultsMapModal
-        open={showResultsMap}
-        onOpenChange={setShowResultsMap}
-        listings={listings.map(l => ({
-          ...l,
-          lat: l.lat ?? undefined,
-          lng: l.lng ?? undefined,
-        }))}
-        onViewListing={(id) => {
-          setShowResultsMap(false);
-          navigate(`/nieruchomosci/ogloszenie/${id}`);
-        }}
-      />
     </div>
   );
 }
