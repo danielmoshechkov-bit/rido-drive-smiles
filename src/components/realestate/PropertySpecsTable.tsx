@@ -66,6 +66,7 @@ const ROOM_ICONS: Record<string, string> = {
   "pokój": "🛏️",
   bedroom: "🛏️",
   kuchnia: "🍳",
+  "aneks kuchenny": "🍳",
   kitchen: "🍳",
   łazienka: "🚿",
   bathroom: "🚿",
@@ -74,12 +75,15 @@ const ROOM_ICONS: Record<string, string> = {
   przedpokój: "🚪",
   korytarz: "🚪",
   hall: "🚪",
-  balkon: "🌿",
+  garderoba: "👔",
+  balkon: "🌇",
   taras: "☀️",
+  loggia: "🌇",
   garaż: "🚗",
   garage: "🚗",
   piwnica: "📦",
   komórka: "📦",
+  schowek: "📦",
 };
 
 function getRoomIcon(name: string): string {
@@ -88,6 +92,28 @@ function getRoomIcon(name: string): string {
     if (lower.includes(key)) return icon;
   }
   return "📐";
+}
+
+// Sort rooms: main rooms first, then auxiliary, balcony/taras last
+const ROOM_SORT_ORDER: Record<string, number> = {
+  salon: 1, "pokój dzienny": 1, "living": 1,
+  sypialnia: 2, bedroom: 2,
+  "pokój": 3,
+  kuchnia: 4, "aneks": 4, kitchen: 4,
+  łazienka: 5, bathroom: 5, wc: 5, toaleta: 5,
+  przedpokój: 6, korytarz: 6, hall: 6,
+  garderoba: 7,
+  piwnica: 8, komórka: 8, schowek: 8,
+  garaż: 9,
+  balkon: 10, taras: 10, loggia: 10,
+};
+
+function getRoomSortOrder(name: string): number {
+  const lower = name.toLowerCase();
+  for (const [key, order] of Object.entries(ROOM_SORT_ORDER)) {
+    if (lower.includes(key)) return order;
+  }
+  return 7; // default: between main rooms and balcony
 }
 
 export function PropertySpecsTable({ listing }: PropertySpecsTableProps) {
