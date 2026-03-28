@@ -135,10 +135,18 @@ serve(async (req) => {
 
 WAŻNE ZASADY:
 - Odpowiadasz WYŁĄCZNIE w formacie JSON, bez markdown, bez \`\`\`
-- Powierzchnia całkowita (area_total) to CAŁY metraż mieszkania/domu, NIE jednego pokoju
-- Jeśli w opisie są wymienione pokoje z metrażami, zsumuj je — to przybliżona powierzchnia całkowita
-- Każdy wymieniony pokój (salon, sypialnia, kuchnia, łazienka, garderoba, przedpokój) musi być w tablicy rooms
-- Adres i lokalizację wyciągnij z opisu jeśli jest podany`
+- Powierzchnia całkowita (area_total) to CAŁY metraż nieruchomości, NIE jednego pomieszczenia
+- Jeśli w opisie są wymienione pokoje/pomieszczenia z metrażami, zsumuj je — to przybliżona powierzchnia całkowita
+- Każde wymienione pomieszczenie musi być w tablicy rooms
+- Adres i lokalizację wyciągnij z opisu jeśli jest podany
+
+DLA LOKALI KOMERCYJNYCH / MAGAZYNÓW / BIUR:
+- Rozdzielaj powierzchnie: magazyn osobno, biuro osobno, pomieszczenia socjalne osobno
+- W tablicy rooms podaj każdy typ powierzchni jako osobny wpis, np:
+  {"name": "Magazyn", "area": 1500}, {"name": "Biuro", "area": 145}, {"name": "Pomieszczenia socjalne", "area": 50}
+- area_total = suma WSZYSTKICH powierzchni (magazyn + biuro + socjalne + inne)
+- Jeśli w opisie jest "magazyn 1845m2" i "biuro socjalne 145m2", to area_total = 1990 i w rooms oba wpisy
+- Typ nieruchomości: jeśli to magazyn z biurem, ustaw property_subtype: "magazyn z biurem"`
 
     const results: Array<{ id: string; success: boolean; error?: string }> = []
 
@@ -165,8 +173,9 @@ ${rawHints ? `DANE DODATKOWE Z CRM: ${rawHints}` : ''}
 
 Zwróć JSON w dokładnie tym formacie:
 {
-  "area_total": liczba (CAŁY metraż mieszkania, NIE jednego pokoju) lub null,
+  "area_total": liczba (CAŁY metraż nieruchomości = suma wszystkich pomieszczeń) lub null,
   "area_usable": liczba lub null,
+  "property_subtype": "magazyn z biurem" / "lokal handlowy" / "biuro" / null (dla komercji),
   "rooms": [
     {"name": "Salon", "area": 29},
     {"name": "Sypialnia 1", "area": 15},
@@ -174,6 +183,8 @@ Zwróć JSON w dokładnie tym formacie:
     {"name": "Łazienka", "area": 5},
     {"name": "Przedpokój", "area": 4}
   ],
+  UWAGA dla magazynów/lokali: rooms powinno zawierać np:
+  [{"name": "Magazyn", "area": 1845}, {"name": "Biuro", "area": 100}, {"name": "Pomieszczenia socjalne", "area": 45}],
   "address_extracted": "ul. Przykładowa 15, Warszawa" lub null,
   "amenities": {
     "balkon": true/false/null,

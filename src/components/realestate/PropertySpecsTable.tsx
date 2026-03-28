@@ -84,6 +84,16 @@ const ROOM_ICONS: Record<string, string> = {
   piwnica: "📦",
   komórka: "📦",
   schowek: "📦",
+  // Commercial
+  magazyn: "🏭",
+  hala: "🏭",
+  biuro: "🏢",
+  "pomieszczeni": "🧑‍💼",
+  socjaln: "🧑‍💼",
+  recepcja: "🏢",
+  "sala konferencyjn": "📊",
+  rampa: "🚛",
+  plac: "🅿️",
 };
 
 function getRoomIcon(name: string): string {
@@ -106,6 +116,12 @@ const ROOM_SORT_ORDER: Record<string, number> = {
   piwnica: 8, komórka: 8, schowek: 8,
   garaż: 9,
   balkon: 10, taras: 10, loggia: 10,
+  // Commercial - show main area first
+  magazyn: 1, hala: 1,
+  biuro: 2,
+  "pomieszczeni": 3, socjaln: 3,
+  recepcja: 4,
+  rampa: 8, plac: 9,
 };
 
 function getRoomSortOrder(name: string): number {
@@ -122,6 +138,15 @@ export function PropertySpecsTable({ listing }: PropertySpecsTableProps) {
   const filteredRooms = listing.roomsData?.filter(r => r.area > 0) || [];
   const hasRoomsData = filteredRooms.length > 0;
 
+  // For commercial properties, extract area breakdown from roomsData
+  const isCommercial = ['lokal', 'magazyn', 'biuro', 'hala'].some(t => 
+    listing.propertyType?.toLowerCase().includes(t)
+  );
+  
+  const commercialAreas = isCommercial && filteredRooms.length > 0 ? filteredRooms : [];
+  const warehouseArea = commercialAreas.find(r => /magazyn|hala/i.test(r.name))?.area;
+  const officeArea = commercialAreas.find(r => /biur/i.test(r.name))?.area;
+
   const specs = [
     {
       icon: Home,
@@ -131,15 +156,28 @@ export function PropertySpecsTable({ listing }: PropertySpecsTableProps) {
     },
     {
       icon: Maximize,
-      label: "Powierzchnia",
+      label: "Powierzchnia całkowita",
       value: listing.areaM2 ? `${listing.areaM2} m²` : null,
       show: !!listing.areaM2,
+    },
+    // Commercial-specific area cards
+    {
+      icon: Building2,
+      label: "Powierzchnia magazynu",
+      value: warehouseArea ? `${warehouseArea} m²` : null,
+      show: isCommercial && !!warehouseArea,
+    },
+    {
+      icon: Building2,
+      label: "Powierzchnia biura",
+      value: officeArea ? `${officeArea} m²` : null,
+      show: isCommercial && !!officeArea,
     },
     {
       icon: Building2,
       label: "Liczba pokoi",
       value: listing.rooms && listing.rooms > 0 ? `${listing.rooms} ${listing.rooms === 1 ? 'pokój' : listing.rooms < 5 ? 'pokoje' : 'pokoi'}` : null,
-      show: !!listing.rooms && listing.rooms > 0,
+      show: !isCommercial && !!listing.rooms && listing.rooms > 0,
     },
     {
       icon: Layers,
