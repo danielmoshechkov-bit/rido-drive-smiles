@@ -177,6 +177,14 @@ function mapDbToDisplayListing(db: any) {
     favoriteCount: db.favorites_count || 0,
     compareCount: db.comparison_count || 0,
     contactRevealCount: db.contact_reveals_count || 0,
+    // AI data
+    aiAmenities: db.ai_amenities || {},
+    aiBuildingInfo: db.ai_building_info || {},
+    aiLocationDetails: db.ai_location_details || {},
+    aiDescriptionHtml: db.ai_description_html || null,
+    aiSummary: db.ai_summary || null,
+    aiConfidence: db.ai_confidence || 0,
+    aiParsedAt: db.ai_parsed_at || null,
     amenities: [
       db.has_balcony && "Balkon",
       db.has_elevator && "Winda",
