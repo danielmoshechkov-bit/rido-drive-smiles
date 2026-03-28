@@ -109,7 +109,7 @@ function buildSoapEnvelope(headerXml: string, bodyXml: string): string {
 function buildAuthHeader(clientCode: string, wsPassword: string): string {
   return `<web:AuthHeader>
       <web:ClientCode>${clientCode}</web:ClientCode>
-      <web:WsPassword>${wsPassword}</web:WsPassword>
+      <web:WSPassword>${wsPassword}</web:WSPassword>
     </web:AuthHeader>`;
 }
 
@@ -161,9 +161,10 @@ async function handleAutoPartner(
           </web:GetWarehouses>`
         );
 
-        console.log(`Testing Auto Partner SOAP at: ${baseUrl}`);
+        console.log("AP URL:", baseUrl);
+        console.log("AP envelope:", envelope);
         const result = await soapCall(baseUrl, "https://apcat.eu/webservice/GetWarehouses", envelope);
-        console.log(`AP SOAP response (${result.status}): ${result.text.substring(0, 500)}`);
+        console.log("AP response full:", result.text);
 
         // Check for SOAP Fault
         if (result.text.includes("Fault") || result.text.includes("faultstring")) {
@@ -176,7 +177,7 @@ async function handleAutoPartner(
           return json({ error: `Auto Partner: ${faultMsg}` }, 400);
         }
 
-        if (result.ok || result.status === 200) {
+        if (result.status === 200 && (result.text.includes('GetWarehousesResponse') || result.text.includes('GetWarehousesResult'))) {
           await supabase
             .from("workshop_parts_integrations")
             .update({
