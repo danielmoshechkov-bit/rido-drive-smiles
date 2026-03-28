@@ -59,7 +59,7 @@ export function CompareBar({ type, className }: CompareBarProps) {
                 {items.map((item: VehicleCompareItem | PropertyCompareItem) => (
                   <div
                     key={item.id}
-                    className="relative group shrink-0 bg-muted rounded-lg overflow-hidden"
+                    className="relative group shrink-0 bg-muted rounded-lg overflow-visible"
                   >
                     <img
                       src={item.photos?.[0] || "/placeholder.svg"}
