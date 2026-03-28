@@ -92,6 +92,7 @@ export function WholesalerIntegrationsSettings({ providerId }: Props) {
         sales_margin_percent: existing?.sales_margin_percent ?? 30,
         is_enabled: existing?.is_enabled ?? false,
         environment: existing?.environment || 'sandbox',
+        api_extra_json: existing?.api_extra_json || {},
       };
       if (existing?.last_connection_status) {
         setTestResults(prev => ({ ...prev, [s.code]: existing.last_connection_status }));
@@ -111,6 +112,7 @@ export function WholesalerIntegrationsSettings({ providerId }: Props) {
           sales_margin_percent: i.sales_margin_percent ?? 30,
           is_enabled: i.is_enabled ?? false,
           environment: i.environment || 'production',
+          api_extra_json: i.api_extra_json || {},
         };
         if (i.last_connection_status) {
           setTestResults(prev => ({ ...prev, [i.supplier_code]: i.last_connection_status }));
@@ -141,6 +143,17 @@ export function WholesalerIntegrationsSettings({ providerId }: Props) {
       sales_margin_percent: form.sales_margin_percent,
       is_enabled: form.is_enabled,
       environment: form.environment,
+      api_extra_json: form.api_extra_json || {},
+    });
+  };
+
+  const getExtraField = (code: string, key: string) => {
+    return forms[code]?.api_extra_json?.[key] || '';
+  };
+
+  const setExtraField = (code: string, key: string, value: string) => {
+    updateForm(code, {
+      api_extra_json: { ...(forms[code]?.api_extra_json || {}), [key]: value },
     });
   };
 
