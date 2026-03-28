@@ -891,6 +891,14 @@ export default function RealEstateMarketplace() {
       {/* Compare Bar */}
       <CompareBar type="property" className="pb-safe" />
 
+      {/* Viewing Selection Bar */}
+      <ViewingSelectionBar
+        selectedIds={viewingIds}
+        selectedTitles={viewingTitles}
+        onClear={clearViewing}
+        isLoggedIn={!!user}
+      />
+
       {/* Results Map Modal */}
       <ResultsMapModal
         open={showResultsMap}
