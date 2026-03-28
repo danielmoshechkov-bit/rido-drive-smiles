@@ -1,16 +1,8 @@
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { X, GitCompare, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCompare, VehicleCompareItem, PropertyCompareItem } from "@/contexts/CompareContext";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { ViewingRequestForm } from "@/components/realestate/ViewingRequestForm";
 
 interface CompareBarProps {
   type: "vehicle" | "property";
