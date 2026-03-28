@@ -28,9 +28,11 @@ import { InventoryPurchaseOCR } from '@/components/inventory/InventoryPurchaseOC
 import { KsefUserSettings } from '@/components/ksef/KsefUserSettings';
 import { useKsefUnreadCount } from '@/hooks/useKsefUnreadCount';
 import { ServiceRegistrationModal } from '@/components/services/ServiceRegistrationModal';
+import { MyViewingsPanel } from '@/components/realestate/MyViewingsPanel';
 import { ClientMyVehicles } from '@/components/client/ClientMyVehicles';
 import { 
   Car,
+  Eye,
   Home,
   FileText,
   User,
