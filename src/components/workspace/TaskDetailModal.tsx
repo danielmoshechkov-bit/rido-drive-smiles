@@ -60,6 +60,7 @@ interface Props {
   allTasks?: WorkspaceTask[];
   userId?: string | null;
   userName?: string | null;
+  onInviteMember?: () => void;
 }
 
 export function TaskDetailModal({ task, open, onClose, onSave, onDelete, members, allTasks = [], userId, userName }: Props) {
