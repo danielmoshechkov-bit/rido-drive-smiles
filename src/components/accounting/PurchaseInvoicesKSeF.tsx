@@ -56,10 +56,10 @@ export function PurchaseInvoicesKSeF({ entityId }: PurchaseInvoicesKSeFProps) {
   const { data: invoices, isLoading } = useQuery({
     queryKey: ['purchase-invoices-ksef', entityId, dateFrom, dateTo],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase
         .from('purchase_invoices')
-        .select('*')
-        .eq('entity_id' as any, entityId)
+        .select('*') as any)
+        .eq('entity_id', entityId)
         .gte('purchase_date', dateFrom)
         .lte('purchase_date', dateTo)
         .order('purchase_date', { ascending: false });

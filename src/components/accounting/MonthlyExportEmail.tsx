@@ -63,10 +63,10 @@ export function MonthlyExportEmail({ entityId }: MonthlyExportEmailProps) {
       }
 
       if (includePurchase) {
-        const { data } = await supabase
+        const { data } = await (supabase
           .from('purchase_invoices')
-          .select('*')
-          .eq('entity_id' as any, entityId)
+          .select('*') as any)
+          .eq('entity_id', entityId)
           .gte('purchase_date', dateFrom)
           .lte('purchase_date', dateTo);
         purchaseData = (data || []) as any[];
