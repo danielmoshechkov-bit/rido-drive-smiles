@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Building2, Car, ShoppingCart, ChevronDown, Map, Globe, Wrench, Calculator, Briefcase, Brain, Shield } from 'lucide-react';
+import { Building2, Car, ShoppingCart, ChevronDown, Map, Globe, Wrench, Calculator, Briefcase, Brain, Shield, Bot } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -92,6 +92,13 @@ const portals: Portal[] = [
     path: '/admin/portal?tab=ksef-admin',
     description: 'Monitor KSeF i zarządzanie firmami',
   },
+  {
+    id: 'ai-agents',
+    name: 'Agenci AI',
+    icon: Bot,
+    path: '/admin/agenci-ai',
+    description: 'Zarządzanie agentami AI systemu',
+  },
 ];
 
 export function AdminPortalSwitcher() {
@@ -99,6 +106,9 @@ export function AdminPortalSwitcher() {
   const location = useLocation();
 
   const getCurrentPortal = () => {
+    if (location.pathname.includes('/admin/agenci-ai')) {
+      return portals.find((p) => p.id === 'ai-agents');
+    }
     if (location.pathname.includes('/admin/ai')) {
       return portals.find((p) => p.id === 'ai-brain');
     }
