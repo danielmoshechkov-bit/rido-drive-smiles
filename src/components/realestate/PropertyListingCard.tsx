@@ -35,7 +35,7 @@ interface PropertyListingCardProps {
     id: string;
     title: string;
     price: number;
-    priceType?: string; // 'sale' | 'rent_monthly'
+    priceType?: string;
     photos: string[];
     location?: string;
     district?: string;
@@ -64,9 +64,11 @@ interface PropertyListingCardProps {
   onView?: () => void;
   onFavorite?: () => void;
   onToggleCompare?: () => void;
+  onToggleViewing?: () => void;
   isLoggedIn?: boolean;
   isFavorited?: boolean;
   isSelectedForCompare?: boolean;
+  isSelectedForViewing?: boolean;
   compact?: boolean;
   variant?: 'grid' | 'compact' | 'list';
 }
@@ -92,9 +94,11 @@ export function PropertyListingCard({
   onView, 
   onFavorite, 
   onToggleCompare,
+  onToggleViewing,
   isLoggedIn = false,
   isFavorited = false,
   isSelectedForCompare = false,
+  isSelectedForViewing = false,
   compact = false,
   variant = 'grid'
 }: PropertyListingCardProps) {
