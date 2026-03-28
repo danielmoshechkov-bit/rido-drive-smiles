@@ -391,7 +391,8 @@ export default function RealEstateMarketplace() {
             location, city, district, address, area, rooms, floor, total_floors, build_year,
             property_type, transaction_type,
             has_balcony, has_elevator, has_parking, has_garden,
-            latitude, longitude, contact_person, contact_phone,
+            latitude, longitude, contact_person, contact_phone, contact_email,
+            listing_number, property_unique_id,
             real_estate_agents!agent_id(company_name)
           `)
           .eq('status', 'active')
