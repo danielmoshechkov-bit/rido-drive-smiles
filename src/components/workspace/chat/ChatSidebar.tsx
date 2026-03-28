@@ -156,7 +156,12 @@ export function ChatSidebar({
         {expanded.channels && (
           <div className="space-y-0.5">
             {[...publicChannels, ...privateChannels].map(ch => (
-              <ChannelItem key={ch.id} channel={ch} isActive={activeChannel?.id === ch.id} onClick={() => onSelectChannel(ch)} />
+              <ChannelItemWithMenu
+                key={ch.id} channel={ch} isActive={activeChannel?.id === ch.id}
+                onClick={() => onSelectChannel(ch)}
+                onEdit={() => { setEditingChannel(ch); setEditName(ch.name); setEditDesc(ch.description || ''); setShowEditChannel(true); }}
+                onDelete={() => onDeleteChannel?.(ch.id)}
+              />
             ))}
           </div>
         )}
@@ -194,7 +199,12 @@ export function ChatSidebar({
         {expanded.groups && (
           <div className="space-y-0.5">
             {groupChannels.map(ch => (
-              <ChannelItem key={ch.id} channel={ch} isActive={activeChannel?.id === ch.id} onClick={() => onSelectChannel(ch)} isGroup />
+              <ChannelItemWithMenu
+                key={ch.id} channel={ch} isActive={activeChannel?.id === ch.id}
+                onClick={() => onSelectChannel(ch)} isGroup
+                onEdit={() => { setEditingChannel(ch); setEditName(ch.name); setEditDesc(ch.description || ''); setShowEditChannel(true); }}
+                onDelete={() => onDeleteChannel?.(ch.id)}
+              />
             ))}
             {groupChannels.length === 0 && (
               <p className="text-[10px] text-white/30 px-2 py-1">Kliknij + aby utworzyć grupę</p>
