@@ -146,12 +146,13 @@ export function AIListingParserSettings() {
     setBatchProcessing(true);
     setBatchDone(false);
     setBatchProgress(0);
+    setProcessedListings([]);
 
     try {
       // Get listings to process
       let query = supabase
         .from('real_estate_listings')
-        .select('id')
+        .select('id, title')
         .eq('status', 'active')
         .not('description', 'is', null);
 
@@ -160,35 +161,40 @@ export function AIListingParserSettings() {
       }
 
       const { data: listings } = await query.limit(500);
-      const ids = listings?.map(l => l.id) || [];
+      const items = listings || [];
 
-      if (ids.length === 0) {
+      if (items.length === 0) {
         toast.info('Wszystkie ogłoszenia mają już dane AI');
         setBatchProcessing(false);
         return;
       }
 
-      setBatchTotal(ids.length);
+      setBatchTotal(items.length);
       const batchSize = 5;
       let successCount = 0;
       let errorCount = 0;
+      const processed: Array<{ id: string; title: string }> = [];
 
-      for (let i = 0; i < ids.length; i += batchSize) {
-        const batch = ids.slice(i, i + batchSize);
+      for (let i = 0; i < items.length; i += batchSize) {
+        const batch = items.slice(i, i + batchSize);
 
         const { data, error } = await supabase.functions.invoke('parse-listing-ai', {
-          body: { batch_ids: batch, model: settings.model }
+          body: { batch_ids: batch.map(b => b.id), model: settings.model }
         });
 
         if (error) {
           console.error('Batch error:', error);
           errorCount += batch.length;
         } else {
-          successCount += data?.success_count || 0;
+          const sc = data?.success_count || 0;
+          successCount += sc;
           errorCount += data?.error_count || 0;
+          // Track successfully processed listings
+          batch.forEach(b => processed.push({ id: b.id, title: b.title || b.id }));
         }
 
-        setBatchProgress(Math.min(i + batchSize, ids.length));
+        setBatchProgress(Math.min(i + batchSize, items.length));
+        setProcessedListings([...processed]);
       }
 
       setBatchDone(true);
