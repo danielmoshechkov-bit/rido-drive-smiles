@@ -473,6 +473,13 @@ export default function PropertyDetailPage() {
                   variant="outline" 
                   className="w-full mt-2"
                   size="lg"
+                  onClick={() => {
+                    if (!user) {
+                      setShowLoginDialog(true);
+                      return;
+                    }
+                    setShowMessageDialog(true);
+                  }}
                 >
                   <MessageCircle className="h-4 w-4 mr-2" />
                   Napisz wiadomość
