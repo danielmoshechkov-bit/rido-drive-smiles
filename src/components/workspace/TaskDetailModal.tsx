@@ -344,7 +344,7 @@ export function TaskDetailModal({ task, open, onClose, onSave, onDelete, members
                       </div>
                     ))}
                     <Select value="" onValueChange={v => {
-                      if (v === "__invite__") { setShowInvite(true); return; }
+                      if (v === "__invite__") { onInviteMember?.(); return; }
                       const current = (form.assigned_name || "").split(",").filter(Boolean).map(n => n.trim());
                       if (!current.includes(v)) {
                         setForm(p => ({ ...p, assigned_name: [...current, v].join(", ") }));
