@@ -10,14 +10,12 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { 
   Building, Plus, Home, Users, Settings,
   ArrowLeft, Eye, Edit, Trash2, AlertCircle, Heart, 
-  GitCompare, Phone, ChevronDown, ChevronUp, Repeat, GitBranch
+  GitCompare, Phone, ChevronDown, ChevronUp, Repeat, GitBranch, Calendar
 } from "lucide-react";
 import { AgencyCRMSettings } from "@/components/agency/AgencyCRMSettings";
 import { AgentCRM } from "@/components/realestate/AgentCRM";
 import { AIBatchProcessButton } from "@/components/realestate/AIBatchProcessButton";
 import { GoogleCalendarConnect } from "@/components/realestate/GoogleCalendarConnect";
-import { AgentCRM } from "@/components/realestate/AgentCRM";
-import { AIBatchProcessButton } from "@/components/realestate/AIBatchProcessButton";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { AccountSwitcherPanel } from "@/components/AccountSwitcherPanel";
