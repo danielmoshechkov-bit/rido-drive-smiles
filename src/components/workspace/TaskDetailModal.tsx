@@ -63,7 +63,7 @@ interface Props {
   onInviteMember?: () => void;
 }
 
-export function TaskDetailModal({ task, open, onClose, onSave, onDelete, members, allTasks = [], userId, userName }: Props) {
+export function TaskDetailModal({ task, open, onClose, onSave, onDelete, members, allTasks = [], userId, userName, onInviteMember }: Props) {
   const [form, setForm] = useState({
     title: "", description: "", priority: "medium", status: "todo",
     due_date: "", assigned_name: "", color: "#3b82f6",
