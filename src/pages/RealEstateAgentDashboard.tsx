@@ -363,6 +363,10 @@ export default function RealEstateAgentDashboard() {
             <Settings className="h-4 w-4 mr-2" />
             Ustawienia
           </TabsTrigger>
+          <TabsTrigger value="crm">
+            <Building className="h-4 w-4 mr-2" />
+            Mój CRM
+          </TabsTrigger>
           <TabsTrigger value="integration">
             <GitBranch className="h-4 w-4 mr-2" />
             Integracja CRM
