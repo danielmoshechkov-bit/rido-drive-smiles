@@ -11034,6 +11034,59 @@ export type Database = {
         }
         Relationships: []
       }
+      property_messages: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_read: boolean | null
+          listing_id: string
+          message: string
+          parent_message_id: string | null
+          recipient_agent_id: string
+          recipient_email: string | null
+          sender_email: string | null
+          sender_name: string | null
+          sender_phone: string | null
+          sender_user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          listing_id: string
+          message: string
+          parent_message_id?: string | null
+          recipient_agent_id: string
+          recipient_email?: string | null
+          sender_email?: string | null
+          sender_name?: string | null
+          sender_phone?: string | null
+          sender_user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          listing_id?: string
+          message?: string
+          parent_message_id?: string | null
+          recipient_agent_id?: string
+          recipient_email?: string | null
+          sender_email?: string | null
+          sender_name?: string | null
+          sender_phone?: string | null
+          sender_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_messages_parent_message_id_fkey"
+            columns: ["parent_message_id"]
+            isOneToOne: false
+            referencedRelation: "property_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       provider_reminder_confirmations: {
         Row: {
           booking_id: string | null
