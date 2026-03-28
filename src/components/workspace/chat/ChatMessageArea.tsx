@@ -290,8 +290,9 @@ export function ChatMessageArea({
         {channel.description && channel.type !== 'dm' && (
           <span className="text-xs text-muted-foreground ml-2 hidden md:inline">{channel.description}</span>
         )}
-        <div className="ml-auto flex items-center gap-1">
-          {/* In-channel search */}
+
+        {/* In-channel search */}
+        <div className="ml-3">
           {channelSearchActive ? (
             <div className="flex items-center gap-1 bg-muted rounded-md px-2 py-1">
               <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
@@ -331,7 +332,9 @@ export function ChatMessageArea({
               <Search className="h-3.5 w-3.5" />
             </Button>
           )}
-          {/* Language selector */}
+        </div>
+
+        <div className="ml-auto flex items-center gap-1">
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 px-2">
@@ -385,8 +388,7 @@ export function ChatMessageArea({
         </div>
       )}
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-0.5">
+      <div ref={messageListRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-0.5">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
             <ChannelIcon className="h-10 w-10 mb-2 opacity-20" />
