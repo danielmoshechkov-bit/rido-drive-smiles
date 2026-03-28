@@ -241,79 +241,80 @@ export function WorkspaceTasksView({ project, workspace }: Props) {
 
     return (
       <div key={task.id}>
-        <div
-          className="flex items-center gap-2 p-3 border-b hover:bg-accent/30 transition-colors group cursor-pointer"
-          style={{ paddingLeft: `${12 + depth * 24}px` }}
+        <Card
+          className="cursor-pointer hover:shadow-md transition-shadow border hover:border-primary/30"
           onClick={() => openDetail(task)}
         >
-          {hasChildren ? (
-            <button onClick={(e) => { e.stopPropagation(); toggleExpand(task.id); }} className="shrink-0">
-              {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-            </button>
-          ) : (
-            <span className="w-4" />
-          )}
+          <CardContent className="p-3 space-y-2">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <button onClick={(e) => { e.stopPropagation(); handleStatusChange(task.id, task.status === 'done' ? 'todo' : 'done'); }}>
+                  <StatusIcon className={cn("h-5 w-5 shrink-0", statusColor)} />
+                </button>
+                <div className="min-w-0">
+                  <p className={cn("text-sm font-medium line-clamp-2", task.status === 'done' && "line-through text-muted-foreground")}>
+                    <span className="text-xs text-muted-foreground font-mono mr-1">#{(task as any).task_number || '?'}</span>
+                    {task.title}
+                  </p>
+                </div>
+              </div>
+              <Badge className={cn("text-[10px] px-1.5 py-0 shrink-0", priorityCfg.color)}>
+                {priorityCfg.emoji} {priorityCfg.label}
+              </Badge>
+            </div>
 
-          <button onClick={(e) => { e.stopPropagation(); handleStatusChange(task.id, task.status === 'done' ? 'todo' : 'done'); }}>
-            <StatusIcon className={cn("h-5 w-5 shrink-0", statusColor)} />
-          </button>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+              {task.assigned_name && (
+                <div className="flex items-center gap-1">
+                  <Avatar className="h-5 w-5">
+                    <AvatarFallback className="text-[9px] bg-primary/10 text-primary">
+                      {task.assigned_name.split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="text-xs">{task.assigned_name}</span>
+                </div>
+              )}
 
-          <div className="flex-1 min-w-0">
-            <p className={cn("text-sm font-medium truncate", task.status === 'done' && "line-through text-muted-foreground")}>
-              <span className="text-xs text-muted-foreground font-mono mr-1">#{(task as any).task_number || '?'}</span>
-              {task.title}
-            </p>
-          </div>
+              {task.due_date && (
+                <span className={cn(
+                  "text-xs",
+                  new Date(task.due_date) < new Date() ? "text-red-500 font-medium" : ""
+                )}>
+                  📅 {new Date(task.due_date).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' })}
+                </span>
+              )}
 
-          {(task as any).time_logged_minutes > 0 && (
-            <span className="text-[10px] text-muted-foreground flex items-center gap-0.5 shrink-0">
-              <Timer className="h-3 w-3" />
-              {(task as any).time_logged_minutes < 60 
-                ? `${(task as any).time_logged_minutes}m`
-                : `${Math.floor((task as any).time_logged_minutes / 60)}h`}
-            </span>
-          )}
+              {(task as any).time_logged_minutes > 0 && (
+                <span className="flex items-center gap-0.5">
+                  <Timer className="h-3 w-3" />
+                  {(task as any).time_logged_minutes < 60 
+                    ? `${(task as any).time_logged_minutes}m`
+                    : `${Math.floor((task as any).time_logged_minutes / 60)}h`}
+                </span>
+              )}
 
-          <Badge className={cn("text-[10px] px-1.5 py-0 shrink-0", priorityCfg.color)}>
-            {priorityCfg.emoji} {priorityCfg.label}
-          </Badge>
-
-          {task.assigned_name && (
-            <Avatar className="h-6 w-6 shrink-0">
-              <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
-                {task.assigned_name.split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-          )}
-
-          {task.due_date && (
-            <span className={cn(
-              "text-xs shrink-0 hidden sm:inline",
-              new Date(task.due_date) < new Date() ? "text-red-500 font-medium" : "text-muted-foreground"
-            )}>
-              {new Date(task.due_date).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' })}
-            </span>
-          )}
-
-          <Select value={task.status} onValueChange={v => { handleStatusChange(task.id, v); }}>
-            <SelectTrigger className="w-auto h-7 text-xs border-0 bg-transparent gap-1 opacity-0 group-hover:opacity-100" onClick={e => e.stopPropagation()}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {Object.entries(STATUS_CONFIG).map(([k, v]) => (
-                <SelectItem key={k} value={k}>{v.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Button
-            variant="ghost" size="icon"
-            className="h-7 w-7 opacity-0 group-hover:opacity-100 text-destructive"
-            onClick={(e) => { e.stopPropagation(); handleDelete(task.id); }}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
-        </div>
+              <div className="ml-auto flex items-center gap-1">
+                <Select value={task.status} onValueChange={v => { handleStatusChange(task.id, v); }}>
+                  <SelectTrigger className="w-auto h-6 text-[10px] border-0 bg-muted/50 gap-1 px-2" onClick={e => e.stopPropagation()}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(STATUS_CONFIG).map(([k, v]) => (
+                      <SelectItem key={k} value={k}>{v.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="ghost" size="icon"
+                  className="h-6 w-6 text-destructive opacity-60 hover:opacity-100"
+                  onClick={(e) => { e.stopPropagation(); handleDelete(task.id); }}
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
         {isExpanded && children.map(c => renderTask(c, depth + 1))}
       </div>
     );
@@ -343,20 +344,20 @@ export function WorkspaceTasksView({ project, workspace }: Props) {
         </div>
       </div>
 
-      <Card>
-        <CardContent className="p-0">
-          {loading ? (
-            <div className="p-8 text-center text-muted-foreground">Ładowanie...</div>
-          ) : filtered.length === 0 ? (
-            <div className="p-8 text-center text-muted-foreground">
-              <ListChecks className="h-12 w-12 mx-auto mb-2 opacity-30" />
-              <p>Brak zadań. Dodaj pierwsze zadanie!</p>
-            </div>
-          ) : (
-            filtered.map(t => renderTask(t))
-          )}
-        </CardContent>
-      </Card>
+      <div>
+        {loading ? (
+          <div className="p-8 text-center text-muted-foreground">Ładowanie...</div>
+        ) : filtered.length === 0 ? (
+          <div className="p-8 text-center text-muted-foreground">
+            <ListChecks className="h-12 w-12 mx-auto mb-2 opacity-30" />
+            <p>Brak zadań. Dodaj pierwsze zadanie!</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+            {filtered.map(t => renderTask(t))}
+          </div>
+        )}
+      </div>
 
       {/* Create task dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
@@ -486,10 +487,30 @@ export function WorkspaceTasksView({ project, workspace }: Props) {
                       </Select>
                     </div>
                   </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Przypisane do</Label>
-                    <p className="text-sm mt-1">{detailTask.assigned_name || 'Brak'}</p>
-                  </div>
+                   <div>
+                     <Label className="text-xs text-muted-foreground">Przypisane do</Label>
+                     <Select
+                       value={detailTask.assigned_name || '__none__'}
+                       onValueChange={async v => {
+                         const assignedName = v === '__none__' ? '' : v;
+                         await logHistory(detailTask.id, 'assigned_name', detailTask.assigned_name, assignedName);
+                         await workspace.updateTask(detailTask.id, { assigned_name: assignedName || null });
+                         setDetailTask(prev => prev ? { ...prev, assigned_name: assignedName } : null);
+                         setTasks(prev => prev.map(t => t.id === detailTask.id ? { ...t, assigned_name: assignedName } : t));
+                         if (assignedName) {
+                           notifyTaskAssigned(project.id, detailTask.title, assignedName, detailTask.id, workspace.userEmail || undefined);
+                         }
+                       }}
+                     >
+                       <SelectTrigger className="mt-1"><SelectValue placeholder="Wybierz osobę" /></SelectTrigger>
+                       <SelectContent>
+                         <SelectItem value="__none__">Brak</SelectItem>
+                         {members.map(m => (
+                           <SelectItem key={m.id} value={getMemberName(m)}>{getMemberName(m)}</SelectItem>
+                         ))}
+                       </SelectContent>
+                     </Select>
+                   </div>
                   {detailTask.due_date && (
                     <div>
                       <Label className="text-xs text-muted-foreground">Termin</Label>

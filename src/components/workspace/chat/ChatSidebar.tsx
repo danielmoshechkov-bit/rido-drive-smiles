@@ -2,10 +2,12 @@ import { useState } from "react";
 import { ChatChannel, UserStatus } from "@/hooks/useWorkspaceChat";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Hash, Plus, Lock, MessageCircle, Users, Search, ChevronDown, ChevronRight, SmilePlus } from "lucide-react";
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger, ContextMenuSeparator } from "@/components/ui/context-menu";
+import { Hash, Plus, Lock, MessageCircle, Users, Search, ChevronDown, ChevronRight, SmilePlus, Pencil, Trash2, Palette, UserPlus, Eye, GripVertical } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const STATUS_OPTIONS = [
@@ -28,15 +30,22 @@ interface Props {
   onCreateDM: (userId: string, name: string) => Promise<any>;
   onSearch: () => void;
   onStatusChange: (status: string, text?: string) => Promise<void>;
+  onEditChannel?: (channelId: string, name: string, description?: string) => Promise<void>;
+  onDeleteChannel?: (channelId: string) => Promise<void>;
 }
 
 export function ChatSidebar({
   channels, activeChannel, members, memberStatuses, userId,
   projectName, projectColor,
-  onSelectChannel, onCreateChannel, onCreateDM, onSearch, onStatusChange
+  onSelectChannel, onCreateChannel, onCreateDM, onSearch, onStatusChange,
+  onEditChannel, onDeleteChannel
 }: Props) {
   const [showCreateChannel, setShowCreateChannel] = useState(false);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const [showEditChannel, setShowEditChannel] = useState(false);
+  const [editingChannel, setEditingChannel] = useState<ChatChannel | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editDesc, setEditDesc] = useState("");
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
   const [newType, setNewType] = useState<"public" | "private">("public");
@@ -147,7 +156,12 @@ export function ChatSidebar({
         {expanded.channels && (
           <div className="space-y-0.5">
             {[...publicChannels, ...privateChannels].map(ch => (
-              <ChannelItem key={ch.id} channel={ch} isActive={activeChannel?.id === ch.id} onClick={() => onSelectChannel(ch)} />
+              <ChannelItemWithMenu
+                key={ch.id} channel={ch} isActive={activeChannel?.id === ch.id}
+                onClick={() => onSelectChannel(ch)}
+                onEdit={() => { setEditingChannel(ch); setEditName(ch.name); setEditDesc(ch.description || ''); setShowEditChannel(true); }}
+                onDelete={() => onDeleteChannel?.(ch.id)}
+              />
             ))}
           </div>
         )}
@@ -185,7 +199,12 @@ export function ChatSidebar({
         {expanded.groups && (
           <div className="space-y-0.5">
             {groupChannels.map(ch => (
-              <ChannelItem key={ch.id} channel={ch} isActive={activeChannel?.id === ch.id} onClick={() => onSelectChannel(ch)} isGroup />
+              <ChannelItemWithMenu
+                key={ch.id} channel={ch} isActive={activeChannel?.id === ch.id}
+                onClick={() => onSelectChannel(ch)} isGroup
+                onEdit={() => { setEditingChannel(ch); setEditName(ch.name); setEditDesc(ch.description || ''); setShowEditChannel(true); }}
+                onDelete={() => onDeleteChannel?.(ch.id)}
+              />
             ))}
             {groupChannels.length === 0 && (
               <p className="text-[10px] text-white/30 px-2 py-1">Kliknij + aby utworzyć grupę</p>
@@ -244,7 +263,33 @@ export function ChatSidebar({
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCreateGroup(false)}>Anuluj</Button>
-            <Button onClick={handleCreateGroup} disabled={!groupName.trim() || selectedGroupMembers.length === 0}>Utwórz grupę</Button>
+            <Button onClick={handleCreateGroup} disabled={!groupName.trim()}>Utwórz grupę</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Channel */}
+      <Dialog open={showEditChannel} onOpenChange={setShowEditChannel}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Edytuj kanał</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-xs">Nazwa</Label>
+              <Input value={editName} onChange={e => setEditName(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs">Opis</Label>
+              <Input value={editDesc} onChange={e => setEditDesc(e.target.value)} placeholder="Opis kanału" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditChannel(false)}>Anuluj</Button>
+            <Button onClick={async () => {
+              if (editingChannel && onEditChannel) {
+                await onEditChannel(editingChannel.id, editName, editDesc);
+                setShowEditChannel(false);
+              }
+            }} disabled={!editName.trim()}>Zapisz</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -263,6 +308,59 @@ function SectionHeader({ title, expanded, onToggle, onAdd }: { title: string; ex
         <Button variant="ghost" size="icon" className="h-5 w-5 text-white/40 hover:text-white hover:bg-white/10" onClick={onAdd}><Plus className="h-3 w-3" /></Button>
       )}
     </div>
+  );
+}
+
+function ChannelItemWithMenu({ channel, isActive, onClick, isDM, isGroup, onEdit, onDelete }: {
+  channel: ChatChannel; isActive: boolean; onClick: () => void; isDM?: boolean; isGroup?: boolean;
+  onEdit?: () => void; onDelete?: () => void;
+}) {
+  const Icon = isDM ? MessageCircle : isGroup ? Users : channel.type === 'private' ? Lock : Hash;
+  const displayName = isDM ? (channel.description?.replace('DM z ', '') || channel.name) : channel.name;
+
+  const channelButton = (
+    <button
+      className={cn(
+        "w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm transition-all",
+        isActive
+          ? "bg-primary text-white font-semibold shadow-md"
+          : "text-white/70 hover:bg-white/10 hover:text-white"
+      )}
+      onClick={onClick}
+    >
+      <Icon className={cn("h-4 w-4 shrink-0", isActive ? "opacity-100" : "opacity-50")} />
+      <span className="truncate">{displayName}</span>
+      {(channel.unread_count ?? 0) > 0 && (
+        <span className="ml-auto bg-red-500 text-white text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center shadow-sm">
+          {channel.unread_count}
+        </span>
+      )}
+    </button>
+  );
+
+  if (isDM) return channelButton;
+
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        {channelButton}
+      </ContextMenuTrigger>
+      <ContextMenuContent className="w-48">
+        <ContextMenuItem onClick={onEdit} className="gap-2 text-xs">
+          <Pencil className="h-3.5 w-3.5" /> Edytuj kanał
+        </ContextMenuItem>
+        <ContextMenuItem className="gap-2 text-xs">
+          <Eye className="h-3.5 w-3.5" /> Zobacz uczestników
+        </ContextMenuItem>
+        <ContextMenuItem className="gap-2 text-xs">
+          <UserPlus className="h-3.5 w-3.5" /> Zaproś uczestników
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem onClick={onDelete} className="gap-2 text-xs text-red-500 focus:text-red-500">
+          <Trash2 className="h-3.5 w-3.5" /> Usuń kanał
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }
 

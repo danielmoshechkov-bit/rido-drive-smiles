@@ -8,6 +8,7 @@ import { ChatSearchModal } from "./chat/ChatSearchModal";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, MessageSquare, Hash, LayoutGrid, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface Props {
   project: WorkspaceProject;
@@ -105,6 +106,28 @@ export function WorkspaceChatView({ project, workspace }: Props) {
     }
   };
 
+  const handleEditChannel = async (channelId: string, name: string, description?: string) => {
+    const { error } = await (supabase as any)
+      .from("workspace_channels")
+      .update({ name, description: description || null })
+      .eq("id", channelId);
+    if (error) { toast.error("Błąd edycji kanału"); return; }
+    toast.success("Kanał zaktualizowany");
+    await chat.loadChannels();
+  };
+
+  const handleDeleteChannel = async (channelId: string) => {
+    if (!confirm("Czy na pewno chcesz usunąć ten kanał? Wszystkie wiadomości zostaną utracone.")) return;
+    const { error } = await (supabase as any)
+      .from("workspace_channels")
+      .delete()
+      .eq("id", channelId);
+    if (error) { toast.error("Błąd usuwania kanału"); return; }
+    toast.success("Kanał usunięty");
+    chat.setActiveChannel(null);
+    await chat.loadChannels();
+  };
+
   if (chat.loading) {
     return (
       <div className="flex items-center justify-center h-[600px]">
@@ -162,6 +185,8 @@ export function WorkspaceChatView({ project, workspace }: Props) {
             }}
             onSearch={() => setShowSearch(true)}
             onStatusChange={chat.updateMyStatus}
+            onEditChannel={handleEditChannel}
+            onDeleteChannel={handleDeleteChannel}
           />
         </div>
 
@@ -188,6 +213,8 @@ export function WorkspaceChatView({ project, workspace }: Props) {
               }}
               onSearch={() => setShowSearch(true)}
               onStatusChange={chat.updateMyStatus}
+              onEditChannel={handleEditChannel}
+              onDeleteChannel={handleDeleteChannel}
             />
           </div>
         )}
