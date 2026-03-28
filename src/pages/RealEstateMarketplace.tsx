@@ -1,11 +1,12 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
-  Building, Search, Plus, Sparkles, ArrowRight, Home, LayoutGrid, Rows3, List
+  Building, Search, Plus, Sparkles, ArrowRight, Home, LayoutGrid, Rows3, List, ChevronLeft, ChevronRight
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Footer from "@/components/Footer";
