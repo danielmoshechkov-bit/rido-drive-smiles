@@ -43,7 +43,7 @@ export function WorkspaceKanbanView({ project, workspace }: Props) {
   const [draggedTask, setDraggedTask] = useState<string | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
   const [showDetail, setShowDetail] = useState<WorkspaceTask | null>(null);
-  const [editForm, setEditForm] = useState({ title: "", description: "", priority: "medium", due_date: "", assigned_name: "" });
+  const [members, setMembers] = useState<any[]>([]);
   const [members, setMembers] = useState<any[]>([]);
 
   useEffect(() => { reload(); }, [project.id]);
