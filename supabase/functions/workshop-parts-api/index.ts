@@ -5,6 +5,9 @@ import { corsHeaders } from "../_shared/cors.ts";
 const HART_SANDBOX_URL = "https://sandbox.restapi.hartphp.com.pl";
 const HART_PROD_URL = "https://restapi.hartphp.com.pl";
 
+const AP_SANDBOX_URL = "https://customerapi.autopartner.dev/CustomerAPI.svc/rest";
+const AP_PROD_URL = "https://customerapi.autopartner.dev/CustomerAPI.svc/rest";
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -38,26 +41,120 @@ serve(async (req) => {
       .single();
 
     if (action === "check_config") {
-      return json({ configured: !!integration && !!integration.api_username && integration.is_enabled });
+      const hasCredentials = supplier_code === "auto_partner"
+        ? !!integration?.api_extra_json?.clientCode && integration.is_enabled
+        : !!integration?.api_username && integration.is_enabled;
+      return json({ configured: hasCredentials });
     }
 
-    if (!integration || !integration.api_username) {
+    if (!integration) {
       return json({ error: "Integration not configured" }, 400);
     }
 
-    const baseUrl = integration.environment === "production" ? HART_PROD_URL : HART_SANDBOX_URL;
+    if (supplier_code === "auto_partner") {
+      return await handleAutoPartner(supabase, integration, action, params, provider_id);
+    }
 
     if (supplier_code === "hart" || !supplier_code) {
+      const baseUrl = integration.environment === "production" ? HART_PROD_URL : HART_SANDBOX_URL;
       return await handleHart(supabase, baseUrl, integration, action, params, provider_id);
     }
 
-    return json({ error: "Unsupported supplier" }, 400);
+    return json({ error: "Unsupported supplier: " + supplier_code }, 400);
   } catch (err) {
     console.error("workshop-parts-api error:", err);
     return json({ error: err.message }, 500);
   }
 });
 
+// ==================== AUTO PARTNER ====================
+async function handleAutoPartner(
+  supabase: any,
+  integration: any,
+  action: string,
+  params: any,
+  providerId: string
+) {
+  const extra = integration.api_extra_json || {};
+  const clientCode = extra.clientCode;
+  const wsPassword = extra.wsPassword;
+  const clientPassword = extra.clientPassword;
+
+  if (!clientCode || !wsPassword || !clientPassword) {
+    return json({ error: "Brak danych uwierzytelniających Auto Partner (clientCode, wsPassword, clientPassword)" }, 400);
+  }
+
+  const baseUrl = integration.environment === "production" ? AP_PROD_URL : AP_SANDBOX_URL;
+
+  // Auth credentials for every request
+  const authParams = `clientCode=${encodeURIComponent(clientCode)}&wsPassword=${encodeURIComponent(wsPassword)}&clientPassword=${encodeURIComponent(clientPassword)}`;
+
+  switch (action) {
+    case "test_connection": {
+      try {
+        const testRes = await fetch(
+          `${baseUrl}/GetClientInfo?${authParams}`,
+          { method: "GET", headers: { "Content-Type": "application/json" } }
+        );
+
+        if (!testRes.ok) {
+          const errText = await testRes.text();
+          await supabase
+            .from("workshop_parts_integrations")
+            .update({ last_connection_status: "error", last_connection_at: new Date().toISOString() })
+            .eq("id", integration.id);
+          return json({ error: `Auto Partner auth failed (${testRes.status}): ${errText}` }, testRes.status);
+        }
+
+        await supabase
+          .from("workshop_parts_integrations")
+          .update({ last_connection_status: "ok", last_connection_at: new Date().toISOString() })
+          .eq("id", integration.id);
+        return json({ success: true, message: "Połączono z Auto Partner API" });
+      } catch (e) {
+        await supabase
+          .from("workshop_parts_integrations")
+          .update({ last_connection_status: "error", last_connection_at: new Date().toISOString() })
+          .eq("id", integration.id);
+        return json({ error: `Auto Partner connection error: ${e.message}` }, 500);
+      }
+    }
+
+    case "search": {
+      const query = params?.query;
+      if (!query) return json({ error: "Missing search query" }, 400);
+
+      const searchRes = await fetch(
+        `${baseUrl}/SearchArticles?${authParams}&searchPhrase=${encodeURIComponent(query)}&pageSize=50&pageNumber=1`,
+        { method: "GET", headers: { "Content-Type": "application/json" } }
+      );
+      if (!searchRes.ok) {
+        return json({ error: `AP Search failed: ${searchRes.status}` }, searchRes.status);
+      }
+      const data = await searchRes.json();
+      return json({ results: data });
+    }
+
+    case "availability": {
+      const codes = params?.codes;
+      if (!codes?.length) return json({ error: "Missing product codes" }, 400);
+
+      const codesParam = codes.map((c: string) => `articleCodes=${encodeURIComponent(c)}`).join("&");
+      const avRes = await fetch(
+        `${baseUrl}/GetArticlesAvailability?${authParams}&${codesParam}`,
+        { method: "GET", headers: { "Content-Type": "application/json" } }
+      );
+      if (!avRes.ok) return json({ error: `AP Availability failed: ${avRes.status}` }, avRes.status);
+      const data = await avRes.json();
+      return json({ availability: data });
+    }
+
+    default:
+      return json({ error: `Unknown action for Auto Partner: ${action}` }, 400);
+  }
+}
+
+// ==================== HART ====================
 async function handleHart(
   supabase: any,
   baseUrl: string,
@@ -96,7 +193,6 @@ async function handleHart(
 
   switch (action) {
     case "test_connection": {
-      // Update connection status
       await supabase
         .from("workshop_parts_integrations")
         .update({ last_connection_status: "ok", last_connection_at: new Date().toISOString() })

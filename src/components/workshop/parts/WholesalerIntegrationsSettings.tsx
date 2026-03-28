@@ -27,7 +27,30 @@ interface IntegrationForm {
   sales_margin_percent: number;
   is_enabled: boolean;
   environment: string;
+  api_extra_json: Record<string, string>;
 }
+
+// Supplier-specific credential fields
+const SUPPLIER_FIELDS: Record<string, Array<{ key: string; label: string; placeholder: string; type?: string }>> = {
+  hart: [
+    { key: 'api_username', label: 'Login API', placeholder: 'Login z Hart' },
+    { key: 'api_password', label: 'Hasło API', placeholder: 'Hasło z Hart', type: 'password' },
+  ],
+  auto_partner: [
+    { key: 'clientCode', label: 'Client Code', placeholder: 'np. 3282058' },
+    { key: 'wsPassword', label: 'WS Password', placeholder: 'Hasło WebService', type: 'password' },
+    { key: 'clientPassword', label: 'Client Password', placeholder: 'Hasło klienta (hash)', type: 'password' },
+  ],
+  inter_cars: [
+    { key: 'api_username', label: 'Login IC Katalog', placeholder: 'Login Inter Cars' },
+    { key: 'api_password', label: 'Hasło IC Katalog', placeholder: 'Hasło', type: 'password' },
+  ],
+  // Generic for others
+  _default: [
+    { key: 'api_username', label: 'Login API', placeholder: 'Login' },
+    { key: 'api_password', label: 'Hasło / Klucz API', placeholder: 'Hasło lub klucz API', type: 'password' },
+  ],
+};
 
 const POLISH_WHOLESALERS = [
   { code: 'hart', name: 'HART', url: 'hartphp.com.pl', logo: '🟡', apiInfo: 'REST API — skontaktuj się z opiekunem handlowym Hart' },
@@ -69,6 +92,7 @@ export function WholesalerIntegrationsSettings({ providerId }: Props) {
         sales_margin_percent: existing?.sales_margin_percent ?? 30,
         is_enabled: existing?.is_enabled ?? false,
         environment: existing?.environment || 'sandbox',
+        api_extra_json: existing?.api_extra_json || {},
       };
       if (existing?.last_connection_status) {
         setTestResults(prev => ({ ...prev, [s.code]: existing.last_connection_status }));
@@ -88,6 +112,7 @@ export function WholesalerIntegrationsSettings({ providerId }: Props) {
           sales_margin_percent: i.sales_margin_percent ?? 30,
           is_enabled: i.is_enabled ?? false,
           environment: i.environment || 'production',
+          api_extra_json: i.api_extra_json || {},
         };
         if (i.last_connection_status) {
           setTestResults(prev => ({ ...prev, [i.supplier_code]: i.last_connection_status }));
@@ -118,6 +143,17 @@ export function WholesalerIntegrationsSettings({ providerId }: Props) {
       sales_margin_percent: form.sales_margin_percent,
       is_enabled: form.is_enabled,
       environment: form.environment,
+      api_extra_json: form.api_extra_json || {},
+    });
+  };
+
+  const getExtraField = (code: string, key: string) => {
+    return forms[code]?.api_extra_json?.[key] || '';
+  };
+
+  const setExtraField = (code: string, key: string, value: string) => {
+    updateForm(code, {
+      api_extra_json: { ...(forms[code]?.api_extra_json || {}), [key]: value },
     });
   };
 
@@ -220,24 +256,30 @@ export function WholesalerIntegrationsSettings({ providerId }: Props) {
               </CardHeader>
               {form.is_enabled && (
                 <CardContent className="space-y-4 pt-0">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-xs">Login API</Label>
-                      <Input
-                        value={form.api_username}
-                        onChange={e => updateForm(supplier.code, { api_username: e.target.value })}
-                        placeholder="Wpisz login API"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs">Hasło API</Label>
-                      <Input
-                        type="password"
-                        value={form.api_password}
-                        onChange={e => updateForm(supplier.code, { api_password: e.target.value })}
-                        placeholder="Wpisz hasło API"
-                      />
-                    </div>
+                  {/* Supplier-specific credential fields */}
+                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+                    {(SUPPLIER_FIELDS[supplier.code] || SUPPLIER_FIELDS._default).map(field => {
+                      const isExtra = !['api_username', 'api_password'].includes(field.key);
+                      const value = isExtra ? getExtraField(supplier.code, field.key) : (form as any)[field.key] || '';
+                      const onChange = (val: string) => {
+                        if (isExtra) {
+                          setExtraField(supplier.code, field.key, val);
+                        } else {
+                          updateForm(supplier.code, { [field.key]: val } as any);
+                        }
+                      };
+                      return (
+                        <div key={field.key}>
+                          <Label className="text-xs">{field.label}</Label>
+                          <Input
+                            type={field.type || 'text'}
+                            value={value}
+                            onChange={e => onChange(e.target.value)}
+                            placeholder={field.placeholder}
+                          />
+                        </div>
+                      );
+                    })}
                   </div>
                   <div className="grid grid-cols-3 gap-4">
                     <div>
@@ -272,7 +314,7 @@ export function WholesalerIntegrationsSettings({ providerId }: Props) {
                       variant="outline"
                       size="sm"
                       onClick={() => testConnection(supplier.code)}
-                      disabled={testingSupplier === supplier.code || !form.api_username}
+                      disabled={testingSupplier === supplier.code && true}
                       className="gap-1"
                     >
                       {testingSupplier === supplier.code ? (
