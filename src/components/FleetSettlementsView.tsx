@@ -239,9 +239,11 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     { key: 'paid', label: 'Opłacony' },
   ];
 
-  const RENTAL_COLUMNS = new Set(['rental', 'debt_rental', 'do_wyplaty']);
+  // In "Bez aut" mode: hide rental split columns AND intermediate wyplata_1, show do_wyplaty as final "Wypłata"
+  // In "Z autami" mode: show all columns
+  const RENTAL_ONLY_COLUMNS = new Set(['wyplata_1', 'rental', 'debt_rental']);
   const isColVisible = (key: string) => {
-    if (!showRentalColumns && RENTAL_COLUMNS.has(key)) return false;
+    if (!showRentalColumns && RENTAL_ONLY_COLUMNS.has(key)) return false;
     return !hiddenColumns.has(key);
   };
   const toggleColumn = (key: string) => {
