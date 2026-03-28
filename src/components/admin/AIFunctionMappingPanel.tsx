@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Loader2, Save, Route, Search, FileText, Image, Mic, Bot, ExternalLink, Zap, ShieldCheck } from "lucide-react";
+import { Loader2, Save, Route, Search, FileText, Image, Mic, Bot, ExternalLink, Zap } from "lucide-react";
+import { UniversalSubTabBar } from "../UniversalSubTabBar";
 
 interface FunctionMapping {
   id: string;
@@ -20,7 +21,6 @@ interface FunctionMapping {
   is_enabled: boolean;
   custom_prompt: string | null;
   sort_order: number;
-  // extended fields for backup
   backup_provider_key?: string | null;
   allow_fallback?: boolean;
 }
@@ -31,21 +31,71 @@ interface Provider {
   is_enabled: boolean;
 }
 
-const CATEGORY_ICONS: Record<string, React.ElementType> = {
-  search: Search,
-  text: FileText,
-  image: Image,
-  voice: Mic,
-  general: Bot,
+// Module groupings - each function belongs to a module
+const FUNCTION_MODULES: Record<string, string> = {
+  // Warsztat
+  rido_price: "warsztat",
+  parts_pricing: "warsztat",
+  parts_search_ai: "warsztat",
+  ocr_invoice: "warsztat",
+  ocr_documents: "warsztat",
+  workshop_order_ai: "warsztat",
+  client_communication_ai: "warsztat",
+  inventory_analysis: "warsztat",
+  booking_ai: "warsztat",
+  // Workspace
+  workspace_ai_planner: "workspace",
+  task_breakdown: "workspace",
+  project_planning: "workspace",
+  project_summary: "workspace",
+  document_ai: "workspace",
+  chat_translation: "workspace",
+  // Ogłoszenia
+  vehicle_description_gen: "ogloszenia",
+  listing_description: "ogloszenia",
+  listing_seo: "ogloszenia",
+  // Portal / Wyszukiwarka
+  portal_search: "portal",
+  ai_chat_main: "portal",
+  ai_assistant: "portal",
+  admin_ai_chat: "portal",
+  ai_connection_test: "portal",
+  dual_ai_mode: "portal",
+  // Grafika & Media
+  image_generation: "media",
+  inpainting: "media",
+  photo_editing: "media",
+  logo_generation: "media",
+  // Strona WWW
+  website_generation: "www",
+  website_prompt_builder: "www",
+  // Nieruchomości
+  real_estate_analysis: "nieruchomosci",
+  // Motoryzacja
+  vehicle_analysis: "motoryzacja",
+  // Głos & Agenci
+  voice_navigation: "voice",
+  voice_agent: "voice",
+  ai_sales_agent: "voice",
+  // Pozostałe
+  meeting_transcription: "inne",
+  map_risk_assessment: "inne",
+  email_ai_assistant: "inne",
 };
 
-const CATEGORY_LABELS: Record<string, string> = {
-  search: "Wyszukiwanie",
-  text: "Tekst & Opisy",
-  image: "Obraz & Zdjęcia",
-  voice: "Głos & Agenci",
-  general: "Ogólne",
-};
+const MODULE_TABS = [
+  { value: "all", label: "Wszystkie", visible: true },
+  { value: "warsztat", label: "Warsztat", visible: true },
+  { value: "workspace", label: "Workspace", visible: true },
+  { value: "ogloszenia", label: "Ogłoszenia", visible: true },
+  { value: "portal", label: "Portal & Chat", visible: true },
+  { value: "media", label: "Grafika", visible: true },
+  { value: "www", label: "Strona WWW", visible: true },
+  { value: "nieruchomosci", label: "Nieruchomości", visible: true },
+  { value: "motoryzacja", label: "Motoryzacja", visible: true },
+  { value: "voice", label: "Głos & Agenci", visible: true },
+  { value: "inne", label: "Inne", visible: true },
+];
 
 const FUNCTION_LINKS: Record<string, { path: string; label: string }> = {
   rido_price: { path: "/provider", label: "Warsztat → Wycena naprawy" },
@@ -94,6 +144,7 @@ export function AIFunctionMappingPanel() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [testing, setTesting] = useState<string | null>(null);
+  const [activeModule, setActiveModule] = useState("all");
 
   useEffect(() => {
     loadData();
@@ -106,9 +157,7 @@ export function AIFunctionMappingPanel() {
       supabase.from("ai_providers").select("provider_key, display_name, is_enabled").order("provider_key"),
     ]);
     if (m.data) {
-      const data = m.data as unknown as FunctionMapping[];
-      // Initialize backup fields if not present
-      setMappings(data.map(d => ({
+      setMappings((m.data as unknown as FunctionMapping[]).map(d => ({
         ...d,
         backup_provider_key: (d as any).backup_provider_key ?? null,
         allow_fallback: (d as any).allow_fallback ?? true,
@@ -146,15 +195,14 @@ export function AIFunctionMappingPanel() {
         body: {
           feature: mapping.function_key,
           taskType: "text",
-          query: `Test połączenia dla funkcji: ${mapping.function_name}. Odpowiedz krótko: "Połączenie OK"`,
+          query: `Test: ${mapping.function_name}. Odpowiedz: "OK"`,
           mode: "fast",
         },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      const result = (data?.result || "").slice(0, 80);
       const brand = data?._brand || mapping.provider_key;
-      toast.success(`✅ ${mapping.function_name} → ${brand}: ${result}`);
+      toast.success(`✅ ${mapping.function_name} → ${brand}: OK`);
     } catch (e: any) {
       toast.error(`❌ ${mapping.function_name}: ${e.message}`);
     } finally {
@@ -168,170 +216,174 @@ export function AIFunctionMappingPanel() {
 
   if (loading) return <div className="flex justify-center p-8"><Loader2 className="h-6 w-6 animate-spin" /></div>;
 
-  const categories = [...new Set(mappings.map(m => m.category))];
+  // Filter by module
+  const filteredMappings = activeModule === "all"
+    ? mappings
+    : mappings.filter(m => (FUNCTION_MODULES[m.function_key] || "inne") === activeModule);
+
   const enabledCount = mappings.filter(m => m.is_enabled).length;
   const enabledProviders = providers.filter(p => p.is_enabled);
 
+  // Count per module for badges
+  const moduleCounts = MODULE_TABS.map(tab => ({
+    ...tab,
+    label: tab.value === "all"
+      ? `Wszystkie (${mappings.length})`
+      : `${tab.label} (${mappings.filter(m => (FUNCTION_MODULES[m.function_key] || "inne") === tab.value).length})`,
+    visible: tab.value === "all" || mappings.some(m => (FUNCTION_MODULES[m.function_key] || "inne") === tab.value),
+  }));
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <Card>
-        <CardHeader>
+        <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2">
             <Route className="h-5 w-5" />
             Centrum sterowania AI — Funkcje portalu
           </CardTitle>
           <CardDescription>
-            Każda funkcja AI w portalu jest tutaj wymieniona. Wybierz dostawcę <strong>głównego</strong> i <strong>zapasowego</strong>.
-            Jeśli główny dostawca nie odpowie — system automatycznie przełączy się na zapasowy.
-            Kliknij „Testuj" aby sprawdzić czy połączenie działa.
+            Każda funkcja AI jest przypisana do dostawcy. Wybierz <strong>głównego</strong> i <strong>zapasowego</strong> dostawcę.
+            Jeśli główny nie odpowie — system przełączy się na zapasowy (auto-zamiana).
           </CardDescription>
           <div className="flex gap-2 mt-2">
             <Badge variant="default">{enabledCount} aktywnych</Badge>
             <Badge variant="secondary">{mappings.length - enabledCount} wyłączonych</Badge>
-            <Badge variant="outline">{mappings.length} łącznie</Badge>
           </div>
         </CardHeader>
       </Card>
 
-      {categories.map(cat => {
-        const Icon = CATEGORY_ICONS[cat] || Bot;
-        const catMappings = mappings.filter(m => m.category === cat);
+      {/* Module tabs */}
+      <UniversalSubTabBar activeTab={activeModule} onTabChange={setActiveModule} tabs={moduleCounts} />
 
-        return (
-          <Card key={cat}>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Icon className="h-4 w-4" />
-                {CATEGORY_LABELS[cat] || cat}
-                <Badge variant="outline" className="text-xs ml-auto">{catMappings.length}</Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {catMappings.map(mapping => {
-                const link = FUNCTION_LINKS[mapping.function_key];
-                return (
-                  <div key={mapping.id} className="flex flex-col gap-2 p-3 border rounded-lg hover:bg-muted/30 transition-colors">
-                    {/* Row 1: Name, badge, link */}
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium text-sm">{mapping.function_name}</span>
-                      <Badge variant={mapping.is_enabled ? "default" : "secondary"} className="text-xs">
-                        {mapping.is_enabled ? "ON" : "OFF"}
-                      </Badge>
-                      {link && (
-                        <a
-                          href={link.path}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs text-primary hover:underline ml-auto"
-                        >
-                          <ExternalLink className="h-3 w-3" />
-                          {link.label}
-                        </a>
-                      )}
-                    </div>
-                    {/* Row 2: Description */}
-                    {mapping.function_description && (
-                      <p className="text-xs text-muted-foreground">{mapping.function_description}</p>
-                    )}
-                    {/* Row 3: Controls */}
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Switch
-                        checked={mapping.is_enabled}
-                        onCheckedChange={(v) => updateMapping(mapping.id, { is_enabled: v })}
-                      />
+      {/* Function list */}
+      <div className="space-y-2">
+        {filteredMappings.map(mapping => {
+          const link = FUNCTION_LINKS[mapping.function_key];
+          const module = FUNCTION_MODULES[mapping.function_key] || "inne";
 
-                      {/* Główny dostawca */}
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-[10px] text-muted-foreground font-medium">Główny</span>
-                        <Select
-                          value={mapping.provider_key || "none"}
-                          onValueChange={(v) => updateMapping(mapping.id, { provider_key: v === "none" ? null : v })}
-                        >
-                          <SelectTrigger className="w-[140px] text-sm h-8">
-                            <SelectValue placeholder="Wybierz AI" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">Brak</SelectItem>
-                            {enabledProviders.map(p => (
-                              <SelectItem key={p.provider_key} value={p.provider_key}>
-                                {p.display_name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+          return (
+            <div key={mapping.id} className="flex flex-col gap-2 p-3 border rounded-lg hover:bg-muted/30 transition-colors bg-card">
+              {/* Row 1: Name + module badge + link */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-medium text-sm">{mapping.function_name}</span>
+                <Badge variant={mapping.is_enabled ? "default" : "secondary"} className="text-[10px]">
+                  {mapping.is_enabled ? "ON" : "OFF"}
+                </Badge>
+                {activeModule === "all" && (
+                  <Badge variant="outline" className="text-[10px]">
+                    {MODULE_TABS.find(t => t.value === module)?.label.split(" (")[0] || module}
+                  </Badge>
+                )}
+                {link && (
+                  <a
+                    href={link.path}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs text-primary hover:underline ml-auto"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    {link.label}
+                  </a>
+                )}
+              </div>
 
-                      {/* Zapasowy dostawca */}
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-[10px] text-muted-foreground font-medium">Zapasowy</span>
-                        <Select
-                          value={mapping.backup_provider_key || "none"}
-                          onValueChange={(v) => updateMapping(mapping.id, { backup_provider_key: v === "none" ? null : v })}
-                        >
-                          <SelectTrigger className="w-[140px] text-sm h-8">
-                            <SelectValue placeholder="Brak" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">Brak</SelectItem>
-                            {enabledProviders.map(p => (
-                              <SelectItem key={p.provider_key} value={p.provider_key}>
-                                {p.display_name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+              {/* Row 2: Description */}
+              {mapping.function_description && (
+                <p className="text-xs text-muted-foreground">{mapping.function_description}</p>
+              )}
 
-                      {/* Model override */}
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-[10px] text-muted-foreground font-medium">Model</span>
-                        <Input
-                          value={mapping.model_override || ""}
-                          onChange={(e) => updateMapping(mapping.id, { model_override: e.target.value || null })}
-                          placeholder="Domyślny"
-                          className="w-[120px] text-sm h-8"
-                        />
-                      </div>
+              {/* Row 3: Controls */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <Switch
+                  checked={mapping.is_enabled}
+                  onCheckedChange={(v) => updateMapping(mapping.id, { is_enabled: v })}
+                />
 
-                      {/* Awaryjne przełączanie */}
-                      <div className="flex flex-col gap-0.5 items-center">
-                        <span className="text-[10px] text-muted-foreground font-medium">Auto-zamiana</span>
-                        <Switch
-                          checked={mapping.allow_fallback ?? true}
-                          onCheckedChange={(v) => updateMapping(mapping.id, { allow_fallback: v })}
-                          className="data-[state=checked]:bg-green-500"
-                        />
-                      </div>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[10px] text-muted-foreground font-medium">Główny</span>
+                  <Select
+                    value={mapping.provider_key || "none"}
+                    onValueChange={(v) => updateMapping(mapping.id, { provider_key: v === "none" ? null : v })}
+                  >
+                    <SelectTrigger className="w-[130px] text-xs h-8">
+                      <SelectValue placeholder="Wybierz" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Brak</SelectItem>
+                      {enabledProviders.map(p => (
+                        <SelectItem key={p.provider_key} value={p.provider_key}>{p.display_name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-                      {/* Buttons */}
-                      <div className="flex gap-1 ml-auto">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => testMapping(mapping)}
-                          disabled={testing === mapping.id || !mapping.provider_key}
-                          className="h-8 text-xs"
-                        >
-                          {testing === mapping.id ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Zap className="h-3 w-3 mr-1" />}
-                          Testuj
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => saveMapping(mapping)}
-                          disabled={saving === mapping.id}
-                          className="h-8 text-xs"
-                        >
-                          {saving === mapping.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </CardContent>
-          </Card>
-        );
-      })}
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[10px] text-muted-foreground font-medium">Zapasowy</span>
+                  <Select
+                    value={mapping.backup_provider_key || "none"}
+                    onValueChange={(v) => updateMapping(mapping.id, { backup_provider_key: v === "none" ? null : v })}
+                  >
+                    <SelectTrigger className="w-[130px] text-xs h-8">
+                      <SelectValue placeholder="Brak" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Brak</SelectItem>
+                      {enabledProviders.map(p => (
+                        <SelectItem key={p.provider_key} value={p.provider_key}>{p.display_name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[10px] text-muted-foreground font-medium">Model</span>
+                  <Input
+                    value={mapping.model_override || ""}
+                    onChange={(e) => updateMapping(mapping.id, { model_override: e.target.value || null })}
+                    placeholder="Domyślny"
+                    className="w-[110px] text-xs h-8"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-0.5 items-center">
+                  <span className="text-[10px] text-muted-foreground font-medium">Auto-zamiana</span>
+                  <Switch
+                    checked={mapping.allow_fallback ?? true}
+                    onCheckedChange={(v) => updateMapping(mapping.id, { allow_fallback: v })}
+                  />
+                </div>
+
+                <div className="flex gap-1 ml-auto">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => testMapping(mapping)}
+                    disabled={testing === mapping.id || !mapping.provider_key}
+                    className="h-8 text-xs"
+                  >
+                    {testing === mapping.id ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Zap className="h-3 w-3 mr-1" />}
+                    Testuj
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => saveMapping(mapping)}
+                    disabled={saving === mapping.id}
+                    className="h-8 text-xs"
+                  >
+                    {saving === mapping.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+
+        {filteredMappings.length === 0 && (
+          <div className="text-center py-8 text-muted-foreground">
+            Brak funkcji AI w tym module
+          </div>
+        )}
+      </div>
     </div>
   );
 }
