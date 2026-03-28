@@ -25,7 +25,7 @@ export const UniversalSubTabBar = ({ activeTab, onTabChange, tabs }: UniversalSu
   return (
     <>
       {/* Desktop: pill-style row matching main nav */}
-      <div className="hidden md:flex justify-center gap-1.5 mb-4 flex-wrap">
+      <div className="hidden md:flex justify-center gap-1.5 mb-4 overflow-x-auto scrollbar-hide">
         {visibleTabs.map((tab) => (
           <button
             key={tab.value}
