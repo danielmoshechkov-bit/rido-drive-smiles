@@ -374,8 +374,15 @@ export function LocationMapModal({
           if (mapInstanceRef.current && google) {
             google.maps.event.trigger(mapInstanceRef.current, 'resize');
             mapInstanceRef.current.setCenter(map.getCenter()!);
+            // Show listing markers after map is ready
+            updateListingMarkers();
           }
         }, 100);
+
+        // Re-cluster on zoom change
+        map.addListener('zoom_changed', () => {
+          updateListingMarkers();
+        });
       };
 
       // If initialCenter is provided, use it directly
