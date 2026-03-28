@@ -256,24 +256,30 @@ export function WholesalerIntegrationsSettings({ providerId }: Props) {
               </CardHeader>
               {form.is_enabled && (
                 <CardContent className="space-y-4 pt-0">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-xs">Login API</Label>
-                      <Input
-                        value={form.api_username}
-                        onChange={e => updateForm(supplier.code, { api_username: e.target.value })}
-                        placeholder="Wpisz login API"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs">Hasło API</Label>
-                      <Input
-                        type="password"
-                        value={form.api_password}
-                        onChange={e => updateForm(supplier.code, { api_password: e.target.value })}
-                        placeholder="Wpisz hasło API"
-                      />
-                    </div>
+                  {/* Supplier-specific credential fields */}
+                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+                    {(SUPPLIER_FIELDS[supplier.code] || SUPPLIER_FIELDS._default).map(field => {
+                      const isExtra = !['api_username', 'api_password'].includes(field.key);
+                      const value = isExtra ? getExtraField(supplier.code, field.key) : (form as any)[field.key] || '';
+                      const onChange = (val: string) => {
+                        if (isExtra) {
+                          setExtraField(supplier.code, field.key, val);
+                        } else {
+                          updateForm(supplier.code, { [field.key]: val } as any);
+                        }
+                      };
+                      return (
+                        <div key={field.key}>
+                          <Label className="text-xs">{field.label}</Label>
+                          <Input
+                            type={field.type || 'text'}
+                            value={value}
+                            onChange={e => onChange(e.target.value)}
+                            placeholder={field.placeholder}
+                          />
+                        </div>
+                      );
+                    })}
                   </div>
                   <div className="grid grid-cols-3 gap-4">
                     <div>
@@ -308,7 +314,7 @@ export function WholesalerIntegrationsSettings({ providerId }: Props) {
                       variant="outline"
                       size="sm"
                       onClick={() => testConnection(supplier.code)}
-                      disabled={testingSupplier === supplier.code || !form.api_username}
+                      disabled={testingSupplier === supplier.code && true}
                       className="gap-1"
                     >
                       {testingSupplier === supplier.code ? (
