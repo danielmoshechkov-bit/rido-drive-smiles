@@ -3299,7 +3299,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                         <span className="inline-flex items-center justify-center">Dług wynajmu{getSortIcon('debt_rental')}</span>
                       </TableHead>}
                       {isColVisible('do_wyplaty') && <TableHead className="text-right px-2 py-1.5 text-xs font-bold whitespace-nowrap text-green-700 cursor-pointer select-none hover:bg-muted/50" onClick={() => handleSort('do_wyplaty')}>
-                        <span className="inline-flex items-center justify-end w-full">Wypłata fin.{getSortIcon('do_wyplaty')}</span>
+                        <span className="inline-flex items-center justify-end w-full">{showRentalColumns ? 'Wypłata fin.' : 'Wypłata'}{getSortIcon('do_wyplaty')}</span>
                       </TableHead>}
                       {isColVisible('paid') && <TableHead className="text-center px-2 py-1.5 text-xs font-medium whitespace-nowrap">Opłacony</TableHead>}
                     </TableRow>
