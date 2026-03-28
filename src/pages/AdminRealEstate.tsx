@@ -35,6 +35,7 @@ import { CRMIntegrationsPanel } from '@/components/admin/CRMIntegrationsPanel';
 import { AdCampaignsPanel } from '@/components/admin/AdCampaignsPanel';
 import { SMSIntegrationsPanel } from '@/components/admin/SMSIntegrationsPanel';
 import { AISettingsPanel } from '@/components/ai/AISettingsPanel';
+import { AIListingParserSettings } from '@/components/admin/AIListingParserSettings';
 import { UniversalSubTabBar } from '@/components/UniversalSubTabBar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
@@ -678,6 +679,7 @@ const AdminRealEstate = () => {
               onTabChange={setSettingsSubTab}
               tabs={[
                 { value: "ai", label: "Integracje AI", visible: true },
+                { value: "ai-parser", label: "Parser AI ogłoszeń", visible: true },
                 { value: "integrations", label: "Integracje lokalizacji", visible: true },
                 { value: "crm", label: "Integracje CRM", visible: true },
                 { value: "sms", label: "Integracja SMS", visible: true },
@@ -686,6 +688,8 @@ const AdminRealEstate = () => {
             />
 
             {settingsSubTab === "ai" && <AISettingsPanel />}
+
+            {settingsSubTab === "ai-parser" && <AIListingParserSettings />}
 
             {settingsSubTab === "integrations" && <LocationIntegrationsPanel />}
             
