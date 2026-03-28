@@ -510,11 +510,6 @@ export default function PropertyDetailPage() {
             <div>
               <div className="flex items-center gap-2 mb-4">
                 <h2 className="text-xl font-semibold">Opis</h2>
-                {listing.aiConfidence > 70 && (
-                  <Badge variant="secondary" className="text-xs gap-1">
-                    <Sparkles className="h-3 w-3" /> AI
-                  </Badge>
-                )}
               </div>
               {listing.aiDescriptionHtml ? (
                 <div 

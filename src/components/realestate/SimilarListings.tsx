@@ -174,12 +174,18 @@ export function SimilarListings({ currentListingId, propertyType, location }: Si
       try {
         // Use any-typed client to avoid TS2589 deep instantiation
         const client: any = supabase;
-        const { data, error } = await client
+        let query = client
           .from("real_estate_listings")
           .select("id,title,price,transaction_type,photos,city,location,district,area,rooms,property_type,status")
           .eq("status", "active")
-          .neq("id", currentListingId)
-          .limit(8);
+          .neq("id", currentListingId);
+        
+        // Filter by same property type (mieszkanie, dom, etc.)
+        if (propertyType) {
+          query = query.eq("property_type", propertyType);
+        }
+        
+        const { data, error } = await query.limit(8);
 
         if (error) {
           console.error("Error fetching similar listings:", error);
