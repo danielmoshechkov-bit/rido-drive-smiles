@@ -821,6 +821,20 @@ export default function RealEstateMarketplace() {
             )}
           </p>
           <div className="flex items-center gap-3">
+            {/* Per Page Selector */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground hidden sm:inline">Na stronie</span>
+              <Select value={String(perPage)} onValueChange={(v) => { setPerPage(Number(v)); setCurrentPage(1); }}>
+                <SelectTrigger className="w-[70px] h-8 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[24, 36, 48, 72].map(n => (
+                    <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             {/* View Mode Toggle */}
             <div className="flex gap-0.5 bg-muted rounded-lg p-0.5">
               <Button 
@@ -865,7 +879,7 @@ export default function RealEstateMarketplace() {
               ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5" 
               : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
         )}>
-          {listings.map((listing) => (
+          {paginatedListings.map((listing) => (
             <PropertyListingCard
               key={listing.id}
               listing={listing}
@@ -889,6 +903,51 @@ export default function RealEstateMarketplace() {
             <p className="text-muted-foreground mb-4">
               Spróbuj zmienić kryteria wyszukiwania
             </p>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-8 pb-4">
+            <nav className="flex items-center gap-1" aria-label="Paginacja">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-1"
+                disabled={currentPage === 1}
+                onClick={() => { setCurrentPage(p => p - 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                <span className="hidden sm:inline">Poprzednia</span>
+              </Button>
+
+              {getPageNumbers().map((page, i) =>
+                page === 'ellipsis' ? (
+                  <span key={`e-${i}`} className="px-2 text-muted-foreground">…</span>
+                ) : (
+                  <Button
+                    key={page}
+                    variant={currentPage === page ? 'outline' : 'ghost'}
+                    size="sm"
+                    className={cn("h-8 w-8 p-0", currentPage === page && "border-primary font-semibold")}
+                    onClick={() => { setCurrentPage(page as number); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                  >
+                    {page}
+                  </Button>
+                )
+              )}
+
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-1"
+                disabled={currentPage === totalPages}
+                onClick={() => { setCurrentPage(p => p + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+              >
+                <span className="hidden sm:inline">Następna</span>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </nav>
           </div>
         )}
       </section>}
