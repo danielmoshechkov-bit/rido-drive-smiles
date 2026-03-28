@@ -329,7 +329,7 @@ export function TaskDetailModal({ task, open, onClose, onSave, onDelete, members
                   <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
                     <User className="h-3.5 w-3.5" /> Przypisz do
                   </Label>
-                  <Select value={form.assigned_name} onValueChange={v => setForm(p => ({ ...p, assigned_name: v }))}>
+                  <Select value={form.assigned_name || "__none__"} onValueChange={v => setForm(p => ({ ...p, assigned_name: v === "__none__" ? "" : v }))}>
                     <SelectTrigger className="mt-1.5"><SelectValue placeholder="Wybierz osobę..." /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__none__">Brak przypisania</SelectItem>
