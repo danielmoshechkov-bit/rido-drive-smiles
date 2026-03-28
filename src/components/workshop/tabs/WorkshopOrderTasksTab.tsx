@@ -1021,6 +1021,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
         providerId={providerId}
         orderId={order.id}
         vehicleName={order.vehicle ? `${order.vehicle.brand || ''} ${order.vehicle.model || ''} ${order.vehicle.year || ''}`.trim() : undefined}
+        vehicleVin={order.vehicle?.vin || undefined}
         margin={partsIntegrations.find((i: any) => i.is_enabled)?.sales_margin_percent || 30}
       />
       <RidoPartsConfigModal
