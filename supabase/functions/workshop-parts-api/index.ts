@@ -2,11 +2,13 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 
+// Auto Partner API URLs
+const AP_SANDBOX_URL = "https://api.autopartner.com/api";
+const AP_PROD_URL = "https://api.autopartner.com/api";
+
+// Hart API URLs
 const HART_SANDBOX_URL = "https://sandbox.restapi.hartphp.com.pl";
 const HART_PROD_URL = "https://restapi.hartphp.com.pl";
-
-const AP_SANDBOX_URL = "https://customerapi.autopartner.dev/CustomerAPI.svc/rest";
-const AP_PROD_URL = "https://customerapi.autopartner.dev/CustomerAPI.svc/rest";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -41,26 +43,49 @@ serve(async (req) => {
       .single();
 
     if (action === "check_config") {
-      const hasCredentials = supplier_code === "auto_partner"
-        ? !!integration?.api_extra_json?.clientCode && integration.is_enabled
-        : !!integration?.api_username && integration.is_enabled;
+      let hasCredentials = false;
+      if (supplier_code === "auto_partner") {
+        const extra = integration?.api_extra_json || {};
+        hasCredentials = !!extra.clientCode && integration?.is_enabled;
+      } else {
+        hasCredentials = !!integration?.api_username && integration?.is_enabled;
+      }
       return json({ configured: hasCredentials });
     }
 
     if (!integration) {
-      return json({ error: "Integration not configured" }, 400);
+      return json({ error: "Integracja nie została skonfigurowana. Włącz hurtownię i zapisz dane." }, 400);
     }
 
     if (supplier_code === "auto_partner") {
-      return await handleAutoPartner(supabase, integration, action, params, provider_id);
+      return await handleAutoPartner(supabase, integration, action, params);
     }
 
     if (supplier_code === "hart" || !supplier_code) {
       const baseUrl = integration.environment === "production" ? HART_PROD_URL : HART_SANDBOX_URL;
-      return await handleHart(supabase, baseUrl, integration, action, params, provider_id);
+      return await handleHart(supabase, baseUrl, integration, action, params);
     }
 
-    return json({ error: "Unsupported supplier: " + supplier_code }, 400);
+    // Generic supplier - just test connectivity to their API URL
+    if (action === "test_connection" && integration.api_url) {
+      try {
+        const testRes = await fetch(integration.api_url, { method: "GET" });
+        await supabase
+          .from("workshop_parts_integrations")
+          .update({ last_connection_status: testRes.ok ? "ok" : "error", last_connection_at: new Date().toISOString() })
+          .eq("id", integration.id);
+        if (testRes.ok) return json({ success: true, message: `Połączono z ${supplier_code}` });
+        return json({ error: `${supplier_code} returned ${testRes.status}` }, testRes.status);
+      } catch (e) {
+        await supabase
+          .from("workshop_parts_integrations")
+          .update({ last_connection_status: "error", last_connection_at: new Date().toISOString() })
+          .eq("id", integration.id);
+        return json({ error: `Nie można połączyć: ${e.message}` }, 500);
+      }
+    }
+
+    return json({ error: "Nieobsługiwany dostawca: " + supplier_code }, 400);
   } catch (err) {
     console.error("workshop-parts-api error:", err);
     return json({ error: err.message }, 500);
@@ -73,7 +98,6 @@ async function handleAutoPartner(
   integration: any,
   action: string,
   params: any,
-  providerId: string
 ) {
   const extra = integration.api_extra_json || {};
   const clientCode = extra.clientCode;
@@ -81,76 +105,146 @@ async function handleAutoPartner(
   const clientPassword = extra.clientPassword;
 
   if (!clientCode || !wsPassword || !clientPassword) {
-    return json({ error: "Brak danych uwierzytelniających Auto Partner (clientCode, wsPassword, clientPassword)" }, 400);
+    return json({ error: "Brak danych uwierzytelniających Auto Partner. Wypełnij: Client Code, WS Password, Client Password." }, 400);
   }
 
-  const baseUrl = integration.environment === "production" ? AP_PROD_URL : AP_SANDBOX_URL;
+  // Auto Partner uses SOAP-like REST API
+  // Try multiple known API endpoints
+  const apiUrls = [
+    integration.api_url || "",
+    "https://webservice.autopartner.com/CustomerAPI.svc/rest",
+    "https://customerapi.autopartner.dev/CustomerAPI.svc/rest",
+  ].filter(Boolean);
 
-  // Auth credentials for every request
-  const authParams = `clientCode=${encodeURIComponent(clientCode)}&wsPassword=${encodeURIComponent(wsPassword)}&clientPassword=${encodeURIComponent(clientPassword)}`;
+  const authBody = {
+    clientCode: clientCode,
+    wsPassword: wsPassword,
+    clientPassword: clientPassword,
+  };
 
   switch (action) {
     case "test_connection": {
-      try {
-        const testRes = await fetch(
-          `${baseUrl}/GetClientInfo?${authParams}`,
-          { method: "GET", headers: { "Content-Type": "application/json" } }
-        );
+      let lastError = "";
+      for (const baseUrl of apiUrls) {
+        try {
+          console.log(`Testing Auto Partner at: ${baseUrl}/GetClientInfo`);
+          
+          // Try POST with JSON body (common for WCF REST)
+          const testRes = await fetch(`${baseUrl}/GetClientInfo`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(authBody),
+          });
 
-        if (!testRes.ok) {
-          const errText = await testRes.text();
-          await supabase
-            .from("workshop_parts_integrations")
-            .update({ last_connection_status: "error", last_connection_at: new Date().toISOString() })
-            .eq("id", integration.id);
-          return json({ error: `Auto Partner auth failed (${testRes.status}): ${errText}` }, testRes.status);
+          const responseText = await testRes.text();
+          console.log(`AP response (${testRes.status}): ${responseText.substring(0, 300)}`);
+
+          if (testRes.ok || testRes.status === 200) {
+            await supabase
+              .from("workshop_parts_integrations")
+              .update({ 
+                last_connection_status: "ok", 
+                last_connection_at: new Date().toISOString(),
+                api_url: baseUrl, // Save working URL
+              })
+              .eq("id", integration.id);
+            return json({ success: true, message: `Połączono z Auto Partner API (${baseUrl})` });
+          }
+          
+          lastError = `HTTP ${testRes.status}: ${responseText.substring(0, 200)}`;
+        } catch (e) {
+          lastError = e.message;
+          console.log(`AP error at ${baseUrl}: ${e.message}`);
         }
-
-        await supabase
-          .from("workshop_parts_integrations")
-          .update({ last_connection_status: "ok", last_connection_at: new Date().toISOString() })
-          .eq("id", integration.id);
-        return json({ success: true, message: "Połączono z Auto Partner API" });
-      } catch (e) {
-        await supabase
-          .from("workshop_parts_integrations")
-          .update({ last_connection_status: "error", last_connection_at: new Date().toISOString() })
-          .eq("id", integration.id);
-        return json({ error: `Auto Partner connection error: ${e.message}` }, 500);
       }
+
+      // Also try GET with query params as fallback
+      for (const baseUrl of apiUrls) {
+        try {
+          const authParams = `clientCode=${encodeURIComponent(clientCode)}&wsPassword=${encodeURIComponent(wsPassword)}&clientPassword=${encodeURIComponent(clientPassword)}`;
+          const testRes = await fetch(`${baseUrl}/GetClientInfo?${authParams}`, {
+            method: "GET",
+          });
+          const responseText = await testRes.text();
+          
+          if (testRes.ok) {
+            await supabase
+              .from("workshop_parts_integrations")
+              .update({ 
+                last_connection_status: "ok", 
+                last_connection_at: new Date().toISOString(),
+                api_url: baseUrl,
+              })
+              .eq("id", integration.id);
+            return json({ success: true, message: `Połączono z Auto Partner API` });
+          }
+          lastError = `GET ${testRes.status}: ${responseText.substring(0, 200)}`;
+        } catch (e) {
+          lastError = e.message;
+        }
+      }
+
+      await supabase
+        .from("workshop_parts_integrations")
+        .update({ last_connection_status: "error", last_connection_at: new Date().toISOString() })
+        .eq("id", integration.id);
+      return json({ error: `Auto Partner: ${lastError}` }, 400);
     }
 
     case "search": {
       const query = params?.query;
-      if (!query) return json({ error: "Missing search query" }, 400);
+      if (!query) return json({ error: "Brak frazy wyszukiwania" }, 400);
 
-      const searchRes = await fetch(
-        `${baseUrl}/SearchArticles?${authParams}&searchPhrase=${encodeURIComponent(query)}&pageSize=50&pageNumber=1`,
-        { method: "GET", headers: { "Content-Type": "application/json" } }
-      );
-      if (!searchRes.ok) {
-        return json({ error: `AP Search failed: ${searchRes.status}` }, searchRes.status);
+      const baseUrl = integration.api_url || apiUrls[0];
+      try {
+        const searchRes = await fetch(`${baseUrl}/SearchArticles`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...authBody,
+            searchPhrase: query,
+            pageSize: 50,
+            pageNumber: 1,
+          }),
+        });
+        if (!searchRes.ok) {
+          // Fallback to GET
+          const authParams = `clientCode=${encodeURIComponent(clientCode)}&wsPassword=${encodeURIComponent(wsPassword)}&clientPassword=${encodeURIComponent(clientPassword)}`;
+          const getRes = await fetch(
+            `${baseUrl}/SearchArticles?${authParams}&searchPhrase=${encodeURIComponent(query)}&pageSize=50&pageNumber=1`
+          );
+          if (!getRes.ok) return json({ error: `Wyszukiwanie nie powiodło się: ${getRes.status}` }, getRes.status);
+          const data = await getRes.json();
+          return json({ results: data });
+        }
+        const data = await searchRes.json();
+        return json({ results: data });
+      } catch (e) {
+        return json({ error: `Błąd wyszukiwania: ${e.message}` }, 500);
       }
-      const data = await searchRes.json();
-      return json({ results: data });
     }
 
     case "availability": {
       const codes = params?.codes;
-      if (!codes?.length) return json({ error: "Missing product codes" }, 400);
+      if (!codes?.length) return json({ error: "Brak kodów produktów" }, 400);
 
-      const codesParam = codes.map((c: string) => `articleCodes=${encodeURIComponent(c)}`).join("&");
-      const avRes = await fetch(
-        `${baseUrl}/GetArticlesAvailability?${authParams}&${codesParam}`,
-        { method: "GET", headers: { "Content-Type": "application/json" } }
-      );
-      if (!avRes.ok) return json({ error: `AP Availability failed: ${avRes.status}` }, avRes.status);
-      const data = await avRes.json();
-      return json({ availability: data });
+      const baseUrl = integration.api_url || apiUrls[0];
+      try {
+        const avRes = await fetch(`${baseUrl}/GetArticlesAvailability`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...authBody, articleCodes: codes }),
+        });
+        if (!avRes.ok) return json({ error: `Dostępność: ${avRes.status}` }, avRes.status);
+        const data = await avRes.json();
+        return json({ availability: data });
+      } catch (e) {
+        return json({ error: `Błąd sprawdzania dostępności: ${e.message}` }, 500);
+      }
     }
 
     default:
-      return json({ error: `Unknown action for Auto Partner: ${action}` }, 400);
+      return json({ error: `Nieznana akcja: ${action}` }, 400);
   }
 }
 
@@ -161,7 +255,6 @@ async function handleHart(
   integration: any,
   action: string,
   params: any,
-  providerId: string
 ) {
   // Auth
   const authRes = await fetch(`${baseUrl}/v1/auth`, {
@@ -175,13 +268,13 @@ async function handleHart(
 
   if (!authRes.ok) {
     const status = authRes.status;
-    if (status === 401) return json({ error: "Błąd autoryzacji. Sprawdź dane API w ustawieniach." }, 401);
-    return json({ error: `Hart auth failed: ${status}` }, status);
+    if (status === 401) return json({ error: "Błąd autoryzacji Hart. Sprawdź login i hasło." }, 401);
+    return json({ error: `Hart auth: ${status}` }, status);
   }
 
   const authData = await authRes.json();
   const token = authData.access_token || authData.token;
-  if (!token) return json({ error: "No token received from Hart" }, 500);
+  if (!token) return json({ error: "Nie otrzymano tokenu z Hart API" }, 500);
 
   const headers: Record<string, string> = {
     Authorization: `Bearer ${token}`,
@@ -202,97 +295,58 @@ async function handleHart(
 
     case "search": {
       const query = params?.query;
-      if (!query) return json({ error: "Missing search query" }, 400);
-      
+      if (!query) return json({ error: "Brak frazy wyszukiwania" }, 400);
       const searchRes = await fetch(
         `${baseUrl}/v1/products/search?SearchPhrase=${encodeURIComponent(query)}&PageSize=50`,
         { headers }
       );
       if (!searchRes.ok) {
-        if (searchRes.status === 429) return json({ error: "Przekroczono limit zapytań (50/min). Spróbuj za chwilę." }, 429);
-        return json({ error: `Search failed: ${searchRes.status}` }, searchRes.status);
+        if (searchRes.status === 429) return json({ error: "Limit zapytań (50/min). Spróbuj za chwilę." }, 429);
+        return json({ error: `Wyszukiwanie: ${searchRes.status}` }, searchRes.status);
       }
-      const data = await searchRes.json();
-      return json({ results: data });
+      return json({ results: await searchRes.json() });
     }
 
     case "availability": {
       const codes = params?.codes;
-      if (!codes?.length) return json({ error: "Missing product codes" }, 400);
-
+      if (!codes?.length) return json({ error: "Brak kodów" }, 400);
       const queryStr = codes.map((c: string) => `HartCodes=${encodeURIComponent(c)}`).join("&");
       const avRes = await fetch(`${baseUrl}/v1/products/availability?${queryStr}`, { headers });
-      if (!avRes.ok) return json({ error: `Availability check failed: ${avRes.status}` }, avRes.status);
-      const data = await avRes.json();
-      return json({ availability: data });
+      if (!avRes.ok) return json({ error: `Dostępność: ${avRes.status}` }, avRes.status);
+      return json({ availability: await avRes.json() });
     }
 
     case "add_to_basket": {
       const positions = params?.positions;
-      if (!positions?.length) return json({ error: "Missing positions" }, 400);
-
+      if (!positions?.length) return json({ error: "Brak pozycji" }, 400);
       const basketRes = await fetch(`${baseUrl}/v1/basket`, {
-        method: "POST",
-        headers,
+        method: "POST", headers,
         body: JSON.stringify({ orderPositions: positions }),
       });
-      if (!basketRes.ok) return json({ error: `Add to basket failed: ${basketRes.status}` }, basketRes.status);
-      const data = await basketRes.json();
-      return json({ basket: data });
+      if (!basketRes.ok) return json({ error: `Koszyk: ${basketRes.status}` }, basketRes.status);
+      return json({ basket: await basketRes.json() });
     }
 
     case "place_order": {
       const basketPositionIds = params?.basketPositionIds;
-      if (!basketPositionIds?.length) return json({ error: "Missing basket position IDs" }, 400);
-
+      if (!basketPositionIds?.length) return json({ error: "Brak pozycji koszyka" }, 400);
       const orderRes = await fetch(`${baseUrl}/v1/orders`, {
-        method: "POST",
-        headers,
+        method: "POST", headers,
         body: JSON.stringify({ basketPositionIds }),
       });
-      if (!orderRes.ok) return json({ error: `Order failed: ${orderRes.status}` }, orderRes.status);
-      const data = await orderRes.json();
-      return json({ order: data });
+      if (!orderRes.ok) return json({ error: `Zamówienie: ${orderRes.status}` }, orderRes.status);
+      return json({ order: await orderRes.json() });
     }
 
     case "get_invoices": {
-      const dateFrom = params?.dateFrom;
-      const dateTo = params?.dateTo;
-      const invRes = await fetch(
-        `${baseUrl}/v1/documents/invoices?DateFrom=${dateFrom}&DateTo=${dateTo}`,
-        { headers }
-      );
-      if (!invRes.ok) return json({ error: `Invoices fetch failed: ${invRes.status}` }, invRes.status);
-      const data = await invRes.json();
-      return json({ invoices: data });
-    }
-
-    case "get_invoice_corrections": {
-      const dateFrom = params?.dateFrom;
-      const dateTo = params?.dateTo;
-      const corrRes = await fetch(
-        `${baseUrl}/v1/documents/invoice-corrections?DateFrom=${dateFrom}&DateTo=${dateTo}`,
-        { headers }
-      );
-      if (!corrRes.ok) return json({ error: `Invoice corrections fetch failed: ${corrRes.status}` }, corrRes.status);
-      const data = await corrRes.json();
-      return json({ corrections: data });
-    }
-
-    case "get_delivery_notes": {
-      const dateFrom = params?.dateFrom;
-      const dateTo = params?.dateTo;
-      const dnRes = await fetch(
-        `${baseUrl}/v1/documents/delivery-notes?DateFrom=${dateFrom}&DateTo=${dateTo}`,
-        { headers }
-      );
-      if (!dnRes.ok) return json({ error: `Delivery notes fetch failed: ${dnRes.status}` }, dnRes.status);
-      const data = await dnRes.json();
-      return json({ deliveryNotes: data });
+      const { dateFrom, dateTo } = params || {};
+      const invRes = await fetch(`${baseUrl}/v1/documents/invoices?DateFrom=${dateFrom}&DateTo=${dateTo}`, { headers });
+      if (!invRes.ok) return json({ error: `Faktury: ${invRes.status}` }, invRes.status);
+      return json({ invoices: await invRes.json() });
     }
 
     default:
-      return json({ error: `Unknown action: ${action}` }, 400);
+      return json({ error: `Nieznana akcja: ${action}` }, 400);
   }
 }
 
