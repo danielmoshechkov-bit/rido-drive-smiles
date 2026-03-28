@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
-import { Bot, Sparkles, FileText, Home, Layers, MapPin, CheckCircle, Loader2, Save, Play, RotateCcw } from 'lucide-react';
+import { Bot, Sparkles, FileText, Home, Layers, MapPin, CheckCircle, Loader2, Save, Play, RotateCcw, ExternalLink } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { AI_MODELS, DEFAULT_AI_MODEL } from '@/config/aiModels';
@@ -52,6 +52,7 @@ export function AIListingParserSettings() {
   const [batchDone, setBatchDone] = useState(false);
   const [batchStats, setBatchStats] = useState({ unparsed: 0, total: 0 });
   const [forceReparse, setForceReparse] = useState(false);
+  const [processedListings, setProcessedListings] = useState<Array<{ id: string; title: string }>>([]);
 
   useEffect(() => {
     loadSettings();
@@ -145,12 +146,13 @@ export function AIListingParserSettings() {
     setBatchProcessing(true);
     setBatchDone(false);
     setBatchProgress(0);
+    setProcessedListings([]);
 
     try {
       // Get listings to process
       let query = supabase
         .from('real_estate_listings')
-        .select('id')
+        .select('id, title')
         .eq('status', 'active')
         .not('description', 'is', null);
 
@@ -159,35 +161,40 @@ export function AIListingParserSettings() {
       }
 
       const { data: listings } = await query.limit(500);
-      const ids = listings?.map(l => l.id) || [];
+      const items = listings || [];
 
-      if (ids.length === 0) {
+      if (items.length === 0) {
         toast.info('Wszystkie ogłoszenia mają już dane AI');
         setBatchProcessing(false);
         return;
       }
 
-      setBatchTotal(ids.length);
+      setBatchTotal(items.length);
       const batchSize = 5;
       let successCount = 0;
       let errorCount = 0;
+      const processed: Array<{ id: string; title: string }> = [];
 
-      for (let i = 0; i < ids.length; i += batchSize) {
-        const batch = ids.slice(i, i + batchSize);
+      for (let i = 0; i < items.length; i += batchSize) {
+        const batch = items.slice(i, i + batchSize);
 
         const { data, error } = await supabase.functions.invoke('parse-listing-ai', {
-          body: { batch_ids: batch, model: settings.model }
+          body: { batch_ids: batch.map(b => b.id), model: settings.model }
         });
 
         if (error) {
           console.error('Batch error:', error);
           errorCount += batch.length;
         } else {
-          successCount += data?.success_count || 0;
+          const sc = data?.success_count || 0;
+          successCount += sc;
           errorCount += data?.error_count || 0;
+          // Track successfully processed listings
+          batch.forEach(b => processed.push({ id: b.id, title: b.title || b.id }));
         }
 
-        setBatchProgress(Math.min(i + batchSize, ids.length));
+        setBatchProgress(Math.min(i + batchSize, items.length));
+        setProcessedListings([...processed]);
       }
 
       setBatchDone(true);
@@ -357,11 +364,31 @@ export function AIListingParserSettings() {
           )}
 
           {batchDone && (
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
-              <CheckCircle className="h-5 w-5 text-green-500" />
-              <span className="text-sm font-medium text-green-700 dark:text-green-300">
-                Analiza zakończona! Odśwież stronę żeby zobaczyć wyniki.
-              </span>
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                <CheckCircle className="h-5 w-5 text-green-500" />
+                <span className="text-sm font-medium text-green-700 dark:text-green-300">
+                  Analiza zakończona! Sprawdź zmienione ogłoszenia poniżej.
+                </span>
+              </div>
+
+              {/* Processed listings links */}
+              {processedListings.length > 0 && (
+                <div className="max-h-48 overflow-y-auto border rounded-lg divide-y">
+                  {processedListings.map(listing => (
+                    <a
+                      key={listing.id}
+                      href={`/nieruchomosci/ogloszenie/${listing.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted/50 transition-colors"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5 text-primary shrink-0" />
+                      <span className="truncate">{listing.title}</span>
+                    </a>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
