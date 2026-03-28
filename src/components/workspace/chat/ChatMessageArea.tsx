@@ -96,7 +96,12 @@ export function ChatMessageArea({
   const [channelSearch, setChannelSearch] = useState("");
   const [channelSearchActive, setChannelSearchActive] = useState(false);
   const [searchMatchIndex, setSearchMatchIndex] = useState(0);
+  const [autoTranslateEnabled, setAutoTranslateEnabled] = useState(() => {
+    return localStorage.getItem('workspace_auto_translate') === 'true';
+  });
   const [myLanguage, setMyLanguage] = useState(() => {
+    const saved = localStorage.getItem('workspace_translate_lang');
+    if (saved) return saved;
     const browserLang = navigator.language?.slice(0, 2) || 'pl';
     return SUPPORTED_LANGUAGES.find(l => l.code === browserLang)?.code || 'pl';
   });
@@ -139,6 +144,21 @@ export function ChatMessageArea({
       messageListRef.current?.scrollTo({ top: messageListRef.current.scrollHeight, behavior: "smooth" });
     }
   }, [messages]);
+
+  // Auto-translate new messages when enabled
+  useEffect(() => {
+    if (!autoTranslateEnabled || !isPremium || myLanguage === 'pl') return;
+    const untranslated = messages.filter(m => 
+      m.content && m.message_type !== 'file' && m.user_id !== userId &&
+      !translation.getTranslation(m.id, myLanguage) && !translation.isLoading(m.id, myLanguage)
+    );
+    untranslated.slice(-3).forEach(m => {
+      translation.translateMessage(m.id, m.content!, myLanguage);
+    });
+  }, [messages.length, autoTranslateEnabled, myLanguage, isPremium]);
+
+  useEffect(() => { localStorage.setItem('workspace_translate_lang', myLanguage); }, [myLanguage]);
+  useEffect(() => { localStorage.setItem('workspace_auto_translate', String(autoTranslateEnabled)); }, [autoTranslateEnabled]);
 
   const getMemberName = (member: any) => {
     if (member?.first_name) return `${member.first_name} ${member.last_name || ''}`.trim();
@@ -337,13 +357,30 @@ export function ChatMessageArea({
         <div className="ml-auto flex items-center gap-1">
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 text-xs gap-1.5 px-3">
-                <Globe className="h-4 w-4" />
+              <Button variant={autoTranslateEnabled ? "secondary" : "ghost"} size="sm" className="h-8 text-xs gap-1.5 px-3">
+                <Globe className={cn("h-4 w-4", autoTranslateEnabled && "text-primary")} />
                 {SUPPORTED_LANGUAGES.find(l => l.code === myLanguage)?.flag || '🌍'}
+                {autoTranslateEnabled && <span className="text-[10px] text-primary">AUTO</span>}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-48 p-2" align="end">
-              <p className="text-xs font-semibold mb-2 px-1">🌍 Włącz auto-tłumaczenie</p>
+            <PopoverContent className="w-52 p-2" align="end">
+              <p className="text-xs font-semibold mb-2 px-1">🌍 Auto-tłumaczenie</p>
+              <div className="flex items-center justify-between px-1 mb-2">
+                <span className="text-xs text-muted-foreground">Tłumacz automatycznie</span>
+                <button
+                  className={cn(
+                    "w-9 h-5 rounded-full transition-colors relative",
+                    autoTranslateEnabled ? "bg-primary" : "bg-muted-foreground/30"
+                  )}
+                  onClick={() => setAutoTranslateEnabled(!autoTranslateEnabled)}
+                >
+                  <span className={cn(
+                    "absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform",
+                    autoTranslateEnabled ? "translate-x-4" : "translate-x-0.5"
+                  )} />
+                </button>
+              </div>
+              <p className="text-[10px] text-muted-foreground px-1 mb-2">Wybierz język na jaki tłumaczyć:</p>
               <div className="max-h-48 overflow-y-auto space-y-0.5">
                 {SUPPORTED_LANGUAGES.map(l => (
                   <button
