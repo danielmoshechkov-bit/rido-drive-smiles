@@ -113,8 +113,7 @@ export function AIHubPanel() {
 
   const tabs = [
     { value: "providers", label: "Dostawcy AI", visible: true },
-    { value: "routing", label: "Routing", visible: true },
-    { value: "flags", label: "Feature Flags", visible: true },
+    { value: "flags", label: "Przełączniki funkcji", visible: true },
     { value: "limits", label: "Limity", visible: true },
     { value: "logs", label: "Logi AI", visible: true },
   ];
