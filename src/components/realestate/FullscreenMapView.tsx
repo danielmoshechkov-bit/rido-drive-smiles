@@ -460,7 +460,7 @@ export function FullscreenMapView({
         strokeWeight: 2,
         strokeOpacity: 0.8,
         fillColor: "#7c3aed",
-        fillOpacity: 0.22,
+        fillOpacity: 0.20,
         clickable: false,
         zIndex: 1,
       });
@@ -479,7 +479,7 @@ export function FullscreenMapView({
         strokeWeight: 2,
         strokeOpacity: 0.8,
         fillColor: "#7c3aed",
-        fillOpacity: 0.22,
+        fillOpacity: 0.20,
         clickable: false,
         zIndex: 1,
       });
@@ -512,7 +512,7 @@ export function FullscreenMapView({
       strokeWeight: 2,
       strokeOpacity: 0.8,
       fillColor: "#7c3aed",
-        fillOpacity: 0.22,
+      fillOpacity: 0.20,
       clickable: false,
       zIndex: 1,
     });
@@ -900,7 +900,7 @@ export function FullscreenMapView({
               onClick={clearAllDrawing}
             >
               <X className="h-3.5 w-3.5 mr-0.5" />
-              UsuÅ
+              Usuń
             </Button>
           )}
 
@@ -928,7 +928,7 @@ export function FullscreenMapView({
 
           <div className="w-px h-5 bg-border" />
           <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">
-            {filteredListings.length} wynikÃ³w
+            {filteredListings.length} wyników
           </span>
         </div>
       </div>
@@ -954,7 +954,7 @@ export function FullscreenMapView({
             Lista
           </Button>
         </div>
-        <span className="text-xs text-muted-foreground">{filteredListings.length} wynikÃ³w</span>
+        <span className="text-xs text-muted-foreground">{filteredListings.length} wyników</span>
       </div>
 
       {/* === MAP + LIST (fills remaining viewport) === */}
@@ -1205,9 +1205,9 @@ function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
 
 const WORLD_MASK_PATH = [
   { lat: -85, lng: -180 },
-  { lat: 85, lng: -180 },
-  { lat: 85, lng: 180 },
   { lat: -85, lng: 180 },
+  { lat: 85, lng: 180 },
+  { lat: 85, lng: -180 },
 ];
 
 function createCirclePolygon(
