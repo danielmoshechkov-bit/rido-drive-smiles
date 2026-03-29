@@ -88,8 +88,8 @@ Odpowiedz TYLKO JSON:
 
     // STEP 1: Audit titles
     const { data: titlesToAudit } = await supabase
-      .from("agent_listings")
-      .select("id, title, property_type, area_total, rooms_count, price, status")
+      .from("real_estate_listings")
+      .select("id, title, property_type, area, rooms, price, status")
       .is("ai_title_audit", null)
       .eq("status", "active")
       .limit(20);
@@ -98,7 +98,7 @@ Odpowiedz TYLKO JSON:
       try {
         const prompt = `Oceń tytuł ogłoszenia nieruchomości pod kątem SEO i zaproponuj lepszy.
 Tytuł: "${listing.title}"
-Parametry: ${listing.property_type || "mieszkanie"}, ${listing.area_total || "?"}m², ${listing.rooms_count || "?"} pokoi, ${listing.price || "?"}zł
+Parametry: ${listing.property_type || "mieszkanie"}, ${listing.area || "?"}m², ${listing.rooms || "?"} pokoi, ${listing.price || "?"}zł
 Odpowiedz TYLKO JSON (bez markdown):
 {
   "score": <1-10>,
@@ -123,7 +123,7 @@ Odpowiedz TYLKO JSON (bez markdown):
         });
 
         await supabase
-          .from("agent_listings")
+          .from("real_estate_listings")
           .update({ ai_title_audit: audit })
           .eq("id", listing.id);
 
@@ -136,8 +136,8 @@ Odpowiedz TYLKO JSON (bez markdown):
 
     // STEP 2: Generate descriptions for listings without or with short descriptions
     const { data: needDesc } = await supabase
-      .from("agent_listings")
-      .select("id, title, property_type, area_total, rooms_count, floor, price, description, status")
+      .from("real_estate_listings")
+      .select("id, title, property_type, area, rooms, floor, price, description, status")
       .eq("status", "active")
       .is("ai_seo_description", null)
       .limit(15);
@@ -152,7 +152,7 @@ Odpowiedz TYLKO JSON (bez markdown):
 Wymagania:
 - Naturalny język, nie keyword-stuffing
 - Zacznij od najważniejszego (typ + metraż)
-- Zawrzyj: ${listing.property_type || "mieszkanie"}, ${listing.area_total || "?"}m², ${listing.rooms_count || "?"} pokoi
+- Zawrzyj: ${listing.property_type || "mieszkanie"}, ${listing.area || "?"}m², ${listing.rooms || "?"} pokoi
 - Wymień atuty (przestronność, układ, standard)
 - Zakończ call-to-action
 Tytuł: ${listing.title}
