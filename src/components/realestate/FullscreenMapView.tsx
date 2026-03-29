@@ -539,7 +539,11 @@ export function FullscreenMapView({
       {/* === HEADER === */}
       <header className="shrink-0 z-30 bg-background/95 backdrop-blur-md border-b px-4 py-2">
         <div className="flex items-center justify-between max-w-[2000px] mx-auto">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={onClose} className="gap-1.5 -ml-1">
+              <ChevronLeft className="h-4 w-4" />
+              <span className="hidden sm:inline">Wróć do listy</span>
+            </Button>
             <UniversalHomeButton />
             <span className="font-bold text-base text-primary">Nieruchomości</span>
           </div>
@@ -552,10 +556,6 @@ export function FullscreenMapView({
             >
               <Plus className="h-3.5 w-3.5 mr-1" />
               <span className="hidden sm:inline">Dodaj ogłoszenie</span>
-            </Button>
-            <Button variant="outline" size="sm" onClick={onClose} className="rounded-full h-8 text-xs gap-1">
-              <X className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Zamknij mapę</span>
             </Button>
           </div>
         </div>
@@ -785,9 +785,9 @@ export function FullscreenMapView({
         {/* List Panel */}
         <div
           className={cn(
-            "border-l bg-background flex flex-col min-h-0",
-            "hidden md:flex md:w-[320px] lg:w-[360px]",
-            mobileTab === "list" && "!flex w-full md:!w-[320px]"
+           "border-l bg-background flex flex-col min-h-0",
+            "hidden md:flex md:w-[280px] lg:w-[320px]",
+            mobileTab === "list" && "!flex w-full md:!w-[280px]"
           )}
         >
           {/* List header with pagination */}

@@ -139,14 +139,31 @@ export function PropertyListingCard({
     return photos[index] ?? mainPhotoUrl;
   };
 
-  const nextPhoto = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const touchStartX = useRef<number>(0);
+  const touchEndX = useRef<number>(0);
+
+  const nextPhoto = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
     setCurrentPhoto((prev) => (prev + 1) % photos.length);
   };
 
-  const prevPhoto = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const prevPhoto = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
     setCurrentPhoto((prev) => (prev - 1 + photos.length) % photos.length);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.targetTouches[0].clientX;
+  };
+  const handleTouchMove = (e: React.TouchEvent) => {
+    touchEndX.current = e.targetTouches[0].clientX;
+  };
+  const handleTouchEnd = () => {
+    const diff = touchStartX.current - touchEndX.current;
+    if (Math.abs(diff) > 50) {
+      if (diff > 0) nextPhoto();
+      else prevPhoto();
+    }
   };
 
   // Calculate price per m2
@@ -282,6 +299,10 @@ export function PropertyListingCard({
             <div 
               className="relative bg-muted overflow-hidden sm:w-64 md:w-72 flex-shrink-0 aspect-[4/3] sm:aspect-auto sm:h-48"
               onClick={handlePhotoClick}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              style={{ touchAction: 'pan-y' }}
             >
               <img
                 src={getPhotoSrc(currentPhoto)}
@@ -439,10 +460,9 @@ export function PropertyListingCard({
                 </div>
               )}
 
-              <div className="flex-grow min-h-2" />
 
-              <div className="mt-auto pt-3">
-                <div className="text-xl font-bold leading-tight text-primary whitespace-nowrap">
+              <div className="mt-auto pt-2 border-t border-border/30">
+                <div className="text-base font-bold leading-tight text-primary whitespace-nowrap">
                   {formatCurrency(listing.price)}
                   <span className="ml-1 text-sm font-medium text-muted-foreground">
                     {PRICE_TYPE_LABELS[listing.priceType || 'sale'] || ''}
@@ -493,6 +513,10 @@ export function PropertyListingCard({
             compact ? "aspect-[3/2]" : "aspect-[4/3]"
           )}
           onClick={handlePhotoClick}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          style={{ touchAction: 'pan-y' }}
         >
           <img
             src={getPhotoSrc(currentPhoto)}
@@ -687,8 +711,7 @@ export function PropertyListingCard({
             </div>
           )}
 
-          {/* Spacer */}
-          <div className="flex-grow min-h-1" />
+          {/* No spacer - price pinned via mt-auto */}
 
           {/* Price - pinned to bottom */}
           <div className="mt-auto pt-2 border-t border-border/40">
@@ -696,7 +719,7 @@ export function PropertyListingCard({
               <div className="min-w-0">
                 <span className={cn(
                   "font-bold text-primary leading-tight",
-                  compact ? "text-base" : "text-lg"
+                  compact ? "text-sm" : "text-base"
                 )}>
                   {formatCurrency(listing.price)}
                 </span>
@@ -714,7 +737,7 @@ export function PropertyListingCard({
               <Button 
                 size="sm"
                 onClick={onView}
-                className={cn("shrink-0 rounded-xl px-3 py-1.5 text-xs h-auto", compact && "h-7 px-2.5")}
+                className={cn("shrink-0 rounded-md px-3 text-xs h-7", compact && "px-2.5")}
               >
                 {compact ? "Zobacz" : "Szczegóły"}
               </Button>
