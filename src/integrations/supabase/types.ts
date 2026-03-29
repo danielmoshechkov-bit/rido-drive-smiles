@@ -10270,6 +10270,36 @@ export type Database = {
           },
         ]
       }
+      marketing_notification_settings: {
+        Row: {
+          created_at: string | null
+          id: string
+          notification_email: string | null
+          notify_new_leads: boolean | null
+          notify_new_orders: boolean | null
+          notify_status_changes: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          notification_email?: string | null
+          notify_new_leads?: boolean | null
+          notify_new_orders?: boolean | null
+          notify_status_changes?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          notification_email?: string | null
+          notify_new_leads?: boolean | null
+          notify_new_orders?: boolean | null
+          notify_status_changes?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       marketplace_ad_slots: {
         Row: {
           created_at: string | null
@@ -11828,6 +11858,84 @@ export type Database = {
             columns: ["parent_message_id"]
             isOneToOne: false
             referencedRelation: "property_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      provider_ad_orders: {
+        Row: {
+          ad_description: string | null
+          ad_image_url: string | null
+          ad_title: string | null
+          ad_type: string | null
+          budget: number | null
+          clicks: number | null
+          created_at: string | null
+          duration_days: number | null
+          ends_at: string | null
+          id: string
+          impressions: number | null
+          leads_count: number | null
+          provider_id: string | null
+          service_id: string | null
+          starts_at: string | null
+          status: string | null
+          target_city: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          ad_description?: string | null
+          ad_image_url?: string | null
+          ad_title?: string | null
+          ad_type?: string | null
+          budget?: number | null
+          clicks?: number | null
+          created_at?: string | null
+          duration_days?: number | null
+          ends_at?: string | null
+          id?: string
+          impressions?: number | null
+          leads_count?: number | null
+          provider_id?: string | null
+          service_id?: string | null
+          starts_at?: string | null
+          status?: string | null
+          target_city?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          ad_description?: string | null
+          ad_image_url?: string | null
+          ad_title?: string | null
+          ad_type?: string | null
+          budget?: number | null
+          clicks?: number | null
+          created_at?: string | null
+          duration_days?: number | null
+          ends_at?: string | null
+          id?: string
+          impressions?: number | null
+          leads_count?: number | null
+          provider_id?: string | null
+          service_id?: string | null
+          starts_at?: string | null
+          status?: string | null
+          target_city?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_ad_orders_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_ad_orders_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "provider_services"
             referencedColumns: ["id"]
           },
         ]
@@ -13982,6 +14090,76 @@ export type Database = {
             columns: ["provider_id"]
             isOneToOne: false
             referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_leads: {
+        Row: {
+          ad_order_id: string | null
+          created_at: string | null
+          id: string
+          lead_email: string | null
+          lead_message: string | null
+          lead_name: string | null
+          lead_phone: string | null
+          notes: string | null
+          provider_id: string | null
+          service_id: string | null
+          source: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          ad_order_id?: string | null
+          created_at?: string | null
+          id?: string
+          lead_email?: string | null
+          lead_message?: string | null
+          lead_name?: string | null
+          lead_phone?: string | null
+          notes?: string | null
+          provider_id?: string | null
+          service_id?: string | null
+          source?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          ad_order_id?: string | null
+          created_at?: string | null
+          id?: string
+          lead_email?: string | null
+          lead_message?: string | null
+          lead_name?: string | null
+          lead_phone?: string | null
+          notes?: string | null
+          provider_id?: string | null
+          service_id?: string | null
+          source?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_leads_ad_order_id_fkey"
+            columns: ["ad_order_id"]
+            isOneToOne: false
+            referencedRelation: "provider_ad_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_leads_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_leads_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "provider_services"
             referencedColumns: ["id"]
           },
         ]
