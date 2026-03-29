@@ -801,16 +801,14 @@ export default function RealEstateMarketplace() {
             onTypeChange={setSelectedPropertyType}
             className="justify-center"
           />
-        </div>
-      </section>
 
-      {/* Transaction Type Chips */}
-      <section className="container mx-auto px-4 py-2">
-        <TransactionTypeChips
-          selectedType={selectedTransactionType}
-          onTypeChange={setSelectedTransactionType}
-          className="justify-center"
-        />
+          {/* Transaction Type Chips - directly under property types, no gap */}
+          <TransactionTypeChips
+            selectedType={selectedTransactionType}
+            onTypeChange={setSelectedTransactionType}
+            className="justify-center mt-1"
+          />
+        </div>
       </section>
 
       {/* Search Filters */}
