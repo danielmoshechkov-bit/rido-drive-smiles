@@ -563,28 +563,37 @@ export default function PropertyDetailPage() {
                   Kontakt
                 </h3>
                 
-                {listing.agencyName && (
-                  <div className="flex items-center gap-3 mb-4 pb-4 border-b">
-                    <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <Building2 className="h-6 w-6 text-primary" />
-                    </div>
-                    <div>
-                      <p className="font-medium">{listing.agencyName}</p>
-                      <p className="text-sm text-muted-foreground">Agencja nieruchomości</p>
-                    </div>
-                  </div>
-                )}
+                {!showContactPhone ? (
+                  <Button 
+                    onClick={handleRevealContact}
+                    className="w-full"
+                    size="lg"
+                  >
+                    <Phone className="h-4 w-4 mr-2" />
+                    Pokaż kontakt
+                  </Button>
+                ) : (
+                  <div className="space-y-3">
+                    {listing.agencyName && (
+                      <div className="flex items-center gap-3 pb-3 border-b">
+                        <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                          <Building2 className="h-6 w-6 text-primary" />
+                        </div>
+                        <div>
+                          <p className="font-medium">{listing.agencyName}</p>
+                          <p className="text-sm text-muted-foreground">Agencja nieruchomości</p>
+                        </div>
+                      </div>
+                    )}
 
-                {listing.contactName && (
-                  <div className="flex items-center gap-2 mb-3">
-                    <User className="h-4 w-4 text-muted-foreground" />
-                    <span>{listing.contactName}</span>
-                  </div>
-                )}
+                    {listing.contactName && (
+                      <div className="flex items-center gap-2">
+                        <User className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-medium">{listing.contactName}</span>
+                      </div>
+                    )}
 
-                {listing.contactPhone && (
-                  <div className="mb-3">
-                    {showContactPhone ? (
+                    {listing.contactPhone && (
                       <a 
                         href={`tel:${listing.contactPhone}`}
                         className="flex items-center gap-2 text-primary hover:underline font-medium"
@@ -592,32 +601,23 @@ export default function PropertyDetailPage() {
                         <Phone className="h-4 w-4" />
                         {listing.contactPhone}
                       </a>
-                    ) : (
-                      <Button 
-                        onClick={handleRevealContact}
-                        className="w-full"
-                        size="lg"
+                    )}
+
+                    {listing.contactEmail && (
+                      <a 
+                        href={`mailto:${listing.contactEmail}`}
+                        className="flex items-center gap-2 text-primary hover:underline"
                       >
-                        <Phone className="h-4 w-4 mr-2" />
-                        Pokaż numer telefonu
-                      </Button>
+                        <Mail className="h-4 w-4" />
+                        {listing.contactEmail}
+                      </a>
                     )}
                   </div>
                 )}
 
-                {listing.contactEmail && showContactPhone && (
-                  <a 
-                    href={`mailto:${listing.contactEmail}`}
-                    className="flex items-center gap-2 text-primary hover:underline mb-4"
-                  >
-                    <Mail className="h-4 w-4" />
-                    {listing.contactEmail}
-                  </a>
-                )}
-
                 <Button 
                   variant="outline" 
-                  className="w-full mt-2"
+                  className="w-full mt-4"
                   size="lg"
                   onClick={() => {
                     if (!user) {

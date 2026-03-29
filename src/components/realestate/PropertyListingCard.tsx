@@ -591,25 +591,19 @@ export function PropertyListingCard({
             {listing.rooms > 0 && (
               <span>{listing.rooms} {listing.rooms === 1 ? 'pokój' : listing.rooms < 5 ? 'pokoje' : 'pokoi'}</span>
             )}
+            {listing.buildYear && (
+              <span className="flex items-center gap-1">
+                <Calendar className="h-3.5 w-3.5" />
+                {listing.buildYear}
+              </span>
+            )}
+            {!compact && listing.floor !== undefined && listing.floorsTotal && (
+              <span className="flex items-center gap-1">
+                <Layers className="h-3.5 w-3.5" />
+                Piętro {listing.floor}/{listing.floorsTotal}
+              </span>
+            )}
           </div>
-
-          {/* Floor & Year - Separate row */}
-          {!compact && (listing.floor !== undefined || listing.buildYear) && (
-            <div className="flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground mt-1">
-              {listing.floor !== undefined && listing.floorsTotal && (
-                <span className="flex items-center gap-1">
-                  <Layers className="h-3.5 w-3.5" />
-                  Piętro {listing.floor}/{listing.floorsTotal}
-                </span>
-              )}
-              {listing.buildYear && (
-                <span className="flex items-center gap-1">
-                  <Calendar className="h-3.5 w-3.5" />
-                  {listing.buildYear}
-                </span>
-              )}
-            </div>
-          )}
 
           {/* Location - Separate clear row */}
           {listing.location && (
