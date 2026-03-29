@@ -382,6 +382,7 @@ export default function RealEstateMarketplace() {
   const [isSearchingAI, setIsSearchingAI] = useState(false);
   const [aiExplanation, setAiExplanation] = useState("");
   const [viewMode, setViewMode] = useState<'grid' | 'compact' | 'list'>('grid');
+  const [showFullMap, setShowFullMap] = useState(false);
   
   const [initialQuery, setInitialQuery] = useState<string>("");
   const [currentPage, setCurrentPage] = useState(1);
