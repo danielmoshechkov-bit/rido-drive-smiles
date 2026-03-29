@@ -103,7 +103,7 @@ serve(async (req) => {
         .select('config_json')
         .eq('key', 'ai_listing_parser')
         .maybeSingle()
-      selectedModel = (parserConfig?.config_json as any)?.model || 'google/gemini-3-flash-preview'
+      selectedModel = (parserConfig?.config_json as any)?.model || 'moonshot-v1-8k'
     }
 
     const apiConfig = getApiConfig(selectedModel)
