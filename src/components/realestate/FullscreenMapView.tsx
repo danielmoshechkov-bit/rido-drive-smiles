@@ -124,6 +124,7 @@ export function FullscreenMapView({
   const isBrushDrawingRef = useRef(false);
 
   const [selectedListing, setSelectedListing] = useState<PropertyListingForMap | null>(null);
+  const [previewPhotoIndex, setPreviewPhotoIndex] = useState(0);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [mobileTab, setMobileTab] = useState<"map" | "list">("map");
 
