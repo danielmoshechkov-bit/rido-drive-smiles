@@ -878,7 +878,7 @@ function SideListingCard({
     <div
       ref={cardRef}
       className={cn(
-        "flex gap-3 p-3 cursor-pointer hover:bg-accent/50 transition-all",
+        "flex gap-2 p-2 cursor-pointer hover:bg-accent/50 transition-all",
         isSelected && "bg-accent",
         isHovered && "bg-primary/10 border-l-2 border-l-primary"
       )}
@@ -887,47 +887,32 @@ function SideListingCard({
       onMouseLeave={onMouseLeave}
     >
       {/* Thumbnail */}
-      <div className="w-20 h-16 rounded-lg overflow-hidden bg-muted shrink-0">
+      <div className="w-16 h-12 rounded overflow-hidden bg-muted shrink-0">
         {listing.photos?.[0] ? (
           <img src={listing.photos[0]} alt="" className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
-            <Home className="h-5 w-5 text-muted-foreground/40" />
+            <Home className="h-4 w-4 text-muted-foreground/40" />
           </div>
         )}
       </div>
 
-      {/* Info */}
+      {/* Info - compact */}
       <div className="flex-1 min-w-0">
-        <h4 className="text-sm font-medium line-clamp-1">{listing.title}</h4>
-        <div className="flex items-center gap-1.5 mt-0.5">
-          <div className={cn("w-2 h-2 rounded-full", isRent ? "bg-blue-500" : "bg-emerald-500")} />
-          <span className="text-xs text-muted-foreground truncate">{listing.location}</span>
+        <h4 className="text-xs font-medium line-clamp-1">{listing.title}</h4>
+        <div className="flex items-center gap-1 mt-0.5">
+          <div className={cn("w-1.5 h-1.5 rounded-full", isRent ? "bg-blue-500" : "bg-emerald-500")} />
+          <span className="text-[11px] text-muted-foreground truncate">{listing.location}</span>
         </div>
-        <div className="flex items-center justify-between mt-1">
-          <span className="font-bold text-sm text-primary">
+        <div className="flex items-center justify-between mt-0.5">
+          <span className="font-bold text-xs text-primary">
             {listing.price.toLocaleString("pl-PL")} zł
           </span>
-          <span className="text-xs text-muted-foreground">
-            {listing.areaM2}m² {listing.rooms ? `• ${listing.rooms}p` : ""}
+          <span className="text-[11px] text-muted-foreground">
+            {listing.areaM2}m²
           </span>
         </div>
       </div>
-
-      {/* View button */}
-      {onView && (
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 shrink-0 self-center"
-          onClick={(e) => {
-            e.stopPropagation();
-            onView();
-          }}
-        >
-          <Eye className="h-4 w-4" />
-        </Button>
-      )}
     </div>
   );
 }
