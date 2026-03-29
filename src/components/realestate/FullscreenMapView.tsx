@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useGoogleMaps } from "@/hooks/useGoogleMaps";
-import { useIsMobile } from "@/hooks/use-mobile";
 import {
   X, MapPin, Search, Loader2, Home, PenTool, Circle, ChevronLeft, ChevronRight,
 } from "lucide-react";
@@ -111,7 +110,6 @@ export function FullscreenMapView({
   onNavigate,
 }: FullscreenMapViewProps) {
   const { isLoaded, google } = useGoogleMaps();
-  const isMobile = useIsMobile();
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
   const infoWindowRef = useRef<google.maps.InfoWindow | null>(null);
@@ -121,14 +119,9 @@ export function FullscreenMapView({
   // Drawing refs
   const drawingPolygonRef = useRef<google.maps.Polygon | null>(null);
   const drawingPolylineRef = useRef<google.maps.Polyline | null>(null);
-  const districtPolygonsRef = useRef<google.maps.Polygon[]>([]);
-  const districtMaskRef = useRef<google.maps.Polygon | null>(null);
+  const districtPolygonRef = useRef<google.maps.Polygon | null>(null);
   const circleRef = useRef<google.maps.Circle | null>(null);
-  const selectionMaskRef = useRef<google.maps.Polygon | null>(null);
-  const drawingCleanupRef = useRef<(() => void) | null>(null);
   const isBrushDrawingRef = useRef(false);
-  // Track if we just finished drawing to suppress click-through
-  const justFinishedDrawingRef = useRef(false);
 
   const [selectedListing, setSelectedListing] = useState<PropertyListingForMap | null>(null);
   const [previewPhotoIndex, setPreviewPhotoIndex] = useState(0);
@@ -137,7 +130,6 @@ export function FullscreenMapView({
 
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedLocationName, setSelectedLocationName] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [mapPropertyType, setMapPropertyType] = useState<string | null>(null);
   const [mapTransactionType, setMapTransactionType] = useState<string | null>(null);
@@ -147,10 +139,7 @@ export function FullscreenMapView({
   const [circleRadius, setCircleRadius] = useState(1000);
   const [bufferDistance, setBufferDistance] = useState(0);
   const [useBuffer, setUseBuffer] = useState(false);
-  const [districtBoundaries, setDistrictBoundaries] = useState<Array<Array<{ lat: number; lng: number }>>>([]);
-  const [selectedDistricts, setSelectedDistricts] = useState<string[]>([]);
-  // Store raw coords rings per district for mask rebuilding
-  const districtCoordsRef = useRef<Array<google.maps.LatLngLiteral[][]>>([]);
+  const [districtBoundary, setDistrictBoundary] = useState<Array<{ lat: number; lng: number }> | null>(null);
 
   // Filtered listings
   const filteredListings = useMemo(() => {
@@ -179,12 +168,9 @@ export function FullscreenMapView({
       if (mapTransactionType === "sprzedaz" && !(transType.includes("sprzedaż") || transType.includes("sprzedaz"))) return false;
       if (mapTransactionType === "wynajem" && !transType.includes("wynajem")) return false;
       if (mapTransactionType === "wynajem-krotkoterminowy" && !(transType.includes("krótkoterminowy") || transType.includes("krotkoterminowy"))) return false;
-      // District boundary filter
-      if (districtBoundaries.length > 0) {
-        const inAnyDistrict = districtBoundaries.some(boundary => 
-          boundary.length >= 3 && isPointInPolygon(l.lat, l.lng, boundary)
-        );
-        if (!inAnyDistrict) return false;
+      // District boundary filter (polygon-based, accurate)
+      if (districtBoundary && districtBoundary.length >= 3) {
+        if (!isPointInPolygon(l.lat, l.lng, districtBoundary)) return false;
       } else if (searchQuery) {
         const q = searchQuery.toLowerCase();
         const inLocation = l.location?.toLowerCase().includes(q);
@@ -210,7 +196,7 @@ export function FullscreenMapView({
       }
       return true;
     });
-  }, [listings, mapPropertyType, mapTransactionType, searchQuery, drawnArea, circleCenter, circleRadius, bufferDistance, useBuffer, districtBoundaries]);
+  }, [listings, mapPropertyType, mapTransactionType, searchQuery, drawnArea, circleCenter, circleRadius, bufferDistance, useBuffer, districtBoundary]);
 
   // Location suggestions
   const suggestions = useMemo(() => {
@@ -234,50 +220,11 @@ export function FullscreenMapView({
 
   const formatPriceFull = (price: number) => price.toLocaleString("pl-PL") + "\u00A0zł";
 
-  const persistCircle = useCallback((center: { lat: number; lng: number }, radius: number) => {
-    sessionStorage.setItem("rido_circle", JSON.stringify({ lat: center.lat, lng: center.lng, radius }));
-  }, []);
-
-  const persistPolygon = useCallback((points: Array<{ lat: number; lng: number }>) => {
-    sessionStorage.setItem("rido_polygon", JSON.stringify(points));
-  }, []);
-
-  const clearPersistedDrawing = useCallback(() => {
-    sessionStorage.removeItem("rido_circle");
-    sessionStorage.removeItem("rido_polygon");
-  }, []);
-
-  const clearLocationSelection = useCallback(() => {
-    setSearchQuery("");
-    setSelectedLocationName("");
-    setShowSuggestions(false);
-    districtPolygonsRef.current.forEach((p) => p.setMap(null));
-    districtPolygonsRef.current = [];
-    districtMaskRef.current?.setMap(null);
-    districtMaskRef.current = null;
-    districtCoordsRef.current = [];
-    setDistrictBoundaries([]);
-    setSelectedDistricts([]);
-  }, []);
-
-  const createWorldOverlay = useCallback((map: google.maps.Map) => {
-    selectionMaskRef.current?.setMap(null);
-    selectionMaskRef.current = new google.maps.Polygon({
-      map,
-      paths: [WORLD_MASK_PATH],
-      strokeWeight: 0,
-      fillColor: "#000000",
-      fillOpacity: 0.25,
-      clickable: false,
-      zIndex: 1,
-    });
-  }, []);
-
-  // === Supercluster === (higher maxZoom for better detail)
+  // === Supercluster ===
   useEffect(() => {
-    const withCoords = filteredListings.filter((l) => l.lat && l.lng);
+    const withCoords = listings.filter((l) => l.lat && l.lng);
     if (!withCoords.length) { clusterIndexRef.current = null; return; }
-    const index = new Supercluster({ radius: 40, maxZoom: 20, minZoom: 3 });
+    const index = new Supercluster({ radius: 50, maxZoom: 18, minZoom: 3 });
     index.load(
       withCoords.map((l) => ({
         type: "Feature" as const,
@@ -286,27 +233,7 @@ export function FullscreenMapView({
       }))
     );
     clusterIndexRef.current = index;
-  }, [filteredListings]);
-
-  const lockDrawingInteraction = useCallback(() => {
-    mapRef.current?.setOptions({ draggable: false, gestureHandling: "none" });
-    if (mapContainerRef.current) {
-      mapContainerRef.current.style.touchAction = "none";
-    }
-    document.body.style.overflow = "hidden";
-    document.documentElement.style.overflow = "hidden";
-    document.body.style.touchAction = "none";
-  }, []);
-
-  const unlockDrawingInteraction = useCallback(() => {
-    mapRef.current?.setOptions({ draggable: true, gestureHandling: "cooperative" });
-    if (mapContainerRef.current) {
-      mapContainerRef.current.style.touchAction = "auto";
-    }
-    document.body.style.overflow = "";
-    document.documentElement.style.overflow = "";
-    document.body.style.touchAction = "";
-  }, []);
+  }, [listings]);
 
   // === Overlay class ===
   const createOverlayClass = useCallback(() => {
@@ -318,11 +245,7 @@ export function FullscreenMapView({
       constructor(p: { lat: number; lng: number }, content: HTMLDivElement, map: google.maps.Map, onClick: () => void) {
         super();
         this.pos = new google.maps.LatLng(p.lat, p.lng);
-        this.handler = () => {
-          // Suppress click if drawing just finished
-          if (justFinishedDrawingRef.current) return;
-          onClick();
-        };
+        this.handler = onClick;
         this.div = document.createElement("div");
         this.div.style.position = "absolute";
         this.div.appendChild(content);
@@ -359,6 +282,7 @@ export function FullscreenMapView({
 
   const showInfoWindow = useCallback(
     (_map: google.maps.Map, _iw: google.maps.InfoWindow, listing: PropertyListingForMap) => {
+      // Only use React card overlay, no Google InfoWindow to avoid duplicates
       setSelectedListing(listing);
       setPreviewPhotoIndex(0);
       setHoveredId(listing.id);
@@ -393,7 +317,7 @@ export function FullscreenMapView({
         overlaysRef.current.push(
           new Overlay({ lat, lng }, createClusterMarker(cluster.properties.point_count), map, () => {
             const expansionZoom = index.getClusterExpansionZoom(cluster.id as number);
-            map.setZoom(Math.min(expansionZoom, 20));
+            map.setZoom(Math.min(expansionZoom, 18));
             map.setCenter({ lat, lng });
           })
         );
@@ -452,74 +376,6 @@ export function FullscreenMapView({
       });
       mapRef.current = map;
       infoWindowRef.current = new google.maps.InfoWindow();
-
-      if (!drawnArea && !drawingPolygonRef.current) {
-        const savedPolygon = sessionStorage.getItem("rido_polygon");
-        if (savedPolygon) {
-          try {
-            const parsed = JSON.parse(savedPolygon) as Array<{ lat: number; lng: number }>;
-            if (Array.isArray(parsed) && parsed.length >= 3) {
-              drawingPolygonRef.current = new google.maps.Polygon({
-                map,
-                paths: parsed,
-                strokeColor: "#7c3aed",
-                strokeWeight: 2.5,
-                strokeOpacity: 1,
-                fillColor: "#7c3aed",
-                fillOpacity: 0.15,
-                clickable: false,
-                zIndex: 2,
-              });
-              setDrawnArea(parsed);
-            }
-          } catch (error) {
-            console.warn("[FullscreenMap] Failed to restore polygon", error);
-            sessionStorage.removeItem("rido_polygon");
-          }
-        }
-      }
-
-      if (!circleCenter && !circleRef.current) {
-        const savedCircle = sessionStorage.getItem("rido_circle");
-        if (savedCircle) {
-          try {
-            const { lat, lng, radius } = JSON.parse(savedCircle) as { lat: number; lng: number; radius: number };
-            if (typeof lat === "number" && typeof lng === "number" && typeof radius === "number") {
-              circleRef.current = new google.maps.Circle({
-                center: { lat, lng },
-                radius,
-                strokeColor: "#7c3aed",
-                strokeWeight: 2,
-                strokeOpacity: 1,
-                fillColor: "#7c3aed",
-                fillOpacity: 0.12,
-                map,
-                clickable: false,
-                editable: true,
-                zIndex: 2,
-              });
-              setDrawnCircleListeners(circleRef.current);
-              setDrawnCircle({ center: { lat, lng }, radius });
-            }
-          } catch (error) {
-            console.warn("[FullscreenMap] Failed to restore circle", error);
-            sessionStorage.removeItem("rido_circle");
-          }
-        }
-      }
-
-      if (circleRef.current) {
-        circleRef.current.setMap(map);
-      }
-
-      if (drawingPolygonRef.current) {
-        drawingPolygonRef.current.setMap(map);
-      }
-
-      districtPolygonsRef.current.forEach((polygon) => polygon.setMap(map));
-      selectionMaskRef.current?.setMap(map);
-      districtMaskRef.current?.setMap(map);
-
       setTimeout(() => {
         google.maps.event.trigger(map, "resize");
         updateMarkers();
@@ -533,252 +389,62 @@ export function FullscreenMapView({
       overlaysRef.current = [];
       drawingPolygonRef.current?.setMap(null);
       drawingPolylineRef.current?.setMap(null);
-      selectionMaskRef.current?.setMap(null);
-      districtPolygonsRef.current.forEach(p => p.setMap(null));
-      districtPolygonsRef.current = [];
-      districtMaskRef.current?.setMap(null);
-      districtMaskRef.current = null;
+      districtPolygonRef.current?.setMap(null);
       circleRef.current?.setMap(null);
-      drawingCleanupRef.current?.();
-      drawingCleanupRef.current = null;
-      unlockDrawingInteraction();
       mapRef.current = null;
     };
-  }, [open, isLoaded, google, unlockDrawingInteraction]);
+  }, [open, isLoaded, google, listings]);
 
   useEffect(() => {
     if (mapRef.current && google) updateMarkers();
   }, [updateMarkers, google]);
 
-  const setDrawnCircleListeners = useCallback((circle: google.maps.Circle) => {
-    circle.addListener("radius_changed", () => {
-      const nextRadius = Math.round(circle.getRadius());
-      setCircleRadius(nextRadius);
-      const center = circle.getCenter();
-      if (center) {
-        const nextCenter = { lat: center.lat(), lng: center.lng() };
-        setCircleCenter(nextCenter);
-        persistCircle(nextCenter, nextRadius);
-      }
-    });
-
-    circle.addListener("center_changed", () => {
-      const center = circle.getCenter();
-      if (center) {
-        const nextCenter = { lat: center.lat(), lng: center.lng() };
-        setCircleCenter(nextCenter);
-        persistCircle(nextCenter, Math.round(circle.getRadius()));
-      }
-    });
-  }, [persistCircle]);
-
-  const setDrawnCircle = useCallback((value: { center: { lat: number; lng: number }; radius: number }) => {
-    setCircleCenter(value.center);
-    setCircleRadius(value.radius);
-  }, []);
-
-  const createCircleSelection = useCallback((center: { lat: number; lng: number }, radius: number) => {
-    if (!mapRef.current || !google) return;
-
-    circleRef.current?.setMap(null);
-    const circle = new google.maps.Circle({
-      map: mapRef.current,
-      center,
-      radius,
-      strokeColor: "#7c3aed",
-      strokeWeight: 2,
-      strokeOpacity: 1,
-      fillColor: "#7c3aed",
-      fillOpacity: 0.12,
-      editable: true,
-      clickable: false,
-      zIndex: 2,
-    });
-
-    circleRef.current = circle;
-    setDrawnCircleListeners(circle);
-    setDrawnCircle({ center, radius });
-    persistCircle(center, radius);
-  }, [google, persistCircle, setDrawnCircle, setDrawnCircleListeners]);
-
-  // === Rebuild drawn area / circle mask overlay ===
-  useEffect(() => {
-    if (!mapRef.current || !google) return;
-
-    selectionMaskRef.current?.setMap(null);
-    selectionMaskRef.current = null;
-
-    if (drawnArea && drawnArea.length >= 3) {
-      createWorldOverlay(mapRef.current);
-      drawingPolygonRef.current?.setOptions({
-        strokeColor: "#7c3aed",
-        strokeWeight: 2.5,
-        strokeOpacity: 1,
-        fillColor: "#7c3aed",
-        fillOpacity: 0.15,
-        clickable: false,
-        zIndex: 2,
-      });
-      return;
-    }
-
-    if (circleCenter) {
-      createWorldOverlay(mapRef.current);
-      circleRef.current?.setOptions({
-        strokeColor: "#7c3aed",
-        strokeWeight: 2,
-        strokeOpacity: 1,
-        fillColor: "#7c3aed",
-        fillOpacity: 0.12,
-        clickable: false,
-        zIndex: 2,
-      });
-    }
-  }, [google, drawnArea, circleCenter, circleRadius, bufferDistance, useBuffer, createWorldOverlay]);
-
-  // === Rebuild district mask when districtBoundaries changes ===
-  const rebuildDistrictMask = useCallback(() => {
-    if (!mapRef.current || !google) return;
-    districtMaskRef.current?.setMap(null);
-    districtMaskRef.current = null;
-
-    if (districtCoordsRef.current.length === 0) return;
-
-    districtMaskRef.current = new google.maps.Polygon({
-      map: mapRef.current,
-      strokeWeight: 0,
-      paths: [WORLD_MASK_PATH],
-      fillColor: "#000000",
-      fillOpacity: 0.25,
-      clickable: false,
-      zIndex: 1,
-    });
-  }, [google]);
-
   // === Polygon drawing ===
   const startPolygonDrawing = useCallback(() => {
     if (!mapRef.current || !google) return;
-    drawingCleanupRef.current?.();
-    drawingCleanupRef.current = null;
     setDrawingMode("pen");
     setDrawnArea(null);
     setCircleCenter(null);
     circleRef.current?.setMap(null);
-    circleRef.current = null;
     drawingPolygonRef.current?.setMap(null);
-    drawingPolygonRef.current = null;
-    selectionMaskRef.current?.setMap(null);
-    selectionMaskRef.current = null;
-    clearPersistedDrawing();
     const map = mapRef.current;
-    lockDrawingInteraction();
+    map.setOptions({ draggable: false, gestureHandling: "none" });
     const path: google.maps.LatLng[] = [];
     const polyline = new google.maps.Polyline({ map, path, strokeColor: "#7c3aed", strokeWeight: 3, strokeOpacity: 0.8 });
     drawingPolylineRef.current = polyline;
     isBrushDrawingRef.current = false;
-
-    const startDraw = (latLng: google.maps.LatLng) => {
+    const mouseDownListener = map.addListener("mousedown", (e: google.maps.MapMouseEvent) => {
+      if (!e.latLng) return;
       isBrushDrawingRef.current = true;
       path.length = 0;
-      path.push(latLng);
+      path.push(e.latLng);
       polyline.setPath(path);
-    };
-    const continueDraw = (latLng: google.maps.LatLng) => {
-      if (!isBrushDrawingRef.current) return;
-      path.push(latLng);
+    });
+    const mouseMoveListener = map.addListener("mousemove", (e: google.maps.MapMouseEvent) => {
+      if (!isBrushDrawingRef.current || !e.latLng) return;
+      path.push(e.latLng);
       polyline.setPath(path);
-    };
-    const endDraw = () => {
+    });
+    const mouseUpListener = map.addListener("mouseup", () => {
       if (!isBrushDrawingRef.current) return;
       isBrushDrawingRef.current = false;
-      cleanup();
-      unlockDrawingInteraction();
+      google.maps.event.removeListener(mouseDownListener);
+      google.maps.event.removeListener(mouseMoveListener);
+      google.maps.event.removeListener(mouseUpListener);
+      map.setOptions({ draggable: true, gestureHandling: "cooperative" });
       polyline.setMap(null);
       if (path.length < 3) { setDrawingMode(false); return; }
       const points = path.map((p) => ({ lat: p.lat(), lng: p.lng() }));
       const polygon = new google.maps.Polygon({
         map, paths: points,
-        strokeColor: "#7c3aed", strokeWeight: 2.5, strokeOpacity: 1,
+        strokeColor: "#7c3aed", strokeWeight: 2, strokeOpacity: 0.9,
         fillColor: "#7c3aed", fillOpacity: 0.15,
-        clickable: false,
-        zIndex: 2,
       });
       drawingPolygonRef.current = polygon;
       setDrawnArea(points);
-      persistPolygon(points);
       setDrawingMode(false);
-      // Block marker clicks for a moment after drawing
-      justFinishedDrawingRef.current = true;
-      setTimeout(() => { justFinishedDrawingRef.current = false; }, 500);
-    };
-
-    // Mouse events (desktop)
-    const mouseDownListener = map.addListener("mousedown", (e: google.maps.MapMouseEvent) => {
-      if (e.latLng) startDraw(e.latLng);
     });
-    const mouseMoveListener = map.addListener("mousemove", (e: google.maps.MapMouseEvent) => {
-      if (e.latLng) continueDraw(e.latLng);
-    });
-    const mouseUpListener = map.addListener("mouseup", endDraw);
-    const handleWindowMouseUp = () => endDraw();
-    window.addEventListener("mouseup", handleWindowMouseUp);
-
-    // Touch events on map container (mobile)
-    const container = mapContainerRef.current;
-    const getLatLngFromTouch = (touch: Touch): google.maps.LatLng | null => {
-      if (!container || !map.getProjection()) return null;
-      const rect = container.getBoundingClientRect();
-      const x = touch.clientX - rect.left;
-      const y = touch.clientY - rect.top;
-      const scale = Math.pow(2, map.getZoom()!);
-      const nw = map.getProjection()!.fromLatLngToPoint(map.getBounds()!.getNorthEast())!;
-      const sw = map.getProjection()!.fromLatLngToPoint(map.getBounds()!.getSouthWest())!;
-      const worldPoint = new google.maps.Point(
-        sw.x + (x / rect.width) * (nw.x - sw.x),
-        nw.y + (y / rect.height) * (sw.y - nw.y)
-      );
-      return map.getProjection()!.fromPointToLatLng(worldPoint);
-    };
-
-    const handleTouchStart = (e: TouchEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const latLng = getLatLngFromTouch(e.touches[0]);
-      if (latLng) startDraw(latLng);
-    };
-    const handleTouchMove = (e: TouchEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const latLng = getLatLngFromTouch(e.touches[0]);
-      if (latLng) continueDraw(latLng);
-    };
-    const handleTouchEnd = (e: TouchEvent) => {
-      e.preventDefault();
-      endDraw();
-    };
-
-    if (container) {
-      container.addEventListener("touchstart", handleTouchStart, { passive: false });
-    }
-    window.addEventListener("touchmove", handleTouchMove, { passive: false });
-    window.addEventListener("touchend", handleTouchEnd, { passive: false });
-    window.addEventListener("touchcancel", handleTouchEnd, { passive: false });
-
-    const cleanup = () => {
-      google.maps.event.removeListener(mouseDownListener);
-      google.maps.event.removeListener(mouseMoveListener);
-      google.maps.event.removeListener(mouseUpListener);
-      window.removeEventListener("mouseup", handleWindowMouseUp);
-      if (container) {
-        container.removeEventListener("touchstart", handleTouchStart);
-      }
-      window.removeEventListener("touchmove", handleTouchMove);
-      window.removeEventListener("touchend", handleTouchEnd);
-      window.removeEventListener("touchcancel", handleTouchEnd);
-      drawingCleanupRef.current = null;
-    };
-    drawingCleanupRef.current = cleanup;
-  }, [google, lockDrawingInteraction, unlockDrawingInteraction, clearPersistedDrawing, persistPolygon]);
+  }, [google]);
 
   // === Circle drawing ===
   const startCircleDrawing = useCallback(() => {
@@ -787,47 +453,45 @@ export function FullscreenMapView({
     setDrawnArea(null);
     setCircleCenter(null);
     drawingPolygonRef.current?.setMap(null);
-    drawingPolygonRef.current = null;
     circleRef.current?.setMap(null);
-    circleRef.current = null;
-    selectionMaskRef.current?.setMap(null);
-    selectionMaskRef.current = null;
-    sessionStorage.removeItem("rido_polygon");
     const map = mapRef.current;
-
-    if (isMobile) return;
-
     const clickListener = map.addListener("click", (e: google.maps.MapMouseEvent) => {
       if (!e.latLng) return;
       google.maps.event.removeListener(clickListener);
       const center = { lat: e.latLng.lat(), lng: e.latLng.lng() };
-      createCircleSelection(center, circleRadius);
+      setCircleCenter(center);
+      const circle = new google.maps.Circle({
+        map, center, radius: circleRadius,
+        strokeColor: "#7c3aed", strokeWeight: 2, strokeOpacity: 0.8,
+        fillColor: "#7c3aed", fillOpacity: 0.1, editable: true,
+      });
+      circleRef.current = circle;
+      circle.addListener("radius_changed", () => {
+        setCircleRadius(Math.round(circle.getRadius()));
+      });
+      circle.addListener("center_changed", () => {
+        const c = circle.getCenter();
+        if (c) setCircleCenter({ lat: c.lat(), lng: c.lng() });
+      });
       setDrawingMode(false);
     });
-  }, [google, circleRadius, isMobile, createCircleSelection]);
+  }, [google, circleRadius]);
 
   const clearAllDrawing = useCallback(() => {
-    drawingCleanupRef.current?.();
-    drawingCleanupRef.current = null;
-    unlockDrawingInteraction();
     drawingPolygonRef.current?.setMap(null);
     drawingPolygonRef.current = null;
-    drawingPolylineRef.current?.setMap(null);
-    drawingPolylineRef.current = null;
     circleRef.current?.setMap(null);
     circleRef.current = null;
-    selectionMaskRef.current?.setMap(null);
-    selectionMaskRef.current = null;
-    isBrushDrawingRef.current = false;
     setDrawnArea(null);
     setCircleCenter(null);
     setDrawingMode(false);
-    clearPersistedDrawing();
-  }, [unlockDrawingInteraction, clearPersistedDrawing]);
+  }, []);
 
-  // === Fetch district boundary (additive - supports multi-select) ===
-  const addDistrictBoundary = useCallback(async (name: string, parent?: string) => {
+  // === Fetch district boundary ===
+  const fetchDistrictBoundary = useCallback(async (name: string, parent?: string) => {
     if (!google || !mapRef.current) return;
+    districtPolygonRef.current?.setMap(null);
+    districtPolygonRef.current = null;
     try {
       const q = parent ? `${name}, ${parent}, Poland` : `${name}, Poland`;
       const res = await fetch(
@@ -845,114 +509,46 @@ export function FullscreenMapView({
         coords = geojson.coordinates.flatMap((poly: number[][][]) => poly.map(extractCoords));
       }
       if (coords.length === 0) return;
-
-      // Add boundary for filtering
+      // Invert the polygon: fill everything OUTSIDE the district
+      const outerBounds = [
+        { lat: -85, lng: -180 },
+        { lat: -85, lng: 180 },
+        { lat: 85, lng: 180 },
+        { lat: 85, lng: -180 },
+      ];
+      // paths[0] = outer (world), paths[1..n] = holes (district boundary)
+      const invertedPaths = [outerBounds, ...coords];
+      const polygon = new google.maps.Polygon({
+        paths: invertedPaths, strokeColor: '#7c3aed', strokeWeight: 2, strokeOpacity: 0.8,
+        fillColor: '#7c3aed', fillOpacity: 0.15, map: mapRef.current, clickable: false,
+      });
+      districtPolygonRef.current = polygon;
+      // Store boundary for filtering listings
       const allPoints = coords.flat();
-      setDistrictBoundaries(prev => [...prev, allPoints]);
-      setSelectedDistricts(prev => [...prev, name]);
-
-      // Store coords for mask
-      districtCoordsRef.current = [...districtCoordsRef.current, coords];
-
-      // Remove old district highlight polygons
-      districtPolygonsRef.current.forEach(p => p.setMap(null));
-      districtPolygonsRef.current = [];
-
-      // Create highlight polygon for each district (with visible fill to show it's selected)
-      districtCoordsRef.current.forEach(coordRings => {
-        const highlight = new google.maps.Polygon({
-          paths: coordRings,
-          strokeColor: '#7c3aed',
-          strokeWeight: 2.5,
-          strokeOpacity: 1,
-          fillColor: '#7c3aed',
-          fillOpacity: 0.15,
-          map: mapRef.current,
-          clickable: false,
-          zIndex: 2,
-        });
-        districtPolygonsRef.current.push(highlight);
-      });
-
-      // Rebuild inverted mask for all districts
-      rebuildDistrictMask();
-
-      // Fit bounds to include all districts
+      setDistrictBoundary(allPoints);
       const bounds = new google.maps.LatLngBounds();
-      districtCoordsRef.current.forEach(rings => {
-        rings.forEach(ring => ring.forEach(p => bounds.extend(p)));
-      });
+      coords.forEach(ring => ring.forEach(p => bounds.extend(p)));
       mapRef.current.fitBounds(bounds, 40);
     } catch (err) {
       console.warn('[FullscreenMap] Failed to fetch district boundary:', err);
     }
-  }, [google, rebuildDistrictMask]);
-
-  const removeDistrictBoundary = useCallback((name: string) => {
-    const idx = selectedDistricts.indexOf(name);
-    if (idx === -1) return;
-
-    setSelectedDistricts(prev => prev.filter(d => d !== name));
-    setDistrictBoundaries(prev => prev.filter((_, i) => i !== idx));
-
-    // Remove coords
-    districtCoordsRef.current = districtCoordsRef.current.filter((_, i) => i !== idx);
-
-    // Rebuild polygons
-    districtPolygonsRef.current.forEach(p => p.setMap(null));
-    districtPolygonsRef.current = [];
-
-    if (google && mapRef.current) {
-      districtCoordsRef.current.forEach(coordRings => {
-        const highlight = new google.maps.Polygon({
-          paths: coordRings,
-          strokeColor: '#7c3aed',
-          strokeWeight: 2.5,
-          strokeOpacity: 1,
-          fillColor: '#7c3aed',
-          fillOpacity: 0.15,
-          map: mapRef.current,
-          clickable: false,
-          zIndex: 2,
-        });
-        districtPolygonsRef.current.push(highlight);
-      });
-    }
-
-    rebuildDistrictMask();
-  }, [selectedDistricts, google, rebuildDistrictMask]);
+  }, [google]);
 
   const handleSelectLocation = (loc: typeof LOCATION_DATA[0]) => {
+    setSearchQuery(loc.name);
     setShowSuggestions(false);
-    setSelectedLocationName(loc.name);
+    if (mapRef.current) {
+      mapRef.current.setCenter({ lat: loc.lat, lng: loc.lng });
+      mapRef.current.setZoom(loc.zoom);
+    }
     if (loc.type === 'dzielnica') {
-      // Toggle district selection
-      if (selectedDistricts.includes(loc.name)) {
-        removeDistrictBoundary(loc.name);
-      } else {
-        addDistrictBoundary(loc.name, loc.parent);
-      }
-      setSearchQuery("");
+      fetchDistrictBoundary(loc.name, loc.parent);
     } else {
-      setSearchQuery("");
-      if (mapRef.current) {
-        mapRef.current.setCenter({ lat: loc.lat, lng: loc.lng });
-        mapRef.current.setZoom(loc.zoom);
-      }
-      // Clear district selections for city search
-      clearLocationSelection();
-      setSelectedLocationName(loc.name);
+      districtPolygonRef.current?.setMap(null);
+      districtPolygonRef.current = null;
+      setDistrictBoundary(null);
     }
   };
-
-  useEffect(() => {
-    if (!mapRef.current) return;
-    circleRef.current?.setMap(mapRef.current);
-    drawingPolygonRef.current?.setMap(mapRef.current);
-    selectionMaskRef.current?.setMap(mapRef.current);
-    districtMaskRef.current?.setMap(mapRef.current);
-    districtPolygonsRef.current.forEach((polygon) => polygon.setMap(mapRef.current));
-  }, [open, google, drawnArea, circleCenter, districtBoundaries, circleRadius, bufferDistance, useBuffer]);
 
   if (!open) return null;
 
@@ -960,6 +556,7 @@ export function FullscreenMapView({
 
   return (
     <div className="flex flex-col bg-background" style={{ height: 'calc(100vh - 80px)', minHeight: '500px' }}>
+
 
       {/* === TOOLBAR === */}
       <div className="shrink-0 border-b bg-card/80 backdrop-blur-sm px-4 py-2">
@@ -973,66 +570,33 @@ export function FullscreenMapView({
               onChange={(e) => { setSearchQuery(e.target.value); setShowSuggestions(true); }}
               onFocus={() => setShowSuggestions(true)}
               onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-              className="h-10 rounded-full border-2 border-[hsl(258_66%_58%_/_0.4)] bg-background pl-10 text-sm shadow-sm transition-colors focus-visible:border-[hsl(258_66%_58%)] focus-visible:ring-0 focus-visible:ring-offset-0"
+              className="h-9 rounded-full border-border/80 bg-background pl-9 text-sm"
             />
             {showSuggestions && suggestions.length > 0 && (
               <div className="absolute top-full left-0 mt-1 w-full rounded-xl border bg-popover shadow-lg z-50 max-h-60 overflow-y-auto">
-                {suggestions.map((loc) => {
-                  const isSelected = loc.type === 'dzielnica' && selectedDistricts.includes(loc.name);
-                  return (
-                    <button
-                      key={`${loc.type}-${loc.name}`}
-                      onMouseDown={() => handleSelectLocation(loc)}
-                      className={cn(
-                        "flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-accent transition-colors",
-                        isSelected && "bg-primary/10"
-                      )}
-                    >
-                      {loc.type === 'dzielnica' ? (
-                        <Checkbox checked={isSelected} className="h-3.5 w-3.5 pointer-events-none" />
-                      ) : (
-                        <MapPin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                      )}
-                      <span className="font-medium">{loc.name}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {loc.type === 'dzielnica' ? `dzielnica, ${loc.parent}` : 'miasto'}
-                      </span>
-                    </button>
-                  );
-                })}
+                {suggestions.map((loc) => (
+                  <button
+                    key={`${loc.type}-${loc.name}`}
+                    onMouseDown={() => handleSelectLocation(loc)}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-accent transition-colors"
+                  >
+                    <MapPin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    <span className="font-medium">{loc.name}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {loc.type === 'dzielnica' ? `dzielnica, ${loc.parent}` : 'miasto'}
+                    </span>
+                  </button>
+                ))}
               </div>
             )}
           </div>
 
-          {selectedLocationName && (
-            <span className="inline-flex items-center gap-1 rounded-full border border-[hsl(258_66%_58%_/_0.3)] bg-[hsl(258_66%_58%_/_0.1)] px-3 py-1 text-xs font-medium text-[hsl(258_66%_58%)]">
-              <MapPin className="h-3 w-3" />
-              {selectedLocationName}
-              <button onClick={clearLocationSelection} className="ml-1 hover:opacity-70">
-                ×
-              </button>
-            </span>
-          )}
-
-          {/* Selected districts chips */}
-          {selectedDistricts.length > 0 && (
-            <div className="flex items-center gap-1 flex-wrap">
-              {selectedDistricts.map(name => (
-                <span key={name} className="inline-flex items-center gap-1 bg-primary/10 text-primary text-xs px-2 py-1 rounded-full">
-                  {name}
-                  <button onClick={() => removeDistrictBoundary(name)} className="hover:text-destructive">
-                    <X className="h-3 w-3" />
-                  </button>
-                </span>
-              ))}
-            </div>
-          )}
-
+          {/* Drawing tools */}
           <Button
             variant={drawingMode === "pen" ? "default" : "outline"}
             size="sm"
             className="rounded-full h-8 px-3 text-xs gap-1.5"
-              onClick={drawingMode === "pen" ? clearAllDrawing : startPolygonDrawing}
+            onClick={drawingMode === "pen" ? () => setDrawingMode(false) : startPolygonDrawing}
           >
             <PenTool className="h-3.5 w-3.5" />
             Zaznacz
@@ -1041,7 +605,7 @@ export function FullscreenMapView({
             variant={drawingMode === "circle" ? "default" : "outline"}
             size="sm"
             className="rounded-full h-8 px-3 text-xs gap-1.5"
-              onClick={drawingMode === "circle" ? clearAllDrawing : startCircleDrawing}
+            onClick={drawingMode === "circle" ? () => setDrawingMode(false) : startCircleDrawing}
           >
             <Circle className="h-3.5 w-3.5" />
             Okrąg
@@ -1068,19 +632,16 @@ export function FullscreenMapView({
               className="h-3.5 w-3.5"
             />
             <label htmlFor="buffer-check" className="text-xs text-muted-foreground cursor-pointer whitespace-nowrap">
-              +promień
+              +bufor
             </label>
             {useBuffer && (
-              <div className="flex items-center gap-1">
-                <Input
-                  type="number"
-                  value={bufferDistance}
-                  onChange={(e) => setBufferDistance(Number(e.target.value) || 0)}
-                  className="h-7 w-16 text-xs rounded-full px-2"
-                  placeholder="0"
-                />
-                <span className="text-xs text-muted-foreground">m</span>
-              </div>
+              <Input
+                type="number"
+                value={bufferDistance}
+                onChange={(e) => setBufferDistance(Number(e.target.value) || 0)}
+                className="h-7 w-16 text-xs rounded-full px-2"
+                placeholder="m"
+              />
             )}
           </div>
 
@@ -1097,7 +658,7 @@ export function FullscreenMapView({
           {drawingMode === "pen" ? (
             <><PenTool className="inline h-3.5 w-3.5 mr-1.5" />Rysuj obszar — kliknij i przeciągnij po mapie</>
           ) : (
-              <><Circle className="inline h-3.5 w-3.5 mr-1.5" />{isMobile ? "Ustaw środek okręgu na środku mapy i potwierdź" : "Kliknij na mapie, aby wstawić okrąg"}</>
+            <><Circle className="inline h-3.5 w-3.5 mr-1.5" />Kliknij na mapie, aby wstawić okrąg</>
           )}
         </div>
       )}
@@ -1133,30 +694,6 @@ export function FullscreenMapView({
             <div ref={mapContainerRef} className="absolute inset-0" />
           )}
 
-          {drawingMode === "circle" && isMobile && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
-              <div className="relative h-8 w-8">
-                <div className="absolute inset-x-0 top-1/2 h-0.5 -translate-y-1/2 bg-[hsl(258_66%_58%)]" />
-                <div className="absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-[hsl(258_66%_58%)]" />
-                <div className="absolute inset-0 m-auto h-4 w-4 rounded-full border-2 border-[hsl(258_66%_58%)]" />
-              </div>
-            </div>
-          )}
-
-          {drawingMode === "circle" && isMobile && (
-            <button
-              onClick={() => {
-                const center = mapRef.current?.getCenter();
-                if (!center) return;
-                createCircleSelection({ lat: center.lat(), lng: center.lng() }, circleRadius);
-                setDrawingMode(false);
-              }}
-              className="absolute bottom-20 left-1/2 z-20 -translate-x-1/2 rounded-full bg-[hsl(258_66%_58%)] px-6 py-2.5 text-sm font-medium text-white shadow-lg md:hidden"
-            >
-              ✓ Ustaw środek okręgu tutaj
-            </button>
-          )}
-
           {/* Circle info */}
           {circleCenter && (
             <div className="absolute top-3 left-3 bg-background/95 backdrop-blur-sm rounded-lg shadow-md border px-3 py-2 z-10">
@@ -1164,7 +701,7 @@ export function FullscreenMapView({
                 <Circle className="h-3.5 w-3.5 text-primary" />
                 <span className="font-medium">Okrąg: {(circleRadius / 1000).toFixed(1)} km</span>
                 {useBuffer && bufferDistance > 0 && (
-                  <span className="text-muted-foreground">+ {bufferDistance}m promień</span>
+                  <span className="text-muted-foreground">+ {bufferDistance}m bufor</span>
                 )}
               </div>
             </div>
@@ -1383,40 +920,4 @@ function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
   const dLng = (lng2 - lng1) * Math.PI / 180;
   const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-const WORLD_MASK_PATH = [
-  { lat: -85, lng: 180 },
-  { lat: 85, lng: 180 },
-  { lat: 85, lng: -180 },
-  { lat: -85, lng: -180 },
-];
-
-function createCirclePolygon(
-  center: { lat: number; lng: number },
-  radiusMeters: number,
-  segments = 72,
-): Array<{ lat: number; lng: number }> {
-  const earthRadius = 6371000;
-  const latRad = center.lat * Math.PI / 180;
-  const lngRad = center.lng * Math.PI / 180;
-  const angularDistance = radiusMeters / earthRadius;
-
-  return Array.from({ length: segments }, (_, index) => {
-    const bearing = (2 * Math.PI * index) / segments;
-    const pointLat = Math.asin(
-      Math.sin(latRad) * Math.cos(angularDistance) +
-      Math.cos(latRad) * Math.sin(angularDistance) * Math.cos(bearing)
-    );
-
-    const pointLng = lngRad + Math.atan2(
-      Math.sin(bearing) * Math.sin(angularDistance) * Math.cos(latRad),
-      Math.cos(angularDistance) - Math.sin(latRad) * Math.sin(pointLat)
-    );
-
-    return {
-      lat: pointLat * 180 / Math.PI,
-      lng: pointLng * 180 / Math.PI,
-    };
-  });
 }
