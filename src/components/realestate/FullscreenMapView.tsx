@@ -139,6 +139,7 @@ export function FullscreenMapView({
   const [circleRadius, setCircleRadius] = useState(1000);
   const [bufferDistance, setBufferDistance] = useState(0);
   const [useBuffer, setUseBuffer] = useState(false);
+  const [districtBoundary, setDistrictBoundary] = useState<Array<{ lat: number; lng: number }> | null>(null);
 
   // Filtered listings
   const filteredListings = useMemo(() => {
@@ -167,7 +168,10 @@ export function FullscreenMapView({
       if (mapTransactionType === "sprzedaz" && !(transType.includes("sprzedaż") || transType.includes("sprzedaz"))) return false;
       if (mapTransactionType === "wynajem" && !transType.includes("wynajem")) return false;
       if (mapTransactionType === "wynajem-krotkoterminowy" && !(transType.includes("krótkoterminowy") || transType.includes("krotkoterminowy"))) return false;
-      if (searchQuery) {
+      // District boundary filter (polygon-based, accurate)
+      if (districtBoundary && districtBoundary.length >= 3) {
+        if (!isPointInPolygon(l.lat, l.lng, districtBoundary)) return false;
+      } else if (searchQuery) {
         const q = searchQuery.toLowerCase();
         const inLocation = l.location?.toLowerCase().includes(q);
         const inDistrict = l.district?.toLowerCase().includes(q);
@@ -192,7 +196,7 @@ export function FullscreenMapView({
       }
       return true;
     });
-  }, [listings, mapPropertyType, mapTransactionType, searchQuery, drawnArea, circleCenter, circleRadius, bufferDistance, useBuffer]);
+  }, [listings, mapPropertyType, mapTransactionType, searchQuery, drawnArea, circleCenter, circleRadius, bufferDistance, useBuffer, districtBoundary]);
 
   // Location suggestions
   const suggestions = useMemo(() => {
@@ -277,14 +281,16 @@ export function FullscreenMapView({
   }, []);
 
   const showInfoWindow = useCallback(
-    (map: google.maps.Map, iw: google.maps.InfoWindow, listing: PropertyListingForMap) => {
-      iw.setContent(
-        `<div style="max-width:260px;font-family:system-ui,sans-serif;">${listing.photos?.[0] ? `<img src="${listing.photos[0]}" style="width:100%;height:100px;object-fit:cover;border-radius:6px 6px 0 0;" />` : ""}<div style="padding:10px;"><h3 style="margin:0 0 4px;font-size:13px;font-weight:600;line-height:1.3;">${listing.title}</h3><div style="font-size:15px;font-weight:700;color:#7c3aed;">${formatPriceFull(listing.price)}</div><div style="font-size:11px;color:#6b7280;margin-top:2px;">${listing.areaM2} m² ${listing.rooms ? `• ${listing.rooms} pok.` : ""} • ${listing.location}</div>${onViewListing ? `<button onclick="window.__ridoViewListing('${listing.id}')" style="margin-top:6px;padding:5px 14px;background:#7c3aed;color:white;border:none;border-radius:5px;font-size:11px;font-weight:600;cursor:pointer;">Szczegóły</button>` : ""}</div></div>`
-      );
-      iw.setPosition({ lat: listing.lat!, lng: listing.lng! });
-      iw.open(map);
+    (_map: google.maps.Map, _iw: google.maps.InfoWindow, listing: PropertyListingForMap) => {
+      // Only use React card overlay, no Google InfoWindow to avoid duplicates
+      setSelectedListing(listing);
+      setPreviewPhotoIndex(0);
+      setHoveredId(listing.id);
+      if (_map && listing.lat && listing.lng) {
+        _map.panTo({ lat: listing.lat, lng: listing.lng });
+      }
     },
-    [onViewListing]
+    []
   );
 
   // === Update markers ===
@@ -503,11 +509,23 @@ export function FullscreenMapView({
         coords = geojson.coordinates.flatMap((poly: number[][][]) => poly.map(extractCoords));
       }
       if (coords.length === 0) return;
+      // Invert the polygon: fill everything OUTSIDE the district
+      const outerBounds = [
+        { lat: -85, lng: -180 },
+        { lat: -85, lng: 180 },
+        { lat: 85, lng: 180 },
+        { lat: 85, lng: -180 },
+      ];
+      // paths[0] = outer (world), paths[1..n] = holes (district boundary)
+      const invertedPaths = [outerBounds, ...coords];
       const polygon = new google.maps.Polygon({
-        paths: coords, strokeColor: '#7c3aed', strokeWeight: 2, strokeOpacity: 0.8,
-        fillColor: '#7c3aed', fillOpacity: 0.08, map: mapRef.current, clickable: false,
+        paths: invertedPaths, strokeColor: '#7c3aed', strokeWeight: 2, strokeOpacity: 0.8,
+        fillColor: '#7c3aed', fillOpacity: 0.15, map: mapRef.current, clickable: false,
       });
       districtPolygonRef.current = polygon;
+      // Store boundary for filtering listings
+      const allPoints = coords.flat();
+      setDistrictBoundary(allPoints);
       const bounds = new google.maps.LatLngBounds();
       coords.forEach(ring => ring.forEach(p => bounds.extend(p)));
       mapRef.current.fitBounds(bounds, 40);
@@ -528,6 +546,8 @@ export function FullscreenMapView({
     } else {
       districtPolygonRef.current?.setMap(null);
       districtPolygonRef.current = null;
+      setDistrictBoundary(null);
+    }
     }
   };
 

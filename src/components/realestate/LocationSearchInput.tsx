@@ -492,9 +492,18 @@ export function LocationSearchInput({
           {!searchError && (() => {
             // Check if the current value matches a city with known districts
             const trimmedValue = value.trim().toLowerCase();
+            // Match city name: either exact match, value starts with city, or city starts with value (for partial typing)
             const matchedCity = Object.keys(CITY_DISTRICTS).find(
-              city => city.toLowerCase() === trimmedValue || 
-                      city.toLowerCase().startsWith(trimmedValue) && trimmedValue.length >= 3
+              city => {
+                const cityLower = city.toLowerCase();
+                // Exact match
+                if (cityLower === trimmedValue) return true;
+                // User typed partial city name (e.g. "war" → "warszawa")
+                if (cityLower.startsWith(trimmedValue) && trimmedValue.length >= 3) return true;
+                // Value starts with city name (e.g. "warszawa, białołęka" → "warszawa")
+                if (trimmedValue.startsWith(cityLower)) return true;
+                return false;
+              }
             );
             const districts = matchedCity ? CITY_DISTRICTS[matchedCity] : null;
             
