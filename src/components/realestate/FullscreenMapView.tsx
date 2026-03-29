@@ -320,6 +320,7 @@ export function FullscreenMapView({
         overlaysRef.current.push(
           new Overlay({ lat, lng }, createPriceMarker(listing), map, () => {
             setSelectedListing(listing);
+            setPreviewPhotoIndex(0);
             setHoveredId(listing.id);
             showInfoWindow(map, iw, listing);
           })
@@ -781,7 +782,7 @@ export function FullscreenMapView({
           </div>
 
           {/* Scrollable list */}
-          <div className="flex-1 overflow-y-auto min-h-0">
+          <div className="flex-1 overflow-hidden min-h-0">
             {paginatedSideListings.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <Home className="h-10 w-10 text-muted-foreground/30 mb-2" />
@@ -799,6 +800,7 @@ export function FullscreenMapView({
                     onMouseLeave={() => setHoveredId(null)}
                     onClick={() => {
                       setSelectedListing(listing);
+                      setPreviewPhotoIndex(0);
                       if (listing.lat && listing.lng && mapRef.current) {
                         mapRef.current.panTo({ lat: listing.lat, lng: listing.lng });
                         mapRef.current.setZoom(Math.max(mapRef.current.getZoom() || 10, 14));
