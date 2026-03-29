@@ -185,38 +185,38 @@ export function LocationMapModal({
     }
   }, [mode]);
 
-  // === LISTING MARKERS WITH CLUSTERING ===
-  const listingsWithCoords = listings.filter(l => l.lat && l.lng);
-
-  const filteredMapListings = listingsWithCoords.filter(listing => {
-    if (mapPropertyType && !listing.propertyType?.toLowerCase().includes(mapPropertyType)) return false;
-    const transType = listing.transactionType?.toLowerCase() || '';
-    const isSale = transType.includes('sprzedaż') || transType.includes('sprzedaz');
-    const isRent = transType.includes('wynajem') || transType.includes('krótkoterminowy');
-    if (isSale && !showSale) return false;
-    if (isRent && !showRent) return false;
-    return true;
-  });
+  // === LISTING MARKERS WITH SUPERCLUSTER ===
+  const filteredMapListings = useMemo(() => {
+    return listings.filter(l => {
+      if (!l.lat || !l.lng) return false;
+      if (mapPropertyType && !l.propertyType?.toLowerCase().includes(mapPropertyType)) return false;
+      const transType = l.transactionType?.toLowerCase() || '';
+      const isSale = transType.includes('sprzedaż') || transType.includes('sprzedaz');
+      const isRent = transType.includes('wynajem') || transType.includes('krótkoterminowy');
+      if (isSale && !showSale) return false;
+      if (isRent && !showRent) return false;
+      return true;
+    });
+  }, [listings, mapPropertyType, showSale, showRent]);
 
   const formatPriceFull = (price: number) => price.toLocaleString('pl-PL') + ' zł';
 
-  const clusterListings = useCallback((items: PropertyListingForMap[], zoom: number) => {
-    if (zoom >= 14) return items.map(l => ({ type: 'single' as const, listings: [l], lat: l.lat!, lng: l.lng! }));
-    const gridSize = zoom <= 8 ? 2 : zoom <= 10 ? 1 : zoom <= 12 ? 0.5 : 0.2;
-    const clusters: Map<string, { listings: PropertyListingForMap[]; latSum: number; lngSum: number }> = new Map();
-    items.forEach(l => {
-      if (!l.lat || !l.lng) return;
-      const key = `${Math.floor(l.lat / gridSize)}_${Math.floor(l.lng / gridSize)}`;
-      const existing = clusters.get(key);
-      if (existing) { existing.listings.push(l); existing.latSum += l.lat; existing.lngSum += l.lng; }
-      else clusters.set(key, { listings: [l], latSum: l.lat, lngSum: l.lng });
-    });
-    return Array.from(clusters.values()).map(c => {
-      const count = c.listings.length;
-      if (count === 1) return { type: 'single' as const, listings: c.listings, lat: c.listings[0].lat!, lng: c.listings[0].lng! };
-      return { type: 'cluster' as const, listings: c.listings, lat: c.latSum / count, lng: c.lngSum / count };
-    });
-  }, []);
+  // Build supercluster index when filtered listings change
+  useEffect(() => {
+    if (!filteredMapListings.length) {
+      clusterIndexRef.current = null;
+      return;
+    }
+    const index = new Supercluster({ radius: 60, maxZoom: 16, minZoom: 3 });
+    index.load(
+      filteredMapListings.map(l => ({
+        type: 'Feature' as const,
+        geometry: { type: 'Point' as const, coordinates: [l.lng!, l.lat!] },
+        properties: { listing: l }
+      }))
+    );
+    clusterIndexRef.current = index;
+  }, [filteredMapListings]);
 
   const createListingMarkerContent = useCallback((listing: PropertyListingForMap): HTMLDivElement => {
     const transType = listing.transactionType?.toLowerCase() || '';
@@ -263,33 +263,60 @@ export function LocationMapModal({
   const updateListingMarkers = useCallback(() => {
     if (!mapInstanceRef.current || !google) return;
     const map = mapInstanceRef.current;
-    const zoom = map.getZoom() || 10;
+    const index = clusterIndexRef.current;
+    
     listingOverlaysRef.current.forEach(o => o.setMap?.(null));
     listingOverlaysRef.current = [];
-    if (filteredMapListings.length === 0) return;
+    
+    if (!index) return;
+    
+    const bounds = map.getBounds();
+    if (!bounds) return;
+    
+    const zoom = map.getZoom() ?? 10;
+    const sw = bounds.getSouthWest();
+    const ne = bounds.getNorthEast();
+    
+    const clusters = index.getClusters(
+      [sw.lng(), sw.lat(), ne.lng(), ne.lat()],
+      Math.floor(zoom)
+    );
+    
     if (!infoWindowRef.current) infoWindowRef.current = new google.maps.InfoWindow();
     const iw = infoWindowRef.current;
     const OverlayClass = createListingOverlayClass();
     if (!OverlayClass) return;
-    const clusters = clusterListings(filteredMapListings, zoom);
+    
     clusters.forEach(cluster => {
-      if (cluster.type === 'single') {
-        const l = cluster.listings[0];
-        listingOverlaysRef.current.push(new OverlayClass({ lat: cluster.lat, lng: cluster.lng }, createListingMarkerContent(l), map, () => { setSelectedListing(l); showListingInfo(map, iw, l); }));
+      const [lng, lat] = cluster.geometry.coordinates;
+      if (cluster.properties.cluster) {
+        const count = cluster.properties.point_count;
+        listingOverlaysRef.current.push(new OverlayClass(
+          { lat, lng },
+          createClusterMarkerContent(count),
+          map,
+          () => {
+            const expansionZoom = index.getClusterExpansionZoom(cluster.id as number);
+            map.setZoom(Math.min(expansionZoom, 18));
+            map.setCenter({ lat, lng });
+          }
+        ));
       } else {
-        listingOverlaysRef.current.push(new OverlayClass({ lat: cluster.lat, lng: cluster.lng }, createClusterMarkerContent(cluster.listings.length), map, () => {
-          const bounds = new google.maps.LatLngBounds();
-          cluster.listings.forEach(l => { if (l.lat && l.lng) bounds.extend({ lat: l.lat, lng: l.lng }); });
-          map.fitBounds(bounds, 50);
-        }));
+        const listing = cluster.properties.listing;
+        listingOverlaysRef.current.push(new OverlayClass(
+          { lat, lng },
+          createListingMarkerContent(listing),
+          map,
+          () => { setSelectedListing(listing); showListingInfo(map, iw, listing); }
+        ));
       }
     });
-  }, [google, filteredMapListings, createListingMarkerContent, createClusterMarkerContent, showListingInfo, createListingOverlayClass, clusterListings]);
+  }, [google, createListingMarkerContent, createClusterMarkerContent, showListingInfo, createListingOverlayClass]);
 
-  // Re-render listing markers on filter change
+  // Re-render listing markers when map moves, zooms, or filters change
   useEffect(() => {
-    if (mapInstanceRef.current && google && listings.length > 0) updateListingMarkers();
-  }, [mapPropertyType, showSale, showRent, updateListingMarkers, google, listings.length]);
+    if (mapInstanceRef.current && google) updateListingMarkers();
+  }, [updateListingMarkers, google, filteredMapListings]);
 
   // Auto-start brush drawing when switching to polygon mode
   useEffect(() => {
