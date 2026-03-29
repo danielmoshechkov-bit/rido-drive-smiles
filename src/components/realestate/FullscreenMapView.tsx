@@ -567,8 +567,8 @@ export function FullscreenMapView({
         </div>
       </header>
 
-      {/* Filter Bar */}
-      <div className="shrink-0 border-b bg-background px-3 py-2 flex items-center gap-2 flex-wrap">
+      {/* Filter Bar - property types + transaction types in one compact bar */}
+      <div className="shrink-0 border-b bg-background px-3 py-1.5 flex items-center gap-2 flex-wrap">
         {/* Property type pills */}
         <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
           {PROPERTY_TYPE_PILLS.map((t) => (
@@ -587,7 +587,25 @@ export function FullscreenMapView({
           ))}
         </div>
 
-        <div className="h-6 w-px bg-border hidden sm:block" />
+        <div className="h-5 w-px bg-border hidden sm:block" />
+
+        {/* Transaction type checkboxes */}
+        <label className="flex items-center gap-1.5 cursor-pointer">
+          <Checkbox checked={showSale} onCheckedChange={(c) => setShowSale(!!c)} />
+          <div className="flex items-center gap-1">
+            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+            <span className="text-xs">Sprzedaż</span>
+          </div>
+        </label>
+        <label className="flex items-center gap-1.5 cursor-pointer">
+          <Checkbox checked={showRent} onCheckedChange={(c) => setShowRent(!!c)} />
+          <div className="flex items-center gap-1">
+            <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+            <span className="text-xs">Wynajem</span>
+          </div>
+        </label>
+
+        <div className="h-5 w-px bg-border hidden sm:block" />
 
         {/* Search with autocomplete */}
         <div className="relative">
@@ -601,7 +619,7 @@ export function FullscreenMapView({
             }}
             onFocus={() => setShowSuggestions(true)}
             onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-            className="h-8 w-36 sm:w-44 pl-7 text-xs"
+            className="h-7 w-36 sm:w-44 pl-7 text-xs"
           />
           {showSuggestions && suggestions.length > 0 && (
             <div className="absolute top-full left-0 mt-1 w-64 bg-popover border rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto">
@@ -624,29 +642,11 @@ export function FullscreenMapView({
           )}
         </div>
 
-        <div className="h-6 w-px bg-border hidden sm:block" />
-
-        {/* Transaction type checkboxes */}
-        <label className="flex items-center gap-1.5 cursor-pointer">
-          <Checkbox checked={showSale} onCheckedChange={(c) => setShowSale(!!c)} />
-          <div className="flex items-center gap-1">
-            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-            <span className="text-xs">Sprzedaż</span>
-          </div>
-        </label>
-        <label className="flex items-center gap-1.5 cursor-pointer">
-          <Checkbox checked={showRent} onCheckedChange={(c) => setShowRent(!!c)} />
-          <div className="flex items-center gap-1">
-            <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-            <span className="text-xs">Wynajem</span>
-          </div>
-        </label>
-
-        <div className="h-6 w-px bg-border hidden sm:block" />
+        <div className="h-5 w-px bg-border hidden sm:block" />
 
         {/* Drawing toggle */}
         {drawnArea ? (
-          <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={clearDrawing}>
+          <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs" onClick={clearDrawing}>
             <X className="h-3.5 w-3.5" />
             Usuń zaznaczenie
           </Button>
@@ -654,7 +654,7 @@ export function FullscreenMapView({
           <Button
             variant={drawingMode ? "default" : "outline"}
             size="sm"
-            className="h-8 gap-1.5 text-xs"
+            className="h-7 gap-1.5 text-xs"
             onClick={drawingMode ? () => setDrawingMode(false) : startDrawing}
           >
             <PenTool className="h-3.5 w-3.5" />
@@ -672,7 +672,7 @@ export function FullscreenMapView({
           <Button
             variant={mobileTab === "map" ? "default" : "ghost"}
             size="sm"
-            className="h-7 px-2 text-xs"
+            className="h-6 px-2 text-xs"
             onClick={() => setMobileTab("map")}
           >
             <MapIcon className="h-3.5 w-3.5 mr-1" />
@@ -681,14 +681,13 @@ export function FullscreenMapView({
           <Button
             variant={mobileTab === "list" ? "default" : "ghost"}
             size="sm"
-            className="h-7 px-2 text-xs"
+            className="h-6 px-2 text-xs"
             onClick={() => setMobileTab("list")}
           >
             <List className="h-3.5 w-3.5 mr-1" />
             Lista
           </Button>
         </div>
-
       </div>
 
       {/* Drawing mode banner */}
@@ -879,7 +878,7 @@ function SideListingCard({
     <div
       ref={cardRef}
       className={cn(
-        "flex gap-3 p-3 cursor-pointer hover:bg-accent/50 transition-all",
+        "flex gap-2 p-2 cursor-pointer hover:bg-accent/50 transition-all",
         isSelected && "bg-accent",
         isHovered && "bg-primary/10 border-l-2 border-l-primary"
       )}
@@ -888,47 +887,32 @@ function SideListingCard({
       onMouseLeave={onMouseLeave}
     >
       {/* Thumbnail */}
-      <div className="w-20 h-16 rounded-lg overflow-hidden bg-muted shrink-0">
+      <div className="w-16 h-12 rounded overflow-hidden bg-muted shrink-0">
         {listing.photos?.[0] ? (
           <img src={listing.photos[0]} alt="" className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
-            <Home className="h-5 w-5 text-muted-foreground/40" />
+            <Home className="h-4 w-4 text-muted-foreground/40" />
           </div>
         )}
       </div>
 
-      {/* Info */}
+      {/* Info - compact */}
       <div className="flex-1 min-w-0">
-        <h4 className="text-sm font-medium line-clamp-1">{listing.title}</h4>
-        <div className="flex items-center gap-1.5 mt-0.5">
-          <div className={cn("w-2 h-2 rounded-full", isRent ? "bg-blue-500" : "bg-emerald-500")} />
-          <span className="text-xs text-muted-foreground truncate">{listing.location}</span>
+        <h4 className="text-xs font-medium line-clamp-1">{listing.title}</h4>
+        <div className="flex items-center gap-1 mt-0.5">
+          <div className={cn("w-1.5 h-1.5 rounded-full", isRent ? "bg-blue-500" : "bg-emerald-500")} />
+          <span className="text-[11px] text-muted-foreground truncate">{listing.location}</span>
         </div>
-        <div className="flex items-center justify-between mt-1">
-          <span className="font-bold text-sm text-primary">
+        <div className="flex items-center justify-between mt-0.5">
+          <span className="font-bold text-xs text-primary">
             {listing.price.toLocaleString("pl-PL")} zł
           </span>
-          <span className="text-xs text-muted-foreground">
-            {listing.areaM2}m² {listing.rooms ? `• ${listing.rooms}p` : ""}
+          <span className="text-[11px] text-muted-foreground">
+            {listing.areaM2}m²
           </span>
         </div>
       </div>
-
-      {/* View button */}
-      {onView && (
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 shrink-0 self-center"
-          onClick={(e) => {
-            e.stopPropagation();
-            onView();
-          }}
-        >
-          <Eye className="h-4 w-4" />
-        </Button>
-      )}
     </div>
   );
 }

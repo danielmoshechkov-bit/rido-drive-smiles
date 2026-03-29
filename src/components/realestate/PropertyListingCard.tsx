@@ -696,37 +696,35 @@ export function PropertyListingCard({
           {/* Spacer to push price to bottom */}
           <div className="flex-grow min-h-2" />
 
-          {/* Price & Action - Always at the bottom */}
-          <div className={cn(
-            "flex items-center justify-between mt-auto pt-2",
-            compact && "flex-col items-start gap-2"
-          )}>
-            <div>
-              <span className={cn(
-                "font-bold text-primary",
-                compact ? "text-base" : "text-2xl"
-              )}>
-                {formatCurrency(listing.price)}
-              </span>
-              {!compact && (
-                <span className="text-sm text-muted-foreground ml-1">
-                  {PRICE_TYPE_LABELS[listing.priceType || 'sale'] || ''}
+          {/* Price row - full width */}
+          <div className={cn("mt-auto pt-2", compact && "pt-1")}>
+            <div className="flex items-baseline justify-between">
+              <div>
+                <span className={cn(
+                  "font-bold text-primary",
+                  compact ? "text-base" : "text-xl"
+                )}>
+                  {formatCurrency(listing.price)}
                 </span>
-              )}
-              {pricePerM2 && !compact && (
-                <div className="text-xs text-muted-foreground">
-                  {formatCurrency(pricePerM2).replace(' zł', '')} zł/m²
-                </div>
-              )}
+                {!compact && (
+                  <span className="text-sm text-muted-foreground ml-1">
+                    {PRICE_TYPE_LABELS[listing.priceType || 'sale'] || ''}
+                  </span>
+                )}
+              </div>
+              <Button 
+                size="sm"
+                onClick={onView}
+                className={cn(compact && "h-7 text-xs")}
+              >
+                {compact ? "Zobacz" : "Szczegóły"}
+              </Button>
             </div>
-            
-            <Button 
-              size="sm"
-              onClick={onView}
-              className={cn(compact && "w-full h-7 text-xs")}
-            >
-              {compact ? "Zobacz" : "Szczegóły"}
-            </Button>
+            {pricePerM2 && !compact && (
+              <div className="text-xs text-muted-foreground mt-0.5">
+                {formatCurrency(pricePerM2).replace('\u00A0zł', '')} zł/m²
+              </div>
+            )}
           </div>
 
           {/* Expandable Contact Section - hidden in compact mode */}

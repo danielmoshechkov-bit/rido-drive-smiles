@@ -801,16 +801,14 @@ export default function RealEstateMarketplace() {
             onTypeChange={setSelectedPropertyType}
             className="justify-center"
           />
-        </div>
-      </section>
 
-      {/* Transaction Type Chips */}
-      <section className="container mx-auto px-4 py-2">
-        <TransactionTypeChips
-          selectedType={selectedTransactionType}
-          onTypeChange={setSelectedTransactionType}
-          className="justify-center"
-        />
+          {/* Transaction Type Chips - directly under property types, no gap */}
+          <TransactionTypeChips
+            selectedType={selectedTransactionType}
+            onTypeChange={setSelectedTransactionType}
+            className="justify-center mt-1"
+          />
+        </div>
       </section>
 
       {/* Search Filters */}
@@ -1036,6 +1034,34 @@ export default function RealEstateMarketplace() {
       {loading && (
         <section className="container mx-auto px-4 py-12 text-center">
           <div className="animate-pulse text-muted-foreground">Ładowanie ogłoszeń...</div>
+        </section>
+      )}
+
+      {/* Wyróżnione inwestycje - 3 random listings */}
+      {!loading && listings.length > 0 && (
+        <section className="container mx-auto px-4 py-8">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex items-center gap-3 mb-4">
+              <Sparkles className="h-5 w-5 text-primary" />
+              <h2 className="text-xl font-bold">Wyróżnione inwestycje</h2>
+              <Badge variant="secondary" className="text-xs">Promowane</Badge>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {(() => {
+                // Pick 3 random listings (shuffle and take first 3)
+                const shuffled = [...listings].sort(() => Math.random() - 0.5);
+                return shuffled.slice(0, 3).map((listing) => (
+                  <PropertyListingCard
+                    key={`featured-${listing.id}`}
+                    listing={listing}
+                    onView={() => navigate(`/nieruchomosci/ogloszenie/${listing.id}`)}
+                    onFavorite={() => console.log("Favorite:", listing.id)}
+                    isLoggedIn={!!user}
+                  />
+                ));
+              })()}
+            </div>
+          </div>
         </section>
       )}
 
