@@ -409,10 +409,9 @@ export function LocationMapModal({
           }
         }, 100);
 
-        // Re-cluster on zoom change
-        map.addListener('zoom_changed', () => {
-          updateListingMarkers();
-        });
+        // Re-cluster on zoom/bounds change
+        map.addListener('zoom_changed', () => { updateListingMarkers(); });
+        map.addListener('idle', () => { updateListingMarkers(); });
       };
 
       // If initialCenter is provided, use it directly
