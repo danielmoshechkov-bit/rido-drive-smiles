@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Search, ChevronDown, SlidersHorizontal, X, Map } from "lucide-react";
+import { Search, ChevronDown, SlidersHorizontal, X, Map, PenTool } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LocationSearchInput, LocationSelection, AreaSelection } from "./LocationSearchInput";
 import { LocationMapModal } from "./LocationMapModal";
@@ -447,8 +447,15 @@ export function RealEstateSearch({ onSearch, onShowMapResults, onDrawSearch, onV
               className="gap-1.5"
               onClick={onDrawSearch}
             >
-              <Map className="h-4 w-4" />
+              <PenTool className="h-4 w-4" />
               <span className="hidden sm:inline">Zaznacz na mapie</span>
+            </Button>
+          )}
+
+          {activeFiltersCount > 0 && (
+            <Button variant="ghost" size="sm" className="gap-1 text-amber-600 hover:text-amber-700 hover:bg-amber-50" onClick={clearFilters}>
+              <X className="h-3.5 w-3.5" />
+              Wyczyść filtry ({activeFiltersCount})
             </Button>
           )}
         </div>
@@ -526,15 +533,6 @@ export function RealEstateSearch({ onSearch, onShowMapResults, onDrawSearch, onV
           </Button>
         </div>
 
-        {/* Desktop Clear Button */}
-        {activeFiltersCount > 0 && (
-          <div className="hidden lg:flex justify-end mt-2">
-            <Button variant="ghost" size="sm" onClick={clearFilters}>
-              <X className="h-3 w-3 mr-1" />
-              Wyczyść filtry ({activeFiltersCount})
-            </Button>
-          </div>
-        )}
       </div>
 
       {/* Map Modal */}

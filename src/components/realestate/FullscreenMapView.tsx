@@ -220,7 +220,7 @@ export function FullscreenMapView({
   useEffect(() => {
     const withCoords = listings.filter((l) => l.lat && l.lng);
     if (!withCoords.length) { clusterIndexRef.current = null; return; }
-    const index = new Supercluster({ radius: 60, maxZoom: 16, minZoom: 3 });
+    const index = new Supercluster({ radius: 50, maxZoom: 18, minZoom: 3 });
     index.load(
       withCoords.map((l) => ({
         type: "Feature" as const,
@@ -536,7 +536,7 @@ export function FullscreenMapView({
   const hasActiveDrawing = !!(drawnArea || circleCenter);
 
   return (
-    <div className="flex flex-col bg-background" style={{ height: 'calc(100vh - 140px)', minHeight: '500px' }}>
+    <div className="flex flex-col bg-background" style={{ height: 'calc(100vh - 80px)', minHeight: '500px' }}>
 
 
       {/* === TOOLBAR === */}

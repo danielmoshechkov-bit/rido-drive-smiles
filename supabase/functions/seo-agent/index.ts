@@ -35,7 +35,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+    const ANTHROPIC_API_KEY = (Deno.env.get("ANTHROPIC_API_KEY") || "").replace(/[^\x20-\x7E]/g, "").trim();
     if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY not configured");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -46,11 +46,11 @@ serve(async (req) => {
 
     // STEP 0: Category classification — fix property_type for commercial listings
     const { data: toClassify } = await supabase
-      .from("agent_listings")
+      .from("real_estate_listings")
       .select("id, title, description, property_type")
       .eq("status", "active")
-      .in("property_type", ["lokal", "komercja", "magazyn", "hala", "biuro", ""])
-      .limit(30);
+      .in("property_type", ["lokal", "komercja", "magazyn", "hala", "biuro", "lokal użytkowy", ""])
+      .limit(50);
 
     for (const listing of toClassify || []) {
       try {
@@ -75,7 +75,7 @@ Odpowiedz TYLKO JSON:
         const result = JSON.parse(jsonMatch[0]);
         if (result.confidence >= 0.7 && result.property_type !== listing.property_type) {
           await supabase
-            .from("agent_listings")
+            .from("real_estate_listings")
             .update({ property_type: result.property_type })
             .eq("id", listing.id);
           results.categories_fixed++;
@@ -88,8 +88,8 @@ Odpowiedz TYLKO JSON:
 
     // STEP 1: Audit titles
     const { data: titlesToAudit } = await supabase
-      .from("agent_listings")
-      .select("id, title, property_type, area_total, rooms_count, price, status")
+      .from("real_estate_listings")
+      .select("id, title, property_type, area, rooms, price, status")
       .is("ai_title_audit", null)
       .eq("status", "active")
       .limit(20);
@@ -98,7 +98,7 @@ Odpowiedz TYLKO JSON:
       try {
         const prompt = `Oceń tytuł ogłoszenia nieruchomości pod kątem SEO i zaproponuj lepszy.
 Tytuł: "${listing.title}"
-Parametry: ${listing.property_type || "mieszkanie"}, ${listing.area_total || "?"}m², ${listing.rooms_count || "?"} pokoi, ${listing.price || "?"}zł
+Parametry: ${listing.property_type || "mieszkanie"}, ${listing.area || "?"}m², ${listing.rooms || "?"} pokoi, ${listing.price || "?"}zł
 Odpowiedz TYLKO JSON (bez markdown):
 {
   "score": <1-10>,
@@ -123,7 +123,7 @@ Odpowiedz TYLKO JSON (bez markdown):
         });
 
         await supabase
-          .from("agent_listings")
+          .from("real_estate_listings")
           .update({ ai_title_audit: audit })
           .eq("id", listing.id);
 
@@ -136,8 +136,8 @@ Odpowiedz TYLKO JSON (bez markdown):
 
     // STEP 2: Generate descriptions for listings without or with short descriptions
     const { data: needDesc } = await supabase
-      .from("agent_listings")
-      .select("id, title, property_type, area_total, rooms_count, floor, price, description, status")
+      .from("real_estate_listings")
+      .select("id, title, property_type, area, rooms, floor, price, description, status")
       .eq("status", "active")
       .is("ai_seo_description", null)
       .limit(15);
@@ -152,7 +152,7 @@ Odpowiedz TYLKO JSON (bez markdown):
 Wymagania:
 - Naturalny język, nie keyword-stuffing
 - Zacznij od najważniejszego (typ + metraż)
-- Zawrzyj: ${listing.property_type || "mieszkanie"}, ${listing.area_total || "?"}m², ${listing.rooms_count || "?"} pokoi
+- Zawrzyj: ${listing.property_type || "mieszkanie"}, ${listing.area || "?"}m², ${listing.rooms || "?"} pokoi
 - Wymień atuty (przestronność, układ, standard)
 - Zakończ call-to-action
 Tytuł: ${listing.title}
