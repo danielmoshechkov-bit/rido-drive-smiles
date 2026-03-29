@@ -14,17 +14,39 @@ export function VehiclePhotoGallery({ photos, title }: VehiclePhotoGalleryProps)
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
 
-  // Touch swipe refs
+  // Touch swipe refs with smooth drag
   const touchStartX = useRef<number>(0);
-  const touchEndX = useRef<number>(0);
+  const touchCurrentX = useRef<number>(0);
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const [isSwiping, setIsSwiping] = useState(false);
   const lbTouchStartX = useRef<number>(0);
   const lbTouchEndX = useRef<number>(0);
 
-  const handleTouchStart = (e: React.TouchEvent) => { touchStartX.current = e.touches[0].clientX; };
-  const handleTouchMove = (e: React.TouchEvent) => { touchEndX.current = e.touches[0].clientX; };
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchCurrentX.current = e.touches[0].clientX;
+    setIsSwiping(true);
+  };
+  const handleTouchMove = (e: React.TouchEvent) => {
+    touchCurrentX.current = e.touches[0].clientX;
+    const diff = touchCurrentX.current - touchStartX.current;
+    if ((currentIndex === 0 && diff > 0) || (currentIndex === displayPhotos.length - 1 && diff < 0)) {
+      setSwipeOffset(diff * 0.3);
+    } else {
+      setSwipeOffset(diff);
+    }
+  };
   const handleTouchEnd = () => {
-    const diff = touchStartX.current - touchEndX.current;
-    if (Math.abs(diff) > 50) { diff > 0 ? nextPhoto() : prevPhoto(); }
+    setIsSwiping(false);
+    const diff = touchStartX.current - touchCurrentX.current;
+    if (Math.abs(diff) > 50) {
+      if (diff > 0 && currentIndex < displayPhotos.length - 1) {
+        setCurrentIndex(prev => prev + 1);
+      } else if (diff < 0 && currentIndex > 0) {
+        setCurrentIndex(prev => prev - 1);
+      }
+    }
+    setSwipeOffset(0);
   };
   const handleLbTouchStart = (e: React.TouchEvent) => { lbTouchStartX.current = e.touches[0].clientX; };
   const handleLbTouchMove = (e: React.TouchEvent) => { lbTouchEndX.current = e.touches[0].clientX; };
@@ -136,24 +158,33 @@ export function VehiclePhotoGallery({ photos, title }: VehiclePhotoGalleryProps)
         }
       </div>
 
-      {/* Mobile Carousel */}
+      {/* Mobile Carousel - smooth drag */}
       <div 
-        className="md:hidden relative touch-pan-y"
+        className="md:hidden relative overflow-hidden rounded-xl"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
         <div 
-          className="aspect-[4/3] overflow-hidden rounded-xl"
-          onClick={() => openLightbox(currentIndex)}
+          className="aspect-[4/3] flex"
+          style={{
+            transform: `translateX(calc(-${currentIndex * 100}% + ${swipeOffset}px))`,
+            transition: isSwiping ? 'none' : 'transform 0.3s ease-out',
+            width: `${displayPhotos.length * 100}%`,
+          }}
         >
-          <img 
-            src={getPhotoSrc(currentIndex)} 
-            alt={title}
-            className="w-full h-full object-cover object-center"
-            onError={() => handleImageError(currentIndex)}
-            draggable={false}
-          />
+          {displayPhotos.map((_, idx) => (
+            <img 
+              key={idx}
+              src={getPhotoSrc(idx)} 
+              alt={`${title} ${idx + 1}`}
+              className="h-full object-cover object-center flex-shrink-0"
+              style={{ width: `${100 / displayPhotos.length}%` }}
+              onError={() => handleImageError(idx)}
+              onClick={() => openLightbox(idx)}
+              draggable={false}
+            />
+          ))}
         </div>
 
         {/* Navigation Arrows */}

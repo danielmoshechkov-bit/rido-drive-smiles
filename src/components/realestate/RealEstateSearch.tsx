@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Search, ChevronDown, SlidersHorizontal, X, Map, PenTool } from "lucide-react";
+import { Search, ChevronDown, SlidersHorizontal, X, Map, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LocationSearchInput, LocationSelection, AreaSelection } from "./LocationSearchInput";
 import { LocationMapModal } from "./LocationMapModal";
@@ -444,11 +444,11 @@ export function RealEstateSearch({ onSearch, onShowMapResults, onDrawSearch, onV
             <Button
               variant="outline"
               size="sm"
-              className="gap-1.5"
+              className="gap-1.5 h-9"
               onClick={onDrawSearch}
             >
-              <PenTool className="h-4 w-4" />
-              <span className="hidden sm:inline">Zaznacz na mapie</span>
+              <MapPin className="h-4 w-4" />
+              Zaznacz na mapie
             </Button>
           )}
 
