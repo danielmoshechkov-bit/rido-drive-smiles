@@ -870,7 +870,7 @@ export default function RealEstateMarketplace() {
               lat: l.lat ?? undefined,
               lng: l.lng ?? undefined,
             }))}
-            onViewListing={(id) => navigate(`/nieruchomosci/ogloszenie/${id}`)}
+            onViewListing={(id) => navigate(`/nieruchomosci/ogloszenie/${id}?fromMap=true`)}
             user={user}
             onNavigate={(path) => navigate(path)}
           />
