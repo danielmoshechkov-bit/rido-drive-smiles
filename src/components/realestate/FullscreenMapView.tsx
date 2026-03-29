@@ -82,6 +82,8 @@ export function FullscreenMapView({
   onClose,
   listings,
   onViewListing,
+  user,
+  onNavigate,
 }: FullscreenMapViewProps) {
   const { isLoaded, google } = useGoogleMaps();
   const mapContainerRef = useRef<HTMLDivElement>(null);
