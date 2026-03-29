@@ -773,26 +773,22 @@ export default function RealEstateMarketplace() {
           </div>
 
           {/* Title */}
-          <div className="text-center mb-6">
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">
+          <div className="text-center mb-2">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-1">
               Znajdź wymarzoną <span className="text-primary">nieruchomość</span>
             </h1>
             <p className="text-muted-foreground">
               Mieszkania, domy, działki i lokale od zweryfikowanych agencji
             </p>
           </div>
+
+          {/* Property Type Selector - inside hero for tighter spacing */}
+          <PropertyTypeSelector
+            selectedType={selectedPropertyType}
+            onTypeChange={setSelectedPropertyType}
+            className="justify-center"
+          />
         </div>
-      </section>
-
-      {/* Property Type Selector - directly visible without category tiles */}
-
-      {/* Property Type Selector */}
-      <section className="container mx-auto px-4 py-4">
-        <PropertyTypeSelector
-          selectedType={selectedPropertyType}
-          onTypeChange={setSelectedPropertyType}
-          className="justify-center"
-        />
       </section>
 
       {/* Transaction Type Chips */}
