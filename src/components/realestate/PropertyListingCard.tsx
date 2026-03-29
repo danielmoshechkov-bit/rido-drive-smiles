@@ -514,6 +514,10 @@ export function PropertyListingCard({
             compact ? "aspect-[3/2]" : "aspect-[4/3]"
           )}
           onClick={handlePhotoClick}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          style={{ touchAction: 'pan-y' }}
         >
           <img
             src={getPhotoSrc(currentPhoto)}
