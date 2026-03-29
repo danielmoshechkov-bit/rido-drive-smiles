@@ -96,27 +96,6 @@ const PROPERTY_TYPE_PILLS = [
   { key: "magazyn", label: "Magazyny" },
 ];
 
-// District center coords (approximate) for Warsaw
-const DISTRICT_COORDS: Record<string, { lat: number; lng: number }> = {
-  "Bemowo": { lat: 52.2545, lng: 20.9132 },
-  "Białołęka": { lat: 52.3200, lng: 20.9700 },
-  "Bielany": { lat: 52.2900, lng: 20.9350 },
-  "Mokotów": { lat: 52.1950, lng: 21.0100 },
-  "Ochota": { lat: 52.2150, lng: 20.9850 },
-  "Praga-Południe": { lat: 52.2350, lng: 21.0700 },
-  "Praga-Północ": { lat: 52.2550, lng: 21.0400 },
-  "Rembertów": { lat: 52.2600, lng: 21.1500 },
-  "Śródmieście": { lat: 52.2300, lng: 21.0100 },
-  "Targówek": { lat: 52.2900, lng: 21.0600 },
-  "Ursus": { lat: 52.1950, lng: 20.8800 },
-  "Ursynów": { lat: 52.1450, lng: 21.0300 },
-  "Wawer": { lat: 52.1950, lng: 21.1500 },
-  "Wesoła": { lat: 52.2400, lng: 21.2200 },
-  "Wilanów": { lat: 52.1550, lng: 21.0800 },
-  "Włochy": { lat: 52.2050, lng: 20.9200 },
-  "Wola": { lat: 52.2350, lng: 20.9700 },
-  "Żoliborz": { lat: 52.2700, lng: 20.9850 },
-};
 
 export function FullscreenMapView({
   open,
