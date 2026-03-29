@@ -667,6 +667,19 @@ export function FullscreenMapView({
   return (
     <div className="flex flex-col bg-background" style={{ height: 'calc(100vh - 80px)', minHeight: '500px' }}>
 
+          {/* Selected districts chips */}
+          {selectedDistricts.length > 0 && (
+            <div className="flex items-center gap-1 flex-wrap">
+              {selectedDistricts.map(name => (
+                <span key={name} className="inline-flex items-center gap-1 bg-primary/10 text-primary text-xs px-2 py-1 rounded-full">
+                  {name}
+                  <button onClick={() => removeDistrictBoundary(name)} className="hover:text-destructive">
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
 
       {/* === TOOLBAR === */}
       <div className="shrink-0 border-b bg-card/80 backdrop-blur-sm px-4 py-2">
