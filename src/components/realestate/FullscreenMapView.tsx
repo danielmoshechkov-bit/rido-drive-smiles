@@ -119,7 +119,7 @@ export function FullscreenMapView({
   // Drawing refs
   const drawingPolygonRef = useRef<google.maps.Polygon | null>(null);
   const drawingPolylineRef = useRef<google.maps.Polyline | null>(null);
-  const districtPolygonRef = useRef<google.maps.Polygon | null>(null);
+  const districtPolygonsRef = useRef<google.maps.Polygon[]>([]);
   const circleRef = useRef<google.maps.Circle | null>(null);
   const isBrushDrawingRef = useRef(false);
 
@@ -139,7 +139,8 @@ export function FullscreenMapView({
   const [circleRadius, setCircleRadius] = useState(1000);
   const [bufferDistance, setBufferDistance] = useState(0);
   const [useBuffer, setUseBuffer] = useState(false);
-  const [districtBoundary, setDistrictBoundary] = useState<Array<{ lat: number; lng: number }> | null>(null);
+  const [districtBoundaries, setDistrictBoundaries] = useState<Array<Array<{ lat: number; lng: number }>>>([]);
+  const [selectedDistricts, setSelectedDistricts] = useState<string[]>([]);
 
   // Filtered listings
   const filteredListings = useMemo(() => {
