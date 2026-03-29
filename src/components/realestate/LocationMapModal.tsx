@@ -137,6 +137,7 @@ export function LocationMapModal({
   const markerRef = useRef<google.maps.Marker | null>(null);
   const listingOverlaysRef = useRef<any[]>([]);
   const infoWindowRef = useRef<google.maps.InfoWindow | null>(null);
+  const clusterIndexRef = useRef<Supercluster | null>(null);
   const [selectedListing, setSelectedListing] = useState<PropertyListingForMap | null>(null);
   
   // Custom polygon drawing refs (no DrawingManager)
