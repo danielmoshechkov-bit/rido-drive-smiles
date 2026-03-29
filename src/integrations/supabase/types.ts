@@ -781,6 +781,8 @@ export type Database = {
           address: Json | null
           agent_id: string
           ai_description_generated: boolean | null
+          ai_seo_description: string | null
+          ai_title_audit: Json | null
           ai_valuation: Json | null
           area_plot: number | null
           area_total: number | null
@@ -821,6 +823,8 @@ export type Database = {
           address?: Json | null
           agent_id: string
           ai_description_generated?: boolean | null
+          ai_seo_description?: string | null
+          ai_title_audit?: Json | null
           ai_valuation?: Json | null
           area_plot?: number | null
           area_total?: number | null
@@ -861,6 +865,8 @@ export type Database = {
           address?: Json | null
           agent_id?: string
           ai_description_generated?: boolean | null
+          ai_seo_description?: string | null
+          ai_title_audit?: Json | null
           ai_valuation?: Json | null
           area_plot?: number | null
           area_total?: number | null
@@ -13110,6 +13116,53 @@ export type Database = {
           work_email?: string | null
         }
         Relationships: []
+      }
+      seo_audit_results: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          audit_type: string
+          created_at: string
+          id: string
+          issue: string | null
+          listing_id: string | null
+          score: number | null
+          status: string
+          suggestion: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          audit_type: string
+          created_at?: string
+          id?: string
+          issue?: string | null
+          listing_id?: string | null
+          score?: number | null
+          status?: string
+          suggestion?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          audit_type?: string
+          created_at?: string
+          id?: string
+          issue?: string | null
+          listing_id?: string | null
+          score?: number | null
+          status?: string
+          suggestion?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "seo_audit_results_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "agent_listings"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       service_booking_status_history: {
         Row: {

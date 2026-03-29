@@ -216,3 +216,6 @@ verify_jwt = false
 
 [functions.foto-proxy]
 verify_jwt = false
+
+[functions.seo-agent]
+verify_jwt = false
