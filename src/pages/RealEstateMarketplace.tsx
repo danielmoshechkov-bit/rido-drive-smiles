@@ -829,6 +829,7 @@ export default function RealEstateMarketplace() {
       <section className="container mx-auto px-4 -mt-1 pb-4 relative z-10">
         <RealEstateSearch
           onSearch={handleSearch}
+          onDrawSearch={() => setShowFullMap(true)}
           listings={listings.map(l => ({
             ...l,
             lat: l.lat ?? undefined,
@@ -879,50 +880,8 @@ export default function RealEstateMarketplace() {
       {/* Results Count & View Toggle */}
       {!showFullMap && <section className="container mx-auto px-4 py-2">
         <div className="flex items-center justify-between max-w-7xl mx-auto">
-          <p className="text-sm text-muted-foreground">
-            {loading ? (
-              <span className="text-muted-foreground">Ładowanie...</span>
-            ) : (
-              <>Znaleziono: <span className="font-medium text-foreground">{listings.length}</span> ogłoszeń</>
-            )}
-          </p>
+          {/* Left side - view toggle + sort (moved below) */}
           <div className="flex items-center gap-3">
-            {/* Sort */}
-            <Select value={sortBy} onValueChange={(v: any) => { setSortBy(v); setCurrentPage(1); }}>
-              <SelectTrigger className="w-[160px] h-8 text-sm">
-                <SelectValue placeholder="Sortuj" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="newest">Najnowsze</SelectItem>
-                <SelectItem value="price_asc">Cena: od najniższej</SelectItem>
-                <SelectItem value="price_desc">Cena: od najwyższej</SelectItem>
-                <SelectItem value="area_desc">Powierzchnia: największe</SelectItem>
-              </SelectContent>
-            </Select>
-            {/* Map Button */}
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5"
-              onClick={() => setShowFullMap(true)}
-            >
-              <PenTool className="h-4 w-4" />
-              <span className="hidden sm:inline">Zaznacz na mapie</span>
-            </Button>
-            {/* Per Page Selector */}
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground hidden sm:inline">Na stronie</span>
-              <Select value={String(perPage)} onValueChange={(v) => { setPerPage(Number(v)); setCurrentPage(1); }}>
-                <SelectTrigger className="w-[70px] h-8 text-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {[21, 42, 63, 84].map(n => (
-                    <SelectItem key={n} value={String(n)}>{n}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
             {/* View Mode Toggle */}
             <div className="flex gap-0.5 bg-muted rounded-lg p-0.5">
               <Button 
@@ -953,7 +912,27 @@ export default function RealEstateMarketplace() {
                 <List className="h-4 w-4" />
               </Button>
             </div>
+            {/* Sort */}
+            <Select value={sortBy} onValueChange={(v: any) => { setSortBy(v); setCurrentPage(1); }}>
+              <SelectTrigger className="w-[160px] h-8 text-sm">
+                <SelectValue placeholder="Sortuj" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="newest">Najnowsze</SelectItem>
+                <SelectItem value="price_asc">Cena: od najniższej</SelectItem>
+                <SelectItem value="price_desc">Cena: od najwyższej</SelectItem>
+                <SelectItem value="area_desc">Powierzchnia: największe</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
+          {/* Right side - count */}
+          <p className="text-sm text-muted-foreground">
+            {loading ? (
+              <span className="text-muted-foreground">Ładowanie...</span>
+            ) : (
+              <>Znaleziono: <span className="font-medium text-foreground">{listings.length}</span> ogłoszeń</>
+            )}
+          </p>
         </div>
       </section>}
 
