@@ -289,69 +289,49 @@ export function RealEstateSearch({ onSearch, onShowMapResults, onDrawSearch, onV
     <>
       <div className={cn("bg-background rounded-xl border shadow-lg p-4", className)}>
         {/* Main Search Row */}
-        <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-5 gap-3">
-          {/* Property Type */}
-          <div>
-            <Label className="text-xs text-muted-foreground mb-1 block">Typ nieruchomości</Label>
-            <Select
-              value={filters.propertyType}
-              onValueChange={(v) => updateFilter("propertyType", v)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Wszystkie" />
-              </SelectTrigger>
-              <SelectContent>
-                {PROPERTY_TYPES.map((type) => (
-                  <SelectItem key={type.value} value={type.value}>
-                    {type.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Transaction Type */}
-          <div>
-            <Label className="text-xs text-muted-foreground mb-1 block">Rodzaj transakcji</Label>
-            <Select
-              value={filters.transactionType}
-              onValueChange={(v) => updateFilter("transactionType", v)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Wszystkie" />
-              </SelectTrigger>
-              <SelectContent>
-                {TRANSACTION_TYPES.map((type) => (
-                  <SelectItem key={type.value} value={type.value}>
-                    {type.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Location - New Integrated Input */}
-          <div className="md:col-span-2 lg:col-span-2">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
+          {/* Location */}
+          <div className="md:col-span-2">
             <Label className="text-xs text-muted-foreground mb-1 block">Lokalizacja</Label>
-            <div className="flex gap-2">
-              <LocationSearchInput
-                value={locationText}
-                onChange={setLocationText}
-                onLocationSelect={handleLocationSelect}
-                onOpenMapModal={() => setShowMapModal(true)}
-                selectedArea={selectedArea}
-                onClearArea={handleClearArea}
-                placeholder="Wpisz lokalizację"
-                className="flex-1"
-              />
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setShowMapModal(true)}
-                title="Wybierz obszar na mapie"
-              >
-                <Map className="h-4 w-4" />
-              </Button>
+            <LocationSearchInput
+              value={locationText}
+              onChange={setLocationText}
+              onLocationSelect={handleLocationSelect}
+              onOpenMapModal={() => setShowMapModal(true)}
+              selectedArea={selectedArea}
+              onClearArea={handleClearArea}
+              placeholder="Wpisz lokalizację"
+              className="flex-1"
+            />
+          </div>
+
+          {/* Room Count - Otodom style checkboxes */}
+          <div>
+            <Label className="text-xs text-muted-foreground mb-1 block">Liczba pokoi</Label>
+            <div className="flex gap-1">
+              {ROOM_COUNTS.map((room) => {
+                const isSelected = (filters.rooms || []).includes(room.value);
+                return (
+                  <button
+                    key={room.value}
+                    onClick={() => {
+                      const current = filters.rooms || [];
+                      const next = isSelected
+                        ? current.filter(r => r !== room.value)
+                        : [...current, room.value];
+                      setFilters(prev => ({ ...prev, rooms: next.length > 0 ? next : undefined }));
+                    }}
+                    className={cn(
+                      "flex-1 h-9 rounded-md border text-sm font-medium transition-colors",
+                      isSelected
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-background text-foreground border-border hover:bg-accent"
+                    )}
+                  >
+                    {room.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
