@@ -143,7 +143,7 @@ export function FullscreenMapView({
 
   // Pagination for sidebar list
   const [listPage, setListPage] = useState(1);
-  const listPerPage = 20;
+  const listPerPage = 21;
   const listTotalPages = Math.max(1, Math.ceil(filteredListings.length / listPerPage));
   const paginatedSideListings = useMemo(() => {
     const start = (listPage - 1) * listPerPage;
