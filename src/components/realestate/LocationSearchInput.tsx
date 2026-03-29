@@ -9,6 +9,19 @@ import {
   MapPin, Map, Search, Clock, Building2, ChevronRight, X, Loader2, Navigation, List, RefreshCw, AlertCircle
 } from "lucide-react";
 
+const FALLBACK_LOCATIONS: LocationSelection[] = [
+  { text: "Warszawa", lat: 52.2297, lng: 21.0122, types: ["locality"] },
+  { text: "Warszawa, Mokotów", lat: 52.1935, lng: 21.0448, types: ["sublocality_level_1"] },
+  { text: "Warszawa, Śródmieście", lat: 52.2319, lng: 21.006, types: ["sublocality_level_1"] },
+  { text: "Warszawa, Wilanów", lat: 52.1645, lng: 21.0932, types: ["sublocality_level_1"] },
+  { text: "Warszawa, Wola", lat: 52.2365, lng: 20.9632, types: ["sublocality_level_1"] },
+  { text: "Warszawa, Ursynów", lat: 52.1545, lng: 21.0432, types: ["sublocality_level_1"] },
+  { text: "Kraków", lat: 50.0647, lng: 19.945, types: ["locality"] },
+  { text: "Wrocław", lat: 51.1079, lng: 17.0385, types: ["locality"] },
+  { text: "Gdańsk", lat: 54.352, lng: 18.6466, types: ["locality"] },
+  { text: "Poznań", lat: 52.4064, lng: 16.9252, types: ["locality"] },
+];
+
 export interface LocationSelection {
   text: string;
   placeId?: string;
@@ -342,6 +355,10 @@ export function LocationSearchInput({
   };
 
   const showDropdown = isFocused && (recentLocations.length > 0 || predictions.length > 0 || searchError || !value);
+  const fallbackPredictions = value.trim().length >= 2
+    ? FALLBACK_LOCATIONS.filter((location) => location.text.toLowerCase().includes(value.trim().toLowerCase()))
+    : [];
+  const shouldShowFallbackLocations = Boolean(searchError) || !isLoaded;
 
   // Show config error message
   if (isConfigError) {
@@ -504,8 +521,29 @@ export function LocationSearchInput({
             </div>
           )}
 
+          {shouldShowFallbackLocations && fallbackPredictions.length > 0 && (
+            <div className="p-2">
+              <p className="text-xs font-semibold text-muted-foreground px-2 py-1 uppercase tracking-wide">
+                Podpowiedzi lokalizacji
+              </p>
+              {fallbackPredictions.map((location, idx) => (
+                <button
+                  key={`${location.text}-${idx}`}
+                  className="w-full flex items-center gap-3 px-2 py-2.5 hover:bg-muted rounded-md text-left transition-colors"
+                  onClick={() => handleRecentSelect(location)}
+                >
+                  {getIconForType(location.types)}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{location.text.split(',')[0]}</p>
+                    <p className="text-xs text-muted-foreground truncate">{location.text.split(',').slice(1).join(',').trim() || 'miasto / dzielnica'}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* No results state */}
-          {!searchError && value && predictions.length === 0 && !isLoading && (
+          {!searchError && value && predictions.length === 0 && fallbackPredictions.length === 0 && !isLoading && (
             <div className="p-4 text-center">
               <MapPin className="h-5 w-5 text-muted-foreground mx-auto mb-2" />
               <p className="text-sm text-muted-foreground">Brak wyników dla "{value}"</p>
