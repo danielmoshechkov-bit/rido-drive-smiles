@@ -14,6 +14,25 @@ export function VehiclePhotoGallery({ photos, title }: VehiclePhotoGalleryProps)
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
 
+  // Touch swipe refs
+  const touchStartX = useRef<number>(0);
+  const touchEndX = useRef<number>(0);
+  const lbTouchStartX = useRef<number>(0);
+  const lbTouchEndX = useRef<number>(0);
+
+  const handleTouchStart = (e: React.TouchEvent) => { touchStartX.current = e.touches[0].clientX; };
+  const handleTouchMove = (e: React.TouchEvent) => { touchEndX.current = e.touches[0].clientX; };
+  const handleTouchEnd = () => {
+    const diff = touchStartX.current - touchEndX.current;
+    if (Math.abs(diff) > 50) { diff > 0 ? nextPhoto() : prevPhoto(); }
+  };
+  const handleLbTouchStart = (e: React.TouchEvent) => { lbTouchStartX.current = e.touches[0].clientX; };
+  const handleLbTouchMove = (e: React.TouchEvent) => { lbTouchEndX.current = e.touches[0].clientX; };
+  const handleLbTouchEnd = () => {
+    const diff = lbTouchStartX.current - lbTouchEndX.current;
+    if (Math.abs(diff) > 50) { diff > 0 ? nextLightbox() : prevLightbox(); }
+  };
+
   const displayPhotos = photos.length > 0 ? photos : ["/placeholder.svg"];
 
   const handleImageError = (index: number) => {
@@ -118,7 +137,12 @@ export function VehiclePhotoGallery({ photos, title }: VehiclePhotoGalleryProps)
       </div>
 
       {/* Mobile Carousel */}
-      <div className="md:hidden relative">
+      <div 
+        className="md:hidden relative touch-pan-y"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
         <div 
           className="aspect-[4/3] overflow-hidden rounded-xl"
           onClick={() => openLightbox(currentIndex)}
@@ -128,6 +152,7 @@ export function VehiclePhotoGallery({ photos, title }: VehiclePhotoGalleryProps)
             alt={title}
             className="w-full h-full object-cover object-center"
             onError={() => handleImageError(currentIndex)}
+            draggable={false}
           />
         </div>
 
