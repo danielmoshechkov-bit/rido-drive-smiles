@@ -378,6 +378,7 @@ export function FullscreenMapView({
       overlaysRef.current = [];
       drawingPolygonRef.current?.setMap(null);
       drawingPolylineRef.current?.setMap(null);
+      districtPolygonRef.current?.setMap(null);
       mapRef.current = null;
     };
   }, [open, isLoaded, google, listings]);
