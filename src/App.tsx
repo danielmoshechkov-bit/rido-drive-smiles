@@ -70,6 +70,7 @@ import RidoAIChat from "./pages/RidoAIChat";
 import MeetingsPage from "./pages/MeetingsPage";
 import RidoMailPage from "./pages/RidoMailPage";
 import AdminAIAgentsPage from "./pages/AdminAIAgentsPage";
+import AdminMarketing from "./pages/AdminMarketing";
 import ConfirmViewingPage from "./pages/ConfirmViewingPage";
 import MyViewingsPage from "./pages/MyViewingsPage";
 const queryClient = new QueryClient();
@@ -142,6 +143,7 @@ const App = () => (
                 <Route path="/admin/uslugi" element={<AdminServices />} />
                 <Route path="/admin/ai" element={<AdminAIBrain />} />
                 <Route path="/admin/agenci-ai" element={<AdminAIAgentsPage />} />
+                <Route path="/admin/marketing" element={<AdminMarketing />} />
                 <Route path="/rido-ai" element={<RidoAIChat />} />
                 <Route path="/potwierdz-termin/:token" element={<ConfirmViewingPage />} />
                 <Route path="/moje-ogladania" element={<MyViewingsPage />} />

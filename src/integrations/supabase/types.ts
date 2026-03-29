@@ -460,6 +460,180 @@ export type Database = {
         }
         Relationships: []
       }
+      agency_ad_creatives: {
+        Row: {
+          brief: Json | null
+          client_id: string | null
+          created_at: string | null
+          created_by: string | null
+          id: string
+          image_url: string | null
+          platform: string | null
+          variants: Json | null
+        }
+        Insert: {
+          brief?: Json | null
+          client_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          image_url?: string | null
+          platform?: string | null
+          variants?: Json | null
+        }
+        Update: {
+          brief?: Json | null
+          client_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          image_url?: string | null
+          platform?: string | null
+          variants?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agency_ad_creatives_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "agency_clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agency_api_connections: {
+        Row: {
+          account_type: string
+          client_id: string | null
+          connection_type: string
+          created_at: string | null
+          created_by: string | null
+          encrypted_data: Json
+          error_message: string | null
+          id: string
+          last_synced_at: string | null
+          status: string | null
+        }
+        Insert: {
+          account_type: string
+          client_id?: string | null
+          connection_type: string
+          created_at?: string | null
+          created_by?: string | null
+          encrypted_data?: Json
+          error_message?: string | null
+          id?: string
+          last_synced_at?: string | null
+          status?: string | null
+        }
+        Update: {
+          account_type?: string
+          client_id?: string | null
+          connection_type?: string
+          created_at?: string | null
+          created_by?: string | null
+          encrypted_data?: Json
+          error_message?: string | null
+          id?: string
+          last_synced_at?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agency_api_connections_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "agency_clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agency_campaigns: {
+        Row: {
+          client_id: string | null
+          created_at: string | null
+          daily_budget: number | null
+          data: Json | null
+          external_campaign_id: string | null
+          id: string
+          last_synced_at: string | null
+          name: string
+          platform: string
+          roas_current: number | null
+          spend_today: number | null
+          status: string | null
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string | null
+          daily_budget?: number | null
+          data?: Json | null
+          external_campaign_id?: string | null
+          id?: string
+          last_synced_at?: string | null
+          name: string
+          platform: string
+          roas_current?: number | null
+          spend_today?: number | null
+          status?: string | null
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string | null
+          daily_budget?: number | null
+          data?: Json | null
+          external_campaign_id?: string | null
+          id?: string
+          last_synced_at?: string | null
+          name?: string
+          platform?: string
+          roas_current?: number | null
+          spend_today?: number | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agency_campaigns_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "agency_clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agency_clients: {
+        Row: {
+          added_by: string | null
+          company_name: string
+          contact_email: string | null
+          contact_name: string | null
+          created_at: string | null
+          id: string
+          logo_url: string | null
+          notes: string | null
+        }
+        Insert: {
+          added_by?: string | null
+          company_name: string
+          contact_email?: string | null
+          contact_name?: string | null
+          created_at?: string | null
+          id?: string
+          logo_url?: string | null
+          notes?: string | null
+        }
+        Update: {
+          added_by?: string | null
+          company_name?: string
+          contact_email?: string | null
+          contact_name?: string | null
+          created_at?: string | null
+          id?: string
+          logo_url?: string | null
+          notes?: string | null
+        }
+        Relationships: []
+      }
       agency_crm_integrations: {
         Row: {
           added_count: number | null
@@ -570,6 +744,113 @@ export type Database = {
             referencedColumns: ["provider_code"]
           },
         ]
+      }
+      agency_invitations: {
+        Row: {
+          accepted_at: string | null
+          client_id: string | null
+          created_at: string | null
+          email: string
+          id: string
+          invited_by: string | null
+          role: string
+          status: string | null
+          token: string | null
+        }
+        Insert: {
+          accepted_at?: string | null
+          client_id?: string | null
+          created_at?: string | null
+          email: string
+          id?: string
+          invited_by?: string | null
+          role: string
+          status?: string | null
+          token?: string | null
+        }
+        Update: {
+          accepted_at?: string | null
+          client_id?: string | null
+          created_at?: string | null
+          email?: string
+          id?: string
+          invited_by?: string | null
+          role?: string
+          status?: string | null
+          token?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agency_invitations_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "agency_clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agency_settings: {
+        Row: {
+          agency_logo_url: string | null
+          agency_name: string | null
+          anthropic_api_key_encrypted: string | null
+          contact_email: string | null
+          contact_phone: string | null
+          created_at: string | null
+          gemini_api_key_encrypted: string | null
+          google_client_id_encrypted: string | null
+          google_client_secret_encrypted: string | null
+          id: string
+          max_boost_percent: number | null
+          meta_app_id_encrypted: string | null
+          meta_app_secret_encrypted: string | null
+          report_branding: Json | null
+          report_email: string | null
+          roas_boost_threshold: number | null
+          roas_stop_threshold: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          agency_logo_url?: string | null
+          agency_name?: string | null
+          anthropic_api_key_encrypted?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string | null
+          gemini_api_key_encrypted?: string | null
+          google_client_id_encrypted?: string | null
+          google_client_secret_encrypted?: string | null
+          id?: string
+          max_boost_percent?: number | null
+          meta_app_id_encrypted?: string | null
+          meta_app_secret_encrypted?: string | null
+          report_branding?: Json | null
+          report_email?: string | null
+          roas_boost_threshold?: number | null
+          roas_stop_threshold?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          agency_logo_url?: string | null
+          agency_name?: string | null
+          anthropic_api_key_encrypted?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string | null
+          gemini_api_key_encrypted?: string | null
+          google_client_id_encrypted?: string | null
+          google_client_secret_encrypted?: string | null
+          id?: string
+          max_boost_percent?: number | null
+          meta_app_id_encrypted?: string | null
+          meta_app_secret_encrypted?: string | null
+          report_branding?: Json | null
+          report_email?: string | null
+          roas_boost_threshold?: number | null
+          roas_stop_threshold?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       agent_activities: {
         Row: {
@@ -9935,6 +10216,59 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      marketing_agent_conversations: {
+        Row: {
+          created_at: string | null
+          id: string
+          title: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          title?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          title?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      marketing_agent_messages: {
+        Row: {
+          content: string
+          conversation_id: string | null
+          created_at: string | null
+          id: string
+          role: string
+        }
+        Insert: {
+          content: string
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: string
+          role: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: string
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_agent_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_agent_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       marketplace_ad_slots: {
         Row: {
@@ -19827,6 +20161,7 @@ export type Database = {
         | "sales_admin"
         | "sales_rep"
         | "service_provider"
+        | "marketing_manager"
       user_role_type: "kierowca" | "partner" | "pracownik" | "admin"
     }
     CompositeTypes: {
@@ -19968,6 +20303,7 @@ export const Constants = {
         "sales_admin",
         "sales_rep",
         "service_provider",
+        "marketing_manager",
       ],
       user_role_type: ["kierowca", "partner", "pracownik", "admin"],
     },

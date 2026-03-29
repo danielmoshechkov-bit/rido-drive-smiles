@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Building2, Car, ShoppingCart, ChevronDown, Map, Globe, Wrench, Calculator, Briefcase, Brain, Shield, Bot } from 'lucide-react';
+import { Building2, Car, ShoppingCart, ChevronDown, Map, Globe, Wrench, Calculator, Briefcase, Brain, Shield, Bot, Megaphone } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,6 +9,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface Portal {
   id: string;
@@ -99,6 +101,13 @@ const portals: Portal[] = [
     path: '/admin/agenci-ai',
     description: 'Zarządzanie agentami AI systemu',
   },
+  {
+    id: 'marketing',
+    name: 'Marketing Agency',
+    icon: Megaphone,
+    path: '/admin/marketing',
+    description: 'Agencja reklamowa i kampanie AI',
+  },
 ];
 
 export function AdminPortalSwitcher() {
@@ -106,6 +115,9 @@ export function AdminPortalSwitcher() {
   const location = useLocation();
 
   const getCurrentPortal = () => {
+    if (location.pathname.includes('/admin/marketing')) {
+      return portals.find((p) => p.id === 'marketing');
+    }
     if (location.pathname.includes('/admin/agenci-ai')) {
       return portals.find((p) => p.id === 'ai-agents');
     }
@@ -159,8 +171,9 @@ export function AdminPortalSwitcher() {
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-64">
-        {/* Global Portal First */}
+      <DropdownMenuContent align="start" className="w-64 p-0">
+        <ScrollArea className="max-h-[70vh]">
+        <div className="p-1">
         {portals.filter(p => p.isGlobal).map((portal) => {
           const Icon = portal.icon;
           const isActive = currentPortal?.id === portal.id;
@@ -193,8 +206,6 @@ export function AdminPortalSwitcher() {
         })}
         
         <DropdownMenuSeparator />
-        
-        {/* Module Portals */}
         {portals.filter(p => !p.isGlobal).map((portal) => {
           const Icon = portal.icon;
           const isActive = currentPortal?.id === portal.id;
@@ -225,6 +236,8 @@ export function AdminPortalSwitcher() {
             </DropdownMenuItem>
           );
         })}
+        </div>
+        </ScrollArea>
       </DropdownMenuContent>
     </DropdownMenu>
   );
