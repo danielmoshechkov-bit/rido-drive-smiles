@@ -523,6 +523,9 @@ export function FullscreenMapView({
         fillColor: '#7c3aed', fillOpacity: 0.15, map: mapRef.current, clickable: false,
       });
       districtPolygonRef.current = polygon;
+      // Store boundary for filtering listings
+      const allPoints = coords.flat();
+      setDistrictBoundary(allPoints);
       const bounds = new google.maps.LatLngBounds();
       coords.forEach(ring => ring.forEach(p => bounds.extend(p)));
       mapRef.current.fitBounds(bounds, 40);
