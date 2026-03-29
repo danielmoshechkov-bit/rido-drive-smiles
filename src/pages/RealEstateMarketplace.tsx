@@ -667,6 +667,15 @@ export default function RealEstateMarketplace() {
       filteredListings = filteredListings.filter(listing => listing.areaM2 <= filters.areaTo!);
     }
     
+    // Filter by rooms (checkbox array)
+    if (filters.rooms && filters.rooms.length > 0) {
+      filteredListings = filteredListings.filter(listing => {
+        if (!listing.rooms) return false;
+        // 6+ means 6 or more
+        return filters.rooms!.some(r => r === 6 ? listing.rooms >= 6 : listing.rooms === r);
+      });
+    }
+    
     setListings(filteredListings);
     setLoading(false);
   };
