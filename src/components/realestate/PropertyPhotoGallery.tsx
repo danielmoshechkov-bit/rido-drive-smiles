@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { ChevronLeft, ChevronRight, X, Maximize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -14,6 +14,12 @@ export function PropertyPhotoGallery({ photos, title }: PropertyPhotoGalleryProp
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
 
+  // Touch swipe state
+  const touchStartX = useRef<number>(0);
+  const touchEndX = useRef<number>(0);
+  const lightboxTouchStartX = useRef<number>(0);
+  const lightboxTouchEndX = useRef<number>(0);
+
   const displayPhotos = photos.length > 0 ? photos : ["/placeholder.svg"];
   
   const handleImageError = (index: number) => {
@@ -25,7 +31,6 @@ export function PropertyPhotoGallery({ photos, title }: PropertyPhotoGalleryProp
     return displayPhotos[index];
   };
 
-  // Grid layout: main photo + up to 4 smaller photos
   const mainPhoto = displayPhotos[0];
   const sidePhotos = displayPhotos.slice(1, 5);
   const remainingCount = displayPhotos.length > 5 ? displayPhotos.length - 5 : 0;
@@ -35,13 +40,13 @@ export function PropertyPhotoGallery({ photos, title }: PropertyPhotoGalleryProp
     setIsLightboxOpen(true);
   };
 
-  const nextPhoto = () => {
+  const nextPhoto = useCallback(() => {
     setLightboxIndex((prev) => (prev + 1) % displayPhotos.length);
-  };
+  }, [displayPhotos.length]);
 
-  const prevPhoto = () => {
+  const prevPhoto = useCallback(() => {
     setLightboxIndex((prev) => (prev - 1 + displayPhotos.length) % displayPhotos.length);
-  };
+  }, [displayPhotos.length]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "ArrowRight") nextPhoto();
@@ -49,10 +54,43 @@ export function PropertyPhotoGallery({ photos, title }: PropertyPhotoGalleryProp
     if (e.key === "Escape") setIsLightboxOpen(false);
   };
 
+  // Mobile carousel swipe handlers
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+  const handleTouchMove = (e: React.TouchEvent) => {
+    touchEndX.current = e.touches[0].clientX;
+  };
+  const handleTouchEnd = () => {
+    const diff = touchStartX.current - touchEndX.current;
+    if (Math.abs(diff) > 50) {
+      if (diff > 0) {
+        setCurrentIndex((prev) => (prev + 1) % displayPhotos.length);
+      } else {
+        setCurrentIndex((prev) => (prev - 1 + displayPhotos.length) % displayPhotos.length);
+      }
+    }
+  };
+
+  // Lightbox swipe handlers
+  const handleLightboxTouchStart = (e: React.TouchEvent) => {
+    lightboxTouchStartX.current = e.touches[0].clientX;
+  };
+  const handleLightboxTouchMove = (e: React.TouchEvent) => {
+    lightboxTouchEndX.current = e.touches[0].clientX;
+  };
+  const handleLightboxTouchEnd = () => {
+    const diff = lightboxTouchStartX.current - lightboxTouchEndX.current;
+    if (Math.abs(diff) > 50) {
+      if (diff > 0) nextPhoto();
+      else prevPhoto();
+    }
+  };
+
   return (
     <>
       {/* Desktop Grid Layout */}
-      <div className="hidden md:grid grid-cols-4 grid-rows-2 gap-2 h-[450px] lg:h-[550px] xl:h-[600px] rounded-xl overflow-hidden">
+      <div className="hidden md:grid grid-cols-4 grid-rows-2 gap-2 h-[55vh] min-h-[400px] max-h-[700px] rounded-xl overflow-hidden">
         {/* Main Photo - spans 2 cols and 2 rows */}
         <div 
           className="col-span-2 row-span-2 relative group cursor-pointer"
@@ -84,7 +122,6 @@ export function PropertyPhotoGallery({ photos, title }: PropertyPhotoGalleryProp
             />
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
             
-            {/* Show remaining count on last visible photo */}
             {index === sidePhotos.length - 1 && remainingCount > 0 && (
               <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
                 <span className="text-white text-2xl font-bold">+{remainingCount}</span>
@@ -92,17 +129,22 @@ export function PropertyPhotoGallery({ photos, title }: PropertyPhotoGalleryProp
             )}
           </div>
         ))}
-
       </div>
 
-      {/* Mobile Carousel */}
-      <div className="md:hidden relative aspect-[16/10] rounded-xl overflow-hidden">
+      {/* Mobile Carousel - with touch swipe */}
+      <div 
+        className="md:hidden relative aspect-[4/3] rounded-xl overflow-hidden touch-pan-y"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
         <img
           src={getPhotoSrc(currentIndex)}
           alt={`${title} - zdjęcie ${currentIndex + 1}`}
           className="w-full h-full object-cover object-center"
           onError={() => handleImageError(currentIndex)}
           onClick={() => openLightbox(currentIndex)}
+          draggable={false}
         />
         
         {displayPhotos.length > 1 && (
@@ -154,13 +196,18 @@ export function PropertyPhotoGallery({ photos, title }: PropertyPhotoGalleryProp
         </div>
       </div>
 
-      {/* Lightbox Modal */}
+      {/* Lightbox Modal - with touch swipe */}
       <Dialog open={isLightboxOpen} onOpenChange={setIsLightboxOpen}>
         <DialogContent 
           className="max-w-[95vw] max-h-[95vh] p-0 bg-black/95 border-none"
           onKeyDown={handleKeyDown}
         >
-          <div className="relative w-full h-[90vh] flex items-center justify-center">
+          <div 
+            className="relative w-full h-[90vh] flex items-center justify-center"
+            onTouchStart={handleLightboxTouchStart}
+            onTouchMove={handleLightboxTouchMove}
+            onTouchEnd={handleLightboxTouchEnd}
+          >
             {/* Close Button */}
             <button
               onClick={() => setIsLightboxOpen(false)}
@@ -174,12 +221,13 @@ export function PropertyPhotoGallery({ photos, title }: PropertyPhotoGalleryProp
               {lightboxIndex + 1} / {displayPhotos.length}
             </div>
 
-            {/* Main Image - better fit for portrait photos */}
+            {/* Main Image */}
             <img
               src={getPhotoSrc(lightboxIndex)}
               alt={`${title} - zdjęcie ${lightboxIndex + 1}`}
-              className="max-w-full max-h-full object-contain"
+              className="max-w-full max-h-[80vh] object-contain select-none"
               onError={() => handleImageError(lightboxIndex)}
+              draggable={false}
             />
 
             {/* Navigation Buttons */}
