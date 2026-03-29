@@ -121,6 +121,8 @@ export function FullscreenMapView({
   const drawingPolylineRef = useRef<google.maps.Polyline | null>(null);
   const districtPolygonsRef = useRef<google.maps.Polygon[]>([]);
   const circleRef = useRef<google.maps.Circle | null>(null);
+  const selectionMaskRef = useRef<google.maps.Polygon | null>(null);
+  const drawingCleanupRef = useRef<(() => void) | null>(null);
   const isBrushDrawingRef = useRef(false);
 
   const [selectedListing, setSelectedListing] = useState<PropertyListingForMap | null>(null);
@@ -226,7 +228,7 @@ export function FullscreenMapView({
 
   // === Supercluster ===
   useEffect(() => {
-    const withCoords = listings.filter((l) => l.lat && l.lng);
+    const withCoords = filteredListings.filter((l) => l.lat && l.lng);
     if (!withCoords.length) { clusterIndexRef.current = null; return; }
     const index = new Supercluster({ radius: 50, maxZoom: 18, minZoom: 3 });
     index.load(
@@ -237,7 +239,27 @@ export function FullscreenMapView({
       }))
     );
     clusterIndexRef.current = index;
-  }, [listings]);
+  }, [filteredListings]);
+
+  const lockDrawingInteraction = useCallback(() => {
+    mapRef.current?.setOptions({ draggable: false, gestureHandling: "none" });
+    if (mapContainerRef.current) {
+      mapContainerRef.current.style.touchAction = "none";
+    }
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.touchAction = "none";
+  }, []);
+
+  const unlockDrawingInteraction = useCallback(() => {
+    mapRef.current?.setOptions({ draggable: true, gestureHandling: "cooperative" });
+    if (mapContainerRef.current) {
+      mapContainerRef.current.style.touchAction = "auto";
+    }
+    document.body.style.overflow = "";
+    document.documentElement.style.overflow = "";
+    document.body.style.touchAction = "";
+  }, []);
 
   // === Overlay class ===
   const createOverlayClass = useCallback(() => {
@@ -393,27 +415,76 @@ export function FullscreenMapView({
       overlaysRef.current = [];
       drawingPolygonRef.current?.setMap(null);
       drawingPolylineRef.current?.setMap(null);
+      selectionMaskRef.current?.setMap(null);
       districtPolygonsRef.current.forEach(p => p.setMap(null));
       districtPolygonsRef.current = [];
       circleRef.current?.setMap(null);
+      drawingCleanupRef.current?.();
+      drawingCleanupRef.current = null;
+      unlockDrawingInteraction();
       mapRef.current = null;
     };
-  }, [open, isLoaded, google, listings]);
+  }, [open, isLoaded, google, listings, unlockDrawingInteraction]);
 
   useEffect(() => {
     if (mapRef.current && google) updateMarkers();
   }, [updateMarkers, google]);
 
+  useEffect(() => {
+    if (!mapRef.current || !google) return;
+
+    selectionMaskRef.current?.setMap(null);
+    selectionMaskRef.current = null;
+
+    if (drawnArea && drawnArea.length >= 3) {
+      selectionMaskRef.current = new google.maps.Polygon({
+        map: mapRef.current,
+        paths: [WORLD_MASK_PATH, [...drawnArea].reverse()],
+        strokeOpacity: 0,
+        strokeWeight: 0,
+        fillColor: "#7c3aed",
+        fillOpacity: 0.22,
+        clickable: false,
+      });
+
+      drawingPolygonRef.current?.setOptions({
+        strokeColor: "#7c3aed",
+        strokeWeight: 2,
+        strokeOpacity: 0.95,
+        fillColor: "#ffffff",
+        fillOpacity: 0.02,
+      });
+      return;
+    }
+
+    if (circleCenter) {
+      const effectiveRadius = circleRadius + (useBuffer ? bufferDistance : 0);
+      const circlePath = createCirclePolygon(circleCenter, effectiveRadius);
+      selectionMaskRef.current = new google.maps.Polygon({
+        map: mapRef.current,
+        paths: [WORLD_MASK_PATH, circlePath.reverse()],
+        strokeOpacity: 0,
+        strokeWeight: 0,
+        fillColor: "#7c3aed",
+        fillOpacity: 0.22,
+        clickable: false,
+      });
+    }
+  }, [google, drawnArea, circleCenter, circleRadius, bufferDistance, useBuffer]);
+
   // === Polygon drawing (works on both desktop and mobile) ===
   const startPolygonDrawing = useCallback(() => {
     if (!mapRef.current || !google) return;
+    drawingCleanupRef.current?.();
+    drawingCleanupRef.current = null;
     setDrawingMode("pen");
     setDrawnArea(null);
     setCircleCenter(null);
     circleRef.current?.setMap(null);
     drawingPolygonRef.current?.setMap(null);
+    selectionMaskRef.current?.setMap(null);
     const map = mapRef.current;
-    map.setOptions({ draggable: false, gestureHandling: "none" });
+    lockDrawingInteraction();
     const path: google.maps.LatLng[] = [];
     const polyline = new google.maps.Polyline({ map, path, strokeColor: "#7c3aed", strokeWeight: 3, strokeOpacity: 0.8 });
     drawingPolylineRef.current = polyline;
@@ -434,7 +505,7 @@ export function FullscreenMapView({
       if (!isBrushDrawingRef.current) return;
       isBrushDrawingRef.current = false;
       cleanup();
-      map.setOptions({ draggable: true, gestureHandling: "cooperative" });
+      unlockDrawingInteraction();
       polyline.setMap(null);
       if (path.length < 3) { setDrawingMode(false); return; }
       const points = path.map((p) => ({ lat: p.lat(), lng: p.lng() }));
@@ -456,6 +527,8 @@ export function FullscreenMapView({
       if (e.latLng) continueDraw(e.latLng);
     });
     const mouseUpListener = map.addListener("mouseup", endDraw);
+    const handleWindowMouseUp = () => endDraw();
+    window.addEventListener("mouseup", handleWindowMouseUp);
 
     // Touch events on map container (mobile)
     const container = mapContainerRef.current;
@@ -493,21 +566,26 @@ export function FullscreenMapView({
 
     if (container) {
       container.addEventListener("touchstart", handleTouchStart, { passive: false });
-      container.addEventListener("touchmove", handleTouchMove, { passive: false });
-      container.addEventListener("touchend", handleTouchEnd, { passive: false });
     }
+    window.addEventListener("touchmove", handleTouchMove, { passive: false });
+    window.addEventListener("touchend", handleTouchEnd, { passive: false });
+    window.addEventListener("touchcancel", handleTouchEnd, { passive: false });
 
     const cleanup = () => {
       google.maps.event.removeListener(mouseDownListener);
       google.maps.event.removeListener(mouseMoveListener);
       google.maps.event.removeListener(mouseUpListener);
+      window.removeEventListener("mouseup", handleWindowMouseUp);
       if (container) {
         container.removeEventListener("touchstart", handleTouchStart);
-        container.removeEventListener("touchmove", handleTouchMove);
-        container.removeEventListener("touchend", handleTouchEnd);
       }
+      window.removeEventListener("touchmove", handleTouchMove);
+      window.removeEventListener("touchend", handleTouchEnd);
+      window.removeEventListener("touchcancel", handleTouchEnd);
+      drawingCleanupRef.current = null;
     };
-  }, [google]);
+    drawingCleanupRef.current = cleanup;
+  }, [google, lockDrawingInteraction, unlockDrawingInteraction]);
 
   // === Circle drawing ===
   const startCircleDrawing = useCallback(() => {
@@ -541,14 +619,22 @@ export function FullscreenMapView({
   }, [google, circleRadius]);
 
   const clearAllDrawing = useCallback(() => {
+    drawingCleanupRef.current?.();
+    drawingCleanupRef.current = null;
+    unlockDrawingInteraction();
     drawingPolygonRef.current?.setMap(null);
     drawingPolygonRef.current = null;
+    drawingPolylineRef.current?.setMap(null);
+    drawingPolylineRef.current = null;
     circleRef.current?.setMap(null);
     circleRef.current = null;
+    selectionMaskRef.current?.setMap(null);
+    selectionMaskRef.current = null;
+    isBrushDrawingRef.current = false;
     setDrawnArea(null);
     setCircleCenter(null);
     setDrawingMode(false);
-  }, []);
+  }, [unlockDrawingInteraction]);
 
   // === Fetch district boundary (additive - supports multi-select) ===
   const addDistrictBoundary = useCallback(async (name: string, parent?: string) => {
@@ -728,7 +814,7 @@ export function FullscreenMapView({
             variant={drawingMode === "pen" ? "default" : "outline"}
             size="sm"
             className="rounded-full h-8 px-3 text-xs gap-1.5"
-            onClick={drawingMode === "pen" ? () => setDrawingMode(false) : startPolygonDrawing}
+              onClick={drawingMode === "pen" ? clearAllDrawing : startPolygonDrawing}
           >
             <PenTool className="h-3.5 w-3.5" />
             Zaznacz
@@ -737,7 +823,7 @@ export function FullscreenMapView({
             variant={drawingMode === "circle" ? "default" : "outline"}
             size="sm"
             className="rounded-full h-8 px-3 text-xs gap-1.5"
-            onClick={drawingMode === "circle" ? () => setDrawingMode(false) : startCircleDrawing}
+              onClick={drawingMode === "circle" ? clearAllDrawing : startCircleDrawing}
           >
             <Circle className="h-3.5 w-3.5" />
             Okrąg
@@ -1052,4 +1138,40 @@ function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
   const dLng = (lng2 - lng1) * Math.PI / 180;
   const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+const WORLD_MASK_PATH = [
+  { lat: -85, lng: -180 },
+  { lat: 85, lng: -180 },
+  { lat: 85, lng: 180 },
+  { lat: -85, lng: 180 },
+];
+
+function createCirclePolygon(
+  center: { lat: number; lng: number },
+  radiusMeters: number,
+  segments = 72,
+): Array<{ lat: number; lng: number }> {
+  const earthRadius = 6371000;
+  const latRad = center.lat * Math.PI / 180;
+  const lngRad = center.lng * Math.PI / 180;
+  const angularDistance = radiusMeters / earthRadius;
+
+  return Array.from({ length: segments }, (_, index) => {
+    const bearing = (2 * Math.PI * index) / segments;
+    const pointLat = Math.asin(
+      Math.sin(latRad) * Math.cos(angularDistance) +
+      Math.cos(latRad) * Math.sin(angularDistance) * Math.cos(bearing)
+    );
+
+    const pointLng = lngRad + Math.atan2(
+      Math.sin(bearing) * Math.sin(angularDistance) * Math.cos(latRad),
+      Math.cos(angularDistance) - Math.sin(latRad) * Math.sin(pointLat)
+    );
+
+    return {
+      lat: pointLat * 180 / Math.PI,
+      lng: pointLng * 180 / Math.PI,
+    };
+  });
 }
