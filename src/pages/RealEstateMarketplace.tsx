@@ -1128,8 +1128,8 @@ export default function RealEstateMarketplace() {
       )}
 
 
-      {/* Footer with back link */}
-      <footer className="border-t py-12 bg-card">
+      {/* Footer with back link - hidden when map is shown */}
+      {!showFullMap && <footer className="border-t py-12 bg-card">
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div 
