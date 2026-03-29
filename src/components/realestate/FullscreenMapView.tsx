@@ -546,6 +546,8 @@ export function FullscreenMapView({
     } else {
       districtPolygonRef.current?.setMap(null);
       districtPolygonRef.current = null;
+      setDistrictBoundary(null);
+    }
     }
   };
 
