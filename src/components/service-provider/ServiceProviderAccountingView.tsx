@@ -13,10 +13,18 @@ import { PendingInvoicesReview } from '@/components/invoices/PendingInvoicesRevi
 import { InvoiceEmailSetup } from '@/components/invoices/InvoiceEmailSetup';
 import { InvoiceNotificationBell } from '@/components/invoices/InvoiceNotificationBell';
 import { KsefUserSettings } from '@/components/ksef/KsefUserSettings';
+import { PurchaseInvoicesKSeF } from '@/components/accounting/PurchaseInvoicesKSeF';
 import { useKsefUnreadCount } from '@/hooks/useKsefUnreadCount';
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import {
   FileText, Plus, FileSpreadsheet, BarChart3, Clock, Package,
-  CreditCard, ShoppingBag, Calculator, Building2, ChevronRight, Mail, Shield
+  CreditCard, ShoppingBag, Calculator, Building2, ChevronRight, Mail, Shield, AlertTriangle, Download
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -45,6 +53,8 @@ export function ServiceProviderAccountingView() {
   const [editingEntity, setEditingEntity] = useState<any>(null);
   const [invoiceYear, setInvoiceYear] = useState(new Date().getFullYear());
   const [invoiceMonth, setInvoiceMonth] = useState(new Date().getMonth() + 1);
+  const [showMissingCompanyModal, setShowMissingCompanyModal] = useState(false);
+  const [showKsefPurchase, setShowKsefPurchase] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -72,6 +82,15 @@ export function ServiceProviderAccountingView() {
   };
 
   const hasCompanySetup = userEntities.some((e: any) => e.is_active !== false);
+  const hasNip = userEntities.some((e: any) => e.nip);
+
+  const handleNewInvoice = () => {
+    if (!hasCompanySetup || !hasNip) {
+      setShowMissingCompanyModal(true);
+    } else {
+      setShowNewInvoice(true);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -154,7 +173,7 @@ export function ServiceProviderAccountingView() {
             <h3 className="text-lg font-semibold mb-4">Szybkie akcje</h3>
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
-                <Button onClick={() => setShowNewInvoice(true)} className="h-auto py-3">
+                <Button onClick={handleNewInvoice} className="h-auto py-3">
                   <Plus className="h-4 w-4 mr-2" />Wystaw fakturę
                 </Button>
                 <Button variant="outline" className="h-auto py-3" onClick={() => setShowCostInvoice(true)}>
@@ -218,7 +237,7 @@ export function ServiceProviderAccountingView() {
                   <div className="text-center py-12 text-muted-foreground">
                     <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
                     <p>Brak faktur w wybranym okresie</p>
-                    <Button className="mt-4" onClick={() => setShowNewInvoice(true)}>
+                    <Button className="mt-4" onClick={handleNewInvoice}>
                       <Plus className="h-4 w-4 mr-2" />Wystaw fakturę
                     </Button>
                   </div>
@@ -238,7 +257,7 @@ export function ServiceProviderAccountingView() {
                 <CardTitle>Faktury</CardTitle>
                 <CardDescription>Lista wszystkich faktur</CardDescription>
               </div>
-              <Button onClick={() => setShowNewInvoice(true)}>
+              <Button onClick={handleNewInvoice}>
                 <Plus className="h-4 w-4 mr-2" />Wystaw fakturę
               </Button>
             </div>
@@ -254,7 +273,7 @@ export function ServiceProviderAccountingView() {
               <div className="text-center py-12 text-muted-foreground">
                 <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p>Brak faktur</p>
-                <Button className="mt-4" onClick={() => setShowNewInvoice(true)}>
+                <Button className="mt-4" onClick={handleNewInvoice}>
                   <Plus className="h-4 w-4 mr-2" />Wystaw fakturę
                 </Button>
               </div>
@@ -264,7 +283,32 @@ export function ServiceProviderAccountingView() {
       )}
 
       {/* Zakupy */}
-      {subTab === 'zakupy' && <InventoryPurchaseOCR entityId={userEntities[0]?.id} />}
+      {subTab === 'zakupy' && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <Button
+              variant={!showKsefPurchase ? 'default' : 'outline'}
+              onClick={() => setShowKsefPurchase(false)}
+            >
+              <ShoppingBag className="h-4 w-4 mr-2" />
+              Zakupy (OCR)
+            </Button>
+            <Button
+              variant={showKsefPurchase ? 'default' : 'outline'}
+              onClick={() => setShowKsefPurchase(true)}
+              className="gap-2"
+            >
+              <Download className="h-4 w-4" />
+              Pobierz z KSeF
+            </Button>
+          </div>
+          {showKsefPurchase ? (
+            <PurchaseInvoicesKSeF entityId={userEntities[0]?.id} />
+          ) : (
+            <InventoryPurchaseOCR entityId={userEntities[0]?.id} />
+          )}
+        </div>
+      )}
 
       {/* Oczekujące na sprawdzenie */}
       {subTab === 'oczekujace' && <PendingInvoicesReview />}
@@ -310,6 +354,37 @@ export function ServiceProviderAccountingView() {
         onCreated={() => { setShowCompanySetup(false); setEditingEntity(null); loadData(); }}
         editEntity={editingEntity}
       />
+
+      {/* Missing company data modal */}
+      <Dialog open={showMissingCompanyModal} onOpenChange={setShowMissingCompanyModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Uzupełnij dane firmy
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Przed wystawieniem faktury musisz uzupełnić dane firmy, w tym NIP. 
+            Przejdź do zakładki KSeF → sekcji Token, aby uzupełnić dane.
+          </p>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowMissingCompanyModal(false)}>
+              Anuluj
+            </Button>
+            <Button onClick={() => {
+              setShowMissingCompanyModal(false);
+              if (!hasCompanySetup) {
+                setShowCompanySetup(true);
+              } else {
+                setSubTab('ksef');
+              }
+            }}>
+              {!hasCompanySetup ? 'Dodaj firmę' : 'Uzupełnij dane'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

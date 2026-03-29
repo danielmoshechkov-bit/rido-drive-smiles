@@ -1,0 +1,1 @@
+ALTER TABLE public.purchase_invoices ADD COLUMN IF NOT EXISTS xml_content text;
