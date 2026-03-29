@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -197,6 +197,16 @@ function mapDbToDisplayListing(db: any) {
 export default function PropertyDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const fromMap = searchParams.get("fromMap") === "true";
+
+  const handleGoBack = () => {
+    if (fromMap) {
+      navigate("/nieruchomosci?showMap=true");
+    } else {
+      navigate(-1);
+    }
+  };
   const [listing, setListing] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isFavorited, setIsFavorited] = useState(false);
@@ -204,6 +214,11 @@ export default function PropertyDetailPage() {
   const [user, setUser] = useState<any>(null);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [showMessageDialog, setShowMessageDialog] = useState(false);
+
+  // Scroll to top on mount
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [id]);
 
   useEffect(() => {
     const checkUser = async () => {
@@ -311,7 +326,7 @@ export default function PropertyDetailPage() {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
         <h1 className="text-2xl font-bold">Nie znaleziono ogłoszenia</h1>
-         <Button onClick={() => navigate(-1)}>
+         <Button onClick={handleGoBack}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Wróć do listy
         </Button>
@@ -328,7 +343,7 @@ export default function PropertyDetailPage() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => navigate(-1)}
+              onClick={handleGoBack}
               className="gap-2"
             >
               <ArrowLeft className="h-4 w-4" />

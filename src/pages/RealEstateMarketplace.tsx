@@ -382,7 +382,7 @@ export default function RealEstateMarketplace() {
   const [isSearchingAI, setIsSearchingAI] = useState(false);
   const [aiExplanation, setAiExplanation] = useState("");
   const [viewMode, setViewMode] = useState<'grid' | 'compact' | 'list'>('grid');
-  const [showFullMap, setShowFullMap] = useState(false);
+  const [showFullMap, setShowFullMap] = useState(() => searchParams.get("showMap") === "true");
   const [sortBy, setSortBy] = useState<'newest' | 'price_asc' | 'price_desc' | 'area_desc'>('newest');
   
   const [initialQuery, setInitialQuery] = useState<string>("");
@@ -870,7 +870,7 @@ export default function RealEstateMarketplace() {
               lat: l.lat ?? undefined,
               lng: l.lng ?? undefined,
             }))}
-            onViewListing={(id) => navigate(`/nieruchomosci/ogloszenie/${id}`)}
+            onViewListing={(id) => navigate(`/nieruchomosci/ogloszenie/${id}?fromMap=true`)}
             user={user}
             onNavigate={(path) => navigate(path)}
           />
