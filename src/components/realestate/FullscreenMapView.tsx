@@ -120,10 +120,13 @@ export function FullscreenMapView({
   const drawingPolygonRef = useRef<google.maps.Polygon | null>(null);
   const drawingPolylineRef = useRef<google.maps.Polyline | null>(null);
   const districtPolygonsRef = useRef<google.maps.Polygon[]>([]);
+  const districtMaskRef = useRef<google.maps.Polygon | null>(null);
   const circleRef = useRef<google.maps.Circle | null>(null);
   const selectionMaskRef = useRef<google.maps.Polygon | null>(null);
   const drawingCleanupRef = useRef<(() => void) | null>(null);
   const isBrushDrawingRef = useRef(false);
+  // Track if we just finished drawing to suppress click-through
+  const justFinishedDrawingRef = useRef(false);
 
   const [selectedListing, setSelectedListing] = useState<PropertyListingForMap | null>(null);
   const [previewPhotoIndex, setPreviewPhotoIndex] = useState(0);
@@ -143,6 +146,8 @@ export function FullscreenMapView({
   const [useBuffer, setUseBuffer] = useState(false);
   const [districtBoundaries, setDistrictBoundaries] = useState<Array<Array<{ lat: number; lng: number }>>>([]);
   const [selectedDistricts, setSelectedDistricts] = useState<string[]>([]);
+  // Store raw coords rings per district for mask rebuilding
+  const districtCoordsRef = useRef<Array<google.maps.LatLngLiteral[][]>>([]);
 
   // Filtered listings
   const filteredListings = useMemo(() => {
@@ -171,7 +176,7 @@ export function FullscreenMapView({
       if (mapTransactionType === "sprzedaz" && !(transType.includes("sprzedaż") || transType.includes("sprzedaz"))) return false;
       if (mapTransactionType === "wynajem" && !transType.includes("wynajem")) return false;
       if (mapTransactionType === "wynajem-krotkoterminowy" && !(transType.includes("krótkoterminowy") || transType.includes("krotkoterminowy"))) return false;
-      // District boundary filter (polygon-based, accurate) - supports multiple districts
+      // District boundary filter
       if (districtBoundaries.length > 0) {
         const inAnyDistrict = districtBoundaries.some(boundary => 
           boundary.length >= 3 && isPointInPolygon(l.lat, l.lng, boundary)
@@ -226,11 +231,11 @@ export function FullscreenMapView({
 
   const formatPriceFull = (price: number) => price.toLocaleString("pl-PL") + "\u00A0zł";
 
-  // === Supercluster ===
+  // === Supercluster === (higher maxZoom for better detail)
   useEffect(() => {
     const withCoords = filteredListings.filter((l) => l.lat && l.lng);
     if (!withCoords.length) { clusterIndexRef.current = null; return; }
-    const index = new Supercluster({ radius: 50, maxZoom: 18, minZoom: 3 });
+    const index = new Supercluster({ radius: 40, maxZoom: 20, minZoom: 3 });
     index.load(
       withCoords.map((l) => ({
         type: "Feature" as const,
@@ -271,7 +276,11 @@ export function FullscreenMapView({
       constructor(p: { lat: number; lng: number }, content: HTMLDivElement, map: google.maps.Map, onClick: () => void) {
         super();
         this.pos = new google.maps.LatLng(p.lat, p.lng);
-        this.handler = onClick;
+        this.handler = () => {
+          // Suppress click if drawing just finished
+          if (justFinishedDrawingRef.current) return;
+          onClick();
+        };
         this.div = document.createElement("div");
         this.div.style.position = "absolute";
         this.div.appendChild(content);
@@ -308,7 +317,6 @@ export function FullscreenMapView({
 
   const showInfoWindow = useCallback(
     (_map: google.maps.Map, _iw: google.maps.InfoWindow, listing: PropertyListingForMap) => {
-      // Only use React card overlay, no Google InfoWindow to avoid duplicates
       setSelectedListing(listing);
       setPreviewPhotoIndex(0);
       setHoveredId(listing.id);
@@ -343,7 +351,7 @@ export function FullscreenMapView({
         overlaysRef.current.push(
           new Overlay({ lat, lng }, createClusterMarker(cluster.properties.point_count), map, () => {
             const expansionZoom = index.getClusterExpansionZoom(cluster.id as number);
-            map.setZoom(Math.min(expansionZoom, 18));
+            map.setZoom(Math.min(expansionZoom, 20));
             map.setCenter({ lat, lng });
           })
         );
@@ -418,6 +426,8 @@ export function FullscreenMapView({
       selectionMaskRef.current?.setMap(null);
       districtPolygonsRef.current.forEach(p => p.setMap(null));
       districtPolygonsRef.current = [];
+      districtMaskRef.current?.setMap(null);
+      districtMaskRef.current = null;
       circleRef.current?.setMap(null);
       drawingCleanupRef.current?.();
       drawingCleanupRef.current = null;
@@ -430,6 +440,7 @@ export function FullscreenMapView({
     if (mapRef.current && google) updateMarkers();
   }, [updateMarkers, google]);
 
+  // === Rebuild drawn area / circle mask overlay ===
   useEffect(() => {
     if (!mapRef.current || !google) return;
 
@@ -437,6 +448,7 @@ export function FullscreenMapView({
     selectionMaskRef.current = null;
 
     if (drawnArea && drawnArea.length >= 3) {
+      // Inverted mask: purple everywhere EXCEPT inside the drawn area
       selectionMaskRef.current = new google.maps.Polygon({
         map: mapRef.current,
         paths: [WORLD_MASK_PATH, [...drawnArea].reverse()],
@@ -447,6 +459,7 @@ export function FullscreenMapView({
         clickable: false,
       });
 
+      // Drawn area outline (clear inside)
       drawingPolygonRef.current?.setOptions({
         strokeColor: "#7c3aed",
         strokeWeight: 2,
@@ -472,7 +485,36 @@ export function FullscreenMapView({
     }
   }, [google, drawnArea, circleCenter, circleRadius, bufferDistance, useBuffer]);
 
-  // === Polygon drawing (works on both desktop and mobile) ===
+  // === Rebuild district mask when districtBoundaries changes ===
+  const rebuildDistrictMask = useCallback(() => {
+    if (!mapRef.current || !google) return;
+    // Remove old mask
+    districtMaskRef.current?.setMap(null);
+    districtMaskRef.current = null;
+
+    if (districtCoordsRef.current.length === 0) return;
+
+    // Create inverted mask: purple everywhere EXCEPT inside district areas
+    // paths[0] = world, paths[1..N] = each district ring (reversed to cut holes)
+    const paths: google.maps.LatLngLiteral[][] = [WORLD_MASK_PATH];
+    districtCoordsRef.current.forEach(coordRings => {
+      coordRings.forEach(ring => {
+        paths.push([...ring].reverse());
+      });
+    });
+
+    districtMaskRef.current = new google.maps.Polygon({
+      map: mapRef.current,
+      paths,
+      strokeOpacity: 0,
+      strokeWeight: 0,
+      fillColor: "#7c3aed",
+      fillOpacity: 0.22,
+      clickable: false,
+    });
+  }, [google]);
+
+  // === Polygon drawing ===
   const startPolygonDrawing = useCallback(() => {
     if (!mapRef.current || !google) return;
     drawingCleanupRef.current?.();
@@ -512,11 +554,14 @@ export function FullscreenMapView({
       const polygon = new google.maps.Polygon({
         map, paths: points,
         strokeColor: "#7c3aed", strokeWeight: 2, strokeOpacity: 0.9,
-        fillColor: "#7c3aed", fillOpacity: 0.15,
+        fillColor: "#ffffff", fillOpacity: 0.02,
       });
       drawingPolygonRef.current = polygon;
       setDrawnArea(points);
       setDrawingMode(false);
+      // Block marker clicks for a moment after drawing
+      justFinishedDrawingRef.current = true;
+      setTimeout(() => { justFinishedDrawingRef.current = false; }, 500);
     };
 
     // Mouse events (desktop)
@@ -662,65 +707,74 @@ export function FullscreenMapView({
       setDistrictBoundaries(prev => [...prev, allPoints]);
       setSelectedDistricts(prev => [...prev, name]);
 
-      // Rebuild inverted overlay for ALL selected districts
-      // Remove old overlays
+      // Store coords for mask
+      districtCoordsRef.current = [...districtCoordsRef.current, coords];
+
+      // Remove old district highlight polygons
       districtPolygonsRef.current.forEach(p => p.setMap(null));
       districtPolygonsRef.current = [];
 
-      // We need all coords for all districts - store them and rebuild
-      // For now, add individual district polygon with inverted overlay
-      const outerBounds = [
-        { lat: -85, lng: -180 },
-        { lat: -85, lng: 180 },
-        { lat: 85, lng: 180 },
-        { lat: 85, lng: -180 },
-      ];
-
-      // Get all boundaries including the new one
-      setDistrictBoundaries(prev => {
-        const allBoundaries = [...prev];
-        // Rebuild single inverted polygon with all district holes
-        const allCoordRings: google.maps.LatLngLiteral[][] = [];
-        // We need the raw coords for each district - use a simpler approach
-        // Just highlight each district boundary individually
-        return allBoundaries;
+      // Create highlight polygon for each district (with visible fill to show it's selected)
+      districtCoordsRef.current.forEach(coordRings => {
+        const highlight = new google.maps.Polygon({
+          paths: coordRings,
+          strokeColor: '#10b981',
+          strokeWeight: 2.5,
+          strokeOpacity: 0.9,
+          fillColor: '#10b981',
+          fillOpacity: 0.12,
+          map: mapRef.current,
+          clickable: false,
+        });
+        districtPolygonsRef.current.push(highlight);
       });
 
-      // Create highlight polygon for this district (stroke only, to show the area)
-      const highlightPolygon = new google.maps.Polygon({
-        paths: coords, strokeColor: '#7c3aed', strokeWeight: 2, strokeOpacity: 0.8,
-        fillColor: '#7c3aed', fillOpacity: 0.08, map: mapRef.current, clickable: false,
-      });
-      districtPolygonsRef.current.push(highlightPolygon);
+      // Rebuild inverted mask for all districts
+      rebuildDistrictMask();
 
       // Fit bounds to include all districts
       const bounds = new google.maps.LatLngBounds();
-      coords.forEach(ring => ring.forEach(p => bounds.extend(p)));
-      // Also extend to existing boundaries
-      districtPolygonsRef.current.forEach(poly => {
-        const path = poly.getPath();
-        path.forEach(p => bounds.extend(p));
+      districtCoordsRef.current.forEach(rings => {
+        rings.forEach(ring => ring.forEach(p => bounds.extend(p)));
       });
       mapRef.current.fitBounds(bounds, 40);
     } catch (err) {
       console.warn('[FullscreenMap] Failed to fetch district boundary:', err);
     }
-  }, [google]);
+  }, [google, rebuildDistrictMask]);
 
   const removeDistrictBoundary = useCallback((name: string) => {
-    setSelectedDistricts(prev => prev.filter(d => d !== name));
-    setDistrictBoundaries(prev => {
-      const idx = selectedDistricts.indexOf(name);
-      if (idx === -1) return prev;
-      return prev.filter((_, i) => i !== idx);
-    });
-    // Remove corresponding polygon
     const idx = selectedDistricts.indexOf(name);
-    if (idx >= 0 && districtPolygonsRef.current[idx]) {
-      districtPolygonsRef.current[idx].setMap(null);
-      districtPolygonsRef.current.splice(idx, 1);
+    if (idx === -1) return;
+
+    setSelectedDistricts(prev => prev.filter(d => d !== name));
+    setDistrictBoundaries(prev => prev.filter((_, i) => i !== idx));
+
+    // Remove coords
+    districtCoordsRef.current = districtCoordsRef.current.filter((_, i) => i !== idx);
+
+    // Rebuild polygons
+    districtPolygonsRef.current.forEach(p => p.setMap(null));
+    districtPolygonsRef.current = [];
+
+    if (google && mapRef.current) {
+      districtCoordsRef.current.forEach(coordRings => {
+        const highlight = new google.maps.Polygon({
+          paths: coordRings,
+          strokeColor: '#10b981',
+          strokeWeight: 2.5,
+          strokeOpacity: 0.9,
+          fillColor: '#10b981',
+          fillOpacity: 0.12,
+          map: mapRef.current,
+          clickable: false,
+        });
+        districtPolygonsRef.current.push(highlight);
+      });
     }
-  }, [selectedDistricts]);
+
+    rebuildDistrictMask();
+  }, [selectedDistricts, google, rebuildDistrictMask]);
 
   const handleSelectLocation = (loc: typeof LOCATION_DATA[0]) => {
     setShowSuggestions(false);
@@ -741,6 +795,9 @@ export function FullscreenMapView({
       // Clear district selections for city search
       districtPolygonsRef.current.forEach(p => p.setMap(null));
       districtPolygonsRef.current = [];
+      districtMaskRef.current?.setMap(null);
+      districtMaskRef.current = null;
+      districtCoordsRef.current = [];
       setDistrictBoundaries([]);
       setSelectedDistricts([]);
     }
