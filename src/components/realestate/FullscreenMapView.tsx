@@ -169,9 +169,12 @@ export function FullscreenMapView({
       if (mapTransactionType === "sprzedaz" && !(transType.includes("sprzedaż") || transType.includes("sprzedaz"))) return false;
       if (mapTransactionType === "wynajem" && !transType.includes("wynajem")) return false;
       if (mapTransactionType === "wynajem-krotkoterminowy" && !(transType.includes("krótkoterminowy") || transType.includes("krotkoterminowy"))) return false;
-      // District boundary filter (polygon-based, accurate)
-      if (districtBoundary && districtBoundary.length >= 3) {
-        if (!isPointInPolygon(l.lat, l.lng, districtBoundary)) return false;
+      // District boundary filter (polygon-based, accurate) - supports multiple districts
+      if (districtBoundaries.length > 0) {
+        const inAnyDistrict = districtBoundaries.some(boundary => 
+          boundary.length >= 3 && isPointInPolygon(l.lat, l.lng, boundary)
+        );
+        if (!inAnyDistrict) return false;
       } else if (searchQuery) {
         const q = searchQuery.toLowerCase();
         const inLocation = l.location?.toLowerCase().includes(q);
