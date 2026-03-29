@@ -5,12 +5,15 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useGoogleMaps } from "@/hooks/useGoogleMaps";
 import { TransactionTypeChips } from "@/components/realestate/TransactionTypeChips";
+import { PropertyTypeSelector } from "@/components/realestate/PropertyTypeSelector";
+import { RealEstateAISearch } from "@/components/realestate/RealEstateAISearch";
 import {
   X, MapPin, Search, Loader2, Home, PenTool, Eye, ChevronLeft, ChevronRight, Map as MapIcon, List, Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UniversalHomeButton } from "@/components/UniversalHomeButton";
 import { MyGetRidoButton } from "@/components/MyGetRidoButton";
+import heroImage from "@/assets/realestate-hero.jpg";
 
 // === Types ===
 export interface PropertyListingForMap {
@@ -88,15 +91,6 @@ const LOCATION_DATA: Array<{ name: string; type: 'miasto' | 'dzielnica'; parent?
   { name: "Żoliborz", type: "dzielnica", parent: "Warszawa", lat: 52.2685, lng: 20.9832, zoom: 14 },
 ];
 
-const PROPERTY_TYPE_PILLS = [
-  { key: "", label: "Wszystkie" },
-  { key: "mieszkanie", label: "Mieszkania" },
-  { key: "dom", label: "Domy" },
-  { key: "lokal", label: "Lokale" },
-  { key: "magazyn", label: "Magazyny" },
-];
-
-
 export function FullscreenMapView({
   open,
   onClose,
@@ -125,7 +119,7 @@ export function FullscreenMapView({
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [mapPropertyType, setMapPropertyType] = useState("");
+  const [mapPropertyType, setMapPropertyType] = useState<string | null>(null);
   const [mapTransactionType, setMapTransactionType] = useState<string | null>(null);
   const [drawingMode, setDrawingMode] = useState(false);
   const [drawnArea, setDrawnArea] = useState<Array<{ lat: number; lng: number }> | null>(null);
@@ -133,8 +127,21 @@ export function FullscreenMapView({
   // Filtered listings
   const filteredListings = useMemo(() => {
     return listings.filter((l) => {
-      if (!l.lat || !l.lng) return false;
-      if (mapPropertyType && !l.propertyType?.toLowerCase().includes(mapPropertyType)) return false;
+        if (!l.lat || !l.lng) return false;
+        const listingType = l.propertyType?.toLowerCase() || "";
+        const listingTitle = l.title?.toLowerCase() || "";
+        if (mapPropertyType) {
+          if (mapPropertyType === "komercja") {
+            const isCommercial = ["lokal", "magazyn", "hala", "biuro"].some(
+              (value) => listingType.includes(value) || listingTitle.includes(value)
+            );
+            if (!isCommercial) return false;
+          } else if (mapPropertyType === "rynek-pierwotny") {
+            if (!(listingType.includes("inwestycja") || listingTitle.includes("inwestycja") || listingTitle.includes("deweloper"))) return false;
+          } else if (!listingType.includes(mapPropertyType)) {
+            return false;
+          }
+        }
       const transType = l.transactionType?.toLowerCase() || "";
       if (mapTransactionType === "sprzedaz" && !(transType.includes("sprzedaż") || transType.includes("sprzedaz"))) return false;
       if (mapTransactionType === "wynajem" && !transType.includes("wynajem")) return false;
@@ -532,9 +539,8 @@ export function FullscreenMapView({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-background flex flex-col">
-      {/* Portal Header - same as main marketplace */}
-      <header className="shrink-0 bg-background/95 backdrop-blur-md border-b">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-background">
+      <header className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <UniversalHomeButton />
@@ -565,43 +571,42 @@ export function FullscreenMapView({
         </div>
       </header>
 
-      <div className="shrink-0 border-b bg-background/95">
-        <div className="container mx-auto px-4 py-4 md:py-5">
+      <section className="relative overflow-hidden border-b">
+        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${heroImage})` }}>
+          <div className="absolute inset-0 bg-gradient-to-b from-background/90 via-background/80 to-background" />
+        </div>
+
+        <div className="relative container mx-auto px-4 py-8 md:py-10">
           <div className="mx-auto max-w-6xl">
-            <div className="mb-3">
-              <h2 className="text-xl font-bold text-foreground md:text-2xl">Zaznacz na mapie</h2>
-              <p className="text-sm text-muted-foreground">Najpierw wybierz kategorię, potem lokalizację lub narysuj obszar.</p>
+            <div className="max-w-3xl mx-auto mb-6">
+              <RealEstateAISearch onSearchResults={() => {}} onLoading={() => {}} />
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 md:gap-3">
-              {PROPERTY_TYPE_PILLS.map((t) => (
-                <button
-                  key={t.key}
-                  onClick={() => setMapPropertyType(t.key)}
-                  className={cn(
-                    "rounded-full border px-3.5 py-2 text-sm font-medium whitespace-nowrap transition-colors",
-                    mapPropertyType === t.key
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-background text-foreground border-border hover:border-primary/40"
-                  )}
-                >
-                  {t.label}
-                </button>
-              ))}
+            <div className="text-center mb-1">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-1">
+                Znajdź wymarzoną <span className="text-primary">nieruchomość</span>
+              </h1>
+              <p className="text-muted-foreground">Mieszkania, domy, działki i lokale od zweryfikowanych agencji</p>
             </div>
+
+            <PropertyTypeSelector
+              selectedType={mapPropertyType}
+              onTypeChange={setMapPropertyType}
+              className="justify-center mt-5"
+            />
 
             <TransactionTypeChips
               selectedType={mapTransactionType}
               onTypeChange={setMapTransactionType}
-              className="mt-3"
+              className="justify-center mt-3"
             />
 
-            <div className="mt-3 rounded-[1.75rem] border bg-card/95 p-3 shadow-sm md:p-4">
+            <div className="mt-6 rounded-[1.75rem] border bg-card/95 p-3 shadow-lg md:p-4">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
-                    placeholder="Miasto, dzielnica..."
+                    placeholder="Wpisz lokalizację"
                     value={searchQuery}
                     onChange={(e) => {
                       setSearchQuery(e.target.value);
@@ -658,29 +663,29 @@ export function FullscreenMapView({
           </div>
         </div>
 
-        <div className="border-t px-3 py-2 md:hidden">
+        <div className="container mx-auto px-4 pb-4 md:hidden">
           <div className="flex gap-0.5 bg-muted rounded-lg p-0.5 w-fit ml-auto">
-          <Button
-            variant={mobileTab === "map" ? "default" : "ghost"}
-            size="sm"
-            className="h-6 px-2 text-xs"
-            onClick={() => setMobileTab("map")}
-          >
-            <MapIcon className="h-3.5 w-3.5 mr-1" />
-            Mapa
-          </Button>
-          <Button
-            variant={mobileTab === "list" ? "default" : "ghost"}
-            size="sm"
-            className="h-6 px-2 text-xs"
-            onClick={() => setMobileTab("list")}
-          >
-            <List className="h-3.5 w-3.5 mr-1" />
-            Lista
-          </Button>
+            <Button
+              variant={mobileTab === "map" ? "default" : "ghost"}
+              size="sm"
+              className="h-8 px-3 text-xs"
+              onClick={() => setMobileTab("map")}
+            >
+              <MapIcon className="h-3.5 w-3.5 mr-1" />
+              Mapa
+            </Button>
+            <Button
+              variant={mobileTab === "list" ? "default" : "ghost"}
+              size="sm"
+              className="h-8 px-3 text-xs"
+              onClick={() => setMobileTab("list")}
+            >
+              <List className="h-3.5 w-3.5 mr-1" />
+              Lista
+            </Button>
+          </div>
         </div>
-        </div>
-      </div>
+      </section>
 
       {/* Drawing mode banner */}
       {drawingMode && (
@@ -690,16 +695,25 @@ export function FullscreenMapView({
         </div>
       )}
 
-      {/* Main content: map + list */}
-      <div className="flex-1 flex overflow-hidden">
+      <section className="container mx-auto px-4 py-5 md:py-6">
+        <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-sm text-muted-foreground">Widok mapy</p>
+            <h2 className="text-2xl font-bold text-foreground">{filteredListings.length} ogłoszeń</h2>
+          </div>
+          <Button variant="outline" className="rounded-full self-start md:self-auto" onClick={onClose}>
+            <X className="mr-1.5 h-4 w-4" />
+            Zamknij mapę
+          </Button>
+        </div>
+
+        <div className="flex overflow-hidden rounded-[1.75rem] border bg-card shadow-lg min-h-[68vh]">
         {/* Map Panel */}
         <div
           className={cn(
             "relative",
-            // Desktop: always 65%
-             "hidden md:block md:w-[62%]",
-            // Mobile: show based on tab
-             mobileTab === "map" && "!block w-full md:!w-[62%]"
+            "hidden md:block md:w-[62%] min-h-[68vh]",
+            mobileTab === "map" && "!block w-full md:!w-[62%]"
           )}
         >
           {!isLoaded ? (
@@ -758,9 +772,9 @@ export function FullscreenMapView({
         {/* List Panel */}
         <div
           className={cn(
-            "border-l bg-background flex flex-col",
-             "hidden md:flex md:w-[38%]",
-             mobileTab === "list" && "!flex w-full md:!w-[38%]"
+            "border-l bg-background flex flex-col min-h-[68vh]",
+            "hidden md:flex md:w-[38%]",
+            mobileTab === "list" && "!flex w-full md:!w-[38%]"
           )}
         >
           {/* List header */}
@@ -832,7 +846,8 @@ export function FullscreenMapView({
             </div>
           )}
         </div>
-      </div>
+        </div>
+      </section>
     </div>
   );
 }
