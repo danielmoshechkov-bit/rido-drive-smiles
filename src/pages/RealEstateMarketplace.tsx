@@ -836,8 +836,8 @@ export default function RealEstateMarketplace() {
               className="gap-1.5"
               onClick={() => setShowFullMap(true)}
             >
-              <MapIcon className="h-4 w-4" />
-              <span className="hidden sm:inline">Pokaż na mapie</span>
+              <PenTool className="h-4 w-4" />
+              <span className="hidden sm:inline">Zaznacz na mapie</span>
             </Button>
             {/* Per Page Selector */}
             <div className="flex items-center gap-2">
