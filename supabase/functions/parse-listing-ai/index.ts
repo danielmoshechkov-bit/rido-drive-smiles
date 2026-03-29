@@ -173,6 +173,7 @@ ${rawHints ? `DANE DODATKOWE Z CRM: ${rawHints}` : ''}
 
 Zwróć JSON w dokładnie tym formacie:
 {
+  "property_type": "mieszkanie" / "dom" / "dzialka" / "pokoj" / "kawalerka" / "lokal-uzytkowy" / "hala-magazyn" / "rynek-pierwotny" (WYBIERZ JEDEN na podstawie treści. Magazyn, hala, hurtownia = "hala-magazyn". Biuro, sklep, lokal usługowy, gabinet = "lokal-uzytkowy"),
   "area_total": liczba (CAŁY metraż nieruchomości = suma wszystkich pomieszczeń) lub null,
   "area_usable": liczba lub null,
   "property_subtype": "magazyn z biurem" / "lokal handlowy" / "biuro" / null (dla komercji),
@@ -263,6 +264,12 @@ UWAGA: Wypisz WSZYSTKIE pokoje wymienione w opisie, nie pomijaj żadnego!`
           ai_area_total: aiAreaTotal || null,
           ai_parsed_at: new Date().toISOString(),
           ai_confidence: parsed.confidence || 0,
+        }
+
+        // Update property_type if AI classified it
+        const validTypes = ['mieszkanie', 'dom', 'dzialka', 'pokoj', 'kawalerka', 'lokal-uzytkowy', 'hala-magazyn', 'rynek-pierwotny']
+        if (parsed.property_type && validTypes.includes(parsed.property_type)) {
+          updatePayload.property_type = parsed.property_type
         }
 
         // Update area_total if we got a better value from AI
