@@ -684,19 +684,29 @@ export function FullscreenMapView({
             />
             {showSuggestions && suggestions.length > 0 && (
               <div className="absolute top-full left-0 mt-1 w-full rounded-xl border bg-popover shadow-lg z-50 max-h-60 overflow-y-auto">
-                {suggestions.map((loc) => (
-                  <button
-                    key={`${loc.type}-${loc.name}`}
-                    onMouseDown={() => handleSelectLocation(loc)}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-accent transition-colors"
-                  >
-                    <MapPin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                    <span className="font-medium">{loc.name}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {loc.type === 'dzielnica' ? `dzielnica, ${loc.parent}` : 'miasto'}
-                    </span>
-                  </button>
-                ))}
+                {suggestions.map((loc) => {
+                  const isSelected = loc.type === 'dzielnica' && selectedDistricts.includes(loc.name);
+                  return (
+                    <button
+                      key={`${loc.type}-${loc.name}`}
+                      onMouseDown={() => handleSelectLocation(loc)}
+                      className={cn(
+                        "flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-accent transition-colors",
+                        isSelected && "bg-primary/10"
+                      )}
+                    >
+                      {loc.type === 'dzielnica' ? (
+                        <Checkbox checked={isSelected} className="h-3.5 w-3.5 pointer-events-none" />
+                      ) : (
+                        <MapPin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      )}
+                      <span className="font-medium">{loc.name}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {loc.type === 'dzielnica' ? `dzielnica, ${loc.parent}` : 'miasto'}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
