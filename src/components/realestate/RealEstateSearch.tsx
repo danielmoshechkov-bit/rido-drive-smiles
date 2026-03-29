@@ -16,6 +16,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Search, ChevronDown, SlidersHorizontal, X, Map } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LocationSearchInput, LocationSelection, AreaSelection } from "./LocationSearchInput";
@@ -61,6 +62,7 @@ export interface RealEstateFilters {
   areaTo?: number;
   roomsFrom?: number;
   roomsTo?: number;
+  rooms?: number[];
   yearFrom?: number;
   floorFrom?: number;
   floorTo?: number;
@@ -70,6 +72,15 @@ export interface RealEstateFilters {
   hasGarden?: boolean;
   marketType?: string;
 }
+
+const ROOM_COUNTS = [
+  { value: 1, label: "1" },
+  { value: 2, label: "2" },
+  { value: 3, label: "3" },
+  { value: 4, label: "4" },
+  { value: 5, label: "5" },
+  { value: 6, label: "6+" },
+];
 
 const PROPERTY_TYPES = [
   { value: "mieszkanie", label: "Mieszkanie" },
