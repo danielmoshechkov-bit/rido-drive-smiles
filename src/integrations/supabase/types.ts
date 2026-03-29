@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      ab_tests: {
+        Row: {
+          created_at: string | null
+          ends_at: string | null
+          hypothesis: string | null
+          id: string
+          name: string | null
+          results: Json | null
+          started_at: string | null
+          status: string | null
+          suggested_by: string | null
+          variant_a: Json | null
+          variant_b: Json | null
+          winner: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          ends_at?: string | null
+          hypothesis?: string | null
+          id?: string
+          name?: string | null
+          results?: Json | null
+          started_at?: string | null
+          status?: string | null
+          suggested_by?: string | null
+          variant_a?: Json | null
+          variant_b?: Json | null
+          winner?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          ends_at?: string | null
+          hypothesis?: string | null
+          id?: string
+          name?: string | null
+          results?: Json | null
+          started_at?: string | null
+          status?: string | null
+          suggested_by?: string | null
+          variant_a?: Json | null
+          variant_b?: Json | null
+          winner?: string | null
+        }
+        Relationships: []
+      }
       accounting_assignments: {
         Row: {
           accounting_user_id: string
@@ -604,33 +649,90 @@ export type Database = {
       agency_clients: {
         Row: {
           added_by: string | null
+          address: string | null
+          assigned_to: string | null
+          city: string | null
           company_name: string
           contact_email: string | null
           contact_name: string | null
           created_at: string | null
+          first_name: string | null
+          google_ad_account_id: string | null
+          google_refresh_token: string | null
           id: string
+          instagram_access_token: string | null
+          instagram_account_id: string | null
+          last_name: string | null
           logo_url: string | null
+          meta_access_token: string | null
+          meta_ad_account_id: string | null
+          monthly_budget: number | null
+          nip: string | null
           notes: string | null
+          phone: string | null
+          portal_user_id: string | null
+          status: string | null
+          total_leads: number | null
+          total_spent: number | null
+          website: string | null
         }
         Insert: {
           added_by?: string | null
+          address?: string | null
+          assigned_to?: string | null
+          city?: string | null
           company_name: string
           contact_email?: string | null
           contact_name?: string | null
           created_at?: string | null
+          first_name?: string | null
+          google_ad_account_id?: string | null
+          google_refresh_token?: string | null
           id?: string
+          instagram_access_token?: string | null
+          instagram_account_id?: string | null
+          last_name?: string | null
           logo_url?: string | null
+          meta_access_token?: string | null
+          meta_ad_account_id?: string | null
+          monthly_budget?: number | null
+          nip?: string | null
           notes?: string | null
+          phone?: string | null
+          portal_user_id?: string | null
+          status?: string | null
+          total_leads?: number | null
+          total_spent?: number | null
+          website?: string | null
         }
         Update: {
           added_by?: string | null
+          address?: string | null
+          assigned_to?: string | null
+          city?: string | null
           company_name?: string
           contact_email?: string | null
           contact_name?: string | null
           created_at?: string | null
+          first_name?: string | null
+          google_ad_account_id?: string | null
+          google_refresh_token?: string | null
           id?: string
+          instagram_access_token?: string | null
+          instagram_account_id?: string | null
+          last_name?: string | null
           logo_url?: string | null
+          meta_access_token?: string | null
+          meta_ad_account_id?: string | null
+          monthly_budget?: number | null
+          nip?: string | null
           notes?: string | null
+          phone?: string | null
+          portal_user_id?: string | null
+          status?: string | null
+          total_leads?: number | null
+          total_spent?: number | null
+          website?: string | null
         }
         Relationships: []
       }
@@ -2401,6 +2503,68 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_interactions: {
+        Row: {
+          ai_generated: boolean | null
+          channel: string | null
+          created_at: string | null
+          direction: string | null
+          id: string
+          interaction_type: string | null
+          lead_id: string | null
+          message_received: string | null
+          message_sent: string | null
+          outcome: string | null
+          outcome_value: number | null
+          provider_id: string | null
+          response_time_minutes: number | null
+          sentiment_score: number | null
+          template_id: string | null
+        }
+        Insert: {
+          ai_generated?: boolean | null
+          channel?: string | null
+          created_at?: string | null
+          direction?: string | null
+          id?: string
+          interaction_type?: string | null
+          lead_id?: string | null
+          message_received?: string | null
+          message_sent?: string | null
+          outcome?: string | null
+          outcome_value?: number | null
+          provider_id?: string | null
+          response_time_minutes?: number | null
+          sentiment_score?: number | null
+          template_id?: string | null
+        }
+        Update: {
+          ai_generated?: boolean | null
+          channel?: string | null
+          created_at?: string | null
+          direction?: string | null
+          id?: string
+          interaction_type?: string | null
+          lead_id?: string | null
+          message_received?: string | null
+          message_sent?: string | null
+          outcome?: string | null
+          outcome_value?: number | null
+          provider_id?: string | null
+          response_time_minutes?: number | null
+          sentiment_score?: number | null
+          template_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_interactions_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_jobs: {
         Row: {
           created_at: string | null
@@ -2481,6 +2645,51 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_lead_patterns: {
+        Row: {
+          avg_messages_to_convert: number | null
+          avg_response_time_hours: number | null
+          best_contact_day: number | null
+          best_contact_hour: number | null
+          city: string | null
+          common_objections: Json | null
+          id: string
+          industry: string | null
+          sample_size: number | null
+          source: string | null
+          updated_at: string | null
+          winning_responses: Json | null
+        }
+        Insert: {
+          avg_messages_to_convert?: number | null
+          avg_response_time_hours?: number | null
+          best_contact_day?: number | null
+          best_contact_hour?: number | null
+          city?: string | null
+          common_objections?: Json | null
+          id?: string
+          industry?: string | null
+          sample_size?: number | null
+          source?: string | null
+          updated_at?: string | null
+          winning_responses?: Json | null
+        }
+        Update: {
+          avg_messages_to_convert?: number | null
+          avg_response_time_hours?: number | null
+          best_contact_day?: number | null
+          best_contact_hour?: number | null
+          city?: string | null
+          common_objections?: Json | null
+          id?: string
+          industry?: string | null
+          sample_size?: number | null
+          source?: string | null
+          updated_at?: string | null
+          winning_responses?: Json | null
+        }
+        Relationships: []
+      }
       ai_learning_consent: {
         Row: {
           consent_given: boolean | null
@@ -2552,6 +2761,68 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      ai_message_templates: {
+        Row: {
+          agency_id: string | null
+          body: string | null
+          channel: string | null
+          created_at: string | null
+          id: string
+          industry: string | null
+          is_active: boolean | null
+          meetings_booked: number | null
+          provider_id: string | null
+          sales_won: number | null
+          subject: string | null
+          times_responded: number | null
+          times_used: number | null
+          use_case: string | null
+          variables: Json | null
+        }
+        Insert: {
+          agency_id?: string | null
+          body?: string | null
+          channel?: string | null
+          created_at?: string | null
+          id?: string
+          industry?: string | null
+          is_active?: boolean | null
+          meetings_booked?: number | null
+          provider_id?: string | null
+          sales_won?: number | null
+          subject?: string | null
+          times_responded?: number | null
+          times_used?: number | null
+          use_case?: string | null
+          variables?: Json | null
+        }
+        Update: {
+          agency_id?: string | null
+          body?: string | null
+          channel?: string | null
+          created_at?: string | null
+          id?: string
+          industry?: string | null
+          is_active?: boolean | null
+          meetings_booked?: number | null
+          provider_id?: string | null
+          sales_won?: number | null
+          subject?: string | null
+          times_responded?: number | null
+          times_used?: number | null
+          use_case?: string | null
+          variables?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_message_templates_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ai_messages: {
         Row: {
@@ -4896,6 +5167,59 @@ export type Database = {
         }
         Relationships: []
       }
+      call_transcripts: {
+        Row: {
+          ai_next_action: string | null
+          ai_sentiment: string | null
+          ai_summary: string | null
+          created_at: string | null
+          duration_seconds: number | null
+          id: string
+          lead_id: string | null
+          outcome: string | null
+          phone_number: string | null
+          provider_id: string | null
+          recording_url: string | null
+          transcript: string | null
+        }
+        Insert: {
+          ai_next_action?: string | null
+          ai_sentiment?: string | null
+          ai_summary?: string | null
+          created_at?: string | null
+          duration_seconds?: number | null
+          id?: string
+          lead_id?: string | null
+          outcome?: string | null
+          phone_number?: string | null
+          provider_id?: string | null
+          recording_url?: string | null
+          transcript?: string | null
+        }
+        Update: {
+          ai_next_action?: string | null
+          ai_sentiment?: string | null
+          ai_summary?: string | null
+          created_at?: string | null
+          duration_seconds?: number | null
+          id?: string
+          lead_id?: string | null
+          outcome?: string | null
+          phone_number?: string | null
+          provider_id?: string | null
+          recording_url?: string | null
+          transcript?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_transcripts_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       car_brands: {
         Row: {
           created_at: string
@@ -4966,6 +5290,71 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      client_reports: {
+        Row: {
+          agency_id: string | null
+          campaigns_data: Json | null
+          client_id: string | null
+          created_at: string | null
+          created_by: string | null
+          id: string
+          leads_count: number | null
+          meetings_count: number | null
+          period_from: string | null
+          period_to: string | null
+          roas: number | null
+          sent_at: string | null
+          spent: number | null
+          status: string | null
+          summary: string | null
+          title: string | null
+        }
+        Insert: {
+          agency_id?: string | null
+          campaigns_data?: Json | null
+          client_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          leads_count?: number | null
+          meetings_count?: number | null
+          period_from?: string | null
+          period_to?: string | null
+          roas?: number | null
+          sent_at?: string | null
+          spent?: number | null
+          status?: string | null
+          summary?: string | null
+          title?: string | null
+        }
+        Update: {
+          agency_id?: string | null
+          campaigns_data?: Json | null
+          client_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          leads_count?: number | null
+          meetings_count?: number | null
+          period_from?: string | null
+          period_to?: string | null
+          roas?: number | null
+          sent_at?: string | null
+          spent?: number | null
+          status?: string | null
+          summary?: string | null
+          title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_reports_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "agency_clients"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       client_reviews: {
         Row: {
@@ -5647,6 +6036,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      daily_sales_reports: {
+        Row: {
+          actions_taken: Json | null
+          claude_analysis: Json | null
+          consensus: Json | null
+          created_at: string | null
+          gemini_analysis: Json | null
+          gpt_analysis: Json | null
+          id: string
+          raw_data: Json | null
+          report_date: string | null
+          results_next_day: Json | null
+        }
+        Insert: {
+          actions_taken?: Json | null
+          claude_analysis?: Json | null
+          consensus?: Json | null
+          created_at?: string | null
+          gemini_analysis?: Json | null
+          gpt_analysis?: Json | null
+          id?: string
+          raw_data?: Json | null
+          report_date?: string | null
+          results_next_day?: Json | null
+        }
+        Update: {
+          actions_taken?: Json | null
+          claude_analysis?: Json | null
+          consensus?: Json | null
+          created_at?: string | null
+          gemini_analysis?: Json | null
+          gpt_analysis?: Json | null
+          id?: string
+          raw_data?: Json | null
+          report_date?: string | null
+          results_next_day?: Json | null
+        }
+        Relationships: []
       }
       document_inbox: {
         Row: {
@@ -7947,6 +8375,77 @@ export type Database = {
           vat_rate?: number | null
         }
         Relationships: []
+      }
+      followup_queue: {
+        Row: {
+          channel: string | null
+          created_at: string | null
+          id: string
+          lead_id: string | null
+          message: string | null
+          scheduled_at: string | null
+          sent_at: string | null
+          status: string | null
+          step_index: number | null
+        }
+        Insert: {
+          channel?: string | null
+          created_at?: string | null
+          id?: string
+          lead_id?: string | null
+          message?: string | null
+          scheduled_at?: string | null
+          sent_at?: string | null
+          status?: string | null
+          step_index?: number | null
+        }
+        Update: {
+          channel?: string | null
+          created_at?: string | null
+          id?: string
+          lead_id?: string | null
+          message?: string | null
+          scheduled_at?: string | null
+          sent_at?: string | null
+          status?: string | null
+          step_index?: number | null
+        }
+        Relationships: []
+      }
+      followup_sequences: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          name: string | null
+          provider_id: string | null
+          steps: Json | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string | null
+          provider_id?: string | null
+          steps?: Json | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string | null
+          provider_id?: string | null
+          steps?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "followup_sequences_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       fuel_cards: {
         Row: {
@@ -14097,7 +14596,10 @@ export type Database = {
       service_leads: {
         Row: {
           ad_order_id: string | null
+          ai_score: number | null
+          ai_score_reason: string | null
           created_at: string | null
+          estimated_value: number | null
           id: string
           lead_email: string | null
           lead_message: string | null
@@ -14112,7 +14614,10 @@ export type Database = {
         }
         Insert: {
           ad_order_id?: string | null
+          ai_score?: number | null
+          ai_score_reason?: string | null
           created_at?: string | null
+          estimated_value?: number | null
           id?: string
           lead_email?: string | null
           lead_message?: string | null
@@ -14127,7 +14632,10 @@ export type Database = {
         }
         Update: {
           ad_order_id?: string | null
+          ai_score?: number | null
+          ai_score_reason?: string | null
           created_at?: string | null
+          estimated_value?: number | null
           id?: string
           lead_email?: string | null
           lead_message?: string | null
@@ -14474,6 +14982,10 @@ export type Database = {
           cover_image_url: string | null
           created_at: string | null
           description: string | null
+          gmb_access_token: string | null
+          gmb_auto_posts: boolean | null
+          gmb_auto_reply_reviews: boolean | null
+          gmb_location_id: string | null
           id: string
           latitude: number | null
           logo_url: string | null
@@ -14510,6 +15022,10 @@ export type Database = {
           cover_image_url?: string | null
           created_at?: string | null
           description?: string | null
+          gmb_access_token?: string | null
+          gmb_auto_posts?: boolean | null
+          gmb_auto_reply_reviews?: boolean | null
+          gmb_location_id?: string | null
           id?: string
           latitude?: number | null
           logo_url?: string | null
@@ -14546,6 +15062,10 @@ export type Database = {
           cover_image_url?: string | null
           created_at?: string | null
           description?: string | null
+          gmb_access_token?: string | null
+          gmb_auto_posts?: boolean | null
+          gmb_auto_reply_reviews?: boolean | null
+          gmb_location_id?: string | null
           id?: string
           latitude?: number | null
           logo_url?: string | null
@@ -18027,6 +18547,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      weekly_learning_reports: {
+        Row: {
+          actions_applied: Json | null
+          claude_analysis: Json | null
+          consensus: Json | null
+          created_at: string | null
+          gemini_analysis: Json | null
+          gpt_analysis: Json | null
+          id: string
+          raw_data: Json | null
+          week_start: string | null
+        }
+        Insert: {
+          actions_applied?: Json | null
+          claude_analysis?: Json | null
+          consensus?: Json | null
+          created_at?: string | null
+          gemini_analysis?: Json | null
+          gpt_analysis?: Json | null
+          id?: string
+          raw_data?: Json | null
+          week_start?: string | null
+        }
+        Update: {
+          actions_applied?: Json | null
+          claude_analysis?: Json | null
+          consensus?: Json | null
+          created_at?: string | null
+          gemini_analysis?: Json | null
+          gpt_analysis?: Json | null
+          id?: string
+          raw_data?: Json | null
+          week_start?: string | null
+        }
+        Relationships: []
       }
       workshop_clients: {
         Row: {
