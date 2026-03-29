@@ -139,14 +139,31 @@ export function PropertyListingCard({
     return photos[index] ?? mainPhotoUrl;
   };
 
-  const nextPhoto = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const touchStartX = useRef<number>(0);
+  const touchEndX = useRef<number>(0);
+
+  const nextPhoto = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
     setCurrentPhoto((prev) => (prev + 1) % photos.length);
   };
 
-  const prevPhoto = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const prevPhoto = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
     setCurrentPhoto((prev) => (prev - 1 + photos.length) % photos.length);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.targetTouches[0].clientX;
+  };
+  const handleTouchMove = (e: React.TouchEvent) => {
+    touchEndX.current = e.targetTouches[0].clientX;
+  };
+  const handleTouchEnd = () => {
+    const diff = touchStartX.current - touchEndX.current;
+    if (Math.abs(diff) > 50) {
+      if (diff > 0) nextPhoto();
+      else prevPhoto();
+    }
   };
 
   // Calculate price per m2
@@ -687,8 +704,7 @@ export function PropertyListingCard({
             </div>
           )}
 
-          {/* Spacer */}
-          <div className="flex-grow min-h-1" />
+          {/* No spacer - price pinned via mt-auto */}
 
           {/* Price - pinned to bottom */}
           <div className="mt-auto pt-2 border-t border-border/40">
@@ -696,7 +712,7 @@ export function PropertyListingCard({
               <div className="min-w-0">
                 <span className={cn(
                   "font-bold text-primary leading-tight",
-                  compact ? "text-base" : "text-lg"
+                  compact ? "text-sm" : "text-base"
                 )}>
                   {formatCurrency(listing.price)}
                 </span>
@@ -714,7 +730,7 @@ export function PropertyListingCard({
               <Button 
                 size="sm"
                 onClick={onView}
-                className={cn("shrink-0 rounded-xl px-3 py-1.5 text-xs h-auto", compact && "h-7 px-2.5")}
+                className={cn("shrink-0 rounded-md px-3 text-xs h-7", compact && "px-2.5")}
               >
                 {compact ? "Zobacz" : "Szczegóły"}
               </Button>
