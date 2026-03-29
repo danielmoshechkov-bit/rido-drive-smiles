@@ -11831,6 +11831,7 @@ export type Database = {
           total_gross: number | null
           total_net: number | null
           total_vat: number | null
+          xml_content: string | null
         }
         Insert: {
           account_kpir?: string | null
@@ -11851,6 +11852,7 @@ export type Database = {
           total_gross?: number | null
           total_net?: number | null
           total_vat?: number | null
+          xml_content?: string | null
         }
         Update: {
           account_kpir?: string | null
@@ -11871,6 +11873,7 @@ export type Database = {
           total_gross?: number | null
           total_net?: number | null
           total_vat?: number | null
+          xml_content?: string | null
         }
         Relationships: [
           {
