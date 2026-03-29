@@ -460,10 +460,9 @@ export function PropertyListingCard({
                 </div>
               )}
 
-              <div className="flex-grow min-h-2" />
 
-              <div className="mt-auto pt-3">
-                <div className="text-xl font-bold leading-tight text-primary whitespace-nowrap">
+              <div className="mt-auto pt-2 border-t border-border/30">
+                <div className="text-base font-bold leading-tight text-primary whitespace-nowrap">
                   {formatCurrency(listing.price)}
                   <span className="ml-1 text-sm font-medium text-muted-foreground">
                     {PRICE_TYPE_LABELS[listing.priceType || 'sale'] || ''}
