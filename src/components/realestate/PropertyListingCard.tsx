@@ -299,6 +299,10 @@ export function PropertyListingCard({
             <div 
               className="relative bg-muted overflow-hidden sm:w-64 md:w-72 flex-shrink-0 aspect-[4/3] sm:aspect-auto sm:h-48"
               onClick={handlePhotoClick}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              style={{ touchAction: 'pan-y' }}
             >
               <img
                 src={getPhotoSrc(currentPhoto)}
