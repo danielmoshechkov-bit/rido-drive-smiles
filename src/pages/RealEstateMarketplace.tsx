@@ -386,7 +386,7 @@ export default function RealEstateMarketplace() {
   
   const [initialQuery, setInitialQuery] = useState<string>("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [perPage, setPerPage] = useState(20);
+  const [perPage, setPerPage] = useState(21);
   const aiSearchTriggered = useRef(false);
 
   // Compare context
@@ -847,7 +847,7 @@ export default function RealEstateMarketplace() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {[20, 40, 60, 80].map(n => (
+                  {[21, 42, 63, 84].map(n => (
                     <SelectItem key={n} value={String(n)}>{n}</SelectItem>
                   ))}
                 </SelectContent>
@@ -937,7 +937,7 @@ export default function RealEstateMarketplace() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {[20, 40, 60, 80].map(n => (
+                      {[21, 42, 63, 84].map(n => (
                         <SelectItem key={n} value={String(n)}>{n}</SelectItem>
                       ))}
                     </SelectContent>
