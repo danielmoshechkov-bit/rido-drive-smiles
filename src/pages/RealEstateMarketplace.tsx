@@ -1059,6 +1059,29 @@ export default function RealEstateMarketplace() {
         isLoggedIn={!!user}
       />
 
+      {/* Fullscreen Map View */}
+      <FullscreenMapView
+        open={showFullMap}
+        onClose={() => setShowFullMap(false)}
+        listings={listings.map(l => ({
+          id: l.id,
+          title: l.title,
+          price: l.price,
+          priceType: l.priceType,
+          photos: l.photos,
+          location: l.location,
+          district: l.district,
+          areaM2: l.areaM2,
+          rooms: l.rooms,
+          propertyType: l.propertyType,
+          transactionType: l.transactionType,
+          transactionColor: l.transactionColor,
+          lat: l.lat ?? undefined,
+          lng: l.lng ?? undefined,
+        }))}
+        onViewListing={(id) => navigate(`/nieruchomosci/ogloszenie/${id}`)}
+      />
+
     </div>
   );
 }
