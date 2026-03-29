@@ -534,14 +534,14 @@ export function FullscreenMapView({
   const hasActiveDrawing = !!(drawnArea || circleCenter);
 
   return (
-    <div className="flex flex-col bg-background" style={{ height: 'calc(100vh - 300px)', minHeight: '500px' }}>
+    <div className="flex flex-col bg-background" style={{ height: 'calc(100vh - 200px)', minHeight: '600px' }}>
 
 
       {/* === TOOLBAR === */}
       <div className="shrink-0 border-b bg-card/80 backdrop-blur-sm px-4 py-2">
-        <div className="max-w-[2000px] mx-auto flex flex-col gap-2 lg:flex-row lg:items-center lg:gap-4">
+        <div className="max-w-[2000px] mx-auto flex items-center gap-3 flex-wrap">
           {/* Search */}
-          <div className="relative flex-1 max-w-md">
+          <div className="relative flex-1 min-w-[200px] max-w-md">
             <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Wpisz miasto lub dzielnicę..."
@@ -570,104 +570,64 @@ export function FullscreenMapView({
             )}
           </div>
 
-          {/* Property type chips */}
-          <div className="flex flex-wrap items-center gap-1.5">
-            {PROPERTY_CATEGORIES.map((cat) => (
-              <button
-                key={cat.value}
-                onClick={() => setMapPropertyType(mapPropertyType === cat.value ? null : cat.value)}
-                className={cn(
-                  "px-2.5 py-1 rounded-full text-xs font-medium border transition-all",
-                  mapPropertyType === cat.value
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-background hover:bg-muted border-border hover:border-primary/50"
-                )}
-              >
-                {cat.label}
-              </button>
-            ))}
-          </div>
+          {/* Drawing tools */}
+          <Button
+            variant={drawingMode === "pen" ? "default" : "outline"}
+            size="sm"
+            className="rounded-full h-8 px-3 text-xs gap-1.5"
+            onClick={drawingMode === "pen" ? () => setDrawingMode(false) : startPolygonDrawing}
+          >
+            <PenTool className="h-3.5 w-3.5" />
+            Zaznacz
+          </Button>
+          <Button
+            variant={drawingMode === "circle" ? "default" : "outline"}
+            size="sm"
+            className="rounded-full h-8 px-3 text-xs gap-1.5"
+            onClick={drawingMode === "circle" ? () => setDrawingMode(false) : startCircleDrawing}
+          >
+            <Circle className="h-3.5 w-3.5" />
+            Okrąg
+          </Button>
 
-          {/* Transaction type chips */}
+          {hasActiveDrawing && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="rounded-full h-8 px-2.5 text-xs text-destructive hover:text-destructive"
+              onClick={clearAllDrawing}
+            >
+              <X className="h-3.5 w-3.5 mr-0.5" />
+              Usuń
+            </Button>
+          )}
+
+          {/* Buffer */}
           <div className="flex items-center gap-1.5">
-            {TRANSACTION_TYPES.map((t) => (
-              <button
-                key={t.value}
-                onClick={() => setMapTransactionType(mapTransactionType === t.value ? null : t.value)}
-                className={cn(
-                  "px-2.5 py-1 rounded-full text-xs font-medium border transition-all",
-                  mapTransactionType === t.value
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-background hover:bg-muted border-border hover:border-primary/50"
-                )}
-              >
-                {t.label}
-              </button>
-            ))}
-
-            <div className="w-px h-5 bg-border mx-1" />
-
-            {/* Drawing tools */}
-            <Button
-              variant={drawingMode === "pen" ? "default" : "outline"}
-              size="sm"
-              className="rounded-full h-7 px-2.5 text-xs gap-1"
-              onClick={drawingMode === "pen" ? () => setDrawingMode(false) : startPolygonDrawing}
-              title="Zaznacz obszar"
-            >
-              <PenTool className="h-3.5 w-3.5" />
-              <span className="hidden md:inline">Zaznacz</span>
-            </Button>
-            <Button
-              variant={drawingMode === "circle" ? "default" : "outline"}
-              size="sm"
-              className="rounded-full h-7 px-2.5 text-xs gap-1"
-              onClick={drawingMode === "circle" ? () => setDrawingMode(false) : startCircleDrawing}
-              title="Okrąg"
-            >
-              <Circle className="h-3.5 w-3.5" />
-              <span className="hidden md:inline">Okrąg</span>
-            </Button>
-
-            {hasActiveDrawing && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="rounded-full h-7 px-2 text-xs text-destructive hover:text-destructive"
-                onClick={clearAllDrawing}
-              >
-                <X className="h-3.5 w-3.5 mr-0.5" />
-                Usuń
-              </Button>
-            )}
-
-            {/* Buffer checkbox */}
-            <div className="hidden lg:flex items-center gap-1.5 ml-1">
-              <Checkbox
-                id="buffer-check"
-                checked={useBuffer}
-                onCheckedChange={(v) => setUseBuffer(!!v)}
-                className="h-3.5 w-3.5"
+            <Checkbox
+              id="buffer-check"
+              checked={useBuffer}
+              onCheckedChange={(v) => setUseBuffer(!!v)}
+              className="h-3.5 w-3.5"
+            />
+            <label htmlFor="buffer-check" className="text-xs text-muted-foreground cursor-pointer whitespace-nowrap">
+              +bufor
+            </label>
+            {useBuffer && (
+              <Input
+                type="number"
+                value={bufferDistance}
+                onChange={(e) => setBufferDistance(Number(e.target.value) || 0)}
+                className="h-7 w-16 text-xs rounded-full px-2"
+                placeholder="m"
               />
-              <label htmlFor="buffer-check" className="text-xs text-muted-foreground cursor-pointer whitespace-nowrap">
-                +bufor
-              </label>
-              {useBuffer && (
-                <Input
-                  type="number"
-                  value={bufferDistance}
-                  onChange={(e) => setBufferDistance(Number(e.target.value) || 0)}
-                  className="h-7 w-16 text-xs rounded-full px-2"
-                  placeholder="m"
-                />
-              )}
-            </div>
-
-            <div className="w-px h-5 bg-border mx-1" />
-            <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">
-              {filteredListings.length} wyników
-            </span>
+            )}
           </div>
+
+          <div className="w-px h-5 bg-border" />
+          <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">
+            {filteredListings.length} wyników
+          </span>
         </div>
       </div>
 
