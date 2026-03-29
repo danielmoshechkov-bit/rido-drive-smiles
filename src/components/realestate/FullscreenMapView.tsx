@@ -3,8 +3,8 @@ import Supercluster from "supercluster";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
 import { useGoogleMaps } from "@/hooks/useGoogleMaps";
+import { TransactionTypeChips } from "@/components/realestate/TransactionTypeChips";
 import {
   X, MapPin, Search, Loader2, Home, PenTool, Eye, ChevronLeft, ChevronRight, Map as MapIcon, List, Plus,
 } from "lucide-react";
@@ -125,9 +125,8 @@ export function FullscreenMapView({
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [showSale, setShowSale] = useState(true);
-  const [showRent, setShowRent] = useState(true);
   const [mapPropertyType, setMapPropertyType] = useState("");
+  const [mapTransactionType, setMapTransactionType] = useState<string | null>(null);
   const [drawingMode, setDrawingMode] = useState(false);
   const [drawnArea, setDrawnArea] = useState<Array<{ lat: number; lng: number }> | null>(null);
 
@@ -137,10 +136,9 @@ export function FullscreenMapView({
       if (!l.lat || !l.lng) return false;
       if (mapPropertyType && !l.propertyType?.toLowerCase().includes(mapPropertyType)) return false;
       const transType = l.transactionType?.toLowerCase() || "";
-      const isSale = transType.includes("sprzedaż") || transType.includes("sprzedaz");
-      const isRent = transType.includes("wynajem") || transType.includes("krótkoterminowy");
-      if (isSale && !showSale) return false;
-      if (isRent && !showRent) return false;
+      if (mapTransactionType === "sprzedaz" && !(transType.includes("sprzedaż") || transType.includes("sprzedaz"))) return false;
+      if (mapTransactionType === "wynajem" && !transType.includes("wynajem")) return false;
+      if (mapTransactionType === "wynajem-krotkoterminowy" && !(transType.includes("krótkoterminowy") || transType.includes("krotkoterminowy"))) return false;
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
         const inLocation = l.location?.toLowerCase().includes(q);
@@ -160,11 +158,11 @@ export function FullscreenMapView({
       }
       return true;
     });
-  }, [listings, mapPropertyType, showSale, showRent, searchQuery, drawnArea]);
+  }, [listings, mapPropertyType, mapTransactionType, searchQuery, drawnArea]);
 
   // Location suggestions (cities + districts)
   const suggestions = useMemo(() => {
-    if (!searchQuery || searchQuery.length < 2) return [];
+    if (!searchQuery || searchQuery.length < 1) return [];
     const q = searchQuery.toLowerCase();
     return LOCATION_DATA
       .filter((loc) => `${loc.name} ${loc.parent ?? ''}`.toLowerCase().includes(q))
@@ -567,108 +565,101 @@ export function FullscreenMapView({
         </div>
       </header>
 
-      {/* Filter Bar - property types + transaction types in one compact bar */}
-      <div className="shrink-0 border-b bg-background px-3 py-1.5 flex items-center gap-2 flex-wrap">
-        {/* Property type pills */}
-        <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
-          {PROPERTY_TYPE_PILLS.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => setMapPropertyType(t.key)}
-              className={cn(
-                "px-2.5 py-1 rounded-full text-xs font-medium border whitespace-nowrap transition-colors",
-                mapPropertyType === t.key
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-background text-muted-foreground border-border hover:border-primary/50"
-              )}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+      <div className="shrink-0 border-b bg-background/95">
+        <div className="container mx-auto px-4 py-4 md:py-5">
+          <div className="mx-auto max-w-6xl">
+            <div className="mb-3">
+              <h2 className="text-xl font-bold text-foreground md:text-2xl">Zaznacz na mapie</h2>
+              <p className="text-sm text-muted-foreground">Najpierw wybierz kategorię, potem lokalizację lub narysuj obszar.</p>
+            </div>
 
-        <div className="h-5 w-px bg-border hidden sm:block" />
-
-        {/* Transaction type checkboxes */}
-        <label className="flex items-center gap-1.5 cursor-pointer">
-          <Checkbox checked={showSale} onCheckedChange={(c) => setShowSale(!!c)} />
-          <div className="flex items-center gap-1">
-            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-            <span className="text-xs">Sprzedaż</span>
-          </div>
-        </label>
-        <label className="flex items-center gap-1.5 cursor-pointer">
-          <Checkbox checked={showRent} onCheckedChange={(c) => setShowRent(!!c)} />
-          <div className="flex items-center gap-1">
-            <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-            <span className="text-xs">Wynajem</span>
-          </div>
-        </label>
-
-        <div className="h-5 w-px bg-border hidden sm:block" />
-
-        {/* Search with autocomplete */}
-        <div className="relative">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <Input
-            placeholder="Miasto, dzielnica..."
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setShowSuggestions(true);
-            }}
-            onFocus={() => setShowSuggestions(true)}
-            onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-            className="h-7 w-36 sm:w-44 pl-7 text-xs"
-          />
-          {showSuggestions && suggestions.length > 0 && (
-            <div className="absolute top-full left-0 mt-1 w-64 bg-popover border rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto">
-              {suggestions.map((loc) => (
+            <div className="flex flex-wrap items-center gap-2 md:gap-3">
+              {PROPERTY_TYPE_PILLS.map((t) => (
                 <button
-                  key={`${loc.type}-${loc.name}`}
-                  onMouseDown={() => handleSelectLocation(loc)}
-                  className="w-full text-left px-3 py-2.5 text-sm hover:bg-accent transition-colors flex items-start gap-2"
+                  key={t.key}
+                  onClick={() => setMapPropertyType(t.key)}
+                  className={cn(
+                    "rounded-full border px-3.5 py-2 text-sm font-medium whitespace-nowrap transition-colors",
+                    mapPropertyType === t.key
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-background text-foreground border-border hover:border-primary/40"
+                  )}
                 >
-                  <MapPin className="h-3.5 w-3.5 mt-0.5 text-muted-foreground shrink-0" />
-                  <div>
-                    <span className="font-medium">{loc.name}</span>
-                    <span className="text-xs text-muted-foreground ml-1.5">
-                      {loc.type === 'dzielnica' ? `dzielnica, ${loc.parent}` : 'miasto'}
-                    </span>
-                  </div>
+                  {t.label}
                 </button>
               ))}
             </div>
-          )}
+
+            <TransactionTypeChips
+              selectedType={mapTransactionType}
+              onTypeChange={setMapTransactionType}
+              className="mt-3"
+            />
+
+            <div className="mt-3 rounded-[1.75rem] border bg-card/95 p-3 shadow-sm md:p-4">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Miasto, dzielnica..."
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setShowSuggestions(true);
+                    }}
+                    onFocus={() => setShowSuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                    className="h-11 rounded-2xl border-border/80 bg-background pl-10 text-sm"
+                  />
+                  {showSuggestions && suggestions.length > 0 && (
+                    <div className="absolute top-full left-0 mt-2 w-full rounded-2xl border bg-popover shadow-lg z-50 max-h-64 overflow-y-auto">
+                      {suggestions.map((loc) => (
+                        <button
+                          key={`${loc.type}-${loc.name}`}
+                          onMouseDown={() => handleSelectLocation(loc)}
+                          className="flex w-full items-start gap-2 px-4 py-3 text-left text-sm transition-colors hover:bg-accent"
+                        >
+                          <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                          <div>
+                            <span className="font-medium">{loc.name}</span>
+                            <span className="ml-1.5 text-xs text-muted-foreground">
+                              {loc.type === 'dzielnica' ? `dzielnica, ${loc.parent}` : 'miasto'}
+                            </span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  {drawnArea ? (
+                    <Button variant="outline" className="rounded-full" onClick={clearDrawing}>
+                      <X className="mr-1.5 h-4 w-4" />
+                      Usuń zaznaczenie
+                    </Button>
+                  ) : (
+                    <Button
+                      variant={drawingMode ? "default" : "outline"}
+                      className="rounded-full"
+                      onClick={drawingMode ? () => setDrawingMode(false) : startDrawing}
+                    >
+                      <PenTool className="mr-1.5 h-4 w-4" />
+                      Zaznacz obszar
+                    </Button>
+                  )}
+
+                  <Badge variant="secondary" className="rounded-full px-3 py-1 text-xs">
+                    {filteredListings.length} ogłoszeń
+                  </Badge>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div className="h-5 w-px bg-border hidden sm:block" />
-
-        {/* Drawing toggle */}
-        {drawnArea ? (
-          <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs" onClick={clearDrawing}>
-            <X className="h-3.5 w-3.5" />
-            Usuń zaznaczenie
-          </Button>
-        ) : (
-          <Button
-            variant={drawingMode ? "default" : "outline"}
-            size="sm"
-            className="h-7 gap-1.5 text-xs"
-            onClick={drawingMode ? () => setDrawingMode(false) : startDrawing}
-          >
-            <PenTool className="h-3.5 w-3.5" />
-            Zaznacz obszar
-          </Button>
-        )}
-
-        {/* Results counter */}
-        <Badge variant="secondary" className="text-xs ml-auto shrink-0">
-          {filteredListings.length} ogłoszeń
-        </Badge>
-
-        {/* Mobile tab toggle */}
-        <div className="flex md:hidden gap-0.5 bg-muted rounded-lg p-0.5">
+        <div className="border-t px-3 py-2 md:hidden">
+          <div className="flex gap-0.5 bg-muted rounded-lg p-0.5 w-fit ml-auto">
           <Button
             variant={mobileTab === "map" ? "default" : "ghost"}
             size="sm"
@@ -688,6 +679,7 @@ export function FullscreenMapView({
             Lista
           </Button>
         </div>
+        </div>
       </div>
 
       {/* Drawing mode banner */}
@@ -705,9 +697,9 @@ export function FullscreenMapView({
           className={cn(
             "relative",
             // Desktop: always 65%
-            "hidden md:block md:w-[65%]",
+             "hidden md:block md:w-[62%]",
             // Mobile: show based on tab
-            mobileTab === "map" && "!block w-full md:!w-[65%]"
+             mobileTab === "map" && "!block w-full md:!w-[62%]"
           )}
         >
           {!isLoaded ? (
@@ -767,8 +759,8 @@ export function FullscreenMapView({
         <div
           className={cn(
             "border-l bg-background flex flex-col",
-            "hidden md:flex md:w-[35%]",
-            mobileTab === "list" && "!flex w-full md:!w-[35%]"
+             "hidden md:flex md:w-[38%]",
+             mobileTab === "list" && "!flex w-full md:!w-[38%]"
           )}
         >
           {/* List header */}
@@ -878,7 +870,7 @@ function SideListingCard({
     <div
       ref={cardRef}
       className={cn(
-        "flex gap-2 p-2 cursor-pointer hover:bg-accent/50 transition-all",
+        "flex gap-2.5 p-2.5 cursor-pointer hover:bg-accent/50 transition-all",
         isSelected && "bg-accent",
         isHovered && "bg-primary/10 border-l-2 border-l-primary"
       )}
@@ -887,7 +879,7 @@ function SideListingCard({
       onMouseLeave={onMouseLeave}
     >
       {/* Thumbnail */}
-      <div className="w-16 h-12 rounded overflow-hidden bg-muted shrink-0">
+      <div className="w-20 h-16 rounded-lg overflow-hidden bg-muted shrink-0 self-start">
         {listing.photos?.[0] ? (
           <img src={listing.photos[0]} alt="" className="w-full h-full object-cover" />
         ) : (
@@ -899,16 +891,16 @@ function SideListingCard({
 
       {/* Info - compact */}
       <div className="flex-1 min-w-0">
-        <h4 className="text-xs font-medium line-clamp-1">{listing.title}</h4>
+        <h4 className="text-sm font-medium leading-snug line-clamp-2">{listing.title}</h4>
         <div className="flex items-center gap-1 mt-0.5">
           <div className={cn("w-1.5 h-1.5 rounded-full", isRent ? "bg-blue-500" : "bg-emerald-500")} />
-          <span className="text-[11px] text-muted-foreground truncate">{listing.location}</span>
+          <span className="text-xs text-muted-foreground truncate">{listing.location}</span>
         </div>
-        <div className="flex items-center justify-between mt-0.5">
-          <span className="font-bold text-xs text-primary">
+        <div className="mt-1 flex items-center justify-between gap-2">
+          <span className="font-bold text-sm text-primary whitespace-nowrap">
             {listing.price.toLocaleString("pl-PL")} zł
           </span>
-          <span className="text-[11px] text-muted-foreground">
+          <span className="text-xs text-muted-foreground whitespace-nowrap">
             {listing.areaM2}m²
           </span>
         </div>
