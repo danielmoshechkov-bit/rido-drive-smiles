@@ -557,15 +557,20 @@ export function FullscreenMapView({
             className="h-8 w-36 sm:w-44 pl-7 text-xs"
           />
           {showSuggestions && suggestions.length > 0 && (
-            <div className="absolute top-full left-0 mt-1 w-48 bg-popover border rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto">
-              {suggestions.map((d) => (
+            <div className="absolute top-full left-0 mt-1 w-64 bg-popover border rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto">
+              {suggestions.map((loc) => (
                 <button
-                  key={d}
-                  onMouseDown={() => handleSelectDistrict(d)}
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors"
+                  key={`${loc.type}-${loc.name}`}
+                  onMouseDown={() => handleSelectLocation(loc)}
+                  className="w-full text-left px-3 py-2.5 text-sm hover:bg-accent transition-colors flex items-start gap-2"
                 >
-                  <MapPin className="inline h-3 w-3 mr-1.5 text-muted-foreground" />
-                  {d}
+                  <MapPin className="h-3.5 w-3.5 mt-0.5 text-muted-foreground shrink-0" />
+                  <div>
+                    <span className="font-medium">{loc.name}</span>
+                    <span className="text-xs text-muted-foreground ml-1.5">
+                      {loc.type === 'dzielnica' ? `dzielnica, ${loc.parent}` : 'miasto'}
+                    </span>
+                  </div>
                 </button>
               ))}
             </div>
