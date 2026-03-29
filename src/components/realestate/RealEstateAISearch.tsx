@@ -4,8 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 
-// Owner emails with full AI access
 const OWNER_EMAILS = ['daniel.moshechkov@gmail.com', 'anastasiia.shapovalova1991@gmail.com'];
 
 interface RealEstateAISearchProps {
@@ -17,6 +17,8 @@ export function RealEstateAISearch({ onSearchResults, onLoading }: RealEstateAIS
   const [query, setQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [hasAIAccess, setHasAIAccess] = useState(false);
+  const [explanation, setExplanation] = useState("");
+  const navigate = useNavigate();
 
   useEffect(() => {
     const checkAccess = async () => {
@@ -33,10 +35,10 @@ export function RealEstateAISearch({ onSearchResults, onLoading }: RealEstateAIS
     }
 
     setIsSearching(true);
+    setExplanation("");
     onLoading?.(true);
 
     try {
-      // Get user ID and IP for tracking
       const { data: { user } } = await supabase.auth.getUser();
       
       const { data, error } = await supabase.functions.invoke('ai-search', {
@@ -62,13 +64,10 @@ export function RealEstateAISearch({ onSearchResults, onLoading }: RealEstateAIS
         return;
       }
 
-      const { results = [], filters = {}, explanation = '' } = data || {};
+      const { results = [], filters = {}, explanation: expl = '' } = data || {};
       
-      onSearchResults(results, filters, explanation);
-      
-      if (explanation) {
-        toast.success(explanation, { duration: 5000 });
-      }
+      setExplanation(expl);
+      onSearchResults(results, filters, expl);
     } catch (error) {
       console.error('AI Search error:', error);
       toast.error("Błąd połączenia z AI");
@@ -84,12 +83,6 @@ export function RealEstateAISearch({ onSearchResults, onLoading }: RealEstateAIS
     }
   };
 
-  const exampleQueries = [
-    "2 pokoje w Krakowie do 500 tys",
-    "Dom z ogrodem na obrzeżach Warszawy",
-    "Kawalerka na wynajem centrum do 2500 zł",
-  ];
-
   return (
     <div className="space-y-3">
       <div className="flex gap-2">
@@ -99,7 +92,7 @@ export function RealEstateAISearch({ onSearchResults, onLoading }: RealEstateAIS
             value={query}
             onChange={(e) => hasAIAccess && setQuery(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder={hasAIAccess ? "Opisz czego szukasz, np. '3 pokoje z balkonem w Gdańsku do 600 tys'" : "Wyszukiwarka AI - wkrótce dostępna"}
+            placeholder={hasAIAccess ? "Opisz czego szukasz, np. '3 pokoje z balkonem w Gdańsku do 600 tys'" : "Wyszukiwarka AI — wkrótce dostępna"}
             className="pl-10 pr-4 disabled:opacity-60 disabled:cursor-not-allowed"
             disabled={isSearching || !hasAIAccess}
           />
@@ -122,21 +115,22 @@ export function RealEstateAISearch({ onSearchResults, onLoading }: RealEstateAIS
           )}
         </Button>
       </div>
-      
-      {/* Example queries - only shown for owners */}
-      {hasAIAccess && (
-        <div className="flex flex-wrap gap-2">
-          <span className="text-xs text-muted-foreground">Przykłady:</span>
-          {exampleQueries.map((example, idx) => (
+
+      {/* Rido mascot response bubble */}
+      {explanation && (
+        <div className="flex items-start gap-3 mt-3">
+          <div className="shrink-0 w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm shadow-md">
+            R
+          </div>
+          <div className="relative bg-muted/60 border rounded-2xl rounded-tl-sm px-4 py-2.5 text-sm text-foreground max-w-full">
+            {explanation}
             <button
-              key={idx}
-              onClick={() => setQuery(example)}
-              className="text-xs text-primary hover:underline"
-              disabled={isSearching}
+              onClick={() => navigate('/nieruchomosci')}
+              className="ml-2 text-primary hover:underline font-medium"
             >
-              "{example}"
+              Zobacz wyniki →
             </button>
-          ))}
+          </div>
         </div>
       )}
     </div>

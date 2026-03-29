@@ -459,8 +459,8 @@ export function FullscreenMapView({
         strokeColor: "#7c3aed",
         strokeWeight: 2,
         strokeOpacity: 0.8,
-        fillColor: "#1a1a1a",
-        fillOpacity: 0.45,
+        fillColor: "#7c3aed",
+        fillOpacity: 0.20,
         clickable: false,
         zIndex: 1,
       });
@@ -474,12 +474,12 @@ export function FullscreenMapView({
       const circlePath = createCirclePolygon(circleCenter, effectiveRadius);
       selectionMaskRef.current = new google.maps.Polygon({
         map: mapRef.current,
-        paths: [WORLD_MASK_PATH, circlePath.reverse()],
+        paths: [WORLD_MASK_PATH, [...circlePath].reverse()],
         strokeColor: "#7c3aed",
         strokeWeight: 2,
         strokeOpacity: 0.8,
-        fillColor: "#1a1a1a",
-        fillOpacity: 0.45,
+        fillColor: "#7c3aed",
+        fillOpacity: 0.20,
         clickable: false,
         zIndex: 1,
       });
@@ -511,8 +511,8 @@ export function FullscreenMapView({
       strokeColor: "#7c3aed",
       strokeWeight: 2,
       strokeOpacity: 0.8,
-      fillColor: "#1a1a1a",
-      fillOpacity: 0.45,
+      fillColor: "#7c3aed",
+      fillOpacity: 0.20,
       clickable: false,
       zIndex: 1,
     });
@@ -900,7 +900,7 @@ export function FullscreenMapView({
               onClick={clearAllDrawing}
             >
               <X className="h-3.5 w-3.5 mr-0.5" />
-              Usuń
+              Usuń
             </Button>
           )}
 
@@ -1046,7 +1046,7 @@ export function FullscreenMapView({
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-primary text-base">{formatPriceFull(selectedListing.price)}</span>
-                    <span className="text-xs text-muted-foreground">{selectedListing.areaM2}m²</span>
+                    <span className="text-xs text-muted-foreground">{selectedListing.areaM2}mÂ²</span>
                   </div>
                   {onViewListing && (
                     <Button size="sm" className="w-full mt-2 h-8 text-xs" onClick={() => onViewListing(selectedListing.id)}>
@@ -1173,7 +1173,7 @@ function SideListingCard({
             {listing.price.toLocaleString("pl-PL")}{"\u00A0"}zł
           </span>
           <span className="text-[11px] text-muted-foreground whitespace-nowrap">
-            {listing.areaM2}m²
+            {listing.areaM2}mÂ²
           </span>
         </div>
       </div>
