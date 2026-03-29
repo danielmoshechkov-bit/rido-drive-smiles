@@ -124,6 +124,7 @@ export function FullscreenMapView({
   const isBrushDrawingRef = useRef(false);
 
   const [selectedListing, setSelectedListing] = useState<PropertyListingForMap | null>(null);
+  const [previewPhotoIndex, setPreviewPhotoIndex] = useState(0);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [mobileTab, setMobileTab] = useState<"map" | "list">("map");
 
@@ -204,7 +205,7 @@ export function FullscreenMapView({
 
   // Pagination
   const [listPage, setListPage] = useState(1);
-  const listPerPage = 21;
+  const listPerPage = 7;
   const listTotalPages = Math.max(1, Math.ceil(filteredListings.length / listPerPage));
   const paginatedSideListings = useMemo(() => {
     const start = (listPage - 1) * listPerPage;
@@ -319,6 +320,7 @@ export function FullscreenMapView({
         overlaysRef.current.push(
           new Overlay({ lat, lng }, createPriceMarker(listing), map, () => {
             setSelectedListing(listing);
+            setPreviewPhotoIndex(0);
             setHoveredId(listing.id);
             showInfoWindow(map, iw, listing);
           })
@@ -686,35 +688,74 @@ export function FullscreenMapView({
             </div>
           )}
 
-          {/* Selected listing card overlay */}
+          {/* Selected listing card overlay - click anywhere outside to close */}
           {selectedListing && (
-            <div className="absolute bottom-3 right-3 max-w-[260px] bg-background rounded-lg shadow-xl border overflow-hidden z-10">
-              {selectedListing.photos?.[0] && (
-                <img src={selectedListing.photos[0]} alt={selectedListing.title} className="w-full h-20 object-cover" />
-              )}
-              <div className="p-2.5">
-                <h4 className="font-medium text-xs leading-snug line-clamp-2 mb-1">{selectedListing.title}</h4>
-                <div className="flex items-center gap-1 mb-1.5">
-                  <span className="text-[11px] text-muted-foreground truncate">{selectedListing.location}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-primary text-sm">{formatPriceFull(selectedListing.price)}</span>
-                  <span className="text-[11px] text-muted-foreground">{selectedListing.areaM2}m²</span>
-                </div>
-                {onViewListing && (
-                  <Button size="sm" className="w-full mt-1.5 h-7 text-xs" onClick={() => onViewListing(selectedListing.id)}>
-                    Szczegóły
-                  </Button>
-                )}
-              </div>
-              <Button
-                variant="ghost" size="icon"
-                className="absolute top-1 right-1 h-5 w-5 bg-background/80"
+            <>
+              {/* Invisible backdrop to close on click */}
+              <div 
+                className="absolute inset-0 z-10" 
                 onClick={() => setSelectedListing(null)}
-              >
-                <X className="h-3 w-3" />
-              </Button>
-            </div>
+              />
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-[340px] max-w-[90vw] bg-background rounded-xl shadow-2xl border overflow-hidden z-20">
+                {/* Photo carousel */}
+                {selectedListing.photos && selectedListing.photos.length > 0 && (
+                  <div className="relative">
+                    <img 
+                      src={selectedListing.photos[previewPhotoIndex] || selectedListing.photos[0]} 
+                      alt={selectedListing.title} 
+                      className="w-full h-[160px] object-cover" 
+                    />
+                    {selectedListing.photos.length > 1 && (
+                      <>
+                        <Button
+                          variant="ghost" size="icon"
+                          className="absolute left-1 top-1/2 -translate-y-1/2 h-7 w-7 bg-background/70 hover:bg-background/90 rounded-full"
+                          onClick={(e) => { e.stopPropagation(); setPreviewPhotoIndex(i => (i - 1 + selectedListing.photos!.length) % selectedListing.photos!.length); }}
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost" size="icon"
+                          className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 bg-background/70 hover:bg-background/90 rounded-full"
+                          onClick={(e) => { e.stopPropagation(); setPreviewPhotoIndex(i => (i + 1) % selectedListing.photos!.length); }}
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+                          {selectedListing.photos.slice(0, 6).map((_, idx) => (
+                            <div key={idx} className={cn("h-1.5 w-1.5 rounded-full transition-colors", idx === previewPhotoIndex ? "bg-white" : "bg-white/50")} />
+                          ))}
+                          {selectedListing.photos.length > 6 && <span className="text-[9px] text-white/70 ml-1">+{selectedListing.photos.length - 6}</span>}
+                        </div>
+                      </>
+                    )}
+                    <Button
+                      variant="ghost" size="icon"
+                      className="absolute top-1.5 right-1.5 h-6 w-6 bg-background/80 rounded-full"
+                      onClick={(e) => { e.stopPropagation(); setSelectedListing(null); }}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                )}
+                <div className="p-3">
+                  <h4 className="font-semibold text-sm leading-snug line-clamp-2 mb-1">{selectedListing.title}</h4>
+                  <div className="flex items-center gap-1 mb-2">
+                    <MapPin className="h-3 w-3 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground truncate">{selectedListing.location}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-primary text-base">{formatPriceFull(selectedListing.price)}</span>
+                    <span className="text-xs text-muted-foreground">{selectedListing.areaM2}m²</span>
+                  </div>
+                  {onViewListing && (
+                    <Button size="sm" className="w-full mt-2 h-8 text-xs" onClick={() => onViewListing(selectedListing.id)}>
+                      Szczegóły
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </>
           )}
         </div>
 
@@ -741,7 +782,7 @@ export function FullscreenMapView({
           </div>
 
           {/* Scrollable list */}
-          <div className="flex-1 overflow-y-auto min-h-0">
+          <div className="flex-1 overflow-hidden min-h-0">
             {paginatedSideListings.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <Home className="h-10 w-10 text-muted-foreground/30 mb-2" />
@@ -759,6 +800,7 @@ export function FullscreenMapView({
                     onMouseLeave={() => setHoveredId(null)}
                     onClick={() => {
                       setSelectedListing(listing);
+                      setPreviewPhotoIndex(0);
                       if (listing.lat && listing.lng && mapRef.current) {
                         mapRef.current.panTo({ lat: listing.lat, lng: listing.lng });
                         mapRef.current.setZoom(Math.max(mapRef.current.getZoom() || 10, 14));
