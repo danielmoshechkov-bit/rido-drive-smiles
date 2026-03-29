@@ -829,6 +829,7 @@ export default function RealEstateMarketplace() {
       <section className="container mx-auto px-4 -mt-1 pb-4 relative z-10">
         <RealEstateSearch
           onSearch={handleSearch}
+          onDrawSearch={() => setShowFullMap(true)}
           listings={listings.map(l => ({
             ...l,
             lat: l.lat ?? undefined,
