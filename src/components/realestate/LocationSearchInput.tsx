@@ -498,6 +498,31 @@ export function LocationSearchInput({
             const districts = matchedCity ? CITY_DISTRICTS[matchedCity] : null;
             
             if (!districts || districts.length === 0) return null;
+
+            // Parse currently selected districts from value
+            const currentValue = value.trim();
+            const selectedDistricts = currentValue.includes(',')
+              ? currentValue.split(',').slice(1).map(d => d.trim()).filter(Boolean)
+              : [];
+            
+            const toggleDistrict = (district: string) => {
+              const isSelected = selectedDistricts.includes(district);
+              let newDistricts: string[];
+              if (isSelected) {
+                newDistricts = selectedDistricts.filter(d => d !== district);
+              } else {
+                newDistricts = [...selectedDistricts, district];
+              }
+              if (newDistricts.length === 0) {
+                onChange(matchedCity!);
+              } else {
+                onChange(`${matchedCity}, ${newDistricts.join(', ')}`);
+              }
+              onLocationSelect?.({
+                text: newDistricts.length === 0 ? matchedCity! : `${matchedCity}, ${newDistricts.join(', ')}`,
+                types: newDistricts.length === 0 ? ["locality"] : ["sublocality_level_1"],
+              });
+            };
             
             return (
               <div className="p-2 border-b">
@@ -508,7 +533,7 @@ export function LocationSearchInput({
                   <button
                     className="text-xs text-primary hover:underline"
                     onClick={() => {
-                      onChange(`${matchedCity}, całe miasto`);
+                      onChange(matchedCity!);
                       onLocationSelect?.({
                         text: matchedCity!,
                         types: ["locality"],
@@ -520,28 +545,44 @@ export function LocationSearchInput({
                   </button>
                 </div>
                 <div className="max-h-[240px] overflow-y-auto space-y-0.5">
-                  {districts.map((district) => (
-                    <button
-                      key={district}
-                      className="w-full flex items-center gap-3 px-2 py-2 hover:bg-muted rounded-md text-left transition-colors"
-                      onClick={() => {
-                        onChange(`${matchedCity}, ${district}`);
-                        onLocationSelect?.({
-                          text: `${matchedCity}, ${district}`,
-                          types: ["sublocality_level_1"],
-                        });
-                        setIsFocused(false);
-                      }}
-                    >
-                      <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium">{district}</p>
-                        <p className="text-xs text-muted-foreground">dzielnica</p>
-                      </div>
-                      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-                    </button>
-                  ))}
+                  {districts.map((district) => {
+                    const isChecked = selectedDistricts.includes(district);
+                    return (
+                      <button
+                        key={district}
+                        className={cn(
+                          "w-full flex items-center gap-3 px-2 py-2 hover:bg-muted rounded-md text-left transition-colors",
+                          isChecked && "bg-primary/10"
+                        )}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          toggleDistrict(district);
+                        }}
+                      >
+                        <div className={cn(
+                          "h-4 w-4 rounded border flex items-center justify-center shrink-0 transition-colors",
+                          isChecked ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground/30"
+                        )}>
+                          {isChecked && <span className="text-[10px]">✓</span>}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium">{district}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
+                {selectedDistricts.length > 0 && (
+                  <div className="px-2 pt-2 border-t mt-1">
+                    <Button
+                      size="sm"
+                      className="w-full h-7 text-xs"
+                      onClick={() => setIsFocused(false)}
+                    >
+                      Zatwierdź ({selectedDistricts.length} {selectedDistricts.length === 1 ? 'dzielnica' : selectedDistricts.length < 5 ? 'dzielnice' : 'dzielnic'})
+                    </Button>
+                  </div>
+                )}
               </div>
             );
           })()}

@@ -830,42 +830,40 @@ export default function RealEstateMarketplace() {
         />
       </section>
 
-      {/* Fullscreen Map View - INLINE below hero */}
+      {/* Fullscreen Map View - INLINE, no container padding, full width */}
       {showFullMap && (
-        <section className="container mx-auto px-4 py-4">
-          <div className="max-w-7xl mx-auto">
-            <div className="flex items-center justify-between mb-3">
+        <section>
+          <div className="px-4 py-2 border-b bg-background">
+            <div className="max-w-7xl mx-auto">
               <Button variant="ghost" size="sm" onClick={() => setShowFullMap(false)} className="gap-1.5 -ml-2">
                 <ChevronLeft className="h-4 w-4" />
                 Wróć do listy
               </Button>
             </div>
-            <div className="rounded-xl border overflow-hidden shadow-lg">
-              <FullscreenMapView
-                open={showFullMap}
-                onClose={() => setShowFullMap(false)}
-                listings={listings.map(l => ({
-                  id: l.id,
-                  title: l.title,
-                  price: l.price,
-                  priceType: l.priceType,
-                  photos: l.photos,
-                  location: l.location,
-                  district: l.district,
-                  areaM2: l.areaM2,
-                  rooms: l.rooms,
-                  propertyType: l.propertyType,
-                  transactionType: l.transactionType,
-                  transactionColor: l.transactionColor,
-                  lat: l.lat ?? undefined,
-                  lng: l.lng ?? undefined,
-                }))}
-                onViewListing={(id) => navigate(`/nieruchomosci/ogloszenie/${id}`)}
-                user={user}
-                onNavigate={(path) => navigate(path)}
-              />
-            </div>
           </div>
+          <FullscreenMapView
+            open={showFullMap}
+            onClose={() => setShowFullMap(false)}
+            listings={listings.map(l => ({
+              id: l.id,
+              title: l.title,
+              price: l.price,
+              priceType: l.priceType,
+              photos: l.photos,
+              location: l.location,
+              district: l.district,
+              areaM2: l.areaM2,
+              rooms: l.rooms,
+              propertyType: l.propertyType,
+              transactionType: l.transactionType,
+              transactionColor: l.transactionColor,
+              lat: l.lat ?? undefined,
+              lng: l.lng ?? undefined,
+            }))}
+            onViewListing={(id) => navigate(`/nieruchomosci/ogloszenie/${id}`)}
+            user={user}
+            onNavigate={(path) => navigate(path)}
+          />
         </section>
       )}
 
