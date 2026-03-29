@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
-  Building, Search, Plus, Sparkles, ArrowRight, Home, LayoutGrid, Rows3, List, ChevronLeft, ChevronRight, Map as MapIcon
+  Building, Search, Plus, Sparkles, ArrowRight, Home, LayoutGrid, Rows3, List, ChevronLeft, ChevronRight, Map as MapIcon, PenTool
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Footer from "@/components/Footer";
