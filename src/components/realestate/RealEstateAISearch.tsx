@@ -119,9 +119,11 @@ export function RealEstateAISearch({ onSearchResults, onLoading }: RealEstateAIS
       {/* Rido mascot response bubble */}
       {explanation && (
         <div className="flex items-start gap-3 mt-3">
-          <div className="shrink-0 w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm shadow-md">
-            R
-          </div>
+          <img
+            src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png"
+            alt="RidoAI"
+            className="shrink-0 w-8 h-8 rounded-full shadow-md"
+          />
           <div className="relative bg-muted/60 border rounded-2xl rounded-tl-sm px-4 py-2.5 text-sm text-foreground max-w-full">
             {explanation}
             <button

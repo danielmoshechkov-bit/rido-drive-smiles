@@ -69,21 +69,35 @@ export function MarketingSettingsTab() {
         </CardContent>
       </Card>
 
-      {/* API Keys */}
+      {/* API Keys — already configured as Supabase secrets */}
       <Card>
         <CardHeader>
           <CardTitle className="text-sm flex items-center gap-2"><Key className="h-4 w-4" /> Klucze API</CardTitle>
-          <CardDescription>Zaszyfrowane — widoczne tylko dla administratorów</CardDescription>
+          <CardDescription>Klucze są skonfigurowane jako Supabase Secrets i gotowe do użycia</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div>
-            <Label>Klucz Anthropic API (Claude)</Label>
-            <Input type="password" value={settings.anthropic_api_key_encrypted || ''} onChange={e => setSettings((s: any) => ({ ...s, anthropic_api_key_encrypted: e.target.value }))} placeholder="sk-ant-..." />
+          <div className="flex items-center gap-3 p-3 rounded-lg bg-green-50 border border-green-200">
+            <div className="h-2.5 w-2.5 rounded-full bg-green-500 shrink-0" />
+            <div>
+              <p className="text-sm font-medium">Anthropic API (Claude)</p>
+              <p className="text-xs text-muted-foreground">ANTHROPIC_API_KEY — skonfigurowany ✓</p>
+            </div>
           </div>
-          <div>
-            <Label>Klucz Gemini API (generowanie obrazów)</Label>
-            <Input type="password" value={settings.gemini_api_key_encrypted || ''} onChange={e => setSettings((s: any) => ({ ...s, gemini_api_key_encrypted: e.target.value }))} placeholder="AIza..." />
+          <div className="flex items-center gap-3 p-3 rounded-lg bg-green-50 border border-green-200">
+            <div className="h-2.5 w-2.5 rounded-full bg-green-500 shrink-0" />
+            <div>
+              <p className="text-sm font-medium">Google API (Gemini)</p>
+              <p className="text-xs text-muted-foreground">GOOGLE_API_KEY — skonfigurowany ✓</p>
+            </div>
           </div>
+          <div className="flex items-center gap-3 p-3 rounded-lg bg-green-50 border border-green-200">
+            <div className="h-2.5 w-2.5 rounded-full bg-green-500 shrink-0" />
+            <div>
+              <p className="text-sm font-medium">Lovable AI Gateway</p>
+              <p className="text-xs text-muted-foreground">LOVABLE_API_KEY — skonfigurowany ✓</p>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">Klucze API zarządzane są w ustawieniach Supabase Edge Functions. Nie trzeba ich podawać ręcznie.</p>
         </CardContent>
       </Card>
 
