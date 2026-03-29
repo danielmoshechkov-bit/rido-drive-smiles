@@ -716,7 +716,7 @@ export default function RealEstateMarketplace() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/30">
+    <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/30 overflow-x-hidden">
       {/* SEO */}
       <SEOHead 
         title={seoConfigs.portalNieruchomosci.title}
@@ -912,7 +912,7 @@ export default function RealEstateMarketplace() {
       </section>
 
       {/* Main Content: Listings + Mini Map */}
-      {!loading && <section className="container mx-auto px-4 py-6">
+      {!loading && <section className="container mx-auto px-3 sm:px-4 py-6 overflow-x-hidden">
           <div className="flex gap-6 max-w-7xl mx-auto items-start">
           {/* Listings Column */}
           <div className="flex-1 min-w-0">
