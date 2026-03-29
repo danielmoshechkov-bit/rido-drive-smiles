@@ -1156,7 +1156,7 @@ export default function RealEstateMarketplace() {
             </p>
           </div>
         </div>
-      </footer>
+      </footer>}
 
       {/* Unified Selection Bar - compare + viewing */}
       <PropertySelectionBar
