@@ -383,6 +383,7 @@ export default function RealEstateMarketplace() {
   const [aiExplanation, setAiExplanation] = useState("");
   const [viewMode, setViewMode] = useState<'grid' | 'compact' | 'list'>('grid');
   const [showFullMap, setShowFullMap] = useState(false);
+  const [sortBy, setSortBy] = useState<'newest' | 'price_asc' | 'price_desc' | 'area_desc'>('newest');
   
   const [initialQuery, setInitialQuery] = useState<string>("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -430,12 +431,24 @@ export default function RealEstateMarketplace() {
     setCurrentPage(1);
   }, [listings.length, selectedPropertyType, selectedTransactionType]);
 
+  // Sorted listings
+  const sortedListings = useMemo(() => {
+    const sorted = [...listings];
+    switch (sortBy) {
+      case 'price_asc': sorted.sort((a, b) => (a.price || 0) - (b.price || 0)); break;
+      case 'price_desc': sorted.sort((a, b) => (b.price || 0) - (a.price || 0)); break;
+      case 'area_desc': sorted.sort((a, b) => (b.areaM2 || 0) - (a.areaM2 || 0)); break;
+      case 'newest': default: break; // already sorted by created_at desc from DB
+    }
+    return sorted;
+  }, [listings, sortBy]);
+
   // Pagination
-  const totalPages = Math.max(1, Math.ceil(listings.length / perPage));
+  const totalPages = Math.max(1, Math.ceil(sortedListings.length / perPage));
   const paginatedListings = useMemo(() => {
     const start = (currentPage - 1) * perPage;
-    return listings.slice(start, start + perPage);
-  }, [listings, currentPage, perPage]);
+    return sortedListings.slice(start, start + perPage);
+  }, [sortedListings, currentPage, perPage]);
 
   const getPageNumbers = () => {
     const pages: (number | 'ellipsis')[] = [];
@@ -825,6 +838,18 @@ export default function RealEstateMarketplace() {
             )}
           </p>
           <div className="flex items-center gap-3">
+            {/* Sort */}
+            <Select value={sortBy} onValueChange={(v: any) => { setSortBy(v); setCurrentPage(1); }}>
+              <SelectTrigger className="w-[160px] h-8 text-sm">
+                <SelectValue placeholder="Sortuj" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="newest">Najnowsze</SelectItem>
+                <SelectItem value="price_asc">Cena: od najniższej</SelectItem>
+                <SelectItem value="price_desc">Cena: od najwyższej</SelectItem>
+                <SelectItem value="area_desc">Powierzchnia: największe</SelectItem>
+              </SelectContent>
+            </Select>
             {/* Map Button */}
             <Button
               variant="outline"

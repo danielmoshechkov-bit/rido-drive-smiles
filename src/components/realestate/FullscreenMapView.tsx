@@ -115,9 +115,11 @@ export function FullscreenMapView({
   // Drawing refs
   const drawingPolygonRef = useRef<google.maps.Polygon | null>(null);
   const drawingPolylineRef = useRef<google.maps.Polyline | null>(null);
+  const districtPolygonRef = useRef<google.maps.Polygon | null>(null);
   const isBrushDrawingRef = useRef(false);
 
   const [selectedListing, setSelectedListing] = useState<PropertyListingForMap | null>(null);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [mobileTab, setMobileTab] = useState<"map" | "list">("map");
 
   // Filters
@@ -300,6 +302,7 @@ export function FullscreenMapView({
         overlaysRef.current.push(
           new Overlay({ lat, lng }, createPriceMarker(listing), map, () => {
             setSelectedListing(listing);
+            setHoveredId(listing.id);
             showInfoWindow(map, iw, listing);
           })
         );
@@ -375,6 +378,7 @@ export function FullscreenMapView({
       overlaysRef.current = [];
       drawingPolygonRef.current?.setMap(null);
       drawingPolylineRef.current?.setMap(null);
+      districtPolygonRef.current?.setMap(null);
       mapRef.current = null;
     };
   }, [open, isLoaded, google, listings]);
@@ -459,6 +463,56 @@ export function FullscreenMapView({
     setDrawingMode(false);
   }, []);
 
+  // === Fetch district boundary from Nominatim ===
+  const fetchDistrictBoundary = useCallback(async (name: string, parent?: string) => {
+    if (!google || !mapRef.current) return;
+    // Clear previous district polygon
+    districtPolygonRef.current?.setMap(null);
+    districtPolygonRef.current = null;
+
+    try {
+      const q = parent ? `${name}, ${parent}, Poland` : `${name}, Poland`;
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&polygon_geojson=1&limit=1`,
+        { headers: { 'Accept-Language': 'pl' } }
+      );
+      const data = await res.json();
+      if (!data[0]?.geojson) return;
+
+      const geojson = data[0].geojson;
+      let coords: google.maps.LatLngLiteral[][] = [];
+
+      const extractCoords = (ring: number[][]) => ring.map(([lng, lat]) => ({ lat, lng }));
+
+      if (geojson.type === 'Polygon') {
+        coords = geojson.coordinates.map(extractCoords);
+      } else if (geojson.type === 'MultiPolygon') {
+        coords = geojson.coordinates.flatMap((poly: number[][][]) => poly.map(extractCoords));
+      }
+
+      if (coords.length === 0) return;
+
+      const polygon = new google.maps.Polygon({
+        paths: coords,
+        strokeColor: '#7c3aed',
+        strokeWeight: 2,
+        strokeOpacity: 0.8,
+        fillColor: '#7c3aed',
+        fillOpacity: 0.08,
+        map: mapRef.current,
+        clickable: false,
+      });
+      districtPolygonRef.current = polygon;
+
+      // Fit bounds to district
+      const bounds = new google.maps.LatLngBounds();
+      coords.forEach(ring => ring.forEach(p => bounds.extend(p)));
+      mapRef.current.fitBounds(bounds, 40);
+    } catch (err) {
+      console.warn('[FullscreenMap] Failed to fetch district boundary:', err);
+    }
+  }, [google]);
+
   // === Location select ===
   const handleSelectLocation = (loc: typeof LOCATION_DATA[0]) => {
     setSearchQuery(loc.name);
@@ -466,6 +520,14 @@ export function FullscreenMapView({
     if (mapRef.current) {
       mapRef.current.setCenter({ lat: loc.lat, lng: loc.lng });
       mapRef.current.setZoom(loc.zoom);
+    }
+    // Fetch and draw district boundary for districts
+    if (loc.type === 'dzielnica') {
+      fetchDistrictBoundary(loc.name, loc.parent);
+    } else {
+      // Clear district polygon for city selection
+      districtPolygonRef.current?.setMap(null);
+      districtPolygonRef.current = null;
     }
   };
 
@@ -734,6 +796,9 @@ export function FullscreenMapView({
                     key={listing.id}
                     listing={listing}
                     isSelected={selectedListing?.id === listing.id}
+                    isHovered={hoveredId === listing.id}
+                    onMouseEnter={() => setHoveredId(listing.id)}
+                    onMouseLeave={() => setHoveredId(null)}
                     onClick={() => {
                       setSelectedListing(listing);
                       if (listing.lat && listing.lng && mapRef.current) {
@@ -785,24 +850,42 @@ export function FullscreenMapView({
 function SideListingCard({
   listing,
   isSelected,
+  isHovered,
+  onMouseEnter,
+  onMouseLeave,
   onClick,
   onView,
 }: {
   listing: PropertyListingForMap;
   isSelected: boolean;
+  isHovered?: boolean;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
   onClick: () => void;
   onView?: () => void;
 }) {
+  const cardRef = useRef<HTMLDivElement>(null);
   const transType = listing.transactionType?.toLowerCase() || "";
   const isRent = transType.includes("wynajem") || transType.includes("krótkoterminowy");
 
+  // Scroll into view when hovered from map marker
+  useEffect(() => {
+    if (isHovered && cardRef.current) {
+      cardRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [isHovered]);
+
   return (
     <div
+      ref={cardRef}
       className={cn(
-        "flex gap-3 p-3 cursor-pointer hover:bg-accent/50 transition-colors",
-        isSelected && "bg-accent"
+        "flex gap-3 p-3 cursor-pointer hover:bg-accent/50 transition-all",
+        isSelected && "bg-accent",
+        isHovered && "bg-primary/10 border-l-2 border-l-primary"
       )}
       onClick={onClick}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
     >
       {/* Thumbnail */}
       <div className="w-20 h-16 rounded-lg overflow-hidden bg-muted shrink-0">
