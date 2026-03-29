@@ -7,7 +7,7 @@ import { UserDropdown } from '@/components/UserDropdown';
 import { UniversalHomeButton } from '@/components/UniversalHomeButton';
 import { MyGetRidoButton } from '@/components/MyGetRidoButton';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Loader2, LayoutDashboard, Plug, BarChart3, Users, Bot, Sparkles, Shield, Settings } from 'lucide-react';
+import { Loader2, LayoutDashboard, Plug, BarChart3, Users, Bot, Sparkles, Shield, Settings, FileText } from 'lucide-react';
 import { MarketingDashboardTab } from '@/components/marketing/MarketingDashboardTab';
 import { MarketingConnectionsTab } from '@/components/marketing/MarketingConnectionsTab';
 import { MarketingCampaignsTab } from '@/components/marketing/MarketingCampaignsTab';
@@ -16,6 +16,7 @@ import { MarketingAIAgentTab } from '@/components/marketing/MarketingAIAgentTab'
 import { MarketingCreatorTab } from '@/components/marketing/MarketingCreatorTab';
 import { MarketingTeamTab } from '@/components/marketing/MarketingTeamTab';
 import { MarketingSettingsTab } from '@/components/marketing/MarketingSettingsTab';
+import { MarketingOrdersTab } from '@/components/marketing/MarketingOrdersTab';
 
 export default function AdminMarketing() {
   const navigate = useNavigate();
@@ -24,6 +25,7 @@ export default function AdminMarketing() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [userEmail, setUserEmail] = useState('');
+  const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -44,6 +46,12 @@ export default function AdminMarketing() {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get('tab');
     if (tab) setActiveTab(tab);
+
+    // Load pending orders count
+    (supabase as any).from('provider_ad_orders')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'pending')
+      .then(({ count }: any) => setPendingOrdersCount(count || 0));
   }, []);
 
   useEffect(() => {
@@ -69,6 +77,7 @@ export default function AdminMarketing() {
 
   const tabs = [
     { value: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { value: 'orders', label: 'Zlecenia', icon: FileText, badge: pendingOrdersCount },
     { value: 'connections', label: 'Połączenia API', icon: Plug },
     { value: 'campaigns', label: 'Kampanie', icon: BarChart3 },
     { value: 'clients', label: 'Klienci', icon: Users },
@@ -120,6 +129,11 @@ export default function AdminMarketing() {
                   >
                     <tab.icon className="h-4 w-4" />
                     {tab.label}
+                    {(tab as any).badge > 0 && (
+                      <span className="ml-1 bg-orange-500 text-white text-xs rounded-full px-1.5 py-0.5 min-w-[1.2rem] text-center font-medium">
+                        {(tab as any).badge}
+                      </span>
+                    )}
                   </TabsTrigger>
                 ))}
               </TabsList>
@@ -147,6 +161,7 @@ export default function AdminMarketing() {
           </div>
 
           <TabsContent value="dashboard"><MarketingDashboardTab /></TabsContent>
+          <TabsContent value="orders"><MarketingOrdersTab /></TabsContent>
           <TabsContent value="connections"><MarketingConnectionsTab /></TabsContent>
           <TabsContent value="campaigns"><MarketingCampaignsTab /></TabsContent>
           <TabsContent value="clients"><MarketingClientsTab /></TabsContent>

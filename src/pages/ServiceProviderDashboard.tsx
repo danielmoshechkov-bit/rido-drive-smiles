@@ -752,7 +752,25 @@ export default function ServiceProviderDashboard() {
           <TabsContent value="workshop" className="mt-6">
             <WorkshopDashboard providerId={providerId} />
           </TabsContent>
+
+          {/* Leads Tab */}
+          <TabsContent value="leads" className="mt-6">
+            <LeadsTab providerId={providerId} userId={user?.id || null} />
+          </TabsContent>
+
+          {/* Ads Tab */}
+          <TabsContent value="ads" className="mt-6">
+            <AdsTab userId={user?.id || null} />
+          </TabsContent>
         </TabsPill>
+
+        {/* Ad Order Modal */}
+        <AdOrderModal
+          open={!!adOrderService}
+          onClose={() => setAdOrderService(null)}
+          service={adOrderService}
+          userId={user?.id || null}
+        />
       </main>
     </div>
   );
