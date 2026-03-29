@@ -948,10 +948,10 @@ export default function RealEstateMarketplace() {
             </div>
           </div>
         </div>
-      </section>
+      </section>}
 
       {/* Main Content: Listings + Mini Map */}
-      {!loading && <section className="container mx-auto px-3 sm:px-4 py-6 overflow-x-hidden">
+      {!loading && !showFullMap && <section className="container mx-auto px-3 sm:px-4 py-6 overflow-x-hidden">
           <div className="flex gap-6 max-w-7xl mx-auto items-start">
           {/* Listings Column */}
           <div className="flex-1 min-w-0">
