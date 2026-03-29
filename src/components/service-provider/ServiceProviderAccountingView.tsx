@@ -13,10 +13,18 @@ import { PendingInvoicesReview } from '@/components/invoices/PendingInvoicesRevi
 import { InvoiceEmailSetup } from '@/components/invoices/InvoiceEmailSetup';
 import { InvoiceNotificationBell } from '@/components/invoices/InvoiceNotificationBell';
 import { KsefUserSettings } from '@/components/ksef/KsefUserSettings';
+import { PurchaseInvoicesKSeF } from '@/components/accounting/PurchaseInvoicesKSeF';
 import { useKsefUnreadCount } from '@/hooks/useKsefUnreadCount';
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import {
   FileText, Plus, FileSpreadsheet, BarChart3, Clock, Package,
-  CreditCard, ShoppingBag, Calculator, Building2, ChevronRight, Mail, Shield
+  CreditCard, ShoppingBag, Calculator, Building2, ChevronRight, Mail, Shield, AlertTriangle, Download
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -45,6 +53,8 @@ export function ServiceProviderAccountingView() {
   const [editingEntity, setEditingEntity] = useState<any>(null);
   const [invoiceYear, setInvoiceYear] = useState(new Date().getFullYear());
   const [invoiceMonth, setInvoiceMonth] = useState(new Date().getMonth() + 1);
+  const [showMissingCompanyModal, setShowMissingCompanyModal] = useState(false);
+  const [showKsefPurchase, setShowKsefPurchase] = useState(false);
 
   useEffect(() => {
     loadData();
