@@ -451,8 +451,6 @@ export function FullscreenMapView({
 
     selectionMaskRef.current?.setMap(null);
     selectionMaskRef.current = null;
-    selectionHighlightRef.current?.setMap(null);
-    selectionHighlightRef.current = null;
 
     if (drawnArea && drawnArea.length >= 3) {
       selectionMaskRef.current = new google.maps.Polygon({
