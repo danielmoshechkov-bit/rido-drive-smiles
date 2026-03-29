@@ -87,8 +87,8 @@ const LOCATION_DATA: Array<{ name: string; type: 'miasto' | 'dzielnica'; parent?
 const PROPERTY_CATEGORIES = [
   { value: "mieszkanie", label: "Mieszkania" },
   { value: "dom", label: "Domy" },
-  { value: "dzialka", label: "DziaÅki" },
-  { value: "lokal", label: "Lokale uÅ¼ytkowe" },
+  { value: "dzialka", label: "Działki" },
+  { value: "lokal", label: "Lokale użytkowe" },
   { value: "pokoj", label: "Pokoje" },
   { value: "kawalerka", label: "Kawalerki" },
   { value: "rynek-pierwotny", label: "Rynek pierwotny" },
@@ -96,9 +96,9 @@ const PROPERTY_CATEGORIES = [
 ];
 
 const TRANSACTION_TYPES = [
-  { value: "sprzedaz", label: "SprzedaÅ¼" },
+  { value: "sprzedaz", label: "Sprzedaż" },
   { value: "wynajem", label: "Wynajem" },
-  { value: "wynajem-krotkoterminowy", label: "KrÃ³tkoterminowy" },
+  { value: "wynajem-krotkoterminowy", label: "Krótkoterminowy" },
 ];
 
 export function FullscreenMapView({
@@ -164,7 +164,7 @@ export function FullscreenMapView({
           );
           if (!isWarehouse) return false;
         } else if (mapPropertyType === "lokal") {
-          const isLokal = ["lokal", "usÅugow", "handlow", "biuro"].some(
+          const isLokal = ["lokal", "usługow", "handlow", "biuro"].some(
             (v) => listingType.includes(v) || listingTitle.includes(v)
           );
           if (!isLokal) return false;
@@ -175,9 +175,9 @@ export function FullscreenMapView({
         }
       }
       const transType = l.transactionType?.toLowerCase() || "";
-      if (mapTransactionType === "sprzedaz" && !(transType.includes("sprzedaÅ¼") || transType.includes("sprzedaz"))) return false;
+      if (mapTransactionType === "sprzedaz" && !(transType.includes("sprzedaż") || transType.includes("sprzedaz"))) return false;
       if (mapTransactionType === "wynajem" && !transType.includes("wynajem")) return false;
-      if (mapTransactionType === "wynajem-krotkoterminowy" && !(transType.includes("krÃ³tkoterminowy") || transType.includes("krotkoterminowy"))) return false;
+      if (mapTransactionType === "wynajem-krotkoterminowy" && !(transType.includes("krótkoterminowy") || transType.includes("krotkoterminowy"))) return false;
       // District boundary filter
       if (districtBoundaries.length > 0) {
         const inAnyDistrict = districtBoundaries.some(boundary => 
@@ -231,7 +231,7 @@ export function FullscreenMapView({
 
   useEffect(() => { setListPage(1); }, [filteredListings.length]);
 
-  const formatPriceFull = (price: number) => price.toLocaleString("pl-PL") + "\u00A0zÅ";
+  const formatPriceFull = (price: number) => price.toLocaleString("pl-PL") + "\u00A0zł";
 
   // === Supercluster === (higher maxZoom for better detail)
   useEffect(() => {
@@ -300,7 +300,7 @@ export function FullscreenMapView({
 
   const createPriceMarker = useCallback((listing: PropertyListingForMap): HTMLDivElement => {
     const transType = listing.transactionType?.toLowerCase() || "";
-    const isRentL = transType.includes("wynajem") || transType.includes("krÃ³tkoterminowy");
+    const isRentL = transType.includes("wynajem") || transType.includes("krótkoterminowy");
     const borderColor = isRentL ? "#3b82f6" : "#10b981";
     const div = document.createElement("div");
     div.style.cssText = "display:flex;flex-direction:column;align-items:center;transform:translate(-50%,-100%);cursor:pointer;";
@@ -1050,7 +1050,7 @@ export function FullscreenMapView({
                   </div>
                   {onViewListing && (
                     <Button size="sm" className="w-full mt-2 h-8 text-xs" onClick={() => onViewListing(selectedListing.id)}>
-                      SzczegÃ³Åy
+                      Szczegóły
                     </Button>
                   )}
                 </div>
@@ -1133,7 +1133,7 @@ function SideListingCard({
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const transType = listing.transactionType?.toLowerCase() || "";
-  const isRent = transType.includes("wynajem") || transType.includes("krÃ³tkoterminowy");
+  const isRent = transType.includes("wynajem") || transType.includes("krótkoterminowy");
 
   useEffect(() => {
     if (isHovered && cardRef.current) {
@@ -1170,7 +1170,7 @@ function SideListingCard({
         </div>
         <div className="mt-0.5 flex items-center justify-between gap-1">
           <span className="font-bold text-xs text-primary whitespace-nowrap">
-            {listing.price.toLocaleString("pl-PL")}{"\u00A0"}zÅ
+            {listing.price.toLocaleString("pl-PL")}{"\u00A0"}zł
           </span>
           <span className="text-[11px] text-muted-foreground whitespace-nowrap">
             {listing.areaM2}mÂ²
