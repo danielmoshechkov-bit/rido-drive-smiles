@@ -1049,7 +1049,7 @@ export function FullscreenMapView({
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-primary text-base">{formatPriceFull(selectedListing.price)}</span>
-                    <span className="text-xs text-muted-foreground">{selectedListing.areaM2}m\u00B2</span>
+                    <span className="text-xs text-muted-foreground">{selectedListing.areaM2} m²</span>
                   </div>
                   {onViewListing && (
                     <Button size="sm" className="w-full mt-2 h-8 text-xs" onClick={() => onViewListing(selectedListing.id)}>
@@ -1176,7 +1176,7 @@ function SideListingCard({
             {listing.price.toLocaleString("pl-PL")}{"\u00A0"}zł
           </span>
             <span className="text-[11px] text-muted-foreground whitespace-nowrap">
-              {listing.areaM2}m\u00B2
+              {listing.areaM2} m²
             </span>
         </div>
       </div>

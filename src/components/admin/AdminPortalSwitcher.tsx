@@ -171,7 +171,7 @@ export function AdminPortalSwitcher() {
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-64 p-0">
+      <DropdownMenuContent align="start" className="w-64 max-h-[70vh] overflow-y-auto p-0">
         <ScrollArea className="max-h-[70vh]">
         <div className="p-1">
         {portals.filter(p => p.isGlobal).map((portal) => {
