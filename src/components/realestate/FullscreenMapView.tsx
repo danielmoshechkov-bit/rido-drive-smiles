@@ -35,6 +35,8 @@ interface FullscreenMapViewProps {
   onClose: () => void;
   listings: PropertyListingForMap[];
   onViewListing?: (id: string) => void;
+  user?: any;
+  onNavigate?: (path: string) => void;
 }
 
 // Warsaw districts for autocomplete
