@@ -8,7 +8,6 @@ import {
   X, MapPin, Search, Loader2, Home, PenTool, Circle, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { UniversalHomeButton } from "@/components/UniversalHomeButton";
 import { MyGetRidoButton } from "@/components/MyGetRidoButton";
 
 // === Types ===
