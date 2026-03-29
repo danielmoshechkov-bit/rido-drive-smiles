@@ -399,7 +399,7 @@ export function FullscreenMapView({
     if (mapRef.current && google) updateMarkers();
   }, [updateMarkers, google]);
 
-  // === Polygon drawing ===
+  // === Polygon drawing (works on both desktop and mobile) ===
   const startPolygonDrawing = useCallback(() => {
     if (!mapRef.current || !google) return;
     setDrawingMode("pen");
@@ -413,24 +413,22 @@ export function FullscreenMapView({
     const polyline = new google.maps.Polyline({ map, path, strokeColor: "#7c3aed", strokeWeight: 3, strokeOpacity: 0.8 });
     drawingPolylineRef.current = polyline;
     isBrushDrawingRef.current = false;
-    const mouseDownListener = map.addListener("mousedown", (e: google.maps.MapMouseEvent) => {
-      if (!e.latLng) return;
+
+    const startDraw = (latLng: google.maps.LatLng) => {
       isBrushDrawingRef.current = true;
       path.length = 0;
-      path.push(e.latLng);
+      path.push(latLng);
       polyline.setPath(path);
-    });
-    const mouseMoveListener = map.addListener("mousemove", (e: google.maps.MapMouseEvent) => {
-      if (!isBrushDrawingRef.current || !e.latLng) return;
-      path.push(e.latLng);
+    };
+    const continueDraw = (latLng: google.maps.LatLng) => {
+      if (!isBrushDrawingRef.current) return;
+      path.push(latLng);
       polyline.setPath(path);
-    });
-    const mouseUpListener = map.addListener("mouseup", () => {
+    };
+    const endDraw = () => {
       if (!isBrushDrawingRef.current) return;
       isBrushDrawingRef.current = false;
-      google.maps.event.removeListener(mouseDownListener);
-      google.maps.event.removeListener(mouseMoveListener);
-      google.maps.event.removeListener(mouseUpListener);
+      cleanup();
       map.setOptions({ draggable: true, gestureHandling: "cooperative" });
       polyline.setMap(null);
       if (path.length < 3) { setDrawingMode(false); return; }
@@ -443,7 +441,67 @@ export function FullscreenMapView({
       drawingPolygonRef.current = polygon;
       setDrawnArea(points);
       setDrawingMode(false);
+    };
+
+    // Mouse events (desktop)
+    const mouseDownListener = map.addListener("mousedown", (e: google.maps.MapMouseEvent) => {
+      if (e.latLng) startDraw(e.latLng);
     });
+    const mouseMoveListener = map.addListener("mousemove", (e: google.maps.MapMouseEvent) => {
+      if (e.latLng) continueDraw(e.latLng);
+    });
+    const mouseUpListener = map.addListener("mouseup", endDraw);
+
+    // Touch events on map container (mobile)
+    const container = mapContainerRef.current;
+    const getLatLngFromTouch = (touch: Touch): google.maps.LatLng | null => {
+      if (!container || !map.getProjection()) return null;
+      const rect = container.getBoundingClientRect();
+      const x = touch.clientX - rect.left;
+      const y = touch.clientY - rect.top;
+      const scale = Math.pow(2, map.getZoom()!);
+      const nw = map.getProjection()!.fromLatLngToPoint(map.getBounds()!.getNorthEast())!;
+      const sw = map.getProjection()!.fromLatLngToPoint(map.getBounds()!.getSouthWest())!;
+      const worldPoint = new google.maps.Point(
+        sw.x + (x / rect.width) * (nw.x - sw.x),
+        nw.y + (y / rect.height) * (sw.y - nw.y)
+      );
+      return map.getProjection()!.fromPointToLatLng(worldPoint);
+    };
+
+    const handleTouchStart = (e: TouchEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const latLng = getLatLngFromTouch(e.touches[0]);
+      if (latLng) startDraw(latLng);
+    };
+    const handleTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const latLng = getLatLngFromTouch(e.touches[0]);
+      if (latLng) continueDraw(latLng);
+    };
+    const handleTouchEnd = (e: TouchEvent) => {
+      e.preventDefault();
+      endDraw();
+    };
+
+    if (container) {
+      container.addEventListener("touchstart", handleTouchStart, { passive: false });
+      container.addEventListener("touchmove", handleTouchMove, { passive: false });
+      container.addEventListener("touchend", handleTouchEnd, { passive: false });
+    }
+
+    const cleanup = () => {
+      google.maps.event.removeListener(mouseDownListener);
+      google.maps.event.removeListener(mouseMoveListener);
+      google.maps.event.removeListener(mouseUpListener);
+      if (container) {
+        container.removeEventListener("touchstart", handleTouchStart);
+        container.removeEventListener("touchmove", handleTouchMove);
+        container.removeEventListener("touchend", handleTouchEnd);
+      }
+    };
   }, [google]);
 
   // === Circle drawing ===
