@@ -197,6 +197,16 @@ function mapDbToDisplayListing(db: any) {
 export default function PropertyDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const fromMap = searchParams.get("fromMap") === "true";
+
+  const handleGoBack = () => {
+    if (fromMap) {
+      navigate("/nieruchomosci?showMap=true");
+    } else {
+      navigate(-1);
+    }
+  };
   const [listing, setListing] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isFavorited, setIsFavorited] = useState(false);
