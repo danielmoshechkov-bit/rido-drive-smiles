@@ -453,8 +453,8 @@ export function FullscreenMapView({
     selectionMaskRef.current = null;
 
     if (drawnArea && drawnArea.length >= 3) {
-      const outerMaskPath = ensureCounterClockwise(WORLD_MASK_PATH);
-      const selectionHolePath = ensureClockwise(drawnArea);
+      const outerMaskPath = ensureClockwise(WORLD_MASK_PATH);
+      const selectionHolePath = ensureCounterClockwise(drawnArea);
       selectionMaskRef.current = new google.maps.Polygon({
         map: mapRef.current,
         paths: [outerMaskPath, selectionHolePath],
@@ -473,8 +473,8 @@ export function FullscreenMapView({
 
     if (circleCenter) {
       const effectiveRadius = circleRadius + (useBuffer ? bufferDistance : 0);
-      const outerMaskPath = ensureCounterClockwise(WORLD_MASK_PATH);
-      const circlePath = ensureClockwise(createCirclePolygon(circleCenter, effectiveRadius));
+      const outerMaskPath = ensureClockwise(WORLD_MASK_PATH);
+      const circlePath = ensureCounterClockwise(createCirclePolygon(circleCenter, effectiveRadius));
       selectionMaskRef.current = new google.maps.Polygon({
         map: mapRef.current,
         paths: [outerMaskPath, circlePath],
@@ -501,10 +501,10 @@ export function FullscreenMapView({
     if (districtCoordsRef.current.length === 0) return;
 
     // 1. Dark overlay with holes for district areas
-    const paths: google.maps.LatLngLiteral[][] = [ensureCounterClockwise(WORLD_MASK_PATH)];
+    const paths: google.maps.LatLngLiteral[][] = [ensureClockwise(WORLD_MASK_PATH)];
     districtCoordsRef.current.forEach(coordRings => {
       coordRings.forEach(ring => {
-        paths.push(ensureClockwise(ring));
+        paths.push(ensureCounterClockwise(ring));
       });
     });
 
@@ -1049,7 +1049,7 @@ export function FullscreenMapView({
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-primary text-base">{formatPriceFull(selectedListing.price)}</span>
-                    <span className="text-xs text-muted-foreground">{selectedListing.areaM2}m²</span>
+                    <span className="text-xs text-muted-foreground">{selectedListing.areaM2}m\u00B2</span>
                   </div>
                   {onViewListing && (
                     <Button size="sm" className="w-full mt-2 h-8 text-xs" onClick={() => onViewListing(selectedListing.id)}>
@@ -1176,7 +1176,7 @@ function SideListingCard({
             {listing.price.toLocaleString("pl-PL")}{"\u00A0"}zł
           </span>
             <span className="text-[11px] text-muted-foreground whitespace-nowrap">
-              {listing.areaM2}m²
+              {listing.areaM2}m\u00B2
             </span>
         </div>
       </div>
