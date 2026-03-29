@@ -1,19 +1,15 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import Supercluster from "supercluster";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useGoogleMaps } from "@/hooks/useGoogleMaps";
-import { TransactionTypeChips } from "@/components/realestate/TransactionTypeChips";
-import { PropertyTypeSelector } from "@/components/realestate/PropertyTypeSelector";
-import { RealEstateAISearch } from "@/components/realestate/RealEstateAISearch";
 import {
-  X, MapPin, Search, Loader2, Home, PenTool, Eye, ChevronLeft, ChevronRight, Map as MapIcon, List, Plus,
+  X, MapPin, Search, Loader2, Home, PenTool, Circle, ChevronLeft, ChevronRight, Plus, Eye,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UniversalHomeButton } from "@/components/UniversalHomeButton";
 import { MyGetRidoButton } from "@/components/MyGetRidoButton";
-import heroImage from "@/assets/realestate-hero.jpg";
 
 // === Types ===
 export interface PropertyListingForMap {
@@ -44,7 +40,6 @@ interface FullscreenMapViewProps {
 
 // Cities and districts for autocomplete
 const LOCATION_DATA: Array<{ name: string; type: 'miasto' | 'dzielnica'; parent?: string; lat: number; lng: number; zoom: number }> = [
-  // Cities
   { name: "Warszawa", type: "miasto", lat: 52.2297, lng: 21.0122, zoom: 11 },
   { name: "Kraków", type: "miasto", lat: 50.0647, lng: 19.9450, zoom: 12 },
   { name: "Wrocław", type: "miasto", lat: 51.1079, lng: 17.0385, zoom: 12 },
@@ -70,7 +65,6 @@ const LOCATION_DATA: Array<{ name: string; type: 'miasto' | 'dzielnica'; parent?
   { name: "Raszyn", type: "miasto", lat: 52.1575, lng: 20.9308, zoom: 14 },
   { name: "Tarczyn", type: "miasto", lat: 51.9773, lng: 20.9141, zoom: 14 },
   { name: "Nadarzyn", type: "miasto", lat: 52.0878, lng: 20.8080, zoom: 14 },
-  // Warsaw districts
   { name: "Bemowo", type: "dzielnica", parent: "Warszawa", lat: 52.2545, lng: 20.9132, zoom: 13 },
   { name: "Białołęka", type: "dzielnica", parent: "Warszawa", lat: 52.3225, lng: 20.9732, zoom: 13 },
   { name: "Bielany", type: "dzielnica", parent: "Warszawa", lat: 52.2900, lng: 20.9430, zoom: 13 },
@@ -89,6 +83,23 @@ const LOCATION_DATA: Array<{ name: string; type: 'miasto' | 'dzielnica'; parent?
   { name: "Włochy", type: "dzielnica", parent: "Warszawa", lat: 52.2005, lng: 20.9132, zoom: 14 },
   { name: "Wola", type: "dzielnica", parent: "Warszawa", lat: 52.2365, lng: 20.9632, zoom: 13 },
   { name: "Żoliborz", type: "dzielnica", parent: "Warszawa", lat: 52.2685, lng: 20.9832, zoom: 14 },
+];
+
+const PROPERTY_CATEGORIES = [
+  { value: "mieszkanie", label: "Mieszkania" },
+  { value: "dom", label: "Domy" },
+  { value: "dzialka", label: "Działki" },
+  { value: "lokal", label: "Lokale" },
+  { value: "pokoj", label: "Pokoje" },
+  { value: "kawalerka", label: "Kawalerki" },
+  { value: "rynek-pierwotny", label: "Rynek pierwotny" },
+  { value: "komercja", label: "Komercja" },
+];
+
+const TRANSACTION_TYPES = [
+  { value: "sprzedaz", label: "Sprzedaż" },
+  { value: "wynajem", label: "Wynajem" },
+  { value: "wynajem-krotkoterminowy", label: "Krótkoterminowy" },
 ];
 
 export function FullscreenMapView({
@@ -110,6 +121,7 @@ export function FullscreenMapView({
   const drawingPolygonRef = useRef<google.maps.Polygon | null>(null);
   const drawingPolylineRef = useRef<google.maps.Polyline | null>(null);
   const districtPolygonRef = useRef<google.maps.Polygon | null>(null);
+  const circleRef = useRef<google.maps.Circle | null>(null);
   const isBrushDrawingRef = useRef(false);
 
   const [selectedListing, setSelectedListing] = useState<PropertyListingForMap | null>(null);
@@ -121,27 +133,31 @@ export function FullscreenMapView({
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [mapPropertyType, setMapPropertyType] = useState<string | null>(null);
   const [mapTransactionType, setMapTransactionType] = useState<string | null>(null);
-  const [drawingMode, setDrawingMode] = useState(false);
+  const [drawingMode, setDrawingMode] = useState<false | "pen" | "circle">(false);
   const [drawnArea, setDrawnArea] = useState<Array<{ lat: number; lng: number }> | null>(null);
+  const [circleCenter, setCircleCenter] = useState<{ lat: number; lng: number } | null>(null);
+  const [circleRadius, setCircleRadius] = useState(1000);
+  const [bufferDistance, setBufferDistance] = useState(0);
+  const [useBuffer, setUseBuffer] = useState(false);
 
   // Filtered listings
   const filteredListings = useMemo(() => {
     return listings.filter((l) => {
-        if (!l.lat || !l.lng) return false;
-        const listingType = l.propertyType?.toLowerCase() || "";
-        const listingTitle = l.title?.toLowerCase() || "";
-        if (mapPropertyType) {
-          if (mapPropertyType === "komercja") {
-            const isCommercial = ["lokal", "magazyn", "hala", "biuro"].some(
-              (value) => listingType.includes(value) || listingTitle.includes(value)
-            );
-            if (!isCommercial) return false;
-          } else if (mapPropertyType === "rynek-pierwotny") {
-            if (!(listingType.includes("inwestycja") || listingTitle.includes("inwestycja") || listingTitle.includes("deweloper"))) return false;
-          } else if (!listingType.includes(mapPropertyType)) {
-            return false;
-          }
+      if (!l.lat || !l.lng) return false;
+      const listingType = l.propertyType?.toLowerCase() || "";
+      const listingTitle = l.title?.toLowerCase() || "";
+      if (mapPropertyType) {
+        if (mapPropertyType === "komercja") {
+          const isCommercial = ["lokal", "magazyn", "hala", "biuro"].some(
+            (v) => listingType.includes(v) || listingTitle.includes(v)
+          );
+          if (!isCommercial) return false;
+        } else if (mapPropertyType === "rynek-pierwotny") {
+          if (!(listingType.includes("inwestycja") || listingTitle.includes("inwestycja") || listingTitle.includes("deweloper"))) return false;
+        } else if (!listingType.includes(mapPropertyType)) {
+          return false;
         }
+      }
       const transType = l.transactionType?.toLowerCase() || "";
       if (mapTransactionType === "sprzedaz" && !(transType.includes("sprzedaż") || transType.includes("sprzedaz"))) return false;
       if (mapTransactionType === "wynajem" && !transType.includes("wynajem")) return false;
@@ -159,15 +175,21 @@ export function FullscreenMapView({
           : false;
         if (!inLocation && !inDistrict && !inTitle && !fromSuggestion) return false;
       }
-      // Drawn area filter
+      // Drawn polygon filter
       if (drawnArea && drawnArea.length >= 3) {
         if (!isPointInPolygon(l.lat, l.lng, drawnArea)) return false;
       }
+      // Circle filter
+      if (circleCenter) {
+        const effectiveRadius = circleRadius + (useBuffer ? bufferDistance : 0);
+        const dist = haversineDistance(circleCenter.lat, circleCenter.lng, l.lat, l.lng);
+        if (dist > effectiveRadius) return false;
+      }
       return true;
     });
-  }, [listings, mapPropertyType, mapTransactionType, searchQuery, drawnArea]);
+  }, [listings, mapPropertyType, mapTransactionType, searchQuery, drawnArea, circleCenter, circleRadius, bufferDistance, useBuffer]);
 
-  // Location suggestions (cities + districts)
+  // Location suggestions
   const suggestions = useMemo(() => {
     if (!searchQuery || searchQuery.length < 1) return [];
     const q = searchQuery.toLowerCase();
@@ -176,7 +198,7 @@ export function FullscreenMapView({
       .slice(0, 12);
   }, [searchQuery]);
 
-  // Pagination for sidebar list
+  // Pagination
   const [listPage, setListPage] = useState(1);
   const listPerPage = 21;
   const listTotalPages = Math.max(1, Math.ceil(filteredListings.length / listPerPage));
@@ -187,15 +209,12 @@ export function FullscreenMapView({
 
   useEffect(() => { setListPage(1); }, [filteredListings.length]);
 
-  const formatPriceFull = (price: number) => price.toLocaleString("pl-PL") + " zł";
+  const formatPriceFull = (price: number) => price.toLocaleString("pl-PL") + "\u00A0zł";
 
   // === Supercluster ===
   useEffect(() => {
     const withCoords = listings.filter((l) => l.lat && l.lng);
-    if (!withCoords.length) {
-      clusterIndexRef.current = null;
-      return;
-    }
+    if (!withCoords.length) { clusterIndexRef.current = null; return; }
     const index = new Supercluster({ radius: 60, maxZoom: 16, minZoom: 3 });
     index.load(
       withCoords.map((l) => ({
@@ -233,31 +252,29 @@ export function FullscreenMapView({
     };
   }, [google]);
 
-  // === Marker content ===
   const createPriceMarker = useCallback((listing: PropertyListingForMap): HTMLDivElement => {
     const transType = listing.transactionType?.toLowerCase() || "";
     const isRentL = transType.includes("wynajem") || transType.includes("krótkoterminowy");
     const borderColor = isRentL ? "#3b82f6" : "#10b981";
     const div = document.createElement("div");
     div.style.cssText = "display:flex;flex-direction:column;align-items:center;transform:translate(-50%,-100%);cursor:pointer;";
-    div.innerHTML = `<div style="background:white;color:#1a1a1a;padding:4px 10px;border-radius:8px;font-size:12px;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.25);border:2px solid ${borderColor};">${formatPriceFull(listing.price)}</div><div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:6px solid ${borderColor};margin-top:-1px;"></div>`;
+    div.innerHTML = `<div style="background:white;color:#1a1a1a;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.2);border:2px solid ${borderColor};">${formatPriceFull(listing.price)}</div><div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:5px solid ${borderColor};margin-top:-1px;"></div>`;
     return div;
   }, []);
 
   const createClusterMarker = useCallback((count: number): HTMLDivElement => {
-    const size = count > 100 ? 56 : count > 30 ? 48 : count > 10 ? 42 : 36;
-    const fs = count > 100 ? 15 : count > 30 ? 14 : 13;
+    const size = count > 100 ? 52 : count > 30 ? 44 : count > 10 ? 38 : 32;
+    const fs = count > 100 ? 14 : count > 30 ? 13 : 12;
     const div = document.createElement("div");
     div.style.cssText = "display:flex;align-items:center;justify-content:center;transform:translate(-50%,-50%);cursor:pointer;";
-    div.innerHTML = `<div style="width:${size}px;height:${size}px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#6d28d9);color:white;display:flex;align-items:center;justify-content:center;font-size:${fs}px;font-weight:700;box-shadow:0 3px 12px rgba(124,58,237,0.4),0 0 0 4px rgba(124,58,237,0.15);border:2px solid rgba(255,255,255,0.8);">${count}</div>`;
+    div.innerHTML = `<div style="width:${size}px;height:${size}px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#6d28d9);color:white;display:flex;align-items:center;justify-content:center;font-size:${fs}px;font-weight:700;box-shadow:0 3px 12px rgba(124,58,237,0.4),0 0 0 3px rgba(124,58,237,0.15);border:2px solid rgba(255,255,255,0.8);">${count}</div>`;
     return div;
   }, []);
 
-  // === InfoWindow ===
   const showInfoWindow = useCallback(
     (map: google.maps.Map, iw: google.maps.InfoWindow, listing: PropertyListingForMap) => {
       iw.setContent(
-        `<div style="max-width:280px;font-family:system-ui,sans-serif;">${listing.photos?.[0] ? `<img src="${listing.photos[0]}" style="width:100%;height:120px;object-fit:cover;border-radius:8px 8px 0 0;" />` : ""}<div style="padding:12px;"><h3 style="margin:0 0 6px;font-size:14px;font-weight:600;">${listing.title}</h3><div style="font-size:18px;font-weight:700;color:#7c3aed;">${formatPriceFull(listing.price)}</div><div style="font-size:12px;color:#6b7280;">${listing.areaM2} m² ${listing.rooms ? `• ${listing.rooms} pok.` : ""} • ${listing.location}</div>${onViewListing ? `<button onclick="window.__ridoViewListing('${listing.id}')" style="margin-top:8px;padding:6px 16px;background:#7c3aed;color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">Zobacz szczegóły</button>` : ""}</div></div>`
+        `<div style="max-width:260px;font-family:system-ui,sans-serif;">${listing.photos?.[0] ? `<img src="${listing.photos[0]}" style="width:100%;height:100px;object-fit:cover;border-radius:6px 6px 0 0;" />` : ""}<div style="padding:10px;"><h3 style="margin:0 0 4px;font-size:13px;font-weight:600;line-height:1.3;">${listing.title}</h3><div style="font-size:15px;font-weight:700;color:#7c3aed;">${formatPriceFull(listing.price)}</div><div style="font-size:11px;color:#6b7280;margin-top:2px;">${listing.areaM2} m² ${listing.rooms ? `• ${listing.rooms} pok.` : ""} • ${listing.location}</div>${onViewListing ? `<button onclick="window.__ridoViewListing('${listing.id}')" style="margin-top:6px;padding:5px 14px;background:#7c3aed;color:white;border:none;border-radius:5px;font-size:11px;font-weight:600;cursor:pointer;">Szczegóły</button>` : ""}</div></div>`
       );
       iw.setPosition({ lat: listing.lat!, lng: listing.lng! });
       iw.open(map);
@@ -270,28 +287,19 @@ export function FullscreenMapView({
     if (!mapRef.current || !google) return;
     const map = mapRef.current;
     const index = clusterIndexRef.current;
-
     overlaysRef.current.forEach((o) => o.setMap?.(null));
     overlaysRef.current = [];
-
     if (!index) return;
     const bounds = map.getBounds();
     if (!bounds) return;
-
     const zoom = map.getZoom() ?? 10;
     const sw = bounds.getSouthWest();
     const ne = bounds.getNorthEast();
-
-    const clusters = index.getClusters(
-      [sw.lng(), sw.lat(), ne.lng(), ne.lat()],
-      Math.floor(zoom)
-    );
-
+    const clusters = index.getClusters([sw.lng(), sw.lat(), ne.lng(), ne.lat()], Math.floor(zoom));
     if (!infoWindowRef.current) infoWindowRef.current = new google.maps.InfoWindow();
     const iw = infoWindowRef.current;
     const Overlay = createOverlayClass();
     if (!Overlay) return;
-
     clusters.forEach((cluster) => {
       const [lng, lat] = cluster.geometry.coordinates;
       if (cluster.properties.cluster) {
@@ -315,22 +323,18 @@ export function FullscreenMapView({
     });
   }, [google, createOverlayClass, createPriceMarker, createClusterMarker, showInfoWindow]);
 
-  // Global handler for InfoWindow button
+  // Global handler
   useEffect(() => {
-    (window as any).__ridoViewListing = (id: string) => {
-      onViewListing?.(id);
-    };
+    (window as any).__ridoViewListing = (id: string) => { onViewListing?.(id); };
     return () => { delete (window as any).__ridoViewListing; };
   }, [onViewListing]);
 
   // === Init map ===
   useEffect(() => {
     if (!open || !isLoaded || !google) return;
-
     let initAttempt = 0;
     let initTimeout: ReturnType<typeof setTimeout>;
     let created = false;
-
     const tryInit = () => {
       const container = mapContainerRef.current;
       if (!container || created) return;
@@ -340,11 +344,8 @@ export function FullscreenMapView({
         return;
       }
       created = true;
-
-      // User location or default
       let center = { lat: 52.2297, lng: 21.0122 };
       let zoom = 11;
-
       const withCoords = listings.filter((l) => l.lat && l.lng);
       if (withCoords.length > 0) {
         const avgLat = withCoords.reduce((s, l) => s + l.lat!, 0) / withCoords.length;
@@ -352,10 +353,8 @@ export function FullscreenMapView({
         center = { lat: avgLat, lng: avgLng };
         zoom = withCoords.length === 1 ? 14 : 10;
       }
-
       const map = new google.maps.Map(container, {
-        center,
-        zoom,
+        center, zoom,
         disableDefaultUI: false,
         zoomControl: true,
         mapTypeControl: false,
@@ -363,20 +362,15 @@ export function FullscreenMapView({
         fullscreenControl: false,
         gestureHandling: "greedy",
       });
-
       mapRef.current = map;
       infoWindowRef.current = new google.maps.InfoWindow();
-
       setTimeout(() => {
         google.maps.event.trigger(map, "resize");
         updateMarkers();
       }, 150);
-
       map.addListener("idle", updateMarkers);
     };
-
     initTimeout = setTimeout(tryInit, 50);
-
     return () => {
       clearTimeout(initTimeout);
       overlaysRef.current.forEach((o) => o.setMap?.(null));
@@ -384,36 +378,29 @@ export function FullscreenMapView({
       drawingPolygonRef.current?.setMap(null);
       drawingPolylineRef.current?.setMap(null);
       districtPolygonRef.current?.setMap(null);
+      circleRef.current?.setMap(null);
       mapRef.current = null;
     };
   }, [open, isLoaded, google, listings]);
 
-  // Re-render markers when listings change
   useEffect(() => {
     if (mapRef.current && google) updateMarkers();
   }, [updateMarkers, google]);
 
-  // === Drawing ===
-  const startDrawing = useCallback(() => {
+  // === Polygon drawing ===
+  const startPolygonDrawing = useCallback(() => {
     if (!mapRef.current || !google) return;
-    setDrawingMode(true);
+    setDrawingMode("pen");
     setDrawnArea(null);
+    setCircleCenter(null);
+    circleRef.current?.setMap(null);
     drawingPolygonRef.current?.setMap(null);
-
     const map = mapRef.current;
     map.setOptions({ draggable: false, gestureHandling: "none" });
-
     const path: google.maps.LatLng[] = [];
-    const polyline = new google.maps.Polyline({
-      map,
-      path,
-      strokeColor: "#7c3aed",
-      strokeWeight: 3,
-      strokeOpacity: 0.8,
-    });
+    const polyline = new google.maps.Polyline({ map, path, strokeColor: "#7c3aed", strokeWeight: 3, strokeOpacity: 0.8 });
     drawingPolylineRef.current = polyline;
     isBrushDrawingRef.current = false;
-
     const mouseDownListener = map.addListener("mousedown", (e: google.maps.MapMouseEvent) => {
       if (!e.latLng) return;
       isBrushDrawingRef.current = true;
@@ -421,39 +408,25 @@ export function FullscreenMapView({
       path.push(e.latLng);
       polyline.setPath(path);
     });
-
     const mouseMoveListener = map.addListener("mousemove", (e: google.maps.MapMouseEvent) => {
       if (!isBrushDrawingRef.current || !e.latLng) return;
       path.push(e.latLng);
       polyline.setPath(path);
     });
-
     const mouseUpListener = map.addListener("mouseup", () => {
       if (!isBrushDrawingRef.current) return;
       isBrushDrawingRef.current = false;
       google.maps.event.removeListener(mouseDownListener);
       google.maps.event.removeListener(mouseMoveListener);
       google.maps.event.removeListener(mouseUpListener);
-
       map.setOptions({ draggable: true, gestureHandling: "greedy" });
       polyline.setMap(null);
-
-      if (path.length < 3) {
-        setDrawingMode(false);
-        return;
-      }
-
+      if (path.length < 3) { setDrawingMode(false); return; }
       const points = path.map((p) => ({ lat: p.lat(), lng: p.lng() }));
-
-      // Create polygon overlay
       const polygon = new google.maps.Polygon({
-        map,
-        paths: points,
-        strokeColor: "#7c3aed",
-        strokeWeight: 2,
-        strokeOpacity: 0.9,
-        fillColor: "#7c3aed",
-        fillOpacity: 0.15,
+        map, paths: points,
+        strokeColor: "#7c3aed", strokeWeight: 2, strokeOpacity: 0.9,
+        fillColor: "#7c3aed", fillOpacity: 0.15,
       });
       drawingPolygonRef.current = polygon;
       setDrawnArea(points);
@@ -461,20 +434,52 @@ export function FullscreenMapView({
     });
   }, [google]);
 
-  const clearDrawing = useCallback(() => {
+  // === Circle drawing ===
+  const startCircleDrawing = useCallback(() => {
+    if (!mapRef.current || !google) return;
+    setDrawingMode("circle");
+    setDrawnArea(null);
+    setCircleCenter(null);
+    drawingPolygonRef.current?.setMap(null);
+    circleRef.current?.setMap(null);
+    const map = mapRef.current;
+    const clickListener = map.addListener("click", (e: google.maps.MapMouseEvent) => {
+      if (!e.latLng) return;
+      google.maps.event.removeListener(clickListener);
+      const center = { lat: e.latLng.lat(), lng: e.latLng.lng() };
+      setCircleCenter(center);
+      const circle = new google.maps.Circle({
+        map, center, radius: circleRadius,
+        strokeColor: "#7c3aed", strokeWeight: 2, strokeOpacity: 0.8,
+        fillColor: "#7c3aed", fillOpacity: 0.1, editable: true,
+      });
+      circleRef.current = circle;
+      circle.addListener("radius_changed", () => {
+        setCircleRadius(Math.round(circle.getRadius()));
+      });
+      circle.addListener("center_changed", () => {
+        const c = circle.getCenter();
+        if (c) setCircleCenter({ lat: c.lat(), lng: c.lng() });
+      });
+      setDrawingMode(false);
+    });
+  }, [google, circleRadius]);
+
+  const clearAllDrawing = useCallback(() => {
     drawingPolygonRef.current?.setMap(null);
     drawingPolygonRef.current = null;
+    circleRef.current?.setMap(null);
+    circleRef.current = null;
     setDrawnArea(null);
+    setCircleCenter(null);
     setDrawingMode(false);
   }, []);
 
-  // === Fetch district boundary from Nominatim ===
+  // === Fetch district boundary ===
   const fetchDistrictBoundary = useCallback(async (name: string, parent?: string) => {
     if (!google || !mapRef.current) return;
-    // Clear previous district polygon
     districtPolygonRef.current?.setMap(null);
     districtPolygonRef.current = null;
-
     try {
       const q = parent ? `${name}, ${parent}, Poland` : `${name}, Poland`;
       const res = await fetch(
@@ -483,33 +488,20 @@ export function FullscreenMapView({
       );
       const data = await res.json();
       if (!data[0]?.geojson) return;
-
       const geojson = data[0].geojson;
       let coords: google.maps.LatLngLiteral[][] = [];
-
       const extractCoords = (ring: number[][]) => ring.map(([lng, lat]) => ({ lat, lng }));
-
       if (geojson.type === 'Polygon') {
         coords = geojson.coordinates.map(extractCoords);
       } else if (geojson.type === 'MultiPolygon') {
         coords = geojson.coordinates.flatMap((poly: number[][][]) => poly.map(extractCoords));
       }
-
       if (coords.length === 0) return;
-
       const polygon = new google.maps.Polygon({
-        paths: coords,
-        strokeColor: '#7c3aed',
-        strokeWeight: 2,
-        strokeOpacity: 0.8,
-        fillColor: '#7c3aed',
-        fillOpacity: 0.08,
-        map: mapRef.current,
-        clickable: false,
+        paths: coords, strokeColor: '#7c3aed', strokeWeight: 2, strokeOpacity: 0.8,
+        fillColor: '#7c3aed', fillOpacity: 0.08, map: mapRef.current, clickable: false,
       });
       districtPolygonRef.current = polygon;
-
-      // Fit bounds to district
       const bounds = new google.maps.LatLngBounds();
       coords.forEach(ring => ring.forEach(p => bounds.extend(p)));
       mapRef.current.fitBounds(bounds, 40);
@@ -518,7 +510,6 @@ export function FullscreenMapView({
     }
   }, [google]);
 
-  // === Location select ===
   const handleSelectLocation = (loc: typeof LOCATION_DATA[0]) => {
     setSearchQuery(loc.name);
     setShowSuggestions(false);
@@ -526,11 +517,9 @@ export function FullscreenMapView({
       mapRef.current.setCenter({ lat: loc.lat, lng: loc.lng });
       mapRef.current.setZoom(loc.zoom);
     }
-    // Fetch and draw district boundary for districts
     if (loc.type === 'dzielnica') {
       fetchDistrictBoundary(loc.name, loc.parent);
     } else {
-      // Clear district polygon for city selection
       districtPolygonRef.current?.setMap(null);
       districtPolygonRef.current = null;
     }
@@ -538,182 +527,201 @@ export function FullscreenMapView({
 
   if (!open) return null;
 
+  const hasActiveDrawing = !!(drawnArea || circleCenter);
+
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-background">
-      <header className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b">
-        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+    <div className="fixed inset-0 z-50 flex flex-col bg-background overflow-hidden">
+      {/* === HEADER === */}
+      <header className="shrink-0 z-30 bg-background/95 backdrop-blur-md border-b px-4 py-2">
+        <div className="flex items-center justify-between max-w-[2000px] mx-auto">
+          <div className="flex items-center gap-3">
             <UniversalHomeButton />
-            <span className="font-bold text-lg md:text-xl text-primary">
-              Nieruchomości
-            </span>
+            <span className="font-bold text-base text-primary">Nieruchomości</span>
           </div>
           <div className="flex items-center gap-2">
             <MyGetRidoButton user={user} />
             <Button
               size="sm"
               onClick={() => onNavigate?.(user ? '/nieruchomosci/agent/panel?tab=add' : '/auth?redirect=/nieruchomosci/agent/panel?tab=add')}
-              className="rounded-full"
+              className="rounded-full h-8 text-xs"
             >
-              <Plus className="h-4 w-4 mr-1" />
+              <Plus className="h-3.5 w-3.5 mr-1" />
               <span className="hidden sm:inline">Dodaj ogłoszenie</span>
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onClose}
-              className="rounded-full gap-1.5"
-            >
-              <X className="h-4 w-4" />
+            <Button variant="outline" size="sm" onClick={onClose} className="rounded-full h-8 text-xs gap-1">
+              <X className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Zamknij mapę</span>
             </Button>
           </div>
         </div>
       </header>
 
-      <section className="relative overflow-hidden border-b">
-        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${heroImage})` }}>
-          <div className="absolute inset-0 bg-gradient-to-b from-background/90 via-background/80 to-background" />
-        </div>
-
-        <div className="relative container mx-auto px-4 py-8 md:py-10">
-          <div className="mx-auto max-w-6xl">
-            <div className="max-w-3xl mx-auto mb-6">
-              <RealEstateAISearch onSearchResults={() => {}} onLoading={() => {}} />
-            </div>
-
-            <div className="text-center mb-1">
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-1">
-                Znajdź wymarzoną <span className="text-primary">nieruchomość</span>
-              </h1>
-              <p className="text-muted-foreground">Mieszkania, domy, działki i lokale od zweryfikowanych agencji</p>
-            </div>
-
-            <PropertyTypeSelector
-              selectedType={mapPropertyType}
-              onTypeChange={setMapPropertyType}
-              className="justify-center mt-5"
+      {/* === TOOLBAR === */}
+      <div className="shrink-0 border-b bg-card/80 backdrop-blur-sm px-4 py-2">
+        <div className="max-w-[2000px] mx-auto flex flex-col gap-2 lg:flex-row lg:items-center lg:gap-4">
+          {/* Search */}
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Wpisz miasto lub dzielnicę..."
+              value={searchQuery}
+              onChange={(e) => { setSearchQuery(e.target.value); setShowSuggestions(true); }}
+              onFocus={() => setShowSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+              className="h-9 rounded-full border-border/80 bg-background pl-9 text-sm"
             />
-
-            <TransactionTypeChips
-              selectedType={mapTransactionType}
-              onTypeChange={setMapTransactionType}
-              className="justify-center mt-3"
-            />
-
-            <div className="mt-6 rounded-[1.75rem] border bg-card/95 p-3 shadow-lg md:p-4">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    placeholder="Wpisz lokalizację"
-                    value={searchQuery}
-                    onChange={(e) => {
-                      setSearchQuery(e.target.value);
-                      setShowSuggestions(true);
-                    }}
-                    onFocus={() => setShowSuggestions(true)}
-                    onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                    className="h-11 rounded-2xl border-border/80 bg-background pl-10 text-sm"
-                  />
-                  {showSuggestions && suggestions.length > 0 && (
-                    <div className="absolute top-full left-0 mt-2 w-full rounded-2xl border bg-popover shadow-lg z-50 max-h-64 overflow-y-auto">
-                      {suggestions.map((loc) => (
-                        <button
-                          key={`${loc.type}-${loc.name}`}
-                          onMouseDown={() => handleSelectLocation(loc)}
-                          className="flex w-full items-start gap-2 px-4 py-3 text-left text-sm transition-colors hover:bg-accent"
-                        >
-                          <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                          <div>
-                            <span className="font-medium">{loc.name}</span>
-                            <span className="ml-1.5 text-xs text-muted-foreground">
-                              {loc.type === 'dzielnica' ? `dzielnica, ${loc.parent}` : 'miasto'}
-                            </span>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                  {drawnArea ? (
-                    <Button variant="outline" className="rounded-full" onClick={clearDrawing}>
-                      <X className="mr-1.5 h-4 w-4" />
-                      Usuń zaznaczenie
-                    </Button>
-                  ) : (
-                    <Button
-                      variant={drawingMode ? "default" : "outline"}
-                      className="rounded-full"
-                      onClick={drawingMode ? () => setDrawingMode(false) : startDrawing}
-                    >
-                      <PenTool className="mr-1.5 h-4 w-4" />
-                      Zaznacz obszar
-                    </Button>
-                  )}
-
-                  <Badge variant="secondary" className="rounded-full px-3 py-1 text-xs">
-                    {filteredListings.length} ogłoszeń
-                  </Badge>
-                </div>
+            {showSuggestions && suggestions.length > 0 && (
+              <div className="absolute top-full left-0 mt-1 w-full rounded-xl border bg-popover shadow-lg z-50 max-h-60 overflow-y-auto">
+                {suggestions.map((loc) => (
+                  <button
+                    key={`${loc.type}-${loc.name}`}
+                    onMouseDown={() => handleSelectLocation(loc)}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-accent transition-colors"
+                  >
+                    <MapPin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    <span className="font-medium">{loc.name}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {loc.type === 'dzielnica' ? `dzielnica, ${loc.parent}` : 'miasto'}
+                    </span>
+                  </button>
+                ))}
               </div>
-            </div>
+            )}
           </div>
-        </div>
 
-        <div className="container mx-auto px-4 pb-4 md:hidden">
-          <div className="flex gap-0.5 bg-muted rounded-lg p-0.5 w-fit ml-auto">
+          {/* Property type chips */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            {PROPERTY_CATEGORIES.map((cat) => (
+              <button
+                key={cat.value}
+                onClick={() => setMapPropertyType(mapPropertyType === cat.value ? null : cat.value)}
+                className={cn(
+                  "px-2.5 py-1 rounded-full text-xs font-medium border transition-all",
+                  mapPropertyType === cat.value
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-background hover:bg-muted border-border hover:border-primary/50"
+                )}
+              >
+                {cat.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Transaction type chips */}
+          <div className="flex items-center gap-1.5">
+            {TRANSACTION_TYPES.map((t) => (
+              <button
+                key={t.value}
+                onClick={() => setMapTransactionType(mapTransactionType === t.value ? null : t.value)}
+                className={cn(
+                  "px-2.5 py-1 rounded-full text-xs font-medium border transition-all",
+                  mapTransactionType === t.value
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-background hover:bg-muted border-border hover:border-primary/50"
+                )}
+              >
+                {t.label}
+              </button>
+            ))}
+
+            <div className="w-px h-5 bg-border mx-1" />
+
+            {/* Drawing tools */}
             <Button
-              variant={mobileTab === "map" ? "default" : "ghost"}
+              variant={drawingMode === "pen" ? "default" : "outline"}
               size="sm"
-              className="h-8 px-3 text-xs"
-              onClick={() => setMobileTab("map")}
+              className="rounded-full h-7 px-2.5 text-xs gap-1"
+              onClick={drawingMode === "pen" ? () => setDrawingMode(false) : startPolygonDrawing}
+              title="Zaznacz obszar"
             >
-              <MapIcon className="h-3.5 w-3.5 mr-1" />
-              Mapa
+              <PenTool className="h-3.5 w-3.5" />
+              <span className="hidden md:inline">Zaznacz</span>
             </Button>
             <Button
-              variant={mobileTab === "list" ? "default" : "ghost"}
+              variant={drawingMode === "circle" ? "default" : "outline"}
               size="sm"
-              className="h-8 px-3 text-xs"
-              onClick={() => setMobileTab("list")}
+              className="rounded-full h-7 px-2.5 text-xs gap-1"
+              onClick={drawingMode === "circle" ? () => setDrawingMode(false) : startCircleDrawing}
+              title="Okrąg"
             >
-              <List className="h-3.5 w-3.5 mr-1" />
-              Lista
+              <Circle className="h-3.5 w-3.5" />
+              <span className="hidden md:inline">Okrąg</span>
             </Button>
+
+            {hasActiveDrawing && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="rounded-full h-7 px-2 text-xs text-destructive hover:text-destructive"
+                onClick={clearAllDrawing}
+              >
+                <X className="h-3.5 w-3.5 mr-0.5" />
+                Usuń
+              </Button>
+            )}
+
+            {/* Buffer checkbox */}
+            <div className="hidden lg:flex items-center gap-1.5 ml-1">
+              <Checkbox
+                id="buffer-check"
+                checked={useBuffer}
+                onCheckedChange={(v) => setUseBuffer(!!v)}
+                className="h-3.5 w-3.5"
+              />
+              <label htmlFor="buffer-check" className="text-xs text-muted-foreground cursor-pointer whitespace-nowrap">
+                +bufor
+              </label>
+              {useBuffer && (
+                <Input
+                  type="number"
+                  value={bufferDistance}
+                  onChange={(e) => setBufferDistance(Number(e.target.value) || 0)}
+                  className="h-7 w-16 text-xs rounded-full px-2"
+                  placeholder="m"
+                />
+              )}
+            </div>
+
+            <div className="w-px h-5 bg-border mx-1" />
+            <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">
+              {filteredListings.length} wyników
+            </span>
           </div>
         </div>
-      </section>
+      </div>
 
       {/* Drawing mode banner */}
       {drawingMode && (
-        <div className="bg-primary/10 border-b px-4 py-2 text-center text-sm font-medium text-primary">
-          <PenTool className="inline h-4 w-4 mr-2" />
-          Rysuj obszar na mapie — kliknij i przeciągnij
+        <div className="shrink-0 bg-primary/10 border-b px-4 py-1.5 text-center text-xs font-medium text-primary">
+          {drawingMode === "pen" ? (
+            <><PenTool className="inline h-3.5 w-3.5 mr-1.5" />Rysuj obszar — kliknij i przeciągnij po mapie</>
+          ) : (
+            <><Circle className="inline h-3.5 w-3.5 mr-1.5" />Kliknij na mapie, aby wstawić okrąg</>
+          )}
         </div>
       )}
 
-      <section className="container mx-auto px-4 py-5 md:py-6">
-        <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className="text-sm text-muted-foreground">Widok mapy</p>
-            <h2 className="text-2xl font-bold text-foreground">{filteredListings.length} ogłoszeń</h2>
-          </div>
-          <Button variant="outline" className="rounded-full self-start md:self-auto" onClick={onClose}>
-            <X className="mr-1.5 h-4 w-4" />
-            Zamknij mapę
+      {/* Mobile tabs */}
+      <div className="shrink-0 md:hidden px-4 py-1.5 border-b bg-muted/30 flex items-center justify-between">
+        <div className="flex gap-0.5 bg-muted rounded-md p-0.5">
+          <Button variant={mobileTab === "map" ? "default" : "ghost"} size="sm" className="h-7 px-3 text-xs" onClick={() => setMobileTab("map")}>
+            Mapa
+          </Button>
+          <Button variant={mobileTab === "list" ? "default" : "ghost"} size="sm" className="h-7 px-3 text-xs" onClick={() => setMobileTab("list")}>
+            Lista
           </Button>
         </div>
+        <span className="text-xs text-muted-foreground">{filteredListings.length} wyników</span>
+      </div>
 
-        <div className="flex overflow-hidden rounded-[1.75rem] border bg-card shadow-lg min-h-[68vh]">
+      {/* === MAP + LIST (fills remaining viewport) === */}
+      <div className="flex-1 flex overflow-hidden min-h-0">
         {/* Map Panel */}
         <div
           className={cn(
-            "relative",
-            "hidden md:block md:w-[62%] min-h-[68vh]",
-            mobileTab === "map" && "!block w-full md:!w-[62%]"
+            "relative flex-1 min-h-0",
+            "hidden md:block",
+            mobileTab === "map" && "!block"
           )}
         >
           {!isLoaded ? (
@@ -724,43 +732,43 @@ export function FullscreenMapView({
             <div ref={mapContainerRef} className="absolute inset-0" />
           )}
 
+          {/* Circle info */}
+          {circleCenter && (
+            <div className="absolute top-3 left-3 bg-background/95 backdrop-blur-sm rounded-lg shadow-md border px-3 py-2 z-10">
+              <div className="flex items-center gap-2 text-xs">
+                <Circle className="h-3.5 w-3.5 text-primary" />
+                <span className="font-medium">Okrąg: {(circleRadius / 1000).toFixed(1)} km</span>
+                {useBuffer && bufferDistance > 0 && (
+                  <span className="text-muted-foreground">+ {bufferDistance}m bufor</span>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Selected listing card overlay */}
           {selectedListing && (
-            <div className="absolute bottom-3 right-3 max-w-xs bg-background rounded-lg shadow-xl border overflow-hidden z-10">
+            <div className="absolute bottom-3 right-3 max-w-[260px] bg-background rounded-lg shadow-xl border overflow-hidden z-10">
               {selectedListing.photos?.[0] && (
-                <img
-                  src={selectedListing.photos[0]}
-                  alt={selectedListing.title}
-                  className="w-full h-24 object-cover"
-                />
+                <img src={selectedListing.photos[0]} alt={selectedListing.title} className="w-full h-20 object-cover" />
               )}
-              <div className="p-3">
-                <h4 className="font-medium text-sm line-clamp-2 mb-1">{selectedListing.title}</h4>
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-xs text-muted-foreground">{selectedListing.location}</span>
+              <div className="p-2.5">
+                <h4 className="font-medium text-xs leading-snug line-clamp-2 mb-1">{selectedListing.title}</h4>
+                <div className="flex items-center gap-1 mb-1.5">
+                  <span className="text-[11px] text-muted-foreground truncate">{selectedListing.location}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-primary text-sm">
-                    {formatPriceFull(selectedListing.price)}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {selectedListing.areaM2}m² {selectedListing.rooms ? `• ${selectedListing.rooms} pok.` : ""}
-                  </span>
+                  <span className="font-bold text-primary text-sm">{formatPriceFull(selectedListing.price)}</span>
+                  <span className="text-[11px] text-muted-foreground">{selectedListing.areaM2}m²</span>
                 </div>
                 {onViewListing && (
-                  <Button
-                    size="sm"
-                    className="w-full mt-2 h-8 text-xs"
-                    onClick={() => onViewListing(selectedListing.id)}
-                  >
-                    Zobacz szczegóły
+                  <Button size="sm" className="w-full mt-1.5 h-7 text-xs" onClick={() => onViewListing(selectedListing.id)}>
+                    Szczegóły
                   </Button>
                 )}
               </div>
               <Button
-                variant="ghost"
-                size="icon"
-                className="absolute top-1 right-1 h-6 w-6 bg-background/80"
+                variant="ghost" size="icon"
+                className="absolute top-1 right-1 h-5 w-5 bg-background/80"
                 onClick={() => setSelectedListing(null)}
               >
                 <X className="h-3 w-3" />
@@ -772,27 +780,31 @@ export function FullscreenMapView({
         {/* List Panel */}
         <div
           className={cn(
-            "border-l bg-background flex flex-col min-h-[68vh]",
-            "hidden md:flex md:w-[38%]",
-            mobileTab === "list" && "!flex w-full md:!w-[38%]"
+            "border-l bg-background flex flex-col min-h-0",
+            "hidden md:flex md:w-[320px] lg:w-[360px]",
+            mobileTab === "list" && "!flex w-full md:!w-[320px]"
           )}
         >
-          {/* List header */}
-          <div className="px-3 py-2 border-b bg-muted/50 flex items-center justify-between">
-            <span className="text-sm font-medium">
-              {filteredListings.length} ogłoszeń
-            </span>
-            <span className="text-xs text-muted-foreground">
-              Strona {listPage}/{listTotalPages}
-            </span>
+          {/* List header with pagination */}
+          <div className="px-3 py-1.5 border-b bg-muted/50 flex items-center justify-between shrink-0">
+            <span className="text-xs font-medium">{filteredListings.length} ogłoszeń</span>
+            <div className="flex items-center gap-1">
+              <Button variant="ghost" size="icon" className="h-6 w-6" disabled={listPage === 1} onClick={() => setListPage((p) => p - 1)}>
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </Button>
+              <span className="text-[11px] text-muted-foreground">{listPage}/{listTotalPages}</span>
+              <Button variant="ghost" size="icon" className="h-6 w-6" disabled={listPage === listTotalPages} onClick={() => setListPage((p) => p + 1)}>
+                <ChevronRight className="h-3.5 w-3.5" />
+              </Button>
+            </div>
           </div>
 
           {/* Scrollable list */}
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto min-h-0">
             {paginatedSideListings.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
-                <Home className="h-12 w-12 text-muted-foreground/30 mb-3" />
-                <p className="text-sm text-muted-foreground">Brak ogłoszeń do wyświetlenia</p>
+                <Home className="h-10 w-10 text-muted-foreground/30 mb-2" />
+                <p className="text-xs text-muted-foreground">Brak ogłoszeń w tym obszarze</p>
               </div>
             ) : (
               <div className="divide-y">
@@ -818,49 +830,15 @@ export function FullscreenMapView({
               </div>
             )}
           </div>
-
-          {/* Pagination */}
-          {listTotalPages > 1 && (
-            <div className="px-3 py-2 border-t flex items-center justify-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7"
-                disabled={listPage === 1}
-                onClick={() => setListPage((p) => p - 1)}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <span className="text-xs text-muted-foreground">
-                {listPage} / {listTotalPages}
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7"
-                disabled={listPage === listTotalPages}
-                onClick={() => setListPage((p) => p + 1)}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          )}
         </div>
-        </div>
-      </section>
+      </div>
     </div>
   );
 }
 
-// === Side listing card ===
+// === Side listing card (compact) ===
 function SideListingCard({
-  listing,
-  isSelected,
-  isHovered,
-  onMouseEnter,
-  onMouseLeave,
-  onClick,
-  onView,
+  listing, isSelected, isHovered, onMouseEnter, onMouseLeave, onClick, onView,
 }: {
   listing: PropertyListingForMap;
   isSelected: boolean;
@@ -874,7 +852,6 @@ function SideListingCard({
   const transType = listing.transactionType?.toLowerCase() || "";
   const isRent = transType.includes("wynajem") || transType.includes("krótkoterminowy");
 
-  // Scroll into view when hovered from map marker
   useEffect(() => {
     if (isHovered && cardRef.current) {
       cardRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -885,7 +862,7 @@ function SideListingCard({
     <div
       ref={cardRef}
       className={cn(
-        "flex gap-2.5 p-2.5 cursor-pointer hover:bg-accent/50 transition-all",
+        "flex gap-2 p-2 cursor-pointer hover:bg-accent/50 transition-all",
         isSelected && "bg-accent",
         isHovered && "bg-primary/10 border-l-2 border-l-primary"
       )}
@@ -893,29 +870,26 @@ function SideListingCard({
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
-      {/* Thumbnail */}
-      <div className="w-20 h-16 rounded-lg overflow-hidden bg-muted shrink-0 self-start">
+      <div className="w-[72px] h-14 rounded-md overflow-hidden bg-muted shrink-0">
         {listing.photos?.[0] ? (
           <img src={listing.photos[0]} alt="" className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
-            <Home className="h-4 w-4 text-muted-foreground/40" />
+            <Home className="h-3.5 w-3.5 text-muted-foreground/40" />
           </div>
         )}
       </div>
-
-      {/* Info - compact */}
       <div className="flex-1 min-w-0">
-        <h4 className="text-sm font-medium leading-snug line-clamp-2">{listing.title}</h4>
+        <h4 className="text-xs font-medium leading-snug line-clamp-1">{listing.title}</h4>
         <div className="flex items-center gap-1 mt-0.5">
-          <div className={cn("w-1.5 h-1.5 rounded-full", isRent ? "bg-blue-500" : "bg-emerald-500")} />
-          <span className="text-xs text-muted-foreground truncate">{listing.location}</span>
+          <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", isRent ? "bg-blue-500" : "bg-emerald-500")} />
+          <span className="text-[11px] text-muted-foreground truncate">{listing.location}</span>
         </div>
-        <div className="mt-1 flex items-center justify-between gap-2">
-          <span className="font-bold text-sm text-primary whitespace-nowrap">
-            {listing.price.toLocaleString("pl-PL")} zł
+        <div className="mt-0.5 flex items-center justify-between gap-1">
+          <span className="font-bold text-xs text-primary whitespace-nowrap">
+            {listing.price.toLocaleString("pl-PL")}{"\u00A0"}zł
           </span>
-          <span className="text-xs text-muted-foreground whitespace-nowrap">
+          <span className="text-[11px] text-muted-foreground whitespace-nowrap">
             {listing.areaM2}m²
           </span>
         </div>
@@ -935,4 +909,13 @@ function isPointInPolygon(lat: number, lng: number, polygon: Array<{ lat: number
     }
   }
   return inside;
+}
+
+// === Utility: Haversine distance in meters ===
+function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371000;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
