@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -246,7 +247,3 @@ export function MarketingAIReportsTab() {
   );
 }
 
-function toast(msg: string) {
-  // Use sonner
-  import('sonner').then(m => m.toast.success(msg));
-}
