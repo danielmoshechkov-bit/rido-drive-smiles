@@ -451,7 +451,7 @@ export function FullscreenMapView({
       // Inverted mask: purple everywhere EXCEPT inside the drawn area
       selectionMaskRef.current = new google.maps.Polygon({
         map: mapRef.current,
-        paths: [WORLD_MASK_PATH, [...drawnArea].reverse()],
+        paths: [WORLD_MASK_PATH, [...drawnArea]],
         strokeOpacity: 0,
         strokeWeight: 0,
         fillColor: "#7c3aed",
@@ -475,7 +475,7 @@ export function FullscreenMapView({
       const circlePath = createCirclePolygon(circleCenter, effectiveRadius);
       selectionMaskRef.current = new google.maps.Polygon({
         map: mapRef.current,
-        paths: [WORLD_MASK_PATH, circlePath.reverse()],
+        paths: [WORLD_MASK_PATH, circlePath],
         strokeOpacity: 0,
         strokeWeight: 0,
         fillColor: "#7c3aed",
@@ -499,7 +499,7 @@ export function FullscreenMapView({
     const paths: google.maps.LatLngLiteral[][] = [WORLD_MASK_PATH];
     districtCoordsRef.current.forEach(coordRings => {
       coordRings.forEach(ring => {
-        paths.push([...ring].reverse());
+        paths.push([...ring]);
       });
     });
 
@@ -907,16 +907,19 @@ export function FullscreenMapView({
               className="h-3.5 w-3.5"
             />
             <label htmlFor="buffer-check" className="text-xs text-muted-foreground cursor-pointer whitespace-nowrap">
-              +bufor
+              +promień
             </label>
             {useBuffer && (
-              <Input
-                type="number"
-                value={bufferDistance}
-                onChange={(e) => setBufferDistance(Number(e.target.value) || 0)}
-                className="h-7 w-16 text-xs rounded-full px-2"
-                placeholder="m"
-              />
+              <div className="flex items-center gap-1">
+                <Input
+                  type="number"
+                  value={bufferDistance}
+                  onChange={(e) => setBufferDistance(Number(e.target.value) || 0)}
+                  className="h-7 w-16 text-xs rounded-full px-2"
+                  placeholder="0"
+                />
+                <span className="text-xs text-muted-foreground">m</span>
+              </div>
             )}
           </div>
 
@@ -976,7 +979,7 @@ export function FullscreenMapView({
                 <Circle className="h-3.5 w-3.5 text-primary" />
                 <span className="font-medium">Okrąg: {(circleRadius / 1000).toFixed(1)} km</span>
                 {useBuffer && bufferDistance > 0 && (
-                  <span className="text-muted-foreground">+ {bufferDistance}m bufor</span>
+                  <span className="text-muted-foreground">+ {bufferDistance}m promień</span>
                 )}
               </div>
             </div>
@@ -1198,10 +1201,10 @@ function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
 }
 
 const WORLD_MASK_PATH = [
-  { lat: -85, lng: -180 },
-  { lat: 85, lng: -180 },
-  { lat: 85, lng: 180 },
   { lat: -85, lng: 180 },
+  { lat: 85, lng: 180 },
+  { lat: 85, lng: -180 },
+  { lat: -85, lng: -180 },
 ];
 
 function createCirclePolygon(

@@ -202,7 +202,12 @@ export default function PropertyDetailPage() {
 
   const handleGoBack = () => {
     if (fromMap) {
-      navigate("/nieruchomosci?showMap=true");
+      // Use history back to preserve map scroll position & state
+      if (window.history.length > 1) {
+        navigate(-1);
+      } else {
+        navigate("/nieruchomosci?showMap=true");
+      }
     } else {
       navigate(-1);
     }
