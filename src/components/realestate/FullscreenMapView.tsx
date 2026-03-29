@@ -301,6 +301,7 @@ export function FullscreenMapView({
         overlaysRef.current.push(
           new Overlay({ lat, lng }, createPriceMarker(listing), map, () => {
             setSelectedListing(listing);
+            setHoveredId(listing.id);
             showInfoWindow(map, iw, listing);
           })
         );
