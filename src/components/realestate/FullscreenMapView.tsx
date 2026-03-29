@@ -6,9 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useGoogleMaps } from "@/hooks/useGoogleMaps";
 import {
-  X, MapPin, Search, Loader2, Home, PenTool, Eye, ChevronLeft, ChevronRight, Map as MapIcon, List,
+  X, MapPin, Search, Loader2, Home, PenTool, Eye, ChevronLeft, ChevronRight, Map as MapIcon, List, Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { UniversalHomeButton } from "@/components/UniversalHomeButton";
+import { MyGetRidoButton } from "@/components/MyGetRidoButton";
 
 // === Types ===
 export interface PropertyListingForMap {
