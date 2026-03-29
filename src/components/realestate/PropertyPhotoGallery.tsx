@@ -16,7 +16,10 @@ export function PropertyPhotoGallery({ photos, title }: PropertyPhotoGalleryProp
 
   // Touch swipe state
   const touchStartX = useRef<number>(0);
+  const touchCurrentX = useRef<number>(0);
   const touchEndX = useRef<number>(0);
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const [isSwiping, setIsSwiping] = useState(false);
   const lightboxTouchStartX = useRef<number>(0);
   const lightboxTouchEndX = useRef<number>(0);
 
@@ -54,22 +57,34 @@ export function PropertyPhotoGallery({ photos, title }: PropertyPhotoGalleryProp
     if (e.key === "Escape") setIsLightboxOpen(false);
   };
 
-  // Mobile carousel swipe handlers
+  // Mobile carousel swipe handlers — smooth drag
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
+    touchCurrentX.current = e.touches[0].clientX;
+    setIsSwiping(true);
   };
   const handleTouchMove = (e: React.TouchEvent) => {
-    touchEndX.current = e.touches[0].clientX;
+    touchCurrentX.current = e.touches[0].clientX;
+    const diff = touchCurrentX.current - touchStartX.current;
+    // Clamp at edges
+    if ((currentIndex === 0 && diff > 0) || (currentIndex === displayPhotos.length - 1 && diff < 0)) {
+      setSwipeOffset(diff * 0.3); // dampened at edges
+    } else {
+      setSwipeOffset(diff);
+    }
   };
   const handleTouchEnd = () => {
-    const diff = touchStartX.current - touchEndX.current;
-    if (Math.abs(diff) > 50) {
-      if (diff > 0) {
-        setCurrentIndex((prev) => (prev + 1) % displayPhotos.length);
-      } else {
-        setCurrentIndex((prev) => (prev - 1 + displayPhotos.length) % displayPhotos.length);
+    setIsSwiping(false);
+    const diff = touchStartX.current - touchCurrentX.current;
+    const threshold = 50;
+    if (Math.abs(diff) > threshold) {
+      if (diff > 0 && currentIndex < displayPhotos.length - 1) {
+        setCurrentIndex((prev) => prev + 1);
+      } else if (diff < 0 && currentIndex > 0) {
+        setCurrentIndex((prev) => prev - 1);
       }
     }
+    setSwipeOffset(0);
   };
 
   // Lightbox swipe handlers
@@ -131,21 +146,34 @@ export function PropertyPhotoGallery({ photos, title }: PropertyPhotoGalleryProp
         ))}
       </div>
 
-      {/* Mobile Carousel - with touch swipe */}
+      {/* Mobile Carousel - smooth drag swipe */}
       <div 
-        className="md:hidden relative aspect-[4/3] rounded-xl overflow-hidden touch-pan-y"
+        className="md:hidden relative aspect-[4/3] rounded-xl overflow-hidden"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        <img
-          src={getPhotoSrc(currentIndex)}
-          alt={`${title} - zdjęcie ${currentIndex + 1}`}
-          className="w-full h-full object-cover object-center"
-          onError={() => handleImageError(currentIndex)}
-          onClick={() => openLightbox(currentIndex)}
-          draggable={false}
-        />
+        <div
+          className="flex h-full"
+          style={{
+            transform: `translateX(calc(-${currentIndex * 100}% + ${swipeOffset}px))`,
+            transition: isSwiping ? 'none' : 'transform 0.3s ease-out',
+            width: `${displayPhotos.length * 100}%`,
+          }}
+        >
+          {displayPhotos.map((photo, idx) => (
+            <img
+              key={idx}
+              src={getPhotoSrc(idx)}
+              alt={`${title} - zdjęcie ${idx + 1}`}
+              className="h-full object-cover object-center flex-shrink-0"
+              style={{ width: `${100 / displayPhotos.length}%` }}
+              onError={() => handleImageError(idx)}
+              onClick={() => openLightbox(idx)}
+              draggable={false}
+            />
+          ))}
+        </div>
         
         {displayPhotos.length > 1 && (
           <>
