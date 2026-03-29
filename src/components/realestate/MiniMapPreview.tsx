@@ -10,7 +10,7 @@ interface MiniMapPreviewProps {
 }
 
 export function MiniMapPreview({ listings, onClick, className }: MiniMapPreviewProps) {
-  const { isLoaded, google } = useGoogleMaps();
+  const { isLoaded, google, error } = useGoogleMaps();
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
   const overlaysRef = useRef<any[]>([]);
@@ -117,9 +117,16 @@ export function MiniMapPreview({ listings, onClick, className }: MiniMapPreviewP
       className={`relative rounded-xl overflow-hidden border cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all ${className || ''}`}
       onClick={onClick}
     >
-      {!isLoaded ? (
+      {!isLoaded || error ? (
         <div className="absolute inset-0 flex items-center justify-center bg-muted">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          {error ? (
+            <div className="px-4 text-center">
+              <p className="text-sm font-medium text-foreground">Mapa chwilowo niedostępna</p>
+              <p className="text-xs text-muted-foreground mt-1">Kliknij, aby otworzyć widok mapy z listą wyników</p>
+            </div>
+          ) : (
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          )}
         </div>
       ) : (
         <div ref={containerRef} className="absolute inset-0" />

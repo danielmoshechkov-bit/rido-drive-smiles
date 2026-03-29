@@ -885,7 +885,7 @@ export default function RealEstateMarketplace() {
 
       {/* Main Content: Listings + Mini Map */}
       {!loading && <section className="container mx-auto px-4 py-6">
-        <div className="flex gap-6 max-w-7xl mx-auto">
+          <div className="flex gap-6 max-w-7xl mx-auto items-start">
           {/* Listings Column */}
           <div className="flex-1 min-w-0">
             <div className={cn(
@@ -998,7 +998,7 @@ export default function RealEstateMarketplace() {
                   transactionType: l.transactionType,
                 }))}
                 onClick={() => setShowFullMap(true)}
-                className="h-[400px]"
+                className="h-[400px] bg-card"
               />
               <p className="text-xs text-muted-foreground text-center mt-2">
                 {listings.filter(l => l.lat && l.lng).length} ogłoszeń na mapie

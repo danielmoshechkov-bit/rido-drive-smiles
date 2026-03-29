@@ -144,7 +144,13 @@ export function FullscreenMapView({
         const inLocation = l.location?.toLowerCase().includes(q);
         const inDistrict = l.district?.toLowerCase().includes(q);
         const inTitle = l.title?.toLowerCase().includes(q);
-        if (!inLocation && !inDistrict && !inTitle) return false;
+        const matchedSuggestion = LOCATION_DATA.find(
+          (loc) => loc.name.toLowerCase() === q || `${loc.name}, ${loc.parent ?? ''}`.toLowerCase() === q
+        );
+        const fromSuggestion = matchedSuggestion
+          ? l.location?.toLowerCase().includes(matchedSuggestion.name.toLowerCase()) || l.district?.toLowerCase().includes(matchedSuggestion.name.toLowerCase())
+          : false;
+        if (!inLocation && !inDistrict && !inTitle && !fromSuggestion) return false;
       }
       // Drawn area filter
       if (drawnArea && drawnArea.length >= 3) {
@@ -159,7 +165,7 @@ export function FullscreenMapView({
     if (!searchQuery || searchQuery.length < 2) return [];
     const q = searchQuery.toLowerCase();
     return LOCATION_DATA
-      .filter((loc) => loc.name.toLowerCase().includes(q))
+      .filter((loc) => `${loc.name} ${loc.parent ?? ''}`.toLowerCase().includes(q))
       .slice(0, 12);
   }, [searchQuery]);
 

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ export function AuthModal({
   customDescription
 }: AuthModalProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const [mode, setMode] = useState<"login" | "register" | "success">(initialMode);
   const [loading, setLoading] = useState(false);
   
@@ -117,6 +119,9 @@ export function AuthModal({
         onSuccess();
       } else if (redirectAfterLogin) {
         navigate(redirectAfterLogin);
+      } else {
+        const redirectTarget = `${location.pathname}${location.search}${location.hash}`;
+        navigate(redirectTarget, { replace: true });
       }
     } catch (error) {
       console.error('Login error:', error);
