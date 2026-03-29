@@ -158,24 +158,33 @@ export function VehiclePhotoGallery({ photos, title }: VehiclePhotoGalleryProps)
         }
       </div>
 
-      {/* Mobile Carousel */}
+      {/* Mobile Carousel - smooth drag */}
       <div 
-        className="md:hidden relative touch-pan-y"
+        className="md:hidden relative overflow-hidden rounded-xl"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
         <div 
-          className="aspect-[4/3] overflow-hidden rounded-xl"
-          onClick={() => openLightbox(currentIndex)}
+          className="aspect-[4/3] flex"
+          style={{
+            transform: `translateX(calc(-${currentIndex * 100}% + ${swipeOffset}px))`,
+            transition: isSwiping ? 'none' : 'transform 0.3s ease-out',
+            width: `${displayPhotos.length * 100}%`,
+          }}
         >
-          <img 
-            src={getPhotoSrc(currentIndex)} 
-            alt={title}
-            className="w-full h-full object-cover object-center"
-            onError={() => handleImageError(currentIndex)}
-            draggable={false}
-          />
+          {displayPhotos.map((_, idx) => (
+            <img 
+              key={idx}
+              src={getPhotoSrc(idx)} 
+              alt={`${title} ${idx + 1}`}
+              className="h-full object-cover object-center flex-shrink-0"
+              style={{ width: `${100 / displayPhotos.length}%` }}
+              onError={() => handleImageError(idx)}
+              onClick={() => openLightbox(idx)}
+              draggable={false}
+            />
+          ))}
         </div>
 
         {/* Navigation Arrows */}
