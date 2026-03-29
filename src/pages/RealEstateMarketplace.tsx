@@ -11,6 +11,8 @@ import {
 import { cn } from "@/lib/utils";
 import Footer from "@/components/Footer";
 import { PropertyListingCard } from "@/components/realestate/PropertyListingCard";
+import { FullscreenMapView } from "@/components/realestate/FullscreenMapView";
+import { MiniMapPreview } from "@/components/realestate/MiniMapPreview";
 import { RealEstateSearch, RealEstateFilters } from "@/components/realestate/RealEstateSearch";
 import { RealEstateAISearch } from "@/components/realestate/RealEstateAISearch";
 import { PropertyTypeSelector } from "@/components/realestate/PropertyTypeSelector";
