@@ -503,9 +503,18 @@ export function FullscreenMapView({
         coords = geojson.coordinates.flatMap((poly: number[][][]) => poly.map(extractCoords));
       }
       if (coords.length === 0) return;
+      // Invert the polygon: fill everything OUTSIDE the district
+      const outerBounds = [
+        { lat: -85, lng: -180 },
+        { lat: -85, lng: 180 },
+        { lat: 85, lng: 180 },
+        { lat: 85, lng: -180 },
+      ];
+      // paths[0] = outer (world), paths[1..n] = holes (district boundary)
+      const invertedPaths = [outerBounds, ...coords];
       const polygon = new google.maps.Polygon({
-        paths: coords, strokeColor: '#7c3aed', strokeWeight: 2, strokeOpacity: 0.8,
-        fillColor: '#7c3aed', fillOpacity: 0.08, map: mapRef.current, clickable: false,
+        paths: invertedPaths, strokeColor: '#7c3aed', strokeWeight: 2, strokeOpacity: 0.8,
+        fillColor: '#7c3aed', fillOpacity: 0.15, map: mapRef.current, clickable: false,
       });
       districtPolygonRef.current = polygon;
       const bounds = new google.maps.LatLngBounds();
