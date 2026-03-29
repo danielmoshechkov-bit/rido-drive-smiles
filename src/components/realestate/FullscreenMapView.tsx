@@ -46,49 +46,49 @@ interface FullscreenMapViewProps {
 const LOCATION_DATA: Array<{ name: string; type: 'miasto' | 'dzielnica'; parent?: string; lat: number; lng: number; zoom: number }> = [
   // Cities
   { name: "Warszawa", type: "miasto", lat: 52.2297, lng: 21.0122, zoom: 11 },
-  { name: "KrakÃÂ³w", type: "miasto", lat: 50.0647, lng: 19.9450, zoom: 12 },
-  { name: "WrocÃÂaw", type: "miasto", lat: 51.1079, lng: 17.0385, zoom: 12 },
-  { name: "PoznaÃÂ", type: "miasto", lat: 52.4064, lng: 16.9252, zoom: 12 },
-  { name: "GdaÃÂsk", type: "miasto", lat: 54.3520, lng: 18.6466, zoom: 12 },
-  { name: "ÃÂÃÂ³dÃÂº", type: "miasto", lat: 51.7592, lng: 19.4560, zoom: 12 },
+  { name: "Kraków", type: "miasto", lat: 50.0647, lng: 19.9450, zoom: 12 },
+  { name: "Wrocław", type: "miasto", lat: 51.1079, lng: 17.0385, zoom: 12 },
+  { name: "Poznań", type: "miasto", lat: 52.4064, lng: 16.9252, zoom: 12 },
+  { name: "Gdańsk", type: "miasto", lat: 54.3520, lng: 18.6466, zoom: 12 },
+  { name: "Łódź", type: "miasto", lat: 51.7592, lng: 19.4560, zoom: 12 },
   { name: "Szczecin", type: "miasto", lat: 53.4285, lng: 14.5528, zoom: 12 },
   { name: "Lublin", type: "miasto", lat: 51.2465, lng: 22.5684, zoom: 12 },
   { name: "Katowice", type: "miasto", lat: 50.2649, lng: 19.0238, zoom: 12 },
-  { name: "BiaÃÂystok", type: "miasto", lat: 53.1325, lng: 23.1688, zoom: 12 },
-  { name: "RzeszÃÂ³w", type: "miasto", lat: 50.0412, lng: 21.9991, zoom: 13 },
-  { name: "ToruÃÂ", type: "miasto", lat: 53.0138, lng: 18.5984, zoom: 13 },
+  { name: "Białystok", type: "miasto", lat: 53.1325, lng: 23.1688, zoom: 12 },
+  { name: "Rzeszów", type: "miasto", lat: 50.0412, lng: 21.9991, zoom: 13 },
+  { name: "Toruń", type: "miasto", lat: 53.0138, lng: 18.5984, zoom: 13 },
   { name: "Bydgoszcz", type: "miasto", lat: 53.1235, lng: 18.0084, zoom: 12 },
   { name: "Opole", type: "miasto", lat: 50.6751, lng: 17.9213, zoom: 13 },
   { name: "Radom", type: "miasto", lat: 51.4027, lng: 21.1471, zoom: 13 },
   { name: "Kielce", type: "miasto", lat: 50.8661, lng: 20.6286, zoom: 13 },
   { name: "Olsztyn", type: "miasto", lat: 53.7784, lng: 20.4801, zoom: 13 },
-  { name: "CzÃÂstochowa", type: "miasto", lat: 50.8118, lng: 19.1203, zoom: 13 },
+  { name: "Częstochowa", type: "miasto", lat: 50.8118, lng: 19.1203, zoom: 13 },
   { name: "Piaseczno", type: "miasto", lat: 52.0737, lng: 21.0234, zoom: 13 },
-  { name: "OÃÂ¼arÃÂ³w Mazowiecki", type: "miasto", lat: 52.2204, lng: 20.7969, zoom: 13 },
-  { name: "PruszkÃÂ³w", type: "miasto", lat: 52.1707, lng: 20.8122, zoom: 14 },
+  { name: "Ożarów Mazowiecki", type: "miasto", lat: 52.2204, lng: 20.7969, zoom: 13 },
+  { name: "Pruszków", type: "miasto", lat: 52.1707, lng: 20.8122, zoom: 14 },
   { name: "Legionowo", type: "miasto", lat: 52.4014, lng: 20.9258, zoom: 14 },
   { name: "Raszyn", type: "miasto", lat: 52.1575, lng: 20.9308, zoom: 14 },
   { name: "Tarczyn", type: "miasto", lat: 51.9773, lng: 20.9141, zoom: 14 },
   { name: "Nadarzyn", type: "miasto", lat: 52.0878, lng: 20.8080, zoom: 14 },
   // Warsaw districts
   { name: "Bemowo", type: "dzielnica", parent: "Warszawa", lat: 52.2545, lng: 20.9132, zoom: 13 },
-  { name: "BiaÃÂoÃÂÃÂka", type: "dzielnica", parent: "Warszawa", lat: 52.3225, lng: 20.9732, zoom: 13 },
+  { name: "Białołęka", type: "dzielnica", parent: "Warszawa", lat: 52.3225, lng: 20.9732, zoom: 13 },
   { name: "Bielany", type: "dzielnica", parent: "Warszawa", lat: 52.2900, lng: 20.9430, zoom: 13 },
-  { name: "MokotÃÂ³w", type: "dzielnica", parent: "Warszawa", lat: 52.1935, lng: 21.0448, zoom: 13 },
+  { name: "Mokotów", type: "dzielnica", parent: "Warszawa", lat: 52.1935, lng: 21.0448, zoom: 13 },
   { name: "Ochota", type: "dzielnica", parent: "Warszawa", lat: 52.2145, lng: 20.9832, zoom: 14 },
-  { name: "Praga-PoÃÂudnie", type: "dzielnica", parent: "Warszawa", lat: 52.2345, lng: 21.0932, zoom: 13 },
-  { name: "Praga-PÃÂ³ÃÂnoc", type: "dzielnica", parent: "Warszawa", lat: 52.2585, lng: 21.0432, zoom: 14 },
-  { name: "RembertÃÂ³w", type: "dzielnica", parent: "Warszawa", lat: 52.2605, lng: 21.1732, zoom: 14 },
-  { name: "ÃÂrÃÂ³dmieÃÂcie", type: "dzielnica", parent: "Warszawa", lat: 52.2319, lng: 21.0060, zoom: 14 },
-  { name: "TargÃÂ³wek", type: "dzielnica", parent: "Warszawa", lat: 52.2925, lng: 21.0532, zoom: 13 },
+  { name: "Praga-Południe", type: "dzielnica", parent: "Warszawa", lat: 52.2345, lng: 21.0932, zoom: 13 },
+  { name: "Praga-Północ", type: "dzielnica", parent: "Warszawa", lat: 52.2585, lng: 21.0432, zoom: 14 },
+  { name: "Rembertów", type: "dzielnica", parent: "Warszawa", lat: 52.2605, lng: 21.1732, zoom: 14 },
+  { name: "Śródmieście", type: "dzielnica", parent: "Warszawa", lat: 52.2319, lng: 21.0060, zoom: 14 },
+  { name: "Targówek", type: "dzielnica", parent: "Warszawa", lat: 52.2925, lng: 21.0532, zoom: 13 },
   { name: "Ursus", type: "dzielnica", parent: "Warszawa", lat: 52.1945, lng: 20.8832, zoom: 14 },
-  { name: "UrsynÃÂ³w", type: "dzielnica", parent: "Warszawa", lat: 52.1545, lng: 21.0432, zoom: 13 },
+  { name: "Ursynów", type: "dzielnica", parent: "Warszawa", lat: 52.1545, lng: 21.0432, zoom: 13 },
   { name: "Wawer", type: "dzielnica", parent: "Warszawa", lat: 52.2005, lng: 21.1532, zoom: 13 },
-  { name: "WesoÃÂa", type: "dzielnica", parent: "Warszawa", lat: 52.2565, lng: 21.2232, zoom: 14 },
-  { name: "WilanÃÂ³w", type: "dzielnica", parent: "Warszawa", lat: 52.1645, lng: 21.0932, zoom: 13 },
-  { name: "WÃÂochy", type: "dzielnica", parent: "Warszawa", lat: 52.2005, lng: 20.9132, zoom: 14 },
+  { name: "Wesoła", type: "dzielnica", parent: "Warszawa", lat: 52.2565, lng: 21.2232, zoom: 14 },
+  { name: "Wilanów", type: "dzielnica", parent: "Warszawa", lat: 52.1645, lng: 21.0932, zoom: 13 },
+  { name: "Włochy", type: "dzielnica", parent: "Warszawa", lat: 52.2005, lng: 20.9132, zoom: 14 },
   { name: "Wola", type: "dzielnica", parent: "Warszawa", lat: 52.2365, lng: 20.9632, zoom: 13 },
-  { name: "ÃÂ»oliborz", type: "dzielnica", parent: "Warszawa", lat: 52.2685, lng: 20.9832, zoom: 14 },
+  { name: "Żoliborz", type: "dzielnica", parent: "Warszawa", lat: 52.2685, lng: 20.9832, zoom: 14 },
 ];
 
 export function FullscreenMapView({
@@ -143,9 +143,9 @@ export function FullscreenMapView({
           }
         }
       const transType = l.transactionType?.toLowerCase() || "";
-      if (mapTransactionType === "sprzedaz" && !(transType.includes("sprzedaÃÂ¼") || transType.includes("sprzedaz"))) return false;
+      if (mapTransactionType === "sprzedaz" && !(transType.includes("sprzedaż") || transType.includes("sprzedaz"))) return false;
       if (mapTransactionType === "wynajem" && !transType.includes("wynajem")) return false;
-      if (mapTransactionType === "wynajem-krotkoterminowy" && !(transType.includes("krÃÂ³tkoterminowy") || transType.includes("krotkoterminowy"))) return false;
+      if (mapTransactionType === "wynajem-krotkoterminowy" && !(transType.includes("krótkoterminowy") || transType.includes("krotkoterminowy"))) return false;
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
         const inLocation = l.location?.toLowerCase().includes(q);
@@ -187,7 +187,7 @@ export function FullscreenMapView({
 
   useEffect(() => { setListPage(1); }, [filteredListings.length]);
 
-  const formatPriceFull = (price: number) => price.toLocaleString("pl-PL") + " zÃÂ";
+  const formatPriceFull = (price: number) => price.toLocaleString("pl-PL") + " zł";
 
   // === Supercluster ===
   useEffect(() => {
@@ -236,7 +236,7 @@ export function FullscreenMapView({
   // === Marker content ===
   const createPriceMarker = useCallback((listing: PropertyListingForMap): HTMLDivElement => {
     const transType = listing.transactionType?.toLowerCase() || "";
-    const isRentL = transType.includes("wynajem") || transType.includes("krÃÂ³tkoterminowy");
+    const isRentL = transType.includes("wynajem") || transType.includes("krótkoterminowy");
     const borderColor = isRentL ? "#3b82f6" : "#10b981";
     const div = document.createElement("div");
     div.style.cssText = "display:flex;flex-direction:column;align-items:center;transform:translate(-50%,-100%);cursor:pointer;";
@@ -257,7 +257,7 @@ export function FullscreenMapView({
   const showInfoWindow = useCallback(
     (map: google.maps.Map, iw: google.maps.InfoWindow, listing: PropertyListingForMap) => {
       iw.setContent(
-        `<div style="max-width:280px;font-family:system-ui,sans-serif;">${listing.photos?.[0] ? `<img src="${listing.photos[0]}" style="width:100%;height:120px;object-fit:cover;border-radius:8px 8px 0 0;" />` : ""}<div style="padding:12px;"><h3 style="margin:0 0 6px;font-size:14px;font-weight:600;">${listing.title}</h3><div style="font-size:18px;font-weight:700;color:#7c3aed;">${formatPriceFull(listing.price)}</div><div style="font-size:12px;color:#6b7280;">${listing.areaM2} mÃÂ² ${listing.rooms ? `Ã¢ÂÂ¢ ${listing.rooms} pok.` : ""} Ã¢ÂÂ¢ ${listing.location}</div>${onViewListing ? `<button onclick="window.__ridoViewListing('${listing.id}')" style="margin-top:8px;padding:6px 16px;background:#7c3aed;color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">Zobacz szczegÃÂ³ÃÂy</button>` : ""}</div></div>`
+        `<div style="max-width:280px;font-family:system-ui,sans-serif;">${listing.photos?.[0] ? `<img src="${listing.photos[0]}" style="width:100%;height:120px;object-fit:cover;border-radius:8px 8px 0 0;" />` : ""}<div style="padding:12px;"><h3 style="margin:0 0 6px;font-size:14px;font-weight:600;">${listing.title}</h3><div style="font-size:18px;font-weight:700;color:#7c3aed;">${formatPriceFull(listing.price)}</div><div style="font-size:12px;color:#6b7280;">${listing.areaM2} m² ${listing.rooms ? `• ${listing.rooms} pok.` : ""} • ${listing.location}</div>${onViewListing ? `<button onclick="window.__ridoViewListing('${listing.id}')" style="margin-top:8px;padding:6px 16px;background:#7c3aed;color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">Zobacz szczegóły</button>` : ""}</div></div>`
       );
       iw.setPosition({ lat: listing.lat!, lng: listing.lng! });
       iw.open(map);
@@ -539,17 +539,13 @@ export function FullscreenMapView({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden bg-background flex flex-col">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-background">
       <header className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <button onClick={onClose} style={{display:"flex",alignItems:"center",gap:"4px",background:"none",border:"none",cursor:"pointer",color:"var(--muted-foreground)",fontSize:"14px",padding:"6px 10px",borderRadius:"999px"}} onMouseEnter={e=>(e.currentTarget.style.background="var(--accent)")} onMouseLeave={e=>(e.currentTarget.style.background="none")}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15,18 9,12 15,6"/></svg>
-              <span className="hidden sm:inline">WrÃ³Ä do listy</span>
-            </button>
             <UniversalHomeButton />
             <span className="font-bold text-lg md:text-xl text-primary">
-              NieruchomoÃÂci
+              Nieruchomości
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -560,7 +556,7 @@ export function FullscreenMapView({
               className="rounded-full"
             >
               <Plus className="h-4 w-4 mr-1" />
-              <span className="hidden sm:inline">Dodaj ogÃÂoszenie</span>
+              <span className="hidden sm:inline">Dodaj ogłoszenie</span>
             </Button>
             <Button
               variant="outline"
@@ -569,13 +565,13 @@ export function FullscreenMapView({
               className="rounded-full gap-1.5"
             >
               <X className="h-4 w-4" />
-              <span className="hidden sm:inline">Zamknij mapÃÂ</span>
+              <span className="hidden sm:inline">Zamknij mapę</span>
             </Button>
           </div>
         </div>
       </header>
 
-      <section className="relative overflow-hidden border-b shrink-0">
+      <section className="relative overflow-hidden border-b">
         <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${heroImage})` }}>
           <div className="absolute inset-0 bg-gradient-to-b from-background/90 via-background/80 to-background" />
         </div>
@@ -588,9 +584,9 @@ export function FullscreenMapView({
 
             <div className="text-center mb-1">
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-1">
-                ZnajdÃÂº wymarzonÃÂ <span className="text-primary">nieruchomoÃÂÃÂ</span>
+                Znajdź wymarzoną <span className="text-primary">nieruchomość</span>
               </h1>
-              <p className="text-muted-foreground">Mieszkania, domy, dziaÃÂki i lokale od zweryfikowanych agencji</p>
+              <p className="text-muted-foreground">Mieszkania, domy, działki i lokale od zweryfikowanych agencji</p>
             </div>
 
             <PropertyTypeSelector
@@ -610,7 +606,7 @@ export function FullscreenMapView({
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
-                    placeholder="Wpisz lokalizacjÃÂ"
+                    placeholder="Wpisz lokalizację"
                     value={searchQuery}
                     onChange={(e) => {
                       setSearchQuery(e.target.value);
@@ -645,7 +641,7 @@ export function FullscreenMapView({
                   {drawnArea ? (
                     <Button variant="outline" className="rounded-full" onClick={clearDrawing}>
                       <X className="mr-1.5 h-4 w-4" />
-                      UsuÃÂ zaznaczenie
+                      Usuń zaznaczenie
                     </Button>
                   ) : (
                     <Button
@@ -659,7 +655,7 @@ export function FullscreenMapView({
                   )}
 
                   <Badge variant="secondary" className="rounded-full px-3 py-1 text-xs">
-                    {filteredListings.length} ogÃÂoszeÃÂ
+                    {filteredListings.length} ogłoszeń
                   </Badge>
                 </div>
               </div>
@@ -695,25 +691,28 @@ export function FullscreenMapView({
       {drawingMode && (
         <div className="bg-primary/10 border-b px-4 py-2 text-center text-sm font-medium text-primary">
           <PenTool className="inline h-4 w-4 mr-2" />
-          Rysuj obszar na mapie Ã¢ÂÂ kliknij i przeciÃÂgnij
+          Rysuj obszar na mapie — kliknij i przeciągnij
         </div>
       )}
 
-      <section className="container mx-auto px-4 py-3 md:py-4 flex-1 flex flex-col overflow-hidden">
-        <div className="mb-2 flex items-center justify-between shrink-0">
-          <span className="text-sm font-medium text-muted-foreground">{filteredListings.length} ogłoszeń na mapie</span>
-          <button onClick={startDrawing} style={{display:"flex",alignItems:"center",gap:"6px",background:"none",border:"1.5px solid var(--border)",cursor:"pointer",color:"var(--foreground)",fontSize:"13px",padding:"6px 14px",borderRadius:"999px",fontWeight:500}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#7c3aed";e.currentTarget.style.color="#7c3aed";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="var(--border)";e.currentTarget.style.color="var(--foreground)";}}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-            Zaznacz obszar
-          </button>
+      <section className="container mx-auto px-4 py-5 md:py-6">
+        <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-sm text-muted-foreground">Widok mapy</p>
+            <h2 className="text-2xl font-bold text-foreground">{filteredListings.length} ogłoszeń</h2>
+          </div>
+          <Button variant="outline" className="rounded-full self-start md:self-auto" onClick={onClose}>
+            <X className="mr-1.5 h-4 w-4" />
+            Zamknij mapę
+          </Button>
         </div>
 
-        <div className="flex-1 flex overflow-hidden rounded-[1.75rem] border bg-card shadow-lg min-h-0">
+        <div className="flex overflow-hidden rounded-[1.75rem] border bg-card shadow-lg min-h-[68vh]">
         {/* Map Panel */}
         <div
           className={cn(
             "relative",
-            "hidden md:block md:w-[72%]",
+            "hidden md:block md:w-[62%] min-h-[68vh]",
             mobileTab === "map" && "!block w-full md:!w-[62%]"
           )}
         >
@@ -745,7 +744,7 @@ export function FullscreenMapView({
                     {formatPriceFull(selectedListing.price)}
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    {selectedListing.areaM2}mÃÂ² {selectedListing.rooms ? `Ã¢ÂÂ¢ ${selectedListing.rooms} pok.` : ""}
+                    {selectedListing.areaM2}m² {selectedListing.rooms ? `• ${selectedListing.rooms} pok.` : ""}
                   </span>
                 </div>
                 {onViewListing && (
@@ -754,7 +753,7 @@ export function FullscreenMapView({
                     className="w-full mt-2 h-8 text-xs"
                     onClick={() => onViewListing(selectedListing.id)}
                   >
-                    Zobacz szczegÃÂ³ÃÂy
+                    Zobacz szczegóły
                   </Button>
                 )}
               </div>
@@ -773,15 +772,15 @@ export function FullscreenMapView({
         {/* List Panel */}
         <div
           className={cn(
-            "border-l bg-background flex flex-col",
-            "hidden md:flex md:w-[28%]",
+            "border-l bg-background flex flex-col min-h-[68vh]",
+            "hidden md:flex md:w-[38%]",
             mobileTab === "list" && "!flex w-full md:!w-[38%]"
           )}
         >
           {/* List header */}
-          <div className="px-2 py-1.5 border-b bg-muted/50 flex items-center justify-between">
+          <div className="px-3 py-2 border-b bg-muted/50 flex items-center justify-between">
             <span className="text-sm font-medium">
-              {filteredListings.length} ogÃÂoszeÃÂ
+              {filteredListings.length} ogłoszeń
             </span>
             <span className="text-xs text-muted-foreground">
               Strona {listPage}/{listTotalPages}
@@ -793,7 +792,7 @@ export function FullscreenMapView({
             {paginatedSideListings.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <Home className="h-12 w-12 text-muted-foreground/30 mb-3" />
-                <p className="text-sm text-muted-foreground">Brak ogÃÂoszeÃÂ do wyÃÂwietlenia</p>
+                <p className="text-sm text-muted-foreground">Brak ogłoszeń do wyświetlenia</p>
               </div>
             ) : (
               <div className="divide-y">
@@ -873,7 +872,7 @@ function SideListingCard({
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const transType = listing.transactionType?.toLowerCase() || "";
-  const isRent = transType.includes("wynajem") || transType.includes("krÃÂ³tkoterminowy");
+  const isRent = transType.includes("wynajem") || transType.includes("krótkoterminowy");
 
   // Scroll into view when hovered from map marker
   useEffect(() => {
@@ -886,7 +885,7 @@ function SideListingCard({
     <div
       ref={cardRef}
       className={cn(
-        "flex gap-2 p-2 cursor-pointer hover:bg-accent/50 transition-all",
+        "flex gap-2.5 p-2.5 cursor-pointer hover:bg-accent/50 transition-all",
         isSelected && "bg-accent",
         isHovered && "bg-primary/10 border-l-2 border-l-primary"
       )}
@@ -895,7 +894,7 @@ function SideListingCard({
       onMouseLeave={onMouseLeave}
     >
       {/* Thumbnail */}
-      <div className="w-16 h-14 rounded-md overflow-hidden bg-muted shrink-0 self-start">
+      <div className="w-20 h-16 rounded-lg overflow-hidden bg-muted shrink-0 self-start">
         {listing.photos?.[0] ? (
           <img src={listing.photos[0]} alt="" className="w-full h-full object-cover" />
         ) : (
@@ -914,10 +913,10 @@ function SideListingCard({
         </div>
         <div className="mt-1 flex items-center justify-between gap-2">
           <span className="font-bold text-sm text-primary whitespace-nowrap">
-            {listing.price.toLocaleString("pl-PL")} zÃÂ
+            {listing.price.toLocaleString("pl-PL")} zł
           </span>
           <span className="text-xs text-muted-foreground whitespace-nowrap">
-            {listing.areaM2}mÃÂ²
+            {listing.areaM2}m²
           </span>
         </div>
       </div>
