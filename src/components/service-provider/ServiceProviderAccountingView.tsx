@@ -173,7 +173,7 @@ export function ServiceProviderAccountingView() {
             <h3 className="text-lg font-semibold mb-4">Szybkie akcje</h3>
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
-                <Button onClick={() => setShowNewInvoice(true)} className="h-auto py-3">
+                <Button onClick={handleNewInvoice} className="h-auto py-3">
                   <Plus className="h-4 w-4 mr-2" />Wystaw fakturę
                 </Button>
                 <Button variant="outline" className="h-auto py-3" onClick={() => setShowCostInvoice(true)}>
@@ -237,7 +237,7 @@ export function ServiceProviderAccountingView() {
                   <div className="text-center py-12 text-muted-foreground">
                     <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
                     <p>Brak faktur w wybranym okresie</p>
-                    <Button className="mt-4" onClick={() => setShowNewInvoice(true)}>
+                    <Button className="mt-4" onClick={handleNewInvoice}>
                       <Plus className="h-4 w-4 mr-2" />Wystaw fakturę
                     </Button>
                   </div>
@@ -257,7 +257,7 @@ export function ServiceProviderAccountingView() {
                 <CardTitle>Faktury</CardTitle>
                 <CardDescription>Lista wszystkich faktur</CardDescription>
               </div>
-              <Button onClick={() => setShowNewInvoice(true)}>
+              <Button onClick={handleNewInvoice}>
                 <Plus className="h-4 w-4 mr-2" />Wystaw fakturę
               </Button>
             </div>
@@ -273,7 +273,7 @@ export function ServiceProviderAccountingView() {
               <div className="text-center py-12 text-muted-foreground">
                 <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p>Brak faktur</p>
-                <Button className="mt-4" onClick={() => setShowNewInvoice(true)}>
+                <Button className="mt-4" onClick={handleNewInvoice}>
                   <Plus className="h-4 w-4 mr-2" />Wystaw fakturę
                 </Button>
               </div>
