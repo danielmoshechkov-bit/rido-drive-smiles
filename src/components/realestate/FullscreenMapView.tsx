@@ -462,6 +462,56 @@ export function FullscreenMapView({
     setDrawingMode(false);
   }, []);
 
+  // === Fetch district boundary from Nominatim ===
+  const fetchDistrictBoundary = useCallback(async (name: string, parent?: string) => {
+    if (!google || !mapRef.current) return;
+    // Clear previous district polygon
+    districtPolygonRef.current?.setMap(null);
+    districtPolygonRef.current = null;
+
+    try {
+      const q = parent ? `${name}, ${parent}, Poland` : `${name}, Poland`;
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&polygon_geojson=1&limit=1`,
+        { headers: { 'Accept-Language': 'pl' } }
+      );
+      const data = await res.json();
+      if (!data[0]?.geojson) return;
+
+      const geojson = data[0].geojson;
+      let coords: google.maps.LatLngLiteral[][] = [];
+
+      const extractCoords = (ring: number[][]) => ring.map(([lng, lat]) => ({ lat, lng }));
+
+      if (geojson.type === 'Polygon') {
+        coords = geojson.coordinates.map(extractCoords);
+      } else if (geojson.type === 'MultiPolygon') {
+        coords = geojson.coordinates.flatMap((poly: number[][][]) => poly.map(extractCoords));
+      }
+
+      if (coords.length === 0) return;
+
+      const polygon = new google.maps.Polygon({
+        paths: coords,
+        strokeColor: '#7c3aed',
+        strokeWeight: 2,
+        strokeOpacity: 0.8,
+        fillColor: '#7c3aed',
+        fillOpacity: 0.08,
+        map: mapRef.current,
+        clickable: false,
+      });
+      districtPolygonRef.current = polygon;
+
+      // Fit bounds to district
+      const bounds = new google.maps.LatLngBounds();
+      coords.forEach(ring => ring.forEach(p => bounds.extend(p)));
+      mapRef.current.fitBounds(bounds, 40);
+    } catch (err) {
+      console.warn('[FullscreenMap] Failed to fetch district boundary:', err);
+    }
+  }, [google]);
+
   // === Location select ===
   const handleSelectLocation = (loc: typeof LOCATION_DATA[0]) => {
     setSearchQuery(loc.name);
@@ -469,6 +519,14 @@ export function FullscreenMapView({
     if (mapRef.current) {
       mapRef.current.setCenter({ lat: loc.lat, lng: loc.lng });
       mapRef.current.setZoom(loc.zoom);
+    }
+    // Fetch and draw district boundary for districts
+    if (loc.type === 'dzielnica') {
+      fetchDistrictBoundary(loc.name, loc.parent);
+    } else {
+      // Clear district polygon for city selection
+      districtPolygonRef.current?.setMap(null);
+      districtPolygonRef.current = null;
     }
   };
 
