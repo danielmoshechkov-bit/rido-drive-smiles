@@ -792,11 +792,7 @@ export default function RealEstateMarketplace() {
               onSearchResults={handleAISearchResults}
               onLoading={setIsSearchingAI}
             />
-            {aiExplanation && (
-              <p className="text-center text-sm text-primary mt-2 font-medium">
-                🔍 {aiExplanation}
-              </p>
-            )}
+            {/* Explanation is now shown inside RealEstateAISearch as Rido mascot bubble */}
           </div>
 
           {/* Title */}
