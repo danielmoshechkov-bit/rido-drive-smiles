@@ -710,7 +710,20 @@ export function FullscreenMapView({
             )}
           </div>
 
-          {/* Drawing tools */}
+          {/* Selected districts chips */}
+          {selectedDistricts.length > 0 && (
+            <div className="flex items-center gap-1 flex-wrap">
+              {selectedDistricts.map(name => (
+                <span key={name} className="inline-flex items-center gap-1 bg-primary/10 text-primary text-xs px-2 py-1 rounded-full">
+                  {name}
+                  <button onClick={() => removeDistrictBoundary(name)} className="hover:text-destructive">
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+
           <Button
             variant={drawingMode === "pen" ? "default" : "outline"}
             size="sm"
