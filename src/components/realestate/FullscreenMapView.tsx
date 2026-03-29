@@ -175,11 +175,13 @@ export function FullscreenMapView({
     });
   }, [listings, mapPropertyType, showSale, showRent, searchQuery, drawnArea]);
 
-  // District suggestions
+  // Location suggestions (cities + districts)
   const suggestions = useMemo(() => {
     if (!searchQuery || searchQuery.length < 2) return [];
     const q = searchQuery.toLowerCase();
-    return WARSAW_DISTRICTS.filter((d) => d.toLowerCase().includes(q));
+    return LOCATION_DATA
+      .filter((loc) => loc.name.toLowerCase().includes(q))
+      .slice(0, 12);
   }, [searchQuery]);
 
   // Pagination for sidebar list
@@ -472,14 +474,13 @@ export function FullscreenMapView({
     setDrawingMode(false);
   }, []);
 
-  // === District select ===
-  const handleSelectDistrict = (district: string) => {
-    setSearchQuery(district);
+  // === Location select ===
+  const handleSelectLocation = (loc: typeof LOCATION_DATA[0]) => {
+    setSearchQuery(loc.name);
     setShowSuggestions(false);
-    const coords = DISTRICT_COORDS[district];
-    if (coords && mapRef.current) {
-      mapRef.current.setCenter(coords);
-      mapRef.current.setZoom(14);
+    if (mapRef.current) {
+      mapRef.current.setCenter({ lat: loc.lat, lng: loc.lng });
+      mapRef.current.setZoom(loc.zoom);
     }
   };
 
