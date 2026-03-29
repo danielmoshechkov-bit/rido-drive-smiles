@@ -139,6 +139,7 @@ export function FullscreenMapView({
   const [circleRadius, setCircleRadius] = useState(1000);
   const [bufferDistance, setBufferDistance] = useState(0);
   const [useBuffer, setUseBuffer] = useState(false);
+  const [districtBoundary, setDistrictBoundary] = useState<Array<{ lat: number; lng: number }> | null>(null);
 
   // Filtered listings
   const filteredListings = useMemo(() => {
