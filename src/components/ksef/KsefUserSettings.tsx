@@ -155,79 +155,38 @@ export function KsefUserSettings() {
       }
 
       const env = ENV_CONFIG[ksefEnvironment];
-      
-      // Step 1: Call KSeF auth/challenge to verify token+NIP work
-      try {
-        const challengeRes = await fetch(`${env.apiBase}/auth/challenge`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contextIdentifier: { type: 'onip', identifier: userNip }
-          }),
-          signal: AbortSignal.timeout(10000),
-        });
 
-        if (challengeRes.ok) {
-          const challengeData = await challengeRes.json();
-          if (challengeData?.challenge) {
-            setKsefStatus('connected');
-            setKsefLastTestAt(new Date().toISOString());
-            setKsefLastTestResult(`Połączono z KSeF (${env.badgeLabel}). NIP ${userNip} zweryfikowany.`);
-            toast.success(`Połączenie z KSeF ${env.badgeLabel} — OK ✓`);
-          } else {
-            throw new Error('Brak challenge w odpowiedzi');
-          }
-        } else {
-          const errBody = await challengeRes.text().catch(() => '');
-          if (challengeRes.status === 401 || challengeRes.status === 403) {
-            setKsefStatus('error');
-            setKsefLastTestAt(new Date().toISOString());
-            setKsefLastTestResult('Token KSeF nieprawidłowy lub wygasł');
-            toast.error('Token KSeF nieprawidłowy lub wygasł — sprawdź ustawienia');
-          } else if (challengeRes.status === 400) {
-            setKsefStatus('error');
-            setKsefLastTestAt(new Date().toISOString());
-            setKsefLastTestResult(`NIP ${userNip} nie jest zarejestrowany w KSeF (${env.badgeLabel})`);
-            toast.error(`NIP nie rozpoznany w środowisku ${env.badgeLabel}`);
-          } else {
-            throw new Error(`HTTP ${challengeRes.status}: ${errBody.substring(0, 100)}`);
-          }
-        }
-      } catch (err: any) {
-        if (err.name === 'AbortError' || err.message?.includes('timeout')) {
-          // API timeout — likely CORS or network, try health endpoint
-          try {
-            const healthRes = await fetch(`${env.apiBase}/status`, { signal: AbortSignal.timeout(5000) });
-            if (healthRes.ok) {
-              setKsefStatus('connected');
-              setKsefLastTestAt(new Date().toISOString());
-              setKsefLastTestResult(`API KSeF (${env.badgeLabel}) dostępne. Token zapisany z NIP ${userNip}.`);
-              toast.success(`API KSeF dostępne. Pełna weryfikacja przy pierwszej fakturze.`);
-            } else {
-              throw new Error('Health check failed');
-            }
-          } catch {
-            setKsefStatus('connected');
-            setKsefLastTestAt(new Date().toISOString());
-            setKsefLastTestResult(`Token zapisany z NIP ${userNip} (${env.badgeLabel}). Weryfikacja przy pierwszej fakturze.`);
-            toast.success('Token zapisany. Pełna weryfikacja nastąpi przy pierwszej fakturze.');
-          }
-        } else if (err.message?.includes('Failed to fetch') || err.message?.includes('NetworkError')) {
-          // CORS block from browser — expected for direct KSeF API calls
-          setKsefStatus('connected');
-          setKsefLastTestAt(new Date().toISOString());
-          setKsefLastTestResult(`Token zapisany z NIP ${userNip} (${env.badgeLabel}). Weryfikacja przy pierwszej fakturze.`);
-          toast.success('Token zapisany. Pełna weryfikacja nastąpi przy pierwszej fakturze.');
-        } else {
-          setKsefStatus('error');
-          setKsefLastTestAt(new Date().toISOString());
-          setKsefLastTestResult(`Błąd: ${err.message}`);
-          toast.error(`Błąd połączenia: ${err.message}`);
-        }
+      // Route test through Edge Function to avoid CORS
+      const { data: result, error } = await supabase.functions.invoke('ksef-integration', {
+        body: {
+          action: 'test_connection',
+          nip: userNip,
+          token: ksefToken,
+          environment: ksefEnvironment,
+        },
+      });
+
+      if (error) throw error;
+
+      if (result?.success) {
+        setKsefStatus('connected');
+        setKsefLastTestAt(new Date().toISOString());
+        setKsefLastTestResult(`Połączono z KSeF (${env.badgeLabel}). NIP ${userNip} zweryfikowany.`);
+        toast.success(`Połączenie z KSeF ${env.badgeLabel} — OK ✓`);
+      } else {
+        setKsefStatus('error');
+        setKsefLastTestAt(new Date().toISOString());
+        setKsefLastTestResult(result?.error || 'Nieznany błąd');
+        toast.error('Błąd połączenia: ' + (result?.error || 'nieznany błąd'));
       }
 
       // Auto-save after test
       await saveMutation.mutateAsync();
+    } catch (err: any) {
+      setKsefStatus('error');
+      setKsefLastTestAt(new Date().toISOString());
+      setKsefLastTestResult(`Błąd: ${err.message}`);
+      toast.error(`Błąd: ${err.message}`);
     } finally {
       setTesting(false);
     }

@@ -3,37 +3,40 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-// KSeF API endpoints (demo/test)
 const KSEF_DEMO_URL = 'https://ksef-demo.mf.gov.pl/api/v2';
 const KSEF_PROD_URL = 'https://ksef.mf.gov.pl/api/v2';
+const KSEF_TEST_URL = 'https://api-test.ksef.mf.gov.pl/api/v2';
+
+function getBaseUrl(environment: string): string {
+  if (environment === 'production') return KSEF_PROD_URL;
+  if (environment === 'integration') return KSEF_TEST_URL;
+  return KSEF_DEMO_URL;
+}
 
 interface KSeFRequest {
-  action: 'send' | 'status' | 'download' | 'generate_xml' | 'get_settings' | 'save_settings' | 'fetch_received';
+  action: 'send' | 'status' | 'download' | 'generate_xml' | 'get_settings' | 'save_settings' | 'fetch_received' | 'test_connection';
   invoice_id?: string;
   entity_id?: string;
   ksef_reference?: string;
   is_enabled?: boolean;
-  environment?: 'demo' | 'production';
+  environment?: 'demo' | 'production' | 'integration';
   token?: string;
   auto_send?: boolean;
   date_from?: string;
   date_to?: string;
+  nip?: string;
 }
 
-// Generate FA(2) XML for invoice
 function generateInvoiceXML(invoice: any, entity: any, items: any[]): string {
   const issueDate = invoice.issue_date || new Date().toISOString().split('T')[0];
   const buyer = invoice.buyer_snapshot || {};
-  
-  // Calculate totals
   const netTotal = items.reduce((sum, item) => sum + (item.net_amount || 0), 0);
   const vatTotal = items.reduce((sum, item) => sum + (item.vat_amount || 0), 0);
   const grossTotal = items.reduce((sum, item) => sum + (item.gross_amount || 0), 0);
 
-  // VAT breakdown by rate
   const vatByRate: { [key: string]: { net: number; vat: number } } = {};
   items.forEach(item => {
     const rate = item.vat_rate || '23';
@@ -44,8 +47,7 @@ function generateInvoiceXML(invoice: any, entity: any, items: any[]): string {
 
   const vatBreakdownXML = Object.entries(vatByRate).map(([rate, amounts]) => {
     if (rate === 'zw' || rate === 'np') {
-      return `
-        <P_13_${rate === 'zw' ? '6' : '7'}>${amounts.net.toFixed(2)}</P_13_${rate === 'zw' ? '6' : '7'}>`;
+      return `\n        <P_13_${rate === 'zw' ? '6' : '7'}>${amounts.net.toFixed(2)}</P_13_${rate === 'zw' ? '6' : '7'}>`;
     }
     const rateNum = parseInt(rate) || 23;
     let fieldNum = '1';
@@ -53,10 +55,7 @@ function generateInvoiceXML(invoice: any, entity: any, items: any[]): string {
     else if (rateNum === 8) fieldNum = '3';
     else if (rateNum === 5) fieldNum = '5';
     else if (rateNum === 0) fieldNum = '6';
-    
-    return `
-        <P_13_${fieldNum}>${amounts.net.toFixed(2)}</P_13_${fieldNum}>
-        <P_14_${fieldNum}>${amounts.vat.toFixed(2)}</P_14_${fieldNum}>`;
+    return `\n        <P_13_${fieldNum}>${amounts.net.toFixed(2)}</P_13_${fieldNum}>\n        <P_14_${fieldNum}>${amounts.vat.toFixed(2)}</P_14_${fieldNum}>`;
   }).join('');
 
   const itemsXML = items.map((item, idx) => `
@@ -70,7 +69,7 @@ function generateInvoiceXML(invoice: any, entity: any, items: any[]): string {
         <P_12>${item.vat_rate === 'zw' ? 'zw' : item.vat_rate === 'np' ? 'np' : (item.vat_rate || '23')}</P_12>
       </FaWiersz>`).join('');
 
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+  return `<?xml version="1.0" encoding="UTF-8"?>
 <Faktura xmlns="http://crd.gov.pl/wzor/2023/06/29/12648/">
   <Naglowek>
     <KodFormularza kodSystemowy="FA (3)" wersjaSchemy="1-0E">FA</KodFormularza>
@@ -111,41 +110,24 @@ function generateInvoiceXML(invoice: any, entity: any, items: any[]): string {
       <P_17>2</P_17>
       <P_18>2</P_18>
       <P_18A>2</P_18A>
-      <Zwolnienie>
-        <P_19N>1</P_19N>
-      </Zwolnienie>
-      <NoweSrodkiTransportu>
-        <P_22N>1</P_22N>
-      </NoweSrodkiTransportu>
+      <Zwolnienie><P_19N>1</P_19N></Zwolnienie>
+      <NoweSrodkiTransportu><P_22N>1</P_22N></NoweSrodkiTransportu>
       <P_23>2</P_23>
-      <PMarzy>
-        <P_PMarzyN>1</P_PMarzyN>
-      </PMarzy>
+      <PMarzy><P_PMarzyN>1</P_PMarzyN></PMarzy>
     </Adnotacje>
     <RodzajFaktury>VAT</RodzajFaktury>${itemsXML}
     <Platnosc>
-      <TerminPlatnosci>
-        <Termin>${invoice.due_date || issueDate}</Termin>
-      </TerminPlatnosci>
+      <TerminPlatnosci><Termin>${invoice.due_date || issueDate}</Termin></TerminPlatnosci>
       <FormaPlatnosci>${invoice.payment_method === 'cash' ? 'gotówka' : 'przelew'}</FormaPlatnosci>
-      ${entity.bank_account ? `<RachunekBankowy>
-        <NrRB>${entity.bank_account.replace(/\s/g, '')}</NrRB>
-      </RachunekBankowy>` : ''}
+      ${entity.bank_account ? `<RachunekBankowy><NrRB>${entity.bank_account.replace(/\s/g, '')}</NrRB></RachunekBankowy>` : ''}
     </Platnosc>
   </Fa>
 </Faktura>`;
-
-  return xml;
 }
 
 function escapeXml(str: string): string {
   if (!str) return '';
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 }
 
 serve(async (req) => {
@@ -162,7 +144,55 @@ serve(async (req) => {
     const body: KSeFRequest = await req.json();
     const { action } = body;
 
+    // ════════════════════════════════════════════════
+    // TEST CONNECTION
+    // ════════════════════════════════════════════════
+    if (action === 'test_connection') {
+      const { nip, token, environment } = body;
+      if (!nip || !token) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Brak NIP lub tokenu' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const baseUrl = getBaseUrl(environment || 'demo');
+
+      try {
+        const challengeRes = await fetch(`${baseUrl}/auth/challenge`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contextIdentifier: { type: 'onip', identifier: nip }
+          }),
+        });
+
+        if (challengeRes.ok) {
+          const challengeData = await challengeRes.json();
+          if (challengeData?.challenge) {
+            return new Response(
+              JSON.stringify({ success: true, environment, nip, challenge: true }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+        }
+
+        const errText = await challengeRes.text().catch(() => '');
+        return new Response(
+          JSON.stringify({ success: false, error: `KSeF HTTP ${challengeRes.status}: ${errText.substring(0, 200)}` }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } catch (err: any) {
+        return new Response(
+          JSON.stringify({ success: false, error: `Błąd połączenia: ${err.message}` }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
+    // ════════════════════════════════════════════════
     // GET SETTINGS
+    // ════════════════════════════════════════════════
     if (action === 'get_settings') {
       const { data: settings, error } = await supabase
         .from('ksef_settings')
@@ -178,7 +208,9 @@ serve(async (req) => {
       );
     }
 
+    // ════════════════════════════════════════════════
     // SAVE SETTINGS
+    // ════════════════════════════════════════════════
     if (action === 'save_settings') {
       const { error } = await supabase
         .from('ksef_settings')
@@ -199,76 +231,126 @@ serve(async (req) => {
       );
     }
 
+    // ════════════════════════════════════════════════
     // FETCH RECEIVED INVOICES FROM KSEF
+    // ════════════════════════════════════════════════
     if (action === 'fetch_received') {
-      // Get KSeF settings
-      const { data: ksefSettings } = await supabase
-        .from('ksef_settings')
-        .select('*')
-        .eq('entity_id', body.entity_id)
-        .single();
+      // Support both modes: entity_id-based and direct nip/token
+      let nip = body.nip;
+      let token = body.token;
+      let environment = body.environment || 'demo';
 
-      if (!ksefSettings?.is_enabled) {
-        throw new Error('KSeF nie jest włączony dla tej firmy');
+      if (body.entity_id) {
+        const { data: ksefSettings } = await supabase
+          .from('ksef_settings')
+          .select('*')
+          .eq('entity_id', body.entity_id)
+          .single();
+
+        if (!ksefSettings?.is_enabled) {
+          throw new Error('KSeF nie jest włączony dla tej firmy');
+        }
+
+        const { data: entity } = await supabase
+          .from('entities')
+          .select('nip')
+          .eq('id', body.entity_id)
+          .single();
+
+        nip = entity?.nip;
+        token = ksefSettings.token_encrypted;
+        environment = ksefSettings.environment;
       }
 
-      const { data: entity } = await supabase
-        .from('entities')
-        .select('nip')
-        .eq('id', body.entity_id)
-        .single();
+      const baseUrl = getBaseUrl(environment);
 
-      const baseUrl = ksefSettings.environment === 'production' ? KSEF_PROD_URL : KSEF_DEMO_URL;
-
-      // In demo mode, generate sample purchase invoices
-      if (ksefSettings.environment === 'demo' || ksefSettings.environment === 'integration') {
+      // In demo/integration mode, generate sample purchase invoices
+      if (environment === 'demo' || environment === 'integration') {
         const sampleSuppliers = [
           { name: 'Auto-Partner SA', nip: '6792881003', category: 'części_magazyn' },
           { name: 'BP Europa SE', nip: '1070010978', category: 'paliwo' },
           { name: 'PZU SA', nip: '5260300291', category: 'ubezpieczenie' },
-          { name: 'Serwis-IT Sp. z o.o.', nip: '7811934421', category: 'usługi_it' },
+          { name: 'Serwis-IT Sp. z o.o.', nip: '7811934421', category: 'usługi' },
           { name: 'MotoLeasing Sp. z o.o.', nip: '1132853869', category: 'leasing' },
         ];
 
+        const entityId = body.entity_id;
         let insertedCount = 0;
+        const results: any[] = [];
+
         for (const supplier of sampleSuppliers) {
-          const ksefNumber = `DEMO-${body.entity_id?.slice(0, 8)}-${supplier.nip}-${body.date_from}`;
+          const ksefNumber = `DEMO-${(entityId || 'direct').slice(0, 8)}-${supplier.nip}-${body.date_from}`;
           const netAmount = Math.round((Math.random() * 5000 + 500) * 100) / 100;
           const vatAmount = Math.round(netAmount * 0.23 * 100) / 100;
 
+          // AI categorization via Lovable AI Gateway
+          let aiCategory = supplier.category;
+          try {
+            const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+            if (LOVABLE_API_KEY) {
+              const aiRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  model: 'google/gemini-2.5-flash-lite',
+                  messages: [{
+                    role: 'user',
+                    content: `Faktura zakupowa od: ${supplier.name} (NIP: ${supplier.nip}), kwota netto: ${netAmount} PLN. Odpowiedz TYLKO jednym słowem — kategorią wydatku: paliwo, naprawa, czesci_magazyn, ubezpieczenie, leasing, uslugi, inne`
+                  }],
+                }),
+              });
+              if (aiRes.ok) {
+                const aiData = await aiRes.json();
+                const cat = aiData.choices?.[0]?.message?.content?.trim().toLowerCase();
+                if (cat && ['paliwo', 'naprawa', 'czesci_magazyn', 'ubezpieczenie', 'leasing', 'uslugi', 'inne'].includes(cat)) {
+                  aiCategory = cat;
+                }
+              }
+            }
+          } catch (e) {
+            console.error('AI categorization error:', e);
+          }
+
+          const invoiceData = {
+            document_number: `FV/${new Date().getFullYear()}/${Math.floor(Math.random() * 9999).toString().padStart(4, '0')}`,
+            ksef_number: ksefNumber,
+            supplier_name: supplier.name,
+            supplier_nip: supplier.nip,
+            total_net: netAmount,
+            total_vat: vatAmount,
+            total_gross: netAmount + vatAmount,
+            purchase_date: body.date_from,
+            status: 'new',
+            entity_id: entityId,
+            ai_category: aiCategory,
+          };
+
           const { error: upsertError } = await supabase
             .from('purchase_invoices')
-            .upsert({
-              document_number: `FV/${new Date().getFullYear()}/${Math.floor(Math.random() * 9999)}`,
-              ksef_number: ksefNumber,
-              supplier_name: supplier.name,
-              supplier_nip: supplier.nip,
-              total_net: netAmount,
-              total_vat: vatAmount,
-              total_gross: netAmount + vatAmount,
-              purchase_date: body.date_from,
-              status: 'new',
-              entity_id: body.entity_id,
-              ai_category: supplier.category,
-            }, { onConflict: 'ksef_number' });
+            .upsert(invoiceData, { onConflict: 'ksef_number' });
 
-          if (!upsertError) insertedCount++;
+          if (!upsertError) {
+            insertedCount++;
+            results.push(invoiceData);
+          }
         }
 
         return new Response(
-          JSON.stringify({ success: true, demo: true, count: insertedCount }),
+          JSON.stringify({ success: true, demo: true, count: insertedCount, invoices: results }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
       // Production: Real KSeF API flow
       try {
-        // Step 1: Challenge
         const challengeRes = await fetch(`${baseUrl}/auth/challenge`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            contextIdentifier: { type: 'onip', identifier: entity?.nip }
+            contextIdentifier: { type: 'onip', identifier: nip }
           }),
         });
 
@@ -279,10 +361,98 @@ serve(async (req) => {
         const challengeData = await challengeRes.json();
         const challenge = challengeData.challenge;
 
-        // Step 2: Token (simplified - needs real token signing in production)
-        // For now return error for prod
-        throw new Error('Produkcyjne pobieranie faktur wymaga konfiguracji certyfikatu');
-      } catch (prodError) {
+        // Token auth
+        const tokenB64 = btoa(`${challenge}|${token}`);
+        const authRes = await fetch(`${baseUrl}/auth/token`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contextIdentifier: { type: 'onip', identifier: nip },
+            token: tokenB64
+          }),
+        });
+
+        if (!authRes.ok) {
+          throw new Error(`KSeF auth failed: ${authRes.status}`);
+        }
+
+        const { accessToken } = await authRes.json();
+
+        // Fetch received invoices list
+        const listRes = await fetch(
+          `${baseUrl}/invoices/received?dateFrom=${body.date_from}&dateTo=${body.date_to}&pageSize=100`,
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+
+        if (!listRes.ok) {
+          throw new Error(`KSeF list failed: ${listRes.status}`);
+        }
+
+        const { invoices } = await listRes.json();
+        const results: any[] = [];
+
+        for (const inv of (invoices || [])) {
+          try {
+            const xmlRes = await fetch(`${baseUrl}/invoices/ksef/${inv.ksefReferenceNumber}`, {
+              headers: { Authorization: `Bearer ${accessToken}` }
+            });
+            const xmlText = await xmlRes.text();
+
+            const getTag = (tag: string) => xmlText.match(new RegExp(`<${tag}[^>]*>([^<]+)</${tag}>`))?.[1] || '';
+
+            const invoiceData: any = {
+              ksef_number: inv.ksefReferenceNumber,
+              document_number: getTag('P_2') || inv.ksefReferenceNumber,
+              purchase_date: getTag('P_1'),
+              supplier_nip: xmlText.match(/<Podmiot1[\s\S]*?<NIP>(\d+)<\/NIP>/)?.[1] || '',
+              supplier_name: xmlText.match(/<Podmiot1[\s\S]*?<Nazwa>([^<]+)<\/Nazwa>/)?.[1] || '',
+              total_net: parseFloat(getTag('P_15') || '0'),
+              total_vat: 0,
+              total_gross: parseFloat(getTag('P_15') || '0'),
+              xml_content: xmlText,
+              status: 'pending',
+              entity_id: body.entity_id,
+            };
+
+            // AI categorization
+            try {
+              const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+              if (LOVABLE_API_KEY) {
+                const aiRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    model: 'google/gemini-2.5-flash-lite',
+                    messages: [{
+                      role: 'user',
+                      content: `Faktura od: ${invoiceData.supplier_name}. Odpowiedz TYLKO jednym słowem — kategorią: paliwo, naprawa, czesci_magazyn, ubezpieczenie, leasing, uslugi, inne`
+                    }],
+                  }),
+                });
+                if (aiRes.ok) {
+                  const aiData = await aiRes.json();
+                  invoiceData.ai_category = aiData.choices?.[0]?.message?.content?.trim().toLowerCase() || 'inne';
+                }
+              }
+            } catch (e) {
+              invoiceData.ai_category = 'inne';
+            }
+
+            await supabase.from('purchase_invoices').upsert(invoiceData, { onConflict: 'ksef_number' });
+            results.push(invoiceData);
+          } catch (e) {
+            console.error('Invoice parse error:', e);
+          }
+        }
+
+        return new Response(
+          JSON.stringify({ success: true, count: results.length, invoices: results }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } catch (prodError: any) {
         return new Response(
           JSON.stringify({ success: false, error: prodError.message }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -290,27 +460,19 @@ serve(async (req) => {
       }
     }
 
+    // ════════════════════════════════════════════════
     // GENERATE XML
+    // ════════════════════════════════════════════════
     if (action === 'generate_xml') {
-      // Fetch invoice with items
       const { data: invoice, error: invError } = await supabase
-        .from('invoices')
-        .select('*')
-        .eq('id', body.invoice_id)
-        .single();
-
+        .from('invoices').select('*').eq('id', body.invoice_id).single();
       if (invError || !invoice) throw new Error('Invoice not found');
 
       const { data: items } = await supabase
-        .from('invoice_items')
-        .select('*')
-        .eq('invoice_id', body.invoice_id);
+        .from('invoice_items').select('*').eq('invoice_id', body.invoice_id);
 
       const { data: entity } = await supabase
-        .from('entities')
-        .select('*')
-        .eq('id', invoice.entity_id)
-        .single();
+        .from('entities').select('*').eq('id', invoice.entity_id).single();
 
       const xml = generateInvoiceXML(invoice, entity, items || []);
 
@@ -320,113 +482,65 @@ serve(async (req) => {
       );
     }
 
+    // ════════════════════════════════════════════════
     // SEND TO KSEF
+    // ════════════════════════════════════════════════
     if (action === 'send') {
-      // Get invoice
       const { data: invoice, error: invError } = await supabase
-        .from('invoices')
-        .select('*, entity:entities(*)')
-        .eq('id', body.invoice_id)
-        .single();
-
+        .from('invoices').select('*, entity:entities(*)').eq('id', body.invoice_id).single();
       if (invError || !invoice) throw new Error('Invoice not found');
 
-      // Get KSeF settings
       const { data: ksefSettings } = await supabase
-        .from('ksef_settings')
-        .select('*')
-        .eq('entity_id', invoice.entity_id)
-        .single();
+        .from('ksef_settings').select('*').eq('entity_id', invoice.entity_id).single();
 
-      if (!ksefSettings?.is_enabled) {
-        throw new Error('KSeF is not enabled for this entity');
-      }
+      if (!ksefSettings?.is_enabled) throw new Error('KSeF is not enabled for this entity');
 
-      // Get items
       const { data: items } = await supabase
-        .from('invoice_items')
-        .select('*')
-        .eq('invoice_id', body.invoice_id);
+        .from('invoice_items').select('*').eq('invoice_id', body.invoice_id);
 
-      // Generate XML
       const xml = generateInvoiceXML(invoice, invoice.entity, items || []);
 
-      // Create transmission record
       const { data: transmission, error: transError } = await supabase
         .from('ksef_transmissions')
-        .insert({
-          invoice_id: body.invoice_id,
-          entity_id: invoice.entity_id,
-          direction: 'outgoing',
-          status: 'pending',
-          xml_content: xml,
-        })
-        .select()
-        .single();
+        .insert({ invoice_id: body.invoice_id, entity_id: invoice.entity_id, direction: 'outgoing', status: 'pending', xml_content: xml })
+        .select().single();
 
       if (transError) throw transError;
 
-      // In demo mode, simulate success
       if (ksefSettings.environment === 'demo') {
         const fakeKsefNumber = `2026/01/23/${Math.random().toString(36).substring(7).toUpperCase()}`;
-        
-        await supabase
-          .from('ksef_transmissions')
-          .update({
-            status: 'accepted',
-            ksef_reference_number: fakeKsefNumber,
-            sent_at: new Date().toISOString(),
-            response_at: new Date().toISOString(),
-          })
-          .eq('id', transmission.id);
+        await supabase.from('ksef_transmissions').update({
+          status: 'accepted', ksef_reference_number: fakeKsefNumber,
+          sent_at: new Date().toISOString(), response_at: new Date().toISOString(),
+        }).eq('id', transmission.id);
 
-        await supabase
-          .from('invoices')
-          .update({
-            ksef_status: 'accepted',
-            ksef_reference: fakeKsefNumber,
-          })
-          .eq('id', body.invoice_id);
+        await supabase.from('invoices').update({
+          ksef_status: 'accepted', ksef_reference: fakeKsefNumber,
+        }).eq('id', body.invoice_id);
 
         return new Response(
-          JSON.stringify({ 
-            success: true, 
-            demo: true,
-            ksef_reference: fakeKsefNumber,
-            transmission_id: transmission.id 
-          }),
+          JSON.stringify({ success: true, demo: true, ksef_reference: fakeKsefNumber, transmission_id: transmission.id }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      // Production: would make actual API call to KSeF
-      // For now, mark as pending (requires real token and authentication)
-      await supabase
-        .from('ksef_transmissions')
-        .update({
-          status: 'error',
-          error_message: 'Production KSeF integration requires valid token and certificate configuration',
-        })
-        .eq('id', transmission.id);
+      await supabase.from('ksef_transmissions').update({
+        status: 'error', error_message: 'Production KSeF integration requires valid token and certificate configuration',
+      }).eq('id', transmission.id);
 
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: 'Production KSeF requires additional configuration',
-          transmission_id: transmission.id 
-        }),
+        JSON.stringify({ success: false, error: 'Production KSeF requires additional configuration', transmission_id: transmission.id }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    // ════════════════════════════════════════════════
     // CHECK STATUS
+    // ════════════════════════════════════════════════
     if (action === 'status') {
       const { data: transmissions, error } = await supabase
-        .from('ksef_transmissions')
-        .select('*')
-        .eq('invoice_id', body.invoice_id)
+        .from('ksef_transmissions').select('*').eq('invoice_id', body.invoice_id)
         .order('created_at', { ascending: false });
-
       if (error) throw error;
 
       return new Response(
@@ -440,7 +554,7 @@ serve(async (req) => {
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('KSeF error:', error);
     return new Response(
       JSON.stringify({ success: false, error: error.message }),
