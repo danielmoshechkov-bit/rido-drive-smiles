@@ -16,6 +16,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Search, ChevronDown, SlidersHorizontal, X, Map } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LocationSearchInput, LocationSelection, AreaSelection } from "./LocationSearchInput";
@@ -61,6 +62,7 @@ export interface RealEstateFilters {
   areaTo?: number;
   roomsFrom?: number;
   roomsTo?: number;
+  rooms?: number[];
   yearFrom?: number;
   floorFrom?: number;
   floorTo?: number;
@@ -70,6 +72,15 @@ export interface RealEstateFilters {
   hasGarden?: boolean;
   marketType?: string;
 }
+
+const ROOM_COUNTS = [
+  { value: 1, label: "1" },
+  { value: 2, label: "2" },
+  { value: 3, label: "3" },
+  { value: 4, label: "4" },
+  { value: 5, label: "5" },
+  { value: 6, label: "6+" },
+];
 
 const PROPERTY_TYPES = [
   { value: "mieszkanie", label: "Mieszkanie" },
@@ -278,69 +289,49 @@ export function RealEstateSearch({ onSearch, onShowMapResults, onDrawSearch, onV
     <>
       <div className={cn("bg-background rounded-xl border shadow-lg p-4", className)}>
         {/* Main Search Row */}
-        <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-5 gap-3">
-          {/* Property Type */}
-          <div>
-            <Label className="text-xs text-muted-foreground mb-1 block">Typ nieruchomości</Label>
-            <Select
-              value={filters.propertyType}
-              onValueChange={(v) => updateFilter("propertyType", v)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Wszystkie" />
-              </SelectTrigger>
-              <SelectContent>
-                {PROPERTY_TYPES.map((type) => (
-                  <SelectItem key={type.value} value={type.value}>
-                    {type.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Transaction Type */}
-          <div>
-            <Label className="text-xs text-muted-foreground mb-1 block">Rodzaj transakcji</Label>
-            <Select
-              value={filters.transactionType}
-              onValueChange={(v) => updateFilter("transactionType", v)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Wszystkie" />
-              </SelectTrigger>
-              <SelectContent>
-                {TRANSACTION_TYPES.map((type) => (
-                  <SelectItem key={type.value} value={type.value}>
-                    {type.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Location - New Integrated Input */}
-          <div className="md:col-span-2 lg:col-span-2">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
+          {/* Location */}
+          <div className="md:col-span-2">
             <Label className="text-xs text-muted-foreground mb-1 block">Lokalizacja</Label>
-            <div className="flex gap-2">
-              <LocationSearchInput
-                value={locationText}
-                onChange={setLocationText}
-                onLocationSelect={handleLocationSelect}
-                onOpenMapModal={() => setShowMapModal(true)}
-                selectedArea={selectedArea}
-                onClearArea={handleClearArea}
-                placeholder="Wpisz lokalizację"
-                className="flex-1"
-              />
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setShowMapModal(true)}
-                title="Wybierz obszar na mapie"
-              >
-                <Map className="h-4 w-4" />
-              </Button>
+            <LocationSearchInput
+              value={locationText}
+              onChange={setLocationText}
+              onLocationSelect={handleLocationSelect}
+              onOpenMapModal={() => setShowMapModal(true)}
+              selectedArea={selectedArea}
+              onClearArea={handleClearArea}
+              placeholder="Wpisz lokalizację"
+              className="flex-1"
+            />
+          </div>
+
+          {/* Room Count - Otodom style checkboxes */}
+          <div>
+            <Label className="text-xs text-muted-foreground mb-1 block">Liczba pokoi</Label>
+            <div className="flex gap-1">
+              {ROOM_COUNTS.map((room) => {
+                const isSelected = (filters.rooms || []).includes(room.value);
+                return (
+                  <button
+                    key={room.value}
+                    onClick={() => {
+                      const current = filters.rooms || [];
+                      const next = isSelected
+                        ? current.filter(r => r !== room.value)
+                        : [...current, room.value];
+                      setFilters(prev => ({ ...prev, rooms: next.length > 0 ? next : undefined }));
+                    }}
+                    className={cn(
+                      "flex-1 h-9 rounded-md border text-sm font-medium transition-colors",
+                      isSelected
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-background text-foreground border-border hover:bg-accent"
+                    )}
+                  >
+                    {room.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -449,57 +440,12 @@ export function RealEstateSearch({ onSearch, onShowMapResults, onDrawSearch, onV
             </CollapsibleTrigger>
           </Collapsible>
 
-          <Button
-            variant="default"
-            size="sm"
-            onClick={() => setShowMapModal(true)}
-            className="gap-2"
-          >
-            <Map className="h-4 w-4" />
-            Mapa
-          </Button>
         </div>
 
         <Collapsible open={showAdvanced} onOpenChange={setShowAdvanced}>
           <CollapsibleContent className="pt-3 space-y-3">
-            {/* Rooms & Year */}
+            {/* Year & Market */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div>
-                <Label className="text-xs text-muted-foreground mb-1 block">Pokoje od</Label>
-                <Select
-                  value={filters.roomsFrom?.toString()}
-                  onValueChange={(v) => updateFilter("roomsFrom", parseInt(v))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Min" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ROOMS_OPTIONS.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground mb-1 block">Pokoje do</Label>
-                <Select
-                  value={filters.roomsTo?.toString()}
-                  onValueChange={(v) => updateFilter("roomsTo", parseInt(v))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Max" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ROOMS_OPTIONS.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
               <div>
                 <Label className="text-xs text-muted-foreground mb-1 block">Rok budowy od</Label>
                 <Input

@@ -534,7 +534,7 @@ export function FullscreenMapView({
   const hasActiveDrawing = !!(drawnArea || circleCenter);
 
   return (
-    <div className="flex flex-col bg-background" style={{ height: 'calc(100vh - 200px)', minHeight: '600px' }}>
+    <div className="flex flex-col bg-background" style={{ height: 'calc(100vh - 140px)', minHeight: '500px' }}>
 
 
       {/* === TOOLBAR === */}
