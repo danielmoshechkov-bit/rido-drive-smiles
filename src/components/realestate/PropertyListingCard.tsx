@@ -490,7 +490,7 @@ export function PropertyListingCard({
         <div 
           className={cn(
             "relative bg-muted overflow-hidden",
-            compact ? "aspect-[3/2]" : "aspect-[16/10]"
+            compact ? "aspect-[3/2]" : "aspect-[4/3]"
           )}
           onClick={handlePhotoClick}
         >
@@ -614,16 +614,16 @@ export function PropertyListingCard({
         </div>
 
         {/* Content */}
-        <div className={cn("p-4 flex flex-col flex-1", compact && "p-2")}>
+        <div className={cn("p-3.5 flex flex-col flex-1", compact && "p-2.5")}>
           {/* Title - 2 linijki, większa czcionka */}
           <h3 className={cn(
-            "font-bold leading-tight",
-            compact ? "text-sm line-clamp-1" : "text-lg line-clamp-2 min-h-[3rem]"
+            "font-semibold leading-snug text-foreground",
+            compact ? "text-sm line-clamp-2 min-h-[2.5rem]" : "text-[1.05rem] line-clamp-3 min-h-[4.6rem]"
           )}>{listing.title}</h3>
 
           {/* Property Type & Area & Rooms - Single row */}
           <div className={cn(
-            "flex flex-wrap items-center gap-x-2 text-muted-foreground mt-2",
+            "flex flex-wrap items-center gap-x-2 gap-y-1 text-muted-foreground mt-2",
             compact ? "text-xs" : "text-sm"
           )}>
             {listing.propertyType && (
@@ -658,7 +658,7 @@ export function PropertyListingCard({
           {/* Location - Separate clear row */}
           {listing.location && (
             <div className={cn(
-              "flex items-center gap-1 text-muted-foreground mt-1",
+              "flex items-center gap-1 text-muted-foreground mt-1.5",
               compact ? "text-xs" : "text-sm"
             )}>
               <MapPin className={cn(compact ? "h-3 w-3 flex-shrink-0" : "h-3.5 w-3.5 flex-shrink-0")} />
@@ -690,18 +690,18 @@ export function PropertyListingCard({
           )}
 
           {/* Spacer to push price to bottom */}
-          <div className="flex-grow min-h-2" />
+          <div className="flex-grow min-h-1" />
 
           {/* Price row - full width */}
-          <div className={cn("mt-auto pt-2", compact && "pt-1.5")}>
+          <div className={cn("mt-auto pt-2.5", compact && "pt-2")}>
             <div className={cn(
-              "font-bold text-primary leading-tight whitespace-nowrap",
-              compact ? "text-lg" : "text-[2rem]"
+              "font-bold text-primary leading-tight",
+              compact ? "text-lg" : "text-[1.9rem]"
             )}>
               {formatCurrency(listing.price)}
             </div>
-            <div className="mt-2 flex items-end justify-between gap-3">
-              <div>
+            <div className="mt-2 flex items-end justify-between gap-2">
+              <div className="min-w-0">
                 {!compact && (
                   <div className="text-sm text-muted-foreground">
                     {PRICE_TYPE_LABELS[listing.priceType || 'sale'] || ''}
@@ -716,7 +716,7 @@ export function PropertyListingCard({
               <Button 
                 size="sm"
                 onClick={onView}
-                className={cn(compact && "h-7 text-xs")}
+                className={cn("shrink-0 rounded-xl px-4", compact && "h-7 px-3 text-xs")}
               >
                 {compact ? "Zobacz" : "Szczegóły"}
               </Button>
@@ -728,7 +728,7 @@ export function PropertyListingCard({
             <>
               <button
                 onClick={(e) => handleShowContact(e)}
-                className="w-full mt-3 pt-3 border-t text-sm text-muted-foreground hover:text-foreground transition-colors text-left flex items-center gap-2"
+                className="w-full mt-2.5 pt-2.5 border-t text-sm text-muted-foreground hover:text-foreground transition-colors text-left flex items-center gap-2"
               >
                 {!isLoggedIn && <Lock className="h-3.5 w-3.5" />}
                 {showContact ? "Ukryj kontakt ▲" : "Pokaż kontakt ▼"}
