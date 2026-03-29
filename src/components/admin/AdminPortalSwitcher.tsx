@@ -10,8 +10,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-import { ScrollArea } from '@/components/ui/scroll-area';
-
 interface Portal {
   id: string;
   name: string;
@@ -172,8 +170,7 @@ export function AdminPortalSwitcher() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-64 max-h-[70vh] overflow-y-auto p-0">
-        <ScrollArea className="max-h-[70vh]">
-        <div className="p-1">
+        <div className="max-h-[70vh] overflow-y-auto p-1">
         {portals.filter(p => p.isGlobal).map((portal) => {
           const Icon = portal.icon;
           const isActive = currentPortal?.id === portal.id;
@@ -237,7 +234,6 @@ export function AdminPortalSwitcher() {
           );
         })}
         </div>
-        </ScrollArea>
       </DropdownMenuContent>
     </DropdownMenu>
   );
