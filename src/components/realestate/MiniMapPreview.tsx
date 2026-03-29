@@ -132,10 +132,10 @@ export function MiniMapPreview({ listings, onClick, className }: MiniMapPreviewP
         <div ref={containerRef} className="absolute inset-0" />
       )}
       {/* Overlay label */}
-      <div className="absolute bottom-2 left-2 right-2 z-10">
-        <div className="bg-background/90 backdrop-blur-sm rounded-lg px-3 py-1.5 flex items-center gap-2 shadow-sm">
-          <MapPin className="h-4 w-4 text-primary" />
-          <span className="text-xs font-medium">Kliknij, aby otworzyć mapę</span>
+      <div className="absolute inset-0 z-10 flex items-center justify-center bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none">
+        <div className="pointer-events-auto bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl px-6 py-3 flex items-center gap-3 shadow-lg cursor-pointer transition-all hover:scale-105 hover:shadow-xl">
+          <MapPin className="h-5 w-5" />
+          <span className="text-sm font-semibold tracking-wide">Otwórz mapę</span>
         </div>
       </div>
     </div>
