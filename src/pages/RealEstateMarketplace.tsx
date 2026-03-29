@@ -820,7 +820,7 @@ export default function RealEstateMarketplace() {
 
       {/* Results Count & View Toggle */}
       <section className="container mx-auto px-4 py-2">
-        <div className="flex items-center justify-between max-w-5xl mx-auto">
+        <div className="flex items-center justify-between max-w-7xl mx-auto">
           <p className="text-sm text-muted-foreground">
             {loading ? (
               <span className="text-muted-foreground">Ładowanie...</span>
@@ -829,6 +829,16 @@ export default function RealEstateMarketplace() {
             )}
           </p>
           <div className="flex items-center gap-3">
+            {/* Map Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => setShowFullMap(true)}
+            >
+              <MapIcon className="h-4 w-4" />
+              <span className="hidden sm:inline">Pokaż na mapie</span>
+            </Button>
             {/* Per Page Selector */}
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground hidden sm:inline">Na stronie</span>
@@ -877,108 +887,129 @@ export default function RealEstateMarketplace() {
         </div>
       </section>
 
-      {/* Listings Grid */}
+      {/* Main Content: Listings + Mini Map */}
       {!loading && <section className="container mx-auto px-4 py-6">
-        <div className={cn(
-          "grid gap-4 md:gap-6 max-w-7xl mx-auto",
-          viewMode === 'list' 
-            ? "grid-cols-1" 
-            : viewMode === 'compact' 
-              ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5" 
-              : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-        )}>
-          {paginatedListings.map((listing) => (
-            <PropertyListingCard
-              key={listing.id}
-              listing={listing}
-              onView={() => navigate(`/nieruchomosci/ogloszenie/${listing.id}`)}
-              onFavorite={() => console.log("Favorite:", listing.id)}
-              onToggleCompare={() => handleToggleCompare(listing)}
-              onToggleViewing={() => toggleViewing(listing.id, listing.title, listing.photos?.[0])}
-              isLoggedIn={!!user}
-              isSelectedForCompare={isPropertySelected(listing.id)}
-              isSelectedForViewing={viewingIds.includes(listing.id)}
-              compact={viewMode === 'compact'}
-              variant={viewMode}
-            />
-          ))}
-        </div>
-
-        {listings.length === 0 && !loading && (
-          <div className="text-center py-12">
-            <Building className="h-16 w-16 mx-auto text-muted-foreground/30 mb-4" />
-            <h3 className="text-lg font-medium mb-2">Brak wyników</h3>
-            <p className="text-muted-foreground mb-4">
-              Spróbuj zmienić kryteria wyszukiwania
-            </p>
-          </div>
-        )}
-
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-8 pb-4">
-            {/* Per page selector */}
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span>Na stronie:</span>
-              <Select value={String(perPage)} onValueChange={(v) => { setPerPage(Number(v)); setCurrentPage(1); }}>
-                <SelectTrigger className="w-[72px] h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {[20, 40, 60, 80].map(n => (
-                    <SelectItem key={n} value={String(n)}>{n}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+        <div className="flex gap-6 max-w-7xl mx-auto">
+          {/* Listings Column */}
+          <div className="flex-1 min-w-0">
+            <div className={cn(
+              "grid gap-4 md:gap-6",
+              viewMode === 'list' 
+                ? "grid-cols-1" 
+                : viewMode === 'compact' 
+                  ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4" 
+                  : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+            )}>
+              {paginatedListings.map((listing) => (
+                <PropertyListingCard
+                  key={listing.id}
+                  listing={listing}
+                  onView={() => navigate(`/nieruchomosci/ogloszenie/${listing.id}`)}
+                  onFavorite={() => console.log("Favorite:", listing.id)}
+                  onToggleCompare={() => handleToggleCompare(listing)}
+                  onToggleViewing={() => toggleViewing(listing.id, listing.title, listing.photos?.[0])}
+                  isLoggedIn={!!user}
+                  isSelectedForCompare={isPropertySelected(listing.id)}
+                  isSelectedForViewing={viewingIds.includes(listing.id)}
+                  compact={viewMode === 'compact'}
+                  variant={viewMode}
+                />
+              ))}
             </div>
 
-            {/* Page numbers */}
-            <nav className="flex items-center gap-1" aria-label="Paginacja">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="gap-1"
-                disabled={currentPage === 1}
-                onClick={() => { setCurrentPage(p => p - 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-              >
-                <ChevronLeft className="h-4 w-4" />
-                <span className="hidden sm:inline">Poprzednia</span>
-              </Button>
+            {listings.length === 0 && !loading && (
+              <div className="text-center py-12">
+                <Building className="h-16 w-16 mx-auto text-muted-foreground/30 mb-4" />
+                <h3 className="text-lg font-medium mb-2">Brak wyników</h3>
+                <p className="text-muted-foreground mb-4">
+                  Spróbuj zmienić kryteria wyszukiwania
+                </p>
+              </div>
+            )}
 
-              {getPageNumbers().map((page, i) =>
-                page === 'ellipsis' ? (
-                  <span key={`e-${i}`} className="px-2 text-muted-foreground">…</span>
-                ) : (
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-8 pb-4">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span>Na stronie:</span>
+                  <Select value={String(perPage)} onValueChange={(v) => { setPerPage(Number(v)); setCurrentPage(1); }}>
+                    <SelectTrigger className="w-[72px] h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[20, 40, 60, 80].map(n => (
+                        <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <nav className="flex items-center gap-1" aria-label="Paginacja">
                   <Button
-                    key={page}
-                    variant={currentPage === page ? 'outline' : 'ghost'}
+                    variant="ghost"
                     size="sm"
-                    className={cn("h-8 w-8 p-0", currentPage === page && "border-primary font-semibold")}
-                    onClick={() => { setCurrentPage(page as number); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                    className="gap-1"
+                    disabled={currentPage === 1}
+                    onClick={() => { setCurrentPage(p => p - 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
                   >
-                    {page}
+                    <ChevronLeft className="h-4 w-4" />
+                    <span className="hidden sm:inline">Poprzednia</span>
                   </Button>
-                )
-              )}
 
-              <Button
-                variant="ghost"
-                size="sm"
-                className="gap-1"
-                disabled={currentPage === totalPages}
-                onClick={() => { setCurrentPage(p => p + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-              >
-                <span className="hidden sm:inline">Następna</span>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </nav>
+                  {getPageNumbers().map((page, i) =>
+                    page === 'ellipsis' ? (
+                      <span key={`e-${i}`} className="px-2 text-muted-foreground">…</span>
+                    ) : (
+                      <Button
+                        key={page}
+                        variant={currentPage === page ? 'outline' : 'ghost'}
+                        size="sm"
+                        className={cn("h-8 w-8 p-0", currentPage === page && "border-primary font-semibold")}
+                        onClick={() => { setCurrentPage(page as number); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                      >
+                        {page}
+                      </Button>
+                    )
+                  )}
 
-            {/* Info */}
-            <span className="text-sm text-muted-foreground">
-              Strona {currentPage} z {totalPages}
-            </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1"
+                    disabled={currentPage === totalPages}
+                    onClick={() => { setCurrentPage(p => p + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                  >
+                    <span className="hidden sm:inline">Następna</span>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </nav>
+
+                <span className="text-sm text-muted-foreground">
+                  Strona {currentPage} z {totalPages}
+                </span>
+              </div>
+            )}
           </div>
-        )}
+
+          {/* Mini Map Sidebar - hidden on small screens */}
+          <div className="hidden lg:block w-[320px] xl:w-[380px] shrink-0">
+            <div className="sticky top-20">
+              <MiniMapPreview
+                listings={listings.map(l => ({
+                  lat: l.lat ?? undefined,
+                  lng: l.lng ?? undefined,
+                  price: l.price,
+                  transactionType: l.transactionType,
+                }))}
+                onClick={() => setShowFullMap(true)}
+                className="h-[400px]"
+              />
+              <p className="text-xs text-muted-foreground text-center mt-2">
+                {listings.filter(l => l.lat && l.lng).length} ogłoszeń na mapie
+              </p>
+            </div>
+          </div>
+        </div>
       </section>}
 
       {loading && (
