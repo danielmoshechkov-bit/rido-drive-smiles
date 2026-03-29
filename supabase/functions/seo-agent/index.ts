@@ -42,7 +42,49 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const results = { titles_audited: 0, descriptions_generated: 0, errors: [] as string[] };
+    const results = { titles_audited: 0, descriptions_generated: 0, categories_fixed: 0, errors: [] as string[] };
+
+    // STEP 0: Category classification — fix property_type for commercial listings
+    const { data: toClassify } = await supabase
+      .from("agent_listings")
+      .select("id, title, description, property_type")
+      .eq("status", "active")
+      .in("property_type", ["lokal", "komercja", "magazyn", "hala", "biuro", ""])
+      .limit(30);
+
+    for (const listing of toClassify || []) {
+      try {
+        const prompt = `Przeanalizuj ogłoszenie nieruchomości i określ jego kategorię.
+Tytuł: "${listing.title}"
+Opis (fragment): "${(listing.description || '').slice(0, 300)}"
+Obecny typ: "${listing.property_type}"
+
+Zasady klasyfikacji:
+- "lokal" = lokal usługowy, handlowy, biuro, gabinet, sklep — nieruchomość przeznaczona na działalność usługową/handlową/biurową
+- "hala-magazyn" = hala, magazyn, hala produkcyjna, centrum logistyczne, powierzchnia magazynowa/produkcyjna
+- "mieszkanie" = mieszkanie, apartament
+- "dom" = dom, willa, bliźniak, szeregowiec
+
+Odpowiedz TYLKO JSON:
+{"property_type": "lokal" | "hala-magazyn" | "mieszkanie" | "dom" | "dzialka", "confidence": 0.0-1.0}`;
+
+        const response = await callClaude(ANTHROPIC_API_KEY, prompt, 100);
+        const jsonMatch = response.match(/\{[\s\S]*?\}/);
+        if (!jsonMatch) continue;
+
+        const result = JSON.parse(jsonMatch[0]);
+        if (result.confidence >= 0.7 && result.property_type !== listing.property_type) {
+          await supabase
+            .from("agent_listings")
+            .update({ property_type: result.property_type })
+            .eq("id", listing.id);
+          results.categories_fixed++;
+        }
+        await new Promise((r) => setTimeout(r, 1000));
+      } catch (e) {
+        results.errors.push(`Category ${listing.id}: ${e.message}`);
+      }
+    }
 
     // STEP 1: Audit titles
     const { data: titlesToAudit } = await supabase
@@ -86,7 +128,6 @@ Odpowiedz TYLKO JSON (bez markdown):
           .eq("id", listing.id);
 
         results.titles_audited++;
-        // Rate limit
         await new Promise((r) => setTimeout(r, 1500));
       } catch (e) {
         results.errors.push(`Title audit ${listing.id}: ${e.message}`);

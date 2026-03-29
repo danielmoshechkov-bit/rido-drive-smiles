@@ -89,11 +89,11 @@ const PROPERTY_CATEGORIES = [
   { value: "mieszkanie", label: "Mieszkania" },
   { value: "dom", label: "Domy" },
   { value: "dzialka", label: "Działki" },
-  { value: "lokal", label: "Lokale" },
+  { value: "lokal", label: "Lokale użytkowe" },
   { value: "pokoj", label: "Pokoje" },
   { value: "kawalerka", label: "Kawalerki" },
   { value: "rynek-pierwotny", label: "Rynek pierwotny" },
-  { value: "komercja", label: "Komercja" },
+  { value: "hala-magazyn", label: "Hale i magazyny" },
 ];
 
 const TRANSACTION_TYPES = [
@@ -147,11 +147,16 @@ export function FullscreenMapView({
       const listingType = l.propertyType?.toLowerCase() || "";
       const listingTitle = l.title?.toLowerCase() || "";
       if (mapPropertyType) {
-        if (mapPropertyType === "komercja") {
-          const isCommercial = ["lokal", "magazyn", "hala", "biuro"].some(
+        if (mapPropertyType === "hala-magazyn") {
+          const isWarehouse = ["magazyn", "hala", "produkcja"].some(
             (v) => listingType.includes(v) || listingTitle.includes(v)
           );
-          if (!isCommercial) return false;
+          if (!isWarehouse) return false;
+        } else if (mapPropertyType === "lokal") {
+          const isLokal = ["lokal", "usługow", "handlow", "biuro"].some(
+            (v) => listingType.includes(v) || listingTitle.includes(v)
+          );
+          if (!isLokal) return false;
         } else if (mapPropertyType === "rynek-pierwotny") {
           if (!(listingType.includes("inwestycja") || listingTitle.includes("inwestycja") || listingTitle.includes("deweloper"))) return false;
         } else if (!listingType.includes(mapPropertyType)) {

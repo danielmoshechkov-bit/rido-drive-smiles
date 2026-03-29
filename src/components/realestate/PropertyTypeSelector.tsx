@@ -12,11 +12,11 @@ const PROPERTY_TYPES = [
   { value: "mieszkanie", label: "Mieszkania", icon: Home },
   { value: "dom", label: "Domy", icon: Building },
   { value: "dzialka", label: "Działki", icon: Map },
-  { value: "lokal", label: "Lokale", icon: Building2 },
+  { value: "lokal", label: "Lokale użytkowe", icon: Building2 },
   { value: "pokoj", label: "Pokoje", icon: BedDouble },
   { value: "kawalerka", label: "Kawalerki", icon: Home },
   { value: "rynek-pierwotny", label: "Rynek pierwotny", icon: Landmark },
-  { value: "komercja", label: "Komercja", icon: Building2 },
+  { value: "hala-magazyn", label: "Hale i magazyny", icon: Building2 },
 ];
 
 export function PropertyTypeSelector({

@@ -79,6 +79,7 @@ const PROPERTY_TYPES = [
   { value: "lokal", label: "Lokal użytkowy" },
   { value: "pokoj", label: "Pokój" },
   { value: "inwestycja", label: "Inwestycja" },
+  { value: "hala-magazyn", label: "Hala / Magazyn" },
 ];
 
 const TRANSACTION_TYPES = [
@@ -86,7 +87,6 @@ const TRANSACTION_TYPES = [
   { value: "wynajem", label: "Wynajem" },
   { value: "wynajem-krotkoterminowy", label: "Wynajem krótkoterminowy" },
   { value: "rynek-pierwotny", label: "Rynek pierwotny" },
-  { value: "komercja", label: "Komercja" },
 ];
 
 const ROOMS_OPTIONS = [
