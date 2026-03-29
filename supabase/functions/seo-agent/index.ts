@@ -49,8 +49,8 @@ serve(async (req) => {
       .from("agent_listings")
       .select("id, title, description, property_type")
       .eq("status", "active")
-      .in("property_type", ["lokal", "komercja", "magazyn", "hala", "biuro", ""])
-      .limit(30);
+      .or("property_type.in.(lokal,komercja,magazyn,hala,biuro,lokal użytkowy,hala-magazyn),property_type.is.null,property_type.eq.")
+      .limit(50);
 
     for (const listing of toClassify || []) {
       try {
