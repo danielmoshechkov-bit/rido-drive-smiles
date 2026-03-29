@@ -283,7 +283,32 @@ export function ServiceProviderAccountingView() {
       )}
 
       {/* Zakupy */}
-      {subTab === 'zakupy' && <InventoryPurchaseOCR entityId={userEntities[0]?.id} />}
+      {subTab === 'zakupy' && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <Button
+              variant={!showKsefPurchase ? 'default' : 'outline'}
+              onClick={() => setShowKsefPurchase(false)}
+            >
+              <ShoppingBag className="h-4 w-4 mr-2" />
+              Zakupy (OCR)
+            </Button>
+            <Button
+              variant={showKsefPurchase ? 'default' : 'outline'}
+              onClick={() => setShowKsefPurchase(true)}
+              className="gap-2"
+            >
+              <Download className="h-4 w-4" />
+              Pobierz z KSeF
+            </Button>
+          </div>
+          {showKsefPurchase ? (
+            <PurchaseInvoicesKSeF entityId={userEntities[0]?.id} />
+          ) : (
+            <InventoryPurchaseOCR entityId={userEntities[0]?.id} />
+          )}
+        </div>
+      )}
 
       {/* Oczekujące na sprawdzenie */}
       {subTab === 'oczekujace' && <PendingInvoicesReview />}
@@ -329,6 +354,37 @@ export function ServiceProviderAccountingView() {
         onCreated={() => { setShowCompanySetup(false); setEditingEntity(null); loadData(); }}
         editEntity={editingEntity}
       />
+
+      {/* Missing company data modal */}
+      <Dialog open={showMissingCompanyModal} onOpenChange={setShowMissingCompanyModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Uzupełnij dane firmy
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Przed wystawieniem faktury musisz uzupełnić dane firmy, w tym NIP. 
+            Przejdź do zakładki KSeF → sekcji Token, aby uzupełnić dane.
+          </p>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowMissingCompanyModal(false)}>
+              Anuluj
+            </Button>
+            <Button onClick={() => {
+              setShowMissingCompanyModal(false);
+              if (!hasCompanySetup) {
+                setShowCompanySetup(true);
+              } else {
+                setSubTab('ksef');
+              }
+            }}>
+              {!hasCompanySetup ? 'Dodaj firmę' : 'Uzupełnij dane'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
