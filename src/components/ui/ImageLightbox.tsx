@@ -22,6 +22,7 @@ export function ImageLightbox({
   alt = "Image"
 }: ImageLightboxProps) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
   
   // Reset to initial index when opening
   useEffect(() => {
@@ -60,10 +61,30 @@ export function ImageLightbox({
 
   if (images.length === 0) return null;
 
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    setTouchStartX(e.touches[0]?.clientX ?? null);
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (touchStartX === null) return;
+    const touchEndX = e.changedTouches[0]?.clientX ?? touchStartX;
+    const diff = touchStartX - touchEndX;
+
+    if (Math.abs(diff) > 50 && images.length > 1) {
+      if (diff > 0) {
+        setCurrentIndex(prev => (prev < images.length - 1 ? prev + 1 : 0));
+      } else {
+        setCurrentIndex(prev => (prev > 0 ? prev - 1 : images.length - 1));
+      }
+    }
+
+    setTouchStartX(null);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent 
-        className="max-w-[95vw] w-[95vw] h-[90vh] p-0 bg-black/95 border-0 overflow-hidden flex flex-col"
+        className="max-w-[98vw] w-[98vw] h-[96vh] p-0 bg-black/95 border-0 overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close button - fixed position */}
@@ -75,12 +96,15 @@ export function ImageLightbox({
         </button>
 
         {/* Main image container - takes remaining space, fixed layout */}
-        <div className="flex-1 relative flex items-center justify-center min-h-0 px-16">
-          {/* Image with object-contain to fit within fixed container */}
+        <div
+          className="flex-1 relative flex items-center justify-center min-h-0 px-2 py-3 md:px-10"
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+        >
           <img
             src={images[currentIndex]}
             alt={`${alt} ${currentIndex + 1}`}
-            className="max-w-full max-h-full object-contain"
+            className="h-full w-full max-w-full object-contain"
           />
 
           {/* Navigation arrows - fixed position relative to container edges */}
@@ -88,13 +112,13 @@ export function ImageLightbox({
             <>
               <button
                 onClick={handlePrev}
-                className="absolute left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/70 hover:bg-black text-white transition-colors z-10"
+                className="absolute left-2 top-1/2 -translate-y-1/2 p-2 md:left-4 md:p-3 rounded-full bg-black/70 hover:bg-black text-white transition-colors z-10"
               >
                 <ChevronLeft className="h-8 w-8" />
               </button>
               <button
                 onClick={handleNext}
-                className="absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/70 hover:bg-black text-white transition-colors z-10"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 md:right-4 md:p-3 rounded-full bg-black/70 hover:bg-black text-white transition-colors z-10"
               >
                 <ChevronRight className="h-8 w-8" />
               </button>
@@ -120,7 +144,7 @@ export function ImageLightbox({
                     setCurrentIndex(idx);
                   }}
                   className={cn(
-                    "w-16 h-16 rounded-md overflow-hidden flex-shrink-0 border-2 transition-all",
+                    "h-14 w-14 md:h-16 md:w-16 rounded-md overflow-hidden flex-shrink-0 border-2 transition-all",
                     idx === currentIndex 
                       ? "border-white opacity-100" 
                       : "border-transparent opacity-60 hover:opacity-100"

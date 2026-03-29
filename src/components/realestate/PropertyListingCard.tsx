@@ -439,27 +439,23 @@ export function PropertyListingCard({
                 </div>
               )}
 
-              {/* Spacer */}
               <div className="flex-grow min-h-2" />
 
-              {/* Price & Action */}
-              <div className="flex items-center justify-between mt-auto pt-2">
-                <div>
-                  <span className="font-bold text-xl text-primary">
-                    {formatCurrency(listing.price)}
-                  </span>
-                  <span className="text-sm text-muted-foreground ml-1">
+              <div className="mt-auto pt-3">
+                <div className="text-xl font-bold leading-tight text-primary whitespace-nowrap">
+                  {formatCurrency(listing.price)}
+                  <span className="ml-1 text-sm font-medium text-muted-foreground">
                     {PRICE_TYPE_LABELS[listing.priceType || 'sale'] || ''}
                   </span>
-                  {pricePerM2 && (
-                    <div className="text-xs text-muted-foreground">
-                        {formatCurrency(pricePerM2).replace(' zł', '')} zł/m²
-                    </div>
-                  )}
                 </div>
-                <Button size="sm" onClick={onView}>
-                  Szczegóły
-                </Button>
+                <div className="mt-2 flex items-end justify-between gap-3">
+                  <div className="text-xs text-muted-foreground">
+                    {pricePerM2 ? `${formatCurrency(pricePerM2).replace(' zł', '')} zł/m²` : "—"}
+                  </div>
+                  <Button size="sm" onClick={onView}>
+                    Szczegóły
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
@@ -494,7 +490,7 @@ export function PropertyListingCard({
         <div 
           className={cn(
             "relative bg-muted overflow-hidden",
-            compact ? "aspect-[3/2]" : "aspect-[4/3]"
+            compact ? "aspect-[3/2]" : "aspect-[16/10]"
           )}
           onClick={handlePhotoClick}
         >
@@ -697,19 +693,24 @@ export function PropertyListingCard({
           <div className="flex-grow min-h-2" />
 
           {/* Price row - full width */}
-          <div className={cn("mt-auto pt-2", compact && "pt-1")}>
-            <div className="flex items-baseline justify-between">
+          <div className={cn("mt-auto pt-2", compact && "pt-1.5")}>
+            <div className={cn(
+              "font-bold text-primary leading-tight whitespace-nowrap",
+              compact ? "text-lg" : "text-[2rem]"
+            )}>
+              {formatCurrency(listing.price)}
+            </div>
+            <div className="mt-2 flex items-end justify-between gap-3">
               <div>
-                <span className={cn(
-                  "font-bold text-primary",
-                  compact ? "text-base" : "text-xl"
-                )}>
-                  {formatCurrency(listing.price)}
-                </span>
                 {!compact && (
-                  <span className="text-sm text-muted-foreground ml-1">
+                  <div className="text-sm text-muted-foreground">
                     {PRICE_TYPE_LABELS[listing.priceType || 'sale'] || ''}
-                  </span>
+                  </div>
+                )}
+                {pricePerM2 && !compact && (
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    {formatCurrency(pricePerM2).replace('\u00A0zł', '')} zł/m²
+                  </div>
                 )}
               </div>
               <Button 
@@ -720,11 +721,6 @@ export function PropertyListingCard({
                 {compact ? "Zobacz" : "Szczegóły"}
               </Button>
             </div>
-            {pricePerM2 && !compact && (
-              <div className="text-xs text-muted-foreground mt-0.5">
-                {formatCurrency(pricePerM2).replace('\u00A0zł', '')} zł/m²
-              </div>
-            )}
           </div>
 
           {/* Expandable Contact Section - hidden in compact mode */}

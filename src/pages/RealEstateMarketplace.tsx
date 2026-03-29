@@ -443,6 +443,11 @@ export default function RealEstateMarketplace() {
     return sorted;
   }, [listings, sortBy]);
 
+  const featuredListings = useMemo(() => {
+    const shuffled = [...sortedListings].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, 3);
+  }, [sortedListings]);
+
   // Pagination
   const totalPages = Math.max(1, Math.ceil(sortedListings.length / perPage));
   const paginatedListings = useMemo(() => {
@@ -771,7 +776,7 @@ export default function RealEstateMarketplace() {
           <div className="absolute inset-0 bg-gradient-to-b from-background/90 via-background/80 to-background" />
         </div>
 
-        <div className="relative container mx-auto px-4 py-8 md:py-12">
+        <div className="relative container mx-auto px-4 py-8 md:py-10">
           {/* AI Search Bar */}
           <div className="max-w-3xl mx-auto mb-6">
             <RealEstateAISearch 
@@ -786,7 +791,7 @@ export default function RealEstateMarketplace() {
           </div>
 
           {/* Title */}
-          <div className="text-center mb-2">
+          <div className="text-center mb-1">
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-1">
               Znajdź wymarzoną <span className="text-primary">nieruchomość</span>
             </h1>
@@ -799,20 +804,20 @@ export default function RealEstateMarketplace() {
           <PropertyTypeSelector
             selectedType={selectedPropertyType}
             onTypeChange={setSelectedPropertyType}
-            className="justify-center"
+            className="justify-center mt-5"
           />
 
-          {/* Transaction Type Chips - directly under property types, no gap */}
+          {/* Transaction Type Chips - directly under property types, subtle spacing */}
           <TransactionTypeChips
             selectedType={selectedTransactionType}
             onTypeChange={setSelectedTransactionType}
-            className="justify-center mt-1"
+            className="justify-center mt-3"
           />
         </div>
       </section>
 
       {/* Search Filters */}
-      <section className="container mx-auto px-4 py-4">
+      <section className="container mx-auto px-4 -mt-1 pb-4 relative z-10">
         <RealEstateSearch
           onSearch={handleSearch}
           listings={listings.map(l => ({
@@ -821,7 +826,7 @@ export default function RealEstateMarketplace() {
             lng: l.lng ?? undefined,
           }))}
           onViewListing={(id) => navigate(`/nieruchomosci/ogloszenie/${id}`)}
-          className="max-w-5xl mx-auto"
+          className="max-w-5xl mx-auto rounded-[1.75rem] border bg-card/95 shadow-lg"
         />
       </section>
 
@@ -1026,6 +1031,28 @@ export default function RealEstateMarketplace() {
               <p className="text-xs text-muted-foreground text-center mt-2">
                 {listings.filter(l => l.lat && l.lng).length} ogłoszeń na mapie
               </p>
+
+              {featuredListings.length > 0 && (
+                <div className="mt-6 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-primary" />
+                    <h2 className="text-base font-semibold">Polecane inwestycje</h2>
+                  </div>
+                  <div className="space-y-3">
+                    {featuredListings.map((listing) => (
+                      <PropertyListingCard
+                        key={`sidebar-featured-${listing.id}`}
+                        listing={listing}
+                        onView={() => navigate(`/nieruchomosci/ogloszenie/${listing.id}`)}
+                        onFavorite={() => console.log("Favorite:", listing.id)}
+                        isLoggedIn={!!user}
+                        compact
+                        variant="compact"
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1039,7 +1066,7 @@ export default function RealEstateMarketplace() {
 
       {/* Wyróżnione inwestycje - 3 random listings */}
       {!loading && listings.length > 0 && (
-        <section className="container mx-auto px-4 py-8">
+        <section className="container mx-auto px-4 py-8 lg:hidden">
           <div className="max-w-7xl mx-auto">
             <div className="flex items-center gap-3 mb-4">
               <Sparkles className="h-5 w-5 text-primary" />
@@ -1047,19 +1074,15 @@ export default function RealEstateMarketplace() {
               <Badge variant="secondary" className="text-xs">Promowane</Badge>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {(() => {
-                // Pick 3 random listings (shuffle and take first 3)
-                const shuffled = [...listings].sort(() => Math.random() - 0.5);
-                return shuffled.slice(0, 3).map((listing) => (
-                  <PropertyListingCard
-                    key={`featured-${listing.id}`}
-                    listing={listing}
-                    onView={() => navigate(`/nieruchomosci/ogloszenie/${listing.id}`)}
-                    onFavorite={() => console.log("Favorite:", listing.id)}
-                    isLoggedIn={!!user}
-                  />
-                ));
-              })()}
+              {featuredListings.map((listing) => (
+                <PropertyListingCard
+                  key={`featured-${listing.id}`}
+                  listing={listing}
+                  onView={() => navigate(`/nieruchomosci/ogloszenie/${listing.id}`)}
+                  onFavorite={() => console.log("Favorite:", listing.id)}
+                  isLoggedIn={!!user}
+                />
+              ))}
             </div>
           </div>
         </section>
