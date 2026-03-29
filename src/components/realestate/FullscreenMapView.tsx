@@ -277,14 +277,16 @@ export function FullscreenMapView({
   }, []);
 
   const showInfoWindow = useCallback(
-    (map: google.maps.Map, iw: google.maps.InfoWindow, listing: PropertyListingForMap) => {
-      iw.setContent(
-        `<div style="max-width:260px;font-family:system-ui,sans-serif;">${listing.photos?.[0] ? `<img src="${listing.photos[0]}" style="width:100%;height:100px;object-fit:cover;border-radius:6px 6px 0 0;" />` : ""}<div style="padding:10px;"><h3 style="margin:0 0 4px;font-size:13px;font-weight:600;line-height:1.3;">${listing.title}</h3><div style="font-size:15px;font-weight:700;color:#7c3aed;">${formatPriceFull(listing.price)}</div><div style="font-size:11px;color:#6b7280;margin-top:2px;">${listing.areaM2} m² ${listing.rooms ? `• ${listing.rooms} pok.` : ""} • ${listing.location}</div>${onViewListing ? `<button onclick="window.__ridoViewListing('${listing.id}')" style="margin-top:6px;padding:5px 14px;background:#7c3aed;color:white;border:none;border-radius:5px;font-size:11px;font-weight:600;cursor:pointer;">Szczegóły</button>` : ""}</div></div>`
-      );
-      iw.setPosition({ lat: listing.lat!, lng: listing.lng! });
-      iw.open(map);
+    (_map: google.maps.Map, _iw: google.maps.InfoWindow, listing: PropertyListingForMap) => {
+      // Only use React card overlay, no Google InfoWindow to avoid duplicates
+      setSelectedListing(listing);
+      setPreviewPhotoIndex(0);
+      setHoveredId(listing.id);
+      if (_map && listing.lat && listing.lng) {
+        _map.panTo({ lat: listing.lat, lng: listing.lng });
+      }
     },
-    [onViewListing]
+    []
   );
 
   // === Update markers ===
