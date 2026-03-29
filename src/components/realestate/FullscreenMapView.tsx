@@ -735,6 +735,9 @@ export function FullscreenMapView({
                     key={listing.id}
                     listing={listing}
                     isSelected={selectedListing?.id === listing.id}
+                    isHovered={hoveredId === listing.id}
+                    onMouseEnter={() => setHoveredId(listing.id)}
+                    onMouseLeave={() => setHoveredId(null)}
                     onClick={() => {
                       setSelectedListing(listing);
                       if (listing.lat && listing.lng && mapRef.current) {
@@ -786,24 +789,42 @@ export function FullscreenMapView({
 function SideListingCard({
   listing,
   isSelected,
+  isHovered,
+  onMouseEnter,
+  onMouseLeave,
   onClick,
   onView,
 }: {
   listing: PropertyListingForMap;
   isSelected: boolean;
+  isHovered?: boolean;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
   onClick: () => void;
   onView?: () => void;
 }) {
+  const cardRef = useRef<HTMLDivElement>(null);
   const transType = listing.transactionType?.toLowerCase() || "";
   const isRent = transType.includes("wynajem") || transType.includes("krótkoterminowy");
 
+  // Scroll into view when hovered from map marker
+  useEffect(() => {
+    if (isHovered && cardRef.current) {
+      cardRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [isHovered]);
+
   return (
     <div
+      ref={cardRef}
       className={cn(
-        "flex gap-3 p-3 cursor-pointer hover:bg-accent/50 transition-colors",
-        isSelected && "bg-accent"
+        "flex gap-3 p-3 cursor-pointer hover:bg-accent/50 transition-all",
+        isSelected && "bg-accent",
+        isHovered && "bg-primary/10 border-l-2 border-l-primary"
       )}
       onClick={onClick}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
     >
       {/* Thumbnail */}
       <div className="w-20 h-16 rounded-lg overflow-hidden bg-muted shrink-0">
