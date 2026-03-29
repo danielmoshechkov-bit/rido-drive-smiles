@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useGoogleMaps } from "@/hooks/useGoogleMaps";
 import {
-  X, MapPin, Search, Loader2, Home, PenTool, Circle, ChevronLeft, ChevronRight, Plus, Eye,
+  X, MapPin, Search, Loader2, Home, PenTool, Circle, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UniversalHomeButton } from "@/components/UniversalHomeButton";
