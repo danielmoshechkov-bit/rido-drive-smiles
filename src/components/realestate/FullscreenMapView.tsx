@@ -39,12 +39,53 @@ interface FullscreenMapViewProps {
   onNavigate?: (path: string) => void;
 }
 
-// Warsaw districts for autocomplete
-const WARSAW_DISTRICTS = [
-  "Bemowo", "Białołęka", "Bielany", "Mokotów", "Ochota",
-  "Praga-Południe", "Praga-Północ", "Rembertów", "Śródmieście",
-  "Targówek", "Ursus", "Ursynów", "Wawer", "Wesoła",
-  "Wilanów", "Włochy", "Wola", "Żoliborz",
+// Cities and districts for autocomplete
+const LOCATION_DATA: Array<{ name: string; type: 'miasto' | 'dzielnica'; parent?: string; lat: number; lng: number; zoom: number }> = [
+  // Cities
+  { name: "Warszawa", type: "miasto", lat: 52.2297, lng: 21.0122, zoom: 11 },
+  { name: "Kraków", type: "miasto", lat: 50.0647, lng: 19.9450, zoom: 12 },
+  { name: "Wrocław", type: "miasto", lat: 51.1079, lng: 17.0385, zoom: 12 },
+  { name: "Poznań", type: "miasto", lat: 52.4064, lng: 16.9252, zoom: 12 },
+  { name: "Gdańsk", type: "miasto", lat: 54.3520, lng: 18.6466, zoom: 12 },
+  { name: "Łódź", type: "miasto", lat: 51.7592, lng: 19.4560, zoom: 12 },
+  { name: "Szczecin", type: "miasto", lat: 53.4285, lng: 14.5528, zoom: 12 },
+  { name: "Lublin", type: "miasto", lat: 51.2465, lng: 22.5684, zoom: 12 },
+  { name: "Katowice", type: "miasto", lat: 50.2649, lng: 19.0238, zoom: 12 },
+  { name: "Białystok", type: "miasto", lat: 53.1325, lng: 23.1688, zoom: 12 },
+  { name: "Rzeszów", type: "miasto", lat: 50.0412, lng: 21.9991, zoom: 13 },
+  { name: "Toruń", type: "miasto", lat: 53.0138, lng: 18.5984, zoom: 13 },
+  { name: "Bydgoszcz", type: "miasto", lat: 53.1235, lng: 18.0084, zoom: 12 },
+  { name: "Opole", type: "miasto", lat: 50.6751, lng: 17.9213, zoom: 13 },
+  { name: "Radom", type: "miasto", lat: 51.4027, lng: 21.1471, zoom: 13 },
+  { name: "Kielce", type: "miasto", lat: 50.8661, lng: 20.6286, zoom: 13 },
+  { name: "Olsztyn", type: "miasto", lat: 53.7784, lng: 20.4801, zoom: 13 },
+  { name: "Częstochowa", type: "miasto", lat: 50.8118, lng: 19.1203, zoom: 13 },
+  { name: "Piaseczno", type: "miasto", lat: 52.0737, lng: 21.0234, zoom: 13 },
+  { name: "Ożarów Mazowiecki", type: "miasto", lat: 52.2204, lng: 20.7969, zoom: 13 },
+  { name: "Pruszków", type: "miasto", lat: 52.1707, lng: 20.8122, zoom: 14 },
+  { name: "Legionowo", type: "miasto", lat: 52.4014, lng: 20.9258, zoom: 14 },
+  { name: "Raszyn", type: "miasto", lat: 52.1575, lng: 20.9308, zoom: 14 },
+  { name: "Tarczyn", type: "miasto", lat: 51.9773, lng: 20.9141, zoom: 14 },
+  { name: "Nadarzyn", type: "miasto", lat: 52.0878, lng: 20.8080, zoom: 14 },
+  // Warsaw districts
+  { name: "Bemowo", type: "dzielnica", parent: "Warszawa", lat: 52.2545, lng: 20.9132, zoom: 13 },
+  { name: "Białołęka", type: "dzielnica", parent: "Warszawa", lat: 52.3225, lng: 20.9732, zoom: 13 },
+  { name: "Bielany", type: "dzielnica", parent: "Warszawa", lat: 52.2900, lng: 20.9430, zoom: 13 },
+  { name: "Mokotów", type: "dzielnica", parent: "Warszawa", lat: 52.1935, lng: 21.0448, zoom: 13 },
+  { name: "Ochota", type: "dzielnica", parent: "Warszawa", lat: 52.2145, lng: 20.9832, zoom: 14 },
+  { name: "Praga-Południe", type: "dzielnica", parent: "Warszawa", lat: 52.2345, lng: 21.0932, zoom: 13 },
+  { name: "Praga-Północ", type: "dzielnica", parent: "Warszawa", lat: 52.2585, lng: 21.0432, zoom: 14 },
+  { name: "Rembertów", type: "dzielnica", parent: "Warszawa", lat: 52.2605, lng: 21.1732, zoom: 14 },
+  { name: "Śródmieście", type: "dzielnica", parent: "Warszawa", lat: 52.2319, lng: 21.0060, zoom: 14 },
+  { name: "Targówek", type: "dzielnica", parent: "Warszawa", lat: 52.2925, lng: 21.0532, zoom: 13 },
+  { name: "Ursus", type: "dzielnica", parent: "Warszawa", lat: 52.1945, lng: 20.8832, zoom: 14 },
+  { name: "Ursynów", type: "dzielnica", parent: "Warszawa", lat: 52.1545, lng: 21.0432, zoom: 13 },
+  { name: "Wawer", type: "dzielnica", parent: "Warszawa", lat: 52.2005, lng: 21.1532, zoom: 13 },
+  { name: "Wesoła", type: "dzielnica", parent: "Warszawa", lat: 52.2565, lng: 21.2232, zoom: 14 },
+  { name: "Wilanów", type: "dzielnica", parent: "Warszawa", lat: 52.1645, lng: 21.0932, zoom: 13 },
+  { name: "Włochy", type: "dzielnica", parent: "Warszawa", lat: 52.2005, lng: 20.9132, zoom: 14 },
+  { name: "Wola", type: "dzielnica", parent: "Warszawa", lat: 52.2365, lng: 20.9632, zoom: 13 },
+  { name: "Żoliborz", type: "dzielnica", parent: "Warszawa", lat: 52.2685, lng: 20.9832, zoom: 14 },
 ];
 
 const PROPERTY_TYPE_PILLS = [
@@ -55,27 +96,6 @@ const PROPERTY_TYPE_PILLS = [
   { key: "magazyn", label: "Magazyny" },
 ];
 
-// District center coords (approximate) for Warsaw
-const DISTRICT_COORDS: Record<string, { lat: number; lng: number }> = {
-  "Bemowo": { lat: 52.2545, lng: 20.9132 },
-  "Białołęka": { lat: 52.3200, lng: 20.9700 },
-  "Bielany": { lat: 52.2900, lng: 20.9350 },
-  "Mokotów": { lat: 52.1950, lng: 21.0100 },
-  "Ochota": { lat: 52.2150, lng: 20.9850 },
-  "Praga-Południe": { lat: 52.2350, lng: 21.0700 },
-  "Praga-Północ": { lat: 52.2550, lng: 21.0400 },
-  "Rembertów": { lat: 52.2600, lng: 21.1500 },
-  "Śródmieście": { lat: 52.2300, lng: 21.0100 },
-  "Targówek": { lat: 52.2900, lng: 21.0600 },
-  "Ursus": { lat: 52.1950, lng: 20.8800 },
-  "Ursynów": { lat: 52.1450, lng: 21.0300 },
-  "Wawer": { lat: 52.1950, lng: 21.1500 },
-  "Wesoła": { lat: 52.2400, lng: 21.2200 },
-  "Wilanów": { lat: 52.1550, lng: 21.0800 },
-  "Włochy": { lat: 52.2050, lng: 20.9200 },
-  "Wola": { lat: 52.2350, lng: 20.9700 },
-  "Żoliborz": { lat: 52.2700, lng: 20.9850 },
-};
 
 export function FullscreenMapView({
   open,
@@ -134,11 +154,13 @@ export function FullscreenMapView({
     });
   }, [listings, mapPropertyType, showSale, showRent, searchQuery, drawnArea]);
 
-  // District suggestions
+  // Location suggestions (cities + districts)
   const suggestions = useMemo(() => {
     if (!searchQuery || searchQuery.length < 2) return [];
     const q = searchQuery.toLowerCase();
-    return WARSAW_DISTRICTS.filter((d) => d.toLowerCase().includes(q));
+    return LOCATION_DATA
+      .filter((loc) => loc.name.toLowerCase().includes(q))
+      .slice(0, 12);
   }, [searchQuery]);
 
   // Pagination for sidebar list
@@ -431,14 +453,13 @@ export function FullscreenMapView({
     setDrawingMode(false);
   }, []);
 
-  // === District select ===
-  const handleSelectDistrict = (district: string) => {
-    setSearchQuery(district);
+  // === Location select ===
+  const handleSelectLocation = (loc: typeof LOCATION_DATA[0]) => {
+    setSearchQuery(loc.name);
     setShowSuggestions(false);
-    const coords = DISTRICT_COORDS[district];
-    if (coords && mapRef.current) {
-      mapRef.current.setCenter(coords);
-      mapRef.current.setZoom(14);
+    if (mapRef.current) {
+      mapRef.current.setCenter({ lat: loc.lat, lng: loc.lng });
+      mapRef.current.setZoom(loc.zoom);
     }
   };
 
@@ -515,15 +536,20 @@ export function FullscreenMapView({
             className="h-8 w-36 sm:w-44 pl-7 text-xs"
           />
           {showSuggestions && suggestions.length > 0 && (
-            <div className="absolute top-full left-0 mt-1 w-48 bg-popover border rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto">
-              {suggestions.map((d) => (
+            <div className="absolute top-full left-0 mt-1 w-64 bg-popover border rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto">
+              {suggestions.map((loc) => (
                 <button
-                  key={d}
-                  onMouseDown={() => handleSelectDistrict(d)}
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors"
+                  key={`${loc.type}-${loc.name}`}
+                  onMouseDown={() => handleSelectLocation(loc)}
+                  className="w-full text-left px-3 py-2.5 text-sm hover:bg-accent transition-colors flex items-start gap-2"
                 >
-                  <MapPin className="inline h-3 w-3 mr-1.5 text-muted-foreground" />
-                  {d}
+                  <MapPin className="h-3.5 w-3.5 mt-0.5 text-muted-foreground shrink-0" />
+                  <div>
+                    <span className="font-medium">{loc.name}</span>
+                    <span className="text-xs text-muted-foreground ml-1.5">
+                      {loc.type === 'dzielnica' ? `dzielnica, ${loc.parent}` : 'miasto'}
+                    </span>
+                  </div>
                 </button>
               ))}
             </div>
