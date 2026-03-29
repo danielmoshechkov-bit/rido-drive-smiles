@@ -717,14 +717,24 @@ export function PropertyListingCard({
           <div className="mt-auto pt-2 border-t border-border/40">
             <div className="flex items-end justify-between gap-2">
               <div className="min-w-0">
-                <span className={cn(
-                  "font-bold text-primary leading-tight",
-                  compact ? "text-sm" : "text-base"
-                )}>
-                  {formatCurrency(listing.price)}
-                </span>
+                <div className="flex items-baseline gap-2">
+                  <span className={cn(
+                    "font-bold text-primary leading-tight",
+                    compact ? "text-sm" : "text-base"
+                  )}>
+                    {formatCurrency(listing.price)}
+                  </span>
+                  {displayArea > 0 && (
+                    <span className={cn(
+                      "font-semibold text-foreground",
+                      compact ? "text-xs" : "text-sm"
+                    )}>
+                      {displayArea}&nbsp;m²
+                    </span>
+                  )}
+                </div>
                 {!compact && (
-                  <span className="ml-1 text-xs font-normal text-muted-foreground">
+                  <span className="text-xs font-normal text-muted-foreground">
                     {PRICE_TYPE_LABELS[listing.priceType || 'sale'] || ''}
                   </span>
                 )}
