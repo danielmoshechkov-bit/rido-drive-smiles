@@ -889,7 +889,7 @@ export function FullscreenMapView({
               onClick={drawingMode === "circle" ? clearAllDrawing : startCircleDrawing}
           >
             <Circle className="h-3.5 w-3.5" />
-            OkrÄg
+            Okrąg
           </Button>
 
           {hasActiveDrawing && (
@@ -937,9 +937,9 @@ export function FullscreenMapView({
       {drawingMode && (
         <div className="shrink-0 bg-primary/10 border-b px-4 py-1.5 text-center text-xs font-medium text-primary">
           {drawingMode === "pen" ? (
-            <><PenTool className="inline h-3.5 w-3.5 mr-1.5" />Rysuj obszar â kliknij i przeciÄgnij po mapie</>
+            <><PenTool className="inline h-3.5 w-3.5 mr-1.5" />Rysuj obszar — kliknij i przeciągnij po mapie</>
           ) : (
-            <><Circle className="inline h-3.5 w-3.5 mr-1.5" />Kliknij na mapie, aby wstawiÄ okrÄg</>
+            <><Circle className="inline h-3.5 w-3.5 mr-1.5" />Kliknij na mapie, aby wstawić okrąg</>
           )}
         </div>
       )}
@@ -980,7 +980,7 @@ export function FullscreenMapView({
             <div className="absolute top-3 left-3 bg-background/95 backdrop-blur-sm rounded-lg shadow-md border px-3 py-2 z-10">
               <div className="flex items-center gap-2 text-xs">
                 <Circle className="h-3.5 w-3.5 text-primary" />
-                <span className="font-medium">OkrÄg: {(circleRadius / 1000).toFixed(1)} km</span>
+                <span className="font-medium">Okrąg: {(circleRadius / 1000).toFixed(1)} km</span>
                 {useBuffer && bufferDistance > 0 && (
                   <span className="text-muted-foreground">+ {bufferDistance}m bufor</span>
                 )}
@@ -1069,7 +1069,7 @@ export function FullscreenMapView({
         >
           {/* List header with pagination */}
           <div className="px-3 py-1.5 border-b bg-muted/50 flex items-center justify-between shrink-0">
-            <span className="text-xs font-medium">{filteredListings.length} ogÅoszeÅ</span>
+            <span className="text-xs font-medium">{filteredListings.length} ogłoszeń</span>
             <div className="flex items-center gap-1">
               <Button variant="ghost" size="icon" className="h-6 w-6" disabled={listPage === 1} onClick={() => setListPage((p) => p - 1)}>
                 <ChevronLeft className="h-3.5 w-3.5" />
@@ -1086,7 +1086,7 @@ export function FullscreenMapView({
             {paginatedSideListings.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <Home className="h-10 w-10 text-muted-foreground/30 mb-2" />
-                <p className="text-xs text-muted-foreground">Brak ogÅoszeÅ w tym obszarze</p>
+                <p className="text-xs text-muted-foreground">Brak ogłoszeń w tym obszarze</p>
               </div>
             ) : (
               <div className="divide-y">
