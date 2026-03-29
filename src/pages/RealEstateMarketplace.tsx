@@ -749,8 +749,11 @@ export default function RealEstateMarketplace() {
             {/* Universal home button - same size as other elements */}
             <UniversalHomeButton />
             
-            {/* Portal name only - no duplicate logo */}
-            <span className="font-bold text-lg md:text-xl text-primary">
+            {/* Portal name - clickable, scrolls to top */}
+            <span 
+              className="font-bold text-lg md:text-xl text-primary cursor-pointer hover:opacity-80 transition-opacity"
+              onClick={() => { navigate('/nieruchomosci'); window.scrollTo(0, 0); }}
+            >
               Nieruchomości
             </span>
           </div>
