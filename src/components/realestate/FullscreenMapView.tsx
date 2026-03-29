@@ -455,7 +455,7 @@ export function FullscreenMapView({
     if (drawnArea && drawnArea.length >= 3) {
       selectionMaskRef.current = new google.maps.Polygon({
         map: mapRef.current,
-        paths: [WORLD_MASK_PATH, [...drawnArea].reverse()],
+        paths: [WORLD_MASK_PATH, [...drawnArea]],
         strokeColor: "#7c3aed",
         strokeWeight: 2,
         strokeOpacity: 0.8,
@@ -474,7 +474,7 @@ export function FullscreenMapView({
       const circlePath = createCirclePolygon(circleCenter, effectiveRadius);
       selectionMaskRef.current = new google.maps.Polygon({
         map: mapRef.current,
-        paths: [WORLD_MASK_PATH, [...circlePath].reverse()],
+        paths: [WORLD_MASK_PATH, [...circlePath]],
         strokeColor: "#7c3aed",
         strokeWeight: 2,
         strokeOpacity: 0.8,
@@ -501,7 +501,7 @@ export function FullscreenMapView({
     const paths: google.maps.LatLngLiteral[][] = [WORLD_MASK_PATH];
     districtCoordsRef.current.forEach(coordRings => {
       coordRings.forEach(ring => {
-        paths.push([...ring].reverse());
+        paths.push([...ring]);
       });
     });
 
@@ -722,11 +722,11 @@ export function FullscreenMapView({
       districtCoordsRef.current.forEach(coordRings => {
         const highlight = new google.maps.Polygon({
           paths: coordRings,
-          strokeColor: '#10b981',
+          strokeColor: '#7c3aed',
           strokeWeight: 2.5,
           strokeOpacity: 0.9,
-          fillColor: '#10b981',
-          fillOpacity: 0.12,
+          fillColor: '#ffffff',
+          fillOpacity: 0.01,
           map: mapRef.current,
           clickable: false,
         });
@@ -765,11 +765,11 @@ export function FullscreenMapView({
       districtCoordsRef.current.forEach(coordRings => {
         const highlight = new google.maps.Polygon({
           paths: coordRings,
-          strokeColor: '#10b981',
+          strokeColor: '#7c3aed',
           strokeWeight: 2.5,
           strokeOpacity: 0.9,
-          fillColor: '#10b981',
-          fillOpacity: 0.12,
+          fillColor: '#ffffff',
+          fillOpacity: 0.01,
           map: mapRef.current,
           clickable: false,
         });
@@ -861,12 +861,12 @@ export function FullscreenMapView({
 
           {/* Selected districts chips */}
           {selectedDistricts.length > 0 && (
-            <div className="flex items-center gap-1 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap">
               {selectedDistricts.map(name => (
-                <span key={name} className="inline-flex items-center gap-1 bg-primary/10 text-primary text-xs px-2 py-1 rounded-full">
+                <span key={name} className="inline-flex items-center gap-1.5 rounded-full border-2 border-primary/30 bg-background px-3 py-1.5 text-sm font-medium text-primary shadow-sm">
                   {name}
-                  <button onClick={() => removeDistrictBoundary(name)} className="hover:text-destructive">
-                    <X className="h-3 w-3" />
+                  <button onClick={() => removeDistrictBoundary(name)} className="rounded-full p-0.5 text-primary/80 transition-colors hover:bg-primary/10 hover:text-primary">
+                    <X className="h-3.5 w-3.5" />
                   </button>
                 </span>
               ))}
@@ -900,7 +900,7 @@ export function FullscreenMapView({
               onClick={clearAllDrawing}
             >
               <X className="h-3.5 w-3.5 mr-0.5" />
-              Usuń
+              Usuń
             </Button>
           )}
 
@@ -1046,7 +1046,7 @@ export function FullscreenMapView({
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-primary text-base">{formatPriceFull(selectedListing.price)}</span>
-                    <span className="text-xs text-muted-foreground">{selectedListing.areaM2}mÂ²</span>
+                    <span className="text-xs text-muted-foreground">{selectedListing.areaM2}m²</span>
                   </div>
                   {onViewListing && (
                     <Button size="sm" className="w-full mt-2 h-8 text-xs" onClick={() => onViewListing(selectedListing.id)}>
@@ -1172,9 +1172,9 @@ function SideListingCard({
           <span className="font-bold text-xs text-primary whitespace-nowrap">
             {listing.price.toLocaleString("pl-PL")}{"\u00A0"}zł
           </span>
-          <span className="text-[11px] text-muted-foreground whitespace-nowrap">
-            {listing.areaM2}mÂ²
-          </span>
+            <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+              {listing.areaM2}m²
+            </span>
         </div>
       </div>
     </div>
