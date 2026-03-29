@@ -197,7 +197,12 @@ export function VehiclePhotoGallery({ photos, title }: VehiclePhotoGalleryProps)
       {/* Lightbox Modal */}
       <Dialog open={lightboxOpen} onOpenChange={setLightboxOpen}>
         <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 bg-black/95 border-0">
-          <div className="relative w-full h-[85vh] flex items-center justify-center">
+          <div 
+            className="relative w-full h-[85vh] flex items-center justify-center"
+            onTouchStart={handleLbTouchStart}
+            onTouchMove={handleLbTouchMove}
+            onTouchEnd={handleLbTouchEnd}
+          >
             {/* Close Button */}
             <button
               onClick={() => setLightboxOpen(false)}
