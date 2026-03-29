@@ -551,7 +551,7 @@ export function LocationSearchInput({
                       <button
                         key={district}
                         className={cn(
-                          "w-full flex items-center gap-3 px-2 py-2 hover:bg-muted rounded-md text-left transition-colors",
+                          "w-full flex items-center gap-3 px-3 py-2.5 hover:bg-muted rounded-md text-left transition-colors",
                           isChecked && "bg-primary/10"
                         )}
                         onClick={(e) => {
@@ -559,14 +559,14 @@ export function LocationSearchInput({
                           toggleDistrict(district);
                         }}
                       >
-                        <div className={cn(
-                          "h-4 w-4 rounded border flex items-center justify-center shrink-0 transition-colors",
-                          isChecked ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground/30"
-                        )}>
-                          {isChecked && <span className="text-[10px]">✓</span>}
-                        </div>
+                        <Checkbox
+                          checked={isChecked}
+                          className="shrink-0"
+                          tabIndex={-1}
+                        />
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium">{district}</p>
+                          <span className="text-sm font-medium">{district}</span>
+                          <span className="text-xs text-muted-foreground ml-2">dzielnica, {matchedCity}</span>
                         </div>
                       </button>
                     );

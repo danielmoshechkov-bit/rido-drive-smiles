@@ -36,10 +36,10 @@ export function PropertyTypeSelector({
         onClick={() => onTypeChange(isSelected ? null : type.value)}
         className={cn(
           "flex items-center gap-2 px-4 py-2 rounded-full border transition-all",
-          "text-sm font-medium",
+          "text-sm font-medium shadow-sm",
           isSelected
             ? "bg-primary text-primary-foreground border-primary shadow-md"
-            : "bg-background hover:bg-muted border-border hover:border-primary/50"
+            : "bg-background/90 hover:bg-muted border-border/60 hover:border-primary/50 backdrop-blur-sm"
         )}
       >
         <Icon className="h-4 w-4" />

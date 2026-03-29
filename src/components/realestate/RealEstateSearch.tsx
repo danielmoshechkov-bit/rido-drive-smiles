@@ -440,6 +440,17 @@ export function RealEstateSearch({ onSearch, onShowMapResults, onDrawSearch, onV
             </CollapsibleTrigger>
           </Collapsible>
 
+          {onDrawSearch && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={onDrawSearch}
+            >
+              <Map className="h-4 w-4" />
+              <span className="hidden sm:inline">Zaznacz na mapie</span>
+            </Button>
+          )}
         </div>
 
         <Collapsible open={showAdvanced} onOpenChange={setShowAdvanced}>
