@@ -372,7 +372,7 @@ export function FullscreenMapView({
         mapTypeControl: false,
         streetViewControl: false,
         fullscreenControl: false,
-        gestureHandling: "greedy",
+        gestureHandling: "cooperative",
       });
       mapRef.current = map;
       infoWindowRef.current = new google.maps.InfoWindow();
@@ -431,7 +431,7 @@ export function FullscreenMapView({
       google.maps.event.removeListener(mouseDownListener);
       google.maps.event.removeListener(mouseMoveListener);
       google.maps.event.removeListener(mouseUpListener);
-      map.setOptions({ draggable: true, gestureHandling: "greedy" });
+      map.setOptions({ draggable: true, gestureHandling: "cooperative" });
       polyline.setMap(null);
       if (path.length < 3) { setDrawingMode(false); return; }
       const points = path.map((p) => ({ lat: p.lat(), lng: p.lng() }));
