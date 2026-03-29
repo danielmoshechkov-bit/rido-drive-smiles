@@ -168,7 +168,10 @@ export function FullscreenMapView({
       if (mapTransactionType === "sprzedaz" && !(transType.includes("sprzedaż") || transType.includes("sprzedaz"))) return false;
       if (mapTransactionType === "wynajem" && !transType.includes("wynajem")) return false;
       if (mapTransactionType === "wynajem-krotkoterminowy" && !(transType.includes("krótkoterminowy") || transType.includes("krotkoterminowy"))) return false;
-      if (searchQuery) {
+      // District boundary filter (polygon-based, accurate)
+      if (districtBoundary && districtBoundary.length >= 3) {
+        if (!isPointInPolygon(l.lat, l.lng, districtBoundary)) return false;
+      } else if (searchQuery) {
         const q = searchQuery.toLowerCase();
         const inLocation = l.location?.toLowerCase().includes(q);
         const inDistrict = l.district?.toLowerCase().includes(q);
@@ -193,7 +196,7 @@ export function FullscreenMapView({
       }
       return true;
     });
-  }, [listings, mapPropertyType, mapTransactionType, searchQuery, drawnArea, circleCenter, circleRadius, bufferDistance, useBuffer]);
+  }, [listings, mapPropertyType, mapTransactionType, searchQuery, drawnArea, circleCenter, circleRadius, bufferDistance, useBuffer, districtBoundary]);
 
   // Location suggestions
   const suggestions = useMemo(() => {
