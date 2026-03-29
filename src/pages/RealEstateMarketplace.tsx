@@ -1104,7 +1104,7 @@ export default function RealEstateMarketplace() {
       )}
 
       {/* Wyróżnione inwestycje - 3 random listings */}
-      {!loading && listings.length > 0 && (
+      {!loading && !showFullMap && listings.length > 0 && (
         <section className="container mx-auto px-4 py-8 lg:hidden">
           <div className="max-w-7xl mx-auto">
             <div className="flex items-center gap-3 mb-4">
@@ -1168,30 +1168,8 @@ export default function RealEstateMarketplace() {
         isLoggedIn={!!user}
       />
 
-      {/* Fullscreen Map View */}
-      <FullscreenMapView
-        open={showFullMap}
-        onClose={() => setShowFullMap(false)}
-        listings={listings.map(l => ({
-          id: l.id,
-          title: l.title,
-          price: l.price,
-          priceType: l.priceType,
-          photos: l.photos,
-          location: l.location,
-          district: l.district,
-          areaM2: l.areaM2,
-          rooms: l.rooms,
-          propertyType: l.propertyType,
-          transactionType: l.transactionType,
-          transactionColor: l.transactionColor,
-          lat: l.lat ?? undefined,
-          lng: l.lng ?? undefined,
-        }))}
-        onViewListing={(id) => navigate(`/nieruchomosci/ogloszenie/${id}`)}
-        user={user}
-        onNavigate={(path) => navigate(path)}
-      />
+
+
 
     </div>
   );
