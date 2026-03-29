@@ -830,8 +830,47 @@ export default function RealEstateMarketplace() {
         />
       </section>
 
+      {/* Fullscreen Map View - INLINE below hero */}
+      {showFullMap && (
+        <section className="container mx-auto px-4 py-4">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex items-center justify-between mb-3">
+              <Button variant="ghost" size="sm" onClick={() => setShowFullMap(false)} className="gap-1.5 -ml-2">
+                <ChevronLeft className="h-4 w-4" />
+                Wróć do listy
+              </Button>
+            </div>
+            <div className="rounded-xl border overflow-hidden shadow-lg">
+              <FullscreenMapView
+                open={showFullMap}
+                onClose={() => setShowFullMap(false)}
+                listings={listings.map(l => ({
+                  id: l.id,
+                  title: l.title,
+                  price: l.price,
+                  priceType: l.priceType,
+                  photos: l.photos,
+                  location: l.location,
+                  district: l.district,
+                  areaM2: l.areaM2,
+                  rooms: l.rooms,
+                  propertyType: l.propertyType,
+                  transactionType: l.transactionType,
+                  transactionColor: l.transactionColor,
+                  lat: l.lat ?? undefined,
+                  lng: l.lng ?? undefined,
+                }))}
+                onViewListing={(id) => navigate(`/nieruchomosci/ogloszenie/${id}`)}
+                user={user}
+                onNavigate={(path) => navigate(path)}
+              />
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* Results Count & View Toggle */}
-      <section className="container mx-auto px-4 py-2">
+      {!showFullMap && <section className="container mx-auto px-4 py-2">
         <div className="flex items-center justify-between max-w-7xl mx-auto">
           <p className="text-sm text-muted-foreground">
             {loading ? (
@@ -909,10 +948,10 @@ export default function RealEstateMarketplace() {
             </div>
           </div>
         </div>
-      </section>
+      </section>}
 
       {/* Main Content: Listings + Mini Map */}
-      {!loading && <section className="container mx-auto px-3 sm:px-4 py-6 overflow-x-hidden">
+      {!loading && !showFullMap && <section className="container mx-auto px-3 sm:px-4 py-6 overflow-x-hidden">
           <div className="flex gap-6 max-w-7xl mx-auto items-start">
           {/* Listings Column */}
           <div className="flex-1 min-w-0">
@@ -1065,7 +1104,7 @@ export default function RealEstateMarketplace() {
       )}
 
       {/* Wyróżnione inwestycje - 3 random listings */}
-      {!loading && listings.length > 0 && (
+      {!loading && !showFullMap && listings.length > 0 && (
         <section className="container mx-auto px-4 py-8 lg:hidden">
           <div className="max-w-7xl mx-auto">
             <div className="flex items-center gap-3 mb-4">
@@ -1129,30 +1168,8 @@ export default function RealEstateMarketplace() {
         isLoggedIn={!!user}
       />
 
-      {/* Fullscreen Map View */}
-      <FullscreenMapView
-        open={showFullMap}
-        onClose={() => setShowFullMap(false)}
-        listings={listings.map(l => ({
-          id: l.id,
-          title: l.title,
-          price: l.price,
-          priceType: l.priceType,
-          photos: l.photos,
-          location: l.location,
-          district: l.district,
-          areaM2: l.areaM2,
-          rooms: l.rooms,
-          propertyType: l.propertyType,
-          transactionType: l.transactionType,
-          transactionColor: l.transactionColor,
-          lat: l.lat ?? undefined,
-          lng: l.lng ?? undefined,
-        }))}
-        onViewListing={(id) => navigate(`/nieruchomosci/ogloszenie/${id}`)}
-        user={user}
-        onNavigate={(path) => navigate(path)}
-      />
+
+
 
     </div>
   );
