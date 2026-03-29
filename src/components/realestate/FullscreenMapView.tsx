@@ -123,6 +123,8 @@ export function FullscreenMapView({
   const districtMaskRef = useRef<google.maps.Polygon | null>(null);
   const circleRef = useRef<google.maps.Circle | null>(null);
   const selectionMaskRef = useRef<google.maps.Polygon | null>(null);
+  const selectionHighlightRef = useRef<google.maps.Polygon | null>(null);
+  const districtHighlightRef = useRef<google.maps.Polygon[]>([]);
   const drawingCleanupRef = useRef<(() => void) | null>(null);
   const isBrushDrawingRef = useRef(false);
   // Track if we just finished drawing to suppress click-through
@@ -446,41 +448,64 @@ export function FullscreenMapView({
 
     selectionMaskRef.current?.setMap(null);
     selectionMaskRef.current = null;
+    selectionHighlightRef.current?.setMap(null);
+    selectionHighlightRef.current = null;
 
     if (drawnArea && drawnArea.length >= 3) {
-      // Inverted mask: purple everywhere EXCEPT inside the drawn area
+      // 1. Dark overlay with hole for drawn area
       selectionMaskRef.current = new google.maps.Polygon({
         map: mapRef.current,
         paths: [WORLD_MASK_PATH, [...drawnArea].reverse()],
         strokeOpacity: 0,
         strokeWeight: 0,
-        fillColor: "#7c3aed",
-        fillOpacity: 0.22,
+        fillColor: "#000000",
+        fillOpacity: 0.35,
         clickable: false,
+        zIndex: 1,
+      });
+      // 2. Purple highlight on selected area
+      selectionHighlightRef.current = new google.maps.Polygon({
+        map: mapRef.current,
+        paths: [...drawnArea],
+        strokeColor: "#7c3aed",
+        strokeWeight: 2.5,
+        strokeOpacity: 1,
+        fillColor: "#7c3aed",
+        fillOpacity: 0.15,
+        clickable: false,
+        zIndex: 2,
       });
 
-      // Drawn area outline (clear inside)
-      drawingPolygonRef.current?.setOptions({
-        strokeColor: "#7c3aed",
-        strokeWeight: 2,
-        strokeOpacity: 0.95,
-        fillColor: "#ffffff",
-        fillOpacity: 0.02,
-      });
+      drawingPolygonRef.current?.setMap(null);
       return;
     }
 
     if (circleCenter) {
       const effectiveRadius = circleRadius + (useBuffer ? bufferDistance : 0);
       const circlePath = createCirclePolygon(circleCenter, effectiveRadius);
+      // 1. Dark overlay with hole for circle
       selectionMaskRef.current = new google.maps.Polygon({
         map: mapRef.current,
         paths: [WORLD_MASK_PATH, circlePath.reverse()],
         strokeOpacity: 0,
         strokeWeight: 0,
-        fillColor: "#7c3aed",
-        fillOpacity: 0.22,
+        fillColor: "#000000",
+        fillOpacity: 0.35,
         clickable: false,
+        zIndex: 1,
+      });
+      // 2. Purple highlight on circle area
+      const circleHighlightPath = createCirclePolygon(circleCenter, effectiveRadius);
+      selectionHighlightRef.current = new google.maps.Polygon({
+        map: mapRef.current,
+        paths: circleHighlightPath,
+        strokeColor: "#7c3aed",
+        strokeWeight: 2,
+        strokeOpacity: 0.9,
+        fillColor: "#7c3aed",
+        fillOpacity: 0.12,
+        clickable: false,
+        zIndex: 2,
       });
     }
   }, [google, drawnArea, circleCenter, circleRadius, bufferDistance, useBuffer]);
@@ -488,14 +513,15 @@ export function FullscreenMapView({
   // === Rebuild district mask when districtBoundaries changes ===
   const rebuildDistrictMask = useCallback(() => {
     if (!mapRef.current || !google) return;
-    // Remove old mask
+    // Remove old overlays
     districtMaskRef.current?.setMap(null);
     districtMaskRef.current = null;
+    districtHighlightRef.current.forEach(p => p.setMap(null));
+    districtHighlightRef.current = [];
 
     if (districtCoordsRef.current.length === 0) return;
 
-    // Create inverted mask: purple everywhere EXCEPT inside district areas
-    // paths[0] = world, paths[1..N] = each district ring (reversed to cut holes)
+    // 1. Dark overlay with holes for district areas
     const paths: google.maps.LatLngLiteral[][] = [WORLD_MASK_PATH];
     districtCoordsRef.current.forEach(coordRings => {
       coordRings.forEach(ring => {
@@ -508,9 +534,26 @@ export function FullscreenMapView({
       paths,
       strokeOpacity: 0,
       strokeWeight: 0,
-      fillColor: "#7c3aed",
-      fillOpacity: 0.22,
+      fillColor: "#000000",
+      fillOpacity: 0.35,
       clickable: false,
+      zIndex: 1,
+    });
+
+    // 2. Purple highlight on each district
+    districtCoordsRef.current.forEach(coordRings => {
+      const highlight = new google.maps.Polygon({
+        map: mapRef.current,
+        paths: coordRings,
+        strokeColor: "#7c3aed",
+        strokeWeight: 2,
+        strokeOpacity: 0.9,
+        fillColor: "#7c3aed",
+        fillOpacity: 0.12,
+        clickable: false,
+        zIndex: 2,
+      });
+      districtHighlightRef.current.push(highlight);
     });
   }, [google]);
 
@@ -675,6 +718,8 @@ export function FullscreenMapView({
     circleRef.current = null;
     selectionMaskRef.current?.setMap(null);
     selectionMaskRef.current = null;
+    selectionHighlightRef.current?.setMap(null);
+    selectionHighlightRef.current = null;
     isBrushDrawingRef.current = false;
     setDrawnArea(null);
     setCircleCenter(null);
@@ -797,6 +842,8 @@ export function FullscreenMapView({
       districtPolygonsRef.current = [];
       districtMaskRef.current?.setMap(null);
       districtMaskRef.current = null;
+      districtHighlightRef.current.forEach(p => p.setMap(null));
+      districtHighlightRef.current = [];
       districtCoordsRef.current = [];
       setDistrictBoundaries([]);
       setSelectedDistricts([]);
@@ -822,7 +869,7 @@ export function FullscreenMapView({
               onChange={(e) => { setSearchQuery(e.target.value); setShowSuggestions(true); }}
               onFocus={() => setShowSuggestions(true)}
               onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-              className="h-9 rounded-full border-border/80 bg-background pl-9 text-sm"
+              className="h-10 rounded-full border-2 border-[#7A4EDA]/50 bg-background pl-9 text-sm shadow-sm focus:border-[#7A4EDA] focus:ring-0 transition-colors"
             />
             {showSuggestions && suggestions.length > 0 && (
               <div className="absolute top-full left-0 mt-1 w-full rounded-xl border bg-popover shadow-lg z-50 max-h-60 overflow-y-auto">
