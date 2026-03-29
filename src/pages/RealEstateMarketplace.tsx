@@ -1080,6 +1080,8 @@ export default function RealEstateMarketplace() {
           lng: l.lng ?? undefined,
         }))}
         onViewListing={(id) => navigate(`/nieruchomosci/ogloszenie/${id}`)}
+        user={user}
+        onNavigate={(path) => navigate(path)}
       />
 
     </div>
