@@ -614,27 +614,28 @@ export function PropertyListingCard({
         </div>
 
         {/* Content */}
-        <div className={cn("p-3.5 flex flex-col flex-1", compact && "p-2.5")}>
-          {/* Title - 2 linijki, większa czcionka */}
+        {/* Content */}
+        <div className={cn("p-3 flex flex-col flex-1 gap-0", compact && "p-2.5")}>
+          {/* Title */}
           <h3 className={cn(
             "font-semibold leading-snug text-foreground",
-            compact ? "text-sm line-clamp-2 min-h-[2.5rem]" : "text-[1.05rem] line-clamp-3 min-h-[4.6rem]"
+            compact ? "text-xs line-clamp-2 mb-0.5" : "text-sm line-clamp-2 mb-1"
           )}>{listing.title}</h3>
 
-          {/* Property Type & Area & Rooms - Single row */}
+          {/* Property Type & Area & Rooms */}
           <div className={cn(
-            "flex flex-wrap items-center gap-x-2 gap-y-1 text-muted-foreground mt-2",
-            compact ? "text-xs" : "text-sm"
+            "flex flex-wrap items-center gap-x-2 gap-y-0.5 text-muted-foreground mt-1 mb-2",
+            "text-xs"
           )}>
             {listing.propertyType && (
               <span className="flex items-center gap-1">
-                <Home className={cn(compact ? "h-3 w-3" : "h-3.5 w-3.5")} />
+                <Home className="h-3 w-3" />
                 {PROPERTY_TYPE_LABELS[listing.propertyType] || listing.propertyType}
               </span>
             )}
-            {displayArea && (
+            {displayArea > 0 && (
               <span className="flex items-center gap-1">
-                <Maximize className={cn(compact ? "h-3 w-3" : "h-3.5 w-3.5")} />
+                <Maximize className="h-3 w-3" />
                 {displayArea} m²
               </span>
             )}
@@ -643,72 +644,69 @@ export function PropertyListingCard({
             )}
             {listing.buildYear && (
               <span className="flex items-center gap-1">
-                <Calendar className="h-3.5 w-3.5" />
+                <Calendar className="h-3 w-3" />
                 {listing.buildYear}
               </span>
             )}
             {!compact && listing.floor !== undefined && listing.floorsTotal && (
               <span className="flex items-center gap-1">
-                <Layers className="h-3.5 w-3.5" />
-                Piętro {listing.floor}/{listing.floorsTotal}
+                <Layers className="h-3 w-3" />
+                {listing.floor}/{listing.floorsTotal} p.
               </span>
             )}
           </div>
 
-          {/* Location - Separate clear row */}
+          {/* Location */}
           {listing.location && (
-            <div className={cn(
-              "flex items-center gap-1 text-muted-foreground mt-1.5",
-              compact ? "text-xs" : "text-sm"
-            )}>
-              <MapPin className={cn(compact ? "h-3 w-3 flex-shrink-0" : "h-3.5 w-3.5 flex-shrink-0")} />
+            <div className="flex items-center gap-1 text-muted-foreground text-xs">
+              <MapPin className="h-3 w-3 flex-shrink-0" />
               <span className="truncate">
                 {listing.district ? `${fixPolishCase(listing.district)}, ${fixPolishCase(listing.location)}` : fixPolishCase(listing.location)}
               </span>
             </div>
           )}
 
-          {/* Amenities - Wrap naturally, no fixed height */}
+          {/* Amenities */}
           {!compact && (listing.hasBalcony || listing.hasElevator || listing.hasParking || listing.hasGarden || listing.marketType === 'pierwotny') && (
-            <div className="flex flex-wrap gap-1.5 mt-2">
+            <div className="flex flex-wrap gap-1 mt-1.5">
               {listing.hasBalcony && (
-                <Badge variant="secondary" className="text-xs px-2 py-0.5">Balkon</Badge>
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Balkon</Badge>
               )}
               {listing.hasElevator && (
-                <Badge variant="secondary" className="text-xs px-2 py-0.5">Winda</Badge>
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Winda</Badge>
               )}
               {listing.hasParking && (
-                <Badge variant="secondary" className="text-xs px-2 py-0.5">Parking</Badge>
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Parking</Badge>
               )}
               {listing.hasGarden && (
-                <Badge variant="secondary" className="text-xs px-2 py-0.5">Ogród</Badge>
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Ogród</Badge>
               )}
               {listing.marketType === 'pierwotny' && (
-                <Badge variant="outline" className="text-xs px-2 py-0.5">Rynek pierwotny</Badge>
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0">Rynek pierwotny</Badge>
               )}
             </div>
           )}
 
-          {/* Spacer to push price to bottom */}
+          {/* Spacer */}
           <div className="flex-grow min-h-1" />
 
-          {/* Price row - full width */}
-          <div className={cn("mt-auto pt-2.5", compact && "pt-2")}>
-            <div className={cn(
-              "font-bold text-primary leading-tight",
-              compact ? "text-lg" : "text-[1.9rem]"
-            )}>
-              {formatCurrency(listing.price)}
-            </div>
-            <div className="mt-2 flex items-end justify-between gap-2">
+          {/* Price - pinned to bottom */}
+          <div className="mt-auto pt-2 border-t border-border/40">
+            <div className="flex items-end justify-between gap-2">
               <div className="min-w-0">
+                <span className={cn(
+                  "font-bold text-primary leading-tight",
+                  compact ? "text-base" : "text-lg"
+                )}>
+                  {formatCurrency(listing.price)}
+                </span>
                 {!compact && (
-                  <div className="text-sm text-muted-foreground">
+                  <span className="ml-1 text-xs font-normal text-muted-foreground">
                     {PRICE_TYPE_LABELS[listing.priceType || 'sale'] || ''}
-                  </div>
+                  </span>
                 )}
-                {pricePerM2 && !compact && (
-                  <div className="text-xs text-muted-foreground mt-0.5">
+                {pricePerM2 && (
+                  <div className="text-xs text-muted-foreground leading-none mt-0.5">
                     {formatCurrency(pricePerM2).replace('\u00A0zł', '')} zł/m²
                   </div>
                 )}
@@ -716,24 +714,22 @@ export function PropertyListingCard({
               <Button 
                 size="sm"
                 onClick={onView}
-                className={cn("shrink-0 rounded-xl px-4", compact && "h-7 px-3 text-xs")}
+                className={cn("shrink-0 rounded-xl px-3 py-1.5 text-xs h-auto", compact && "h-7 px-2.5")}
               >
                 {compact ? "Zobacz" : "Szczegóły"}
               </Button>
             </div>
           </div>
 
-          {/* Expandable Contact Section - hidden in compact mode */}
+          {/* Contact toggle */}
           {!compact && (
-            <>
-              <button
-                onClick={(e) => handleShowContact(e)}
-                className="w-full mt-2.5 pt-2.5 border-t text-sm text-muted-foreground hover:text-foreground transition-colors text-left flex items-center gap-2"
-              >
-                {!isLoggedIn && <Lock className="h-3.5 w-3.5" />}
-                {showContact ? "Ukryj kontakt ▲" : "Pokaż kontakt ▼"}
-              </button>
-            </>
+            <button
+              onClick={(e) => handleShowContact(e)}
+              className="w-full mt-2 pt-2 border-t text-xs text-muted-foreground hover:text-foreground transition-colors text-left flex items-center gap-1.5"
+            >
+              {!isLoggedIn && <Lock className="h-3 w-3" />}
+              {showContact ? "Ukryj kontakt ▲" : "Pokaż kontakt ▼"}
+            </button>
           )}
         </div>
 
