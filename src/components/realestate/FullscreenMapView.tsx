@@ -535,31 +535,8 @@ export function FullscreenMapView({
   const hasActiveDrawing = !!(drawnArea || circleCenter);
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-background overflow-hidden">
-      {/* === HEADER === */}
-      <header className="shrink-0 z-30 bg-background/95 backdrop-blur-md border-b px-4 py-2">
-        <div className="flex items-center justify-between max-w-[2000px] mx-auto">
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={onClose} className="gap-1.5 -ml-1">
-              <ChevronLeft className="h-4 w-4" />
-              <span className="hidden sm:inline">Wróć do listy</span>
-            </Button>
-            <UniversalHomeButton />
-            <span className="font-bold text-base text-primary">Nieruchomości</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <MyGetRidoButton user={user} />
-            <Button
-              size="sm"
-              onClick={() => onNavigate?.(user ? '/nieruchomosci/agent/panel?tab=add' : '/auth?redirect=/nieruchomosci/agent/panel?tab=add')}
-              className="rounded-full h-8 text-xs"
-            >
-              <Plus className="h-3.5 w-3.5 mr-1" />
-              <span className="hidden sm:inline">Dodaj ogłoszenie</span>
-            </Button>
-          </div>
-        </div>
-      </header>
+    <div className="flex flex-col bg-background" style={{ height: 'calc(100vh - 300px)', minHeight: '500px' }}>
+
 
       {/* === TOOLBAR === */}
       <div className="shrink-0 border-b bg-card/80 backdrop-blur-sm px-4 py-2">
