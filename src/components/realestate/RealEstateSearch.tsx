@@ -444,44 +444,8 @@ export function RealEstateSearch({ onSearch, onShowMapResults, onDrawSearch, onV
 
         <Collapsible open={showAdvanced} onOpenChange={setShowAdvanced}>
           <CollapsibleContent className="pt-3 space-y-3">
-            {/* Rooms & Year */}
+            {/* Year & Market */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div>
-                <Label className="text-xs text-muted-foreground mb-1 block">Pokoje od</Label>
-                <Select
-                  value={filters.roomsFrom?.toString()}
-                  onValueChange={(v) => updateFilter("roomsFrom", parseInt(v))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Min" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ROOMS_OPTIONS.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground mb-1 block">Pokoje do</Label>
-                <Select
-                  value={filters.roomsTo?.toString()}
-                  onValueChange={(v) => updateFilter("roomsTo", parseInt(v))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Max" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ROOMS_OPTIONS.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
               <div>
                 <Label className="text-xs text-muted-foreground mb-1 block">Rok budowy od</Label>
                 <Input
