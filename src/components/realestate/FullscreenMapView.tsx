@@ -455,7 +455,7 @@ export function FullscreenMapView({
     if (drawnArea && drawnArea.length >= 3) {
       selectionMaskRef.current = new google.maps.Polygon({
         map: mapRef.current,
-        paths: [WORLD_MASK_PATH, [...drawnArea]],
+        paths: [WORLD_MASK_PATH, [...drawnArea].reverse()],
         strokeColor: "#7c3aed",
         strokeWeight: 2,
         strokeOpacity: 0.8,
@@ -474,7 +474,7 @@ export function FullscreenMapView({
       const circlePath = createCirclePolygon(circleCenter, effectiveRadius);
       selectionMaskRef.current = new google.maps.Polygon({
         map: mapRef.current,
-        paths: [WORLD_MASK_PATH, circlePath],
+        paths: [WORLD_MASK_PATH, [...circlePath].reverse()],
         strokeColor: "#7c3aed",
         strokeWeight: 2,
         strokeOpacity: 0.8,
@@ -501,7 +501,7 @@ export function FullscreenMapView({
     const paths: google.maps.LatLngLiteral[][] = [WORLD_MASK_PATH];
     districtCoordsRef.current.forEach(coordRings => {
       coordRings.forEach(ring => {
-        paths.push([...ring]);
+        paths.push([...ring].reverse());
       });
     });
 
