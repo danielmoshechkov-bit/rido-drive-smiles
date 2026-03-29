@@ -1205,9 +1205,9 @@ function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
 
 const WORLD_MASK_PATH = [
   { lat: -85, lng: -180 },
-  { lat: -85, lng: 180 },
-  { lat: 85, lng: 180 },
   { lat: 85, lng: -180 },
+  { lat: 85, lng: 180 },
+  { lat: -85, lng: 180 },
 ];
 
 function createCirclePolygon(
