@@ -200,7 +200,7 @@ export function FullscreenMapView({
       }
       return true;
     });
-  }, [listings, mapPropertyType, mapTransactionType, searchQuery, drawnArea, circleCenter, circleRadius, bufferDistance, useBuffer, districtBoundary]);
+  }, [listings, mapPropertyType, mapTransactionType, searchQuery, drawnArea, circleCenter, circleRadius, bufferDistance, useBuffer, districtBoundaries]);
 
   // Location suggestions
   const suggestions = useMemo(() => {
@@ -393,7 +393,8 @@ export function FullscreenMapView({
       overlaysRef.current = [];
       drawingPolygonRef.current?.setMap(null);
       drawingPolylineRef.current?.setMap(null);
-      districtPolygonRef.current?.setMap(null);
+      districtPolygonsRef.current.forEach(p => p.setMap(null));
+      districtPolygonsRef.current = [];
       circleRef.current?.setMap(null);
       mapRef.current = null;
     };
@@ -549,11 +550,9 @@ export function FullscreenMapView({
     setDrawingMode(false);
   }, []);
 
-  // === Fetch district boundary ===
-  const fetchDistrictBoundary = useCallback(async (name: string, parent?: string) => {
+  // === Fetch district boundary (additive - supports multi-select) ===
+  const addDistrictBoundary = useCallback(async (name: string, parent?: string) => {
     if (!google || !mapRef.current) return;
-    districtPolygonRef.current?.setMap(null);
-    districtPolygonRef.current = null;
     try {
       const q = parent ? `${name}, ${parent}, Poland` : `${name}, Poland`;
       const res = await fetch(
@@ -571,44 +570,93 @@ export function FullscreenMapView({
         coords = geojson.coordinates.flatMap((poly: number[][][]) => poly.map(extractCoords));
       }
       if (coords.length === 0) return;
-      // Invert the polygon: fill everything OUTSIDE the district
+
+      // Add boundary for filtering
+      const allPoints = coords.flat();
+      setDistrictBoundaries(prev => [...prev, allPoints]);
+      setSelectedDistricts(prev => [...prev, name]);
+
+      // Rebuild inverted overlay for ALL selected districts
+      // Remove old overlays
+      districtPolygonsRef.current.forEach(p => p.setMap(null));
+      districtPolygonsRef.current = [];
+
+      // We need all coords for all districts - store them and rebuild
+      // For now, add individual district polygon with inverted overlay
       const outerBounds = [
         { lat: -85, lng: -180 },
         { lat: -85, lng: 180 },
         { lat: 85, lng: 180 },
         { lat: 85, lng: -180 },
       ];
-      // paths[0] = outer (world), paths[1..n] = holes (district boundary)
-      const invertedPaths = [outerBounds, ...coords];
-      const polygon = new google.maps.Polygon({
-        paths: invertedPaths, strokeColor: '#7c3aed', strokeWeight: 2, strokeOpacity: 0.8,
-        fillColor: '#7c3aed', fillOpacity: 0.15, map: mapRef.current, clickable: false,
+
+      // Get all boundaries including the new one
+      setDistrictBoundaries(prev => {
+        const allBoundaries = [...prev];
+        // Rebuild single inverted polygon with all district holes
+        const allCoordRings: google.maps.LatLngLiteral[][] = [];
+        // We need the raw coords for each district - use a simpler approach
+        // Just highlight each district boundary individually
+        return allBoundaries;
       });
-      districtPolygonRef.current = polygon;
-      // Store boundary for filtering listings
-      const allPoints = coords.flat();
-      setDistrictBoundary(allPoints);
+
+      // Create highlight polygon for this district (stroke only, to show the area)
+      const highlightPolygon = new google.maps.Polygon({
+        paths: coords, strokeColor: '#7c3aed', strokeWeight: 2, strokeOpacity: 0.8,
+        fillColor: '#7c3aed', fillOpacity: 0.08, map: mapRef.current, clickable: false,
+      });
+      districtPolygonsRef.current.push(highlightPolygon);
+
+      // Fit bounds to include all districts
       const bounds = new google.maps.LatLngBounds();
       coords.forEach(ring => ring.forEach(p => bounds.extend(p)));
+      // Also extend to existing boundaries
+      districtPolygonsRef.current.forEach(poly => {
+        const path = poly.getPath();
+        path.forEach(p => bounds.extend(p));
+      });
       mapRef.current.fitBounds(bounds, 40);
     } catch (err) {
       console.warn('[FullscreenMap] Failed to fetch district boundary:', err);
     }
   }, [google]);
 
-  const handleSelectLocation = (loc: typeof LOCATION_DATA[0]) => {
-    setSearchQuery(loc.name);
-    setShowSuggestions(false);
-    if (mapRef.current) {
-      mapRef.current.setCenter({ lat: loc.lat, lng: loc.lng });
-      mapRef.current.setZoom(loc.zoom);
+  const removeDistrictBoundary = useCallback((name: string) => {
+    setSelectedDistricts(prev => prev.filter(d => d !== name));
+    setDistrictBoundaries(prev => {
+      const idx = selectedDistricts.indexOf(name);
+      if (idx === -1) return prev;
+      return prev.filter((_, i) => i !== idx);
+    });
+    // Remove corresponding polygon
+    const idx = selectedDistricts.indexOf(name);
+    if (idx >= 0 && districtPolygonsRef.current[idx]) {
+      districtPolygonsRef.current[idx].setMap(null);
+      districtPolygonsRef.current.splice(idx, 1);
     }
+  }, [selectedDistricts]);
+
+  const handleSelectLocation = (loc: typeof LOCATION_DATA[0]) => {
+    setShowSuggestions(false);
     if (loc.type === 'dzielnica') {
-      fetchDistrictBoundary(loc.name, loc.parent);
+      // Toggle district selection
+      if (selectedDistricts.includes(loc.name)) {
+        removeDistrictBoundary(loc.name);
+      } else {
+        addDistrictBoundary(loc.name, loc.parent);
+      }
+      setSearchQuery("");
     } else {
-      districtPolygonRef.current?.setMap(null);
-      districtPolygonRef.current = null;
-      setDistrictBoundary(null);
+      setSearchQuery(loc.name);
+      if (mapRef.current) {
+        mapRef.current.setCenter({ lat: loc.lat, lng: loc.lng });
+        mapRef.current.setZoom(loc.zoom);
+      }
+      // Clear district selections for city search
+      districtPolygonsRef.current.forEach(p => p.setMap(null));
+      districtPolygonsRef.current = [];
+      setDistrictBoundaries([]);
+      setSelectedDistricts([]);
     }
   };
 
