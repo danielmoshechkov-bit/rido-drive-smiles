@@ -46,10 +46,10 @@ serve(async (req) => {
 
     // STEP 0: Category classification — fix property_type for commercial listings
     const { data: toClassify } = await supabase
-      .from("agent_listings")
+      .from("real_estate_listings")
       .select("id, title, description, property_type")
       .eq("status", "active")
-      .or("property_type.in.(lokal,komercja,magazyn,hala,biuro,lokal użytkowy,hala-magazyn),property_type.is.null,property_type.eq.")
+      .in("property_type", ["lokal", "komercja", "magazyn", "hala", "biuro", "lokal użytkowy", ""])
       .limit(50);
 
     for (const listing of toClassify || []) {
@@ -75,7 +75,7 @@ Odpowiedz TYLKO JSON:
         const result = JSON.parse(jsonMatch[0]);
         if (result.confidence >= 0.7 && result.property_type !== listing.property_type) {
           await supabase
-            .from("agent_listings")
+            .from("real_estate_listings")
             .update({ property_type: result.property_type })
             .eq("id", listing.id);
           results.categories_fixed++;
