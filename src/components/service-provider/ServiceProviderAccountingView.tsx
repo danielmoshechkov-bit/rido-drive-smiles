@@ -82,6 +82,15 @@ export function ServiceProviderAccountingView() {
   };
 
   const hasCompanySetup = userEntities.some((e: any) => e.is_active !== false);
+  const hasNip = userEntities.some((e: any) => e.nip);
+
+  const handleNewInvoice = () => {
+    if (!hasCompanySetup || !hasNip) {
+      setShowMissingCompanyModal(true);
+    } else {
+      setShowNewInvoice(true);
+    }
+  };
 
   return (
     <div className="space-y-4">
