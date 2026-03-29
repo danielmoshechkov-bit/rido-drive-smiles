@@ -9,6 +9,22 @@ import {
   MapPin, Map, Search, Clock, Building2, ChevronRight, X, Loader2, Navigation, List, RefreshCw, AlertCircle
 } from "lucide-react";
 
+// Warsaw districts data
+const WARSAW_DISTRICTS = [
+  "Bemowo", "Białołęka", "Bielany", "Mokotów", "Ochota",
+  "Praga-Południe", "Praga-Północ", "Rembertów", "Śródmieście",
+  "Targówek", "Ursus", "Ursynów", "Wawer", "Wesoła",
+  "Wilanów", "Włochy", "Wola", "Żoliborz",
+];
+
+const CITY_DISTRICTS: Record<string, string[]> = {
+  "Warszawa": WARSAW_DISTRICTS,
+  "Kraków": ["Stare Miasto", "Grzegórzki", "Prądnik Czerwony", "Prądnik Biały", "Krowodrza", "Bronowice", "Dębniki", "Łagiewniki", "Podgórze", "Nowa Huta", "Bieżanów", "Czyżyny"],
+  "Wrocław": ["Stare Miasto", "Śródmieście", "Krzyki", "Fabryczna", "Psie Pole"],
+  "Poznań": ["Stare Miasto", "Nowe Miasto", "Wilda", "Grunwald", "Jeżyce"],
+  "Gdańsk": ["Śródmieście", "Wrzeszcz", "Oliwa", "Morena", "Przymorze", "Zaspa", "Osowa", "Łostowice"],
+};
+
 const FALLBACK_LOCATIONS: LocationSelection[] = [
   { text: "Warszawa", lat: 52.2297, lng: 21.0122, types: ["locality"] },
   { text: "Warszawa, Mokotów", lat: 52.1935, lng: 21.0448, types: ["sublocality_level_1"] },
