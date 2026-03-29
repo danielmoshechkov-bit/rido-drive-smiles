@@ -205,6 +205,11 @@ export default function PropertyDetailPage() {
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [showMessageDialog, setShowMessageDialog] = useState(false);
 
+  // Scroll to top on mount
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [id]);
+
   useEffect(() => {
     const checkUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
