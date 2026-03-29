@@ -7,7 +7,7 @@ import { UserDropdown } from '@/components/UserDropdown';
 import { UniversalHomeButton } from '@/components/UniversalHomeButton';
 import { MyGetRidoButton } from '@/components/MyGetRidoButton';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Loader2, LayoutDashboard, Plug, BarChart3, Users, Bot, Sparkles, Shield, Settings, FileText } from 'lucide-react';
+import { Loader2, LayoutDashboard, Plug, BarChart3, Users, Bot, Sparkles, Shield, Settings, FileText, Brain } from 'lucide-react';
 import { MarketingDashboardTab } from '@/components/marketing/MarketingDashboardTab';
 import { MarketingConnectionsTab } from '@/components/marketing/MarketingConnectionsTab';
 import { MarketingCampaignsTab } from '@/components/marketing/MarketingCampaignsTab';
@@ -17,6 +17,7 @@ import { MarketingCreatorTab } from '@/components/marketing/MarketingCreatorTab'
 import { MarketingTeamTab } from '@/components/marketing/MarketingTeamTab';
 import { MarketingSettingsTab } from '@/components/marketing/MarketingSettingsTab';
 import { MarketingOrdersTab } from '@/components/marketing/MarketingOrdersTab';
+import { MarketingAIReportsTab } from '@/components/marketing/MarketingAIReportsTab';
 
 export default function AdminMarketing() {
   const navigate = useNavigate();
@@ -84,6 +85,7 @@ export default function AdminMarketing() {
     { value: 'ai-agent', label: 'AI Agent', icon: Bot },
     { value: 'creator', label: 'Kreator Reklam', icon: Sparkles },
     { value: 'team', label: 'Zespół', icon: Shield },
+    { value: 'ai-reports', label: 'Raporty AI', icon: Brain },
     { value: 'settings', label: 'Ustawienia', icon: Settings },
   ];
 
@@ -168,6 +170,7 @@ export default function AdminMarketing() {
           <TabsContent value="ai-agent"><MarketingAIAgentTab /></TabsContent>
           <TabsContent value="creator"><MarketingCreatorTab /></TabsContent>
           <TabsContent value="team"><MarketingTeamTab /></TabsContent>
+          <TabsContent value="ai-reports"><MarketingAIReportsTab /></TabsContent>
           <TabsContent value="settings"><MarketingSettingsTab /></TabsContent>
         </Tabs>
       </div>
