@@ -6,17 +6,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
-import { Settings, Key, Zap, FileText, Loader2, Save } from 'lucide-react';
+import { Settings, Key, Zap, FileText, Loader2, Save, Bell } from 'lucide-react';
 
 export function MarketingSettingsTab() {
   const [settings, setSettings] = useState<any>({
     agency_name: 'GetRido Marketing',
     contact_email: '',
     contact_phone: '',
-    anthropic_api_key_encrypted: '',
-    gemini_api_key_encrypted: '',
     roas_stop_threshold: 1.5,
     roas_boost_threshold: 4.0,
     max_boost_percent: 30,
@@ -27,19 +24,36 @@ export function MarketingSettingsTab() {
   const [saving, setSaving] = useState(false);
   const [settingsId, setSettingsId] = useState<string | null>(null);
 
+  // Notification settings
+  const [notifSettings, setNotifSettings] = useState<any>({
+    notification_email: '',
+    notify_new_orders: true,
+    notify_status_changes: true,
+    notify_new_leads: true,
+  });
+  const [notifId, setNotifId] = useState<string | null>(null);
+
   useEffect(() => { loadSettings(); }, []);
 
   const loadSettings = async () => {
-    const { data } = await supabase.from('agency_settings').select('*').limit(1).maybeSingle();
-    if (data) {
-      setSettings(data);
-      setSettingsId(data.id);
+    const [{ data: agencyData }, { data: notifData }] = await Promise.all([
+      supabase.from('agency_settings').select('*').limit(1).maybeSingle(),
+      (supabase as any).from('marketing_notification_settings').select('*').limit(1).maybeSingle(),
+    ]);
+    if (agencyData) {
+      setSettings(agencyData);
+      setSettingsId(agencyData.id);
+    }
+    if (notifData) {
+      setNotifSettings(notifData);
+      setNotifId(notifData.id);
     }
     setLoading(false);
   };
 
   const saveSettings = async () => {
     setSaving(true);
+    // Save agency settings
     const { id, created_at, updated_at, ...payload } = settings;
     if (settingsId) {
       await supabase.from('agency_settings').update(payload).eq('id', settingsId);
@@ -47,6 +61,16 @@ export function MarketingSettingsTab() {
       const { data } = await supabase.from('agency_settings').insert(payload).select().single();
       if (data) setSettingsId(data.id);
     }
+
+    // Save notification settings
+    const { id: nId, created_at: nCa, updated_at: nUa, ...notifPayload } = notifSettings;
+    if (notifId) {
+      await (supabase as any).from('marketing_notification_settings').update(notifPayload).eq('id', notifId);
+    } else {
+      const { data } = await (supabase as any).from('marketing_notification_settings').insert(notifPayload).select().single();
+      if (data) setNotifId(data.id);
+    }
+
     toast.success('Ustawienia zapisane');
     setSaving(false);
   };
@@ -76,28 +100,51 @@ export function MarketingSettingsTab() {
           <CardDescription>Klucze są skonfigurowane jako Supabase Secrets i gotowe do użycia</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="flex items-center gap-3 p-3 rounded-lg bg-green-50 border border-green-200">
-            <div className="h-2.5 w-2.5 rounded-full bg-green-500 shrink-0" />
-            <div>
-              <p className="text-sm font-medium">Anthropic API (Claude)</p>
-              <p className="text-xs text-muted-foreground">ANTHROPIC_API_KEY — skonfigurowany ✓</p>
+          {[
+            { name: 'Anthropic API (Claude)', key: 'ANTHROPIC_API_KEY' },
+            { name: 'Google API (Gemini)', key: 'GOOGLE_API_KEY' },
+            { name: 'Lovable AI Gateway', key: 'LOVABLE_API_KEY' },
+            { name: 'Resend (Email)', key: 'RESEND_API_KEY' },
+          ].map(api => (
+            <div key={api.key} className="flex items-center gap-3 p-3 rounded-lg bg-green-50 border border-green-200">
+              <div className="h-2.5 w-2.5 rounded-full bg-green-500 shrink-0" />
+              <div>
+                <p className="text-sm font-medium">{api.name}</p>
+                <p className="text-xs text-muted-foreground">{api.key} — skonfigurowany ✓</p>
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-3 p-3 rounded-lg bg-green-50 border border-green-200">
-            <div className="h-2.5 w-2.5 rounded-full bg-green-500 shrink-0" />
-            <div>
-              <p className="text-sm font-medium">Google API (Gemini)</p>
-              <p className="text-xs text-muted-foreground">GOOGLE_API_KEY — skonfigurowany ✓</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 p-3 rounded-lg bg-green-50 border border-green-200">
-            <div className="h-2.5 w-2.5 rounded-full bg-green-500 shrink-0" />
-            <div>
-              <p className="text-sm font-medium">Lovable AI Gateway</p>
-              <p className="text-xs text-muted-foreground">LOVABLE_API_KEY — skonfigurowany ✓</p>
-            </div>
-          </div>
+          ))}
           <p className="text-xs text-muted-foreground">Klucze API zarządzane są w ustawieniach Supabase Edge Functions. Nie trzeba ich podawać ręcznie.</p>
+        </CardContent>
+      </Card>
+
+      {/* Notifications */}
+      <Card>
+        <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Bell className="h-4 w-4" /> Powiadomienia email</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label>Email powiadomień</Label>
+            <Input
+              value={notifSettings.notification_email || ''}
+              onChange={e => setNotifSettings((s: any) => ({ ...s, notification_email: e.target.value }))}
+              placeholder="marketing@firma.pl"
+            />
+            <p className="text-xs text-muted-foreground mt-1">Na ten adres będą przychodziły powiadomienia o nowych zleceniach</p>
+          </div>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label>Nowe zlecenia reklam</Label>
+              <Switch checked={notifSettings.notify_new_orders} onCheckedChange={v => setNotifSettings((s: any) => ({ ...s, notify_new_orders: v }))} />
+            </div>
+            <div className="flex items-center justify-between">
+              <Label>Zmiany statusów</Label>
+              <Switch checked={notifSettings.notify_status_changes} onCheckedChange={v => setNotifSettings((s: any) => ({ ...s, notify_status_changes: v }))} />
+            </div>
+            <div className="flex items-center justify-between">
+              <Label>Nowe leady klientów</Label>
+              <Switch checked={notifSettings.notify_new_leads} onCheckedChange={v => setNotifSettings((s: any) => ({ ...s, notify_new_leads: v }))} />
+            </div>
+          </div>
         </CardContent>
       </Card>
 
