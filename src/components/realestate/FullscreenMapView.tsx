@@ -453,9 +453,11 @@ export function FullscreenMapView({
     selectionMaskRef.current = null;
 
     if (drawnArea && drawnArea.length >= 3) {
+      const outerMaskPath = ensureCounterClockwise(WORLD_MASK_PATH);
+      const selectionHolePath = ensureClockwise(drawnArea);
       selectionMaskRef.current = new google.maps.Polygon({
         map: mapRef.current,
-        paths: [WORLD_MASK_PATH, [...drawnArea]],
+        paths: [outerMaskPath, selectionHolePath],
         strokeColor: "#7c3aed",
         strokeWeight: 2,
         strokeOpacity: 0.8,
@@ -471,10 +473,11 @@ export function FullscreenMapView({
 
     if (circleCenter) {
       const effectiveRadius = circleRadius + (useBuffer ? bufferDistance : 0);
-      const circlePath = createCirclePolygon(circleCenter, effectiveRadius);
+      const outerMaskPath = ensureCounterClockwise(WORLD_MASK_PATH);
+      const circlePath = ensureClockwise(createCirclePolygon(circleCenter, effectiveRadius));
       selectionMaskRef.current = new google.maps.Polygon({
         map: mapRef.current,
-        paths: [WORLD_MASK_PATH, [...circlePath]],
+        paths: [outerMaskPath, circlePath],
         strokeColor: "#7c3aed",
         strokeWeight: 2,
         strokeOpacity: 0.8,
@@ -498,10 +501,10 @@ export function FullscreenMapView({
     if (districtCoordsRef.current.length === 0) return;
 
     // 1. Dark overlay with holes for district areas
-    const paths: google.maps.LatLngLiteral[][] = [WORLD_MASK_PATH];
+    const paths: google.maps.LatLngLiteral[][] = [ensureCounterClockwise(WORLD_MASK_PATH)];
     districtCoordsRef.current.forEach(coordRings => {
       coordRings.forEach(ring => {
-        paths.push([...ring]);
+        paths.push(ensureClockwise(ring));
       });
     });
 
@@ -1209,6 +1212,28 @@ const WORLD_MASK_PATH = [
   { lat: 85, lng: 180 },
   { lat: -85, lng: 180 },
 ];
+
+function getPolygonSignedArea(points: Array<{ lat: number; lng: number }>): number {
+  let area = 0;
+
+  for (let i = 0; i < points.length; i += 1) {
+    const current = points[i];
+    const next = points[(i + 1) % points.length];
+    area += current.lng * next.lat - next.lng * current.lat;
+  }
+
+  return area / 2;
+}
+
+function ensureClockwise(points: Array<{ lat: number; lng: number }>): Array<{ lat: number; lng: number }> {
+  if (points.length < 3) return [...points];
+  return getPolygonSignedArea(points) <= 0 ? [...points] : [...points].reverse();
+}
+
+function ensureCounterClockwise(points: Array<{ lat: number; lng: number }>): Array<{ lat: number; lng: number }> {
+  if (points.length < 3) return [...points];
+  return getPolygonSignedArea(points) >= 0 ? [...points] : [...points].reverse();
+}
 
 function createCirclePolygon(
   center: { lat: number; lng: number },
