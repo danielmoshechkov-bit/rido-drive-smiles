@@ -1171,13 +1171,13 @@ function SideListingCard({
           <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", isRent ? "bg-blue-500" : "bg-emerald-500")} />
           <span className="text-[11px] text-muted-foreground truncate">{listing.location}</span>
         </div>
-        <div className="mt-0.5 flex items-center justify-between gap-1">
+        <div className="mt-0.5 flex items-center gap-2">
           <span className="font-bold text-xs text-primary whitespace-nowrap">
             {listing.price.toLocaleString("pl-PL")}{"\u00A0"}zł
           </span>
-            <span className="text-[11px] text-muted-foreground whitespace-nowrap">
-              {listing.areaM2} m²
-            </span>
+          <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+            {listing.areaM2} m²
+          </span>
         </div>
       </div>
     </div>
