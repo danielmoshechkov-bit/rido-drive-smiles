@@ -455,28 +455,16 @@ export function FullscreenMapView({
     selectionHighlightRef.current = null;
 
     if (drawnArea && drawnArea.length >= 3) {
-      // 1. Dark overlay with hole for drawn area
       selectionMaskRef.current = new google.maps.Polygon({
         map: mapRef.current,
         paths: [WORLD_MASK_PATH, [...drawnArea].reverse()],
-        strokeOpacity: 0,
-        strokeWeight: 0,
-        fillColor: "#000000",
-        fillOpacity: 0.35,
+        strokeColor: "#7c3aed",
+        strokeWeight: 2,
+        strokeOpacity: 0.8,
+        fillColor: "#1a1a1a",
+        fillOpacity: 0.45,
         clickable: false,
         zIndex: 1,
-      });
-      // 2. Purple highlight on selected area
-      selectionHighlightRef.current = new google.maps.Polygon({
-        map: mapRef.current,
-        paths: [...drawnArea],
-        strokeColor: "#7c3aed",
-        strokeWeight: 2.5,
-        strokeOpacity: 1,
-        fillColor: "#7c3aed",
-        fillOpacity: 0.15,
-        clickable: false,
-        zIndex: 2,
       });
 
       drawingPolygonRef.current?.setMap(null);
@@ -486,29 +474,16 @@ export function FullscreenMapView({
     if (circleCenter) {
       const effectiveRadius = circleRadius + (useBuffer ? bufferDistance : 0);
       const circlePath = createCirclePolygon(circleCenter, effectiveRadius);
-      // 1. Dark overlay with hole for circle
       selectionMaskRef.current = new google.maps.Polygon({
         map: mapRef.current,
         paths: [WORLD_MASK_PATH, circlePath.reverse()],
-        strokeOpacity: 0,
-        strokeWeight: 0,
-        fillColor: "#000000",
-        fillOpacity: 0.35,
-        clickable: false,
-        zIndex: 1,
-      });
-      // 2. Purple highlight on circle area
-      const circleHighlightPath = createCirclePolygon(circleCenter, effectiveRadius);
-      selectionHighlightRef.current = new google.maps.Polygon({
-        map: mapRef.current,
-        paths: circleHighlightPath,
         strokeColor: "#7c3aed",
         strokeWeight: 2,
-        strokeOpacity: 0.9,
-        fillColor: "#7c3aed",
-        fillOpacity: 0.12,
+        strokeOpacity: 0.8,
+        fillColor: "#1a1a1a",
+        fillOpacity: 0.45,
         clickable: false,
-        zIndex: 2,
+        zIndex: 1,
       });
     }
   }, [google, drawnArea, circleCenter, circleRadius, bufferDistance, useBuffer]);
@@ -535,28 +510,13 @@ export function FullscreenMapView({
     districtMaskRef.current = new google.maps.Polygon({
       map: mapRef.current,
       paths,
-      strokeOpacity: 0,
-      strokeWeight: 0,
-      fillColor: "#000000",
-      fillOpacity: 0.35,
+      strokeColor: "#7c3aed",
+      strokeWeight: 2,
+      strokeOpacity: 0.8,
+      fillColor: "#1a1a1a",
+      fillOpacity: 0.45,
       clickable: false,
       zIndex: 1,
-    });
-
-    // 2. Purple highlight on each district
-    districtCoordsRef.current.forEach(coordRings => {
-      const highlight = new google.maps.Polygon({
-        map: mapRef.current,
-        paths: coordRings,
-        strokeColor: "#7c3aed",
-        strokeWeight: 2,
-        strokeOpacity: 0.9,
-        fillColor: "#7c3aed",
-        fillOpacity: 0.12,
-        clickable: false,
-        zIndex: 2,
-      });
-      districtHighlightRef.current.push(highlight);
     });
   }, [google]);
 
@@ -721,8 +681,6 @@ export function FullscreenMapView({
     circleRef.current = null;
     selectionMaskRef.current?.setMap(null);
     selectionMaskRef.current = null;
-    selectionHighlightRef.current?.setMap(null);
-    selectionHighlightRef.current = null;
     isBrushDrawingRef.current = false;
     setDrawnArea(null);
     setCircleCenter(null);
