@@ -103,6 +103,7 @@ export default function AdminPortal() {
     { value: 'workspace', label: 'Workspace', icon: Briefcase },
     { value: 'ksef-admin', label: 'KSeF Admin', icon: Shield },
     { value: 'ai-agents', label: 'Agenci AI', icon: Cpu },
+    { value: 'seo-agent', label: 'Agent SEO', icon: Globe },
   ];
 
   return (
@@ -264,6 +265,11 @@ export default function AdminPortal() {
           {/* AI Agents Tab */}
           <TabsContent value="ai-agents">
             <AIAgentsPanel />
+          </TabsContent>
+
+          {/* SEO Agent Tab */}
+          <TabsContent value="seo-agent">
+            <SeoAgent />
           </TabsContent>
         </Tabs>
       </div>
