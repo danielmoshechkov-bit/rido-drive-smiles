@@ -446,7 +446,39 @@ export function FullscreenMapView({
 
   return (
     <div className="fixed inset-0 z-50 bg-background flex flex-col">
-      {/* Top Bar */}
+      {/* Portal Header - same as main marketplace */}
+      <header className="shrink-0 bg-background/95 backdrop-blur-md border-b">
+        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <UniversalHomeButton />
+            <span className="font-bold text-lg md:text-xl text-primary">
+              Nieruchomości
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <MyGetRidoButton user={user} />
+            <Button
+              size="sm"
+              onClick={() => onNavigate?.(user ? '/nieruchomosci/agent/panel?tab=add' : '/auth?redirect=/nieruchomosci/agent/panel?tab=add')}
+              className="rounded-full"
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              <span className="hidden sm:inline">Dodaj ogłoszenie</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onClose}
+              className="rounded-full gap-1.5"
+            >
+              <X className="h-4 w-4" />
+              <span className="hidden sm:inline">Zamknij mapę</span>
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      {/* Filter Bar */}
       <div className="shrink-0 border-b bg-background px-3 py-2 flex items-center gap-2 flex-wrap">
         {/* Property type pills */}
         <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
