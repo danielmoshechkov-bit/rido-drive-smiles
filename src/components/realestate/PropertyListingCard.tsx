@@ -11,7 +11,7 @@ function fixPolishCase(text: string | undefined | null): string {
     return word;
   });
 }
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -22,12 +22,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { AuthModal } from "@/components/auth/AuthModal";
 import { ImageLightbox } from "@/components/ui/ImageLightbox";
 
 interface PropertyListingCardProps {
@@ -110,6 +105,7 @@ export function PropertyListingCard({
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [showLightbox, setShowLightbox] = useState(false);
   const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
+  const cardRef = useRef<HTMLDivElement | null>(null);
 
   // Area is already corrected in the mapping layer (ai_area_total > area_total > area)
   const displayArea = listing.areaM2 || 0;
@@ -158,6 +154,32 @@ export function PropertyListingCard({
     ? Math.round(listing.price / displayArea) 
     : null;
 
+  const formatCurrency = (amount: number) => `${amount.toLocaleString('pl-PL').replace(/\s/g, '\u00A0')} zł`;
+
+  useEffect(() => {
+    if (!showContact) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (cardRef.current && !cardRef.current.contains(event.target as Node)) {
+        setShowContact(false);
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShowContact(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [showContact]);
+
   const handleShowContact = async (e?: React.MouseEvent) => {
     e?.stopPropagation();
     e?.preventDefault();
@@ -189,13 +211,68 @@ export function PropertyListingCard({
     setShowLightbox(true);
   };
 
+  const contactPanel = !compact && showContact && isLoggedIn ? (
+    <div
+      className="absolute inset-x-4 bottom-14 z-30 rounded-2xl border bg-background p-3 shadow-2xl"
+      onClick={(e) => {
+        e.stopPropagation();
+      }}
+    >
+      <div className="space-y-1.5 text-sm">
+        {listing.agencyName && (
+          <div className="flex items-center gap-2 text-foreground font-medium text-sm">
+            <Building2 className="h-3.5 w-3.5 text-primary" />
+            <span className="line-clamp-1">{listing.agencyName}</span>
+          </div>
+        )}
+
+        {listing.contactName && (
+          <div className="flex items-center gap-2 text-xs">
+            <User className="h-3.5 w-3.5 text-muted-foreground" />
+            <span>{listing.contactName}</span>
+          </div>
+        )}
+
+        {listing.contactPhone && (
+          <a
+            href={`tel:${listing.contactPhone}`}
+            className="flex items-center gap-2 text-xs text-primary hover:underline"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Phone className="h-3.5 w-3.5" />
+            <span>{listing.contactPhone}</span>
+          </a>
+        )}
+
+        {listing.contactEmail && (
+          <a
+            href={`mailto:${listing.contactEmail}`}
+            className="flex items-center gap-2 text-xs text-primary hover:underline"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Mail className="h-3.5 w-3.5" />
+            <span className="truncate">{listing.contactEmail}</span>
+          </a>
+        )}
+
+        {listing.listingNumber && (
+          <div className="pt-2 mt-1 border-t text-xs text-muted-foreground">
+            Nr oferty: <span className="font-mono">{listing.listingNumber}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  ) : null;
+
   // List variant layout
   if (isList) {
     return (
       <>
         <Card 
+          ref={cardRef}
           className={cn(
-            "overflow-hidden group hover:shadow-xl transition-all duration-300 border-0 shadow-md cursor-pointer",
+            "relative overflow-visible group hover:shadow-xl transition-all duration-300 border-0 shadow-md cursor-pointer",
+            showContact && "z-20",
             isSelectedForCompare && "ring-2 ring-primary"
           )}
           onClick={handleCardClick}
@@ -369,14 +446,14 @@ export function PropertyListingCard({
               <div className="flex items-center justify-between mt-auto pt-2">
                 <div>
                   <span className="font-bold text-xl text-primary">
-                    {listing.price.toLocaleString('pl-PL')} zł
+                    {formatCurrency(listing.price)}
                   </span>
                   <span className="text-sm text-muted-foreground ml-1">
                     {PRICE_TYPE_LABELS[listing.priceType || 'sale'] || ''}
                   </span>
                   {pricePerM2 && (
                     <div className="text-xs text-muted-foreground">
-                      {pricePerM2.toLocaleString('pl-PL')} zł/m²
+                        {formatCurrency(pricePerM2).replace(' zł', '')} zł/m²
                     </div>
                   )}
                 </div>
@@ -388,41 +465,16 @@ export function PropertyListingCard({
           </div>
         </Card>
 
-        {/* Login Required Dialog */}
-        <Dialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Lock className="h-5 w-5 text-primary" />
-                Zaloguj się, aby zobaczyć kontakt
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 pt-4">
-              <p className="text-muted-foreground text-sm">
-                Aby zobaczyć dane kontaktowe do ogłoszeniodawcy, musisz być zalogowany. 
-                Rejestracja jest darmowa i zajmuje tylko chwilę.
-              </p>
-              <div className="flex gap-3">
-                <Button 
-                  variant="outline" 
-                  className="flex-1"
-                  onClick={() => setShowLoginDialog(false)}
-                >
-                  Anuluj
-                </Button>
-                <Button 
-                  className="flex-1"
-                  onClick={() => {
-                    setShowLoginDialog(false);
-                    navigate(`/auth?redirect=/nieruchomosci/ogloszenie/${listing.id}`);
-                  }}
-                >
-                  Zaloguj się
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <AuthModal
+          open={showLoginDialog}
+          onOpenChange={setShowLoginDialog}
+          initialMode="login"
+          customDescription="Zaloguj się, aby zobaczyć kontakt do ogłoszeniodawcy bez opuszczania listy ofert."
+          onSuccess={() => {
+            setShowLoginDialog(false);
+            setShowContact(true);
+          }}
+        />
       </>
     );
   }
@@ -430,8 +482,10 @@ export function PropertyListingCard({
   return (
     <>
       <Card 
+        ref={cardRef}
         className={cn(
-          "overflow-hidden group hover:shadow-xl transition-all duration-300 border-0 shadow-md cursor-pointer h-full flex flex-col",
+          "relative overflow-visible group hover:shadow-xl transition-all duration-300 border-0 shadow-md cursor-pointer h-full flex flex-col",
+          showContact && "z-20",
           isSelectedForCompare && "ring-2 ring-primary"
         )}
         onClick={handleCardClick}
@@ -652,7 +706,7 @@ export function PropertyListingCard({
                 "font-bold text-primary",
                 compact ? "text-base" : "text-2xl"
               )}>
-                {listing.price.toLocaleString('pl-PL')} zł
+                {formatCurrency(listing.price)}
               </span>
               {!compact && (
                 <span className="text-sm text-muted-foreground ml-1">
@@ -661,7 +715,7 @@ export function PropertyListingCard({
               )}
               {pricePerM2 && !compact && (
                 <div className="text-xs text-muted-foreground">
-                  {pricePerM2.toLocaleString('pl-PL')} zł/m²
+                  {formatCurrency(pricePerM2).replace(' zł', '')} zł/m²
                 </div>
               )}
             </div>
@@ -685,91 +739,23 @@ export function PropertyListingCard({
                 {!isLoggedIn && <Lock className="h-3.5 w-3.5" />}
                 {showContact ? "Ukryj kontakt ▲" : "Pokaż kontakt ▼"}
               </button>
-              
-              {showContact && isLoggedIn && (
-                <div className="mt-2 space-y-1.5 text-sm">
-                  {/* Agency Name */}
-                  {listing.agencyName && (
-                    <div className="flex items-center gap-2 text-foreground font-medium text-sm">
-                      <Building2 className="h-3.5 w-3.5 text-primary" />
-                      {listing.agencyName}
-                    </div>
-                  )}
-                  
-                  {/* Contact Info */}
-                  {listing.contactName && (
-                    <div className="flex items-center gap-2 text-xs">
-                      <User className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span>{listing.contactName}</span>
-                    </div>
-                  )}
-                  {listing.contactPhone && (
-                    <a 
-                      href={`tel:${listing.contactPhone}`}
-                      className="flex items-center gap-2 text-xs text-primary hover:underline"
-                    >
-                      <Phone className="h-3.5 w-3.5" />
-                      <span>{listing.contactPhone}</span>
-                    </a>
-                  )}
-                  {listing.contactEmail && (
-                    <a 
-                      href={`mailto:${listing.contactEmail}`}
-                      className="flex items-center gap-2 text-xs text-primary hover:underline"
-                    >
-                      <Mail className="h-3.5 w-3.5" />
-                      <span>{listing.contactEmail}</span>
-                    </a>
-                  )}
-                  
-                  {/* Listing Number - at the very bottom */}
-                  {listing.listingNumber && (
-                    <div className="pt-2 mt-1 border-t text-xs text-muted-foreground">
-                      Nr oferty: <span className="font-mono">{listing.listingNumber}</span>
-                    </div>
-                  )}
-                </div>
-              )}
             </>
           )}
         </div>
+
+        {contactPanel}
       </Card>
 
-      {/* Login Required Dialog */}
-      <Dialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Lock className="h-5 w-5 text-primary" />
-              Zaloguj się, aby zobaczyć kontakt
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 pt-4">
-            <p className="text-muted-foreground text-sm">
-              Aby zobaczyć dane kontaktowe do ogłoszeniodawcy, musisz być zalogowany. 
-              Rejestracja jest darmowa i zajmuje tylko chwilę.
-            </p>
-            <div className="flex gap-3">
-              <Button 
-                variant="outline" 
-                className="flex-1"
-                onClick={() => setShowLoginDialog(false)}
-              >
-                Anuluj
-              </Button>
-              <Button 
-                className="flex-1"
-                onClick={() => {
-                  setShowLoginDialog(false);
-                  navigate(`/auth?redirect=/nieruchomosci/ogloszenie/${listing.id}`);
-                }}
-              >
-                Zaloguj się
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <AuthModal
+        open={showLoginDialog}
+        onOpenChange={setShowLoginDialog}
+        initialMode="login"
+        customDescription="Zaloguj się, aby zobaczyć kontakt do ogłoszeniodawcy bez opuszczania listy ofert."
+        onSuccess={() => {
+          setShowLoginDialog(false);
+          setShowContact(true);
+        }}
+      />
 
       {/* Image Lightbox */}
       <ImageLightbox
