@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
-  Building, Search, Plus, Sparkles, ArrowRight, Home, LayoutGrid, Rows3, List, ChevronLeft, ChevronRight, Map as MapIcon
+  Building, Search, Plus, Sparkles, ArrowRight, Home, LayoutGrid, Rows3, List, ChevronLeft, ChevronRight, Map as MapIcon, PenTool
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Footer from "@/components/Footer";
@@ -836,8 +836,8 @@ export default function RealEstateMarketplace() {
               className="gap-1.5"
               onClick={() => setShowFullMap(true)}
             >
-              <MapIcon className="h-4 w-4" />
-              <span className="hidden sm:inline">Pokaż na mapie</span>
+              <PenTool className="h-4 w-4" />
+              <span className="hidden sm:inline">Zaznacz na mapie</span>
             </Button>
             {/* Per Page Selector */}
             <div className="flex items-center gap-2">
@@ -1080,6 +1080,8 @@ export default function RealEstateMarketplace() {
           lng: l.lng ?? undefined,
         }))}
         onViewListing={(id) => navigate(`/nieruchomosci/ogloszenie/${id}`)}
+        user={user}
+        onNavigate={(path) => navigate(path)}
       />
 
     </div>
