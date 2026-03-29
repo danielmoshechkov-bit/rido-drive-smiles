@@ -426,10 +426,13 @@ export function FullscreenMapView({
       drawingPolygonRef.current?.setMap(null);
       drawingPolylineRef.current?.setMap(null);
       selectionMaskRef.current?.setMap(null);
+      selectionHighlightRef.current?.setMap(null);
       districtPolygonsRef.current.forEach(p => p.setMap(null));
       districtPolygonsRef.current = [];
       districtMaskRef.current?.setMap(null);
       districtMaskRef.current = null;
+      districtHighlightRef.current.forEach(p => p.setMap(null));
+      districtHighlightRef.current = [];
       circleRef.current?.setMap(null);
       drawingCleanupRef.current?.();
       drawingCleanupRef.current = null;
