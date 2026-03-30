@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Loader2, Save, Plus, Minus, Pencil, History } from 'lucide-react';
 import { format } from 'date-fns';
+import { AddVehicleModal } from '@/components/AddVehicleModal';
 import { pl } from 'date-fns/locale';
 
 interface DebtTransaction {
