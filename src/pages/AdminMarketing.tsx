@@ -172,10 +172,14 @@ export default function AdminMarketing() {
 
           <TabsContent value="dashboard"><MarketingDashboardTab /></TabsContent>
           <TabsContent value="orders"><MarketingOrdersTab /></TabsContent>
-          <TabsContent value="connections"><MarketingConnectionsTab /></TabsContent>
           <TabsContent value="campaigns"><MarketingCampaignsTab /></TabsContent>
+          <TabsContent value="leads"><MarketingLeadsTab /></TabsContent>
+          <TabsContent value="creatives"><MarketingCreativesTab /></TabsContent>
           <TabsContent value="clients"><MarketingClientsTab /></TabsContent>
+          <TabsContent value="connections"><MarketingConnectionsTab /></TabsContent>
           <TabsContent value="ai-agent"><MarketingAIAgentTab /></TabsContent>
+          <TabsContent value="knowledge"><MarketingKnowledgeTab /></TabsContent>
+          <TabsContent value="local-seo"><MarketingLocalSEOTab /></TabsContent>
           <TabsContent value="creator"><MarketingCreatorTab /></TabsContent>
           <TabsContent value="team"><MarketingTeamTab /></TabsContent>
           <TabsContent value="ai-reports"><MarketingAIReportsTab /></TabsContent>
