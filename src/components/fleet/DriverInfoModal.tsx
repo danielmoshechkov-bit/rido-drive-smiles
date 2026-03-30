@@ -625,6 +625,21 @@ export function DriverInfoPopover({
           </div>
         )}
       </PopoverContent>
+
+      {/* Add Vehicle Modal */}
+      <AddVehicleModal
+        isOpen={showAddVehicleModal}
+        onClose={() => setShowAddVehicleModal(false)}
+        onSuccess={(vehicleId) => {
+          setShowAddVehicleModal(false);
+          setSelectedVehicleId(vehicleId);
+          fetchAvailableVehicles();
+          toast.success('Pojazd dodany i wybrany');
+        }}
+        fleetId={fleetId}
+        fleetName=""
+        userType={fleetId ? 'fleet' : 'admin'}
+      />
     </Popover>
   );
 }
