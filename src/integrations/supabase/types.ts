@@ -380,6 +380,87 @@ export type Database = {
         }
         Relationships: []
       }
+      ad_variants: {
+        Row: {
+          auto_approve_rotation: boolean | null
+          body_text: string | null
+          campaign_id: string | null
+          clicks: number | null
+          client_id: string | null
+          created_at: string | null
+          cta: string | null
+          ctr: number | null
+          description: string | null
+          generated_by: string | null
+          generation_rationale: string | null
+          headline: string | null
+          id: string
+          image_url: string | null
+          impressions: number | null
+          paused_reason: string | null
+          platform: string | null
+          rotation_enabled: boolean | null
+          status: string | null
+        }
+        Insert: {
+          auto_approve_rotation?: boolean | null
+          body_text?: string | null
+          campaign_id?: string | null
+          clicks?: number | null
+          client_id?: string | null
+          created_at?: string | null
+          cta?: string | null
+          ctr?: number | null
+          description?: string | null
+          generated_by?: string | null
+          generation_rationale?: string | null
+          headline?: string | null
+          id?: string
+          image_url?: string | null
+          impressions?: number | null
+          paused_reason?: string | null
+          platform?: string | null
+          rotation_enabled?: boolean | null
+          status?: string | null
+        }
+        Update: {
+          auto_approve_rotation?: boolean | null
+          body_text?: string | null
+          campaign_id?: string | null
+          clicks?: number | null
+          client_id?: string | null
+          created_at?: string | null
+          cta?: string | null
+          ctr?: number | null
+          description?: string | null
+          generated_by?: string | null
+          generation_rationale?: string | null
+          headline?: string | null
+          id?: string
+          image_url?: string | null
+          impressions?: number | null
+          paused_reason?: string | null
+          platform?: string | null
+          rotation_enabled?: boolean | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_variants_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "agency_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_variants_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "agency_clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       admin_communication_settings: {
         Row: {
           created_at: string
@@ -595,6 +676,7 @@ export type Database = {
       }
       agency_campaigns: {
         Row: {
+          ai_recommendation: string | null
           client_id: string | null
           created_at: string | null
           daily_budget: number | null
@@ -604,11 +686,17 @@ export type Database = {
           last_synced_at: string | null
           name: string
           platform: string
+          predicted_roas_7d: number | null
+          prediction_confidence: number | null
+          prediction_updated_at: string | null
+          risk_level: string | null
           roas_current: number | null
           spend_today: number | null
           status: string | null
+          trend: string | null
         }
         Insert: {
+          ai_recommendation?: string | null
           client_id?: string | null
           created_at?: string | null
           daily_budget?: number | null
@@ -618,11 +706,17 @@ export type Database = {
           last_synced_at?: string | null
           name: string
           platform: string
+          predicted_roas_7d?: number | null
+          prediction_confidence?: number | null
+          prediction_updated_at?: string | null
+          risk_level?: string | null
           roas_current?: number | null
           spend_today?: number | null
           status?: string | null
+          trend?: string | null
         }
         Update: {
+          ai_recommendation?: string | null
           client_id?: string | null
           created_at?: string | null
           daily_budget?: number | null
@@ -632,9 +726,14 @@ export type Database = {
           last_synced_at?: string | null
           name?: string
           platform?: string
+          predicted_roas_7d?: number | null
+          prediction_confidence?: number | null
+          prediction_updated_at?: string | null
+          risk_level?: string | null
           roas_current?: number | null
           spend_today?: number | null
           status?: string | null
+          trend?: string | null
         }
         Relationships: [
           {
@@ -651,6 +750,7 @@ export type Database = {
           added_by: string | null
           address: string | null
           assigned_to: string | null
+          auto_approve_seo: boolean | null
           city: string | null
           company_name: string
           contact_email: string | null
@@ -658,11 +758,14 @@ export type Database = {
           created_at: string | null
           first_name: string | null
           google_ad_account_id: string | null
+          google_business_id: string | null
           google_refresh_token: string | null
           id: string
+          industry: string | null
           instagram_access_token: string | null
           instagram_account_id: string | null
           last_name: string | null
+          local_seo_enabled: boolean | null
           logo_url: string | null
           meta_access_token: string | null
           meta_ad_account_id: string | null
@@ -671,6 +774,7 @@ export type Database = {
           notes: string | null
           phone: string | null
           portal_user_id: string | null
+          recent_post_topics: string[] | null
           status: string | null
           total_leads: number | null
           total_spent: number | null
@@ -680,6 +784,7 @@ export type Database = {
           added_by?: string | null
           address?: string | null
           assigned_to?: string | null
+          auto_approve_seo?: boolean | null
           city?: string | null
           company_name: string
           contact_email?: string | null
@@ -687,11 +792,14 @@ export type Database = {
           created_at?: string | null
           first_name?: string | null
           google_ad_account_id?: string | null
+          google_business_id?: string | null
           google_refresh_token?: string | null
           id?: string
+          industry?: string | null
           instagram_access_token?: string | null
           instagram_account_id?: string | null
           last_name?: string | null
+          local_seo_enabled?: boolean | null
           logo_url?: string | null
           meta_access_token?: string | null
           meta_ad_account_id?: string | null
@@ -700,6 +808,7 @@ export type Database = {
           notes?: string | null
           phone?: string | null
           portal_user_id?: string | null
+          recent_post_topics?: string[] | null
           status?: string | null
           total_leads?: number | null
           total_spent?: number | null
@@ -709,6 +818,7 @@ export type Database = {
           added_by?: string | null
           address?: string | null
           assigned_to?: string | null
+          auto_approve_seo?: boolean | null
           city?: string | null
           company_name?: string
           contact_email?: string | null
@@ -716,11 +826,14 @@ export type Database = {
           created_at?: string | null
           first_name?: string | null
           google_ad_account_id?: string | null
+          google_business_id?: string | null
           google_refresh_token?: string | null
           id?: string
+          industry?: string | null
           instagram_access_token?: string | null
           instagram_account_id?: string | null
           last_name?: string | null
+          local_seo_enabled?: boolean | null
           logo_url?: string | null
           meta_access_token?: string | null
           meta_ad_account_id?: string | null
@@ -729,6 +842,7 @@ export type Database = {
           notes?: string | null
           phone?: string | null
           portal_user_id?: string | null
+          recent_post_topics?: string[] | null
           status?: string | null
           total_leads?: number | null
           total_spent?: number | null
@@ -953,6 +1067,59 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      agent_actions: {
+        Row: {
+          action_type: string
+          approved_at: string | null
+          approved_by: string | null
+          campaign_id: string | null
+          description: string
+          executed_at: string | null
+          id: string
+          outcome_measured_at: string | null
+          outcome_roas_after: number | null
+          outcome_roas_before: number | null
+          proposed_at: string | null
+          status: string | null
+        }
+        Insert: {
+          action_type: string
+          approved_at?: string | null
+          approved_by?: string | null
+          campaign_id?: string | null
+          description: string
+          executed_at?: string | null
+          id?: string
+          outcome_measured_at?: string | null
+          outcome_roas_after?: number | null
+          outcome_roas_before?: number | null
+          proposed_at?: string | null
+          status?: string | null
+        }
+        Update: {
+          action_type?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          campaign_id?: string | null
+          description?: string
+          executed_at?: string | null
+          id?: string
+          outcome_measured_at?: string | null
+          outcome_roas_after?: number | null
+          outcome_roas_before?: number | null
+          proposed_at?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_actions_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "agency_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       agent_activities: {
         Row: {
@@ -5216,6 +5383,59 @@ export type Database = {
             columns: ["provider_id"]
             isOneToOne: false
             referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaign_snapshots: {
+        Row: {
+          campaign_id: string | null
+          clicks: number | null
+          conversions: number | null
+          cpc: number | null
+          cpm: number | null
+          ctr: number | null
+          id: string
+          impressions: number | null
+          revenue: number | null
+          roas: number | null
+          snapshot_at: string | null
+          spend: number | null
+        }
+        Insert: {
+          campaign_id?: string | null
+          clicks?: number | null
+          conversions?: number | null
+          cpc?: number | null
+          cpm?: number | null
+          ctr?: number | null
+          id?: string
+          impressions?: number | null
+          revenue?: number | null
+          roas?: number | null
+          snapshot_at?: string | null
+          spend?: number | null
+        }
+        Update: {
+          campaign_id?: string | null
+          clicks?: number | null
+          conversions?: number | null
+          cpc?: number | null
+          cpm?: number | null
+          ctr?: number | null
+          id?: string
+          impressions?: number | null
+          revenue?: number | null
+          roas?: number | null
+          snapshot_at?: string | null
+          spend?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_snapshots_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "agency_campaigns"
             referencedColumns: ["id"]
           },
         ]
@@ -9743,6 +9963,39 @@ export type Database = {
           },
         ]
       }
+      knowledge_bot_runs: {
+        Row: {
+          completed_at: string | null
+          error_message: string | null
+          id: string
+          items_added: number | null
+          items_found: number | null
+          sources_checked: string[] | null
+          started_at: string | null
+          status: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          error_message?: string | null
+          id?: string
+          items_added?: number | null
+          items_found?: number | null
+          sources_checked?: string[] | null
+          started_at?: string | null
+          status?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          error_message?: string | null
+          id?: string
+          items_added?: number | null
+          items_found?: number | null
+          sources_checked?: string[] | null
+          started_at?: string | null
+          status?: string | null
+        }
+        Relationships: []
+      }
       ksef_alert_emails: {
         Row: {
           active: boolean | null
@@ -10259,6 +10512,62 @@ export type Database = {
         }
         Relationships: []
       }
+      local_seo_posts: {
+        Row: {
+          call_to_action: string | null
+          client_id: string | null
+          created_at: string | null
+          google_post_id: string | null
+          id: string
+          image_prompt: string | null
+          image_url: string | null
+          platform: string | null
+          post_text: string
+          published_at: string | null
+          scheduled_for: string | null
+          status: string | null
+          topic: string | null
+        }
+        Insert: {
+          call_to_action?: string | null
+          client_id?: string | null
+          created_at?: string | null
+          google_post_id?: string | null
+          id?: string
+          image_prompt?: string | null
+          image_url?: string | null
+          platform?: string | null
+          post_text: string
+          published_at?: string | null
+          scheduled_for?: string | null
+          status?: string | null
+          topic?: string | null
+        }
+        Update: {
+          call_to_action?: string | null
+          client_id?: string | null
+          created_at?: string | null
+          google_post_id?: string | null
+          id?: string
+          image_prompt?: string | null
+          image_url?: string | null
+          platform?: string | null
+          post_text?: string
+          published_at?: string | null
+          scheduled_for?: string | null
+          status?: string | null
+          topic?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "local_seo_posts_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "agency_clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       location_integrations: {
         Row: {
           api_key_secret_name: string | null
@@ -10765,6 +11074,90 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "marketing_agent_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      marketing_leads: {
+        Row: {
+          ai_priority: string | null
+          ai_reasoning: string | null
+          ai_recommendation: string | null
+          ai_score: number | null
+          city: string | null
+          client_id: string | null
+          company: string | null
+          contacted_at: string | null
+          converted: boolean | null
+          converted_at: string | null
+          created_at: string | null
+          email: string | null
+          follow_up_timing: string | null
+          id: string
+          message: string | null
+          name: string
+          phone: string | null
+          source_campaign_id: string | null
+          source_platform: string | null
+          status: string | null
+        }
+        Insert: {
+          ai_priority?: string | null
+          ai_reasoning?: string | null
+          ai_recommendation?: string | null
+          ai_score?: number | null
+          city?: string | null
+          client_id?: string | null
+          company?: string | null
+          contacted_at?: string | null
+          converted?: boolean | null
+          converted_at?: string | null
+          created_at?: string | null
+          email?: string | null
+          follow_up_timing?: string | null
+          id?: string
+          message?: string | null
+          name: string
+          phone?: string | null
+          source_campaign_id?: string | null
+          source_platform?: string | null
+          status?: string | null
+        }
+        Update: {
+          ai_priority?: string | null
+          ai_reasoning?: string | null
+          ai_recommendation?: string | null
+          ai_score?: number | null
+          city?: string | null
+          client_id?: string | null
+          company?: string | null
+          contacted_at?: string | null
+          converted?: boolean | null
+          converted_at?: string | null
+          created_at?: string | null
+          email?: string | null
+          follow_up_timing?: string | null
+          id?: string
+          message?: string | null
+          name?: string
+          phone?: string | null
+          source_campaign_id?: string | null
+          source_platform?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_leads_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "agency_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_leads_source_campaign_id_fkey"
+            columns: ["source_campaign_id"]
+            isOneToOne: false
+            referencedRelation: "agency_campaigns"
             referencedColumns: ["id"]
           },
         ]
@@ -11999,6 +12392,57 @@ export type Database = {
           created_at?: string
           platform?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      platform_knowledge: {
+        Row: {
+          applied_to_agent: boolean | null
+          category: string
+          discovered_at: string | null
+          full_content: string | null
+          id: string
+          is_active: boolean | null
+          platform: string
+          published_at: string | null
+          relevance_score: number | null
+          source_name: string | null
+          source_url: string | null
+          summary: string
+          tags: string[] | null
+          title: string
+        }
+        Insert: {
+          applied_to_agent?: boolean | null
+          category: string
+          discovered_at?: string | null
+          full_content?: string | null
+          id?: string
+          is_active?: boolean | null
+          platform: string
+          published_at?: string | null
+          relevance_score?: number | null
+          source_name?: string | null
+          source_url?: string | null
+          summary: string
+          tags?: string[] | null
+          title: string
+        }
+        Update: {
+          applied_to_agent?: boolean | null
+          category?: string
+          discovered_at?: string | null
+          full_content?: string | null
+          id?: string
+          is_active?: boolean | null
+          platform?: string
+          published_at?: string | null
+          relevance_score?: number | null
+          source_name?: string | null
+          source_url?: string | null
+          summary?: string
+          tags?: string[] | null
+          title?: string
         }
         Relationships: []
       }

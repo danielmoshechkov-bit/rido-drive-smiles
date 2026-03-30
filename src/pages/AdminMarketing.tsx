@@ -7,7 +7,7 @@ import { UserDropdown } from '@/components/UserDropdown';
 import { UniversalHomeButton } from '@/components/UniversalHomeButton';
 import { MyGetRidoButton } from '@/components/MyGetRidoButton';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Loader2, LayoutDashboard, Plug, BarChart3, Users, Bot, Sparkles, Shield, Settings, FileText, Brain } from 'lucide-react';
+import { Loader2, LayoutDashboard, Plug, BarChart3, Users, Bot, Sparkles, Shield, Settings, FileText, Brain, Target, MapPin, Palette, BookOpen } from 'lucide-react';
 import { MarketingDashboardTab } from '@/components/marketing/MarketingDashboardTab';
 import { MarketingConnectionsTab } from '@/components/marketing/MarketingConnectionsTab';
 import { MarketingCampaignsTab } from '@/components/marketing/MarketingCampaignsTab';
@@ -18,6 +18,10 @@ import { MarketingTeamTab } from '@/components/marketing/MarketingTeamTab';
 import { MarketingSettingsTab } from '@/components/marketing/MarketingSettingsTab';
 import { MarketingOrdersTab } from '@/components/marketing/MarketingOrdersTab';
 import { MarketingAIReportsTab } from '@/components/marketing/MarketingAIReportsTab';
+import { MarketingKnowledgeTab } from '@/components/marketing/MarketingKnowledgeTab';
+import { MarketingLeadsTab } from '@/components/marketing/MarketingLeadsTab';
+import { MarketingLocalSEOTab } from '@/components/marketing/MarketingLocalSEOTab';
+import { MarketingCreativesTab } from '@/components/marketing/MarketingCreativesTab';
 
 export default function AdminMarketing() {
   const navigate = useNavigate();
@@ -79,11 +83,15 @@ export default function AdminMarketing() {
   const tabs = [
     { value: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { value: 'orders', label: 'Zlecenia', icon: FileText, badge: pendingOrdersCount },
-    { value: 'connections', label: 'Połączenia API', icon: Plug },
     { value: 'campaigns', label: 'Kampanie', icon: BarChart3 },
+    { value: 'leads', label: 'Leady', icon: Target },
+    { value: 'creatives', label: 'Kreacje', icon: Palette },
     { value: 'clients', label: 'Klienci', icon: Users },
+    { value: 'connections', label: 'API', icon: Plug },
     { value: 'ai-agent', label: 'AI Agent', icon: Bot },
-    { value: 'creator', label: 'Kreator Reklam', icon: Sparkles },
+    { value: 'knowledge', label: 'Baza Wiedzy', icon: BookOpen },
+    { value: 'local-seo', label: 'Local SEO', icon: MapPin },
+    { value: 'creator', label: 'Kreator', icon: Sparkles },
     { value: 'team', label: 'Zespół', icon: Shield },
     { value: 'ai-reports', label: 'Raporty AI', icon: Brain },
     { value: 'settings', label: 'Ustawienia', icon: Settings },
@@ -164,10 +172,14 @@ export default function AdminMarketing() {
 
           <TabsContent value="dashboard"><MarketingDashboardTab /></TabsContent>
           <TabsContent value="orders"><MarketingOrdersTab /></TabsContent>
-          <TabsContent value="connections"><MarketingConnectionsTab /></TabsContent>
           <TabsContent value="campaigns"><MarketingCampaignsTab /></TabsContent>
+          <TabsContent value="leads"><MarketingLeadsTab /></TabsContent>
+          <TabsContent value="creatives"><MarketingCreativesTab /></TabsContent>
           <TabsContent value="clients"><MarketingClientsTab /></TabsContent>
+          <TabsContent value="connections"><MarketingConnectionsTab /></TabsContent>
           <TabsContent value="ai-agent"><MarketingAIAgentTab /></TabsContent>
+          <TabsContent value="knowledge"><MarketingKnowledgeTab /></TabsContent>
+          <TabsContent value="local-seo"><MarketingLocalSEOTab /></TabsContent>
           <TabsContent value="creator"><MarketingCreatorTab /></TabsContent>
           <TabsContent value="team"><MarketingTeamTab /></TabsContent>
           <TabsContent value="ai-reports"><MarketingAIReportsTab /></TabsContent>
