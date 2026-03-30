@@ -134,36 +134,71 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
       return;
     }
 
-    const activeCategoryDebt = activeTab === 'settlement' ? settlementDebt : rentalDebt;
-    if (activeCategoryDebt <= 0) {
-      toast.error('W tej zakładce nie ma długu do spłaty');
+    if (currentDebt <= 0) {
+      toast.error('Ten kierowca nie ma długu do spłaty');
       return;
     }
 
-    if (amount - activeCategoryDebt > 0.01) {
-      toast.error(`Maksymalna wpłata w tej zakładce to ${activeCategoryDebt.toFixed(2)} zł`);
+    if (amount - currentDebt > 0.01) {
+      toast.error(`Maksymalna łączna wpłata to ${currentDebt.toFixed(2)} zł`);
       return;
     }
     
     setSaving(true);
     try {
       const newTotalBalance = Math.max(0, round2(currentDebt - amount));
-      const categoryBalanceBefore = activeCategoryDebt;
-      const categoryBalanceAfter = Math.max(0, round2(activeCategoryDebt - amount));
       const dateVal = paymentDate || new Date().toISOString().split('T')[0];
-      const { error: txError } = await supabase
-        .from('driver_debt_transactions')
-        .insert({
+      const categoryBalances = {
+        settlement: settlementDebt,
+        rental: rentalDebt,
+      } as const;
+
+      const paymentOrder: Array<'settlement' | 'rental'> = activeTab === 'settlement'
+        ? ['settlement', 'rental']
+        : ['rental', 'settlement'];
+
+      let remainingAmount = round2(amount);
+      const paymentRows: Array<Record<string, any>> = [];
+
+      paymentOrder.forEach((category) => {
+        if (remainingAmount <= 0) return;
+
+        const categoryBalanceBefore = round2(categoryBalances[category]);
+        if (categoryBalanceBefore <= 0) return;
+
+        const paidAmount = Math.min(categoryBalanceBefore, remainingAmount);
+        paymentRows.push({
+          driver_id: driverId,
+          type: 'payment',
+          amount: -paidAmount,
+          balance_before: categoryBalanceBefore,
+          balance_after: Math.max(0, round2(categoryBalanceBefore - paidAmount)),
+          period_from: dateVal,
+          period_to: dateVal,
+          description: paymentNote || 'Wpłata własna kierowcy',
+          debt_category: category,
+        });
+
+        remainingAmount = round2(remainingAmount - paidAmount);
+      });
+
+      if (paymentRows.length === 0) {
+        paymentRows.push({
           driver_id: driverId,
           type: 'payment',
           amount: -amount,
-          balance_before: categoryBalanceBefore,
-          balance_after: categoryBalanceAfter,
+          balance_before: currentDebt,
+          balance_after: newTotalBalance,
           period_from: dateVal,
           period_to: dateVal,
           description: paymentNote || 'Wpłata własna kierowcy',
           debt_category: activeTab,
-        } as any);
+        });
+      }
+
+      const { error: txError } = await supabase
+        .from('driver_debt_transactions')
+        .insert(paymentRows as any);
       
       if (txError) {
         console.error('Error inserting payment transaction:', txError);
@@ -395,7 +430,7 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
                 <TrendingDown className="h-4 w-4 text-destructive" />
                 Dodaj dług
               </Button>
-              {(activeTab === 'settlement' ? settlementDebt : rentalDebt) > 0 && (
+              {currentDebt > 0 && (
                 <Button 
                   variant="outline" 
                   size="sm" 
@@ -471,6 +506,9 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
             <Label className="text-sm font-medium">
               Wpłata na poczet długu ({activeTab === 'settlement' ? 'rozliczeniowego' : 'za auto'})
             </Label>
+            <div className="text-xs text-muted-foreground">
+              Do spłaty łącznie: <span className="font-semibold text-foreground">{currentDebt.toFixed(2)} zł</span>. Wpłata najpierw spłaci aktywną zakładkę, a reszta przejdzie automatycznie na drugi typ długu.
+            </div>
             <div className="flex gap-2">
               <Input
                 type="text"
@@ -497,6 +535,9 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
               />
             </div>
             <div className="flex gap-2">
+              <Button size="sm" variant="secondary" onClick={() => setPaymentAmount(currentDebt.toFixed(2))} disabled={saving}>
+                Spłać całość
+              </Button>
               <Button size="sm" onClick={handlePayment} disabled={saving}>
                 {saving ? 'Zapisywanie...' : 'Zapisz wpłatę'}
               </Button>
