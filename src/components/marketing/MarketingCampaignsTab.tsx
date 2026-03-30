@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { BarChart3, Pause, Play, Loader2, Plus } from 'lucide-react';
+import { BarChart3, Pause, Play, Loader2, Plus, TrendingUp, TrendingDown, Minus, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export function MarketingCampaignsTab() {
   const [campaigns, setCampaigns] = useState<any[]>([]);
