@@ -99,6 +99,33 @@ export function MarketingCampaignsTab() {
                     <TableCell className="text-right">{c.daily_budget?.toLocaleString('pl-PL')} zł</TableCell>
                     <TableCell className="text-right">{c.spend_today?.toLocaleString('pl-PL')} zł</TableCell>
                     <TableCell className="text-right font-semibold">{c.roas_current?.toFixed(2) || '—'}</TableCell>
+                    <TableCell className="text-center">
+                      {c.predicted_roas_7d ? (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <div className="flex items-center justify-center gap-1">
+                                {c.risk_level === 'critical' || c.risk_level === 'high' ? (
+                                  <Badge variant="destructive" className="gap-1 text-[10px]"><AlertTriangle className="h-3 w-3" /> {c.predicted_roas_7d.toFixed(1)}</Badge>
+                                ) : c.trend === 'growing' ? (
+                                  <Badge className="gap-1 text-[10px] bg-green-100 text-green-800"><TrendingUp className="h-3 w-3" /> {c.predicted_roas_7d.toFixed(1)}</Badge>
+                                ) : c.trend === 'declining' ? (
+                                  <Badge className="gap-1 text-[10px] bg-yellow-100 text-yellow-800"><TrendingDown className="h-3 w-3" /> {c.predicted_roas_7d.toFixed(1)}</Badge>
+                                ) : (
+                                  <Badge variant="outline" className="gap-1 text-[10px]"><Minus className="h-3 w-3" /> {c.predicted_roas_7d.toFixed(1)}</Badge>
+                                )}
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-[250px]">
+                              <p className="text-xs">{c.ai_recommendation || 'Brak rekomendacji'}</p>
+                              {c.prediction_confidence && <p className="text-[10px] text-muted-foreground mt-1">Pewność: {c.prediction_confidence}%</p>}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <Badge variant={c.status === 'active' ? 'default' : c.status === 'paused' ? 'secondary' : 'outline'}>
                         {c.status === 'active' ? 'Aktywna' : c.status === 'paused' ? 'Wstrzymana' : 'Zakończona'}
