@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Loader2, Save, Plus, Minus, Pencil, History } from 'lucide-react';
 import { format } from 'date-fns';
+import { AddVehicleModal } from '@/components/AddVehicleModal';
 import { pl } from 'date-fns/locale';
 
 interface DebtTransaction {
@@ -73,6 +74,7 @@ export function DriverInfoPopover({
   const [savingDebt, setSavingDebt] = useState(false);
   const [debtHistory, setDebtHistory] = useState<DebtTransaction[]>([]);
   const [showDebtHistory, setShowDebtHistory] = useState(false);
+  const [showAddVehicleModal, setShowAddVehicleModal] = useState(false);
 
   useEffect(() => {
     if (open && driverId) {
@@ -179,11 +181,32 @@ export function DriverInfoPopover({
   };
 
   const fetchAvailableFleets = async () => {
-    const { data } = await supabase
-      .from('fleets')
-      .select('id, name')
-      .order('name');
-    setAvailableFleets(data || []);
+    if (fleetId) {
+      // Fleet user: show only own fleet + partner fleets
+      const [{ data: ownFleet }, { data: partnerships }] = await Promise.all([
+        supabase.from('fleets').select('id, name').eq('id', fleetId).single(),
+        supabase
+          .from('driver_fleet_partnerships')
+          .select('partner_fleet:fleets!driver_fleet_partnerships_partner_fleet_id_fkey(id, name)')
+          .eq('managing_fleet_id', fleetId)
+          .eq('is_active', true)
+      ]);
+      const fleets: any[] = [];
+      if (ownFleet) fleets.push(ownFleet);
+      if (partnerships) {
+        for (const p of partnerships) {
+          const pf = (p as any).partner_fleet;
+          if (pf && !fleets.some(f => f.id === pf.id)) {
+            fleets.push(pf);
+          }
+        }
+      }
+      setAvailableFleets(fleets);
+    } else {
+      // Admin: show all fleets
+      const { data } = await supabase.from('fleets').select('id, name').order('name');
+      setAvailableFleets(data || []);
+    }
   };
 
   const handleSave = async () => {
@@ -396,19 +419,31 @@ export function DriverInfoPopover({
             {/* Vehicle */}
             <div className="space-y-0.5">
               <Label className="text-[10px] text-muted-foreground">Przypisane auto</Label>
-              <Select value={selectedVehicleId} onValueChange={setSelectedVehicleId}>
-                <SelectTrigger className="h-7 text-xs">
-                  <SelectValue placeholder="Wybierz auto" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Brak auta</SelectItem>
-                  {availableVehicles.map(v => (
-                    <SelectItem key={v.id} value={v.id}>
-                      {v.plate} • {v.brand} {v.model} {v.weekly_rental_fee ? `(${v.weekly_rental_fee} zł/tydz.)` : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex gap-1">
+                <Select value={selectedVehicleId} onValueChange={setSelectedVehicleId}>
+                  <SelectTrigger className="h-7 text-xs flex-1">
+                    <SelectValue placeholder="Wybierz auto" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Brak auta</SelectItem>
+                    {availableVehicles.map(v => (
+                      <SelectItem key={v.id} value={v.id}>
+                        {v.plate} • {v.brand} {v.model} {v.weekly_rental_fee ? `(${v.weekly_rental_fee} zł/tydz.)` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-7 w-7 shrink-0"
+                  title="Dodaj nowy pojazd"
+                  onClick={() => setShowAddVehicleModal(true)}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             </div>
 
             {/* Fleet */}
@@ -590,6 +625,21 @@ export function DriverInfoPopover({
           </div>
         )}
       </PopoverContent>
+
+      {/* Add Vehicle Modal */}
+      <AddVehicleModal
+        isOpen={showAddVehicleModal}
+        onClose={() => setShowAddVehicleModal(false)}
+        onSuccess={(vehicleId) => {
+          setShowAddVehicleModal(false);
+          setSelectedVehicleId(vehicleId);
+          fetchAvailableVehicles();
+          toast.success('Pojazd dodany i wybrany');
+        }}
+        fleetId={fleetId}
+        fleetName=""
+        userType={fleetId ? 'fleet' : 'admin'}
+      />
     </Popover>
   );
 }
