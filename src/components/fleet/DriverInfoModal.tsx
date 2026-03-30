@@ -180,11 +180,32 @@ export function DriverInfoPopover({
   };
 
   const fetchAvailableFleets = async () => {
-    const { data } = await supabase
-      .from('fleets')
-      .select('id, name')
-      .order('name');
-    setAvailableFleets(data || []);
+    if (fleetId) {
+      // Fleet user: show only own fleet + partner fleets
+      const [{ data: ownFleet }, { data: partnerships }] = await Promise.all([
+        supabase.from('fleets').select('id, name').eq('id', fleetId).single(),
+        supabase
+          .from('driver_fleet_partnerships')
+          .select('partner_fleet:fleets!driver_fleet_partnerships_partner_fleet_id_fkey(id, name)')
+          .eq('managing_fleet_id', fleetId)
+          .eq('is_active', true)
+      ]);
+      const fleets: any[] = [];
+      if (ownFleet) fleets.push(ownFleet);
+      if (partnerships) {
+        for (const p of partnerships) {
+          const pf = (p as any).partner_fleet;
+          if (pf && !fleets.some(f => f.id === pf.id)) {
+            fleets.push(pf);
+          }
+        }
+      }
+      setAvailableFleets(fleets);
+    } else {
+      // Admin: show all fleets
+      const { data } = await supabase.from('fleets').select('id, name').order('name');
+      setAvailableFleets(data || []);
+    }
   };
 
   const handleSave = async () => {
