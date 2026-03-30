@@ -1892,12 +1892,12 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         const rowPeriodFrom = (settlementSnapshot as any)?.period_from || currentWeek?.start || periodFrom || '';
         const rowPeriodTo = (settlementSnapshot as any)?.period_to || currentWeek?.end || periodTo || '';
         const splitDebt = splitDebtByWeek.get(`${driver.id}|${rowPeriodFrom}|${rowPeriodTo}`);
-        const settlementDebtBeforeForDisplay = isLatestWeek
-          ? liveCategoryDebt.settlement
-          : (splitDebt?.settlementDebtBefore ?? debtBeforeForDisplay);
-        const rentalDebtBeforeForDisplay = isLatestWeek
-          ? liveCategoryDebt.rental
-          : (splitDebt?.rentalDebtBefore ?? 0);
+        // Prefer weekly snapshot-chain debt split (also for latest week) to avoid
+        // drift from live ledger totals that can temporarily include stale values.
+        const settlementDebtBeforeForDisplay = splitDebt?.settlementDebtBefore
+          ?? (isLatestWeek ? liveCategoryDebt.settlement : debtBeforeForDisplay);
+        const rentalDebtBeforeForDisplay = splitDebt?.rentalDebtBefore
+          ?? (isLatestWeek ? liveCategoryDebt.rental : 0);
         const snapshotSettlementDebtAfter = splitDebt?.settlementDebtAfter ?? 0;
         const snapshotRentalDebtAfter = splitDebt?.rentalDebtAfter ?? 0;
 
@@ -3068,8 +3068,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                     <CollapsibleTrigger className="w-full p-3 flex items-center justify-between hover:bg-muted/50">
                       <span className="font-medium text-sm">{settlement.driver_name}</span>
                       <div className="flex items-center gap-2">
-                        <span className={`font-bold ${getAmountColor(settlement.final_payout)}`}>
-                          {formatCurrency(settlement.final_payout)}
+                        <span className={`font-bold ${getAmountColor(getDoWyplaty(settlement))}`}>
+                          {formatCurrency(getDoWyplaty(settlement))}
                         </span>
                         <ChevronDown className="h-4 w-4 text-muted-foreground" />
                       </div>
