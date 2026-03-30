@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SystemAlertsButton } from "@/components/SystemAlertsButton";
+import { TopBarCredits } from "@/components/TopBarCredits";
 import { useSystemAlerts } from "@/hooks/useSystemAlerts";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
@@ -277,6 +278,7 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
               </div>
             </div>
             <div className="flex items-center space-x-3">
+              <TopBarCredits />
               {isMarketplaceEnabled && (
                 <Button 
                   variant="outline" 
@@ -315,6 +317,7 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
               </span>
             </div>
             <div className="flex items-center space-x-2">
+              <TopBarCredits />
               <SystemAlertsButton userType={userType} fleetId={fleetId || undefined} />
               {!isAppInstalled && (
                 <Button variant="outline" size="icon" onClick={handleInstallClick} className="rounded-lg h-8 w-8">

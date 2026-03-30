@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { UniversalSelector } from "./UniversalSelector";
+import { X } from "lucide-react";
 
 interface Vehicle {
   id: string;
@@ -32,7 +33,6 @@ export const DriverVehicleSelector = ({
 
   useEffect(() => {
     const fetchVehicles = async () => {
-      // Build query - filter by fleet if fleetId is provided
       let query = supabase
         .from("vehicles")
         .select(`
@@ -46,21 +46,18 @@ export const DriverVehicleSelector = ({
         .eq("status", "aktywne")
         .order("brand", { ascending: true });
 
-      // If fleetId is provided, only show vehicles from that fleet
       if (fleetId) {
         query = query.eq("fleet_id", fleetId);
       }
 
       const { data } = await query;
 
-      // Pobierz aktywne przypisania pojazdów (oprócz obecnego kierowcy)
       const { data: assignmentsData } = await supabase
         .from("driver_vehicle_assignments")
         .select("vehicle_id, driver_id")
         .eq("status", "active")
         .neq("driver_id", driverId);
 
-      // Filtruj pojazdy - pokaż tylko te, które nie są przypisane do innych kierowców
       const assignedVehicleIds = new Set(assignmentsData?.map(a => a.vehicle_id) || []);
       const availableVehicles = data?.filter(v => !assignedVehicleIds.has(v.id)) || [];
       
@@ -75,10 +72,8 @@ export const DriverVehicleSelector = ({
       const currentVehicle = vehicles.find(v => v.id === currentVehicleId);
       if (currentVehicle) {
         if (hideFleetName) {
-          // Dla flotowych: Nr rej • Marka Model
           setSelectedVehicleText(`${currentVehicle.plate} • ${currentVehicle.brand} ${currentVehicle.model}`);
         } else {
-          // Dla adminów: Flota • Marka Model
           const fleetName = (currentVehicle as any).fleets?.name || "Brak floty";
           setSelectedVehicleText(`${fleetName} • ${currentVehicle.brand} ${currentVehicle.model}`);
         }
@@ -91,7 +86,6 @@ export const DriverVehicleSelector = ({
   const assignVehicle = async (vehicleId: string | null, vehicleText: string) => {
     setLoading(true);
     try {
-      // First, deactivate any existing assignments
       await supabase
         .from("driver_vehicle_assignments")
         .update({ status: "inactive", unassigned_at: new Date().toISOString() })
@@ -99,11 +93,9 @@ export const DriverVehicleSelector = ({
         .eq("status", "active");
 
       if (vehicleId) {
-        // Get the vehicle to get its fleet_id
         const vehicle = vehicles.find(v => v.id === vehicleId);
         const vehicleFleetId = vehicle?.fleet_id || null;
         
-        // Create new assignment
         const { error } = await supabase
           .from("driver_vehicle_assignments")
           .insert({
@@ -125,12 +117,31 @@ export const DriverVehicleSelector = ({
         toast.success(`Ustawiono własne auto`);
       }
 
-      // Wywołaj callback jeśli istnieje - to spowoduje odświeżenie danych
       if (onVehicleUpdate) {
         onVehicleUpdate();
       }
     } catch (error) {
       toast.error("Błąd podczas przypisywania pojazdu");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUnassign = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await supabase
+        .from("driver_vehicle_assignments")
+        .update({ status: "inactive", unassigned_at: new Date().toISOString() })
+        .eq("driver_id", driverId)
+        .eq("status", "active");
+      
+      toast.success("Usunięto przypisanie pojazdu");
+      if (onVehicleUpdate) onVehicleUpdate();
+    } catch (error) {
+      toast.error("Błąd podczas usuwania przypisania");
     } finally {
       setLoading(false);
     }
@@ -149,16 +160,13 @@ export const DriverVehicleSelector = ({
     }
   };
 
-  // Transform vehicles for UniversalSelector
   const vehicleItems = vehicles.map(v => {
     if (hideFleetName) {
-      // Dla flotowych: Nr rej • Marka Model
       return {
         id: v.id,
         name: `${v.plate} • ${v.brand} ${v.model}`
       };
     } else {
-      // Dla adminów: Flota • Marka Model • Nr rej
       const fleetName = (v as any).fleets?.name || "Brak floty";
       return {
         id: v.id,
@@ -167,27 +175,39 @@ export const DriverVehicleSelector = ({
     }
   });
 
-  // Add "Własne auto" option
   const allItems = [
     { id: 'own', name: 'Własne auto' },
     ...vehicleItems
   ];
 
   const currentValue = currentVehicleId || 'own';
+  const hasActiveAssignment = currentVehicleId && currentVehicleId !== 'own';
 
   return (
-    <UniversalSelector
-      id={`driver-vehicle-${driverId}`}
-      items={allItems}
-      currentValue={currentValue}
-      placeholder={selectedVehicleText}
-      searchPlaceholder="Szukaj pojazdu..."
-      noResultsText="Brak pojazdów"
-      showSearch={true}
-      showAdd={false}
-      allowClear={false}
-      onSelect={handleSelect}
-      disabled={loading}
-    />
+    <div className="flex items-center gap-1">
+      <UniversalSelector
+        id={`driver-vehicle-${driverId}`}
+        items={allItems}
+        currentValue={currentValue}
+        placeholder={selectedVehicleText}
+        searchPlaceholder="Szukaj pojazdu..."
+        noResultsText="Brak pojazdów"
+        showSearch={true}
+        showAdd={false}
+        allowClear={false}
+        onSelect={handleSelect}
+        disabled={loading}
+      />
+      {hasActiveAssignment && (
+        <button
+          onClick={handleUnassign}
+          disabled={loading}
+          className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-destructive/10 hover:bg-destructive/20 text-destructive transition-colors"
+          title="Usuń przypisanie pojazdu"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      )}
+    </div>
   );
 };
