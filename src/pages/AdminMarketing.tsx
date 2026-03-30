@@ -7,7 +7,7 @@ import { UserDropdown } from '@/components/UserDropdown';
 import { UniversalHomeButton } from '@/components/UniversalHomeButton';
 import { MyGetRidoButton } from '@/components/MyGetRidoButton';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Loader2, LayoutDashboard, Plug, BarChart3, Users, Bot, Sparkles, Shield, Settings, FileText, Brain } from 'lucide-react';
+import { Loader2, LayoutDashboard, Plug, BarChart3, Users, Bot, Sparkles, Shield, Settings, FileText, Brain, Target, MapPin, Palette, BookOpen } from 'lucide-react';
 import { MarketingDashboardTab } from '@/components/marketing/MarketingDashboardTab';
 import { MarketingConnectionsTab } from '@/components/marketing/MarketingConnectionsTab';
 import { MarketingCampaignsTab } from '@/components/marketing/MarketingCampaignsTab';
@@ -18,6 +18,10 @@ import { MarketingTeamTab } from '@/components/marketing/MarketingTeamTab';
 import { MarketingSettingsTab } from '@/components/marketing/MarketingSettingsTab';
 import { MarketingOrdersTab } from '@/components/marketing/MarketingOrdersTab';
 import { MarketingAIReportsTab } from '@/components/marketing/MarketingAIReportsTab';
+import { MarketingKnowledgeTab } from '@/components/marketing/MarketingKnowledgeTab';
+import { MarketingLeadsTab } from '@/components/marketing/MarketingLeadsTab';
+import { MarketingLocalSEOTab } from '@/components/marketing/MarketingLocalSEOTab';
+import { MarketingCreativesTab } from '@/components/marketing/MarketingCreativesTab';
 
 export default function AdminMarketing() {
   const navigate = useNavigate();
