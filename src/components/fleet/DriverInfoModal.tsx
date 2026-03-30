@@ -419,19 +419,31 @@ export function DriverInfoPopover({
             {/* Vehicle */}
             <div className="space-y-0.5">
               <Label className="text-[10px] text-muted-foreground">Przypisane auto</Label>
-              <Select value={selectedVehicleId} onValueChange={setSelectedVehicleId}>
-                <SelectTrigger className="h-7 text-xs">
-                  <SelectValue placeholder="Wybierz auto" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Brak auta</SelectItem>
-                  {availableVehicles.map(v => (
-                    <SelectItem key={v.id} value={v.id}>
-                      {v.plate} • {v.brand} {v.model} {v.weekly_rental_fee ? `(${v.weekly_rental_fee} zł/tydz.)` : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex gap-1">
+                <Select value={selectedVehicleId} onValueChange={setSelectedVehicleId}>
+                  <SelectTrigger className="h-7 text-xs flex-1">
+                    <SelectValue placeholder="Wybierz auto" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Brak auta</SelectItem>
+                    {availableVehicles.map(v => (
+                      <SelectItem key={v.id} value={v.id}>
+                        {v.plate} • {v.brand} {v.model} {v.weekly_rental_fee ? `(${v.weekly_rental_fee} zł/tydz.)` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-7 w-7 shrink-0"
+                  title="Dodaj nowy pojazd"
+                  onClick={() => setShowAddVehicleModal(true)}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             </div>
 
             {/* Fleet */}
