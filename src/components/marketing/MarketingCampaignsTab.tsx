@@ -83,6 +83,7 @@ export function MarketingCampaignsTab() {
                   <TableHead className="text-right">Budżet</TableHead>
                   <TableHead className="text-right">Wydano dziś</TableHead>
                   <TableHead className="text-right">ROAS</TableHead>
+                  <TableHead className="text-center">Predykcja 7d</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Akcje</TableHead>
                 </TableRow>
