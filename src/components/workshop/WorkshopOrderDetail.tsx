@@ -9,6 +9,9 @@ import { WorkshopOrderTasksTab } from './tabs/WorkshopOrderTasksTab';
 import { WorkshopScheduler } from './WorkshopScheduler';
 import { WorkshopOrderSummaryTab } from './tabs/WorkshopOrderSummaryTab';
 import { WorkshopSmsDialog } from './WorkshopSmsDialog';
+import { WorkshopEditClientDialog } from './WorkshopEditClientDialog';
+import { WorkshopVehicleHoverCard } from './WorkshopVehicleHoverCard';
+import { WorkshopClientHoverCard } from './WorkshopClientHoverCard';
 import { RidoPartsCartButton } from './parts/RidoPartsCartButton';
 import {
   ArrowLeft, FileText, Send, Eye, Link2, MessageSquare, MoreVertical,
@@ -45,6 +48,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
   const [activeTab, setActiveTab] = useState('tasks');
   const [smsOpen, setSmsOpen] = useState(false);
   const [smsType, setSmsType] = useState<'reception' | 'quote' | 'ready'>('reception');
+  const [editClientOpen, setEditClientOpen] = useState(false);
 
   const clientName = order.client
     ? order.client.client_type === 'company'
@@ -98,13 +102,17 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
           {clientName && (
             <>
               <span className="text-muted-foreground">·</span>
-              <span className="flex items-center gap-1"><Users className="h-3.5 w-3.5" /> {clientName}</span>
+              <WorkshopClientHoverCard client={order.client} onEdit={() => setEditClientOpen(true)}>
+                <span className="flex items-center gap-1"><Users className="h-3.5 w-3.5" /> {clientName}</span>
+              </WorkshopClientHoverCard>
             </>
           )}
           {vehicleName && (
             <>
               <span className="text-muted-foreground">·</span>
-              <span className="flex items-center gap-1"><Car className="h-3.5 w-3.5" /> {vehicleName}</span>
+              <WorkshopVehicleHoverCard vehicle={order.vehicle}>
+                <span className="flex items-center gap-1"><Car className="h-3.5 w-3.5" /> {vehicleName}</span>
+              </WorkshopVehicleHoverCard>
             </>
           )}
         </div>
@@ -235,6 +243,13 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
         onOpenChange={setSmsOpen}
         order={order}
         type={smsType}
+      />
+
+      {/* Edit Client Dialog */}
+      <WorkshopEditClientDialog
+        open={editClientOpen}
+        onOpenChange={setEditClientOpen}
+        client={order.client}
       />
     </div>
   );
