@@ -9,6 +9,9 @@ import { WorkshopOrderTasksTab } from './tabs/WorkshopOrderTasksTab';
 import { WorkshopScheduler } from './WorkshopScheduler';
 import { WorkshopOrderSummaryTab } from './tabs/WorkshopOrderSummaryTab';
 import { WorkshopSmsDialog } from './WorkshopSmsDialog';
+import { WorkshopEditClientDialog } from './WorkshopEditClientDialog';
+import { WorkshopVehicleHoverCard } from './WorkshopVehicleHoverCard';
+import { WorkshopClientHoverCard } from './WorkshopClientHoverCard';
 import { RidoPartsCartButton } from './parts/RidoPartsCartButton';
 import {
   ArrowLeft, FileText, Send, Eye, Link2, MessageSquare, MoreVertical,
