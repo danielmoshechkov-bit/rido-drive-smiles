@@ -102,13 +102,17 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
           {clientName && (
             <>
               <span className="text-muted-foreground">·</span>
-              <span className="flex items-center gap-1"><Users className="h-3.5 w-3.5" /> {clientName}</span>
+              <WorkshopClientHoverCard client={order.client} onEdit={() => setEditClientOpen(true)}>
+                <span className="flex items-center gap-1"><Users className="h-3.5 w-3.5" /> {clientName}</span>
+              </WorkshopClientHoverCard>
             </>
           )}
           {vehicleName && (
             <>
               <span className="text-muted-foreground">·</span>
-              <span className="flex items-center gap-1"><Car className="h-3.5 w-3.5" /> {vehicleName}</span>
+              <WorkshopVehicleHoverCard vehicle={order.vehicle}>
+                <span className="flex items-center gap-1"><Car className="h-3.5 w-3.5" /> {vehicleName}</span>
+              </WorkshopVehicleHoverCard>
             </>
           )}
         </div>
