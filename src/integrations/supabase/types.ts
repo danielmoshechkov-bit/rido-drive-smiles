@@ -8223,6 +8223,127 @@ export type Database = {
           },
         ]
       }
+      fleet_document_instances: {
+        Row: {
+          attachments: Json | null
+          created_at: string
+          driver_id: string | null
+          filled_content: string | null
+          filled_data: Json | null
+          fleet_id: string
+          id: string
+          rental_price: number | null
+          sent_at: string | null
+          signature_url: string | null
+          signed_at: string | null
+          status: string
+          template_id: string | null
+          template_name: string
+          updated_at: string
+          vehicle_id: string | null
+        }
+        Insert: {
+          attachments?: Json | null
+          created_at?: string
+          driver_id?: string | null
+          filled_content?: string | null
+          filled_data?: Json | null
+          fleet_id: string
+          id?: string
+          rental_price?: number | null
+          sent_at?: string | null
+          signature_url?: string | null
+          signed_at?: string | null
+          status?: string
+          template_id?: string | null
+          template_name?: string
+          updated_at?: string
+          vehicle_id?: string | null
+        }
+        Update: {
+          attachments?: Json | null
+          created_at?: string
+          driver_id?: string | null
+          filled_content?: string | null
+          filled_data?: Json | null
+          fleet_id?: string
+          id?: string
+          rental_price?: number | null
+          sent_at?: string | null
+          signature_url?: string | null
+          signed_at?: string | null
+          status?: string
+          template_id?: string | null
+          template_name?: string
+          updated_at?: string
+          vehicle_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fleet_document_instances_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fleet_document_instances_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "fleet_document_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fleet_document_instances_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fleet_document_templates: {
+        Row: {
+          code: string
+          content: string
+          created_at: string
+          fields: Json | null
+          fleet_id: string
+          id: string
+          is_builtin: boolean
+          name: string
+          status: string
+          updated_at: string
+          version: string
+        }
+        Insert: {
+          code: string
+          content?: string
+          created_at?: string
+          fields?: Json | null
+          fleet_id: string
+          id?: string
+          is_builtin?: boolean
+          name: string
+          status?: string
+          updated_at?: string
+          version?: string
+        }
+        Update: {
+          code?: string
+          content?: string
+          created_at?: string
+          fields?: Json | null
+          fleet_id?: string
+          id?: string
+          is_builtin?: boolean
+          name?: string
+          status?: string
+          updated_at?: string
+          version?: string
+        }
+        Relationships: []
+      }
       fleet_invitations: {
         Row: {
           created_at: string | null

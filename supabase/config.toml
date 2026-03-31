@@ -219,3 +219,6 @@ verify_jwt = false
 
 [functions.seo-agent]
 verify_jwt = false
+
+[functions.generate-document-ai]
+verify_jwt = false
