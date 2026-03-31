@@ -141,6 +141,8 @@ const FUNCTION_LINKS: Record<string, { path: string; label: string }> = {
   ksef_integration: { path: "/provider?tab=inventory", label: "KSeF" },
   inventory_ocr: { path: "/provider?tab=inventory", label: "OCR magazynowe" },
   price_suggestion: { path: "/provider", label: "Sugestia cen" },
+  fleet_document_ai: { path: "/fleet/dashboard", label: "Dokumenty flotowe" },
+  fleet_contract_analysis: { path: "/fleet/dashboard", label: "Analiza umów" },
 };
 
 export function AIFunctionMappingPanel() {
