@@ -48,6 +48,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
   const [activeTab, setActiveTab] = useState('tasks');
   const [smsOpen, setSmsOpen] = useState(false);
   const [smsType, setSmsType] = useState<'reception' | 'quote' | 'ready'>('reception');
+  const [editClientOpen, setEditClientOpen] = useState(false);
 
   const clientName = order.client
     ? order.client.client_type === 'company'
