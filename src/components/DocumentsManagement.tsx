@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Search, Plus, FileText, Upload, Download, Users, Car, Send, Eye, CheckCircle, Trash2, RotateCcw, Calendar } from 'lucide-react';
+import { Search, Plus, FileText, Upload, Download, Users, Send, Eye, CheckCircle, Trash2, RotateCcw, Edit, FileUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -15,12 +15,66 @@ import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { parseRegistryField, getSalutation, getZwanymA } from '@/utils/contractHelpers';
+import { CreateTemplateModal } from '@/components/fleet-documents/CreateTemplateModal';
+import { TemplatePreviewModal } from '@/components/fleet-documents/TemplatePreviewModal';
+import { FillAndSendPanel } from '@/components/fleet-documents/FillAndSendPanel';
+import { UploadContractModal } from '@/components/fleet-documents/UploadContractModal';
 
 interface DocumentsManagementProps {
   cityId: string;
   cityName: string;
   fleetId?: string | null;
 }
+
+// Built-in rental contract template content
+const RENTAL_CONTRACT_CONTENT = `UMOWA NAJMU POJAZDU
+Nr {{NR_UMOWY}}
+
+zawarta w dniu {{DATA_UMOWY}} pomiędzy:
+
+{{NAZWA_FIRMY}}
+z siedzibą: {{ADRES_FIRMY}}
+NIP: {{NIP_FIRMY}}
+reprezentowaną przez: {{REPREZENTANT}}
+zwaną dalej „Najemcą"
+
+a
+
+{{IMIE_NAZWISKO_KIEROWCY}}
+PESEL: {{PESEL}}
+adres zameldowania: {{ADRES_ZAMELDOWANIA}}
+zwanym dalej „Wynajmującym"
+
+§1 Przedmiot umowy
+Wynajmujący oddaje Najemcy do używania pojazd:
+Marka: {{MARKA_POJAZDU}}
+Model: {{MODEL_POJAZDU}}
+Numer VIN: {{NR_VIN}}
+Nr rejestracyjny: {{NR_REJESTRACYJNY}}
+
+§2 Cel najmu
+Pojazd zostaje oddany w najem w celu umożliwienia Najemcy korzystania z niego przy realizacji usług przewozu osób lub rzeczy za pośrednictwem aplikacji transportowych.
+
+§3 Okres trwania umowy
+1. Umowa zostaje zawarta na czas nieokreślony.
+2. Każda ze Stron może wypowiedzieć umowę z zachowaniem 7-dniowego okresu wypowiedzenia.
+3. W przypadku rażącego naruszenia postanowień umowy każda ze Stron może rozwiązać umowę ze skutkiem natychmiastowym.
+
+§4 Czynsz najmu
+1. Strony ustalają czynsz najmu w wysokości {{KWOTA_WYNAJMU}} zł tygodniowo.
+2. Czynsz będzie płatny w okresach tygodniowych.
+
+§5 Obowiązki Wynajmującego
+1. Utrzymywanie pojazdu w należytym stanie technicznym.
+2. Zapewnienie aktualnych badań technicznych i ubezpieczenia OC.
+
+§6 Postanowienia końcowe
+1. W sprawach nieuregulowanych niniejszą umową zastosowanie mają przepisy Kodeksu cywilnego.
+2. Wszelkie zmiany niniejszej umowy wymagają formy pisemnej pod rygorem nieważności.
+3. Umowę sporządzono w dwóch jednobrzmiących egzemplarzach, po jednym dla każdej ze Stron.
+
+______________________________          ______________________________
+Wynajmujący                             Najemca`;
 
 const BUILT_IN_TEMPLATES = [
   {
@@ -29,10 +83,10 @@ const BUILT_IN_TEMPLATES = [
     code: 'RENTAL_CONTRACT',
     version: '1.0',
     enabled: true,
+    content: RENTAL_CONTRACT_CONTENT,
     created_at: '2026-01-01T00:00:00Z',
-    description: 'Umowa najmu pojazdu',
-    required_fields: ['driver_data', 'vehicle_data', 'fleet_data', 'contract_date'],
     builtin: true,
+    status: 'active',
   },
 ];
 
@@ -40,8 +94,6 @@ interface DriverOption {
   id: string;
   first_name: string;
   last_name: string;
-  email?: string;
-  phone?: string;
 }
 
 export const DocumentsManagement = ({ cityId, cityName, fleetId }: DocumentsManagementProps) => {
@@ -51,13 +103,18 @@ export const DocumentsManagement = ({ cityId, cityName, fleetId }: DocumentsMana
   const [selectedDriverIds, setSelectedDriverIds] = useState<string[]>([]);
   const [sendToAll, setSendToAll] = useState(false);
   const [driverSearch, setDriverSearch] = useState('');
-  const [completedSearch, setCompletedSearch] = useState('');
-  const [completedFilter, setCompletedFilter] = useState<'all' | 'signed' | 'pending' | 'unsigned'>('all');
   const [sentSearch, setSentSearch] = useState('');
   const [previewContract, setPreviewContract] = useState<any>(null);
   const [contractDate, setContractDate] = useState(new Date().toISOString().split('T')[0]);
   const [contractNumber, setContractNumber] = useState('');
   const queryClient = useQueryClient();
+
+  // New modal states
+  const [showCreateTemplate, setShowCreateTemplate] = useState(false);
+  const [editTemplate, setEditTemplate] = useState<any>(null);
+  const [previewTemplate, setPreviewTemplate] = useState<any>(null);
+  const [fillTemplate, setFillTemplate] = useState<any>(null);
+  const [showUploadContract, setShowUploadContract] = useState(false);
 
   const { data: resolvedFleetId } = useQuery({
     queryKey: ['resolved-fleet-id', fleetId],
@@ -124,45 +181,98 @@ export const DocumentsManagement = ({ cityId, cityName, fleetId }: DocumentsMana
     enabled: !!resolvedFleetId,
   });
 
-  const allTemplates = [...BUILT_IN_TEMPLATES];
+  // Load custom templates from DB
+  const { data: customTemplates = [], refetch: refetchTemplates } = useQuery({
+    queryKey: ['fleet-custom-templates', resolvedFleetId],
+    queryFn: async () => {
+      if (!resolvedFleetId) return [];
+      const { data } = await (supabase as any)
+        .from('fleet_document_templates')
+        .select('*')
+        .eq('fleet_id', resolvedFleetId)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false });
+      return (data || []) as any[];
+    },
+    enabled: !!resolvedFleetId,
+  });
+
+  // Load document instances for sent/signed tabs
+  const { data: documentInstances = [], refetch: refetchInstances } = useQuery({
+    queryKey: ['fleet-document-instances', resolvedFleetId],
+    queryFn: async () => {
+      if (!resolvedFleetId) return [];
+      const { data } = await (supabase as any)
+        .from('fleet_document_instances')
+        .select('*')
+        .eq('fleet_id', resolvedFleetId)
+        .order('created_at', { ascending: false });
+      return (data || []) as any[];
+    },
+    enabled: !!resolvedFleetId,
+  });
+
+  const allTemplates = [...BUILT_IN_TEMPLATES, ...customTemplates.map((t: any) => ({
+    ...t,
+    builtin: false,
+    enabled: t.status === 'active',
+  }))];
 
   const filteredTemplates = allTemplates.filter(template =>
     template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    template.code.toLowerCase().includes(searchTerm.toLowerCase())
+    template.code?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const filteredDrivers = drivers.filter(d =>
     `${d.first_name} ${d.last_name}`.toLowerCase().includes(driverSearch.toLowerCase())
   );
 
-  // Filter for "Wysłane" tab
-  const filteredSent = sentRequests.filter((req: any) => {
+  // Combine sent requests + document instances for sent tab
+  const allSentDocs = [
+    ...sentRequests.map((r: any) => ({ ...r, source: 'request' })),
+    ...documentInstances
+      .filter((d: any) => d.status === 'sent' || d.status === 'draft')
+      .map((d: any) => ({
+        id: d.id,
+        template_name: d.template_name,
+        driver_id: d.driver_id,
+        status: d.status === 'sent' ? 'pending' : d.status,
+        created_at: d.created_at,
+        sent_at: d.sent_at,
+        source: 'instance',
+        contract_number: d.filled_data?.NR_UMOWY || '',
+      })),
+  ].filter((doc, idx, arr) => {
+    // Deduplicate by driver_id + template_name
+    return arr.findIndex(d => d.driver_id === doc.driver_id && d.template_name === doc.template_name && d.source === doc.source) === idx;
+  });
+
+  const filteredSent = allSentDocs.filter((req: any) => {
     const driver = drivers.find(d => d.id === req.driver_id);
     const name = driver ? `${driver.first_name} ${driver.last_name}` : '';
     return name.toLowerCase().includes(sentSearch.toLowerCase()) || req.template_name?.toLowerCase().includes(sentSearch.toLowerCase());
   });
 
-  // Filter for "Podpisane dokumenty" tab
-  const getFilteredCompleted = () => {
-    return drivers.filter(driver => {
-      const nameMatch = `${driver.first_name} ${driver.last_name}`.toLowerCase().includes(completedSearch.toLowerCase());
-      if (!nameMatch) return false;
-      const docReq = existingRequests.find((r: any) => r.driver_id === driver.id && r.template_code === 'RENTAL_CONTRACT');
-      const isSigned = docReq?.status === 'signed' || docReq?.status === 'completed';
-      const isPending = docReq?.status === 'pending';
-      if (completedFilter === 'signed') return isSigned;
-      if (completedFilter === 'pending') return isPending;
-      if (completedFilter === 'unsigned') return !docReq;
-      return true;
-    });
-  };
+  // Signed documents
+  const signedDocs = [
+    ...sentRequests.filter((r: any) => r.status === 'signed' || r.status === 'completed').map((r: any) => ({ ...r, source: 'request' })),
+    ...documentInstances.filter((d: any) => d.status === 'signed').map((d: any) => ({
+      id: d.id,
+      template_name: d.template_name,
+      driver_id: d.driver_id,
+      status: 'signed',
+      signed_at: d.signed_at,
+      created_at: d.created_at,
+      source: 'instance',
+      filled_content: d.filled_content,
+    })),
+  ];
 
   const handleSendToDrivers = async () => {
     if (!sendDialog) return;
     const targetDrivers = sendToAll ? drivers.map(d => d.id) : selectedDriverIds;
     if (targetDrivers.length === 0) { toast.error('Wybierz co najmniej jednego kierowcę'); return; }
 
-    // Filter out drivers that already have a request for this template (prevent duplicates)
     const existingDriverIds = existingRequests
       .filter((r: any) => r.template_code === sendDialog.templateCode)
       .map((r: any) => r.driver_id);
@@ -175,7 +285,6 @@ export const DocumentsManagement = ({ cityId, cityName, fleetId }: DocumentsMana
     }
 
     try {
-      // Auto-generate contract numbers if not provided
       const existingNumbers = existingRequests
         .filter((r: any) => r.contract_number)
         .map((r: any) => {
@@ -206,7 +315,7 @@ export const DocumentsManagement = ({ cityId, cityName, fleetId }: DocumentsMana
       setSendToAll(false);
       refetchRequests();
       queryClient.invalidateQueries({ queryKey: ['doc-requests-status'] });
-    } catch (error: any) {
+    } catch {
       toast.info('Funkcja wysyłania dokumentów zostanie uruchomiona po utworzeniu tabeli w bazie danych');
       setSendDialog(null);
     }
@@ -214,20 +323,28 @@ export const DocumentsManagement = ({ cityId, cityName, fleetId }: DocumentsMana
 
   const handleResend = async (req: any) => {
     try {
-      await supabase.from('driver_document_requests' as any).update({ status: 'pending', signed_at: null, signature_url: null, filled_data: null, updated_at: new Date().toISOString() } as any).eq('id', req.id);
+      if (req.source === 'instance') {
+        await (supabase as any).from('fleet_document_instances').update({ status: 'sent', sent_at: new Date().toISOString() }).eq('id', req.id);
+      } else {
+        await supabase.from('driver_document_requests' as any).update({ status: 'pending', signed_at: null, signature_url: null, filled_data: null, updated_at: new Date().toISOString() } as any).eq('id', req.id);
+      }
       toast.success('Dokument wysłany ponownie');
       refetchRequests();
-      queryClient.invalidateQueries({ queryKey: ['doc-requests-status'] });
+      refetchInstances();
     } catch { toast.error('Błąd'); }
   };
 
-  const handleDeleteRequest = async (reqId: string) => {
+  const handleDeleteRequest = async (reqId: string, source?: string) => {
     if (!confirm('Czy na pewno chcesz usunąć ten dokument?')) return;
     try {
-      await supabase.from('driver_document_requests' as any).delete().eq('id', reqId);
+      if (source === 'instance') {
+        await (supabase as any).from('fleet_document_instances').delete().eq('id', reqId);
+      } else {
+        await supabase.from('driver_document_requests' as any).delete().eq('id', reqId);
+      }
       toast.success('Dokument usunięty');
       refetchRequests();
-      queryClient.invalidateQueries({ queryKey: ['doc-requests-status'] });
+      refetchInstances();
     } catch { toast.error('Błąd usuwania'); }
   };
 
@@ -242,13 +359,17 @@ export const DocumentsManagement = ({ cityId, cityName, fleetId }: DocumentsMana
     const logoUrl = (fleetData as any)?.logo_url || null;
     const sigUrl = fleetSignature?.signature_url || null;
     const stampUrl = fleetSignature?.stamp_url || null;
-
     const registry = parseRegistryField(fKrs);
     const salutation = getSalutation(fd.pesel);
     const zwanymA = getZwanymA(fd.pesel);
     const regAddr = fd.registered_address || '—';
     const resAddr = fd.residential_address || fd.registered_address || '—';
     const showResAddr = resAddr !== regAddr;
+
+    // If it's a custom document instance with filled_content, render that
+    if (contract.filled_content && contract.source === 'instance') {
+      return `<div style="font-family: 'Times New Roman', Georgia, serif; max-width: 700px; margin: 0 auto; padding: 30px; font-size: 13px; line-height: 1.8; color: #1a1a1a; white-space: pre-wrap;">${contract.filled_content}</div>`;
+    }
 
     return `
 <div style="font-family: 'Times New Roman', Georgia, serif; max-width: 700px; margin: 0 auto; padding: 30px; font-size: 13px; line-height: 1.8; color: #1a1a1a;">
@@ -281,41 +402,22 @@ export const DocumentsManagement = ({ cityId, cityName, fleetId }: DocumentsMana
     <tr style="background: #f5f5f5;"><td style="padding: 6px 12px; border: 1px solid #ddd;"><strong>Numer VIN:</strong></td><td style="padding: 6px 12px; border: 1px solid #ddd;">${fd.car_vin || '—'}</td></tr>
     <tr><td style="padding: 6px 12px; border: 1px solid #ddd;"><strong>Nr rejestracyjny:</strong></td><td style="padding: 6px 12px; border: 1px solid #ddd;">${fd.car_registration || '—'}</td></tr>
   </table>
-  <p>Wynajmujący oświadcza, że:</p>
-  <p style="margin-left: 20px;">a) jest właścicielem pojazdu lub posiada tytuł prawny do jego wynajmu,</p>
-  <p style="margin-left: 20px;">b) pojazd jest sprawny technicznie i dopuszczony do ruchu,</p>
-  <p style="margin-left: 20px;">c) pojazd posiada wymagane badania techniczne oraz ubezpieczenie OC,</p>
-  <p style="margin-left: 20px;">d) pojazd spełnia wymogi przewidziane przepisami prawa dla świadczenia usług przewozowych (jeżeli dotyczy).</p>
   <h2 style="text-align: center; font-size: 14px; margin-top: 25px;">§2 Cel najmu</h2>
   <p>Pojazd zostaje oddany w najem w celu umożliwienia Najemcy korzystania z niego przy realizacji usług przewozu osób lub rzeczy za pośrednictwem aplikacji transportowych.</p>
-  <p>Umowa niniejsza ma charakter cywilnoprawny i nie stanowi umowy o pracę ani nie tworzy stosunku podporządkowania pomiędzy Stronami.</p>
   <h2 style="text-align: center; font-size: 14px; margin-top: 25px;">§3 Okres trwania umowy</h2>
   <p>1. Umowa zostaje zawarta na czas nieokreślony.</p>
   <p>2. Każda ze Stron może wypowiedzieć umowę z zachowaniem 7-dniowego okresu wypowiedzenia.</p>
-  <p>3. W przypadku rażącego naruszenia postanowień umowy każda ze Stron może rozwiązać umowę ze skutkiem natychmiastowym.</p>
   <h2 style="text-align: center; font-size: 14px; margin-top: 25px;">§4 Czynsz najmu</h2>
   <p>1. Strony ustalają, że czynsz najmu będzie ustalany miesięcznie.</p>
-  <p>2. Wysokość czynszu może być uzależniona od poziomu eksploatacji pojazdu.</p>
-  <p>3. Czynsz może być wypłacany w formie zaliczek w okresach tygodniowych.</p>
-  <p>4. Ostateczne rozliczenie czynszu za dany miesiąc następuje do 10 dnia miesiąca następującego po miesiącu rozliczeniowym.</p>
-  <p>5. Czynsz będzie płatny ${fd.payment_method === 'transfer' ? 'przelewem na rachunek bankowy Wynajmującego nr: <strong>' + (fd.bank_account || '') + '</strong>' : 'gotówką'}.</p>
-  <h2 style="text-align: center; font-size: 14px; margin-top: 25px;">§5 Obowiązki Wynajmującego</h2>
-  <p>1. Utrzymywanie pojazdu w należytym stanie technicznym.</p>
-  <p>2. Zapewnienie aktualnych badań technicznych i ubezpieczenia OC.</p>
-  <p>3. Niezwłoczne informowanie Najemcy o wszelkich zdarzeniach mających wpływ na możliwość korzystania z pojazdu.</p>
-  <h2 style="text-align: center; font-size: 14px; margin-top: 25px;">§6 Odpowiedzialność podatkowa</h2>
-  <p>1. Strony zgodnie potwierdzają, że czynsz najmu stanowi przychód Wynajmującego.</p>
-  <p>2. Wynajmujący zobowiązuje się do samodzielnego rozliczania podatku dochodowego.</p>
-  <p>3. Najemca nie pełni funkcji płatnika podatku dochodowego od czynszu najmu.</p>
-  <h2 style="text-align: center; font-size: 14px; margin-top: 25px;">§7 Postanowienia końcowe</h2>
+  <p>2. Czynsz może być wypłacany w formie zaliczek w okresach tygodniowych.</p>
+  <p>3. Czynsz będzie płatny ${fd.payment_method === 'transfer' ? 'przelewem na rachunek bankowy Wynajmującego nr: <strong>' + (fd.bank_account || '') + '</strong>' : 'gotówką'}.</p>
+  <h2 style="text-align: center; font-size: 14px; margin-top: 25px;">§5 Postanowienia końcowe</h2>
   <p>1. W sprawach nieuregulowanych niniejszą umową zastosowanie mają przepisy Kodeksu cywilnego.</p>
   <p>2. Wszelkie zmiany niniejszej umowy wymagają formy pisemnej pod rygorem nieważności.</p>
-  <p>3. Spory wynikłe z niniejszej umowy będą rozstrzygane przez sąd właściwy dla siedziby Najemcy.</p>
-  <p>4. Umowę sporządzono w dwóch jednobrzmiących egzemplarzach, po jednym dla każdej ze Stron.</p>
+  <p>3. Umowę sporządzono w dwóch jednobrzmiących egzemplarzach, po jednym dla każdej ze Stron.</p>
   <div style="display: flex; justify-content: space-between; margin-top: 60px; padding-top: 20px; border-top: 1px solid #eee;">
     <div style="text-align: center; width: 45%;">
       <p style="margin-bottom: 10px; font-weight: bold;">Wynajmujący</p>
-      <p style="color: #888; font-size: 11px; margin-bottom: 15px;">(kierowca / właściciel pojazdu)</p>
       <div style="min-height: 60px; display: flex; align-items: center; justify-content: center;">
         ${contract.signature_url ? `<img src="${contract.signature_url}" alt="Podpis" style="max-height: 50px;" />` : '<p style="color: #aaa;">……………………………………</p>'}
       </div>
@@ -325,7 +427,6 @@ export const DocumentsManagement = ({ cityId, cityName, fleetId }: DocumentsMana
     </div>
     <div style="text-align: center; width: 45%;">
       <p style="margin-bottom: 10px; font-weight: bold;">Najemca</p>
-      <p style="color: #888; font-size: 11px; margin-bottom: 15px;">${fName}</p>
       <div style="min-height: 60px; display: flex; align-items: center; justify-content: center;">
         ${sigUrl ? `<img src="${sigUrl}" alt="Podpis" style="max-height: 50px;" />` : '<p style="color: #aaa;">……………………………………</p>'}
       </div>
@@ -338,6 +439,15 @@ export const DocumentsManagement = ({ cityId, cityName, fleetId }: DocumentsMana
     setSelectedDriverIds(prev =>
       prev.includes(driverId) ? prev.filter(id => id !== driverId) : [...prev, driverId]
     );
+  };
+
+  const handleDeleteTemplate = async (templateId: string) => {
+    if (!confirm('Czy na pewno chcesz usunąć ten szablon?')) return;
+    try {
+      await (supabase as any).from('fleet_document_templates').update({ status: 'archived' }).eq('id', templateId);
+      toast.success('Szablon usunięty');
+      refetchTemplates();
+    } catch { toast.error('Błąd'); }
   };
 
   return (
@@ -358,37 +468,82 @@ export const DocumentsManagement = ({ cityId, cityName, fleetId }: DocumentsMana
                   style={activeTab === tab.value ? { backgroundColor: 'var(--nav-bar-color, #6C3CF0)' } : undefined}
                 >
                   {tab.label}
+                  {tab.value === 'sent' && filteredSent.length > 0 && (
+                    <Badge variant="secondary" className="ml-1.5 h-5 px-1.5 text-[10px]">{filteredSent.length}</Badge>
+                  )}
+                  {tab.value === 'completed' && signedDocs.length > 0 && (
+                    <Badge variant="secondary" className="ml-1.5 h-5 px-1.5 text-[10px]">{signedDocs.length}</Badge>
+                  )}
                 </TabsTrigger>
               ))}
             </TabsList>
 
             {/* Templates Tab */}
             <TabsContent value="templates" className="space-y-4">
-              <div className="relative max-w-sm">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                <Input placeholder="Szukaj szablonów..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="relative flex-1 min-w-[200px] max-w-sm">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                  <Input placeholder="Szukaj szablonów..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
+                </div>
+                <Button onClick={() => setShowCreateTemplate(true)} className="gap-2" style={{ backgroundColor: '#6C5CE7' }}>
+                  <Plus className="h-4 w-4" /> Stwórz szablon
+                </Button>
+                <Button onClick={() => setShowUploadContract(true)} variant="outline" className="gap-2">
+                  <FileUp className="h-4 w-4" /> Wgraj umowę
+                </Button>
               </div>
               <div className="space-y-3">
                 {filteredTemplates.map((template) => (
                   <div key={template.id} className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex-1 min-w-[200px]">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="font-semibold">{template.name}</h3>
-                          <Badge variant="default">Aktywny</Badge>
-                          <Badge variant="outline" className="text-xs">v{template.version}</Badge>
-                          {template.builtin && <Badge variant="secondary" className="text-xs">Wbudowany</Badge>}
+                          <Badge variant="default" className="text-[10px]">Aktywny</Badge>
+                          <Badge variant="outline" className="text-[10px]">v{template.version}</Badge>
+                          {template.builtin && <Badge variant="secondary" className="text-[10px]">Wbudowany</Badge>}
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">Kod: {template.code}</p>
                       </div>
-                      <div className="flex gap-2">
-                        <Button variant="default" size="sm" className="gap-1" onClick={() => { setContractDate(new Date().toISOString().split('T')[0]); setContractNumber(''); setSendDialog({ templateCode: template.code, templateName: template.name }); }}>
-                          <Send className="h-4 w-4" /> Wyślij do kierowcy
+                      <div className="flex gap-1.5 flex-wrap">
+                        <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={() => setPreviewTemplate(template)}>
+                          <Eye className="h-3.5 w-3.5" /> Podgląd
                         </Button>
+                        <Button size="sm" className="gap-1 text-xs" style={{ backgroundColor: '#6C5CE7' }} onClick={() => setFillTemplate(template)}>
+                          <FileText className="h-3.5 w-3.5" /> Uzupełnij i wyślij
+                        </Button>
+                        <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={() => {
+                          if (template.builtin) {
+                            setEditTemplate({ id: template.id, name: template.name, content: template.content, version: template.version });
+                          } else {
+                            setEditTemplate(template);
+                          }
+                          setShowCreateTemplate(true);
+                        }}>
+                          <Edit className="h-3.5 w-3.5" /> Edytuj
+                        </Button>
+                        <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={() => {
+                          setContractDate(new Date().toISOString().split('T')[0]);
+                          setContractNumber('');
+                          setSendDialog({ templateCode: template.code, templateName: template.name });
+                        }}>
+                          <Send className="h-3.5 w-3.5" /> Wyślij do kierowcy
+                        </Button>
+                        {!template.builtin && (
+                          <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10" onClick={() => handleDeleteTemplate(template.id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </div>
                 ))}
+                {filteredTemplates.length === 0 && (
+                  <div className="text-center py-8">
+                    <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                    <p className="text-muted-foreground">Brak szablonów</p>
+                  </div>
+                )}
               </div>
             </TabsContent>
 
@@ -408,39 +563,44 @@ export const DocumentsManagement = ({ cityId, cityName, fleetId }: DocumentsMana
                   {filteredSent.map((req: any) => {
                     const driver = drivers.find(d => d.id === req.driver_id);
                     const isSigned = req.status === 'signed' || req.status === 'completed';
+                    const isRejected = req.status === 'rejected';
                     return (
-                      <div key={req.id} className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
-                        <div className="flex items-center justify-between">
+                      <div key={`${req.source}-${req.id}`} className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
+                        <div className="flex items-center justify-between flex-wrap gap-2">
                           <div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <h3 className="font-semibold text-sm">{req.template_name}</h3>
-                              <Badge variant={isSigned ? 'default' : req.status === 'in_progress' ? 'secondary' : 'outline'}>
-                                {isSigned ? 'Podpisany' : req.status === 'in_progress' ? 'W trakcie' : 'Oczekujący'}
+                              <Badge variant={isSigned ? 'default' : isRejected ? 'destructive' : req.status === 'in_progress' ? 'secondary' : 'outline'}
+                                className={isSigned ? 'bg-green-600 text-white' : ''}>
+                                {isSigned ? '✓ Podpisany' : isRejected ? 'Odrzucony' : req.status === 'in_progress' ? 'W trakcie' : 'Oczekuje na podpis'}
                               </Badge>
-                              {req.contract_number && <Badge variant="outline" className="text-xs">Nr {req.contract_number}</Badge>}
+                              {req.contract_number && <Badge variant="outline" className="text-[10px]">Nr {req.contract_number}</Badge>}
                             </div>
                             <p className="text-sm text-muted-foreground mt-1">
-                              Kierowca: {driver ? `${driver.first_name} ${driver.last_name}` : req.driver_id}
+                              Kierowca: {driver ? `${driver.first_name} ${driver.last_name}` : '—'}
                             </p>
-                            {req.created_at && (
-                              <p className="text-xs text-muted-foreground">
-                                Wysłano: {format(new Date(req.created_at), 'dd.MM.yyyy HH:mm', { locale: pl })}
-                              </p>
-                            )}
+                            <div className="flex gap-3 text-xs text-muted-foreground mt-0.5">
+                              {(req.sent_at || req.created_at) && (
+                                <span>Wysłano: {format(new Date(req.sent_at || req.created_at), 'dd.MM.yyyy HH:mm', { locale: pl })}</span>
+                              )}
+                              {req.signed_at && (
+                                <span>Podpisano: {format(new Date(req.signed_at), 'dd.MM.yyyy HH:mm', { locale: pl })}</span>
+                              )}
+                            </div>
                           </div>
-                          <div className="flex gap-2">
+                          <div className="flex gap-1.5">
                             {isSigned && (
-                              <Button variant="outline" size="sm" className="gap-1" onClick={() => setPreviewContract(req)}>
-                                <Eye className="h-4 w-4" /> Podgląd
+                              <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={() => setPreviewContract(req)}>
+                                <Eye className="h-3.5 w-3.5" /> Podgląd
                               </Button>
                             )}
-                            {!isSigned && (
-                              <Button variant="outline" size="sm" className="gap-1" onClick={() => handleResend(req)}>
-                                <RotateCcw className="h-4 w-4" /> Wyślij ponownie
+                            {!isSigned && !isRejected && (
+                              <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={() => handleResend(req)}>
+                                <RotateCcw className="h-3.5 w-3.5" /> Ponów
                               </Button>
                             )}
-                            <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => handleDeleteRequest(req.id)}>
-                              <Trash2 className="h-4 w-4" />
+                            <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10" onClick={() => handleDeleteRequest(req.id, req.source)}>
+                              <Trash2 className="h-3.5 w-3.5" />
                             </Button>
                           </div>
                         </div>
@@ -451,71 +611,44 @@ export const DocumentsManagement = ({ cityId, cityName, fleetId }: DocumentsMana
               )}
             </TabsContent>
 
-            {/* Completed Documents Tab */}
+            {/* Signed Documents Tab */}
             <TabsContent value="completed" className="space-y-4">
-              <div className="flex items-center gap-3 flex-wrap">
-                <div className="relative flex-1 min-w-[200px] max-w-sm">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                  <Input placeholder="Szukaj kierowcy..." value={completedSearch} onChange={(e) => setCompletedSearch(e.target.value)} className="pl-10" />
-                </div>
-                <Select value={completedFilter} onValueChange={(v: any) => setCompletedFilter(v)}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Wszyscy</SelectItem>
-                    <SelectItem value="signed">Podpisane</SelectItem>
-                    <SelectItem value="pending">Oczekujące</SelectItem>
-                    <SelectItem value="unsigned">Nie podpisane</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              {getFilteredCompleted().length === 0 ? (
+              {signedDocs.length === 0 ? (
                 <div className="text-center py-8">
-                  <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                  <p className="text-muted-foreground">Brak wyników</p>
+                  <CheckCircle className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                  <p className="text-muted-foreground">Brak podpisanych dokumentów</p>
                 </div>
               ) : (
-                <div className="space-y-2">
-                  <div className="grid grid-cols-[1fr_140px_120px_100px_80px] gap-2 px-4 py-2 text-xs font-medium text-muted-foreground border-b">
-                    <span>Kierowca</span>
-                    <span>Nr umowy</span>
-                    <span>Dokument</span>
-                    <span className="text-center">Status</span>
-                    <span className="text-center">Akcje</span>
-                  </div>
-                  {getFilteredCompleted().map(driver => {
-                    const docReq = existingRequests.find((r: any) => r.driver_id === driver.id && r.template_code === 'RENTAL_CONTRACT');
-                    const isSigned = docReq?.status === 'signed' || docReq?.status === 'completed';
-                    const isPending = docReq?.status === 'pending';
-
+                <div className="space-y-3">
+                  {signedDocs.map((doc: any) => {
+                    const driver = drivers.find(d => d.id === doc.driver_id);
                     return (
-                      <div key={driver.id} className="grid grid-cols-[1fr_140px_120px_100px_80px] gap-2 items-center px-4 py-3 border rounded-lg hover:bg-muted/50 transition-colors">
-                        <span className="font-medium text-sm">{driver.first_name} {driver.last_name}</span>
-                        <span className="text-xs text-muted-foreground">{docReq?.contract_number || '—'}</span>
-                        <span className="text-xs">Umowa najmu</span>
-                        <div className="flex justify-center">
-                          {isSigned ? (
-                            <Badge className="bg-green-600 text-white text-[10px] gap-1"><CheckCircle className="h-3 w-3" /> Podpisana</Badge>
-                          ) : isPending ? (
-                            <Badge variant="outline" className="text-orange-600 border-orange-300 text-[10px]">Oczekuje</Badge>
-                          ) : (
-                            <Badge variant="destructive" className="text-[10px]">Nie podpisana</Badge>
-                          )}
-                        </div>
-                        <div className="flex justify-center">
-                          {isSigned && docReq && (
-                            <Button variant="ghost" size="sm" onClick={() => setPreviewContract(docReq)}>
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          )}
+                      <div key={`${doc.source}-${doc.id}`} className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-semibold text-sm">{doc.template_name}</h3>
+                              <Badge className="bg-green-600 text-white text-[10px] gap-1"><CheckCircle className="h-3 w-3" /> Podpisany</Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              {driver ? `${driver.first_name} ${driver.last_name}` : '—'}
+                            </p>
+                            {doc.signed_at && (
+                              <p className="text-xs text-muted-foreground">
+                                Podpisano: {format(new Date(doc.signed_at), 'dd.MM.yyyy HH:mm', { locale: pl })}
+                              </p>
+                            )}
+                          </div>
+                          <Button variant="outline" size="sm" className="gap-1" onClick={() => setPreviewContract(doc)}>
+                            <Eye className="h-4 w-4" /> Podgląd
+                          </Button>
                         </div>
                       </div>
                     );
                   })}
                 </div>
               )}
-          </TabsContent>
+            </TabsContent>
           </Tabs>
         </CardContent>
       </Card>
@@ -526,7 +659,7 @@ export const DocumentsManagement = ({ cityId, cityName, fleetId }: DocumentsMana
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5" />
-              {previewContract?.template_name || 'Umowa najmu pojazdu'}
+              {previewContract?.template_name || 'Dokument'}
               {previewContract?.contract_number && <Badge variant="outline" className="ml-2">Nr {previewContract.contract_number}</Badge>}
             </DialogTitle>
           </DialogHeader>
@@ -538,7 +671,7 @@ export const DocumentsManagement = ({ cityId, cityName, fleetId }: DocumentsMana
             <Button onClick={() => {
               const w = window.open('', '_blank');
               if (w && previewContract) {
-                w.document.write(`<html><head><title>Umowa ${previewContract.contract_number || ''}</title></head><body>${generateContractHtml(previewContract)}</body></html>`);
+                w.document.write(`<html><head><title>${previewContract.template_name || 'Dokument'}</title></head><body>${generateContractHtml(previewContract)}</body></html>`);
                 w.document.close();
                 w.print();
               }
@@ -555,10 +688,8 @@ export const DocumentsManagement = ({ cityId, cityName, fleetId }: DocumentsMana
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Kierowca po zalogowaniu zobaczy powiadomienie o konieczności wypełnienia dokumentu. Duplikaty nie będą wysyłane.
+              Kierowca po zalogowaniu zobaczy powiadomienie o konieczności wypełnienia dokumentu.
             </p>
-            
-            {/* Contract date & number */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label className="text-xs">Data zawarcia umowy</Label>
@@ -567,10 +698,8 @@ export const DocumentsManagement = ({ cityId, cityName, fleetId }: DocumentsMana
               <div className="space-y-1">
                 <Label className="text-xs">Nr umowy (opcjonalnie)</Label>
                 <Input placeholder="Auto" value={contractNumber} onChange={e => setContractNumber(e.target.value)} />
-                <p className="text-[10px] text-muted-foreground">Puste = auto numeracja (np. 1/2026)</p>
               </div>
             </div>
-
             <div className="flex items-center space-x-2">
               <Checkbox id="send-to-all" checked={sendToAll} onCheckedChange={(checked) => { setSendToAll(checked as boolean); if (checked) setSelectedDriverIds(drivers.map(d => d.id)); else setSelectedDriverIds([]); }} />
               <Label htmlFor="send-to-all" className="font-medium">Wyślij do wszystkich ({drivers.length})</Label>
@@ -590,18 +719,13 @@ export const DocumentsManagement = ({ cityId, cityName, fleetId }: DocumentsMana
                       <label key={driver.id} className="flex items-center gap-2 p-2 rounded hover:bg-muted/50 cursor-pointer">
                         <Checkbox checked={selectedDriverIds.includes(driver.id)} onCheckedChange={() => toggleDriverSelection(driver.id)} disabled={isSigned || isPending} />
                         <span className="text-sm flex-1">{driver.first_name} {driver.last_name}</span>
-                        {isSigned && <Badge variant="default" className="text-[10px] gap-1 bg-green-600">✓ Podpisana</Badge>}
-                        {isPending && <Badge variant="outline" className="text-[10px] gap-1 text-orange-600 border-orange-300">Oczekuje</Badge>}
-                        {!driverDocStatus && <Badge variant="secondary" className="text-[10px]">Brak</Badge>}
+                        {isSigned && <Badge className="text-[10px] gap-1 bg-green-600 text-white">✓ Podpisana</Badge>}
+                        {isPending && <Badge variant="outline" className="text-[10px] text-orange-600 border-orange-300">Oczekuje</Badge>}
                       </label>
                     );
                   })}
-                  {filteredDrivers.length === 0 && <p className="text-center text-sm text-muted-foreground py-4">Brak kierowców</p>}
                 </div>
               </>
-            )}
-            {(sendToAll || selectedDriverIds.length > 0) && (
-              <p className="text-xs text-muted-foreground">Wybrano: {sendToAll ? drivers.length : selectedDriverIds.length} kierowców</p>
             )}
           </div>
           <DialogFooter>
@@ -610,6 +734,40 @@ export const DocumentsManagement = ({ cityId, cityName, fleetId }: DocumentsMana
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Create / Edit Template Modal */}
+      <CreateTemplateModal
+        open={showCreateTemplate}
+        onOpenChange={(v) => { setShowCreateTemplate(v); if (!v) setEditTemplate(null); }}
+        fleetId={resolvedFleetId || cityId}
+        onCreated={() => { refetchTemplates(); }}
+        editTemplate={editTemplate}
+      />
+
+      {/* Template Preview Modal */}
+      <TemplatePreviewModal
+        open={!!previewTemplate}
+        onOpenChange={(v) => { if (!v) setPreviewTemplate(null); }}
+        template={previewTemplate}
+        onFillAndSend={() => { setFillTemplate(previewTemplate); setPreviewTemplate(null); }}
+      />
+
+      {/* Fill and Send Panel */}
+      <FillAndSendPanel
+        open={!!fillTemplate}
+        onOpenChange={(v) => { if (!v) setFillTemplate(null); }}
+        template={fillTemplate}
+        fleetId={resolvedFleetId || cityId}
+        onSent={() => { refetchInstances(); refetchRequests(); }}
+      />
+
+      {/* Upload Contract Modal */}
+      <UploadContractModal
+        open={showUploadContract}
+        onOpenChange={setShowUploadContract}
+        fleetId={resolvedFleetId || cityId}
+        onUploaded={() => { refetchInstances(); }}
+      />
     </div>
   );
 };
