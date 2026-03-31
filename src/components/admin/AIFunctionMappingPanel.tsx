@@ -73,6 +73,8 @@ const FUNCTION_MODULES: Record<string, string> = {
   voice_navigation: "voice",
   voice_agent: "voice",
   ai_sales_agent: "voice",
+  fleet_document_ai: "flota",
+  fleet_contract_analysis: "flota",
   meeting_transcription: "inne",
   map_risk_assessment: "inne",
   email_ai_assistant: "inne",
@@ -89,6 +91,7 @@ const MODULE_CONFIG = [
   { value: "www", label: "Strona WWW" },
   { value: "nieruchomosci", label: "Nieruchomości" },
   { value: "motoryzacja", label: "Motoryzacja" },
+  { value: "flota", label: "Flota" },
   { value: "voice", label: "Głos" },
   { value: "inne", label: "Inne" },
 ];
@@ -138,6 +141,8 @@ const FUNCTION_LINKS: Record<string, { path: string; label: string }> = {
   ksef_integration: { path: "/provider?tab=inventory", label: "KSeF" },
   inventory_ocr: { path: "/provider?tab=inventory", label: "OCR magazynowe" },
   price_suggestion: { path: "/provider", label: "Sugestia cen" },
+  fleet_document_ai: { path: "/fleet/dashboard", label: "Dokumenty flotowe" },
+  fleet_contract_analysis: { path: "/fleet/dashboard", label: "Analiza umów" },
 };
 
 export function AIFunctionMappingPanel() {

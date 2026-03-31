@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useRef, DragEvent } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Sparkles, Upload, FileText, Save } from 'lucide-react';
+import { Loader2, Sparkles, Upload, FileText, Save, Paperclip, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -33,6 +33,10 @@ export const CreateTemplateModal = ({ open, onOpenChange, fleetId, onCreated, ed
   const [isSaving, setIsSaving] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [isProcessingFile, setIsProcessingFile] = useState(false);
+  const [exampleFiles, setExampleFiles] = useState<File[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const exampleInputRef = useRef<HTMLInputElement>(null);
 
   const isEditing = !!editTemplate;
 
@@ -41,11 +45,31 @@ export const CreateTemplateModal = ({ open, onOpenChange, fleetId, onCreated, ed
       toast.error('Wpisz opis dokumentu');
       return;
     }
+    if (!templateName.trim() && !generatedContent) {
+      toast.error('Podaj nazwę szablonu');
+      return;
+    }
     setIsGenerating(true);
     try {
+      let userMessage = prompt.trim();
+      
+      // Add example files content
+      if (exampleFiles.length > 0 && !generatedContent) {
+        const fileTexts: string[] = [];
+        for (const f of exampleFiles) {
+          try {
+            const text = await f.text();
+            fileTexts.push(`--- Przykład: ${f.name} ---\n${text.slice(0, 4000)}\n---`);
+          } catch { /* skip binary */ }
+        }
+        if (fileTexts.length > 0) {
+          userMessage += `\n\nOto przykłady dokumentów na których się wzorujesz:\n${fileTexts.join('\n\n')}`;
+        }
+      }
+
       const { data, error } = await supabase.functions.invoke('generate-document-ai', {
         body: {
-          prompt: prompt.trim(),
+          prompt: userMessage,
           existingContent: generatedContent || undefined,
           corrections: corrections.trim() || undefined,
         },
@@ -65,21 +89,19 @@ export const CreateTemplateModal = ({ open, onOpenChange, fleetId, onCreated, ed
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const handleFileUpload = async (file: File) => {
     if (!file) return;
     if (file.size > 10 * 1024 * 1024) {
       toast.error('Maksymalny rozmiar pliku to 10MB');
       return;
     }
-    if (!file.name.match(/\.(pdf|docx)$/i)) {
+    if (!file.name.match(/\.(pdf|docx|doc)$/i)) {
       toast.error('Dozwolone formaty: PDF, DOCX');
       return;
     }
     setUploadedFile(file);
     setIsProcessingFile(true);
     try {
-      // Read file as text (simplified - for real use you'd parse PDF/DOCX)
       const text = await file.text();
       const { data, error } = await supabase.functions.invoke('generate-document-ai', {
         body: {
@@ -89,14 +111,54 @@ export const CreateTemplateModal = ({ open, onOpenChange, fleetId, onCreated, ed
       if (error) throw error;
       if (data?.content) {
         setGeneratedContent(data.content);
-        setTemplateName(file.name.replace(/\.(pdf|docx)$/i, ''));
+        if (!templateName) {
+          setTemplateName(file.name.replace(/\.(pdf|docx|doc)$/i, ''));
+        }
         toast.success(`Znaleziono ${extractFields(data.content).length} pól do uzupełnienia`);
+      } else {
+        throw new Error('Brak treści');
       }
     } catch {
-      toast.error('Nie udało się przetworzyć pliku');
+      toast.error('Nie udało się przetworzyć pliku. Spróbuj ponownie.');
     } finally {
       setIsProcessingFile(false);
     }
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleFileUpload(file);
+  };
+
+  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) handleFileUpload(file);
+  };
+
+  const handleExampleFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const valid = files.filter(f => f.size <= 10 * 1024 * 1024);
+    if (valid.length < files.length) toast.error('Pominięto pliki > 10MB');
+    setExampleFiles(prev => [...prev, ...valid]);
+  };
+
+  const removeExample = (index: number) => {
+    setExampleFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSave = async () => {
@@ -114,7 +176,6 @@ export const CreateTemplateModal = ({ open, onOpenChange, fleetId, onCreated, ed
       const code = templateName.toUpperCase().replace(/[^A-Z0-9]/g, '_').replace(/_+/g, '_');
 
       if (isEditing && editTemplate) {
-        // Increment version
         const parts = editTemplate.version.split('.');
         const newVersion = `${parts[0]}.${parseInt(parts[1] || '0') + 1}`;
         
@@ -162,6 +223,7 @@ export const CreateTemplateModal = ({ open, onOpenChange, fleetId, onCreated, ed
     setCorrections('');
     setTemplateName('');
     setUploadedFile(null);
+    setExampleFiles([]);
   };
 
   return (
@@ -173,6 +235,17 @@ export const CreateTemplateModal = ({ open, onOpenChange, fleetId, onCreated, ed
             {isEditing ? 'Edytuj szablon' : 'Stwórz nowy szablon'}
           </DialogTitle>
         </DialogHeader>
+
+        {/* Template name — always visible at top */}
+        <div>
+          <Label className="text-sm font-medium">Nazwa szablonu *</Label>
+          <Input
+            placeholder="np. Umowa najmu pojazdu, Protokół zdawczo-odbiorczy..."
+            value={templateName}
+            onChange={(e) => setTemplateName(e.target.value)}
+            className="mt-1"
+          />
+        </div>
 
         {!isEditing && (
           <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
@@ -195,7 +268,48 @@ export const CreateTemplateModal = ({ open, onOpenChange, fleetId, onCreated, ed
                     rows={6}
                     className="resize-none"
                   />
-                  <Button onClick={handleGenerate} disabled={isGenerating} className="w-full gap-2" style={{ backgroundColor: '#6C5CE7' }}>
+
+                  {/* Example files */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm text-muted-foreground">Załącz przykłady (opcjonalnie)</Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="gap-1 h-7 text-xs"
+                        onClick={() => exampleInputRef.current?.click()}
+                      >
+                        <Paperclip className="h-3 w-3" /> Dodaj plik
+                      </Button>
+                      <input
+                        ref={exampleInputRef}
+                        type="file"
+                        multiple
+                        accept=".pdf,.docx,.doc,.txt,.jpg,.jpeg,.png"
+                        onChange={handleExampleFiles}
+                        className="hidden"
+                      />
+                    </div>
+                    {exampleFiles.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {exampleFiles.map((f, i) => (
+                          <div key={i} className="flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-muted">
+                            <Paperclip className="h-3 w-3 text-muted-foreground" />
+                            <span className="max-w-[150px] truncate">{f.name}</span>
+                            <button onClick={() => removeExample(i)} className="ml-1 hover:text-destructive">
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      Dodaj istniejące dokumenty jako przykłady — AI wykorzysta je jako wzór do wygenerowania szablonu
+                    </p>
+                  </div>
+
+                  <Button onClick={handleGenerate} disabled={isGenerating || !templateName.trim()} className="w-full gap-2" style={{ backgroundColor: '#6C5CE7' }}>
                     {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                     {isGenerating ? 'Claude generuje dokument...' : 'Generuj szablon z AI'}
                   </Button>
@@ -208,8 +322,6 @@ export const CreateTemplateModal = ({ open, onOpenChange, fleetId, onCreated, ed
                   onCorrectionsChange={setCorrections}
                   onUpdate={handleGenerate}
                   isUpdating={isGenerating}
-                  templateName={templateName}
-                  onNameChange={setTemplateName}
                   onSave={handleSave}
                   isSaving={isSaving}
                 />
@@ -217,24 +329,45 @@ export const CreateTemplateModal = ({ open, onOpenChange, fleetId, onCreated, ed
             </TabsContent>
 
             <TabsContent value="upload" className="space-y-4 mt-4">
-              <div className="border-2 border-dashed rounded-lg p-8 text-center hover:border-primary/50 transition-colors">
-                <Upload className="h-10 w-10 mx-auto mb-3 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground mb-3">Przeciągnij plik PDF lub DOCX tutaj</p>
-                <label>
-                  <input type="file" accept=".pdf,.docx" onChange={handleFileUpload} className="hidden" />
-                  <Button variant="outline" asChild className="cursor-pointer">
-                    <span>Wybierz plik</span>
-                  </Button>
-                </label>
-                <p className="text-xs text-muted-foreground mt-2">Max 10MB, PDF lub DOCX</p>
-              </div>
-              {isProcessingFile && (
-                <div className="flex items-center gap-2 justify-center py-4">
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  <span className="text-sm text-muted-foreground">Analizuję dokument...</span>
+              {!generatedContent ? (
+                <div
+                  className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${
+                    isDragging ? 'border-primary bg-primary/5' : 'hover:border-primary/50'
+                  }`}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  {isProcessingFile ? (
+                    <div className="flex items-center gap-2 justify-center py-4">
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <span className="text-sm text-muted-foreground">Analizuję dokument...</span>
+                    </div>
+                  ) : uploadedFile ? (
+                    <div className="flex items-center gap-2 justify-center">
+                      <FileText className="h-5 w-5 text-green-600" />
+                      <span className="text-sm font-medium">{uploadedFile.name}</span>
+                    </div>
+                  ) : (
+                    <>
+                      <Upload className="h-10 w-10 mx-auto mb-3 text-muted-foreground" />
+                      <p className="text-sm text-muted-foreground mb-3">Przeciągnij plik PDF lub DOCX tutaj</p>
+                      <Button variant="outline" type="button" className="cursor-pointer">
+                        Wybierz plik
+                      </Button>
+                      <p className="text-xs text-muted-foreground mt-2">Max 10MB, PDF lub DOCX</p>
+                    </>
+                  )}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".pdf,.docx,.doc"
+                    onChange={handleFileInputChange}
+                    className="hidden"
+                  />
                 </div>
-              )}
-              {generatedContent && !isProcessingFile && (
+              ) : (
                 <GeneratedContentEditor
                   content={generatedContent}
                   onChange={setGeneratedContent}
@@ -242,8 +375,6 @@ export const CreateTemplateModal = ({ open, onOpenChange, fleetId, onCreated, ed
                   onCorrectionsChange={setCorrections}
                   onUpdate={handleGenerate}
                   isUpdating={isGenerating}
-                  templateName={templateName}
-                  onNameChange={setTemplateName}
                   onSave={handleSave}
                   isSaving={isSaving}
                 />
@@ -260,8 +391,6 @@ export const CreateTemplateModal = ({ open, onOpenChange, fleetId, onCreated, ed
             onCorrectionsChange={setCorrections}
             onUpdate={handleGenerate}
             isUpdating={isGenerating}
-            templateName={templateName}
-            onNameChange={setTemplateName}
             onSave={handleSave}
             isSaving={isSaving}
           />
@@ -273,12 +402,11 @@ export const CreateTemplateModal = ({ open, onOpenChange, fleetId, onCreated, ed
 
 function GeneratedContentEditor({
   content, onChange, corrections, onCorrectionsChange,
-  onUpdate, isUpdating, templateName, onNameChange, onSave, isSaving,
+  onUpdate, isUpdating, onSave, isSaving,
 }: {
   content: string; onChange: (v: string) => void;
   corrections: string; onCorrectionsChange: (v: string) => void;
   onUpdate: () => void; isUpdating: boolean;
-  templateName: string; onNameChange: (v: string) => void;
   onSave: () => void; isSaving: boolean;
 }) {
   const fields = extractFields(content);
@@ -318,16 +446,8 @@ function GeneratedContentEditor({
         </div>
       )}
 
-      <div className="flex items-end gap-3">
-        <div className="flex-1">
-          <Label className="text-sm">Nazwa szablonu</Label>
-          <Input
-            placeholder="np. Umowa najmu pojazdu"
-            value={templateName}
-            onChange={(e) => onNameChange(e.target.value)}
-          />
-        </div>
-        <Button onClick={onSave} disabled={isSaving} className="gap-2 shrink-0" style={{ backgroundColor: '#6C5CE7' }}>
+      <div className="flex justify-end">
+        <Button onClick={onSave} disabled={isSaving} className="gap-2" style={{ backgroundColor: '#6C5CE7' }}>
           {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
           Zapisz szablon
         </Button>
