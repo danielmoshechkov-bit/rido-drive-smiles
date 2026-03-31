@@ -244,6 +244,13 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
         order={order}
         type={smsType}
       />
+
+      {/* Edit Client Dialog */}
+      <WorkshopEditClientDialog
+        open={editClientOpen}
+        onOpenChange={setEditClientOpen}
+        client={order.client}
+      />
     </div>
   );
 }

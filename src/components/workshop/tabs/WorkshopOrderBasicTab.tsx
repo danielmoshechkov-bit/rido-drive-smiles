@@ -7,7 +7,8 @@ import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useUpdateWorkshopOrder } from '@/hooks/useWorkshop';
-import { Car, Users, Save, Camera } from 'lucide-react';
+import { WorkshopEditClientDialog } from '../WorkshopEditClientDialog';
+import { Car, Users, Save, Camera, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Props {
