@@ -84,10 +84,11 @@ export const FillAndSendPanel = ({ open, onOpenChange, template, fleetId, onSent
     const driver = drivers.find((d: any) => d.id === driverId);
     if (driver) {
       const updates: Record<string, string> = {};
+      const fullAddr = [driver.address_street, driver.address_postal_code, driver.address_city].filter(Boolean).join(', ');
       if (fields.includes('IMIE_NAZWISKO_KIEROWCY')) updates['IMIE_NAZWISKO_KIEROWCY'] = `${driver.first_name} ${driver.last_name}`;
       if (fields.includes('PESEL')) updates['PESEL'] = driver.pesel || '';
-      if (fields.includes('ADRES')) updates['ADRES'] = driver.address || '';
-      if (fields.includes('ADRES_ZAMELDOWANIA')) updates['ADRES_ZAMELDOWANIA'] = driver.address || '';
+      if (fields.includes('ADRES')) updates['ADRES'] = fullAddr;
+      if (fields.includes('ADRES_ZAMELDOWANIA')) updates['ADRES_ZAMELDOWANIA'] = fullAddr;
       if (fields.includes('NR_PRAWA_JAZDY')) updates['NR_PRAWA_JAZDY'] = driver.license_number || '';
       if (fields.includes('NR_TELEFONU')) updates['NR_TELEFONU'] = driver.phone || '';
       if (fields.includes('EMAIL')) updates['EMAIL'] = driver.email || '';
