@@ -73,6 +73,8 @@ const FUNCTION_MODULES: Record<string, string> = {
   voice_navigation: "voice",
   voice_agent: "voice",
   ai_sales_agent: "voice",
+  fleet_document_ai: "flota",
+  fleet_contract_analysis: "flota",
   meeting_transcription: "inne",
   map_risk_assessment: "inne",
   email_ai_assistant: "inne",
