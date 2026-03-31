@@ -91,6 +91,7 @@ const MODULE_CONFIG = [
   { value: "www", label: "Strona WWW" },
   { value: "nieruchomosci", label: "Nieruchomości" },
   { value: "motoryzacja", label: "Motoryzacja" },
+  { value: "flota", label: "Flota" },
   { value: "voice", label: "Głos" },
   { value: "inne", label: "Inne" },
 ];
