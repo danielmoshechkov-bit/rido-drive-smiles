@@ -64,8 +64,8 @@ export const FillAndSendPanel = ({ open, onOpenChange, template, fleetId, onSent
   const { data: drivers = [] } = useQuery({
     queryKey: ['fleet-drivers-fill', fleetId],
     queryFn: async () => {
-      const { data } = await supabase.from('drivers').select('id, first_name, last_name, pesel, address, phone, email, license_number').eq('fleet_id', fleetId).order('last_name');
-      return data || [];
+      const { data } = await supabase.from('drivers').select('id, first_name, last_name, pesel, address_street, address_city, address_postal_code, phone, email, license_number').eq('fleet_id', fleetId).order('last_name');
+      return (data || []) as any[];
     },
     enabled: !!fleetId && open,
   });
