@@ -458,14 +458,6 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     setTaskRows([createEmptyTask()]);
   };
 
-  // Auto-save task row on blur if filled
-  const autoSaveTaskRow = async (idx: number) => {
-    const row = taskRows[idx];
-    if (row && isTaskDraftFilled(row)) {
-      await submitTask(row, idx);
-      setTaskRows(prev => prev.map((r, i) => i === idx ? createEmptyTask() : r));
-    }
-  };
 
   const saveGoodsDraftRows = async () => {
     const rowsToSave = goodsRows.filter(isGoodsDraftFilled);
