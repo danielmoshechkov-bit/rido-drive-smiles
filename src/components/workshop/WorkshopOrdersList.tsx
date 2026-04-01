@@ -235,8 +235,8 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                               {order.vehicle.vin && (
                                 <>
                                   <span className="text-muted-foreground">VIN</span>
-                                  <button className="text-left text-xs hover:text-primary flex items-center gap-1 truncate" onClick={() => { navigator.clipboard.writeText(order.vehicle.vin); toast.success('Skopiowano VIN'); }}>
-                                    {order.vehicle.vin} <Copy className="h-2.5 w-2.5 opacity-50" />
+                                  <button className="text-left text-[11px] font-medium hover:text-primary flex items-center gap-1 truncate max-w-full" onClick={() => { navigator.clipboard.writeText(order.vehicle.vin); toast.success('Skopiowano VIN'); }}>
+                                    {order.vehicle.vin} <Copy className="h-2.5 w-2.5 opacity-50 shrink-0" />
                                   </button>
                                 </>
                               )}
