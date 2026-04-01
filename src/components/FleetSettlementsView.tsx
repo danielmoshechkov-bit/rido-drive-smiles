@@ -864,13 +864,12 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     };
   };
 
-  // Wypłata finalna: część 1 (rozliczenie bez wynajmu i bez długu wynajmu) + część 2 (wynajem)
+  // Wypłata finalna: rozliczenie minus wynajem (długi są śledzone osobno w systemie debt)
   const getDoWyplaty = (settlement: DriverSettlement): number => {
     const effective = getEffectiveSettlement(settlement);
-    const wyplata1 = getWyplata1(settlement);
-    const rentalDebtBefore = settlement.rental_debt_previous ?? 0;
+    const payoutNoRental = calculatePayoutWithoutRental(effective);
     const rental = effective.rental || 0;
-    return round2(wyplata1 - rentalDebtBefore - rental);
+    return round2(payoutNoRental - rental);
   };
 
   // Calculate payout WITHOUT rental (Part 1 of settlement)
