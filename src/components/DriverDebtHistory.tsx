@@ -306,6 +306,61 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
     }
   };
 
+  const handleZeroOutDebts = async () => {
+    setSaving(true);
+    try {
+      const { data: existing } = await supabase
+        .from('driver_debts')
+        .select('id')
+        .eq('driver_id', driverId)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase
+          .from('driver_debts')
+          .update({ current_balance: 0, updated_at: new Date().toISOString() })
+          .eq('driver_id', driverId);
+      }
+
+      const dateVal = new Date().toISOString().split('T')[0];
+      if (settlementDebt > 0) {
+        await supabase.from('driver_debt_transactions').insert({
+          driver_id: driverId,
+          type: 'payment',
+          amount: -settlementDebt,
+          balance_before: settlementDebt,
+          balance_after: 0,
+          period_from: dateVal,
+          period_to: dateVal,
+          description: 'Wyzerowanie długu rozliczeniowego',
+          debt_category: 'settlement',
+        } as any);
+      }
+      if (rentalDebt > 0) {
+        await supabase.from('driver_debt_transactions').insert({
+          driver_id: driverId,
+          type: 'payment',
+          amount: -rentalDebt,
+          balance_before: rentalDebt,
+          balance_after: 0,
+          period_from: dateVal,
+          period_to: dateVal,
+          description: 'Wyzerowanie długu za wynajem',
+          debt_category: 'rental',
+        } as any);
+      }
+
+      toast.success('Wszystkie długi zostały wyzerowane');
+      await fetchDebtData();
+      await onDebtChanged?.();
+    } catch (err) {
+      console.error('Error zeroing debts:', err);
+      toast.error('Błąd zerowania długów');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const renderTransactionList = (filteredTxs: DebtTransaction[]) => {
     if (filteredTxs.length === 0) {
       return (
