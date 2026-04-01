@@ -27,8 +27,14 @@ export function TopBarCredits() {
   const { data: smsCredits } = useQuery({
     queryKey: ['sms-credits'],
     queryFn: async () => {
-      // TODO: hook up to real sms_credits table when created
-      return 0;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return 0;
+      const { data } = await supabase
+        .from('service_providers')
+        .select('sms_balance')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      return data?.sms_balance ?? 0;
     },
   });
 

@@ -458,14 +458,6 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     setTaskRows([createEmptyTask()]);
   };
 
-  // Auto-save task row on blur if filled
-  const autoSaveTaskRow = async (idx: number) => {
-    const row = taskRows[idx];
-    if (row && isTaskDraftFilled(row)) {
-      await submitTask(row, idx);
-      setTaskRows(prev => prev.map((r, i) => i === idx ? createEmptyTask() : r));
-    }
-  };
 
   const saveGoodsDraftRows = async () => {
     const rowsToSave = goodsRows.filter(isGoodsDraftFilled);
@@ -482,14 +474,6 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     setGoodsRows([createEmptyGoods()]);
   };
 
-  // Auto-save goods row on blur if filled
-  const autoSaveGoodsRow = async (idx: number) => {
-    const row = goodsRows[idx];
-    if (row && isGoodsDraftFilled(row)) {
-      await submitGoods(row, idx);
-      setGoodsRows(prev => prev.map((r, i) => i === idx ? createEmptyGoods() : r));
-    }
-  };
 
   // Inline editable cell renderer
   const renderEditableCell = (item: any, field: string, displayValue: string, className: string = '') => {
@@ -662,7 +646,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           placeholder={isTaskGross ? 'Brutto' : 'Netto'}
                           value={isTaskGross ? (row.price_gross || '') : (row.price_net || '')}
                           onChange={e => updateTaskRowPrice(idx, Number(e.target.value))}
-                          onBlur={() => autoSaveTaskRow(idx)}
+                          onKeyDown={e => e.key === 'Enter' && submitTask(row, idx)}
                             className="h-9 w-full text-sm text-right min-w-0"
                         />
                       </td>
@@ -863,7 +847,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           placeholder={isGoodsGross ? 'Brutto' : 'Netto'}
                           value={isGoodsGross ? (row.price_gross || '') : (row.price_net || '')}
                           onChange={e => updateGoodsRowPrice(idx, Number(e.target.value))}
-                          onBlur={() => autoSaveGoodsRow(idx)}
+                          onKeyDown={e => e.key === 'Enter' && submitGoods(row, idx)}
                             className="h-9 w-full text-sm text-right min-w-0 px-2"
                         />
                       </td>
