@@ -309,6 +309,13 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
   const handleZeroOutDebts = async () => {
     setSaving(true);
     try {
+      // 1. Delete ALL historical debt transactions — clean slate
+      await supabase
+        .from('driver_debt_transactions')
+        .delete()
+        .eq('driver_id', driverId);
+
+      // 2. Set balance to 0
       const { data: existing } = await supabase
         .from('driver_debts')
         .select('id')
@@ -322,35 +329,13 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
           .eq('driver_id', driverId);
       }
 
-      const dateVal = new Date().toISOString().split('T')[0];
-      if (settlementDebt > 0) {
-        await supabase.from('driver_debt_transactions').insert({
-          driver_id: driverId,
-          type: 'payment',
-          amount: -settlementDebt,
-          balance_before: settlementDebt,
-          balance_after: 0,
-          period_from: dateVal,
-          period_to: dateVal,
-          description: 'Wyzerowanie długu rozliczeniowego',
-          debt_category: 'settlement',
-        } as any);
-      }
-      if (rentalDebt > 0) {
-        await supabase.from('driver_debt_transactions').insert({
-          driver_id: driverId,
-          type: 'payment',
-          amount: -rentalDebt,
-          balance_before: rentalDebt,
-          balance_after: 0,
-          period_from: dateVal,
-          period_to: dateVal,
-          description: 'Wyzerowanie długu za wynajem',
-          debt_category: 'rental',
-        } as any);
-      }
+      // 3. Also zero out debt snapshots in settlements table
+      await supabase
+        .from('settlements')
+        .update({ debt_before: 0, debt_after: 0, debt_payment: 0 })
+        .eq('driver_id', driverId);
 
-      toast.success('Wszystkie długi zostały wyzerowane');
+      toast.success('Wszystkie długi i historia zostały wyzerowane — czysta karta');
       await fetchDebtData();
       await onDebtChanged?.();
     } catch (err) {
