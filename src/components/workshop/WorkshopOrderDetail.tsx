@@ -16,7 +16,7 @@ import { WorkshopClientHoverCard } from './WorkshopClientHoverCard';
 import { RidoPartsCartButton } from './parts/RidoPartsCartButton';
 import {
   ArrowLeft, FileText, Send, Eye, Link2, MessageSquare, MoreVertical,
-  Printer, Download, ClipboardList, Car, Users
+  Printer, Download, ClipboardList, Car, Users, CheckCircle, XCircle, Ban
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
