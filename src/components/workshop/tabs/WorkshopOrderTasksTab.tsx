@@ -316,7 +316,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     showQuoteWarningIfNeeded();
     setEditingItemId(itemId);
     setEditingField(field);
-    if (field === 'price') {
+    if (field === 'price' || field === 'cost' || field === 'quantity') {
       const normalized = String(currentValue).replace(',', '.');
       const numericValue = Number(normalized);
       setEditingValue(numericValue === 0 ? '' : normalized);
@@ -328,13 +328,22 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   const saveEdit = async (item: any) => {
     if (!editingItemId || !editingField) return;
     const updates: any = {};
+    const isService = item.item_type === 'service' || item.item_type === 'task';
+    const gross = isService ? isTaskGross : isGoodsGross;
 
     if (editingField === 'name') {
       updates.name = editingValue;
+    } else if (editingField === 'quantity') {
+      const newQty = Math.max(1, parseInt(editingValue) || 1);
+      updates.quantity = newQty;
+      const unitPrice = gross ? safeNumber(item.unit_price_gross) : safeNumber(item.unit_price_net);
+      const rawTotal = newQty * unitPrice;
+      const disc = item.discount_percent || 0;
+      const afterDiscount = rawTotal - (rawTotal * disc / 100);
+      updates.total_gross = gross ? afterDiscount : afterDiscount * VAT_RATE;
+      updates.total_net = gross ? afterDiscount / VAT_RATE : afterDiscount;
     } else if (editingField === 'price') {
       const val = parseFloat(editingValue.replace(',', '.')) || 0;
-      const isService = item.item_type === 'service' || item.item_type === 'task';
-      const gross = isService ? isTaskGross : isGoodsGross;
       const synced = syncPrice(val, gross ? 'gross' : 'net');
       updates.unit_price_net = synced.net;
       updates.unit_price_gross = synced.gross;
@@ -343,6 +352,11 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       const afterDiscount = rawTotal - (rawTotal * disc / 100);
       updates.total_gross = gross ? afterDiscount : afterDiscount * VAT_RATE;
       updates.total_net = gross ? afterDiscount / VAT_RATE : afterDiscount;
+    } else if (editingField === 'cost') {
+      const val = parseFloat(editingValue.replace(',', '.')) || 0;
+      const synced = syncPrice(val, gross ? 'gross' : 'net');
+      updates.unit_cost_net = synced.net;
+      updates.unit_cost_gross = synced.gross;
     } else if (editingField === 'mechanic') {
       updates.mechanic = editingValue || null;
     }
@@ -492,7 +506,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
           }}
           className="h-7 text-sm"
           type="text"
-          inputMode={field === 'price' ? 'decimal' : undefined}
+          inputMode={['price', 'cost', 'quantity'].includes(field) ? 'decimal' : undefined}
         />
       );
     }
@@ -506,6 +520,10 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
             val = isService
               ? (isTaskGross ? item.unit_price_gross : item.unit_price_net) || 0
               : (isGoodsGross ? item.unit_price_gross : item.unit_price_net) || 0;
+          } else if (field === 'cost') {
+            val = (isGoodsGross ? safeNumber(item.unit_cost_gross) : safeNumber(item.unit_cost_net));
+          } else if (field === 'quantity') {
+            val = safeNumber(item.quantity) || 1;
           }
           startEdit(item.id, field, val);
         }}
@@ -774,12 +792,12 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                   const itemCost = getGoodsItemCost(g);
                   const hasDiscount = getDiscountPercent(g) > 0;
                   return (
-                    <tr key={g.id} className="border-b hover:bg-accent/30 transition-colors text-sm">
+                    <tr key={g.id} className="border-b hover:bg-accent/30 transition-colors text-sm cursor-pointer">
                       <td className="p-2 text-center text-muted-foreground">{i + 1}</td>
                         <td className="p-2 font-medium"><div className="truncate">{renderEditableCell(g, 'name', g.name)}</div></td>
-                      <td className="p-2 text-center">{g.quantity}</td>
+                      <td className="p-2 text-center">{renderEditableCell(g, 'quantity', String(g.quantity))}</td>
                       <td className="p-2 text-center">{g.unit}</td>
-                      <td className="p-2 text-right text-muted-foreground tabular-nums">{fmt(itemCost)}</td>
+                      <td className="p-2 text-right text-muted-foreground tabular-nums">{renderEditableCell(g, 'cost', fmt(itemCost), 'tabular-nums')}</td>
                       <td className="p-2 text-right tabular-nums">{renderEditableCell(g, 'price', fmt(itemPrice), 'tabular-nums')}</td>
                       <td className="p-2 text-right tabular-nums">{fmt(rawTotal)}</td>
                        <td className="p-2 text-right">{hasDiscount ? `${Math.round(getDiscountPercent(g))}%` : '—'}</td>
