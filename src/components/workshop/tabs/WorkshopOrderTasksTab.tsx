@@ -506,7 +506,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
           }}
           className="h-7 text-sm"
           type="text"
-          inputMode={field === 'price' ? 'decimal' : undefined}
+          inputMode={['price', 'cost', 'quantity'].includes(field) ? 'decimal' : undefined}
         />
       );
     }
@@ -520,6 +520,10 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
             val = isService
               ? (isTaskGross ? item.unit_price_gross : item.unit_price_net) || 0
               : (isGoodsGross ? item.unit_price_gross : item.unit_price_net) || 0;
+          } else if (field === 'cost') {
+            val = (isGoodsGross ? safeNumber(item.unit_cost_gross) : safeNumber(item.unit_cost_net));
+          } else if (field === 'quantity') {
+            val = safeNumber(item.quantity) || 1;
           }
           startEdit(item.id, field, val);
         }}
