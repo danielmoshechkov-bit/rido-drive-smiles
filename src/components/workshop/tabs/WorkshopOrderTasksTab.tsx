@@ -328,13 +328,22 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   const saveEdit = async (item: any) => {
     if (!editingItemId || !editingField) return;
     const updates: any = {};
+    const isService = item.item_type === 'service' || item.item_type === 'task';
+    const gross = isService ? isTaskGross : isGoodsGross;
 
     if (editingField === 'name') {
       updates.name = editingValue;
+    } else if (editingField === 'quantity') {
+      const newQty = Math.max(1, parseInt(editingValue) || 1);
+      updates.quantity = newQty;
+      const unitPrice = gross ? safeNumber(item.unit_price_gross) : safeNumber(item.unit_price_net);
+      const rawTotal = newQty * unitPrice;
+      const disc = item.discount_percent || 0;
+      const afterDiscount = rawTotal - (rawTotal * disc / 100);
+      updates.total_gross = gross ? afterDiscount : afterDiscount * VAT_RATE;
+      updates.total_net = gross ? afterDiscount / VAT_RATE : afterDiscount;
     } else if (editingField === 'price') {
       const val = parseFloat(editingValue.replace(',', '.')) || 0;
-      const isService = item.item_type === 'service' || item.item_type === 'task';
-      const gross = isService ? isTaskGross : isGoodsGross;
       const synced = syncPrice(val, gross ? 'gross' : 'net');
       updates.unit_price_net = synced.net;
       updates.unit_price_gross = synced.gross;
@@ -343,6 +352,11 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       const afterDiscount = rawTotal - (rawTotal * disc / 100);
       updates.total_gross = gross ? afterDiscount : afterDiscount * VAT_RATE;
       updates.total_net = gross ? afterDiscount / VAT_RATE : afterDiscount;
+    } else if (editingField === 'cost') {
+      const val = parseFloat(editingValue.replace(',', '.')) || 0;
+      const synced = syncPrice(val, gross ? 'gross' : 'net');
+      updates.unit_cost_net = synced.net;
+      updates.unit_cost_gross = synced.gross;
     } else if (editingField === 'mechanic') {
       updates.mechanic = editingValue || null;
     }
