@@ -26,7 +26,8 @@ interface SMSSettings {
 }
 
 const SMS_PROVIDERS = [
-  { value: 'smsapi', label: 'SMSAPI.pl', apiUrl: 'https://api.smsapi.pl/sms.do' },
+  { value: 'justsend', label: 'JustSend (Digital Virgo)', apiUrl: 'https://justsend.io/api/sender/bulk/send' },
+  { value: 'smsapi', label: 'SMSAPI.pl (legacy)', apiUrl: 'https://api.smsapi.pl/sms.do' },
   { value: 'serwersms', label: 'SerwerSMS.pl', apiUrl: 'https://api2.serwersms.pl/messages/send_sms' },
   { value: 'twilio', label: 'Twilio', apiUrl: 'https://api.twilio.com/2010-04-01/Accounts' },
   { value: 'custom', label: 'Własne API', apiUrl: '' },
@@ -40,9 +41,9 @@ export const SMSIntegrationsPanel = () => {
   const [apiKey, setApiKey] = useState('');
   const [testPhone, setTestPhone] = useState('');
   const [formData, setFormData] = useState({
-    provider: 'smsapi',
+    provider: 'justsend',
     api_url: '',
-    sender_name: 'RIDO',
+    sender_name: 'GetRido.pl',
     is_active: false,
   });
 
@@ -150,17 +151,27 @@ export const SMSIntegrationsPanel = () => {
 
     setTesting(true);
     try {
-      // Simulate test - in production this would call an edge function
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
+      const { data, error } = await supabase.functions.invoke('send-sms', {
+        body: {
+          phone: testPhone,
+          message: `Test SMS z portalu GetRido — ${new Date().toLocaleTimeString('pl-PL')}. Integracja JustSend dziala poprawnie.`,
+          type: 'test',
+          sender: formData.sender_name || 'GetRido.pl',
+        },
+      });
+
+      if (error) throw error;
+      if (data && !data.success) throw new Error(data.error || 'SMS nie został wysłany');
+
       toast({
-        title: 'Test SMS',
-        description: `Wiadomość testowa zostanie wysłana na ${testPhone}`,
+        title: 'SMS wysłany ✓',
+        description: `Wiadomość testowa wysłana na ${testPhone} z nadawcą ${formData.sender_name}`,
       });
     } catch (error) {
+      console.error('Test SMS error:', error);
       toast({
         title: 'Błąd',
-        description: 'Nie udało się wysłać testowego SMS',
+        description: error instanceof Error ? error.message : 'Nie udało się wysłać testowego SMS',
         variant: 'destructive',
       });
     } finally {
@@ -187,6 +198,10 @@ export const SMSIntegrationsPanel = () => {
                 <CardTitle>Integracja SMS</CardTitle>
                 <CardDescription>
                   Konfiguracja bramki SMS do wysyłania powiadomień
+                <br />
+                <span className="text-xs font-normal text-muted-foreground">
+                  Aktualny dostawca: JustSend (Digital Virgo) — nadawca: <strong>{formData.sender_name}</strong>
+                </span>
                 </CardDescription>
               </div>
             </div>
@@ -262,9 +277,12 @@ export const SMSIntegrationsPanel = () => {
               id="sender_name"
               value={formData.sender_name}
               onChange={(e) => setFormData({ ...formData, sender_name: e.target.value.slice(0, 11) })}
-              placeholder="RIDO"
+              placeholder="GetRido.pl"
               maxLength={11}
             />
+            <p className="text-xs text-muted-foreground">
+              Alias nadawcy musi być wcześniej dodany w panelu JustSend (new.justsend.pl). Max 11 znaków, bez polskich znaków.
+            </p>
           </div>
 
           {/* Active Toggle */}
