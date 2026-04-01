@@ -1021,6 +1021,7 @@ export const DriverSettlements = ({
     );
 
   // Calculate payout using new structure with 8% tax
+  // NOW: reads persisted fee overrides from settlement amounts JSON to match fleet panel exactly
   const calculatePayout = (amounts: any): { payout: number; fee: number; totalTax: number; breakdown: any } => {
     if (!amounts) {
       return { payout: 0, fee: 0, totalTax: 0, breakdown: {} };
@@ -1035,17 +1036,12 @@ export const DriverSettlements = ({
     const freenowNet = amounts.freenow_net || 0;
     
     // Get taxes - dynamically calculate based on fleet VAT rate if different from 8%
-    // B2B drivers with vat_payer=true don't pay VAT - they issue their own invoices
-    // B2B drivers with vat_payer=false get 8% VAT deducted (like regular drivers)
     const isB2BVatPayer = isB2BDriverLocal && b2bVatPayer === true;
     const effectiveVatRate = isB2BVatPayer ? 0 : (fleetVatRate ?? 8);
     
     const calculateDynamicTax = (netAmount: number, originalTax8: number) => {
-      if (effectiveVatRate === 0) return 0; // B2B - no tax
+      if (effectiveVatRate === 0) return 0;
       if (effectiveVatRate === 8) return originalTax8;
-      // Reconstruct gross from net (net = gross * 0.92)
-      // gross = net / 0.92
-      // new tax = gross * (effectiveVatRate / 100)
       const grossBase = netAmount / 0.92;
       return grossBase * (effectiveVatRate / 100);
     };
@@ -1060,65 +1056,53 @@ export const DriverSettlements = ({
     const fuelVatRefund = amounts.fuel_vat_refund || 0;
     
     // Cash collected on platforms (always reduce payout)
-    // Use uber_cash_f (correct field) with fallback to uber_cash for legacy data
     const cashTotal = Math.abs(amounts.uber_cash_f || amounts.uber_cash || 0) + Math.abs(amounts.bolt_cash || 0) + Math.abs(amounts.freenow_cash_f || 0);
     
-    // Use fleet base_fee if set (priority), otherwise driver plan fee, default to 50 PLN
-    const planFee = (fleetBaseFee !== null && fleetBaseFee > 0) 
-      ? fleetBaseFee 
-      : (driverPlan?.base_fee ?? 50);
+    // ✅ SYNC FIX: Use persisted fee from settlement record (set by fleet manager)
+    // Priority: 1) manual_service_fee from settlement, 2) fleet base_fee, 3) driver plan, 4) default
+    const persistedServiceFee = amounts.manual_service_fee;
+    const planFee = (persistedServiceFee !== null && persistedServiceFee !== undefined)
+      ? persistedServiceFee
+      : (fleetBaseFee !== null && fleetBaseFee !== undefined)
+        ? fleetBaseFee
+        : (driverPlan?.base_fee ?? 50);
+    
+    // ✅ SYNC FIX: Use persisted rental from settlement record (set by fleet manager)
+    const persistedRentalFee = amounts.manual_rental_fee;
+    const effectiveRentalFee = (persistedRentalFee !== null && persistedRentalFee !== undefined)
+      ? persistedRentalFee
+      : rentalFee;
+    
     const planName = driverPlan?.name ?? 'Domyślny (50+8%)';
     
     // Calculate total earnings before any deductions
-    // Dla B2B z vat_payer=true używamy wartości BRUTTO (przed podatkiem 8%)
-    // Dla B2B z vat_payer=false oraz standardowych - NETTO (po 8% podatku)
-    
     let earningsForPayout: number;
     if (isB2BVatPayer) {
-      // B2B płatnik VAT: użyj wartości brutto (przed podatkiem platformy) - kierowca sam rozlicza VAT
       const uberBase = amounts.uber_base || 0;
       const boltBase = amounts.bolt_projected_d || 0;
       const freenowBase = amounts.freenow_base_s || 0;
       earningsForPayout = uberBase + boltBase + freenowBase;
-      console.log(`💼 B2B VAT Payer: Using BRUTTO values - Uber: ${uberBase}, Bolt: ${boltBase}, FreeNow: ${freenowBase}`);
     } else {
-      // B2B bez VAT lub standardowy kierowca: użyj wartości netto (po 8% podatku)
       earningsForPayout = uberNet + boltNet + freenowNet;
-      if (isB2BDriverLocal && !b2bVatPayer) {
-        console.log(`💼 B2B Non-VAT Payer: Using NETTO values with 8% VAT deducted`);
-      }
     }
     
     const totalEarnings = earningsForPayout;
     
-    // ⚠️ OCHRONA ZEROWYCH ZAROBKÓW
-    // Jeśli kierowca nie jeździł (suma zarobków = 0 lub ujemna do -10 zł), nie naliczaj opłat
     if (totalEarnings === 0) {
-      console.log('⛔ Zero earnings protection: Driver did not drive, no fees applied');
       return { 
-        payout: 0, 
-        fee: 0, 
-        totalTax: 0, 
+        payout: 0, fee: 0, totalTax: 0, 
         breakdown: { totalEarnings: 0, zeroEarningsProtection: true }
       };
     }
     
-    // Jeśli zarobki są ujemne (np. kara z aplikacji do 10 zł), tylko to pokazuj bez opłat
     if (totalEarnings < 0 && totalEarnings > -10) {
-      console.log('⚠️ Small negative balance protection:', totalEarnings);
       return {
-        payout: totalEarnings,
-        fee: 0,
-        totalTax: 0,
+        payout: totalEarnings, fee: 0, totalTax: 0,
         breakdown: { totalEarnings, smallNegativeProtection: true }
       };
     }
     
-    // FORMUŁA WYPŁATY:
-    // Dla B2B płatnik VAT: BRUTTO - GOTÓWKA + ZWROT_VAT - Paliwo - Opłata - Wynajem - Dodatkowe (bez podatku 8%)
-    // Dla B2B bez VAT: NETTO - GOTÓWKA + ZWROT_VAT - Paliwo - Opłata - Wynajem - Dodatkowe (z podatkiem 8%)
-    // Dla standardowych: NETTO - GOTÓWKA + ZWROT_VAT - Paliwo - Opłata - Wynajem - Dodatkowe
-    const payout = earningsForPayout - cashTotal + fuelVatRefund - fuel - planFee - rentalFee - additionalFees;
+    const payout = earningsForPayout - cashTotal + fuelVatRefund - fuel - planFee - effectiveRentalFee - additionalFees;
     
     console.log(`💰 Payout calculation (Plan: ${planName}):
       Uber Net (after 8% tax): ${uberNet.toFixed(2)} (tax: ${uberTax.toFixed(2)})

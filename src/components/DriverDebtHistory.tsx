@@ -418,7 +418,7 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Action buttons */}
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {!showPaymentForm && !showAddDebtForm && (
             <>
               <Button 
@@ -439,6 +439,18 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
                 >
                   <ArrowUp className="h-4 w-4" />
                   Zarejestruj wpłatę
+                </Button>
+              )}
+              {currentDebt > 0 && (
+                <Button 
+                  variant="destructive" 
+                  size="sm" 
+                  onClick={handleZeroOutDebts}
+                  disabled={saving}
+                  className="gap-2 flex-1"
+                >
+                  <X className="h-4 w-4" />
+                  {saving ? 'Zerowanie...' : 'Wyzeruj długi'}
                 </Button>
               )}
             </>
