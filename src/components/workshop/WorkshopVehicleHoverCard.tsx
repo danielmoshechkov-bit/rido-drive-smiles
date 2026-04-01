@@ -24,10 +24,10 @@ export function WorkshopVehicleHoverCard({ vehicle, children, onEdit }: Props) {
       <HoverCardTrigger asChild>
         <span className="cursor-pointer hover:text-primary transition-colors">{children}</span>
       </HoverCardTrigger>
-      <HoverCardContent className="w-64 p-3" align="start">
-        <div className="space-y-2">
+      <HoverCardContent className="w-[22rem] max-w-[calc(100vw-2rem)] p-4" align="start">
+        <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h4 className="font-semibold text-xs flex items-center gap-1">
+            <h4 className="flex items-center gap-1.5 text-sm font-semibold">
               <Car className="h-3.5 w-3.5 text-primary" />
               {name || 'Pojazd'}
             </h4>
@@ -38,55 +38,65 @@ export function WorkshopVehicleHoverCard({ vehicle, children, onEdit }: Props) {
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-y-1.5 text-xs">
+          <div className="grid grid-cols-[auto,minmax(0,1fr)] gap-x-3 gap-y-2 text-xs">
             {vehicle.plate && (
               <>
-                <span className="text-muted-foreground flex items-center gap-1">
+                <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
                   <Hash className="h-2.5 w-2.5" /> Nr rej
                 </span>
-                <button className="text-left font-medium hover:text-primary flex items-center gap-1" onClick={() => copy(vehicle.plate, 'Nr rejestracyjny')}>
-                  {vehicle.plate} <Copy className="h-2.5 w-2.5 opacity-50" />
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1 text-left font-medium transition-colors hover:bg-accent/50 hover:text-primary"
+                  onClick={() => copy(vehicle.plate, 'Nr rejestracyjny')}
+                >
+                  <span className="truncate">{vehicle.plate}</span>
+                  <Copy className="h-2.5 w-2.5 shrink-0 opacity-60" />
                 </button>
               </>
             )}
             {vehicle.vin && (
               <>
-                <span className="text-muted-foreground">VIN</span>
-                <button className="text-left text-[11px] font-medium hover:text-primary flex items-center gap-1 truncate" onClick={() => copy(vehicle.vin, 'VIN')}>
-                  {vehicle.vin} <Copy className="h-2.5 w-2.5 opacity-50 shrink-0" />
+                <span className="text-[11px] text-muted-foreground">VIN</span>
+                <button
+                  type="button"
+                  className="flex w-full items-start justify-between gap-2 rounded-md px-2 py-1 text-left font-medium transition-colors hover:bg-accent/50 hover:text-primary"
+                  onClick={() => copy(vehicle.vin, 'VIN')}
+                >
+                  <span className="min-w-0 break-all text-primary">{vehicle.vin}</span>
+                  <Copy className="mt-0.5 h-2.5 w-2.5 shrink-0 opacity-60" />
                 </button>
               </>
             )}
             {vehicle.year && (
               <>
-                <span className="text-muted-foreground flex items-center gap-1">
+                <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
                   <Calendar className="h-2.5 w-2.5" /> Rok prod
                 </span>
-                <span className="font-medium">{vehicle.year}</span>
+                <span className="px-2 py-1 font-medium">{vehicle.year}</span>
               </>
             )}
             {(vehicle.engine_capacity_cm3 || vehicle.engine_capacity) && (
               <>
-                <span className="text-muted-foreground flex items-center gap-1">
+                <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
                   <Gauge className="h-2.5 w-2.5" /> Pojemność
                 </span>
-                <span className="font-medium">{vehicle.engine_capacity_cm3 || vehicle.engine_capacity}</span>
+                <span className="px-2 py-1 font-medium">{vehicle.engine_capacity_cm3 || vehicle.engine_capacity}</span>
               </>
             )}
             {vehicle.fuel_type && (
               <>
-                <span className="text-muted-foreground flex items-center gap-1">
+                <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
                   <Fuel className="h-2.5 w-2.5" /> Silnik
                 </span>
-                <span className="font-medium">{vehicle.fuel_type}</span>
+                <span className="px-2 py-1 font-medium">{vehicle.fuel_type}</span>
               </>
             )}
             {(vehicle.engine_power_kw || vehicle.engine_power) && (
               <>
-                <span className="text-muted-foreground flex items-center gap-1">
+                <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
                   <Gauge className="h-2.5 w-2.5" /> Moc
                 </span>
-                <span className="font-medium">{vehicle.engine_power_kw || vehicle.engine_power} kW</span>
+                <span className="px-2 py-1 font-medium">{vehicle.engine_power_kw || vehicle.engine_power} kW</span>
               </>
             )}
           </div>

@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
+import { DragEvent, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useCreateWorkshopOrderItem, useUpdateWorkshopOrderItem, useDeleteWorkshopOrderItem, useUpdateWorkshopOrder } from '@/hooks/useWorkshop';
 import { usePartsIntegrations } from '@/hooks/useWorkshopParts';
-import { Plus, Trash2, Package, Wrench, Search, EyeOff, Sparkles, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, Package, Wrench, Search, EyeOff, Sparkles, AlertTriangle, GripVertical } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -15,7 +15,7 @@ import { RidoPartsConfigModal } from '../parts/RidoPartsConfigModal';
 import { ServiceAutocomplete } from '../pricing/ServiceAutocomplete';
 import { RidoPriceModal } from '../pricing/RidoPriceModal';
 import { useSaveServicePrice, useSaveAnonymousPrice } from '@/hooks/useServicePriceHistory';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 interface Props {
@@ -54,6 +54,11 @@ interface GoodsRow {
   task_name: string;
 }
 
+type DropIndicator = {
+  index: number;
+  position: 'before' | 'after';
+};
+
 const safeNumber = (value: unknown) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
@@ -81,11 +86,32 @@ const getLineCost = (item: any, gross: boolean) => {
   return fallbackUnitCost > 0 ? fallbackUnitCost * quantity : 0;
 };
 
+const sortItemsBySortOrder = (items: any[]) => {
+  return [...items].sort((a, b) => {
+    const aSortOrder = typeof a?.sort_order === 'number' ? a.sort_order : Number.MAX_SAFE_INTEGER;
+    const bSortOrder = typeof b?.sort_order === 'number' ? b.sort_order : Number.MAX_SAFE_INTEGER;
+
+    if (aSortOrder !== bSortOrder) return aSortOrder - bSortOrder;
+
+    const aCreatedAt = a?.created_at ? new Date(a.created_at).getTime() : 0;
+    const bCreatedAt = b?.created_at ? new Date(b.created_at).getTime() : 0;
+    return aCreatedAt - bCreatedAt;
+  });
+};
+
+const moveItem = <T,>(items: T[], fromIndex: number, toIndex: number) => {
+  const nextItems = [...items];
+  const [movedItem] = nextItems.splice(fromIndex, 1);
+  nextItems.splice(toIndex, 0, movedItem);
+  return nextItems;
+};
+
 export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   const createItem = useCreateWorkshopOrderItem();
   const updateItem = useUpdateWorkshopOrderItem();
   const deleteItem = useDeleteWorkshopOrderItem();
   const updateOrder = useUpdateWorkshopOrder();
+  const queryClient = useQueryClient();
   const { data: partsIntegrations = [] } = usePartsIntegrations(providerId);
 
   // Separate price modes for services and parts
@@ -103,6 +129,16 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState('');
   const [quoteWarningShown, setQuoteWarningShown] = useState(false);
+  const [taskPreview, setTaskPreview] = useState<any[] | null>(null);
+  const [goodsPreview, setGoodsPreview] = useState<any[] | null>(null);
+  const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
+  const [draggingGoodsId, setDraggingGoodsId] = useState<string | null>(null);
+  const [taskDropIndicator, setTaskDropIndicator] = useState<DropIndicator | null>(null);
+  const [goodsDropIndicator, setGoodsDropIndicator] = useState<DropIndicator | null>(null);
+  const serviceCardRef = useRef<HTMLDivElement>(null);
+  const goodsCardRef = useRef<HTMLDivElement>(null);
+  const autoSavingTaskDraftsRef = useRef(false);
+  const autoSavingGoodsDraftsRef = useRef(false);
 
   // Load Rido Price settings
   const { data: ridoPriceSettings } = useQuery({
@@ -118,8 +154,10 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     },
   });
 
-  const tasks = (order.items || []).filter((i: any) => i.item_type === 'service' || i.item_type === 'task' || (i.item_type !== 'part' && i.item_type !== 'goods' && i.item_type !== 'other'));
-  const goods = (order.items || []).filter((i: any) => i.item_type === 'part' || i.item_type === 'goods' || i.item_type === 'other');
+  const sortedTaskItems = sortItemsBySortOrder((order.items || []).filter((i: any) => i.item_type === 'service' || i.item_type === 'task' || (i.item_type !== 'part' && i.item_type !== 'goods' && i.item_type !== 'other')));
+  const sortedGoodsItems = sortItemsBySortOrder((order.items || []).filter((i: any) => i.item_type === 'part' || i.item_type === 'goods' || i.item_type === 'other'));
+  const tasks = taskPreview ?? sortedTaskItems;
+  const goods = goodsPreview ?? sortedGoodsItems;
 
   const isTaskGross = taskPriceMode === 'gross';
   const isGoodsGross = goodsPriceMode === 'gross';
@@ -134,6 +172,15 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   const [goodsRows, setGoodsRows] = useState<GoodsRow[]>([{ ...emptyGoods }]);
   const [goodsSearch, setGoodsSearch] = useState('');
   const draftStorageKey = `workshop-order-draft:${order.id}`;
+
+  useEffect(() => {
+    setTaskPreview(null);
+    setGoodsPreview(null);
+    setDraggingTaskId(null);
+    setDraggingGoodsId(null);
+    setTaskDropIndicator(null);
+    setGoodsDropIndicator(null);
+  }, [order.items]);
 
   const syncPrice = (val: number, field: 'net' | 'gross') => {
     if (field === 'net') return { net: val, gross: Math.round(val * VAT_RATE * 100) / 100 };
@@ -181,6 +228,108 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
 
   const getDraftGoodsCost = (row: GoodsRow) => getDraftCost(row, isGoodsGross) * row.quantity;
 
+  const getNextSortOrder = (items: any[]) => items.reduce((max, item) => {
+    const currentOrder = typeof item?.sort_order === 'number' ? item.sort_order : -1;
+    return Math.max(max, currentOrder);
+  }, -1) + 1;
+
+  const clearTaskDragState = () => {
+    setDraggingTaskId(null);
+    setTaskDropIndicator(null);
+  };
+
+  const clearGoodsDragState = () => {
+    setDraggingGoodsId(null);
+    setGoodsDropIndicator(null);
+  };
+
+  const getDropIndicator = (event: DragEvent<HTMLTableRowElement>, index: number): DropIndicator => {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const position = event.clientY - bounds.top < bounds.height / 2 ? 'before' : 'after';
+    return { index, position };
+  };
+
+  const persistSortOrder = async (items: any[]) => {
+    const results = await Promise.all(
+      items.map((item, index) =>
+        (supabase as any)
+          .from('workshop_order_items')
+          .update({ sort_order: index })
+          .eq('id', item.id)
+      )
+    );
+
+    const failedUpdate = results.find((result: any) => result.error);
+    if (failedUpdate?.error) throw failedUpdate.error;
+
+    await queryClient.invalidateQueries({ queryKey: ['workshop-orders'] });
+  };
+
+  const reorderItems = async (
+    items: any[],
+    activeId: string,
+    indicator: DropIndicator | null,
+    setPreview: (nextItems: any[] | null) => void,
+    clearDragState: () => void,
+  ) => {
+    const fromIndex = items.findIndex(item => item.id === activeId);
+    if (fromIndex === -1) {
+      clearDragState();
+      return;
+    }
+
+    let targetIndex = indicator ? indicator.index : fromIndex;
+    if (indicator?.position === 'after') targetIndex += 1;
+    if (targetIndex > items.length) targetIndex = items.length;
+    if (targetIndex > fromIndex) targetIndex -= 1;
+
+    if (targetIndex === fromIndex) {
+      clearDragState();
+      return;
+    }
+
+    const reorderedItems = moveItem(items, fromIndex, targetIndex).map((item, index) => ({
+      ...item,
+      sort_order: index,
+    }));
+
+    setPreview(reorderedItems);
+    clearDragState();
+
+    try {
+      await persistSortOrder(reorderedItems);
+    } catch (error: any) {
+      setPreview(null);
+      toast.error(error?.message || 'Nie udało się zapisać nowej kolejności pozycji');
+    }
+  };
+
+  const getTaskRowClasses = (itemId: string, index: number) => {
+    const isDragging = draggingTaskId === itemId;
+    const isDropBefore = taskDropIndicator?.index === index && taskDropIndicator.position === 'before';
+    const isDropAfter = taskDropIndicator?.index === index && taskDropIndicator.position === 'after';
+
+    return [
+      'border-b text-sm transition-colors',
+      isDragging ? 'bg-accent/40 opacity-60' : 'hover:bg-accent/30',
+      isDropBefore ? 'border-t-2 border-t-primary' : '',
+      isDropAfter ? 'border-b-2 border-b-primary' : '',
+    ].filter(Boolean).join(' ');
+  };
+
+  const getGoodsRowClasses = (itemId: string, index: number) => {
+    const isDragging = draggingGoodsId === itemId;
+    const isDropBefore = goodsDropIndicator?.index === index && goodsDropIndicator.position === 'before';
+    const isDropAfter = goodsDropIndicator?.index === index && goodsDropIndicator.position === 'after';
+
+    return [
+      'border-b text-sm transition-colors',
+      isDragging ? 'bg-accent/40 opacity-60' : 'hover:bg-accent/30',
+      isDropBefore ? 'border-t-2 border-t-primary' : '',
+      isDropAfter ? 'border-b-2 border-b-primary' : '',
+    ].filter(Boolean).join(' ');
+  };
+
   // Client confirmation warning check
   const showQuoteWarningIfNeeded = () => {
     if (order.quote_accepted && !quoteWarningShown) {
@@ -212,7 +361,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     setTaskRows(prev => prev.filter((_, i) => i !== idx));
   };
 
-  const submitTask = async (row: TaskRow, idx: number) => {
+  const submitTask = async (row: TaskRow, idx: number, sortOrder?: number) => {
     if (!row.name) return;
     showQuoteWarningIfNeeded();
     const rawTotal = isTaskGross ? row.quantity * row.price_gross : row.quantity * row.price_net;
@@ -228,6 +377,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       mechanic: row.mechanic || null,
       unit: 'oper',
       quantity: row.quantity,
+      sort_order: sortOrder ?? getNextSortOrder(tasks),
       unit_price_gross: row.price_gross,
       unit_price_net: row.price_net,
       unit_cost_net: row.cost_net,
@@ -283,7 +433,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     setGoodsRows(prev => prev.filter((_, i) => i !== idx));
   };
 
-  const submitGoods = async (row: GoodsRow, idx: number) => {
+  const submitGoods = async (row: GoodsRow, idx: number, sortOrder?: number) => {
     if (!row.name) return;
     showQuoteWarningIfNeeded();
     const rawTotal = isGoodsGross ? row.quantity * row.price_gross : row.quantity * row.price_net;
@@ -298,6 +448,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       name: row.name,
       unit: row.unit,
       quantity: row.quantity,
+      sort_order: sortOrder ?? getNextSortOrder(goods),
       unit_price_gross: row.price_gross,
       unit_price_net: row.price_net,
       unit_cost_net: row.cost_net,
@@ -464,9 +615,11 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       return;
     }
 
+    let nextSortOrder = getNextSortOrder(tasks);
     for (const row of rowsToSave) {
       const sourceIndex = taskRows.findIndex(candidate => candidate === row);
-      await submitTask(row, sourceIndex >= 0 ? sourceIndex : 0);
+      await submitTask(row, sourceIndex >= 0 ? sourceIndex : 0, nextSortOrder);
+      nextSortOrder += 1;
     }
 
     setTaskRows([createEmptyTask()]);
@@ -480,18 +633,79 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       return;
     }
 
+    let nextSortOrder = getNextSortOrder(goods);
     for (const row of rowsToSave) {
       const sourceIndex = goodsRows.findIndex(candidate => candidate === row);
-      await submitGoods(row, sourceIndex >= 0 ? sourceIndex : 0);
+      await submitGoods(row, sourceIndex >= 0 ? sourceIndex : 0, nextSortOrder);
+      nextSortOrder += 1;
     }
 
     setGoodsRows([createEmptyGoods()]);
   };
 
+  useEffect(() => {
+    const handleOutsideClick = (event: MouseEvent) => {
+      const target = event.target as Node;
+
+      if (
+        serviceCardRef.current &&
+        !serviceCardRef.current.contains(target) &&
+        taskRows.some(isTaskDraftFilled) &&
+        !autoSavingTaskDraftsRef.current
+      ) {
+        autoSavingTaskDraftsRef.current = true;
+        void saveTaskDraftRows().finally(() => {
+          autoSavingTaskDraftsRef.current = false;
+        });
+      }
+
+      if (
+        goodsCardRef.current &&
+        !goodsCardRef.current.contains(target) &&
+        goodsRows.some(isGoodsDraftFilled) &&
+        !autoSavingGoodsDraftsRef.current
+      ) {
+        autoSavingGoodsDraftsRef.current = true;
+        void saveGoodsDraftRows().finally(() => {
+          autoSavingGoodsDraftsRef.current = false;
+        });
+      }
+    };
+
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [taskRows, goodsRows, saveTaskDraftRows, saveGoodsDraftRows]);
+
 
   // Inline editable cell renderer
-  const renderEditableCell = (item: any, field: string, displayValue: string, className: string = '') => {
+  const renderEditableCell = (
+    item: any,
+    field: string,
+    displayValue: string,
+    className: string = '',
+    align: 'left' | 'center' | 'right' = 'left',
+  ) => {
     const isEditing = editingItemId === item.id && editingField === field;
+    const inputAlignClass = align === 'right' ? 'text-right' : align === 'center' ? 'text-center' : 'text-left';
+
+    const getFieldValue = () => {
+      if (field === 'name') return item.name || '';
+      if (field === 'mechanic') return item.mechanic || '';
+      if (field === 'price') {
+        const isService = item.item_type === 'service' || item.item_type === 'task';
+        return isService
+          ? (isTaskGross ? item.unit_price_gross : item.unit_price_net) || 0
+          : (isGoodsGross ? item.unit_price_gross : item.unit_price_net) || 0;
+      }
+      if (field === 'cost') {
+        return isGoodsGross ? safeNumber(item.unit_cost_gross) : safeNumber(item.unit_cost_net);
+      }
+      if (field === 'quantity') {
+        return safeNumber(item.quantity) || 1;
+      }
+      return displayValue;
+    };
+
     if (isEditing) {
       return (
         <Input
@@ -504,32 +718,28 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
             if (e.key === 'Enter') saveEdit(item);
             if (e.key === 'Escape') cancelEdit();
           }}
-          className="h-7 text-sm"
+          className={`h-9 w-full text-sm ${inputAlignClass} ${className}`}
           type="text"
           inputMode={['price', 'cost', 'quantity'].includes(field) ? 'decimal' : undefined}
         />
       );
     }
     return (
-      <span
-        className={`cursor-pointer hover:bg-accent/50 px-1 py-0.5 rounded transition-colors ${className}`}
-        onClick={() => {
-          let val: string | number = displayValue;
-          if (field === 'price') {
-            const isService = item.item_type === 'service' || item.item_type === 'task';
-            val = isService
-              ? (isTaskGross ? item.unit_price_gross : item.unit_price_net) || 0
-              : (isGoodsGross ? item.unit_price_gross : item.unit_price_net) || 0;
-          } else if (field === 'cost') {
-            val = (isGoodsGross ? safeNumber(item.unit_cost_gross) : safeNumber(item.unit_cost_net));
-          } else if (field === 'quantity') {
-            val = safeNumber(item.quantity) || 1;
-          }
-          startEdit(item.id, field, val);
-        }}
+      <button
+        type="button"
+        className={`flex h-9 w-full items-center rounded-md px-2 py-1 text-sm transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+          align === 'right'
+            ? 'justify-end text-right'
+            : align === 'center'
+              ? 'justify-center text-center'
+              : 'justify-start text-left'
+        } ${className}`}
+        onClick={() => startEdit(item.id, field, getFieldValue())}
       >
-        {displayValue}
-      </span>
+        <span className={`block w-full min-w-0 ${field === 'name' || field === 'mechanic' ? 'truncate' : ''}`}>
+          {displayValue}
+        </span>
+      </button>
     );
   };
 
@@ -561,6 +771,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       </div>
 
       {/* SERVICES / ROBOCIZNA */}
+      <div ref={serviceCardRef}>
       <Card className="border-l-4 border-l-primary">
         <CardContent className="p-0">
           <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
@@ -610,11 +821,44 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                   const total = getTaskItemTotal(t);
                   const hasDiscount = getDiscountPercent(t) > 0;
                   return (
-                    <tr key={t.id} className="border-b hover:bg-accent/30 transition-colors text-sm">
+                    <tr
+                      key={t.id}
+                      className={getTaskRowClasses(t.id, i)}
+                      onDragOver={event => {
+                        if (!draggingTaskId) return;
+                        event.preventDefault();
+                        event.dataTransfer.dropEffect = 'move';
+                        setTaskDropIndicator(getDropIndicator(event, i));
+                      }}
+                      onDrop={async event => {
+                        event.preventDefault();
+                        if (!draggingTaskId) return;
+                        await reorderItems(tasks, draggingTaskId, getDropIndicator(event, i), setTaskPreview, clearTaskDragState);
+                      }}
+                    >
                       <td className="p-2 text-center text-muted-foreground">{i + 1}</td>
-                       <td className="p-2 font-medium"><div className="truncate">{renderEditableCell(t, 'name', t.name)}</div></td>
-                        <td className="p-2 text-muted-foreground"><div className="truncate">{renderEditableCell(t, 'mechanic', t.mechanic || '—')}</div></td>
-                      <td className="p-2 text-right tabular-nums">{renderEditableCell(t, 'price', fmt(price), 'tabular-nums')}</td>
+                      <td className="p-1 font-medium">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            draggable
+                            title="Przeciągnij, aby zmienić kolejność"
+                            className="flex h-8 w-8 shrink-0 cursor-grab items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:cursor-grabbing"
+                            onDragStart={event => {
+                              setDraggingTaskId(t.id);
+                              event.dataTransfer.effectAllowed = 'move';
+                              event.dataTransfer.setData('text/plain', t.id);
+                            }}
+                            onDragEnd={clearTaskDragState}
+                            onClick={event => event.stopPropagation()}
+                          >
+                            <GripVertical className="h-4 w-4" />
+                          </button>
+                          <div className="min-w-0 flex-1">{renderEditableCell(t, 'name', t.name)}</div>
+                        </div>
+                      </td>
+                      <td className="p-1 text-muted-foreground">{renderEditableCell(t, 'mechanic', t.mechanic || '—')}</td>
+                      <td className="p-1 tabular-nums">{renderEditableCell(t, 'price', fmt(price), 'tabular-nums', 'right')}</td>
                       <td className="p-2 text-right">{hasDiscount ? `${Math.round(getDiscountPercent(t))}%` : '—'}</td>
                       <td className="p-2 text-right font-semibold tabular-nums">{fmt(total)}</td>
                       <td className="p-2 text-center">
@@ -645,9 +889,14 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           onSelectSuggestion={(name, priceNet, priceGross) => {
                             updateTaskRow(idx, { name, price_net: priceNet, price_gross: priceGross });
                           }}
-                           providerId={providerId}
-                            className="h-9 w-full text-sm min-w-0"
-                          onKeyDown={e => e.key === 'Enter' && submitTask(row, idx)}
+                          providerId={providerId}
+                          className="h-9 w-full text-sm min-w-0"
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              void saveTaskDraftRows();
+                            }
+                          }}
                         />
                       </td>
                       <td className="p-1.5">
@@ -655,7 +904,13 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           placeholder="Pracownik"
                           value={row.mechanic}
                           onChange={e => updateTaskRow(idx, { mechanic: e.target.value })}
-                            className="h-9 w-full text-sm min-w-0"
+                          className="h-9 w-full text-sm min-w-0"
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              void saveTaskDraftRows();
+                            }
+                          }}
                         />
                       </td>
                       <td className="p-1.5">
@@ -664,8 +919,13 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           placeholder={isTaskGross ? 'Brutto' : 'Netto'}
                           value={isTaskGross ? (row.price_gross || '') : (row.price_net || '')}
                           onChange={e => updateTaskRowPrice(idx, Number(e.target.value))}
-                          onKeyDown={e => e.key === 'Enter' && submitTask(row, idx)}
-                            className="h-9 w-full text-sm text-right min-w-0"
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              void saveTaskDraftRows();
+                            }
+                          }}
+                          className="h-9 w-full text-sm text-right min-w-0"
                         />
                       </td>
                       <td className="p-1.5">
@@ -682,7 +942,13 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                             placeholder="0"
                             value={row.discount || ''}
                             onChange={e => updateTaskRow(idx, { discount: Number(e.target.value) })}
-                              className="h-9 text-sm text-right w-16 shrink-0"
+                            className="h-9 text-sm text-right w-16 shrink-0"
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                void saveTaskDraftRows();
+                              }
+                            }}
                           />
                         </div>
                       </td>
@@ -728,8 +994,10 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
           </div>
         </CardContent>
       </Card>
+      </div>
 
       {/* PARTS / CZĘŚCI */}
+      <div ref={goodsCardRef}>
       <Card className="border-l-4 border-l-amber-500">
         <CardContent className="p-0">
           <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
@@ -792,16 +1060,49 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                   const itemCost = getGoodsItemCost(g);
                   const hasDiscount = getDiscountPercent(g) > 0;
                   return (
-                    <tr key={g.id} className="border-b hover:bg-accent/30 transition-colors text-sm cursor-pointer">
+                    <tr
+                      key={g.id}
+                      className={getGoodsRowClasses(g.id, i)}
+                      onDragOver={event => {
+                        if (!draggingGoodsId) return;
+                        event.preventDefault();
+                        event.dataTransfer.dropEffect = 'move';
+                        setGoodsDropIndicator(getDropIndicator(event, i));
+                      }}
+                      onDrop={async event => {
+                        event.preventDefault();
+                        if (!draggingGoodsId) return;
+                        await reorderItems(goods, draggingGoodsId, getDropIndicator(event, i), setGoodsPreview, clearGoodsDragState);
+                      }}
+                    >
                       <td className="p-2 text-center text-muted-foreground">{i + 1}</td>
-                        <td className="p-2 font-medium"><div className="truncate">{renderEditableCell(g, 'name', g.name)}</div></td>
-                      <td className="p-2 text-center">{renderEditableCell(g, 'quantity', String(g.quantity))}</td>
+                      <td className="p-1 font-medium">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            draggable
+                            title="Przeciągnij, aby zmienić kolejność"
+                            className="flex h-8 w-8 shrink-0 cursor-grab items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:cursor-grabbing"
+                            onDragStart={event => {
+                              setDraggingGoodsId(g.id);
+                              event.dataTransfer.effectAllowed = 'move';
+                              event.dataTransfer.setData('text/plain', g.id);
+                            }}
+                            onDragEnd={clearGoodsDragState}
+                            onClick={event => event.stopPropagation()}
+                          >
+                            <GripVertical className="h-4 w-4" />
+                          </button>
+                          <div className="min-w-0 flex-1">{renderEditableCell(g, 'name', g.name)}</div>
+                        </div>
+                      </td>
+                      <td className="p-1">{renderEditableCell(g, 'quantity', String(g.quantity), '', 'center')}</td>
                       <td className="p-2 text-center">{g.unit}</td>
-                      <td className="p-2 text-right text-muted-foreground tabular-nums">{renderEditableCell(g, 'cost', fmt(itemCost), 'tabular-nums')}</td>
-                      <td className="p-2 text-right tabular-nums">{renderEditableCell(g, 'price', fmt(itemPrice), 'tabular-nums')}</td>
+                      <td className="p-1 text-muted-foreground tabular-nums">{renderEditableCell(g, 'cost', fmt(itemCost), 'tabular-nums', 'right')}</td>
+                      <td className="p-1 tabular-nums">{renderEditableCell(g, 'price', fmt(itemPrice), 'tabular-nums', 'right')}</td>
                       <td className="p-2 text-right tabular-nums">{fmt(rawTotal)}</td>
-                       <td className="p-2 text-right">{hasDiscount ? `${Math.round(getDiscountPercent(g))}%` : '—'}</td>
-                       <td className="p-2 text-right font-semibold tabular-nums">{fmt(itemTotal)}</td>
+                      <td className="p-2 text-right">{hasDiscount ? `${Math.round(getDiscountPercent(g))}%` : '—'}</td>
+                      <td className="p-2 text-right font-semibold tabular-nums">{fmt(itemTotal)}</td>
                       <td className="p-2 text-center">
                         <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => handleDeleteItem(g.id)}>
                           <Trash2 className="h-4 w-4" />
@@ -828,8 +1129,13 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           placeholder="Wpisz nazwę części..."
                           value={row.name}
                           onChange={e => updateGoodsRow(idx, { name: e.target.value })}
-                            className="h-9 w-full text-sm min-w-0"
-                          onKeyDown={e => e.key === 'Enter' && submitGoods(row, idx)}
+                          className="h-9 w-full text-sm min-w-0"
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              void saveGoodsDraftRows();
+                            }
+                          }}
                         />
                       </td>
                       <td className="p-1.5">
@@ -838,7 +1144,13 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           min={1}
                           value={row.quantity}
                           onChange={e => updateGoodsRow(idx, { quantity: Number(e.target.value) })}
-                            className="h-9 w-full text-sm text-center min-w-0 px-2"
+                          className="h-9 w-full text-sm text-center min-w-0 px-2"
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              void saveGoodsDraftRows();
+                            }
+                          }}
                         />
                       </td>
                       <td className="p-1.5">
@@ -846,7 +1158,13 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           placeholder="szt"
                           value={row.unit}
                           onChange={e => updateGoodsRow(idx, { unit: e.target.value })}
-                            className="h-9 w-full text-sm text-center min-w-0 px-2"
+                          className="h-9 w-full text-sm text-center min-w-0 px-2"
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              void saveGoodsDraftRows();
+                            }
+                          }}
                         />
                       </td>
                       <td className="p-1.5">
@@ -856,7 +1174,13 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           title="Koszt zakupu — widoczne tylko dla serwisu"
                           value={isGoodsGross ? (row.cost_gross || '') : (row.cost_net || '')}
                           onChange={e => updateGoodsRowCost(idx, Number(e.target.value))}
-                            className="h-9 w-full text-sm text-right min-w-0 px-2"
+                          className="h-9 w-full text-sm text-right min-w-0 px-2"
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              void saveGoodsDraftRows();
+                            }
+                          }}
                         />
                       </td>
                       <td className="p-1.5">
@@ -865,8 +1189,13 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           placeholder={isGoodsGross ? 'Brutto' : 'Netto'}
                           value={isGoodsGross ? (row.price_gross || '') : (row.price_net || '')}
                           onChange={e => updateGoodsRowPrice(idx, Number(e.target.value))}
-                          onKeyDown={e => e.key === 'Enter' && submitGoods(row, idx)}
-                            className="h-9 w-full text-sm text-right min-w-0 px-2"
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              void saveGoodsDraftRows();
+                            }
+                          }}
+                          className="h-9 w-full text-sm text-right min-w-0 px-2"
                         />
                       </td>
                       <td className="p-1.5 text-right text-sm tabular-nums">
@@ -886,7 +1215,13 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                             placeholder="0"
                             value={row.discount || ''}
                             onChange={e => updateGoodsRow(idx, { discount: Number(e.target.value) })}
-                             className="h-9 text-sm text-right w-16 shrink-0"
+                            className="h-9 text-sm text-right w-16 shrink-0"
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                void saveGoodsDraftRows();
+                              }
+                            }}
                           />
                         </div>
                       </td>
@@ -940,6 +1275,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
           </div>
         </CardContent>
       </Card>
+      </div>
 
       {/* GRAND TOTAL */}
       <Card className="bg-muted/50 max-w-5xl">

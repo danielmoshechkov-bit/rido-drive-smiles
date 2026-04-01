@@ -2,6 +2,21 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
+const sortWorkshopOrderItems = (items: any[] | null | undefined) => {
+  if (!Array.isArray(items)) return [];
+
+  return [...items].sort((a, b) => {
+    const aSortOrder = typeof a?.sort_order === 'number' ? a.sort_order : Number.MAX_SAFE_INTEGER;
+    const bSortOrder = typeof b?.sort_order === 'number' ? b.sort_order : Number.MAX_SAFE_INTEGER;
+
+    if (aSortOrder !== bSortOrder) return aSortOrder - bSortOrder;
+
+    const aCreatedAt = a?.created_at ? new Date(a.created_at).getTime() : 0;
+    const bCreatedAt = b?.created_at ? new Date(b.created_at).getTime() : 0;
+    return aCreatedAt - bCreatedAt;
+  });
+};
+
 // ---- Provider ID helper ----
 export function useWorkshopProviderId() {
   return useQuery({
@@ -55,7 +70,10 @@ export function useWorkshopOrders(providerId: string | undefined, filters?: {
       }
       const { data, error } = await query;
       if (error) throw error;
-      return data || [];
+      return (data || []).map((order: any) => ({
+        ...order,
+        items: sortWorkshopOrderItems(order.items),
+      }));
     },
   });
 }
