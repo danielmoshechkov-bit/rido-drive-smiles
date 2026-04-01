@@ -788,12 +788,12 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                   const itemCost = getGoodsItemCost(g);
                   const hasDiscount = getDiscountPercent(g) > 0;
                   return (
-                    <tr key={g.id} className="border-b hover:bg-accent/30 transition-colors text-sm">
+                    <tr key={g.id} className="border-b hover:bg-accent/30 transition-colors text-sm cursor-pointer">
                       <td className="p-2 text-center text-muted-foreground">{i + 1}</td>
                         <td className="p-2 font-medium"><div className="truncate">{renderEditableCell(g, 'name', g.name)}</div></td>
-                      <td className="p-2 text-center">{g.quantity}</td>
+                      <td className="p-2 text-center">{renderEditableCell(g, 'quantity', String(g.quantity))}</td>
                       <td className="p-2 text-center">{g.unit}</td>
-                      <td className="p-2 text-right text-muted-foreground tabular-nums">{fmt(itemCost)}</td>
+                      <td className="p-2 text-right text-muted-foreground tabular-nums">{renderEditableCell(g, 'cost', fmt(itemCost), 'tabular-nums')}</td>
                       <td className="p-2 text-right tabular-nums">{renderEditableCell(g, 'price', fmt(itemPrice), 'tabular-nums')}</td>
                       <td className="p-2 text-right tabular-nums">{fmt(rawTotal)}</td>
                        <td className="p-2 text-right">{hasDiscount ? `${Math.round(getDiscountPercent(g))}%` : '—'}</td>
