@@ -151,27 +151,107 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
             <FileText className="h-4 w-4" /> Karta zlecenia
           </Button>
 
-          {/* Action icons */}
+          {/* Action icons with dropdowns */}
           <div className="flex items-center gap-1">
-            {/* Protocol status indicators */}
-            <Button
-              variant="ghost" size="icon" title="Protokół przyjęcia"
-              className={order.client_acceptance_confirmed ? 'text-green-500' : 'text-amber-500'}
-            >
-              <Eye className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost" size="icon" title="Wycena zaakceptowana"
-              className={order.quote_accepted ? 'text-green-500' : 'text-amber-500'}
-            >
-              <ClipboardList className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost" size="icon" title="Gotowość potwierdzona"
-              className={order.ready_notification_sent ? 'text-green-500' : 'text-amber-500'}
-            >
-              <Send className="h-4 w-4" />
-            </Button>
+            {/* Protokół przyjęcia */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost" size="icon" title="Protokół przyjęcia"
+                  className={order.client_acceptance_confirmed ? 'text-green-500' : 'text-amber-500'}
+                >
+                  <Eye className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-52">
+                <DropdownMenuItem onClick={() => toast.info('Podgląd protokołu przyjęcia')}>
+                  <Eye className="h-4 w-4 mr-2" /> Podgląd
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => toast.info('Drukowanie protokołu...')}>
+                  <Printer className="h-4 w-4 mr-2" /> Drukuj
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => toast.info('Pobieranie protokołu...')}>
+                  <Download className="h-4 w-4 mr-2" /> Pobierz
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => toast.info('Podpisany dokument')}>
+                  <CheckCircle className="h-4 w-4 mr-2" /> Podpisany dokument
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => {
+                  updateOrder.mutateAsync({ id: order.id, client_acceptance_confirmed: !order.client_acceptance_confirmed });
+                  toast.success(order.client_acceptance_confirmed ? 'Oznaczono jako niepodpisany' : 'Oznaczono jako podpisany');
+                }}>
+                  <XCircle className="h-4 w-4 mr-2" /> {order.client_acceptance_confirmed ? 'Oznacz jako niepodpisany' : 'Oznacz jako podpisany'}
+                </DropdownMenuItem>
+                <DropdownMenuItem className="text-destructive" onClick={() => toast.info('Wyłączono protokół')}>
+                  <Ban className="h-4 w-4 mr-2" /> Wyłącz
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Wycena / Kosztorys */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost" size="icon" title="Wycena zaakceptowana"
+                  className={order.quote_accepted ? 'text-green-500' : 'text-amber-500'}
+                >
+                  <ClipboardList className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-52">
+                <DropdownMenuItem onClick={() => toast.info('Podgląd kosztorysu')}>
+                  <Eye className="h-4 w-4 mr-2" /> Podgląd
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => toast.info('Drukowanie kosztorysu...')}>
+                  <Printer className="h-4 w-4 mr-2" /> Drukuj
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => toast.info('Pobieranie kosztorysu...')}>
+                  <Download className="h-4 w-4 mr-2" /> Pobierz
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => toast.info('Podpisany dokument')}>
+                  <CheckCircle className="h-4 w-4 mr-2" /> Podpisany dokument
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => {
+                  updateOrder.mutateAsync({ id: order.id, quote_accepted: !order.quote_accepted });
+                  toast.success(order.quote_accepted ? 'Oznaczono jako niepodpisany' : 'Oznaczono jako podpisany');
+                }}>
+                  <XCircle className="h-4 w-4 mr-2" /> {order.quote_accepted ? 'Oznacz jako niepodpisany' : 'Oznacz jako podpisany'}
+                </DropdownMenuItem>
+                <DropdownMenuItem className="text-destructive" onClick={() => toast.info('Wyłączono kosztorys')}>
+                  <Ban className="h-4 w-4 mr-2" /> Wyłącz
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Gotowość / Powiadomienie */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost" size="icon" title="Gotowość potwierdzona"
+                  className={order.ready_notification_sent ? 'text-green-500' : 'text-amber-500'}
+                >
+                  <Send className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-52">
+                <DropdownMenuItem onClick={() => openSms('ready')}>
+                  <Send className="h-4 w-4 mr-2" /> Wyślij powiadomienie
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => toast.info('Podgląd powiadomienia')}>
+                  <Eye className="h-4 w-4 mr-2" /> Podgląd
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => {
+                  updateOrder.mutateAsync({ id: order.id, ready_notification_sent: !order.ready_notification_sent });
+                  toast.success(order.ready_notification_sent ? 'Oznaczono jako niewysłane' : 'Oznaczono jako wysłane');
+                }}>
+                  <XCircle className="h-4 w-4 mr-2" /> {order.ready_notification_sent ? 'Oznacz jako niewysłane' : 'Oznacz jako wysłane'}
+                </DropdownMenuItem>
+                <DropdownMenuItem className="text-destructive" onClick={() => toast.info('Wyłączono')}>
+                  <Ban className="h-4 w-4 mr-2" /> Wyłącz
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             <Button variant="ghost" size="icon" title="Wyślij SMS" onClick={() => openSms('reception')}>
               <MessageSquare className="h-4 w-4" />
             </Button>
