@@ -662,7 +662,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           placeholder={isTaskGross ? 'Brutto' : 'Netto'}
                           value={isTaskGross ? (row.price_gross || '') : (row.price_net || '')}
                           onChange={e => updateTaskRowPrice(idx, Number(e.target.value))}
-                          onBlur={() => autoSaveTaskRow(idx)}
+                          onKeyDown={e => e.key === 'Enter' && submitTask(row, idx)}
                             className="h-9 w-full text-sm text-right min-w-0"
                         />
                       </td>
