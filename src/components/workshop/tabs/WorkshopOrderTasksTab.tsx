@@ -316,7 +316,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     showQuoteWarningIfNeeded();
     setEditingItemId(itemId);
     setEditingField(field);
-    if (field === 'price') {
+    if (field === 'price' || field === 'cost' || field === 'quantity') {
       const normalized = String(currentValue).replace(',', '.');
       const numericValue = Number(normalized);
       setEditingValue(numericValue === 0 ? '' : normalized);
