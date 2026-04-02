@@ -740,29 +740,3 @@ function parseAvailability(item: any): 'today' | 'tomorrow' | '2-3days' | 'unava
   return 'unavailable';
 }
 
-function requiresCatalogCodeSearch(supplierCode?: string) {
-  return supplierCode === 'hart' || supplierCode === 'auto_partner';
-}
-
-function buildCatalogSearchHelp(integrations: Array<{ supplier_name?: string; supplier_code?: string }>) {
-  const supplierNames = integrations
-    .map((integration) => integration.supplier_name || integration.supplier_code)
-    .filter(Boolean)
-    .join(', ');
-
-  return `${supplierNames ? `Aktywne hurtownie (${supplierNames})` : 'Aktywne hurtownie'} przyjmują tylko numer OE lub katalogowy części. Opis typu „klocki hamulcowe przednie” nie jest obsługiwany przez te API.`;
-}
-
-function looksLikeCatalogCode(query: string) {
-  const value = String(query || '').trim();
-  if (value.length < 3) return false;
-  if (!/\d/.test(value)) return false;
-  if (!/^[A-Za-z0-9][A-Za-z0-9\s\-./]{2,}$/.test(value)) return false;
-
-  const tokens = value.split(/\s+/).filter(Boolean);
-  if (tokens.length > 3 && tokens.some((token) => /^[A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż]{3,}$/.test(token))) {
-    return false;
-  }
-
-  return true;
-}
