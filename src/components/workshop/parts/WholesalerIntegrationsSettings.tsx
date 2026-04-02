@@ -6,7 +6,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, CheckCircle2, XCircle, TestTube, Settings2, Lock, Info, ExternalLink } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, TestTube, Settings2, Lock, Info } from 'lucide-react';
 import { usePartsIntegrations, useUpsertPartsIntegration, usePartsApi } from '@/hooks/useWorkshopParts';
 import { toast } from 'sonner';
 
