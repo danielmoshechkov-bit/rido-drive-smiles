@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/select';
 import { RidoPartsSearchModal } from '../parts/RidoPartsSearchModal';
 import { RidoPartsConfigModal } from '../parts/RidoPartsConfigModal';
+import { getConfiguredPartsIntegrations } from '../parts/partsIntegrationUtils';
 import { ServiceAutocomplete } from '../pricing/ServiceAutocomplete';
 import { RidoPriceModal } from '../pricing/RidoPriceModal';
 import { useSaveServicePrice, useSaveAnonymousPrice } from '@/hooks/useServicePriceHistory';
@@ -113,6 +114,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   const updateOrder = useUpdateWorkshopOrder();
   const queryClient = useQueryClient();
   const { data: partsIntegrations = [] } = usePartsIntegrations(providerId);
+  const configuredPartsIntegrations = getConfiguredPartsIntegrations(partsIntegrations as any[]);
 
   // Separate price modes for services and parts
   const [taskPriceMode, setTaskPriceMode] = useState<'net' | 'gross'>(order.price_mode || 'gross');
@@ -1257,7 +1259,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                         size="sm"
                         className="gap-1 h-7 text-xs border-primary text-primary hover:bg-primary/10"
                         onClick={() => {
-                          const hasEnabledIntegration = partsIntegrations.some((i: any) => i.is_enabled && i.api_username);
+                          const hasEnabledIntegration = configuredPartsIntegrations.length > 0;
                           if (hasEnabledIntegration) {
                             setRidoSearchOpen(true);
                           } else {
@@ -1360,7 +1362,8 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
         orderId={order.id}
         vehicleName={order.vehicle ? `${order.vehicle.brand || ''} ${order.vehicle.model || ''} ${order.vehicle.year || ''}`.trim() : undefined}
         vehicleVin={order.vehicle?.vin || undefined}
-        margin={partsIntegrations.find((i: any) => i.is_enabled)?.sales_margin_percent || 30}
+        vehicle={order.vehicle || null}
+        margin={configuredPartsIntegrations[0]?.sales_margin_percent || 30}
       />
       <RidoPartsConfigModal
         open={ridoConfigOpen}

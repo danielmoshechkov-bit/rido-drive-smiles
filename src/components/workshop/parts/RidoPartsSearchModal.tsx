@@ -8,6 +8,7 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/comp
 import { Search, Package, Loader2, ShoppingCart, Image as ImageIcon, AlertTriangle, Sparkles } from 'lucide-react';
 import { usePartsApi, useCreatePartsOrder, usePartsIntegrations } from '@/hooks/useWorkshopParts';
 import { useCreateWorkshopOrderItem } from '@/hooks/useWorkshop';
+import { getConfiguredPartsIntegrations } from './partsIntegrationUtils';
 import { toast } from 'sonner';
 
 interface Props {
@@ -17,6 +18,16 @@ interface Props {
   orderId: string;
   vehicleName?: string;
   vehicleVin?: string;
+  vehicle?: {
+    brand?: string;
+    model?: string;
+    year?: number;
+    engine_capacity?: number;
+    engine_capacity_cm3?: number;
+    engine_power?: number;
+    engine_power_kw?: number;
+    fuel_type?: string;
+  } | null;
   initialSearch?: string;
   margin?: number;
 }
@@ -54,13 +65,14 @@ const availabilityLabels: Record<string, string> = {
 };
 
 export function RidoPartsSearchModal({
-  open, onOpenChange, providerId, orderId, vehicleName, vehicleVin, initialSearch, margin = 30,
+  open, onOpenChange, providerId, orderId, vehicleName, vehicleVin, vehicle, initialSearch, margin = 30,
 }: Props) {
   const [query, setQuery] = useState(initialSearch || '');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isOrdering, setIsOrdering] = useState(false);
   const [hoveredImage, setHoveredImage] = useState<string | null>(null);
+  const [clarificationQuestion, setClarificationQuestion] = useState<string | null>(null);
   const partsApi = usePartsApi();
   const createPartsOrder = useCreatePartsOrder();
   const createOrderItem = useCreateWorkshopOrderItem();
@@ -70,7 +82,7 @@ export function RidoPartsSearchModal({
     if (open && initialSearch) setQuery(initialSearch);
   }, [open, initialSearch]);
 
-  const enabledIntegrations = (integrations as any[]).filter((i: any) => i.is_enabled && i.api_username);
+  const enabledIntegrations = getConfiguredPartsIntegrations(integrations as any[]);
 
   const handleSearch = async () => {
     if (!query.trim()) return;
@@ -81,6 +93,7 @@ export function RidoPartsSearchModal({
 
     setIsSearching(true);
     setResults([]);
+    setClarificationQuestion(null);
 
     try {
       // Search across all enabled wholesalers in parallel
@@ -90,27 +103,39 @@ export function RidoPartsSearchModal({
             action: 'search',
             provider_id: providerId,
             supplier_code: integration.supplier_code,
-            params: { query: query.trim(), vin: vehicleVin || undefined },
+            params: {
+              query: query.trim(),
+              vin: vehicleVin || undefined,
+              vehicle: vehicle ? {
+                brand: vehicle.brand,
+                model: vehicle.model,
+                year: vehicle.year,
+                engineCapacityCm3: vehicle.engine_capacity_cm3 || vehicle.engine_capacity,
+                enginePowerKw: vehicle.engine_power_kw || vehicle.engine_power,
+                fuelType: vehicle.fuel_type,
+              } : undefined,
+            },
           });
 
           const items = Array.isArray(res.results) ? res.results :
             res.results?.items || res.results?.products || res.results?.data || [];
+          const clarification = typeof res?.clarificationQuestion === 'string' ? res.clarificationQuestion : null;
 
           const supplierMargin = integration.sales_margin_percent || margin;
           const supplierName = integration.supplier_name || integration.supplier_code;
 
-          return items.map((item: any, idx: number) => {
-            const priceNet = item.price?.net || item.priceNet || item.price || 0;
+          const mappedItems = items.map((item: any, idx: number) => {
+            const priceNet = Number(item.price?.net ?? item.priceNet ?? item.price ?? 0);
             const avail = parseAvailability(item);
             const sellingGross = priceNet > 0 
               ? Math.round(priceNet * (1 + supplierMargin / 100) * 1.23 * 100) / 100 
               : 0;
 
             return {
-              id: `${integration.supplier_code}-${item.hartCode || item.code || item.id || idx}`,
-              code: item.hartCode || item.code || item.catalogNumber || '',
-              name: item.name || item.description || item.productName || '',
-              manufacturer: item.manufacturer?.name || item.manufacturer || item.brand || item.producerName || '',
+              id: `${integration.supplier_code}-${item.hartCode || item.partNumber || item.productCode || item.code || item.id || idx}`,
+              code: item.hartCode || item.partNumber || item.productCode || item.code || item.catalogNumber || '',
+              name: item.name || item.description || item.productName || item.partNumber || query.trim(),
+              manufacturer: item.manufacturer?.name || item.manufacturer || item.brand || item.producerName || item.producer || '',
               supplier: supplierName,
               supplierCode: integration.supplier_code,
               purchasePriceNet: priceNet,
@@ -118,24 +143,30 @@ export function RidoPartsSearchModal({
               suggestedPrice: null,
               isSuggested: priceNet === 0,
               availability: avail,
-              deliveryTime: item.deliveryTime || (avail === 'today' ? 'Dziś' : avail === 'tomorrow' ? 'Jutro' : '2-3 dni'),
+              deliveryTime: item.deliveryTime || item.waitingTime || (avail === 'today' ? 'Dziś' : avail === 'tomorrow' ? 'Jutro' : '2-3 dni'),
               imageUrl: item.imageUrl || item.image || item.photoUrl || item.thumbnailUrl || null,
               selected: false,
               quantity: 1,
             } as SearchResult;
           });
+
+          return { items: mappedItems, clarificationQuestion: clarification };
         } catch (err: any) {
           console.warn(`Search failed for ${integration.supplier_code}:`, err.message);
-          return [];
+          return { items: [], clarificationQuestion: null };
         }
       });
 
       const allResults = await Promise.allSettled(searchPromises);
       const mergedResults: SearchResult[] = [];
+      let nextClarificationQuestion: string | null = null;
       
       for (const result of allResults) {
         if (result.status === 'fulfilled') {
-          mergedResults.push(...result.value);
+          mergedResults.push(...result.value.items);
+          if (!nextClarificationQuestion && result.value.clarificationQuestion) {
+            nextClarificationQuestion = result.value.clarificationQuestion;
+          }
         }
       }
 
@@ -167,7 +198,10 @@ export function RidoPartsSearchModal({
       });
 
       setResults(mergedResults);
-      if (mergedResults.length === 0) toast.info('Brak wyników dla tego zapytania');
+      setClarificationQuestion(mergedResults.length === 0 ? nextClarificationQuestion : null);
+      if (mergedResults.length === 0) {
+        toast.info(nextClarificationQuestion || 'Brak wyników dla tego zapytania');
+      }
     } catch (err: any) {
       toast.error(err.message || 'Błąd wyszukiwania');
     } finally {
@@ -211,7 +245,10 @@ export function RidoPartsSearchModal({
       }
 
       for (const [supplierCode, items] of Object.entries(bySupplier)) {
-        const positions = items.map(s => ({ hartCode: s.code, code: s.code, quantity: s.quantity }));
+        const positions = items.map(s => supplierCode === 'hart'
+          ? { hartCode: s.code, quantity: s.quantity }
+          : { code: s.code, productCode: s.code, quantity: s.quantity }
+        );
 
         let supplierOrderId = '';
         try {
@@ -222,8 +259,9 @@ export function RidoPartsSearchModal({
             params: { positions },
           });
 
-          const basketIds = basketRes.basket?.positions?.map((p: any) => p.id) ||
-            basketRes.basket?.basketPositionIds || [];
+          const basketIds = basketRes.basket?.basketPositionIds ||
+            basketRes.basket?.successfulOrders?.map((p: any) => p.orderBufferPositionId) ||
+            basketRes.basket?.positions?.map((p: any) => p.id ?? p.basketPositionId) || [];
 
           if (basketIds.length > 0) {
             const orderRes = await partsApi.mutateAsync({
@@ -232,7 +270,7 @@ export function RidoPartsSearchModal({
               supplier_code: supplierCode,
               params: { basketPositionIds: basketIds },
             });
-            supplierOrderId = orderRes.order?.orderId || orderRes.order?.id || '';
+            supplierOrderId = orderRes.order?.orderId || orderRes.order?.id || orderRes.order?.items?.[0]?.orderId || orderRes.order?.[0]?.orderId || '';
           }
         } catch (apiErr: any) {
           console.warn(`Order API failed for ${supplierCode}, saving locally:`, apiErr.message);
@@ -337,6 +375,18 @@ export function RidoPartsSearchModal({
             {isSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Szukaj'}
           </Button>
         </div>
+
+        {clarificationQuestion && !isSearching && (
+          <div className="rounded-lg border bg-muted/40 px-3 py-3">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-primary mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-foreground">Potrzebne doprecyzowanie</p>
+                <p className="text-sm text-muted-foreground">{clarificationQuestion}</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Results info */}
         {results.length > 0 && (
@@ -490,7 +540,7 @@ export function RidoPartsSearchModal({
           ) : !isSearching && results.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
               <Search className="h-12 w-12 mb-4 opacity-30" />
-              <p className="text-sm">Wpisz nazwę części i kliknij Szukaj</p>
+              <p className="text-sm">{clarificationQuestion || 'Wpisz nazwę części i kliknij Szukaj'}</p>
               <p className="text-xs mt-1">Przeszukamy {enabledIntegrations.length} podłączonych hurtowni jednocześnie</p>
             </div>
           ) : null}

@@ -46,16 +46,15 @@ export function RidoPartsConfigModal({ open, onOpenChange, onGoToSettings }: Pro
           {/* AUTO PARTNER */}
           <div className="rounded-lg border p-4 space-y-2">
             <div className="flex items-center gap-2">
-              <span className="text-lg">🟡</span>
+              <span className="text-lg">🔵</span>
               <span className="font-semibold">AUTO PARTNER</span>
-              <span className="text-xs text-muted-foreground">(apcat.eu)</span>
+              <span className="text-xs text-muted-foreground">(autopartner.dev)</span>
             </div>
             <p className="text-sm text-muted-foreground font-medium">Jak uzyskać dostęp:</p>
             <ol className="text-sm text-muted-foreground list-decimal list-inside space-y-1">
-              <li>Zaloguj się na apcat.eu swoimi danymi</li>
               <li>Skontaktuj się z opiekunem handlowym Auto Partner</li>
-              <li>Poproś o dostęp do WebService API pod adresem autopartner.pl/api</li>
-              <li>Otrzymasz osobne dane dostępowe do API</li>
+              <li>Poproś o dostęp do CustomerAPI Auto Partner</li>
+              <li>Otrzymasz Client Code, WS Password i Client Password</li>
               <li>Wejdź w <span className="font-medium text-foreground">Ustawienia → Integracje → Auto Partner</span> i wpisz te dane</li>
             </ol>
             <p className="text-xs text-muted-foreground">Kontakt: przez opiekuna handlowego Auto Partner</p>
