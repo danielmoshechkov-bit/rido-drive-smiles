@@ -117,6 +117,17 @@ export function MobileTabMenu({
                   Informacje
                 </Button>
               )}
+              {userType === 'fleet' && fleetId && activeTab !== 'accounting' && (
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  className="w-full justify-start text-xs"
+                  onClick={() => handleTabChange('accounting')}
+                >
+                  <Calculator className="h-3 w-3 mr-2" />
+                  Księgowość
+                </Button>
+              )}
               {userType === 'fleet' && fleetId && activeTab !== 'rental-payments' && (
                 <Button 
                   variant="ghost" 
