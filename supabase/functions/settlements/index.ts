@@ -1084,8 +1084,11 @@ async function parseBoltCsv(
 
     const platformId = row[driverIdIdx]?.trim();
     const driverName = row[driverNameIdx]?.trim() || '';
+    // Extract email and phone from Bolt CSV for matching
+    const boltEmail = emailIdx !== -1 ? (row[emailIdx]?.trim() || '') : '';
+    const boltPhone = phoneIdx !== -1 ? (row[phoneIdx]?.trim() || '') : '';
     
-    if (!platformId && !driverName) continue;
+    if (!platformId && !driverName && !boltPhone) continue;
 
     let driverId: string | null = null;
 
@@ -1096,8 +1099,7 @@ async function parseBoltCsv(
       console.log(`✅ BOLT: Matched by platform ID (cache): ${platformId}`);
     }
     
-    // 1b. CRITICAL: Also check database directly for platform_id (in case cache is stale)
-    // BUT only match within the same fleet to prevent cross-fleet matching!
+    // 1b. Check database directly for platform_id
     if (!driverId && platformId) {
       let platformQuery = supabase
         .from('driver_platform_ids')
@@ -1105,7 +1107,6 @@ async function parseBoltCsv(
         .eq('platform', 'bolt')
         .eq('platform_id', platformId);
       
-      // CRITICAL: Only match drivers from the same fleet!
       if (fleet_id) {
         platformQuery = platformQuery.eq('drivers.fleet_id', fleet_id);
       }
@@ -1127,6 +1128,84 @@ async function parseBoltCsv(
         }
       }
     }
+
+    // 1c. CRITICAL: Match by PHONE NUMBER from Bolt CSV (most stable identifier)
+    if (!driverId && boltPhone) {
+      // Check cache first
+      if (existingDriversMap.has(`phone:${boltPhone}`)) {
+        const matched = existingDriversMap.get(`phone:${boltPhone}`);
+        driverId = matched.id;
+        matchedDrivers++;
+        console.log(`✅ BOLT: Matched by phone (cache): ${boltPhone} → ${matched.first_name} ${matched.last_name}`);
+        
+        // Also save bolt platform ID for future fast lookups
+        const boltPid = platformId || boltPhone;
+        await supabase.from('driver_platform_ids').upsert({
+          driver_id: driverId,
+          platform: 'bolt',
+          platform_id: boltPid
+        }, { onConflict: 'driver_id,platform' }).catch(() => {});
+        existingDriversMap.set(`bolt:${boltPid}`, matched);
+      }
+      
+      // Check DB by phone
+      if (!driverId) {
+        let phoneQuery = supabase
+          .from('drivers')
+          .select('id, first_name, last_name, phone')
+          .eq('phone', boltPhone);
+        
+        if (fleet_id) {
+          phoneQuery = phoneQuery.eq('fleet_id', fleet_id);
+        }
+        
+        const { data: phoneMatch } = await phoneQuery.maybeSingle();
+        
+        if (phoneMatch) {
+          driverId = phoneMatch.id;
+          matchedDrivers++;
+          console.log(`✅ BOLT: Matched by phone (DB): ${boltPhone} → ${phoneMatch.first_name} ${phoneMatch.last_name}`);
+          
+          existingDriversMap.set(`phone:${boltPhone}`, phoneMatch);
+          const boltPid = platformId || boltPhone;
+          await supabase.from('driver_platform_ids').upsert({
+            driver_id: driverId,
+            platform: 'bolt',
+            platform_id: boltPid
+          }, { onConflict: 'driver_id,platform' }).catch(() => {});
+          existingDriversMap.set(`bolt:${boltPid}`, phoneMatch);
+        }
+      }
+    }
+
+    // 1d. Match by EMAIL from Bolt CSV
+    if (!driverId && boltEmail) {
+      let emailQuery = supabase
+        .from('drivers')
+        .select('id, first_name, last_name, email')
+        .ilike('email', boltEmail);
+      
+      if (fleet_id) {
+        emailQuery = emailQuery.eq('fleet_id', fleet_id);
+      }
+      
+      const { data: emailMatch } = await emailQuery.maybeSingle();
+      
+      if (emailMatch) {
+        driverId = emailMatch.id;
+        matchedDrivers++;
+        console.log(`✅ BOLT: Matched by email (DB): ${boltEmail} → ${emailMatch.first_name} ${emailMatch.last_name}`);
+        
+        if (boltPhone) existingDriversMap.set(`phone:${boltPhone}`, emailMatch);
+        const boltPid = platformId || boltPhone || boltEmail;
+        await supabase.from('driver_platform_ids').upsert({
+          driver_id: driverId,
+          platform: 'bolt',
+          platform_id: boltPid
+        }, { onConflict: 'driver_id,platform' }).catch(() => {});
+        existingDriversMap.set(`bolt:${boltPid}`, emailMatch);
+      }
+    }
     
     // 2. Try fuzzy name matching
     if (!driverId && driverName) {
@@ -1136,15 +1215,18 @@ async function parseBoltCsv(
         matchedDrivers++;
         console.log(`✅ BOLT: Fuzzy matched "${driverName}" → "${fuzzyResult.driver.first_name} ${fuzzyResult.driver.last_name}" (score: ${fuzzyResult.score}, type: ${fuzzyResult.matchType})`);
         
-        if (platformId) {
+        const boltPid = platformId || boltPhone || null;
+        if (boltPid) {
           const { error: pidErr } = await supabase.from('driver_platform_ids').upsert({
             driver_id: driverId,
             platform: 'bolt',
-            platform_id: platformId
+            platform_id: boltPid
           }, { onConflict: 'driver_id,platform' });
           if (pidErr) console.log('⚠️ bolt platform_ids upsert error:', pidErr.message);
-          existingDriversMap.set(`bolt:${platformId}`, fuzzyResult.driver);
+          existingDriversMap.set(`bolt:${boltPid}`, fuzzyResult.driver);
         }
+        // Save phone mapping for future lookups
+        if (boltPhone) existingDriversMap.set(`phone:${boltPhone}`, fuzzyResult.driver);
       }
     }
 
