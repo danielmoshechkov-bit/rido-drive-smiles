@@ -472,11 +472,7 @@ export function RidoPartsSearchModal({
           </Button>
         </div>
 
-        {allActiveRequireCodes && (
-          <p className="text-xs text-muted-foreground">
-            Aktywne API hurtowni wyszukują tylko po numerze OE / katalogowym, więc sama nazwa części nie zwróci wyników.
-          </p>
-        )}
+        {/* Search help info shown alongside results if needed */}
 
         {/* Clickable suggestions (while typing, before/after search) */}
         {suggestions.length > 0 && !isSearching && (
