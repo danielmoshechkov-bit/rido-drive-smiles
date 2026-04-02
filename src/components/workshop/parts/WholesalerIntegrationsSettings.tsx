@@ -231,15 +231,19 @@ export function WholesalerIntegrationsSettings({ providerId }: Props) {
                 <div className="flex items-start gap-1.5">
                   <Info className="h-3.5 w-3.5 mt-0.5 shrink-0 text-primary" />
                   <div>
-                    <p className="font-medium text-foreground">Jak uzyskać dane dostępowe?</p>
-                    <ol className="list-decimal ml-4 mt-1 space-y-0.5">
-                      <li>Skontaktuj się z przedstawicielem handlowym Hart</li>
-                      <li>Poproś o <strong>login i hasło do REST API</strong> (sandbox + produkcja)</li>
-                      <li>Otrzymasz oddzielne dane dla środowiska testowego i produkcyjnego</li>
-                    </ol>
+                    <p className="font-medium text-foreground">Dane dostępowe Hart REST API</p>
+                    <p className="mt-1">Od Hart otrzymujesz 4 dane:</p>
+                    <ul className="list-disc ml-4 mt-1 space-y-0.5">
+                      <li><strong>username</strong> (np. IK59) → wpisz w pole <em>Username</em></li>
+                      <li><strong>password</strong> → wpisz w pole <em>Hasło API</em></li>
+                      <li><strong>identyfikator</strong> (np. 78430) — zapamiętaj, nie jest potrzebny do API</li>
+                      <li><strong>kode</strong> — to Twój kod klienta, nie jest wymagany w API</li>
+                    </ul>
                     <p className="mt-1.5">
-                      API: <code className="text-[10px] bg-muted px-1 rounded">restapi.hartphp.com.pl</code> (produkcja) / <code className="text-[10px] bg-muted px-1 rounded">sandbox.restapi.hartphp.com.pl</code> (test)
+                      Produkcja: <code className="text-[10px] bg-muted px-1 rounded">restapi.hartphp.com.pl</code><br />
+                      Sandbox: <code className="text-[10px] bg-muted px-1 rounded">sandbox.restapi.hartphp.com.pl</code>
                     </p>
+                    <p className="mt-1 text-amber-600">⚠️ Sandbox i produkcja mają <strong>oddzielne</strong> username/hasło!</p>
                   </div>
                 </div>
               </div>
@@ -251,13 +255,13 @@ export function WholesalerIntegrationsSettings({ providerId }: Props) {
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs">Login API <span className="text-destructive">*</span></Label>
+                  <Label className="text-xs">Username (login) <span className="text-destructive">*</span></Label>
                   <Input
                     value={forms.hart.api_username}
                     onChange={(e) => updateForm('hart', { api_username: e.target.value })}
-                    placeholder="np. 1234"
+                    placeholder="np. IK59"
                   />
-                  <p className="text-[10px] text-muted-foreground">Numer klienta / login z Hart</p>
+                  <p className="text-[10px] text-muted-foreground">Username otrzymany od Hart</p>
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Hasło API <span className="text-destructive">*</span></Label>
@@ -267,7 +271,7 @@ export function WholesalerIntegrationsSettings({ providerId }: Props) {
                     onChange={(e) => updateForm('hart', { api_password: e.target.value })}
                     placeholder="••••••••"
                   />
-                  <p className="text-[10px] text-muted-foreground">Hasło dostarczone przez Hart</p>
+                  <p className="text-[10px] text-muted-foreground">Password otrzymany od Hart</p>
                 </div>
               </div>
 

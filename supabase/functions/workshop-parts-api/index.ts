@@ -739,9 +739,11 @@ async function buildSearchIntent(query: string, params: any) {
   }
 }
 
-function json(data: any, status = 200) {
+function json(data: any, _status = 200) {
+  // Always return 200 to avoid supabase.functions.invoke throwing on non-2xx
+  // Error info is in the response body (data.error field)
   return new Response(JSON.stringify(data), {
-    status,
+    status: 200,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 }

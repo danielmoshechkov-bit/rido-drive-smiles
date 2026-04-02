@@ -6,8 +6,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-const KSEF_DEMO_URL = 'https://ksef-demo.mf.gov.pl/api/v2';
-const KSEF_PROD_URL = 'https://ksef.mf.gov.pl/api/v2';
+// KSeF 2.0 API URLs (since Feb 2026)
+const KSEF_DEMO_URL = 'https://api-demo.ksef.mf.gov.pl/api/v2';
+const KSEF_PROD_URL = 'https://api.ksef.mf.gov.pl/api/v2';
 const KSEF_TEST_URL = 'https://api-test.ksef.mf.gov.pl/api/v2';
 
 function getBaseUrl(environment: string): string {
