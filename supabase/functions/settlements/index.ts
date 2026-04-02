@@ -1253,16 +1253,22 @@ async function parseBoltCsv(
         matchedDrivers++;
         console.log(`✅ BOLT: Found existing driver by name "${firstName} ${lastName}" (ID: ${driverId})`);
         
-        if (platformId) {
+        const boltPid = platformId || boltPhone || null;
+        if (boltPid) {
           const { error: pidErr } = await supabase.from('driver_platform_ids').upsert({
             driver_id: driverId,
             platform: 'bolt',
-            platform_id: platformId
+            platform_id: boltPid
           }, { onConflict: 'driver_id,platform' });
           if (!pidErr) {
-            existingDriversMap.set(`bolt:${platformId}`, existingByName);
+            existingDriversMap.set(`bolt:${boltPid}`, existingByName);
           }
         }
+        // Update phone on driver record if missing
+        if (boltPhone && !existingByName.phone) {
+          await supabase.from('drivers').update({ phone: boltPhone }).eq('id', driverId);
+        }
+        if (boltPhone) existingDriversMap.set(`phone:${boltPhone}`, existingByName);
       }
     }
     
