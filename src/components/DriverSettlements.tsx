@@ -194,6 +194,11 @@ export const DriverSettlements = ({
         setDriverFleetId(driver.fleet_id);
       }
       
+      // Load per-driver custom fee
+      if ((driver as any)?.custom_weekly_fee !== null && (driver as any)?.custom_weekly_fee !== undefined) {
+        setDriverCustomWeeklyFee((driver as any).custom_weekly_fee);
+      }
+      
       if (!driver?.fleet_id || role === 'admin') return;
       
       const { data: fleet } = await supabase
