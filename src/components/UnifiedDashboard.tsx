@@ -45,8 +45,9 @@ import { UniversalHomeButton } from "@/components/UniversalHomeButton";
 import { RentalPaymentReminders } from "@/components/fleet/RentalPaymentReminders";
 import { FleetPaymentNotifications } from "@/components/fleet/FleetPaymentNotifications";
 import { PaymentSubTabs } from "@/components/fleet/PaymentSubTabs";
-import { CreditCard } from "lucide-react";
+import { CreditCard, Calculator } from "lucide-react";
 import { MobileTabMenu } from "@/components/MobileTabMenu";
+import { ServiceProviderAccountingView } from "@/components/service-provider/ServiceProviderAccountingView";
 
 interface UnifiedDashboardProps {
   userType: 'admin' | 'fleet';
@@ -426,6 +427,12 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
                 </TabsTrigger>
               )}
               {userType === 'fleet' && fleetId && (
+                <TabsTrigger value="accounting">
+                  <Calculator className="h-4 w-4 mr-2" />
+                  Księgowość
+                </TabsTrigger>
+              )}
+              {userType === 'fleet' && fleetId && (
                 <TabsTrigger value="rental-payments">
                   <CreditCard className="h-4 w-4 mr-2" />
                   Płatności
@@ -693,6 +700,12 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
           {userType === 'fleet' && fleetId && (
             <TabsContent value="fleet-settings" className="space-y-6">
               <FleetContractSettings fleetId={fleetId} />
+            </TabsContent>
+          )}
+
+          {userType === 'fleet' && fleetId && (
+            <TabsContent value="accounting" className="space-y-6">
+              <ServiceProviderAccountingView />
             </TabsContent>
           )}
 

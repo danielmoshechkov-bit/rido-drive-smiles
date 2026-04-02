@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, DollarSign, Car, Users, Info, Repeat, CreditCard, Settings, MapPin, FileText } from "lucide-react";
+import { ChevronDown, DollarSign, Car, Users, Info, Repeat, CreditCard, Settings, MapPin, FileText, Calculator } from "lucide-react";
 
 interface MobileTabMenuProps {
   activeTab: string;
@@ -51,6 +51,7 @@ export function MobileTabMenu({
       case 'data-import': return t('admin.dataImport');
       case 'fleet-live': return 'Fleet Live';
       case 'rental-payments': return 'Płatności';
+      case 'accounting': return 'Księgowość';
       default: return 'Menu';
     }
   };
@@ -114,6 +115,17 @@ export function MobileTabMenu({
                 >
                   <Info className="h-3 w-3 mr-2" />
                   Informacje
+                </Button>
+              )}
+              {userType === 'fleet' && fleetId && activeTab !== 'accounting' && (
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  className="w-full justify-start text-xs"
+                  onClick={() => handleTabChange('accounting')}
+                >
+                  <Calculator className="h-3 w-3 mr-2" />
+                  Księgowość
                 </Button>
               )}
               {userType === 'fleet' && fleetId && activeTab !== 'rental-payments' && (
