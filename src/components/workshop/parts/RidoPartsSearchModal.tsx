@@ -1,15 +1,54 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
-import { Search, Package, Loader2, ShoppingCart, Image as ImageIcon, AlertTriangle, Sparkles } from 'lucide-react';
+import { Search, Package, Loader2, ShoppingCart, Image as ImageIcon, AlertTriangle, Sparkles, SearchX } from 'lucide-react';
 import { usePartsApi, useCreatePartsOrder, usePartsIntegrations } from '@/hooks/useWorkshopParts';
 import { useCreateWorkshopOrderItem } from '@/hooks/useWorkshop';
 import { getConfiguredPartsIntegrations } from './partsIntegrationUtils';
 import { toast } from 'sonner';
+
+// ─── Search suggestions map ───
+const SUGGESTIONS_MAP: Record<string, string[]> = {
+  'wachacz': ['wahacz przedni lewy kompletny', 'wahacz przedni prawy kompletny', 'wahacz tylny lewy', 'wahacz tylny prawy', 'ramię wahacza przedniego', 'sworzeń wahacza', 'łącznik stabilizatora'],
+  'wahacz': ['wahacz przedni lewy kompletny', 'wahacz przedni prawy kompletny', 'wahacz tylny lewy', 'wahacz tylny prawy', 'ramię wahacza przedniego', 'sworzeń wahacza', 'łącznik stabilizatora'],
+  'klocki': ['klocki hamulcowe przednie', 'klocki hamulcowe tylne', 'klocki ceramiczne przednie'],
+  'klock': ['klocki hamulcowe przednie', 'klocki hamulcowe tylne', 'klocki ceramiczne przednie'],
+  'tarcze': ['tarcze hamulcowe przednie', 'tarcze hamulcowe tylne', 'tarcze wentylowane przednie'],
+  'tarcza': ['tarcze hamulcowe przednie', 'tarcze hamulcowe tylne', 'tarcze wentylowane przednie'],
+  'pasek': ['pasek rozrządu', 'pasek klinowy', 'pasek wielorowkowy', 'zestaw rozrządu z pompą'],
+  'filtr': ['filtr oleju', 'filtr powietrza', 'filtr kabinowy', 'filtr paliwa'],
+  'amortyzator': ['amortyzator przedni lewy', 'amortyzator przedni prawy', 'amortyzator tylny lewy', 'amortyzator tylny prawy'],
+  'amortyza': ['amortyzator przedni lewy', 'amortyzator przedni prawy', 'amortyzator tylny lewy', 'amortyzator tylny prawy'],
+  'uszczelka': ['uszczelka pod głowicę', 'zestaw uszczelek głowicy', 'uszczelka pokrywy zaworów'],
+  'olej': ['olej silnikowy 5W30', 'olej silnikowy 5W40', 'olej przekładniowy', 'olej hamulcowy'],
+  'świeca': ['świeca zapłonowa', 'świeca żarowa', 'zestaw świec zapłonowych'],
+  'swieca': ['świeca zapłonowa', 'świeca żarowa', 'zestaw świec zapłonowych'],
+  'sprzęgło': ['tarcza sprzęgła', 'zestaw sprzęgła kompletny', 'docisk sprzęgła', 'łożysko oporowe sprzęgła'],
+  'sprzeglo': ['tarcza sprzęgła', 'zestaw sprzęgła kompletny', 'docisk sprzęgła', 'łożysko oporowe sprzęgła'],
+  'rozrząd': ['zestaw rozrządu', 'zestaw rozrządu z pompą wody', 'pasek rozrządu', 'napinacz rozrządu'],
+  'rozrzad': ['zestaw rozrządu', 'zestaw rozrządu z pompą wody', 'pasek rozrządu', 'napinacz rozrządu'],
+  'łożysko': ['łożysko koła przedniego', 'łożysko koła tylnego', 'łożysko oporowe'],
+  'lozysko': ['łożysko koła przedniego', 'łożysko koła tylnego', 'łożysko oporowe'],
+  'chłodnica': ['chłodnica silnika', 'chłodnica klimatyzacji', 'chłodnica oleju'],
+  'chlodnica': ['chłodnica silnika', 'chłodnica klimatyzacji', 'chłodnica oleju'],
+  'pompa': ['pompa wody', 'pompa paliwa', 'pompa wspomagania', 'pompa hamulcowa'],
+  'alternator': ['alternator', 'regulator alternatora', 'koło pasowe alternatora'],
+  'rozrusznik': ['rozrusznik', 'bendix rozrusznika'],
+  'zawieszenie': ['wahacz przedni', 'drążek kierowniczy', 'końcówka drążka', 'łącznik stabilizatora', 'amortyzator'],
+};
+
+function generateSearchSuggestions(query: string): string[] {
+  if (!query || query.trim().length < 3) return [];
+  const q = query.trim().toLowerCase();
+  for (const [key, suggestions] of Object.entries(SUGGESTIONS_MAP)) {
+    if (q.includes(key)) return suggestions;
+  }
+  return [];
+}
 
 interface Props {
   open: boolean;
@@ -72,7 +111,7 @@ export function RidoPartsSearchModal({
   const [isSearching, setIsSearching] = useState(false);
   const [isOrdering, setIsOrdering] = useState(false);
   const [hoveredImage, setHoveredImage] = useState<string | null>(null);
-  const [clarificationQuestion, setClarificationQuestion] = useState<string | null>(null);
+  const [hasSearched, setHasSearched] = useState(false);
   const partsApi = usePartsApi();
   const createPartsOrder = useCreatePartsOrder();
   const createOrderItem = useCreateWorkshopOrderItem();
@@ -80,12 +119,28 @@ export function RidoPartsSearchModal({
 
   useEffect(() => {
     if (open && initialSearch) setQuery(initialSearch);
+    if (!open) {
+      setHasSearched(false);
+      setResults([]);
+    }
   }, [open, initialSearch]);
 
   const enabledIntegrations = getConfiguredPartsIntegrations(integrations as any[]);
 
-  const handleSearch = async () => {
-    if (!query.trim()) return;
+  // Live suggestions based on current query
+  const suggestions = useMemo(() => generateSearchSuggestions(query), [query]);
+
+  const handleSuggestionClick = (suggestion: string) => {
+    setQuery(suggestion);
+    // Auto-search after setting query
+    setTimeout(() => {
+      doSearch(suggestion);
+    }, 50);
+  };
+
+  const doSearch = async (searchQuery?: string) => {
+    const q = (searchQuery || query).trim();
+    if (!q) return;
     if (enabledIntegrations.length === 0) {
       toast.error('Brak skonfigurowanych hurtowni. Przejdź do Ustawienia → Integracje z hurtowniami.');
       return;
@@ -93,10 +148,9 @@ export function RidoPartsSearchModal({
 
     setIsSearching(true);
     setResults([]);
-    setClarificationQuestion(null);
+    setHasSearched(true);
 
     try {
-      // Search across all enabled wholesalers in parallel
       const searchPromises = enabledIntegrations.map(async (integration: any) => {
         try {
           const res = await partsApi.mutateAsync({
@@ -104,7 +158,7 @@ export function RidoPartsSearchModal({
             provider_id: providerId,
             supplier_code: integration.supplier_code,
             params: {
-              query: query.trim(),
+              query: q,
               vin: vehicleVin || undefined,
               vehicle: vehicle ? {
                 brand: vehicle.brand,
@@ -119,7 +173,6 @@ export function RidoPartsSearchModal({
 
           const items = Array.isArray(res.results) ? res.results :
             res.results?.items || res.results?.products || res.results?.data || [];
-          const clarification = typeof res?.clarificationQuestion === 'string' ? res.clarificationQuestion : null;
 
           const supplierMargin = integration.sales_margin_percent || margin;
           const supplierName = integration.supplier_name || integration.supplier_code;
@@ -127,14 +180,14 @@ export function RidoPartsSearchModal({
           const mappedItems = items.map((item: any, idx: number) => {
             const priceNet = Number(item.price?.net ?? item.priceNet ?? item.price ?? 0);
             const avail = parseAvailability(item);
-            const sellingGross = priceNet > 0 
-              ? Math.round(priceNet * (1 + supplierMargin / 100) * 1.23 * 100) / 100 
+            const sellingGross = priceNet > 0
+              ? Math.round(priceNet * (1 + supplierMargin / 100) * 1.23 * 100) / 100
               : 0;
 
             return {
               id: `${integration.supplier_code}-${item.hartCode || item.partNumber || item.productCode || item.code || item.id || idx}`,
               code: item.hartCode || item.partNumber || item.productCode || item.code || item.catalogNumber || '',
-              name: item.name || item.description || item.productName || item.partNumber || query.trim(),
+              name: item.name || item.description || item.productName || item.partNumber || q,
               manufacturer: item.manufacturer?.name || item.manufacturer || item.brand || item.producerName || item.producer || '',
               supplier: supplierName,
               supplierCode: integration.supplier_code,
@@ -150,34 +203,29 @@ export function RidoPartsSearchModal({
             } as SearchResult;
           });
 
-          return { items: mappedItems, clarificationQuestion: clarification };
+          return { items: mappedItems };
         } catch (err: any) {
           console.warn(`Search failed for ${integration.supplier_code}:`, err.message);
-          return { items: [], clarificationQuestion: null };
+          return { items: [] };
         }
       });
 
       const allResults = await Promise.allSettled(searchPromises);
       const mergedResults: SearchResult[] = [];
-      let nextClarificationQuestion: string | null = null;
-      
+
       for (const result of allResults) {
         if (result.status === 'fulfilled') {
           mergedResults.push(...result.value.items);
-          if (!nextClarificationQuestion && result.value.clarificationQuestion) {
-            nextClarificationQuestion = result.value.clarificationQuestion;
-          }
         }
       }
 
-      // Calculate AI suggested prices for items missing prices
+      // Cross-reference prices
       const itemsWithPrices = mergedResults.filter(r => r.purchasePriceNet > 0);
       const itemsWithoutPrices = mergedResults.filter(r => r.purchasePriceNet === 0);
 
       if (itemsWithoutPrices.length > 0 && itemsWithPrices.length > 0) {
-        // Find similar items and suggest prices based on other wholesalers
         for (const item of itemsWithoutPrices) {
-          const similar = itemsWithPrices.find(p => 
+          const similar = itemsWithPrices.find(p =>
             p.name.toLowerCase().includes(item.name.toLowerCase().split(' ')[0]) ||
             (p.code && item.code && p.code === item.code)
           );
@@ -198,16 +246,14 @@ export function RidoPartsSearchModal({
       });
 
       setResults(mergedResults);
-      setClarificationQuestion(mergedResults.length === 0 ? nextClarificationQuestion : null);
-      if (mergedResults.length === 0) {
-        toast.info(nextClarificationQuestion || 'Brak wyników dla tego zapytania');
-      }
     } catch (err: any) {
       toast.error(err.message || 'Błąd wyszukiwania');
     } finally {
       setIsSearching(false);
     }
   };
+
+  const handleSearch = () => doSearch();
 
   const toggleSelect = (id: string) => {
     setResults(prev => prev.map(r => {
@@ -232,12 +278,10 @@ export function RidoPartsSearchModal({
   const totalPurchase = selected.reduce((s, r) => s + r.purchasePriceNet * r.quantity, 0);
   const totalSelling = selected.reduce((s, r) => s + r.sellingPriceGross * r.quantity, 0);
 
-  // Group selected by supplier for ordering
   const handleOrder = async () => {
     if (selected.length === 0) return;
     setIsOrdering(true);
     try {
-      // Group by supplier
       const bySupplier: Record<string, SearchResult[]> = {};
       for (const s of selected) {
         if (!bySupplier[s.supplierCode]) bySupplier[s.supplierCode] = [];
@@ -304,7 +348,6 @@ export function RidoPartsSearchModal({
           items: orderItems,
         });
 
-        // Add items to workshop order
         for (const s of items) {
           const priceGross = s.sellingPriceGross;
           const priceNet = Math.round(priceGross / 1.23 * 100) / 100;
@@ -338,9 +381,13 @@ export function RidoPartsSearchModal({
   };
 
   const fmt = (n: number) => n.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-  // Get unique suppliers in results
   const suppliersInResults = [...new Set(results.map(r => r.supplier))];
+
+  // No-results suggestions (different from typed suggestions)
+  const noResultsSuggestions = useMemo(() => {
+    if (results.length > 0 || !hasSearched) return [];
+    return generateSearchSuggestions(query);
+  }, [results, hasSearched, query]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -359,7 +406,7 @@ export function RidoPartsSearchModal({
           </DialogDescription>
         </DialogHeader>
 
-        {/* Search */}
+        {/* Search bar */}
         <div className="flex gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -376,15 +423,24 @@ export function RidoPartsSearchModal({
           </Button>
         </div>
 
-        {clarificationQuestion && !isSearching && (
-          <div className="rounded-lg border bg-muted/40 px-3 py-3">
-            <div className="flex items-start gap-2">
-              <AlertTriangle className="h-4 w-4 text-primary mt-0.5" />
-              <div>
-                <p className="text-sm font-medium text-foreground">Potrzebne doprecyzowanie</p>
-                <p className="text-sm text-muted-foreground">{clarificationQuestion}</p>
-              </div>
-            </div>
+        {/* Clickable suggestions (while typing, before/after search) */}
+        {suggestions.length > 0 && !isSearching && (
+          <div className="flex flex-wrap gap-1.5">
+            <span className="text-xs text-muted-foreground self-center mr-1">
+              <Sparkles className="h-3 w-3 inline mr-1" />
+              Sugestie:
+            </span>
+            {suggestions.map((s) => (
+              <Button
+                key={s}
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs px-2.5 hover:bg-primary/10 hover:border-primary"
+                onClick={() => handleSuggestionClick(s)}
+              >
+                {s}
+              </Button>
+            ))}
           </div>
         )}
 
@@ -398,16 +454,18 @@ export function RidoPartsSearchModal({
           </div>
         )}
 
-        {/* Results table */}
+        {/* Results table / empty state */}
         <div className="flex-1 overflow-auto min-h-0">
           {isSearching && (
             <div className="flex flex-col items-center justify-center py-16">
               <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
-              <p className="text-sm text-muted-foreground">Przeszukuję {enabledIntegrations.length} hurtowni...</p>
+              <p className="text-sm text-muted-foreground">
+                Przeszukuję {enabledIntegrations.length} hurtowni jednocześnie...
+              </p>
             </div>
           )}
 
-          {!isSearching && results.length > 0 ? (
+          {!isSearching && results.length > 0 && (
             <TooltipProvider>
               <table className="w-full text-xs">
                 <thead className="sticky top-0 bg-background z-10">
@@ -505,7 +563,7 @@ export function RidoPartsSearchModal({
                             <TooltipContent>
                               <p className="text-xs">
                                 <AlertTriangle className="h-3 w-3 inline mr-1 text-yellow-500" />
-                                Cena sugerowana na podstawie innych hurtowni. Sprawdź i zmień jeśli potrzeba.
+                                Cena sugerowana na podstawie innych hurtowni.
                               </p>
                             </TooltipContent>
                           </Tooltip>
@@ -537,13 +595,44 @@ export function RidoPartsSearchModal({
                 </tbody>
               </table>
             </TooltipProvider>
-          ) : !isSearching && results.length === 0 ? (
+          )}
+
+          {/* Empty state after search — with suggestions */}
+          {!isSearching && hasSearched && results.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+              <SearchX className="h-12 w-12 mb-4 opacity-30" />
+              <p className="text-sm font-medium text-foreground mb-1">
+                Nie znaleziono wyników dla: „{query}"
+              </p>
+              <p className="text-xs mb-4">
+                Spróbuj innej frazy lub wybierz jedną z sugestii poniżej
+              </p>
+              {noResultsSuggestions.length > 0 && (
+                <div className="flex flex-wrap gap-2 justify-center max-w-lg">
+                  {noResultsSuggestions.map((s) => (
+                    <Button
+                      key={s}
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs hover:bg-primary/10 hover:border-primary"
+                      onClick={() => handleSuggestionClick(s)}
+                    >
+                      Spróbuj: {s}
+                    </Button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Initial state — no search yet */}
+          {!isSearching && !hasSearched && results.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
               <Search className="h-12 w-12 mb-4 opacity-30" />
-              <p className="text-sm">{clarificationQuestion || 'Wpisz nazwę części i kliknij Szukaj'}</p>
+              <p className="text-sm">Wpisz nazwę części i kliknij Szukaj</p>
               <p className="text-xs mt-1">Przeszukamy {enabledIntegrations.length} podłączonych hurtowni jednocześnie</p>
             </div>
-          ) : null}
+          )}
         </div>
 
         {/* Summary footer */}
