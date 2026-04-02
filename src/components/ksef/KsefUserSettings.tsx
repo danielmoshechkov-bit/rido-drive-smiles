@@ -204,7 +204,7 @@ export function KsefUserSettings() {
 
   const handleUnsubscribe = async () => {
     if (!emailSubscription) return;
-    await (supabase as any).from('ksef_alert_emails').delete().eq('id', emailSubscription.id);
+    await (supabase as any).from('ksef_alert_emails').update({ active: false }).eq('id', emailSubscription.id);
     toast.success('Wypisano z powiadomień KSeF');
     refetchEmail();
   };
@@ -407,7 +407,7 @@ export function KsefUserSettings() {
               </div>
             )}
             <p className="text-xs text-muted-foreground">
-              Gdy nasz bot wykryje zmiany w systemie KSeF, wyślemy Ci email z informacją. Możesz się wypisać klikając „Wypisz się" powyżej lub link „unsubscribe" w emailu.
+              Gdy nasz bot wykryje zmiany w systemie KSeF, wyślemy Ci email z informacją. Możesz się wypisać klikając „Wypisz się” powyżej lub przycisk wypisu w mailu.
             </p>
           </CardContent>
 
