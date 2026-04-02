@@ -125,6 +125,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const [activeSubTab, setActiveSubTab] = useState("drivers");
   const { roles } = useUserRole();
   const [myDriverId, setMyDriverId] = useState<string | null>(null);
+  const isFleetManager = roles.includes('fleet_rental') || roles.includes('fleet_settlement');
+  const canViewOwnSettlements = roles.includes('driver') && !!myDriverId && !isFleetManager;
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [selectedWeek, setSelectedWeek] = useState<number>(getCurrentWeekNumber(new Date().getFullYear()));
   const [cities, setCities] = useState<{id: string, name: string}[]>([]);
@@ -1243,6 +1245,12 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     }
   }, [fleetId, roles]);
 
+  useEffect(() => {
+    if (activeSubTab === "my" && !roles.includes('admin') && !canViewOwnSettlements) {
+      setActiveSubTab("drivers");
+    }
+  }, [activeSubTab, canViewOwnSettlements, roles]);
+
   const fetchMyDriverId = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -1259,8 +1267,6 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         
         // Fleet managers (fleet_rental/fleet_settlement) should default to "drivers" tab
         // NOT to "Moje rozliczenia" - they are managers, not drivers
-        const isFleetManager = roles.includes('fleet_rental') || roles.includes('fleet_settlement');
-        
         if (!roles.includes('admin') && !isFleetManager) {
           // Only pure drivers default to "my" (Moje rozliczenia)
           const { data: hasSettlements } = await supabase
@@ -2267,7 +2273,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const subTabs = [
     ...(roles.includes('admin') 
       ? [{ value: "my", label: "Przychód firmy", visible: true }] 
-      : myDriverId 
+      : canViewOwnSettlements 
         ? [{ value: "my", label: "Moje rozliczenia", visible: true }] 
         : []
     ),
@@ -2423,7 +2429,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     
     // For fleet owners and drivers: show their own settlements
     // Anyone with myDriverId (fleet owner or driver) sees their own settlements
-    if (myDriverId) {
+    if (canViewOwnSettlements && myDriverId) {
       return (
         <div>
           <UniversalSubTabBar
