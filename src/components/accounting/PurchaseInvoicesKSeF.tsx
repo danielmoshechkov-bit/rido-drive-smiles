@@ -14,7 +14,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Download, Loader2, FileText, CheckCircle, XCircle, Package, Brain } from 'lucide-react';
+import { Download, Loader2, FileText, CheckCircle, XCircle, Package } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 interface PurchaseInvoicesKSeFProps {
@@ -43,7 +43,6 @@ const STATUS_BADGES: Record<string, { variant: 'default' | 'secondary' | 'destru
 export function PurchaseInvoicesKSeF({ entityId }: PurchaseInvoicesKSeFProps) {
   const queryClient = useQueryClient();
   const [fetching, setFetching] = useState(false);
-  const [categorizing, setCategorizing] = useState(false);
   const [inventoryModal, setInventoryModal] = useState<any>(null);
 
   const now = new Date();
@@ -86,51 +85,10 @@ export function PurchaseInvoicesKSeF({ entityId }: PurchaseInvoicesKSeFProps) {
 
       toast.success(`Pobrano ${data.count || 0} faktur z KSeF`);
       queryClient.invalidateQueries({ queryKey: ['purchase-invoices-ksef'] });
-
-      // Auto-categorize new invoices
-      if (data.count > 0) {
-        await categorizeInvoices();
-      }
     } catch (err: any) {
       toast.error(`Błąd: ${err.message}`);
     }
     setFetching(false);
-  };
-
-  const categorizeInvoices = async () => {
-    setCategorizing(true);
-    try {
-      const uncategorized = invoices?.filter((inv: any) => !inv.ai_category) || [];
-
-      for (const inv of uncategorized) {
-        const { data, error } = await supabase.functions.invoke('ai-agent-test', {
-          body: {
-            model: 'claude-haiku-4-5-20251001',
-            system_prompt:
-              'Jesteś asystentem księgowym. Odpowiadaj TYLKO czystym JSON bez komentarzy: {"category":"...", "account_kpir":"...", "add_to_inventory": true/false, "notes":"..."}. Kategorie: paliwo | naprawa | części_magazyn | ubezpieczenie | leasing | usługi_it | usługi_inne | wynagrodzenia | inne',
-            agent_id: 'accounting_assistant',
-          },
-        });
-
-        // For demo: assign random category since we can't reliably parse response
-        const categories = Object.keys(CATEGORY_LABELS);
-        const randomCat = categories[Math.floor(Math.random() * categories.length)];
-
-        await supabase
-          .from('purchase_invoices')
-          .update({
-            ai_category: randomCat,
-            ai_notes: data?.response || 'Skategoryzowano automatycznie',
-          } as any)
-          .eq('id', inv.id);
-      }
-
-      toast.success('Kategoryzacja AI zakończona');
-      queryClient.invalidateQueries({ queryKey: ['purchase-invoices-ksef'] });
-    } catch (err: any) {
-      toast.error(`Błąd kategoryzacji: ${err.message}`);
-    }
-    setCategorizing(false);
   };
 
   const updateStatus = async (invoiceId: string, status: string) => {
@@ -145,6 +103,29 @@ export function PurchaseInvoicesKSeF({ entityId }: PurchaseInvoicesKSeFProps) {
       toast.success(status === 'booked' ? 'Zaksięgowano' : status === 'rejected' ? 'Odrzucono' : 'Zaktualizowano');
       queryClient.invalidateQueries({ queryKey: ['purchase-invoices-ksef'] });
     }
+  };
+
+  const handleAddToInventory = async () => {
+    if (!inventoryModal) return;
+    try {
+      const { error } = await (supabase.from('products') as any).upsert({
+        name: inventoryModal?.supplier_name + ' — ' + (inventoryModal?.document_number || ''),
+        supplier_name: inventoryModal?.supplier_name,
+        purchase_price: inventoryModal?.total_net || 0,
+        vat_rate: 23,
+        gtu_code: null,
+        notes: 'Import z KSeF ' + (inventoryModal?.ksef_number || inventoryModal?.document_number || ''),
+      }, { onConflict: 'name' });
+
+      if (error) {
+        toast.error('Błąd dodawania do magazynu: ' + error.message);
+      } else {
+        toast.success('Dodano pozycje do magazynu');
+      }
+    } catch (err: any) {
+      toast.error('Błąd: ' + err.message);
+    }
+    setInventoryModal(null);
   };
 
   const formatCurrency = (amount: number | null) => {
@@ -163,7 +144,7 @@ export function PurchaseInvoicesKSeF({ entityId }: PurchaseInvoicesKSeFProps) {
           Faktury zakupowe z KSeF
         </CardTitle>
         <CardDescription>
-          Pobieraj faktury zakupowe z KSeF i kategoryzuj je automatycznie przez AI
+          Pobieraj faktury zakupowe z KSeF — kategoryzacja AI odbywa się automatycznie podczas pobierania
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -191,12 +172,6 @@ export function PurchaseInvoicesKSeF({ entityId }: PurchaseInvoicesKSeFProps) {
             {fetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
             Pobierz faktury z KSeF
           </Button>
-          {invoices && invoices.length > 0 && (
-            <Button variant="outline" onClick={categorizeInvoices} disabled={categorizing} className="gap-2">
-              {categorizing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Brain className="h-4 w-4" />}
-              Kategoryzuj AI
-            </Button>
-          )}
         </div>
 
         {/* Table */}
@@ -316,12 +291,7 @@ export function PurchaseInvoicesKSeF({ entityId }: PurchaseInvoicesKSeFProps) {
               <Button variant="outline" onClick={() => setInventoryModal(null)}>
                 Anuluj
               </Button>
-              <Button
-                onClick={() => {
-                  toast.success('Dodano pozycje do magazynu');
-                  setInventoryModal(null);
-                }}
-              >
+              <Button onClick={handleAddToInventory}>
                 <Package className="h-4 w-4 mr-2" />
                 Potwierdź dodanie
               </Button>

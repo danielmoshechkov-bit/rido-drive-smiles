@@ -45,8 +45,9 @@ import { UniversalHomeButton } from "@/components/UniversalHomeButton";
 import { RentalPaymentReminders } from "@/components/fleet/RentalPaymentReminders";
 import { FleetPaymentNotifications } from "@/components/fleet/FleetPaymentNotifications";
 import { PaymentSubTabs } from "@/components/fleet/PaymentSubTabs";
-import { CreditCard } from "lucide-react";
+import { CreditCard, Calculator } from "lucide-react";
 import { MobileTabMenu } from "@/components/MobileTabMenu";
+import { ServiceProviderAccountingView } from "@/components/service-provider/ServiceProviderAccountingView";
 
 interface UnifiedDashboardProps {
   userType: 'admin' | 'fleet';
