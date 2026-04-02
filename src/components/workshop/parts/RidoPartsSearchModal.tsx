@@ -418,6 +418,27 @@ export function RidoPartsSearchModal({
           </DialogDescription>
         </DialogHeader>
 
+        {/* Existing order parts quick search */}
+        {existingParts.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 items-center">
+            <span className="text-xs text-muted-foreground mr-1">📋 Części ze zlecenia:</span>
+            {existingParts.map((part, idx) => (
+              <Button
+                key={idx}
+                variant={query === part.name ? 'default' : 'outline'}
+                size="sm"
+                className="h-7 text-xs px-2.5"
+                onClick={() => {
+                  setQuery(part.name);
+                  setTimeout(() => doSearch(part.name), 50);
+                }}
+              >
+                {part.name} ({part.quantity})
+              </Button>
+            ))}
+          </div>
+        )}
+
         {/* Search bar */}
         <div className="flex gap-2">
           <div className="relative flex-1">
