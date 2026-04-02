@@ -1065,13 +1065,15 @@ export const DriverSettlements = ({
     const cashTotal = Math.abs(amounts.uber_cash_f || amounts.uber_cash || 0) + Math.abs(amounts.bolt_cash || 0) + Math.abs(amounts.freenow_cash_f || 0);
     
     // ✅ SYNC FIX: Use persisted fee from settlement record (set by fleet manager)
-    // Priority: 1) manual_service_fee from settlement, 2) fleet base_fee, 3) driver plan, 4) default
+    // Priority: 1) manual_service_fee from settlement, 2) per-driver custom_weekly_fee, 3) fleet base_fee, 4) driver plan, 5) default
     const persistedServiceFee = amounts.manual_service_fee;
     const planFee = (persistedServiceFee !== null && persistedServiceFee !== undefined)
       ? persistedServiceFee
-      : (fleetBaseFee !== null && fleetBaseFee !== undefined)
-        ? fleetBaseFee
-        : (driverPlan?.base_fee ?? 50);
+      : (driverCustomWeeklyFee !== null && driverCustomWeeklyFee !== undefined)
+        ? driverCustomWeeklyFee
+        : (fleetBaseFee !== null && fleetBaseFee !== undefined)
+          ? fleetBaseFee
+          : (driverPlan?.base_fee ?? 50);
     
     // ✅ SYNC FIX: Use persisted rental from settlement record (set by fleet manager)
     const persistedRentalFee = amounts.manual_rental_fee;
