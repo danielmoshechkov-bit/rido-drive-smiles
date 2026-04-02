@@ -704,6 +704,12 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
           )}
 
           {userType === 'fleet' && fleetId && (
+            <TabsContent value="accounting" className="space-y-6">
+              <ServiceProviderAccountingView />
+            </TabsContent>
+          )}
+
+          {userType === 'fleet' && fleetId && (
             <TabsContent value="rental-payments" className="space-y-6">
               <PaymentSubTabs fleetId={fleetId} />
             </TabsContent>

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, DollarSign, Car, Users, Info, Repeat, CreditCard, Settings, MapPin, FileText } from "lucide-react";
+import { ChevronDown, DollarSign, Car, Users, Info, Repeat, CreditCard, Settings, MapPin, FileText, Calculator } from "lucide-react";
 
 interface MobileTabMenuProps {
   activeTab: string;
