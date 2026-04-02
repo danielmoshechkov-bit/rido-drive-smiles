@@ -573,7 +573,7 @@ export default function AccountingDashboard() {
                 {/* High Value Payments Report */}
                 <HighValuePaymentsReport entityId={selectedEntityId} />
                 
-                <PurchaseInvoicesKSeF entityId={selectedEntityId} />
+                <PurchaseInvoicesKSeF />
                 <MonthlyReportPanel entityId={selectedEntityId} />
                 <MonthlyExportEmail entityId={selectedEntityId} />
                 <ExportPanel entityId={selectedEntityId} />

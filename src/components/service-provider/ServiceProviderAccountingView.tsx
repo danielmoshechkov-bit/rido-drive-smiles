@@ -303,7 +303,7 @@ export function ServiceProviderAccountingView() {
             </Button>
           </div>
           {showKsefPurchase ? (
-            <PurchaseInvoicesKSeF entityId={userEntities[0]?.id} />
+            <PurchaseInvoicesKSeF />
           ) : (
             <InventoryPurchaseOCR entityId={userEntities[0]?.id} />
           )}
