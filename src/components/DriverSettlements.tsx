@@ -146,6 +146,7 @@ export const DriverSettlements = ({
   const [isB2BDriver, setIsB2BDriver] = useState(false);
   const [b2bVatPayer, setB2bVatPayer] = useState<boolean>(false);
   const [driverFleetId, setDriverFleetId] = useState<string | null>(null);
+  const [driverCustomWeeklyFee, setDriverCustomWeeklyFee] = useState<number | null>(null);
   const [payoutRequested, setPayoutRequested] = useState(false);
   const [driverName, setDriverName] = useState<string>('');
   const [fleetContact, setFleetContact] = useState<{ name: string; phone: string } | null>(null);
@@ -160,7 +161,7 @@ export const DriverSettlements = ({
       
       const { data: driver } = await supabase
         .from('drivers')
-        .select('fleet_id, payment_method, first_name, last_name')
+        .select('fleet_id, payment_method, first_name, last_name, custom_weekly_fee')
         .eq('id', driverId)
         .maybeSingle();
       
@@ -191,6 +192,11 @@ export const DriverSettlements = ({
       // Set fleet ID
       if (driver?.fleet_id) {
         setDriverFleetId(driver.fleet_id);
+      }
+      
+      // Load per-driver custom fee
+      if ((driver as any)?.custom_weekly_fee !== null && (driver as any)?.custom_weekly_fee !== undefined) {
+        setDriverCustomWeeklyFee((driver as any).custom_weekly_fee);
       }
       
       if (!driver?.fleet_id || role === 'admin') return;
@@ -1059,13 +1065,15 @@ export const DriverSettlements = ({
     const cashTotal = Math.abs(amounts.uber_cash_f || amounts.uber_cash || 0) + Math.abs(amounts.bolt_cash || 0) + Math.abs(amounts.freenow_cash_f || 0);
     
     // ✅ SYNC FIX: Use persisted fee from settlement record (set by fleet manager)
-    // Priority: 1) manual_service_fee from settlement, 2) fleet base_fee, 3) driver plan, 4) default
+    // Priority: 1) manual_service_fee from settlement, 2) per-driver custom_weekly_fee, 3) fleet base_fee, 4) driver plan, 5) default
     const persistedServiceFee = amounts.manual_service_fee;
     const planFee = (persistedServiceFee !== null && persistedServiceFee !== undefined)
       ? persistedServiceFee
-      : (fleetBaseFee !== null && fleetBaseFee !== undefined)
-        ? fleetBaseFee
-        : (driverPlan?.base_fee ?? 50);
+      : (driverCustomWeeklyFee !== null && driverCustomWeeklyFee !== undefined)
+        ? driverCustomWeeklyFee
+        : (fleetBaseFee !== null && fleetBaseFee !== undefined)
+          ? fleetBaseFee
+          : (driverPlan?.base_fee ?? 50);
     
     // ✅ SYNC FIX: Use persisted rental from settlement record (set by fleet manager)
     const persistedRentalFee = amounts.manual_rental_fee;
