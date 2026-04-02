@@ -413,9 +413,9 @@ export function RidoPartsSearchModal({
 
   // No-results suggestions (different from typed suggestions)
   const noResultsSuggestions = useMemo(() => {
-    if (results.length > 0 || !hasSearched || allActiveRequireCodes) return [];
+    if (results.length > 0 || !hasSearched) return [];
     return generateSearchSuggestions(query);
-  }, [allActiveRequireCodes, results, hasSearched, query]);
+  }, [results, hasSearched, query]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
