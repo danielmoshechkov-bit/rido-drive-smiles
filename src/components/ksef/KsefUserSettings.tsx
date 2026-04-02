@@ -110,15 +110,16 @@ export function KsefUserSettings() {
   });
 
   const saveMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (overrides?: { status?: string; testAt?: string; testResult?: string }) => {
       if (!userId) throw new Error('Nie zalogowany');
       const payload = {
         user_id: userId,
         ksef_token: ksefToken,
         ksef_environment: ksefEnvironment,
-        ksef_status: ksefStatus,
-        ksef_last_test_at: ksefLastTestAt,
-        ksef_last_test_result: ksefLastTestResult,
+        ksef_status: overrides?.status ?? ksefStatus,
+        ksef_last_test_at: overrides?.testAt ?? ksefLastTestAt,
+        ksef_last_test_result: overrides?.testResult ?? ksefLastTestResult,
+        nip: userNip || undefined,
       } as any;
       if (settingsId) {
         const { error } = await supabase.from('company_settings').update(payload).eq('id', settingsId);
