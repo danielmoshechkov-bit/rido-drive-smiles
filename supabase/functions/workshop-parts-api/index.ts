@@ -1,11 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { DOMParser } from "https://deno.land/x/deno_dom/deno-dom-wasm.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 
-// Auto Partner SOAP API URLs
-const AP_SANDBOX_URL = "https://sandbox.apcat.eu/webservice/index.php";
-const AP_PROD_URL = "https://apcat.eu/webservice/index.php";
+// Auto Partner REST API URLs
+const AP_SANDBOX_URL = "https://customerapitest.autopartner.dev/CustomerAPI.svc/rest";
+const AP_PROD_URL = "https://customerapi.autopartner.dev/CustomerAPI.svc/rest";
 
 // Hart API URLs
 const HART_SANDBOX_URL = "https://sandbox.restapi.hartphp.com.pl";
@@ -21,7 +20,6 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Verify user auth
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("Missing authorization header");
 
@@ -35,7 +33,6 @@ serve(async (req) => {
     const body = await req.json();
     const { action, provider_id, supplier_code, params } = body;
 
-    // Get integration config
     const { data: integration, error: intErr } = await supabase
       .from("workshop_parts_integrations")
       .select("*")
@@ -47,7 +44,7 @@ serve(async (req) => {
       let hasCredentials = false;
       if (supplier_code === "auto_partner") {
         const extra = integration?.api_extra_json || {};
-        hasCredentials = !!extra.clientCode && integration?.is_enabled;
+        hasCredentials = !!extra.clientCode && !!extra.wsPassword && !!extra.clientPassword && integration?.is_enabled;
       } else {
         hasCredentials = !!integration?.api_username && integration?.is_enabled;
       }
@@ -93,45 +90,7 @@ serve(async (req) => {
   }
 });
 
-// ==================== SOAP HELPERS ====================
-function buildSoapEnvelope(headerXml: string, bodyXml: string): string {
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:web="https://apcat.eu/webservice/">
-  <soapenv:Header>
-    ${headerXml}
-  </soapenv:Header>
-  <soapenv:Body>
-    ${bodyXml}
-  </soapenv:Body>
-</soapenv:Envelope>`;
-}
-
-function buildAuthHeader(clientCode: string, wsPassword: string): string {
-  return `<web:AuthHeader>
-      <web:ClientCode>${clientCode}</web:ClientCode>
-      <web:WSPassword>${wsPassword}</web:WSPassword>
-    </web:AuthHeader>`;
-}
-
-async function soapCall(url: string, soapAction: string, envelope: string): Promise<{ ok: boolean; text: string; status: number }> {
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "text/xml; charset=utf-8",
-      "SOAPAction": soapAction,
-    },
-    body: envelope,
-  });
-  const text = await res.text();
-  return { ok: res.ok, text, status: res.status };
-}
-
-function parseXml(xmlText: string) {
-  const parser = new DOMParser();
-  return parser.parseFromString(xmlText, "text/xml");
-}
-
-// ==================== AUTO PARTNER (SOAP) ====================
+// ==================== AUTO PARTNER (REST/JSON) ====================
 async function handleAutoPartner(
   supabase: any,
   integration: any,
@@ -144,40 +103,41 @@ async function handleAutoPartner(
   const clientPassword = extra.clientPassword;
 
   if (!clientCode || !wsPassword || !clientPassword) {
-    return json({ error: "Brak danych uwierzytelniających Auto Partner. Wypełnij: Client Code, WS Password, Client Password." }, 400);
+    return json({ error: "Brak danych AP. Uzupełnij ClientCode, WS Password i Client Password." }, 400);
   }
 
   const isSandbox = integration.environment !== "production";
   const baseUrl = isSandbox ? AP_SANDBOX_URL : AP_PROD_URL;
-  const authHeader = buildAuthHeader(clientCode, wsPassword);
+
+  const credentials = { clientCode, wsPassword, clientPassword };
 
   switch (action) {
     case "test_connection": {
       try {
-        const envelope = buildSoapEnvelope(
-          authHeader,
-          `<web:GetWarehouses>
-            <web:clientPassword>${clientPassword}</web:clientPassword>
-          </web:GetWarehouses>`
-        );
+        const res = await fetch(`${baseUrl}/Logistic`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(credentials),
+        });
 
-        console.log("AP URL:", baseUrl);
-        console.log("AP envelope:", envelope);
-        const result = await soapCall(baseUrl, "https://apcat.eu/webservice/GetWarehouses", envelope);
-        console.log("AP response full:", result.text);
+        const responseText = await res.text();
+        console.log("AP REST test response status:", res.status);
+        console.log("AP REST test response body:", responseText);
 
-        // Check for SOAP Fault
-        if (result.text.includes("Fault") || result.text.includes("faultstring")) {
-          const doc = parseXml(result.text);
-          const faultMsg = doc?.querySelector("faultstring")?.textContent || "Nieznany błąd SOAP";
+        let data: any;
+        try { data = JSON.parse(responseText); } catch { data = null; }
+
+        // Check for auth error (ErrorCode "02")
+        const result = data?.RestLogisticResult || data;
+        if (result?.ErrorCode === "02" || result?.ErrorCode === 2) {
           await supabase
             .from("workshop_parts_integrations")
             .update({ last_connection_status: "error", last_connection_at: new Date().toISOString() })
             .eq("id", integration.id);
-          return json({ error: `Auto Partner: ${faultMsg}` }, 400);
+          return json({ error: "Błąd autoryzacji Auto Partner. Sprawdź ClientCode, WS Password i Client Password." }, 400);
         }
 
-        if (result.status === 200 && (result.text.includes('GetWarehousesResponse') || result.text.includes('GetWarehousesResult'))) {
+        if (res.ok && data?.RestLogisticResult && (!result?.ErrorCode || result?.ErrorCode === "" || result?.ErrorCode === null)) {
           await supabase
             .from("workshop_parts_integrations")
             .update({
@@ -193,9 +153,9 @@ async function handleAutoPartner(
           .from("workshop_parts_integrations")
           .update({ last_connection_status: "error", last_connection_at: new Date().toISOString() })
           .eq("id", integration.id);
-        return json({ error: `Auto Partner HTTP ${result.status}: ${result.text.substring(0, 200)}` }, 400);
+        return json({ error: `Auto Partner HTTP ${res.status}: ${responseText.substring(0, 300)}` }, 400);
       } catch (e) {
-        console.error("AP SOAP test error:", e);
+        console.error("AP REST test error:", e);
         await supabase
           .from("workshop_parts_integrations")
           .update({ last_connection_status: "error", last_connection_at: new Date().toISOString() })
@@ -209,23 +169,44 @@ async function handleAutoPartner(
       if (!query) return json({ error: "Brak frazy wyszukiwania" }, 400);
 
       try {
-        const envelope = buildSoapEnvelope(
-          authHeader,
-          `<web:GetItemsByNumber>
-            <web:clientPassword>${clientPassword}</web:clientPassword>
-            <web:number>${escapeXml(query)}</web:number>
-          </web:GetItemsByNumber>`
-        );
+        const res = await fetch(`${baseUrl}/ProductsAvailabilityV2`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...credentials,
+            products: [{ productCode: query, quantity: 1 }],
+            onlySite: false,
+          }),
+        });
 
-        const result = await soapCall(baseUrl, "https://apcat.eu/webservice/GetItemsByNumber", envelope);
+        const responseText = await res.text();
+        console.log("AP search response status:", res.status);
 
-        if (!result.ok && !result.text.includes("GetItemsByNumberResponse")) {
-          return json({ error: `Wyszukiwanie Auto Partner: HTTP ${result.status}` }, result.status);
+        if (!res.ok) {
+          return json({ error: `Wyszukiwanie Auto Partner: HTTP ${res.status}` }, res.status);
         }
 
-        // Parse SOAP XML response into normalized JSON
-        const items = parseAutoPartnerItems(result.text);
-        return json({ results: items });
+        let data: any;
+        try { data = JSON.parse(responseText); } catch { return json({ results: [] }); }
+
+        const availability = data?.RestProductsAvailabilityV2Result?.Availability || [];
+        const results = availability.map((item: any) => {
+          const totalStock = (item.States || []).reduce((sum: number, s: any) => sum + (s.InStock || 0), 0);
+          const warehouses = (item.States || []).map((s: any) => s.WarehouseType || "").filter(Boolean).join(", ");
+          return {
+            partNumber: item.ProductCode || "",
+            name: item.ProductCode || "",
+            price: item.Price || 0,
+            retailPrice: item.Pr || 0,
+            availability: totalStock,
+            warehouse: warehouses,
+            producer: "",
+            currency: item.CurrencyCode || "PLN",
+            isBlocked: item.IsBlocked || false,
+          };
+        });
+
+        return json({ results });
       } catch (e) {
         return json({ error: `Błąd wyszukiwania AP: ${e.message}` }, 500);
       }
@@ -236,21 +217,25 @@ async function handleAutoPartner(
       if (!codes?.length) return json({ error: "Brak kodów produktów" }, 400);
 
       try {
-        // Query availability for each code
-        const allItems: any[] = [];
-        for (const code of codes.slice(0, 20)) {
-          const envelope = buildSoapEnvelope(
-            authHeader,
-            `<web:GetItemsByNumber>
-              <web:clientPassword>${clientPassword}</web:clientPassword>
-              <web:number>${escapeXml(code)}</web:number>
-            </web:GetItemsByNumber>`
-          );
-          const result = await soapCall(baseUrl, "https://apcat.eu/webservice/GetItemsByNumber", envelope);
-          const items = parseAutoPartnerItems(result.text);
-          allItems.push(...items);
+        const products = codes.slice(0, 50).map((c: string) => ({ productCode: c, quantity: 1 }));
+
+        const res = await fetch(`${baseUrl}/ProductsAvailabilityV2`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...credentials,
+            products,
+            onlySite: false,
+          }),
+        });
+
+        if (!res.ok) {
+          return json({ error: `Dostępność AP: HTTP ${res.status}` }, res.status);
         }
-        return json({ availability: allItems });
+
+        const data = await res.json();
+        const availability = data?.RestProductsAvailabilityV2Result?.Availability || [];
+        return json({ availability });
       } catch (e) {
         return json({ error: `Błąd dostępności AP: ${e.message}` }, 500);
       }
@@ -258,44 +243,6 @@ async function handleAutoPartner(
 
     default:
       return json({ error: `Nieznana akcja: ${action}` }, 400);
-  }
-}
-
-function escapeXml(str: string): string {
-  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
-}
-
-function parseAutoPartnerItems(xmlText: string): any[] {
-  try {
-    const doc = parseXml(xmlText);
-    if (!doc) return [];
-
-    const items: any[] = [];
-    // Try to find Item elements in the response
-    const itemNodes = doc.querySelectorAll("Item") || [];
-
-    for (const node of itemNodes) {
-      items.push({
-        partNumber: node.querySelector("Number")?.textContent || node.querySelector("Code")?.textContent || "",
-        name: node.querySelector("Name")?.textContent || node.querySelector("Description")?.textContent || "",
-        price: parseFloat(node.querySelector("Price")?.textContent || node.querySelector("NetPrice")?.textContent || "0"),
-        availability: node.querySelector("Availability")?.textContent || node.querySelector("Stock")?.textContent || "0",
-        warehouse: node.querySelector("Warehouse")?.textContent || node.querySelector("WarehouseName")?.textContent || "",
-        producer: node.querySelector("Producer")?.textContent || node.querySelector("Brand")?.textContent || "",
-      });
-    }
-
-    // Fallback: try generic element names if no Item elements found
-    if (items.length === 0) {
-      const resultNodes = doc.querySelectorAll("GetItemsByNumberResult *") || [];
-      // Return raw text for debugging
-      console.log("AP raw response elements count:", resultNodes.length);
-    }
-
-    return items;
-  } catch (e) {
-    console.error("AP XML parse error:", e);
-    return [];
   }
 }
 
@@ -307,7 +254,6 @@ async function handleHart(
   action: string,
   params: any,
 ) {
-  // Auth
   const authRes = await fetch(`${baseUrl}/v1/auth`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
