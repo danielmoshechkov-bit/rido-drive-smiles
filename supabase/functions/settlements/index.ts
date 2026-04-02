@@ -1266,18 +1266,14 @@ async function parseBoltCsv(
       }
     }
     
-    // 4. Create NEW driver ONLY if no match by platform ID or name
+    // 4. Create NEW driver ONLY if no match by platform ID, phone, email or name
     if (!driverId) {
       const nameParts = driverName.split(' ');
       const firstName = nameParts[0] || 'Bolt';
       const lastName = nameParts.slice(1).join(' ') || 'Driver';
       
-      // Extract email and phone from Bolt CSV columns
-      const driverEmail = emailIdx !== -1 ? (row[emailIdx]?.trim() || '') : '';
-      const driverPhone = phoneIdx !== -1 ? (row[phoneIdx]?.trim() || '') : '';
-      
       // Use phone as Bolt platform ID if no driver ID column
-      const boltPlatformId = platformId || driverPhone || null;
+      const boltPlatformId = platformId || boltPhone || null;
       
       const driverInsertData: any = {
         first_name: firstName,
@@ -1285,8 +1281,8 @@ async function parseBoltCsv(
         city_id: city_id,
         fleet_id: fleet_id || null
       };
-      if (driverEmail) driverInsertData.email = driverEmail;
-      if (driverPhone) driverInsertData.phone = driverPhone;
+      if (boltEmail) driverInsertData.email = boltEmail;
+      if (boltPhone) driverInsertData.phone = boltPhone;
       
       const { data: newDriver, error } = await supabase
         .from('drivers')
@@ -1299,7 +1295,7 @@ async function parseBoltCsv(
         newDrivers++;
         
         const fullName = `${firstName} ${lastName}`;
-        console.log(`🆕 BOLT: Created new driver: ${fullName} (ID: ${driverId}, email: ${driverEmail}, phone: ${driverPhone})`);
+        console.log(`🆕 BOLT: Created new driver: ${fullName} (ID: ${driverId}, email: ${boltEmail}, phone: ${boltPhone})`);
         
         unmappedDrivers.push({
           id: driverId,
@@ -1339,6 +1335,10 @@ async function parseBoltCsv(
           else {
             existingDriversMap.set(`bolt:${boltPlatformId}`, { id: driverId, first_name: firstName, last_name: lastName });
           }
+        }
+        // Cache phone for future lookups within same import
+        if (boltPhone) {
+          existingDriversMap.set(`phone:${boltPhone}`, { id: driverId, first_name: firstName, last_name: lastName });
         }
       }
     }
