@@ -105,7 +105,7 @@ const availabilityLabels: Record<string, string> = {
 };
 
 export function RidoPartsSearchModal({
-  open, onOpenChange, providerId, orderId, vehicleName, vehicleVin, vehicle, initialSearch, margin = 30,
+  open, onOpenChange, providerId, orderId, vehicleName, vehicleVin, vehicle, initialSearch, margin = 30, existingParts = [],
 }: Props) {
   const [query, setQuery] = useState(initialSearch || '');
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -113,18 +113,29 @@ export function RidoPartsSearchModal({
   const [isOrdering, setIsOrdering] = useState(false);
   const [hoveredImage, setHoveredImage] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
+  const [currentPartIndex, setCurrentPartIndex] = useState(0);
   const partsApi = usePartsApi();
   const createPartsOrder = useCreatePartsOrder();
   const createOrderItem = useCreateWorkshopOrderItem();
   const { data: integrations = [] } = usePartsIntegrations(providerId);
 
   useEffect(() => {
-    if (open && initialSearch) setQuery(initialSearch);
+    if (open) {
+      if (initialSearch) setQuery(initialSearch);
+      // Auto-search first existing part when opening
+      if (existingParts.length > 0) {
+        setCurrentPartIndex(0);
+        const firstPart = existingParts[0].name;
+        setQuery(firstPart);
+        setTimeout(() => doSearch(firstPart), 200);
+      }
+    }
     if (!open) {
       setHasSearched(false);
       setResults([]);
+      setCurrentPartIndex(0);
     }
-  }, [open, initialSearch]);
+  }, [open]);
 
   const enabledIntegrations = getConfiguredPartsIntegrations(integrations as any[]);
 
