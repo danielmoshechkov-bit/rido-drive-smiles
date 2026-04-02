@@ -283,19 +283,21 @@ serve(async (req) => {
           const netAmount = Math.round((Math.random() * 5000 + 500) * 100) / 100;
           const vatAmount = Math.round(netAmount * 0.23 * 100) / 100;
 
-          // AI categorization via Lovable AI Gateway
+          // AI categorization via Anthropic
           let aiCategory = supplier.category;
           try {
-            const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-            if (LOVABLE_API_KEY) {
-              const aiRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+            const ANTHROPIC_KEY = Deno.env.get('ANTHROPIC_API_KEY');
+            if (ANTHROPIC_KEY) {
+              const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
                 method: 'POST',
                 headers: {
-                  'Authorization': `Bearer ${LOVABLE_API_KEY}`,
                   'Content-Type': 'application/json',
+                  'x-api-key': ANTHROPIC_KEY,
+                  'anthropic-version': '2023-06-01',
                 },
                 body: JSON.stringify({
-                  model: 'google/gemini-2.5-flash-lite',
+                  model: 'claude-haiku-4-5-20251001',
+                  max_tokens: 50,
                   messages: [{
                     role: 'user',
                     content: `Faktura zakupowa od: ${supplier.name} (NIP: ${supplier.nip}), kwota netto: ${netAmount} PLN. Odpowiedz TYLKO jednym słowem — kategorią wydatku: paliwo, naprawa, czesci_magazyn, ubezpieczenie, leasing, uslugi, inne`
@@ -304,7 +306,7 @@ serve(async (req) => {
               });
               if (aiRes.ok) {
                 const aiData = await aiRes.json();
-                const cat = aiData.choices?.[0]?.message?.content?.trim().toLowerCase();
+                const cat = aiData.content?.[0]?.text?.trim().toLowerCase();
                 if (cat && ['paliwo', 'naprawa', 'czesci_magazyn', 'ubezpieczenie', 'leasing', 'uslugi', 'inne'].includes(cat)) {
                   aiCategory = cat;
                 }
