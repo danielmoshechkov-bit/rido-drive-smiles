@@ -109,6 +109,7 @@ export function RidoPartsSearchModal({
 }: Props) {
   const [query, setQuery] = useState(initialSearch || '');
   const [results, setResults] = useState<SearchResult[]>([]);
+  const [searchHelp, setSearchHelp] = useState<string | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [isOrdering, setIsOrdering] = useState(false);
   const [hoveredImage, setHoveredImage] = useState<string | null>(null);
@@ -122,6 +123,7 @@ export function RidoPartsSearchModal({
   useEffect(() => {
     if (open) {
       if (initialSearch) setQuery(initialSearch);
+      setSearchHelp(null);
       // Auto-search first existing part when opening
       if (existingParts.length > 0) {
         setCurrentPartIndex(0);
@@ -133,14 +135,22 @@ export function RidoPartsSearchModal({
     if (!open) {
       setHasSearched(false);
       setResults([]);
+      setSearchHelp(null);
       setCurrentPartIndex(0);
     }
   }, [open]);
 
   const enabledIntegrations = getConfiguredPartsIntegrations(integrations as any[]);
+  const allActiveRequireCodes = enabledIntegrations.length > 0 && enabledIntegrations.every((integration: any) => requiresCatalogCodeSearch(integration.supplier_code));
+  const searchPlaceholder = allActiveRequireCodes
+    ? 'Wpisz numer OE lub katalogowy części...'
+    : 'Wpisz nazwę części, numer OE lub katalogowy...';
 
   // Live suggestions based on current query
-  const suggestions = useMemo(() => generateSearchSuggestions(query), [query]);
+  const suggestions = useMemo(
+    () => (allActiveRequireCodes ? [] : generateSearchSuggestions(query)),
+    [allActiveRequireCodes, query],
+  );
 
   const handleSuggestionClick = (suggestion: string) => {
     setQuery(suggestion);
@@ -155,6 +165,15 @@ export function RidoPartsSearchModal({
     if (!q) return;
     if (enabledIntegrations.length === 0) {
       toast.error('Brak skonfigurowanych hurtowni. Przejdź do Ustawienia → Integracje z hurtowniami.');
+      return;
+    }
+
+    setSearchHelp(null);
+
+    if (allActiveRequireCodes && !looksLikeCatalogCode(q)) {
+      setResults([]);
+      setHasSearched(true);
+      setSearchHelp(buildCatalogSearchHelp(enabledIntegrations as any[]));
       return;
     }
 
@@ -215,19 +234,26 @@ export function RidoPartsSearchModal({
             } as SearchResult;
           });
 
-          return { items: mappedItems };
+          return {
+            items: mappedItems,
+            clarificationQuestion: typeof res.clarificationQuestion === 'string' ? res.clarificationQuestion : null,
+          };
         } catch (err: any) {
           console.warn(`Search failed for ${integration.supplier_code}:`, err.message);
-          return { items: [] };
+          return { items: [], clarificationQuestion: null };
         }
       });
 
       const allResults = await Promise.allSettled(searchPromises);
       const mergedResults: SearchResult[] = [];
+      const clarificationQuestions: string[] = [];
 
       for (const result of allResults) {
         if (result.status === 'fulfilled') {
           mergedResults.push(...result.value.items);
+          if (result.value.clarificationQuestion) {
+            clarificationQuestions.push(result.value.clarificationQuestion);
+          }
         }
       }
 
@@ -258,6 +284,7 @@ export function RidoPartsSearchModal({
       });
 
       setResults(mergedResults);
+      setSearchHelp(mergedResults.length === 0 ? clarificationQuestions[0] || null : null);
     } catch (err: any) {
       toast.error(err.message || 'Błąd wyszukiwania');
     } finally {
@@ -397,9 +424,9 @@ export function RidoPartsSearchModal({
 
   // No-results suggestions (different from typed suggestions)
   const noResultsSuggestions = useMemo(() => {
-    if (results.length > 0 || !hasSearched) return [];
+    if (results.length > 0 || !hasSearched || allActiveRequireCodes) return [];
     return generateSearchSuggestions(query);
-  }, [results, hasSearched, query]);
+  }, [allActiveRequireCodes, results, hasSearched, query]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -444,7 +471,7 @@ export function RidoPartsSearchModal({
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Wpisz nazwę części, numer OE lub katalogowy..."
+              placeholder={searchPlaceholder}
               value={query}
               onChange={e => setQuery(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleSearch()}
@@ -455,6 +482,12 @@ export function RidoPartsSearchModal({
             {isSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Szukaj'}
           </Button>
         </div>
+
+        {allActiveRequireCodes && (
+          <p className="text-xs text-muted-foreground">
+            Aktywne API hurtowni wyszukują tylko po numerze OE / katalogowym, więc sama nazwa części nie zwróci wyników.
+          </p>
+        )}
 
         {/* Clickable suggestions (while typing, before/after search) */}
         {suggestions.length > 0 && !isSearching && (
@@ -634,11 +667,18 @@ export function RidoPartsSearchModal({
           {!isSearching && hasSearched && results.length === 0 && (
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
               <SearchX className="h-12 w-12 mb-4 opacity-30" />
+              {searchHelp && (
+                <div className="mb-4 max-w-2xl rounded-lg border border-border bg-muted/40 px-4 py-3 text-center text-xs text-foreground">
+                  {searchHelp}
+                </div>
+              )}
               <p className="text-sm font-medium text-foreground mb-1">
                 Nie znaleziono wyników dla: „{query}"
               </p>
               <p className="text-xs mb-4">
-                Spróbuj innej frazy lub wybierz jedną z sugestii poniżej
+                {allActiveRequireCodes
+                  ? 'Wpisz numer OE lub katalogowy części i spróbuj ponownie'
+                  : 'Spróbuj innej frazy lub wybierz jedną z sugestii poniżej'}
               </p>
               {noResultsSuggestions.length > 0 && (
                 <div className="flex flex-wrap gap-2 justify-center max-w-lg">
@@ -715,4 +755,31 @@ function parseAvailability(item: any): 'today' | 'tomorrow' | '2-3days' | 'unava
   if (str.includes('tomorrow') || str.includes('jutro')) return 'tomorrow';
   if (str.includes('2') || str.includes('3') || str.includes('day')) return '2-3days';
   return 'unavailable';
+}
+
+function requiresCatalogCodeSearch(supplierCode?: string) {
+  return supplierCode === 'hart' || supplierCode === 'auto_partner';
+}
+
+function buildCatalogSearchHelp(integrations: Array<{ supplier_name?: string; supplier_code?: string }>) {
+  const supplierNames = integrations
+    .map((integration) => integration.supplier_name || integration.supplier_code)
+    .filter(Boolean)
+    .join(', ');
+
+  return `${supplierNames ? `Aktywne hurtownie (${supplierNames})` : 'Aktywne hurtownie'} przyjmują tylko numer OE lub katalogowy części. Opis typu „klocki hamulcowe przednie” nie jest obsługiwany przez te API.`;
+}
+
+function looksLikeCatalogCode(query: string) {
+  const value = String(query || '').trim();
+  if (value.length < 3) return false;
+  if (!/\d/.test(value)) return false;
+  if (!/^[A-Za-z0-9][A-Za-z0-9\s\-./]{2,}$/.test(value)) return false;
+
+  const tokens = value.split(/\s+/).filter(Boolean);
+  if (tokens.length > 3 && tokens.some((token) => /^[A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż]{3,}$/.test(token))) {
+    return false;
+  }
+
+  return true;
 }
