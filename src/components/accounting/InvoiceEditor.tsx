@@ -378,6 +378,40 @@ export function InvoiceEditor({ open, onOpenChange, entityId, invoiceId, onSaved
         metadata: { invoice_number: invoiceNumber, status: andIssue ? 'issued' : 'draft' },
       });
 
+      // Auto-send to KSeF if configured and issuing
+      if (andIssue && savedInvoiceId) {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            const { data: ksefSettings } = await supabase
+              .from('company_settings')
+              .select('nip, ksef_token, ksef_environment')
+              .eq('user_id', user.id)
+              .maybeSingle();
+
+            if (ksefSettings?.ksef_token && ksefSettings?.nip) {
+              const { data: ksefRes } = await supabase.functions.invoke('ksef-integration', {
+                body: {
+                  action: 'send',
+                  invoice_id: savedInvoiceId,
+                  nip: ksefSettings.nip,
+                  token: ksefSettings.ksef_token,
+                  environment: ksefSettings.ksef_environment || 'demo',
+                },
+              });
+
+              if (ksefRes?.success) {
+                const mode = ksefRes.demo ? ' (DEMO — brak skutków prawnych)' : '';
+                toast.success('Faktura wysłana do KSeF' + mode + '. Numer KSeF: ' + (ksefRes.ksef_reference || ''));
+              }
+            }
+          }
+        } catch (ksefErr) {
+          console.error('Błąd wysyłki do KSeF:', ksefErr);
+          // Nie blokuj wystawiania faktury gdy KSeF zawiedzie
+        }
+      }
+
       toast.success(andIssue ? 'Faktura wystawiona' : 'Faktura zapisana jako robocza');
       onSaved?.();
       onOpenChange(false);
