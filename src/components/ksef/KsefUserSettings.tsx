@@ -378,7 +378,7 @@ export function KsefUserSettings() {
                 {testing ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <RefreshCw className="h-3 w-3 mr-1" />}
                 Testuj połączenie
               </Button>
-              <Button size="sm" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+              <Button size="sm" onClick={() => saveMutation.mutate({})} disabled={saveMutation.isPending}>
                 {saveMutation.isPending ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Save className="h-3 w-3 mr-1" />}
                 Zapisz
               </Button>

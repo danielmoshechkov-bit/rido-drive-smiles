@@ -661,9 +661,7 @@ export function RidoPartsSearchModal({
                 Nie znaleziono wyników dla: „{query}"
               </p>
               <p className="text-xs mb-4">
-                {allActiveRequireCodes
-                  ? 'Wpisz numer OE lub katalogowy części i spróbuj ponownie'
-                  : 'Spróbuj innej frazy lub wybierz jedną z sugestii poniżej'}
+                {searchHelp || 'Spróbuj innej frazy, numeru OE lub wybierz jedną z sugestii poniżej'}
               </p>
               {noResultsSuggestions.length > 0 && (
                 <div className="flex flex-wrap gap-2 justify-center max-w-lg">
