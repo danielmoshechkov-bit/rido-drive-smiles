@@ -51,6 +51,7 @@ export function MobileTabMenu({
       case 'data-import': return t('admin.dataImport');
       case 'fleet-live': return 'Fleet Live';
       case 'rental-payments': return 'Płatności';
+      case 'accounting': return 'Księgowość';
       default: return 'Menu';
     }
   };
