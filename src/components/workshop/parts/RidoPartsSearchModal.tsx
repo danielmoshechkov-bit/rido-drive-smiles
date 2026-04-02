@@ -141,20 +141,16 @@ export function RidoPartsSearchModal({
   }, [open]);
 
   const enabledIntegrations = getConfiguredPartsIntegrations(integrations as any[]);
-  const allActiveRequireCodes = enabledIntegrations.length > 0 && enabledIntegrations.every((integration: any) => requiresCatalogCodeSearch(integration.supplier_code));
-  const searchPlaceholder = allActiveRequireCodes
-    ? 'Wpisz numer OE lub katalogowy części...'
-    : 'Wpisz nazwę części, numer OE lub katalogowy...';
+  const searchPlaceholder = 'Wpisz nazwę części, numer OE lub katalogowy...';
 
   // Live suggestions based on current query
   const suggestions = useMemo(
-    () => (allActiveRequireCodes ? [] : generateSearchSuggestions(query)),
-    [allActiveRequireCodes, query],
+    () => generateSearchSuggestions(query),
+    [query],
   );
 
   const handleSuggestionClick = (suggestion: string) => {
     setQuery(suggestion);
-    // Auto-search after setting query
     setTimeout(() => {
       doSearch(suggestion);
     }, 50);
@@ -169,13 +165,6 @@ export function RidoPartsSearchModal({
     }
 
     setSearchHelp(null);
-
-    if (allActiveRequireCodes && !looksLikeCatalogCode(q)) {
-      setResults([]);
-      setHasSearched(true);
-      setSearchHelp(buildCatalogSearchHelp(enabledIntegrations as any[]));
-      return;
-    }
 
     setIsSearching(true);
     setResults([]);
