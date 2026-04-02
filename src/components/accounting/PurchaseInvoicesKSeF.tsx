@@ -18,7 +18,7 @@ import { Download, Loader2, FileText, CheckCircle, XCircle, Package } from 'luci
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 interface PurchaseInvoicesKSeFProps {
-  entityId: string;
+  entityId?: string;
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
