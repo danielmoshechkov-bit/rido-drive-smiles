@@ -110,15 +110,16 @@ export function KsefUserSettings() {
   });
 
   const saveMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (overrides?: { status?: string; testAt?: string; testResult?: string }) => {
       if (!userId) throw new Error('Nie zalogowany');
       const payload = {
         user_id: userId,
         ksef_token: ksefToken,
         ksef_environment: ksefEnvironment,
-        ksef_status: ksefStatus,
-        ksef_last_test_at: ksefLastTestAt,
-        ksef_last_test_result: ksefLastTestResult,
+        ksef_status: overrides?.status ?? ksefStatus,
+        ksef_last_test_at: overrides?.testAt ?? ksefLastTestAt,
+        ksef_last_test_result: overrides?.testResult ?? ksefLastTestResult,
+        nip: userNip || undefined,
       } as any;
       if (settingsId) {
         const { error } = await supabase.from('company_settings').update(payload).eq('id', settingsId);
@@ -140,23 +141,28 @@ export function KsefUserSettings() {
     setTesting(true);
     try {
       if (!ksefToken?.trim()) {
+        const now = new Date().toISOString();
+        const msg = 'Brak tokenu KSeF';
         setKsefStatus('error');
-        setKsefLastTestAt(new Date().toISOString());
-        setKsefLastTestResult('Brak tokenu KSeF');
+        setKsefLastTestAt(now);
+        setKsefLastTestResult(msg);
         toast.error('Wklej token KSeF');
+        await saveMutation.mutateAsync({ status: 'error', testAt: now, testResult: msg });
         return;
       }
       if (!userNip) {
+        const now = new Date().toISOString();
+        const msg = 'Brak NIP w ustawieniach firmy';
         setKsefStatus('error');
-        setKsefLastTestAt(new Date().toISOString());
-        setKsefLastTestResult('Brak NIP w ustawieniach firmy');
+        setKsefLastTestAt(now);
+        setKsefLastTestResult(msg);
         toast.error('Najpierw uzupełnij NIP w ustawieniach firmy');
+        await saveMutation.mutateAsync({ status: 'error', testAt: now, testResult: msg });
         return;
       }
 
       const env = ENV_CONFIG[ksefEnvironment];
 
-      // Route test through Edge Function to avoid CORS
       const { data: result, error } = await supabase.functions.invoke('ksef-integration', {
         body: {
           action: 'test_connection',
@@ -168,25 +174,31 @@ export function KsefUserSettings() {
 
       if (error) throw error;
 
-      if (result?.success) {
-        setKsefStatus('connected');
-        setKsefLastTestAt(new Date().toISOString());
-        setKsefLastTestResult(`Połączono z KSeF (${env.badgeLabel}). NIP ${userNip} zweryfikowany.`);
-        toast.success(`Połączenie z KSeF ${env.badgeLabel} — OK ✓`);
-      } else {
-        setKsefStatus('error');
-        setKsefLastTestAt(new Date().toISOString());
-        setKsefLastTestResult(result?.error || 'Nieznany błąd');
-        toast.error('Błąd połączenia: ' + (result?.error || 'nieznany błąd'));
-      }
+      const now = new Date().toISOString();
 
-      // Auto-save after test
-      await saveMutation.mutateAsync();
+      if (result?.success) {
+        const msg = `Połączono z KSeF (${env.badgeLabel}). NIP ${userNip} zweryfikowany.`;
+        setKsefStatus('connected');
+        setKsefLastTestAt(now);
+        setKsefLastTestResult(msg);
+        toast.success(`Połączenie z KSeF ${env.badgeLabel} — OK ✓`);
+        await saveMutation.mutateAsync({ status: 'connected', testAt: now, testResult: msg });
+      } else {
+        const msg = result?.error || 'Nieznany błąd';
+        setKsefStatus('error');
+        setKsefLastTestAt(now);
+        setKsefLastTestResult(msg);
+        toast.error('Błąd połączenia: ' + msg);
+        await saveMutation.mutateAsync({ status: 'error', testAt: now, testResult: msg });
+      }
     } catch (err: any) {
+      const now = new Date().toISOString();
+      const msg = `Błąd: ${err.message}`;
       setKsefStatus('error');
-      setKsefLastTestAt(new Date().toISOString());
-      setKsefLastTestResult(`Błąd: ${err.message}`);
-      toast.error(`Błąd: ${err.message}`);
+      setKsefLastTestAt(now);
+      setKsefLastTestResult(msg);
+      toast.error(msg);
+      try { await saveMutation.mutateAsync({ status: 'error', testAt: now, testResult: msg }); } catch {}
     } finally {
       setTesting(false);
     }
@@ -366,7 +378,7 @@ export function KsefUserSettings() {
                 {testing ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <RefreshCw className="h-3 w-3 mr-1" />}
                 Testuj połączenie
               </Button>
-              <Button size="sm" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+              <Button size="sm" onClick={() => saveMutation.mutate({})} disabled={saveMutation.isPending}>
                 {saveMutation.isPending ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Save className="h-3 w-3 mr-1" />}
                 Zapisz
               </Button>

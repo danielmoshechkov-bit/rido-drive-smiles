@@ -141,20 +141,16 @@ export function RidoPartsSearchModal({
   }, [open]);
 
   const enabledIntegrations = getConfiguredPartsIntegrations(integrations as any[]);
-  const allActiveRequireCodes = enabledIntegrations.length > 0 && enabledIntegrations.every((integration: any) => requiresCatalogCodeSearch(integration.supplier_code));
-  const searchPlaceholder = allActiveRequireCodes
-    ? 'Wpisz numer OE lub katalogowy części...'
-    : 'Wpisz nazwę części, numer OE lub katalogowy...';
+  const searchPlaceholder = 'Wpisz nazwę części, numer OE lub katalogowy...';
 
   // Live suggestions based on current query
   const suggestions = useMemo(
-    () => (allActiveRequireCodes ? [] : generateSearchSuggestions(query)),
-    [allActiveRequireCodes, query],
+    () => generateSearchSuggestions(query),
+    [query],
   );
 
   const handleSuggestionClick = (suggestion: string) => {
     setQuery(suggestion);
-    // Auto-search after setting query
     setTimeout(() => {
       doSearch(suggestion);
     }, 50);
@@ -169,13 +165,6 @@ export function RidoPartsSearchModal({
     }
 
     setSearchHelp(null);
-
-    if (allActiveRequireCodes && !looksLikeCatalogCode(q)) {
-      setResults([]);
-      setHasSearched(true);
-      setSearchHelp(buildCatalogSearchHelp(enabledIntegrations as any[]));
-      return;
-    }
 
     setIsSearching(true);
     setResults([]);
@@ -424,9 +413,9 @@ export function RidoPartsSearchModal({
 
   // No-results suggestions (different from typed suggestions)
   const noResultsSuggestions = useMemo(() => {
-    if (results.length > 0 || !hasSearched || allActiveRequireCodes) return [];
+    if (results.length > 0 || !hasSearched) return [];
     return generateSearchSuggestions(query);
-  }, [allActiveRequireCodes, results, hasSearched, query]);
+  }, [results, hasSearched, query]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -483,11 +472,7 @@ export function RidoPartsSearchModal({
           </Button>
         </div>
 
-        {allActiveRequireCodes && (
-          <p className="text-xs text-muted-foreground">
-            Aktywne API hurtowni wyszukują tylko po numerze OE / katalogowym, więc sama nazwa części nie zwróci wyników.
-          </p>
-        )}
+        {/* Search help info shown alongside results if needed */}
 
         {/* Clickable suggestions (while typing, before/after search) */}
         {suggestions.length > 0 && !isSearching && (
@@ -676,9 +661,7 @@ export function RidoPartsSearchModal({
                 Nie znaleziono wyników dla: „{query}"
               </p>
               <p className="text-xs mb-4">
-                {allActiveRequireCodes
-                  ? 'Wpisz numer OE lub katalogowy części i spróbuj ponownie'
-                  : 'Spróbuj innej frazy lub wybierz jedną z sugestii poniżej'}
+                {searchHelp || 'Spróbuj innej frazy, numeru OE lub wybierz jedną z sugestii poniżej'}
               </p>
               {noResultsSuggestions.length > 0 && (
                 <div className="flex flex-wrap gap-2 justify-center max-w-lg">
@@ -757,29 +740,3 @@ function parseAvailability(item: any): 'today' | 'tomorrow' | '2-3days' | 'unava
   return 'unavailable';
 }
 
-function requiresCatalogCodeSearch(supplierCode?: string) {
-  return supplierCode === 'hart' || supplierCode === 'auto_partner';
-}
-
-function buildCatalogSearchHelp(integrations: Array<{ supplier_name?: string; supplier_code?: string }>) {
-  const supplierNames = integrations
-    .map((integration) => integration.supplier_name || integration.supplier_code)
-    .filter(Boolean)
-    .join(', ');
-
-  return `${supplierNames ? `Aktywne hurtownie (${supplierNames})` : 'Aktywne hurtownie'} przyjmują tylko numer OE lub katalogowy części. Opis typu „klocki hamulcowe przednie” nie jest obsługiwany przez te API.`;
-}
-
-function looksLikeCatalogCode(query: string) {
-  const value = String(query || '').trim();
-  if (value.length < 3) return false;
-  if (!/\d/.test(value)) return false;
-  if (!/^[A-Za-z0-9][A-Za-z0-9\s\-./]{2,}$/.test(value)) return false;
-
-  const tokens = value.split(/\s+/).filter(Boolean);
-  if (tokens.length > 3 && tokens.some((token) => /^[A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż]{3,}$/.test(token))) {
-    return false;
-  }
-
-  return true;
-}
