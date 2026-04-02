@@ -161,7 +161,7 @@ export const DriverSettlements = ({
       
       const { data: driver } = await supabase
         .from('drivers')
-        .select('fleet_id, payment_method, first_name, last_name')
+        .select('fleet_id, payment_method, first_name, last_name, custom_weekly_fee')
         .eq('id', driverId)
         .maybeSingle();
       
