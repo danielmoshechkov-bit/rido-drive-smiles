@@ -125,35 +125,66 @@ async function handleAutoPartner(supabase: any, integration: any, action: string
       if (!query) return json({ error: "Brak frazy wyszukiwania" }, 400);
 
       try {
-        const searchIntent = await buildSearchIntent(query, params);
-        const searchTerms = uniqueStrings([query, ...searchIntent.queryVariants]).slice(0, 5);
+        const productCodes = extractPotentialProductCodes(query);
+        if (productCodes.length === 0) {
+          return json({
+            results: [],
+            clarificationQuestion: "Auto Partner CustomerAPI wyszukuje tylko po numerze katalogowym / OE albo danych TecDoc. Opis typu „klocki hamulcowe przednie” nie jest obsługiwany przez to API.",
+            searchedTerms: [],
+            requiresExactCode: true,
+          });
+        }
 
-        const res = await fetch(`${baseUrl}/ProductsAvailabilityV2`, {
+        const endpoint = productCodes.length === 1 ? "ProductAvailabilityV2" : "ProductsAvailabilityV2";
+        const body = productCodes.length === 1
+          ? { ...creds, product: { productCode: productCodes[0], quantity: 1 }, onlySite: false }
+          : { ...creds, products: productCodes.map((productCode) => ({ productCode, quantity: 1 })), onlySite: false };
+
+        const res = await fetch(`${baseUrl}/${endpoint}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ...creds,
-            products: searchTerms.map((term) => ({ productCode: term, quantity: 1 })),
-            onlySite: false,
-          }),
+          body: JSON.stringify(body),
         });
         if (res.status === 404) {
-          return json({ results: [], clarificationQuestion: searchIntent.clarificationQuestion, searchedTerms: searchTerms });
+          return json({
+            results: [],
+            clarificationQuestion: "Auto Partner nie znalazł produktu dla podanego numeru katalogowego.",
+            searchedTerms: productCodes,
+          });
         }
         if (!res.ok) return json({ error: `Wyszukiwanie Auto Partner: HTTP ${res.status}` }, res.status);
 
         const data = await res.json();
-        const availability = data?.RestProductsAvailabilityV2Result?.Availability || [];
+        const result = endpoint === "ProductAvailabilityV2"
+          ? data?.RestProductAvailabilityV2Result || data?.RestProductAvailabilityTecDocResult || data
+          : data?.RestProductsAvailabilityV2Result || data;
+        const errorCode = String(result?.ErrorCode || "").trim();
+
+        if (errorCode && errorCode !== "03/38") {
+          return json({ error: `Auto Partner zwrócił kod błędu ${errorCode}` }, 400);
+        }
+
+        const availability = Array.isArray(result?.Availability)
+          ? result.Availability
+          : result?.Availability
+            ? [result.Availability]
+            : [];
+
         const mapped = availability.map((item: any) => {
-          const totalStock = (item.States || []).reduce((sum: number, s: any) => sum + (s.InStock || 0), 0);
-          const warehouses = (item.States || []).map((s: any) => s.DepartmentCode || s.BranchCode || s.Name).filter(Boolean).join(", ");
+          const states = Array.isArray(item?.States) ? item.States : [];
+          const totalStock = states.reduce((sum: number, s: any) => sum + Number(s?.InStock || 0), 0);
+          const warehouses = states
+            .map((s: any) => s.DepartamentCode || s.DepartmentCode || s.BranchCode || s.Name)
+            .filter(Boolean)
+            .join(", ");
+
           return {
             partNumber: item.ProductCode || item.Code || "",
             productCode: item.ProductCode || item.Code || "",
-            name: item.ProductName || item.Name || item.Description || item.ProductCode || "",
+            name: item.ProductName || item.Name || item.Description || item.ProductCode || query,
             manufacturer: item.ProducerName || item.ManufacturerName || item.BrandName || item.Brand || "",
             price: Number(item.Price || item.NetPrice || item.WholesalePrice || 0),
-            retailPrice: item.Pr || 0,
+            retailPrice: Number(item.Pr || 0),
             availability: totalStock,
             warehouse: warehouses,
             producer: item.ProducerName || item.ManufacturerName || item.BrandName || item.Brand || "",
@@ -166,8 +197,11 @@ async function handleAutoPartner(supabase: any, integration: any, action: string
         const deduped = dedupeResults(mapped, (item) => `${item.partNumber || item.productCode}-${item.manufacturer || item.producer}`);
         return json({
           results: deduped,
-          clarificationQuestion: deduped.length === 0 ? searchIntent.clarificationQuestion : null,
-          searchedTerms: searchTerms,
+          clarificationQuestion: deduped.length === 0
+            ? "Auto Partner nie znalazł produktu dla podanego numeru katalogowego. Wpisz numer OE lub indeks katalogowy części."
+            : null,
+          searchedTerms: productCodes,
+          requiresExactCode: true,
         });
       } catch (e) {
         return json({ error: `Błąd wyszukiwania AP: ${e.message}` }, 500);
@@ -636,6 +670,15 @@ function uniqueStrings(values: string[]) {
   return [...new Set(values.map((value) => String(value || "").trim()).filter(Boolean))];
 }
 
+function extractPotentialProductCodes(query: string) {
+  const rawValues = uniqueStrings([
+    query,
+    ...String(query || "").split(/[\n,;]+/),
+  ]);
+
+  return rawValues.filter(looksLikeCatalogCode).slice(0, 50);
+}
+
 function dedupeResults<T>(items: T[], keyFn: (item: T) => string) {
   const map = new Map<string, T>();
   for (const item of items) {
@@ -648,17 +691,22 @@ function dedupeResults<T>(items: T[], keyFn: (item: T) => string) {
 
 // Hart codes: "563 728", "ATE1234", "NGK-BKR6E", "000 001" etc.
 // Must have at least one digit and be at least 3 chars. Can contain letters, digits, spaces, dashes, dots, slashes.
-function looksLikeHartCode(query: string) {
+function looksLikeCatalogCode(query: string) {
   const value = String(query || "").trim();
   if (value.length < 3) return false;
-  // Must contain at least one digit
   if (!/\d/.test(value)) return false;
-  // Must look like a code (alphanumeric with optional separators), not a sentence
-  // Reject if it has more than 2 consecutive lowercase letters (likely a word/description)
-  if (/[a-ząćęłńóśźż]{3,}/i.test(value) && !/^[A-Z0-9]/.test(value)) return false;
-  // Accept patterns like: "563 728", "ATE-1234", "NGK.BKR6E", "06A 115 561 B"
-  if (/^[A-Za-z0-9][A-Za-z0-9\s\-./]{2,}$/.test(value)) return true;
-  return false;
+  if (!/^[A-Za-z0-9][A-Za-z0-9\s\-./]{2,}$/.test(value)) return false;
+
+  const tokens = value.split(/\s+/).filter(Boolean);
+  if (tokens.length > 3 && tokens.some((token) => /^[A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż]{3,}$/.test(token))) {
+    return false;
+  }
+
+  return true;
+}
+
+function looksLikeHartCode(query: string) {
+  return looksLikeCatalogCode(query);
 }
 
 function getDefaultClarificationQuestion(query: string, params: any) {
@@ -682,7 +730,7 @@ async function buildSearchIntent(query: string, params: any) {
     return { queryVariants: [], clarificationQuestion: fallbackClarification };
   }
 
-  if (looksLikeHartCode(normalizedQuery)) {
+  if (looksLikeCatalogCode(normalizedQuery)) {
     return { queryVariants: [normalizedQuery], clarificationQuestion: null };
   }
 
