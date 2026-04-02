@@ -69,6 +69,7 @@ interface Props {
   } | null;
   initialSearch?: string;
   margin?: number;
+  existingParts?: Array<{ name: string; quantity: number }>;
 }
 
 interface SearchResult {
