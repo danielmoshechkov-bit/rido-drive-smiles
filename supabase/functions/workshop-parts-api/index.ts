@@ -11,6 +11,128 @@ const AP_PROD_URL = "https://customerapi.autopartner.dev/CustomerAPI.svc/rest";
 const AP_SANDBOX_URL = "https://customerapitest.autopartner.dev/CustomerAPI.svc/rest";
 const ANTHROPIC_MODEL = "claude-haiku-4-5-20251001";
 
+// ==================== AI: resolvePartsQuery ====================
+interface ResolvedQuery {
+  mode: 'code' | 'description';
+  originalQuery: string;
+  oeNumbers: string[];
+  partDescription: string;
+  clarificationQuestion: string | null;
+  confidence: 'high' | 'medium' | 'low';
+  reasoning: string;
+}
+
+async function resolvePartsQuery(query: string, params: any): Promise<ResolvedQuery> {
+  const vehicle = params?.vehicle || {};
+  const vin = params?.vin || '';
+
+  // If it already looks like a catalog code, use it directly
+  if (looksLikeCatalogCode(query)) {
+    return {
+      mode: 'code',
+      originalQuery: query,
+      oeNumbers: [query],
+      partDescription: query,
+      clarificationQuestion: null,
+      confidence: 'high',
+      reasoning: 'Zapytanie wygląda jak kod katalogowy',
+    };
+  }
+
+  // Build vehicle context
+  const vehicleCtx = [
+    vehicle.brand, vehicle.model,
+    vehicle.year ? `rok ${vehicle.year}` : null,
+    vehicle.engineCapacityCm3 ? `${vehicle.engineCapacityCm3}cm3` : null,
+    vehicle.enginePowerKw ? `${vehicle.enginePowerKw}kW` : null,
+    vehicle.fuelType,
+    vin ? `VIN: ${vin}` : null,
+  ].filter(Boolean).join(', ');
+
+  const ANTHROPIC_API_KEY = (Deno.env.get('ANTHROPIC_API_KEY') || '').trim();
+  if (!ANTHROPIC_API_KEY) {
+    return {
+      mode: 'description',
+      originalQuery: query,
+      oeNumbers: [],
+      partDescription: query,
+      clarificationQuestion: 'Brak klucza AI. Podaj numer katalogowy części ręcznie.',
+      confidence: 'low',
+      reasoning: 'Brak ANTHROPIC_API_KEY',
+    };
+  }
+
+  const systemPrompt = `Jesteś ekspertem od części samochodowych w Polsce z dostępem do wiedzy o numerach OE/katalogowych.
+Twoje zadanie: na podstawie opisu części i danych pojazdu wygenerować numery OE (Original Equipment) lub katalogowe, które mechanik może wpisać do systemu hurtowni.
+
+ZASADY:
+1. Jeśli opis jest precyzyjny + masz dane pojazdu → wygeneruj do 8 realnych numerów OE popularnych producentów (Bosch, Brembo, TRW, Febi, Lemförder, ATE, Ferodo, LuK, Sachs, Monroe, Bilstein, NGK, Denso, Mann, Mahle, Valeo, Delphi, Hella, ZF, SKF, FAG)
+2. Jeśli opis jest nieprecyzyjny (brak strony L/P, brak przód/tył) → ustaw clarificationQuestion po polsku
+3. Jeśli brak danych pojazdu → ustaw clarificationQuestion z prośbą o markę i model
+4. NIE wymyślaj numerów jeśli nie jesteś pewny – lepiej zwróć pustą listę i clarificationQuestion
+5. Numery OE pisz dokładnie tak jak w katalogach (spacje, myślniki są ważne)
+
+FORMAT ODPOWIEDZI – tylko czysty JSON, zero tekstu przed/po:
+{
+  "oeNumbers": ["numer1", "numer2"],
+  "partDescription": "precyzyjny opis części po polsku",
+  "clarificationQuestion": "pytanie do mechanika lub null",
+  "confidence": "high|medium|low",
+  "reasoning": "krótkie wyjaśnienie"
+}`;
+
+  const userMsg = `Opis części: "${query}"
+Dane pojazdu: ${vehicleCtx || 'brak danych pojazdu'}`;
+
+  try {
+    const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: ANTHROPIC_MODEL,
+        max_tokens: 400,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userMsg }],
+      }),
+    });
+
+    const aiData = await aiRes.json();
+    const rawText = aiData?.content?.[0]?.text?.replace(/```json|```/g, '').trim() || '{}';
+    const parsed = JSON.parse(rawText);
+
+    const oeNumbers = Array.isArray(parsed.oeNumbers)
+      ? parsed.oeNumbers.filter((n: string) => n && n.length >= 3).slice(0, 8)
+      : [];
+
+    return {
+      mode: 'description',
+      originalQuery: query,
+      oeNumbers,
+      partDescription: parsed.partDescription || query,
+      clarificationQuestion: typeof parsed.clarificationQuestion === 'string' && parsed.clarificationQuestion.trim()
+        ? parsed.clarificationQuestion.trim()
+        : null,
+      confidence: parsed.confidence || 'medium',
+      reasoning: parsed.reasoning || '',
+    };
+  } catch (err) {
+    console.error('[AI] resolvePartsQuery error:', err);
+    return {
+      mode: 'description',
+      originalQuery: query,
+      oeNumbers: [],
+      partDescription: query,
+      clarificationQuestion: 'Nie udało się przetworzyć zapytania. Podaj numer katalogowy części.',
+      confidence: 'low',
+      reasoning: String(err),
+    };
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -124,44 +246,62 @@ async function handleAutoPartner(supabase: any, integration: any, action: string
       const query = String(params?.query || "").trim();
       if (!query) return json({ error: "Brak frazy wyszukiwania" }, 400);
 
-      try {
-        const productCodes = extractPotentialProductCodes(query);
-        if (productCodes.length === 0) {
-          return json({
-            results: [],
-            clarificationQuestion: "Auto Partner CustomerAPI wyszukuje tylko po numerze katalogowym / OE albo danych TecDoc. Opis typu „klocki hamulcowe przednie” nie jest obsługiwany przez to API.",
-            searchedTerms: [],
-            requiresExactCode: true,
-          });
-        }
+      // KROK 1: Rozwiąż przez AI
+      const resolved = await resolvePartsQuery(query, params);
+      console.log(`[AP] resolvePartsQuery:`, JSON.stringify({
+        oeNumbers: resolved.oeNumbers,
+        clarification: resolved.clarificationQuestion,
+        confidence: resolved.confidence,
+      }));
 
-        const endpoint = productCodes.length === 1 ? "ProductAvailabilityV2" : "ProductsAvailabilityV2";
-        const body = productCodes.length === 1
-          ? { ...creds, product: { productCode: productCodes[0], quantity: 1 }, onlySite: false }
-          : { ...creds, products: productCodes.map((productCode) => ({ productCode, quantity: 1 })), onlySite: false };
+      if (resolved.oeNumbers.length === 0) {
+        return json({
+          results: [],
+          clarificationQuestion: resolved.clarificationQuestion
+            || 'Podaj numer katalogowy lub OE części, albo doprecyzuj opis.',
+          searchedTerms: [],
+          aiResolved: true,
+          partDescription: resolved.partDescription,
+        });
+      }
+
+      // KROK 2: Szukaj w Auto Partner po numerach OE
+      try {
+        const products = resolved.oeNumbers.slice(0, 10).map(code => ({
+          productCode: code,
+          quantity: 1,
+        }));
+
+        const endpoint = products.length === 1 ? "ProductAvailabilityV2" : "ProductsAvailabilityV2";
+        const body = products.length === 1
+          ? { ...creds, product: products[0], onlySite: false }
+          : { ...creds, products, onlySite: false };
 
         const res = await fetch(`${baseUrl}/${endpoint}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         });
+
         if (res.status === 404) {
           return json({
             results: [],
-            clarificationQuestion: "Auto Partner nie znalazł produktu dla podanego numeru katalogowego.",
-            searchedTerms: productCodes,
+            clarificationQuestion: resolved.clarificationQuestion || `Auto Partner nie znalazł dla numerów: ${resolved.oeNumbers.join(', ')}`,
+            searchedTerms: resolved.oeNumbers,
+            aiResolved: true,
+            partDescription: resolved.partDescription,
           });
         }
-        if (!res.ok) return json({ error: `Wyszukiwanie Auto Partner: HTTP ${res.status}` }, res.status);
+        if (!res.ok) return json({ error: `Auto Partner: HTTP ${res.status}` }, res.status);
 
         const data = await res.json();
         const result = endpoint === "ProductAvailabilityV2"
           ? data?.RestProductAvailabilityV2Result || data?.RestProductAvailabilityTecDocResult || data
           : data?.RestProductsAvailabilityV2Result || data;
-        const errorCode = String(result?.ErrorCode || "").trim();
 
+        const errorCode = String(result?.ErrorCode || "").trim();
         if (errorCode && errorCode !== "03/38") {
-          return json({ error: `Auto Partner zwrócił kod błędu ${errorCode}` }, 400);
+          console.warn(`[AP] ErrorCode: ${errorCode}`);
         }
 
         const availability = Array.isArray(result?.Availability)
@@ -181,7 +321,7 @@ async function handleAutoPartner(supabase: any, integration: any, action: string
           return {
             partNumber: item.ProductCode || item.Code || "",
             productCode: item.ProductCode || item.Code || "",
-            name: item.ProductName || item.Name || item.Description || item.ProductCode || query,
+            name: item.ProductName || item.Name || item.Description || resolved.partDescription || item.ProductCode || query,
             manufacturer: item.ProducerName || item.ManufacturerName || item.BrandName || item.Brand || "",
             price: Number(item.Price || item.NetPrice || item.WholesalePrice || 0),
             retailPrice: Number(item.Pr || 0),
@@ -194,14 +334,20 @@ async function handleAutoPartner(supabase: any, integration: any, action: string
             isBlocked: item.IsBlocked || false,
           };
         });
+
         const deduped = dedupeResults(mapped, (item) => `${item.partNumber || item.productCode}-${item.manufacturer || item.producer}`);
+
+        const clarificationQuestion = deduped.length === 0
+          ? (resolved.clarificationQuestion || `Auto Partner nie znalazł dla numerów: ${resolved.oeNumbers.join(', ')}. Sprawdź numer OE lub spróbuj innego opisu.`)
+          : null;
+
         return json({
           results: deduped,
-          clarificationQuestion: deduped.length === 0
-            ? "Auto Partner nie znalazł produktu dla podanego numeru katalogowego. Wpisz numer OE lub indeks katalogowy części."
-            : null,
-          searchedTerms: productCodes,
-          requiresExactCode: true,
+          clarificationQuestion,
+          searchedTerms: resolved.oeNumbers,
+          aiResolved: true,
+          partDescription: resolved.partDescription,
+          confidence: resolved.confidence,
         });
       } catch (e) {
         return json({ error: `Błąd wyszukiwania AP: ${e.message}` }, 500);
@@ -233,15 +379,6 @@ async function handleAutoPartner(supabase: any, integration: any, action: string
 }
 
 // ==================== HART (REST/JWT) — per doc v1.5 ====================
-// Auth: POST /v1/auth → { access_token, expires_in }
-// Products: GET /v1/products?HartCodes=X&Availability=true → { items: [{ value: {...}, isSuccess, errorMessage }] }
-// Availability: GET /v1/products/availability?HartCodes=X → { items: [{ value: { hartCode, availabilityPerBranch: [...] }, isSuccess }] }
-// Basket add: POST /v1/basket body: { orderPositions: [{ hartCode, quantity }] } → { value: { successfulOrders: [{ orderBufferPositionId }] }, isSuccess }
-// Place order: POST /v1/orders body: { basketPositionIds: [number] } → { value: [{ orderId, ... }], isSuccess }
-// Invoices: GET /v1/documents/invoices?DateFrom=X&DateTo=Y
-// Corrections: GET /v1/documents/invoice-corrections?DateFrom=X&DateTo=Y
-// Delivery notes: GET /v1/documents/delivery-notes?DateFrom=X&DateTo=Y
-
 async function handleHart(supabase: any, baseUrl: string, integration: any, action: string, params: any) {
   if (!integration?.api_username || !integration?.api_password) {
     return json({ error: "Uzupełnij login i hasło API HART." }, 400);
@@ -275,12 +412,10 @@ async function handleHart(supabase: any, baseUrl: string, integration: any, acti
 
   console.log(`[HART] Auth OK, token expires in ${authData.expires_in}s`);
 
-  // Build headers per doc: Authorization: Bearer <token>, optional BranchId
   const headers: Record<string, string> = {
     "Authorization": `Bearer ${token}`,
     "Content-Type": "application/json",
   };
-  // BranchId header (optional) — ID from HART warehouse table (1=Opole, 16=Warszawa, 29=Gdańsk etc.)
   if (integration.default_branch_id) {
     headers["BranchId"] = String(integration.default_branch_id);
   }
@@ -299,63 +434,70 @@ async function handleHart(supabase: any, baseUrl: string, integration: any, acti
       const query = String(params?.query || "").trim();
       if (!query) return json({ error: "Brak frazy wyszukiwania" }, 400);
 
-      // Use AI to generate search variants
-      const searchIntent = await buildSearchIntent(query, params);
+      // KROK 1: Rozwiąż zapytanie przez AI
+      const resolved = await resolvePartsQuery(query, params);
+      console.log(`[HART] resolvePartsQuery result:`, JSON.stringify({
+        mode: resolved.mode,
+        oeNumbers: resolved.oeNumbers,
+        clarification: resolved.clarificationQuestion,
+        confidence: resolved.confidence,
+        reasoning: resolved.reasoning,
+      }));
 
-      // Hart API only accepts HartCodes — filter to valid-looking codes
-      // Hart codes format: "563 728", "ATE1234", "NGK-BKR6E" etc.
-      const allTerms = uniqueStrings([query, ...searchIntent.queryVariants]);
-      const hartCodes = allTerms.filter(looksLikeHartCode).slice(0, 10);
-
-      console.log(`[HART] Search query="${query}", hartCodes=[${hartCodes.join(", ")}], allTerms=[${allTerms.join(", ")}]`);
-
-      if (hartCodes.length === 0) {
+      // KROK 2: Jeśli AI nie ma numerów OE → zapytaj mechanika
+      if (resolved.oeNumbers.length === 0) {
         return json({
           results: [],
-          clarificationQuestion: searchIntent.clarificationQuestion || "Dla HART podaj numer katalogowy produktu (np. '563 728') lub numer OE części.",
-          searchedTerms: allTerms,
+          clarificationQuestion: resolved.clarificationQuestion
+            || 'Podaj numer katalogowy lub OE części, albo doprecyzuj opis (marka, model, lewa/prawa, przód/tył).',
+          searchedTerms: [],
+          aiResolved: true,
+          partDescription: resolved.partDescription,
         });
       }
 
-      // GET /v1/products?HartCodes=X&HartCodes=Y&Availability=true
+      // KROK 3: Szukaj po wszystkich numerach OE w Hart
       const queryParams = new URLSearchParams();
-      hartCodes.forEach((code) => queryParams.append("HartCodes", code));
-      queryParams.set("Availability", "true");
+      resolved.oeNumbers.forEach(code => queryParams.append('HartCodes', code));
+      queryParams.set('Availability', 'true');
+      queryParams.set('Size', '50');
 
       const url = `${baseUrl}/v1/products?${queryParams.toString()}`;
-      console.log(`[HART] GET ${url}`);
+      console.log(`[HART] Searching with OE numbers: ${url}`);
 
       const searchRes = await fetch(url, { headers });
-      const searchText = await searchRes.text();
-      console.log(`[HART] Search response: HTTP ${searchRes.status}, body length: ${searchText.length}`);
 
       if (searchRes.status === 429) return json({ error: "Limit zapytań Hart (50/min). Poczekaj chwilę." }, 429);
-      if (searchRes.status === 404) {
-        console.log("[HART] 404 — products not found");
-        return json({ results: [], clarificationQuestion: searchIntent.clarificationQuestion, searchedTerms: hartCodes });
-      }
-      if (!searchRes.ok) {
-        console.error(`[HART] Search error: HTTP ${searchRes.status}`, searchText.substring(0, 500));
-        return json({ error: `Wyszukiwanie Hart: HTTP ${searchRes.status}` }, searchRes.status);
-      }
 
-      let data: any;
-      try { data = JSON.parse(searchText); } catch (e) {
-        console.error("[HART] Failed to parse search response:", searchText.substring(0, 500));
+      let data: any = {};
+      try {
+        const searchText = await searchRes.text();
+        console.log(`[HART] Search response: HTTP ${searchRes.status}, body length: ${searchText.length}`);
+        if (searchRes.status === 404) {
+          return json({
+            results: [],
+            clarificationQuestion: resolved.clarificationQuestion || `Nie znaleziono w Hart dla numerów: ${resolved.oeNumbers.join(', ')}`,
+            searchedTerms: resolved.oeNumbers,
+            aiResolved: true,
+            partDescription: resolved.partDescription,
+          });
+        }
+        if (!searchRes.ok) {
+          return json({ error: `Wyszukiwanie Hart: HTTP ${searchRes.status}` }, searchRes.status);
+        }
+        data = JSON.parse(searchText);
+      } catch {
         return json({ error: "Nieprawidłowa odpowiedź z Hart API" }, 500);
       }
 
-      // Parse items per doc v1.5:
-      // items[].value.{ hartCode, name, supplierCode, unit, supplier, taxRate, onOrder, withdrawn, 
-      //                  quantity, waitingTime, isPatent, isPriceForManyPieces, numberOfPiecesInPrice, sellingPrice, currency }
-      // items[].isSuccess, items[].errorMessage
+      // KROK 4: Parsuj wyniki
       const items = (data.items || [])
         .filter((i: any) => i.isSuccess && i.value && !i.value.withdrawn)
         .map((i: any) => {
           const v = i.value;
           return {
             partNumber: v.hartCode || "",
-            name: v.name || "",
+            name: v.name || resolved.partDescription,
             supplier: v.supplier || "",
             supplierCode: v.supplierCode || "",
             price: Number(v.sellingPrice || 0),
@@ -373,12 +515,20 @@ async function handleHart(supabase: any, baseUrl: string, integration: any, acti
           };
         });
 
-      console.log(`[HART] Found ${items.length} products from ${(data.items || []).length} raw items`);
+      console.log(`[HART] Found ${items.length} products for OE numbers: [${resolved.oeNumbers.join(', ')}]`);
+
+      // KROK 5: Zwróć wyniki + ewentualnie clarification obok
+      const clarificationQuestion = items.length === 0
+        ? (resolved.clarificationQuestion || `Nie znaleziono w Hart dla numerów: ${resolved.oeNumbers.join(', ')}. Sprawdź numer OE lub spróbuj innego opisu.`)
+        : null;
 
       return json({
         results: items,
-        clarificationQuestion: items.length === 0 ? searchIntent.clarificationQuestion : null,
-        searchedTerms: hartCodes,
+        clarificationQuestion,
+        searchedTerms: resolved.oeNumbers,
+        aiResolved: true,
+        partDescription: resolved.partDescription,
+        confidence: resolved.confidence,
         pagination: {
           totalPages: data.total_pages,
           currentPage: data.current_page,
@@ -391,7 +541,6 @@ async function handleHart(supabase: any, baseUrl: string, integration: any, acti
       const codes = params?.codes;
       if (!codes?.length) return json({ error: "Brak kodów" }, 400);
 
-      // GET /v1/products/availability?HartCodes=X&HartCodes=Y
       const queryParams = new URLSearchParams();
       codes.slice(0, 50).forEach((c: string) => queryParams.append("HartCodes", c));
 
@@ -406,13 +555,12 @@ async function handleHart(supabase: any, baseUrl: string, integration: any, acti
         return json({ error: `Dostępność Hart: HTTP ${avRes.status}` }, avRes.status);
       }
 
-      let data: any;
-      try { data = JSON.parse(avText); } catch {
+      let avData: any;
+      try { avData = JSON.parse(avText); } catch {
         return json({ error: "Nieprawidłowa odpowiedź z Hart API (availability)" }, 500);
       }
 
-      // Per doc: items[].value.{ hartCode, availabilityPerBranch: [{ branchId, branchCode, quantity, waitingTime, priority, description }] }
-      const availability = (data.items || [])
+      const availability = (avData.items || [])
         .filter((i: any) => i.isSuccess && i.value)
         .map((i: any) => ({
           hartCode: i.value.hartCode,
@@ -433,7 +581,6 @@ async function handleHart(supabase: any, baseUrl: string, integration: any, acti
       const positions = params?.positions;
       if (!positions?.length) return json({ error: "Brak pozycji" }, 400);
 
-      // POST /v1/basket body: { orderPositions: [{ hartCode: "string", quantity: number }] }
       const orderPositions = positions.map((p: any) => ({
         hartCode: String(p.hartCode || p.partNumber || p.productCode || ""),
         quantity: Number(p.quantity || 1),
@@ -452,26 +599,23 @@ async function handleHart(supabase: any, baseUrl: string, integration: any, acti
 
       if (!basketRes.ok) return json({ error: `Koszyk Hart: HTTP ${basketRes.status} — ${basketText.substring(0, 200)}` }, basketRes.status);
 
-      let data: any;
-      try { data = JSON.parse(basketText); } catch {
+      let bData: any;
+      try { bData = JSON.parse(basketText); } catch {
         return json({ error: "Nieprawidłowa odpowiedź z Hart (basket)" }, 500);
       }
 
-      // Response per doc: { value: { successfulOrders: [{ orderBufferPositionId: number, orderedQuantity, availabilityInformation, isExchangeCost }], 
-      //   expirationDate, productCode, productName, branchId, information }, isSuccess, errorMessage }
-      if (data.isSuccess === false) {
-        return json({ error: data.errorMessage || "Błąd dodawania do koszyka Hart" }, 400);
+      if (bData.isSuccess === false) {
+        return json({ error: bData.errorMessage || "Błąd dodawania do koszyka Hart" }, 400);
       }
 
-      const successfulOrders = data.value?.successfulOrders || [];
-      // orderBufferPositionId is a NUMBER per doc — ensure we keep it as number
+      const successfulOrders = bData.value?.successfulOrders || [];
       const basketPositionIds = successfulOrders.map((item: any) => Number(item.orderBufferPositionId));
 
       console.log(`[HART] Basket OK: ${basketPositionIds.length} positions added, IDs: [${basketPositionIds.join(", ")}]`);
 
       return json({
         basket: {
-          ...data.value,
+          ...bData.value,
           basketPositionIds,
         },
       });
@@ -481,8 +625,6 @@ async function handleHart(supabase: any, baseUrl: string, integration: any, acti
       const basketPositionIds = params?.basketPositionIds;
       if (!basketPositionIds?.length) return json({ error: "Brak pozycji koszyka" }, 400);
 
-      // POST /v1/orders body: { basketPositionIds: [number] }
-      // Ensure all IDs are numbers
       const numericIds = basketPositionIds.map((id: any) => Number(id));
 
       console.log(`[HART] POST /v1/orders with basketPositionIds: [${numericIds.join(", ")}]`);
@@ -498,17 +640,16 @@ async function handleHart(supabase: any, baseUrl: string, integration: any, acti
 
       if (!orderRes.ok) return json({ error: `Zamówienie Hart: HTTP ${orderRes.status} — ${orderText.substring(0, 200)}` }, orderRes.status);
 
-      let data: any;
-      try { data = JSON.parse(orderText); } catch {
+      let oData: any;
+      try { oData = JSON.parse(orderText); } catch {
         return json({ error: "Nieprawidłowa odpowiedź z Hart (orders)" }, 500);
       }
 
-      // Response per doc: { value: [{ orderId, branchName, branchId, quantity, orderType, productId, hartCode, price, currency, message, replacementCosts, isSuccess }], isSuccess, errorMessage }
-      if (data.isSuccess === false) {
-        return json({ error: data.errorMessage || "Błąd składania zamówienia Hart" }, 400);
+      if (oData.isSuccess === false) {
+        return json({ error: oData.errorMessage || "Błąd składania zamówienia Hart" }, 400);
       }
 
-      const orders = data.value || [];
+      const orders = oData.value || [];
       console.log(`[HART] Order placed: ${orders.length} items, orderIds: [${orders.map((o: any) => o.orderId).join(", ")}]`);
 
       return json({
@@ -520,7 +661,6 @@ async function handleHart(supabase: any, baseUrl: string, integration: any, acti
     }
 
     case "get_orders": {
-      // GET /v1/orders with optional Page, Size, SortDirection
       const page = params?.page || 1;
       const size = params?.size || 20;
       const url = `${baseUrl}/v1/orders?Page=${page}&Size=${size}&SortDirection=DESC`;
@@ -531,12 +671,11 @@ async function handleHart(supabase: any, baseUrl: string, integration: any, acti
         const errText = await ordersRes.text();
         return json({ error: `Lista zamówień Hart: HTTP ${ordersRes.status}` }, ordersRes.status);
       }
-      const data = await ordersRes.json();
-      return json({ orders: data.items || [], pagination: { totalPages: data.total_pages, currentPage: data.current_page, totalItems: data.total_items_count } });
+      const ordData = await ordersRes.json();
+      return json({ orders: ordData.items || [], pagination: { totalPages: ordData.total_pages, currentPage: ordData.current_page, totalItems: ordData.total_items_count } });
     }
 
     case "get_invoices": {
-      // GET /v1/documents/invoices?DateFrom=yyyy-MM-dd&DateTo=yyyy-MM-dd
       const { dateFrom, dateTo } = params || {};
       if (!dateFrom || !dateTo) return json({ error: "Podaj dateFrom i dateTo" }, 400);
 
@@ -553,7 +692,6 @@ async function handleHart(supabase: any, baseUrl: string, integration: any, acti
     }
 
     case "get_corrections": {
-      // GET /v1/documents/invoice-corrections?DateFrom=yyyy-MM-dd&DateTo=yyyy-MM-dd
       const { dateFrom, dateTo } = params || {};
       if (!dateFrom || !dateTo) return json({ error: "Podaj dateFrom i dateTo" }, 400);
 
@@ -569,7 +707,6 @@ async function handleHart(supabase: any, baseUrl: string, integration: any, acti
     }
 
     case "get_delivery_notes": {
-      // GET /v1/documents/delivery-notes?DateFrom=yyyy-MM-dd&DateTo=yyyy-MM-dd
       const { dateFrom, dateTo } = params || {};
       if (!dateFrom || !dateTo) return json({ error: "Podaj dateFrom i dateTo" }, 400);
 
@@ -585,7 +722,6 @@ async function handleHart(supabase: any, baseUrl: string, integration: any, acti
     }
 
     case "get_basket": {
-      // GET /v1/basket
       const url = `${baseUrl}/v1/basket`;
       console.log(`[HART] GET ${url}`);
 
@@ -594,13 +730,11 @@ async function handleHart(supabase: any, baseUrl: string, integration: any, acti
         const errText = await bRes.text();
         return json({ error: `Koszyk Hart: HTTP ${bRes.status}` }, bRes.status);
       }
-      const data = await bRes.json();
-      // Response: { value: { basketPositions: { items: [...], total_pages, ... }, basketSummary: { totalNetSellingPrice, totalGrossSellingPrice, basketCurrency, totalQuantity } }, isSuccess }
-      return json({ basket: data.value || data });
+      const bkData = await bRes.json();
+      return json({ basket: bkData.value || bkData });
     }
 
     case "delete_basket_position": {
-      // DELETE /v1/basket/{PositionId}
       const positionId = params?.positionId;
       if (!positionId) return json({ error: "Brak positionId" }, 400);
 
@@ -613,7 +747,6 @@ async function handleHart(supabase: any, baseUrl: string, integration: any, acti
     }
 
     case "update_basket_position": {
-      // PATCH /v1/basket/{PositionId} body: { quantity: number }
       const positionId = params?.positionId;
       const quantity = params?.quantity;
       if (!positionId || !quantity) return json({ error: "Brak positionId lub quantity" }, 400);
@@ -631,7 +764,6 @@ async function handleHart(supabase: any, baseUrl: string, integration: any, acti
     }
 
     case "delete_order": {
-      // DELETE /v1/orders/{OrderId}
       const orderId = params?.orderId;
       if (!orderId) return json({ error: "Brak orderId" }, 400);
 
@@ -670,15 +802,6 @@ function uniqueStrings(values: string[]) {
   return [...new Set(values.map((value) => String(value || "").trim()).filter(Boolean))];
 }
 
-function extractPotentialProductCodes(query: string) {
-  const rawValues = uniqueStrings([
-    query,
-    ...String(query || "").split(/[\n,;]+/),
-  ]);
-
-  return rawValues.filter(looksLikeCatalogCode).slice(0, 50);
-}
-
 function dedupeResults<T>(items: T[], keyFn: (item: T) => string) {
   const map = new Map<string, T>();
   for (const item of items) {
@@ -689,8 +812,6 @@ function dedupeResults<T>(items: T[], keyFn: (item: T) => string) {
   return [...map.values()];
 }
 
-// Hart codes: "563 728", "ATE1234", "NGK-BKR6E", "000 001" etc.
-// Must have at least one digit and be at least 3 chars. Can contain letters, digits, spaces, dashes, dots, slashes.
 function looksLikeCatalogCode(query: string) {
   const value = String(query || "").trim();
   if (value.length < 3) return false;
@@ -705,91 +826,7 @@ function looksLikeCatalogCode(query: string) {
   return true;
 }
 
-function looksLikeHartCode(query: string) {
-  return looksLikeCatalogCode(query);
-}
-
-function getDefaultClarificationQuestion(query: string, params: any) {
-  const value = String(query || "").toLowerCase();
-  const vehicle = params?.vehicle || {};
-  const needsSide = /(wahacz|amortyzator|spr[eę]żyn|dr[aą]żek|końc[oó]wk|zacisk|lampa|błotnik|piasta|p[oó]łoś|łożysk)/.test(value) && !/(lewy|prawy|lewa|prawa)/.test(value);
-  const needsAxle = /(wahacz|amortyzator|spr[eę]żyn|dr[aą]żek|końc[oó]wk|tarcza|klock|piasta|łożysk)/.test(value) && !/(prz[oó]d|przedni|przednia|tył|tylny|tylna)/.test(value);
-
-  if (needsSide && needsAxle) return "Doprecyzuj proszę, czy chodzi o lewą czy prawą stronę oraz przód czy tył auta.";
-  if (needsSide) return "Doprecyzuj proszę, czy chodzi o lewą czy prawą stronę auta.";
-  if (needsAxle) return "Doprecyzuj proszę, czy chodzi o przód czy tył auta.";
-  if (!vehicle?.brand || !vehicle?.model) return "Dodaj markę i model pojazdu albo numer OE / katalogowy, żeby zawęzić wyszukiwanie części.";
-  return null;
-}
-
-async function buildSearchIntent(query: string, params: any) {
-  const normalizedQuery = String(query || "").trim();
-  const fallbackClarification = getDefaultClarificationQuestion(normalizedQuery, params);
-
-  if (!normalizedQuery) {
-    return { queryVariants: [], clarificationQuestion: fallbackClarification };
-  }
-
-  if (looksLikeCatalogCode(normalizedQuery)) {
-    return { queryVariants: [normalizedQuery], clarificationQuestion: null };
-  }
-
-  const ANTHROPIC_API_KEY = (Deno.env.get("ANTHROPIC_API_KEY") || "").trim();
-  if (!ANTHROPIC_API_KEY) {
-    return { queryVariants: [normalizedQuery], clarificationQuestion: fallbackClarification };
-  }
-
-  const vehicle = params?.vehicle || {};
-  const vehicleContext = [
-    vehicle.brand,
-    vehicle.model,
-    vehicle.year ? `rok ${vehicle.year}` : null,
-    vehicle.engineCapacityCm3 ? `${vehicle.engineCapacityCm3}cc` : null,
-    vehicle.enginePowerKw ? `${vehicle.enginePowerKw}kW` : null,
-    vehicle.fuelType,
-    params?.vin ? `VIN ${params.vin}` : null,
-  ].filter(Boolean).join(", ");
-
-  try {
-    const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: ANTHROPIC_MODEL,
-        max_tokens: 250,
-        system: "Jesteś asystentem doboru części samochodowych w warsztacie. Zwróć wyłącznie czysty JSON w formacie {\"queryVariants\":[\"...\"],\"clarificationQuestion\":\"... lub null\"}. Nie wymyślaj numerów katalogowych. Jeśli zapytanie jest nieprecyzyjne, ustaw clarificationQuestion po polsku. Jeśli można szukać, podaj do 5 krótkich wariantów zapytania.",
-        messages: [{
-          role: "user",
-          content: `Zapytanie klienta: ${normalizedQuery}\nDane auta: ${vehicleContext || "brak"}`,
-        }],
-      }),
-    });
-
-    const aiData = await aiRes.json();
-    const raw = aiData?.content?.[0]?.text?.replace(/```json|```/g, "").trim();
-    const parsed = raw ? JSON.parse(raw) : {};
-    const queryVariants = uniqueStrings([normalizedQuery, ...(Array.isArray(parsed?.queryVariants) ? parsed.queryVariants : [])]).slice(0, 5);
-    const clarificationQuestion = typeof parsed?.clarificationQuestion === "string" && parsed.clarificationQuestion.trim()
-      ? parsed.clarificationQuestion.trim()
-      : fallbackClarification;
-
-    return {
-      queryVariants: queryVariants.length > 0 ? queryVariants : [normalizedQuery],
-      clarificationQuestion,
-    };
-  } catch (error) {
-    console.error("buildSearchIntent error:", error);
-    return { queryVariants: [normalizedQuery], clarificationQuestion: fallbackClarification };
-  }
-}
-
 function json(data: any, _status = 200) {
-  // Always return 200 to avoid supabase.functions.invoke throwing on non-2xx
-  // Error info is in the response body (data.error field)
   return new Response(JSON.stringify(data), {
     status: 200,
     headers: { ...corsHeaders, "Content-Type": "application/json" },

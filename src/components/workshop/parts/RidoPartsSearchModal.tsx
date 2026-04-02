@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
-import { Search, Package, Loader2, ShoppingCart, Image as ImageIcon, AlertTriangle, Sparkles, SearchX } from 'lucide-react';
+import { Search, Package, Loader2, ShoppingCart, Image as ImageIcon, AlertTriangle, Sparkles, SearchX, Bot } from 'lucide-react';
 import { usePartsApi, useCreatePartsOrder, usePartsIntegrations } from '@/hooks/useWorkshopParts';
 import { useCreateWorkshopOrderItem } from '@/hooks/useWorkshop';
 import { getConfiguredPartsIntegrations } from './partsIntegrationUtils';
@@ -13,32 +13,32 @@ import { toast } from 'sonner';
 
 // ─── Search suggestions map ───
 const SUGGESTIONS_MAP: Record<string, string[]> = {
-  'wachacz': ['wahacz przedni lewy kompletny', 'wahacz przedni prawy kompletny', 'wahacz tylny lewy', 'wahacz tylny prawy', 'ramię wahacza przedniego', 'sworzeń wahacza', 'łącznik stabilizatora'],
-  'wahacz': ['wahacz przedni lewy kompletny', 'wahacz przedni prawy kompletny', 'wahacz tylny lewy', 'wahacz tylny prawy', 'ramię wahacza przedniego', 'sworzeń wahacza', 'łącznik stabilizatora'],
+  'wachacz': ['wahacz przedni lewy kompletny', 'wahacz przedni prawy kompletny', 'wahacz tylny lewy', 'wahacz tylny prawy'],
+  'wahacz': ['wahacz przedni lewy kompletny', 'wahacz przedni prawy kompletny', 'wahacz tylny lewy', 'wahacz tylny prawy'],
   'klocki': ['klocki hamulcowe przednie', 'klocki hamulcowe tylne', 'klocki ceramiczne przednie'],
-  'klock': ['klocki hamulcowe przednie', 'klocki hamulcowe tylne', 'klocki ceramiczne przednie'],
+  'klock': ['klocki hamulcowe przednie', 'klocki hamulcowe tylne'],
   'tarcze': ['tarcze hamulcowe przednie', 'tarcze hamulcowe tylne', 'tarcze wentylowane przednie'],
-  'tarcza': ['tarcze hamulcowe przednie', 'tarcze hamulcowe tylne', 'tarcze wentylowane przednie'],
-  'pasek': ['pasek rozrządu', 'pasek klinowy', 'pasek wielorowkowy', 'zestaw rozrządu z pompą'],
+  'tarcza': ['tarcze hamulcowe przednie', 'tarcze hamulcowe tylne'],
+  'pasek': ['pasek rozrządu', 'pasek klinowy', 'pasek wielorowkowy'],
   'filtr': ['filtr oleju', 'filtr powietrza', 'filtr kabinowy', 'filtr paliwa'],
   'amortyzator': ['amortyzator przedni lewy', 'amortyzator przedni prawy', 'amortyzator tylny lewy', 'amortyzator tylny prawy'],
-  'amortyza': ['amortyzator przedni lewy', 'amortyzator przedni prawy', 'amortyzator tylny lewy', 'amortyzator tylny prawy'],
+  'amortyza': ['amortyzator przedni lewy', 'amortyzator przedni prawy', 'amortyzator tylny'],
   'uszczelka': ['uszczelka pod głowicę', 'zestaw uszczelek głowicy', 'uszczelka pokrywy zaworów'],
-  'olej': ['olej silnikowy 5W30', 'olej silnikowy 5W40', 'olej przekładniowy', 'olej hamulcowy'],
-  'świeca': ['świeca zapłonowa', 'świeca żarowa', 'zestaw świec zapłonowych'],
-  'swieca': ['świeca zapłonowa', 'świeca żarowa', 'zestaw świec zapłonowych'],
-  'sprzęgło': ['tarcza sprzęgła', 'zestaw sprzęgła kompletny', 'docisk sprzęgła', 'łożysko oporowe sprzęgła'],
-  'sprzeglo': ['tarcza sprzęgła', 'zestaw sprzęgła kompletny', 'docisk sprzęgła', 'łożysko oporowe sprzęgła'],
-  'rozrząd': ['zestaw rozrządu', 'zestaw rozrządu z pompą wody', 'pasek rozrządu', 'napinacz rozrządu'],
-  'rozrzad': ['zestaw rozrządu', 'zestaw rozrządu z pompą wody', 'pasek rozrządu', 'napinacz rozrządu'],
+  'olej': ['olej silnikowy 5W30', 'olej silnikowy 5W40', 'olej przekładniowy'],
+  'świeca': ['świeca zapłonowa', 'świeca żarowa'],
+  'swieca': ['świeca zapłonowa', 'świeca żarowa'],
+  'sprzęgło': ['tarcza sprzęgła', 'zestaw sprzęgła kompletny', 'docisk sprzęgła'],
+  'sprzeglo': ['tarcza sprzęgła', 'zestaw sprzęgła kompletny'],
+  'rozrząd': ['zestaw rozrządu', 'zestaw rozrządu z pompą wody', 'pasek rozrządu'],
+  'rozrzad': ['zestaw rozrządu', 'zestaw rozrządu z pompą wody'],
   'łożysko': ['łożysko koła przedniego', 'łożysko koła tylnego', 'łożysko oporowe'],
-  'lozysko': ['łożysko koła przedniego', 'łożysko koła tylnego', 'łożysko oporowe'],
-  'chłodnica': ['chłodnica silnika', 'chłodnica klimatyzacji', 'chłodnica oleju'],
-  'chlodnica': ['chłodnica silnika', 'chłodnica klimatyzacji', 'chłodnica oleju'],
-  'pompa': ['pompa wody', 'pompa paliwa', 'pompa wspomagania', 'pompa hamulcowa'],
-  'alternator': ['alternator', 'regulator alternatora', 'koło pasowe alternatora'],
+  'lozysko': ['łożysko koła przedniego', 'łożysko koła tylnego'],
+  'chłodnica': ['chłodnica silnika', 'chłodnica klimatyzacji'],
+  'chlodnica': ['chłodnica silnika', 'chłodnica klimatyzacji'],
+  'pompa': ['pompa wody', 'pompa paliwa', 'pompa wspomagania'],
+  'alternator': ['alternator', 'regulator alternatora'],
   'rozrusznik': ['rozrusznik', 'bendix rozrusznika'],
-  'zawieszenie': ['wahacz przedni', 'drążek kierowniczy', 'końcówka drążka', 'łącznik stabilizatora', 'amortyzator'],
+  'zawieszenie': ['wahacz przedni', 'drążek kierowniczy', 'końcówka drążka', 'łącznik stabilizatora'],
 };
 
 function generateSearchSuggestions(query: string): string[] {
@@ -48,6 +48,26 @@ function generateSearchSuggestions(query: string): string[] {
     if (q.includes(key)) return suggestions;
   }
   return [];
+}
+
+// Generate clarification button options from AI question
+function generateClarificationButtons(query: string, clarificationQuestion: string): string[] {
+  const q = query.trim();
+  const cq = clarificationQuestion.toLowerCase();
+  const buttons: string[] = [];
+
+  const needsSide = cq.includes('lew') || cq.includes('praw') || cq.includes('stron');
+  const needsAxle = cq.includes('przód') || cq.includes('tył') || cq.includes('przedn') || cq.includes('tyln');
+
+  if (needsSide && needsAxle) {
+    buttons.push(`${q} przedni lewy`, `${q} przedni prawy`, `${q} tylny lewy`, `${q} tylny prawy`);
+  } else if (needsSide) {
+    buttons.push(`${q} lewy`, `${q} prawy`);
+  } else if (needsAxle) {
+    buttons.push(`${q} przedni`, `${q} tylny`);
+  }
+
+  return buttons;
 }
 
 interface Props {
@@ -115,6 +135,7 @@ export function RidoPartsSearchModal({
   const [hoveredImage, setHoveredImage] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
   const [currentPartIndex, setCurrentPartIndex] = useState(0);
+  const [aiInfo, setAiInfo] = useState<{ partDescription?: string; searchedTerms?: string[]; aiResolved?: boolean } | null>(null);
   const partsApi = usePartsApi();
   const createPartsOrder = useCreatePartsOrder();
   const createOrderItem = useCreateWorkshopOrderItem();
@@ -124,7 +145,7 @@ export function RidoPartsSearchModal({
     if (open) {
       if (initialSearch) setQuery(initialSearch);
       setSearchHelp(null);
-      // Auto-search first existing part when opening
+      setAiInfo(null);
       if (existingParts.length > 0) {
         setCurrentPartIndex(0);
         const firstPart = existingParts[0].name;
@@ -137,13 +158,12 @@ export function RidoPartsSearchModal({
       setResults([]);
       setSearchHelp(null);
       setCurrentPartIndex(0);
+      setAiInfo(null);
     }
   }, [open]);
 
   const enabledIntegrations = getConfiguredPartsIntegrations(integrations as any[]);
-  const searchPlaceholder = 'Wpisz nazwę części, numer OE lub katalogowy...';
 
-  // Live suggestions based on current query
   const suggestions = useMemo(
     () => generateSearchSuggestions(query),
     [query],
@@ -151,9 +171,7 @@ export function RidoPartsSearchModal({
 
   const handleSuggestionClick = (suggestion: string) => {
     setQuery(suggestion);
-    setTimeout(() => {
-      doSearch(suggestion);
-    }, 50);
+    setTimeout(() => doSearch(suggestion), 50);
   };
 
   const doSearch = async (searchQuery?: string) => {
@@ -165,7 +183,7 @@ export function RidoPartsSearchModal({
     }
 
     setSearchHelp(null);
-
+    setAiInfo(null);
     setIsSearching(true);
     setResults([]);
     setHasSearched(true);
@@ -226,22 +244,33 @@ export function RidoPartsSearchModal({
           return {
             items: mappedItems,
             clarificationQuestion: typeof res.clarificationQuestion === 'string' ? res.clarificationQuestion : null,
+            aiResolved: res.aiResolved || false,
+            partDescription: res.partDescription || null,
+            searchedTerms: res.searchedTerms || [],
           };
         } catch (err: any) {
           console.warn(`Search failed for ${integration.supplier_code}:`, err.message);
-          return { items: [], clarificationQuestion: null };
+          return { items: [], clarificationQuestion: null, aiResolved: false, partDescription: null, searchedTerms: [] };
         }
       });
 
       const allResults = await Promise.allSettled(searchPromises);
       const mergedResults: SearchResult[] = [];
       const clarificationQuestions: string[] = [];
+      let firstAiInfo: typeof aiInfo = null;
 
       for (const result of allResults) {
         if (result.status === 'fulfilled') {
           mergedResults.push(...result.value.items);
           if (result.value.clarificationQuestion) {
             clarificationQuestions.push(result.value.clarificationQuestion);
+          }
+          if (result.value.aiResolved && !firstAiInfo) {
+            firstAiInfo = {
+              aiResolved: true,
+              partDescription: result.value.partDescription,
+              searchedTerms: result.value.searchedTerms,
+            };
           }
         }
       }
@@ -273,7 +302,9 @@ export function RidoPartsSearchModal({
       });
 
       setResults(mergedResults);
-      setSearchHelp(mergedResults.length === 0 ? clarificationQuestions[0] || null : null);
+      setAiInfo(firstAiInfo);
+      // Show clarification alongside (not instead of) results
+      setSearchHelp(clarificationQuestions[0] || null);
     } catch (err: any) {
       toast.error(err.message || 'Błąd wyszukiwania');
     } finally {
@@ -411,11 +442,16 @@ export function RidoPartsSearchModal({
   const fmt = (n: number) => n.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const suppliersInResults = [...new Set(results.map(r => r.supplier))];
 
-  // No-results suggestions (different from typed suggestions)
   const noResultsSuggestions = useMemo(() => {
     if (results.length > 0 || !hasSearched) return [];
     return generateSearchSuggestions(query);
   }, [results, hasSearched, query]);
+
+  // Clarification buttons from AI question
+  const clarificationButtons = useMemo(() => {
+    if (!searchHelp || results.length > 0) return [];
+    return generateClarificationButtons(query, searchHelp);
+  }, [searchHelp, query, results.length]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -460,7 +496,7 @@ export function RidoPartsSearchModal({
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder={searchPlaceholder}
+              placeholder="Wpisz nazwę części, numer OE lub katalogowy..."
               value={query}
               onChange={e => setQuery(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleSearch()}
@@ -472,7 +508,15 @@ export function RidoPartsSearchModal({
           </Button>
         </div>
 
-        {/* Search help info shown alongside results if needed */}
+        {/* AI info bar — what AI searched for */}
+        {aiInfo?.aiResolved && aiInfo.searchedTerms && aiInfo.searchedTerms.length > 0 && !isSearching && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 rounded-md px-3 py-1.5">
+            <Bot className="h-3.5 w-3.5 text-primary shrink-0" />
+            <span>
+              AI szukało: <strong className="text-foreground">{aiInfo.partDescription || query}</strong> → numery OE: {aiInfo.searchedTerms.join(', ')}
+            </span>
+          </div>
+        )}
 
         {/* Clickable suggestions (while typing, before/after search) */}
         {suggestions.length > 0 && !isSearching && (
@@ -502,6 +546,9 @@ export function RidoPartsSearchModal({
             {suppliersInResults.map(s => (
               <Badge key={s} variant="outline" className="text-[10px]">{s}</Badge>
             ))}
+            {aiInfo?.aiResolved && (
+              <span className="text-[10px] text-primary">• Wyniki dla numerów OE znalezionych przez AI</span>
+            )}
           </div>
         )}
 
@@ -511,7 +558,7 @@ export function RidoPartsSearchModal({
             <div className="flex flex-col items-center justify-center py-16">
               <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
               <p className="text-sm text-muted-foreground">
-                Przeszukuję {enabledIntegrations.length} hurtowni jednocześnie...
+                AI analizuje zapytanie i przeszukuje {enabledIntegrations.length} hurtowni...
               </p>
             </div>
           )}
@@ -648,21 +695,51 @@ export function RidoPartsSearchModal({
             </TooltipProvider>
           )}
 
-          {/* Empty state after search — with suggestions */}
+          {/* Empty state after search — with clarification and suggestions */}
           {!isSearching && hasSearched && results.length === 0 && (
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
               <SearchX className="h-12 w-12 mb-4 opacity-30" />
+
+              {/* AI clarification question */}
               {searchHelp && (
-                <div className="mb-4 max-w-2xl rounded-lg border border-border bg-muted/40 px-4 py-3 text-center text-xs text-foreground">
-                  {searchHelp}
+                <div className="mb-4 max-w-2xl rounded-lg border border-yellow-300 bg-yellow-50 dark:bg-yellow-950/30 dark:border-yellow-800 px-4 py-3 text-center">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                    <span className="text-sm font-medium text-yellow-800 dark:text-yellow-200">Potrzebne doprecyzowanie</span>
+                  </div>
+                  <p className="text-xs text-yellow-700 dark:text-yellow-300">{searchHelp}</p>
                 </div>
               )}
+
+              {/* Clarification buttons */}
+              {clarificationButtons.length > 0 && (
+                <div className="flex flex-wrap gap-2 justify-center mb-4">
+                  {clarificationButtons.map((btn) => (
+                    <Button
+                      key={btn}
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs hover:bg-primary/10 hover:border-primary"
+                      onClick={() => handleSuggestionClick(btn)}
+                    >
+                      {btn}
+                    </Button>
+                  ))}
+                </div>
+              )}
+
               <p className="text-sm font-medium text-foreground mb-1">
                 Nie znaleziono wyników dla: „{query}"
               </p>
+              {aiInfo?.searchedTerms && aiInfo.searchedTerms.length > 0 && (
+                <p className="text-xs mb-2">
+                  Szukano numerów: {aiInfo.searchedTerms.join(', ')}
+                </p>
+              )}
               <p className="text-xs mb-4">
-                {searchHelp || 'Spróbuj innej frazy, numeru OE lub wybierz jedną z sugestii poniżej'}
+                Spróbuj innej frazy, numeru OE bezpośrednio z dokumentacji pojazdu lub wybierz jedną z sugestii
               </p>
+
               {noResultsSuggestions.length > 0 && (
                 <div className="flex flex-wrap gap-2 justify-center max-w-lg">
                   {noResultsSuggestions.map((s) => (
@@ -686,7 +763,7 @@ export function RidoPartsSearchModal({
             <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
               <Search className="h-12 w-12 mb-4 opacity-30" />
               <p className="text-sm">Wpisz nazwę części i kliknij Szukaj</p>
-              <p className="text-xs mt-1">Przeszukamy {enabledIntegrations.length} podłączonych hurtowni jednocześnie</p>
+              <p className="text-xs mt-1">AI przetłumaczy opis na numery OE i przeszuka {enabledIntegrations.length} hurtowni</p>
             </div>
           )}
         </div>
@@ -739,4 +816,3 @@ function parseAvailability(item: any): 'today' | 'tomorrow' | '2-3days' | 'unava
   if (str.includes('2') || str.includes('3') || str.includes('day')) return '2-3days';
   return 'unavailable';
 }
-
