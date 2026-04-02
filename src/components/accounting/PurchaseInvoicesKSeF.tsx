@@ -18,7 +18,7 @@ import { Download, Loader2, FileText, CheckCircle, XCircle, Package } from 'luci
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 interface PurchaseInvoicesKSeFProps {
-  entityId: string;
+  entityId?: string;
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -53,12 +53,14 @@ export function PurchaseInvoicesKSeF({ entityId }: PurchaseInvoicesKSeFProps) {
   const [dateTo, setDateTo] = useState(() => now.toISOString().split('T')[0]);
 
   const { data: invoices, isLoading } = useQuery({
-    queryKey: ['purchase-invoices-ksef', entityId, dateFrom, dateTo],
+    queryKey: ['purchase-invoices-ksef', dateFrom, dateTo],
     queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return [];
       const { data, error } = await (supabase
         .from('purchase_invoices')
         .select('*') as any)
-        .eq('entity_id', entityId)
+        .eq('user_id', user.id)
         .gte('purchase_date', dateFrom)
         .lte('purchase_date', dateTo)
         .order('purchase_date', { ascending: false });
@@ -71,10 +73,24 @@ export function PurchaseInvoicesKSeF({ entityId }: PurchaseInvoicesKSeFProps) {
   const fetchFromKSeF = async () => {
     setFetching(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Nie jesteś zalogowany');
+
+      const { data: settings } = await supabase
+        .from('company_settings')
+        .select('nip, ksef_token, ksef_environment')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (!settings?.ksef_token) throw new Error('Brak tokenu KSeF — skonfiguruj go w zakładce KSeF');
+      if (!settings?.nip) throw new Error('Brak NIP — uzupełnij dane firmy w zakładce KSeF');
+
       const { data, error } = await supabase.functions.invoke('ksef-integration', {
         body: {
           action: 'fetch_received',
-          entity_id: entityId,
+          nip: settings.nip,
+          token: settings.ksef_token,
+          environment: settings.ksef_environment || 'demo',
           date_from: dateFrom,
           date_to: dateTo,
         },
@@ -83,10 +99,10 @@ export function PurchaseInvoicesKSeF({ entityId }: PurchaseInvoicesKSeFProps) {
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'Błąd pobierania');
 
-      toast.success(`Pobrano ${data.count || 0} faktur z KSeF`);
+      toast.success('Pobrano ' + (data.count || 0) + ' faktur z KSeF (tryb ' + (data.demo ? 'DEMO' : 'produkcyjny') + ')');
       queryClient.invalidateQueries({ queryKey: ['purchase-invoices-ksef'] });
     } catch (err: any) {
-      toast.error(`Błąd: ${err.message}`);
+      toast.error('Błąd: ' + err.message);
     }
     setFetching(false);
   };

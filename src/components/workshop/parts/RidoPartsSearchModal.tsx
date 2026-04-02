@@ -69,6 +69,7 @@ interface Props {
   } | null;
   initialSearch?: string;
   margin?: number;
+  existingParts?: Array<{ name: string; quantity: number }>;
 }
 
 interface SearchResult {
@@ -104,7 +105,7 @@ const availabilityLabels: Record<string, string> = {
 };
 
 export function RidoPartsSearchModal({
-  open, onOpenChange, providerId, orderId, vehicleName, vehicleVin, vehicle, initialSearch, margin = 30,
+  open, onOpenChange, providerId, orderId, vehicleName, vehicleVin, vehicle, initialSearch, margin = 30, existingParts = [],
 }: Props) {
   const [query, setQuery] = useState(initialSearch || '');
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -112,18 +113,29 @@ export function RidoPartsSearchModal({
   const [isOrdering, setIsOrdering] = useState(false);
   const [hoveredImage, setHoveredImage] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
+  const [currentPartIndex, setCurrentPartIndex] = useState(0);
   const partsApi = usePartsApi();
   const createPartsOrder = useCreatePartsOrder();
   const createOrderItem = useCreateWorkshopOrderItem();
   const { data: integrations = [] } = usePartsIntegrations(providerId);
 
   useEffect(() => {
-    if (open && initialSearch) setQuery(initialSearch);
+    if (open) {
+      if (initialSearch) setQuery(initialSearch);
+      // Auto-search first existing part when opening
+      if (existingParts.length > 0) {
+        setCurrentPartIndex(0);
+        const firstPart = existingParts[0].name;
+        setQuery(firstPart);
+        setTimeout(() => doSearch(firstPart), 200);
+      }
+    }
     if (!open) {
       setHasSearched(false);
       setResults([]);
+      setCurrentPartIndex(0);
     }
-  }, [open, initialSearch]);
+  }, [open]);
 
   const enabledIntegrations = getConfiguredPartsIntegrations(integrations as any[]);
 
@@ -405,6 +417,27 @@ export function RidoPartsSearchModal({
             </span>
           </DialogDescription>
         </DialogHeader>
+
+        {/* Existing order parts quick search */}
+        {existingParts.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 items-center">
+            <span className="text-xs text-muted-foreground mr-1">📋 Części ze zlecenia:</span>
+            {existingParts.map((part, idx) => (
+              <Button
+                key={idx}
+                variant={query === part.name ? 'default' : 'outline'}
+                size="sm"
+                className="h-7 text-xs px-2.5"
+                onClick={() => {
+                  setQuery(part.name);
+                  setTimeout(() => doSearch(part.name), 50);
+                }}
+              >
+                {part.name} ({part.quantity})
+              </Button>
+            ))}
+          </div>
+        )}
 
         {/* Search bar */}
         <div className="flex gap-2">

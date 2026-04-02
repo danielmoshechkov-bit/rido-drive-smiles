@@ -1364,6 +1364,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
         vehicleVin={order.vehicle?.vin || undefined}
         vehicle={order.vehicle || null}
         margin={configuredPartsIntegrations[0]?.sales_margin_percent || 30}
+        existingParts={goods.filter((g: any) => g.name && g.name.trim()).map((g: any) => ({ name: g.name, quantity: g.quantity || 1 }))}
       />
       <RidoPartsConfigModal
         open={ridoConfigOpen}
