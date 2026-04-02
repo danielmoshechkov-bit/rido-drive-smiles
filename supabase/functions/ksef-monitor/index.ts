@@ -17,6 +17,35 @@ Zwróć WYŁĄCZNIE czysty JSON:
 {"has_changes": boolean, "summary": "max 2 zdania po polsku", "alerts": [{"severity": "critical"|"warning"|"info", "title": "tytuł", "description": "opis", "action_required": "akcja lub null"}]}
 Jeśli brak zmian: {"has_changes": false, "summary": "Brak nowych informacji", "alerts": []}`;
 
+const APP_BASE_URL = "https://rido-drive-smiles.lovable.app";
+const encoder = new TextEncoder();
+
+function toBase64Url(bytes: Uint8Array) {
+  const binary = Array.from(bytes, (byte) => String.fromCharCode(byte)).join("");
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+async function signUnsubscribeToken(email: string) {
+  const secret = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!secret) throw new Error("Brak SUPABASE_SERVICE_ROLE_KEY");
+
+  const payload = encoder.encode(JSON.stringify({ email, type: "ksef-unsubscribe" }));
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = new Uint8Array(await crypto.subtle.sign("HMAC", key, payload));
+  return `${toBase64Url(payload)}.${toBase64Url(signature)}`;
+}
+
+async function buildUnsubscribeUrl(email: string) {
+  const token = await signUnsubscribeToken(email);
+  return `${APP_BASE_URL}/functions/v1/ksef-unsubscribe?token=${encodeURIComponent(token)}`;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -94,20 +123,25 @@ serve(async (req) => {
       if (emails.length > 0) {
         const critCount = allAlerts.filter((a) => a.severity === "critical").length;
         const subject = critCount > 0 ? `🚨 KSeF Monitor — wykryto ${critCount} krytyczną zmianę` : `⚠️ KSeF Monitor GetRido — ${allAlerts.length} nowych informacji`;
-        const html = `<div style="font-family:sans-serif;max-width:600px;margin:0 auto">
-          <h2>🔔 KSeF Monitor — GetRido</h2>
-          <p>Nasz bot AI wykrył ${allAlerts.length} nowych informacji w systemie KSeF (${new Date().toLocaleDateString("pl-PL")}):</p>
-          ${allAlerts.map((a) => `
-            <div style="border-left:4px solid ${a.severity === 'critical' ? '#ef4444' : a.severity === 'warning' ? '#f59e0b' : '#3b82f6'};padding:12px;margin:8px 0;background:#f9fafb;border-radius:4px">
-              <strong>${a.title}</strong><br>${a.description || ""}
-              ${a.action_required ? `<br><span style="color:#ef4444">→ Wymagana akcja: ${a.action_required}</span>` : ""}
-              <br><small style="color:#6b7280">Źródło: ${a.source}</small>
-            </div>
-          `).join("")}
-          <p style="color:#9ca3af;font-size:12px;margin-top:24px">GetRido — automatyczny monitoring KSeF. getrido.pl</p>
-        </div>`;
 
         for (const email of emails) {
+          const unsubscribeUrl = await buildUnsubscribeUrl(email);
+          const html = `<div style="font-family:sans-serif;max-width:600px;margin:0 auto">
+            <h2>🔔 KSeF Monitor — GetRido</h2>
+            <p>Nasz bot AI wykrył ${allAlerts.length} nowych informacji w systemie KSeF (${new Date().toLocaleDateString("pl-PL")}):</p>
+            ${allAlerts.map((a) => `
+              <div style="border-left:4px solid ${a.severity === 'critical' ? '#ef4444' : a.severity === 'warning' ? '#f59e0b' : '#3b82f6'};padding:12px;margin:8px 0;background:#f9fafb;border-radius:4px">
+                <strong>${a.title}</strong><br>${a.description || ""}
+                ${a.action_required ? `<br><span style="color:#ef4444">→ Wymagana akcja: ${a.action_required}</span>` : ""}
+                <br><small style="color:#6b7280">Źródło: ${a.source}</small>
+              </div>
+            `).join("")}
+            <p style="color:#9ca3af;font-size:12px;margin-top:24px">GetRido — automatyczny monitoring KSeF. getrido.pl</p>
+            <div style="margin-top:16px">
+              <a href="${unsubscribeUrl}" style="display:inline-block;padding:10px 16px;border-radius:10px;background:#111827;color:#ffffff;text-decoration:none;font-size:13px;font-weight:600">Wypisz się z tych maili</a>
+            </div>
+          </div>`;
+
           await fetch("https://api.resend.com/emails", {
             method: "POST",
             headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
