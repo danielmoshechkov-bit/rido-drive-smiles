@@ -4,9 +4,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, CheckCircle2, XCircle, TestTube, Settings2, Lock } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, TestTube, Settings2, Lock, Info, ExternalLink } from 'lucide-react';
 import { usePartsIntegrations, useUpsertPartsIntegration, usePartsApi } from '@/hooks/useWorkshopParts';
 import { toast } from 'sonner';
 
@@ -27,9 +27,36 @@ interface IntegrationForm {
   api_extra_json: Record<string, string>;
 }
 
+const HART_BRANCHES = [
+  { id: '', label: 'Domyślny (przypisany do konta)' },
+  { id: '1', label: 'Centrala Opole - HUB' },
+  { id: '2', label: 'Wrocław' },
+  { id: '3', label: 'Bytom' },
+  { id: '4', label: 'Wieliczka' },
+  { id: '8', label: 'Poznań' },
+  { id: '9', label: 'Katowice' },
+  { id: '10', label: 'Łódź' },
+  { id: '11', label: 'Częstochowa' },
+  { id: '12', label: 'Zielona Góra' },
+  { id: '13', label: 'Kraków' },
+  { id: '15', label: 'Białystok' },
+  { id: '16', label: 'Warszawa 1 (Targówek)' },
+  { id: '17', label: 'Rzeszów' },
+  { id: '18', label: 'Bielsko-Biała' },
+  { id: '19', label: 'Warszawa 2' },
+  { id: '20', label: 'Radom' },
+  { id: '22', label: 'Psary' },
+  { id: '23', label: 'Bydgoszcz' },
+  { id: '27', label: 'Koluszki - HUB' },
+  { id: '28', label: 'Szczecin' },
+  { id: '29', label: 'Gdańsk' },
+  { id: '30', label: 'Lublin' },
+  { id: '32', label: 'Warszawa 3' },
+];
+
 const WHOLESALERS = [
-  { code: 'hart', name: 'Hart', logo: '🟡', url: 'hartphp.com.pl', active: true, helpText: 'Skontaktuj się z przedstawicielem handlowym Hart aby uzyskać login i hasło API' },
-  { code: 'auto_partner', name: 'Auto Partner', logo: '🔵', url: 'autopartner.dev', active: true, helpText: 'Skontaktuj się z opiekunem Auto Partner aby uzyskać Client Code, WS Password i Client Password' },
+  { code: 'hart', name: 'Hart', logo: '🟡', url: 'hartphp.com.pl', active: true, helpText: 'Skontaktuj się z przedstawicielem handlowym Hart aby uzyskać login i hasło API.' },
+  { code: 'auto_partner', name: 'Auto Partner', logo: '🔵', url: 'autopartner.dev', active: true, helpText: 'Skontaktuj się z opiekunem Auto Partner aby uzyskać Client Code, WS Password i Client Password.' },
   { code: 'inter_cars', name: 'Inter Cars', logo: '🔴', url: 'intercars.com.pl', active: false, helpText: '' },
   { code: 'gordon', name: 'Gordon', logo: '🟢', url: 'gordon.com.pl', active: false, helpText: '' },
   { code: 'motorro', name: 'Motorro', logo: '🟠', url: 'motorro.eu', active: false, helpText: '' },
@@ -193,52 +220,115 @@ export function WholesalerIntegrationsSettings({ providerId }: Props) {
             <DialogTitle className="flex items-center gap-2 text-lg">
               <span className="text-2xl">🟡</span> Hart — Konfiguracja API
             </DialogTitle>
-            <p className="text-xs text-muted-foreground mt-1">{WHOLESALERS[0].helpText}</p>
+            <DialogDescription className="text-xs">
+              {WHOLESALERS[0].helpText}
+            </DialogDescription>
           </DialogHeader>
           {forms.hart && (
             <div className="space-y-4 pt-2">
+              {/* Info box */}
+              <div className="rounded-lg border bg-muted/40 px-3 py-2.5 text-xs text-muted-foreground space-y-1">
+                <div className="flex items-start gap-1.5">
+                  <Info className="h-3.5 w-3.5 mt-0.5 shrink-0 text-primary" />
+                  <div>
+                    <p className="font-medium text-foreground">Jak uzyskać dane dostępowe?</p>
+                    <ol className="list-decimal ml-4 mt-1 space-y-0.5">
+                      <li>Skontaktuj się z przedstawicielem handlowym Hart</li>
+                      <li>Poproś o <strong>login i hasło do REST API</strong> (sandbox + produkcja)</li>
+                      <li>Otrzymasz oddzielne dane dla środowiska testowego i produkcyjnego</li>
+                    </ol>
+                    <p className="mt-1.5">
+                      API: <code className="text-[10px] bg-muted px-1 rounded">restapi.hartphp.com.pl</code> (produkcja) / <code className="text-[10px] bg-muted px-1 rounded">sandbox.restapi.hartphp.com.pl</code> (test)
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-medium">Integracja aktywna</Label>
                 <Switch checked={forms.hart.is_enabled} onCheckedChange={(v) => updateForm('hart', { is_enabled: v })} />
               </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs">Login API</Label>
-                  <Input value={forms.hart.api_username} onChange={(e) => updateForm('hart', { api_username: e.target.value })} placeholder="Login z Hart" />
+                  <Label className="text-xs">Login API <span className="text-destructive">*</span></Label>
+                  <Input
+                    value={forms.hart.api_username}
+                    onChange={(e) => updateForm('hart', { api_username: e.target.value })}
+                    placeholder="np. 1234"
+                  />
+                  <p className="text-[10px] text-muted-foreground">Numer klienta / login z Hart</p>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Hasło API</Label>
-                  <Input type="password" value={forms.hart.api_password} onChange={(e) => updateForm('hart', { api_password: e.target.value })} placeholder="Hasło z Hart" />
+                  <Label className="text-xs">Hasło API <span className="text-destructive">*</span></Label>
+                  <Input
+                    type="password"
+                    value={forms.hart.api_password}
+                    onChange={(e) => updateForm('hart', { api_password: e.target.value })}
+                    placeholder="••••••••"
+                  />
+                  <p className="text-[10px] text-muted-foreground">Hasło dostarczone przez Hart</p>
                 </div>
               </div>
+
               <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1">
                   <Label className="text-xs">Środowisko</Label>
                   <Select value={forms.hart.environment} onValueChange={(v) => updateForm('hart', { environment: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="sandbox">Sandbox</SelectItem>
-                      <SelectItem value="production">Produkcja</SelectItem>
+                      <SelectItem value="sandbox">🧪 Sandbox (test)</SelectItem>
+                      <SelectItem value="production">🚀 Produkcja</SelectItem>
                     </SelectContent>
                   </Select>
+                  <p className="text-[10px] text-muted-foreground">Zacznij od sandbox</p>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Magazyn ID</Label>
-                  <Input value={forms.hart.default_branch_id} onChange={(e) => updateForm('hart', { default_branch_id: e.target.value })} placeholder="np. 1, 16, 29" />
+                  <Label className="text-xs">Magazyn (BranchId)</Label>
+                  <Select
+                    value={forms.hart.default_branch_id || ''}
+                    onValueChange={(v) => updateForm('hart', { default_branch_id: v })}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Domyślny" /></SelectTrigger>
+                    <SelectContent className="max-h-[300px]">
+                      {HART_BRANCHES.map((b) => (
+                        <SelectItem key={b.id} value={b.id || 'default'}>
+                          {b.id ? `${b.id} — ${b.label}` : b.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[10px] text-muted-foreground">Najbliższy magazyn Hart</p>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Marża %</Label>
-                  <Input type="number" value={forms.hart.sales_margin_percent} onChange={(e) => updateForm('hart', { sales_margin_percent: Number(e.target.value) })} />
+                  <Label className="text-xs">Marża sprzedaży %</Label>
+                  <Input
+                    type="number"
+                    value={forms.hart.sales_margin_percent}
+                    onChange={(e) => updateForm('hart', { sales_margin_percent: Number(e.target.value) })}
+                  />
+                  <p className="text-[10px] text-muted-foreground">Narzut na cenę hurtową</p>
                 </div>
               </div>
+
               <div className="flex gap-2 pt-3 border-t">
-                <Button variant="outline" size="sm" onClick={() => testConnection('hart')} disabled={testingSupplier === 'hart'} className="gap-1.5">
+                <Button variant="outline" size="sm" onClick={() => testConnection('hart')} disabled={testingSupplier === 'hart' || !forms.hart.api_username || !forms.hart.api_password} className="gap-1.5">
                   {testingSupplier === 'hart' ? <Loader2 className="h-4 w-4 animate-spin" /> : <TestTube className="h-4 w-4" />}
                   Testuj połączenie
                 </Button>
-                <Button size="sm" onClick={async () => { await saveIntegration('hart'); toast.success('Hart zapisany'); setOpenDialog(null); }}>
+                <Button size="sm" onClick={async () => { await saveIntegration('hart'); toast.success('Hart zapisany'); setOpenDialog(null); }} disabled={!forms.hart.api_username || !forms.hart.api_password}>
                   Zapisz
                 </Button>
+                {testResults.hart === 'ok' && (
+                  <span className="flex items-center gap-1 text-xs text-green-600 ml-auto">
+                    <CheckCircle2 className="h-3.5 w-3.5" /> Połączenie aktywne
+                  </span>
+                )}
+                {testResults.hart === 'error' && (
+                  <span className="flex items-center gap-1 text-xs text-destructive ml-auto">
+                    <XCircle className="h-3.5 w-3.5" /> Sprawdź dane
+                  </span>
+                )}
               </div>
             </div>
           )}
@@ -252,26 +342,49 @@ export function WholesalerIntegrationsSettings({ providerId }: Props) {
             <DialogTitle className="flex items-center gap-2 text-lg">
               <span className="text-2xl">🔵</span> Auto Partner — Konfiguracja API
             </DialogTitle>
-            <p className="text-xs text-muted-foreground mt-1">{WHOLESALERS[1].helpText}</p>
+            <DialogDescription className="text-xs">
+              {WHOLESALERS[1].helpText}
+            </DialogDescription>
           </DialogHeader>
           {forms.auto_partner && (
             <div className="space-y-4 pt-2">
+              {/* Info box */}
+              <div className="rounded-lg border bg-muted/40 px-3 py-2.5 text-xs text-muted-foreground space-y-1">
+                <div className="flex items-start gap-1.5">
+                  <Info className="h-3.5 w-3.5 mt-0.5 shrink-0 text-primary" />
+                  <div>
+                    <p className="font-medium text-foreground">Jak uzyskać dane dostępowe?</p>
+                    <ol className="list-decimal ml-4 mt-1 space-y-0.5">
+                      <li>Skontaktuj się z opiekunem handlowym Auto Partner</li>
+                      <li>Poproś o <strong>Client Code, WS Password i Client Password</strong></li>
+                      <li>Client Password podaj jako <strong>hash MD5</strong> (małe litery)</li>
+                    </ol>
+                    <p className="mt-1.5">
+                      API: <code className="text-[10px] bg-muted px-1 rounded">customerapi.autopartner.dev</code>
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-medium">Integracja aktywna</Label>
                 <Switch checked={forms.auto_partner.is_enabled} onCheckedChange={(v) => updateForm('auto_partner', { is_enabled: v })} />
               </div>
               <div className="space-y-3">
                 <div className="space-y-1">
-                  <Label className="text-xs">Client Code</Label>
+                  <Label className="text-xs">Client Code <span className="text-destructive">*</span></Label>
                   <Input value={getExtraField('auto_partner', 'clientCode')} onChange={(e) => setExtraField('auto_partner', 'clientCode', e.target.value)} placeholder="np. 3282058" />
+                  <p className="text-[10px] text-muted-foreground">Numer klienta w systemie Auto Partner</p>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">WS Password</Label>
-                  <Input type="password" value={getExtraField('auto_partner', 'wsPassword')} onChange={(e) => setExtraField('auto_partner', 'wsPassword', e.target.value)} placeholder="hasło WebService od AP" />
+                  <Label className="text-xs">WS Password <span className="text-destructive">*</span></Label>
+                  <Input type="password" value={getExtraField('auto_partner', 'wsPassword')} onChange={(e) => setExtraField('auto_partner', 'wsPassword', e.target.value)} placeholder="••••••••" />
+                  <p className="text-[10px] text-muted-foreground">Hasło WebService od Auto Partner</p>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Client Password (MD5)</Label>
-                  <Input type="password" value={getExtraField('auto_partner', 'clientPassword')} onChange={(e) => setExtraField('auto_partner', 'clientPassword', e.target.value)} placeholder="hash MD5 hasła klienta" />
+                  <Label className="text-xs">Client Password (MD5) <span className="text-destructive">*</span></Label>
+                  <Input type="password" value={getExtraField('auto_partner', 'clientPassword')} onChange={(e) => setExtraField('auto_partner', 'clientPassword', e.target.value)} placeholder="np. e10adc3949ba59abbe56..." />
+                  <p className="text-[10px] text-muted-foreground">Hash MD5 hasła klienta (małe litery, 32 znaki)</p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -280,24 +393,34 @@ export function WholesalerIntegrationsSettings({ providerId }: Props) {
                   <Select value={forms.auto_partner.environment} onValueChange={(v) => updateForm('auto_partner', { environment: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="sandbox">Sandbox</SelectItem>
-                      <SelectItem value="production">Produkcja</SelectItem>
+                      <SelectItem value="sandbox">🧪 Sandbox (test)</SelectItem>
+                      <SelectItem value="production">🚀 Produkcja</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Marża %</Label>
+                  <Label className="text-xs">Marża sprzedaży %</Label>
                   <Input type="number" value={forms.auto_partner.sales_margin_percent} onChange={(e) => updateForm('auto_partner', { sales_margin_percent: Number(e.target.value) })} />
                 </div>
               </div>
               <div className="flex gap-2 pt-3 border-t">
-                <Button variant="outline" size="sm" onClick={() => testConnection('auto_partner')} disabled={testingSupplier === 'auto_partner'} className="gap-1.5">
+                <Button variant="outline" size="sm" onClick={() => testConnection('auto_partner')} disabled={testingSupplier === 'auto_partner' || !getExtraField('auto_partner', 'clientCode')} className="gap-1.5">
                   {testingSupplier === 'auto_partner' ? <Loader2 className="h-4 w-4 animate-spin" /> : <TestTube className="h-4 w-4" />}
                   Testuj połączenie
                 </Button>
-                <Button size="sm" onClick={async () => { await saveIntegration('auto_partner'); toast.success('Auto Partner zapisany'); setOpenDialog(null); }}>
+                <Button size="sm" onClick={async () => { await saveIntegration('auto_partner'); toast.success('Auto Partner zapisany'); setOpenDialog(null); }} disabled={!getExtraField('auto_partner', 'clientCode')}>
                   Zapisz
                 </Button>
+                {testResults.auto_partner === 'ok' && (
+                  <span className="flex items-center gap-1 text-xs text-green-600 ml-auto">
+                    <CheckCircle2 className="h-3.5 w-3.5" /> Połączenie aktywne
+                  </span>
+                )}
+                {testResults.auto_partner === 'error' && (
+                  <span className="flex items-center gap-1 text-xs text-destructive ml-auto">
+                    <XCircle className="h-3.5 w-3.5" /> Sprawdź dane
+                  </span>
+                )}
               </div>
             </div>
           )}
