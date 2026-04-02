@@ -427,6 +427,12 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
                 </TabsTrigger>
               )}
               {userType === 'fleet' && fleetId && (
+                <TabsTrigger value="accounting">
+                  <Calculator className="h-4 w-4 mr-2" />
+                  Księgowość
+                </TabsTrigger>
+              )}
+              {userType === 'fleet' && fleetId && (
                 <TabsTrigger value="rental-payments">
                   <CreditCard className="h-4 w-4 mr-2" />
                   Płatności
