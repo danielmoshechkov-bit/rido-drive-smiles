@@ -112,18 +112,21 @@ export const SMSIntegrationsPanel = () => {
     setSaving(true);
     try {
       const providerConfig = SMS_PROVIDERS.find((item) => item.value === formData.provider);
-      const updateData = {
+      const updateData: Record<string, any> = {
         provider: formData.provider,
         api_url: formData.provider === 'custom'
           ? formData.api_url.trim()
           : (providerConfig?.apiUrl || formData.api_url.trim()),
         sender_name: (formData.sender_name || 'GetRido.pl').slice(0, 11),
         is_active: formData.is_active,
-        api_key_secret_name: formData.provider === 'justsend'
-          ? 'SMSAPI_TOKEN'
-          : (settings?.api_key_secret_name || null),
+        api_key_secret_name: 'SMSAPI_TOKEN',
         updated_at: new Date().toISOString(),
       };
+
+      // Jeśli admin wpisał klucz API — zapisz go w bazie
+      if (apiKey.trim()) {
+        updateData.api_key = apiKey.trim();
+      }
 
       if (settings?.id) {
         const { error } = await supabase
