@@ -235,36 +235,61 @@ async function getKsefAccessToken(base: string, nip: string, ksefToken: string):
 
   // KROK 2B — GET /security/public-key-certificates (zgodnie z open-api.json)
   const pubKeyRes = await fetch(`${base}/security/public-key-certificates`);
-  if (!pubKeyRes.ok) throw new Error(`[PHASE:public-key] HTTP ${pubKeyRes.status}: ${await pubKeyRes.text().catch(() => '')}`);
-  const pubKeyData = await pubKeyRes.json();
-  console.log('[KSeF][PHASE:public-key] response type:', typeof pubKeyData, 'isArray:', Array.isArray(pubKeyData));
+  if (!pubKeyRes.ok) throw new Error(`[PHASE:public-key] HTTP ${pubKeyRes.status}`);
+  const certificates: Array<{ certificate: string; validFrom: string; validTo: string; usage: string[] }> = await pubKeyRes.json();
 
-  // Obsługuj zarówno tablicę certyfikatów jak i pojedynczy obiekt
-  let certPem: string;
-  if (Array.isArray(pubKeyData)) {
-    const certObj = pubKeyData.find((c: any) => c.usage?.includes('KsefTokenEncryption')) || pubKeyData[0];
-    if (!certObj?.certificate) throw new Error('[PHASE:public-key] Brak certyfikatu KsefTokenEncryption w tablicy');
-    certPem = certObj.certificate;
-  } else if (pubKeyData?.certificate) {
-    certPem = pubKeyData.certificate;
-  } else if (typeof pubKeyData === 'string') {
-    certPem = pubKeyData;
-  } else {
-    // Może zwrócić obiekt z polem publicKey lub key
-    certPem = pubKeyData?.publicKey || pubKeyData?.key || '';
-    if (!certPem) throw new Error('[PHASE:public-key] Nierozpoznany format odpowiedzi klucza publicznego');
+  const certObj = certificates.find(c => c.usage?.includes('KsefTokenEncryption')) || certificates[0];
+  if (!certObj?.certificate) throw new Error('[PHASE:public-key] Brak certyfikatu KsefTokenEncryption');
+  console.log('[KSeF][PHASE:public-key] certyfikat wybrany, ważny do:', certObj.validTo);
+
+  // Certyfikat to X.509 DER base64 — wyciągnij SubjectPublicKeyInfo
+  const certDer = Uint8Array.from(atob(certObj.certificate), c => c.charCodeAt(0));
+
+  function extractSpkiFromCertificate(der: Uint8Array): Uint8Array {
+    const rsaOid = [0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x01, 0x01];
+    for (let i = 0; i < der.length - rsaOid.length - 20; i++) {
+      let found = true;
+      for (let j = 0; j < rsaOid.length; j++) {
+        if (der[i + j] !== rsaOid[j]) { found = false; break; }
+      }
+      if (found) {
+        let spkiStart = i - 4;
+        while (spkiStart > 0 && der[spkiStart] !== 0x30) spkiStart--;
+        const lengthByte = der[spkiStart + 1];
+        let spkiLength: number;
+        let spkiDataStart: number;
+        if (lengthByte < 0x80) {
+          spkiLength = lengthByte;
+          spkiDataStart = spkiStart + 2;
+        } else if (lengthByte === 0x81) {
+          spkiLength = der[spkiStart + 2];
+          spkiDataStart = spkiStart + 3;
+        } else if (lengthByte === 0x82) {
+          spkiLength = (der[spkiStart + 2] << 8) | der[spkiStart + 3];
+          spkiDataStart = spkiStart + 4;
+        } else {
+          continue;
+        }
+        const spkiEnd = spkiDataStart + spkiLength;
+        if (spkiEnd <= der.length && spkiLength > 50 && spkiLength < 1000) {
+          return der.slice(spkiStart, spkiEnd);
+        }
+      }
+    }
+    throw new Error('[PHASE:public-key] Nie znaleziono SubjectPublicKeyInfo w certyfikacie X.509');
   }
 
-  // Import klucza publicznego RSA-OAEP SHA-256
-  const keyBytes = base64ToBytes(stripPemHeaders(certPem));
+  const spkiBytes = extractSpkiFromCertificate(certDer);
+  console.log('[KSeF][PHASE:public-key] SPKI wyciągnięty z X.509, rozmiar:', spkiBytes.byteLength);
+
   let cryptoKey: CryptoKey;
   try {
-    cryptoKey = await crypto.subtle.importKey('spki', keyBytes.buffer, { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['encrypt']);
+    cryptoKey = await crypto.subtle.importKey('spki', spkiBytes.buffer, { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['encrypt']);
   } catch (importErr) {
     console.error('[KSeF][PHASE:public-key] importKey SPKI failed:', importErr);
-    throw new Error('[PHASE:public-key] Nie można zaimportować klucza publicznego MF — sprawdź format certyfikatu');
+    throw new Error('[PHASE:public-key] Nie można zaimportować klucza publicznego MF');
   }
-  console.log('[KSeF][PHASE:public-key] Klucz publiczny MF załadowany');
+  console.log('[KSeF][PHASE:public-key] Klucz RSA zaimportowany pomyślnie');
 
   // KROK 2C — Zaszyfruj token RSA-OAEP SHA-256
   const plaintext = textEncoder.encode(`${ksefToken}|${timestampMs}`);
