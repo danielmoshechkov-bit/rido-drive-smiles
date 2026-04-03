@@ -16,11 +16,9 @@ interface SMSRequest {
   fleet_id?: string;
   type?: string;
   sender?: string;
+  dry_run?: boolean;
 }
 
-/**
- * Normalize phone to MSISDN format: 48XXXXXXXXX (no +, no spaces)
- */
 function normalizePhone(raw: string): string {
   let phone = raw.replace(/[\s\-\(\)\+]/g, '');
   if (phone.startsWith('48') && phone.length >= 11) return phone;
@@ -29,22 +27,39 @@ function normalizePhone(raw: string): string {
   return phone;
 }
 
+function sanitizeSender(sender: string): string {
+  return sender.replace(/[^a-zA-Z0-9.\-]/g, '').slice(0, 11) || DEFAULT_SENDER;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    const { data: settings } = await supabase
+      .from('sms_settings')
+      .select('provider, api_url, sender_name, is_active, api_key_secret_name')
+      .order('updated_at', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
     const SMSAPI_TOKEN = Deno.env.get('SMSAPI_TOKEN');
     if (!SMSAPI_TOKEN) {
       console.error('SMSAPI_TOKEN (JustSend App-Key) not configured');
       return new Response(
-        JSON.stringify({ success: false, error: 'SMS service not configured — brak klucza API JustSend' }),
+        JSON.stringify({ success: false, error: 'Brak globalnego klucza JustSend po stronie serwera' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const { phone, message, driver_id, fleet_id, type = 'generic', sender }: SMSRequest = await req.json();
+    const { phone, message, driver_id, fleet_id, type = 'generic', sender, dry_run = false }: SMSRequest = await req.json();
 
     if (!phone || !message) {
       return new Response(
@@ -53,38 +68,66 @@ serve(async (req) => {
       );
     }
 
+    const provider = settings?.provider || 'justsend';
+    const apiUrl = settings?.api_url || JUSTSEND_API_URL;
+    const senderName = sanitizeSender(sender || settings?.sender_name || DEFAULT_SENDER);
+    const isActive = settings?.is_active ?? true;
     const msisdn = normalizePhone(phone);
-    const senderName = (sender || DEFAULT_SENDER).replace(/[^a-zA-Z0-9.\-]/g, '').slice(0, 11);
+
+    if (provider !== 'justsend') {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Portal obsługuje obecnie wysyłkę SMS przez JustSend.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!isActive && type !== 'test' && !dry_run) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Integracja SMS jest wyłączona w portalu.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (dry_run) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          dry_run: true,
+          provider,
+          api_url: apiUrl,
+          sender: senderName,
+          is_active: isActive,
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const campaignName = `GetRido-${type}-${Date.now()}`;
-
-    // Build ISO 8601 sendDate = now + 5 seconds (immediate)
     const sendDate = new Date(Date.now() + 5000).toISOString().replace(/\.\d+Z$/, '+00:00');
-
-    const body = {
+    const payload = {
       name: campaignName,
       bulkType: 'STANDARD',
       bulkVariant: 'PRO',
       sender: senderName,
-      message: message,
-      sendDate: sendDate,
+      message,
+      sendDate,
       recipients: [{ msisdn }],
     };
 
-    console.log(`[JustSend] Sending SMS to ${msisdn}, sender=${senderName}, message="${message.substring(0, 60)}..."`);
-    console.log(`[JustSend] Request body:`, JSON.stringify(body));
+    console.log(`[JustSend] Sending SMS to ${msisdn}, sender=${senderName}, provider=${provider}`);
 
-    const smsResponse = await fetch(JUSTSEND_API_URL, {
+    const smsResponse = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'App-Key': SMSAPI_TOKEN,
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify(payload),
     });
 
     const responseStatus = smsResponse.status;
-    let responseBody: string;
+    let responseBody = '(empty response)';
     try {
       responseBody = await smsResponse.text();
     } catch {
@@ -93,9 +136,7 @@ serve(async (req) => {
 
     console.log(`[JustSend] Response status: ${responseStatus}, body: ${responseBody}`);
 
-    // JustSend returns 201 Created on success
-    if (responseStatus !== 201 && responseStatus !== 200) {
-      console.error(`[JustSend] ERROR: HTTP ${responseStatus} — ${responseBody}`);
+    if (responseStatus !== 200 && responseStatus !== 201) {
       return new Response(
         JSON.stringify({
           success: false,
@@ -106,16 +147,9 @@ serve(async (req) => {
       );
     }
 
-    // Log the SMS in database
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
-
-    // Deduct SMS credit from provider if fleet_id present
     if (fleet_id) {
-      await supabase.rpc('deduct_sms_credit', { p_provider_id: fleet_id }).catch((e: any) => {
-        console.warn('[JustSend] Could not deduct SMS credit:', e?.message);
+      await supabase.rpc('deduct_sms_credit', { p_provider_id: fleet_id }).catch((error: any) => {
+        console.warn('[JustSend] Could not deduct SMS credit:', error?.message);
       });
     }
 
@@ -130,11 +164,11 @@ serve(async (req) => {
         phone: msisdn,
         sender: senderName,
         justsend_response: responseBody,
-        fleet_id: fleet_id,
+        fleet_id,
         campaign_name: campaignName,
-      }
-    }).catch((e: any) => {
-      console.warn('[JustSend] Could not log SMS to driver_communications:', e?.message);
+      },
+    }).catch((error: any) => {
+      console.warn('[JustSend] Could not log SMS to driver_communications:', error?.message);
     });
 
     return new Response(
@@ -147,8 +181,7 @@ serve(async (req) => {
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-
-  } catch (error) {
+  } catch (error: any) {
     console.error('[JustSend] Unexpected error:', error);
     return new Response(
       JSON.stringify({ success: false, error: error.message }),
