@@ -284,14 +284,11 @@ export const SMSIntegrationsPanel = () => {
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
               placeholder={settings?.api_key_secret_name ? '••••••••••••••••' : 'Klucz API'}
-              disabled={formData.provider === 'justsend'}
             />
             <p className="text-xs text-muted-foreground">
-              {formData.provider === 'justsend'
-                ? 'JustSend korzysta z globalnego klucza portalu — nie trzeba nic dopisywać ręcznie w Supabase.'
-                : settings?.api_key_secret_name
-                  ? `Klucz jest już zapisany dla dostawcy: ${settings.api_key_secret_name}`
-                  : 'Jeśli używasz własnego dostawcy, uzupełnij jego klucz API.'}
+              {settings?.api_key_secret_name
+                ? 'Klucz API jest już zapisany. Wpisz nowy, aby go zaktualizować.'
+                : 'Wprowadź klucz API (App-Key) z panelu JustSend → Ustawienia → API.'}
             </p>
           </div>
 
