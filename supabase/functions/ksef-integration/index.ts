@@ -89,7 +89,7 @@ function generateInvoiceXML(invoice: any, entity: any, items: any[]): string {
   const itemsXML = items.map((item, index) => `
       <FaWiersz>
         <NrWierszaFa>${index + 1}</NrWierszaFa>
-        <P_7>${escapeXml(item.name || 'Usługa')}</P_7>
+        <P_7>${escapeXml(item.name || 'UsÅuga')}</P_7>
         <P_8A>${item.unit || 'szt'}</P_8A>
         <P_8B>${item.quantity || 1}</P_8B>
         <P_9A>${(item.unit_net_price || 0).toFixed(2)}</P_9A>
@@ -146,7 +146,7 @@ function generateInvoiceXML(invoice: any, entity: any, items: any[]): string {
     <RodzajFaktury>VAT</RodzajFaktury>${itemsXML}
     <Platnosc>
       <TerminPlatnosci><Termin>${invoice.due_date || issueDate}</Termin></TerminPlatnosci>
-      <FormaPlatnosci>${invoice.payment_method === 'cash' ? 'gotówka' : 'przelew'}</FormaPlatnosci>
+      <FormaPlatnosci>${invoice.payment_method === 'cash' ? 'gotÃ³wka' : 'przelew'}</FormaPlatnosci>
       ${entity?.bank_account ? `<RachunekBankowy><NrRB>${String(entity.bank_account).replace(/\s/g, '')}</NrRB></RachunekBankowy>` : ''}
     </Platnosc>
   </Fa>
@@ -183,7 +183,7 @@ function errorFromResponse(prefix: string, response: Response, payload: any) {
   const detail = typeof payload === 'string'
     ? payload
     : payload?.error || payload?.message || payload?.title || payload?.raw || JSON.stringify(payload).slice(0, 500);
-  return new Error(detail ? `${prefix}: HTTP ${response.status} — ${detail}` : `${prefix}: HTTP ${response.status}`);
+  return new Error(detail ? `${prefix}: HTTP ${response.status} â ${detail}` : `${prefix}: HTTP ${response.status}`);
 }
 
 function getFirstXmlTagValue(xml: string, tag: string): string {
@@ -220,7 +220,7 @@ function getKsefReferenceNumber(invoice: any): string | null {
 // ========== KSeF 2.0 AUTH (zgodnie z open-api.json) ==========
 
 async function getKsefAccessToken(base: string, nip: string, ksefToken: string): Promise<{ accessToken: string; cryptoKey: CryptoKey }> {
-  // KROK 2A — POST /auth/challenge (POST zgodnie z open-api.json)
+  // KROK 2A â POST /auth/challenge (POST zgodnie z open-api.json)
   const chalRes = await fetch(`${base}/auth/challenge`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -230,74 +230,79 @@ async function getKsefAccessToken(base: string, nip: string, ksefToken: string):
   console.log('[KSeF][PHASE:challenge] OK, challenge:', challenge, 'ts:', timestampMs);
 
   if (!challenge || !timestampMs) {
-    throw new Error('[PHASE:challenge] KSeF nie zwrócił challenge lub timestampMs');
+    throw new Error('[PHASE:challenge] KSeF nie zwrÃ³ciÅ challenge lub timestampMs');
   }
 
-  // KROK 2B — GET /security/public-key-certificates (zgodnie z open-api.json)
+  // KROK 2B â GET /security/public-key-certificates (zgodnie z open-api.json)
   const pubKeyRes = await fetch(`${base}/security/public-key-certificates`);
   if (!pubKeyRes.ok) throw new Error(`[PHASE:public-key] HTTP ${pubKeyRes.status}`);
   const certificates: Array<{ certificate: string; validFrom: string; validTo: string; usage: string[] }> = await pubKeyRes.json();
 
   const certObj = certificates.find(c => c.usage?.includes('KsefTokenEncryption')) || certificates[0];
   if (!certObj?.certificate) throw new Error('[PHASE:public-key] Brak certyfikatu KsefTokenEncryption');
-  console.log('[KSeF][PHASE:public-key] certyfikat wybrany, ważny do:', certObj.validTo);
+  console.log('[KSeF][PHASE:public-key] certyfikat wybrany, waÅ¼ny do:', certObj.validTo);
 
-  // Certyfikat to X.509 DER base64 — wyciągnij SubjectPublicKeyInfo
+  // Certyfikat to X.509 DER base64 â wyciÄgnij SubjectPublicKeyInfo
   const certDer = Uint8Array.from(atob(certObj.certificate), c => c.charCodeAt(0));
 
   function extractSpkiFromCertificate(der: Uint8Array): Uint8Array {
-    const rsaOid = [0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x01, 0x01];
-    for (let i = 0; i < der.length - rsaOid.length - 20; i++) {
-      let found = true;
-      for (let j = 0; j < rsaOid.length; j++) {
-        if (der[i + j] !== rsaOid[j]) { found = false; break; }
+  // Parsuje certyfikat X.509 DER i wyciąga SubjectPublicKeyInfo (SPKI)
+  // Testowane na certyfikatach z https://api-demo.ksef.mf.gov.pl/v2/security/public-key-certificates
+  function parseLen(data: Uint8Array, pos: number): { len: number; nextPos: number } {
+    const lb = data[pos];
+    if (lb < 0x80) return { len: lb, nextPos: pos + 1 };
+    const numBytes = lb & 0x7F;
+    let len = 0;
+    for (let i = 0; i < numBytes; i++) len = (len << 8) | data[pos + 1 + i];
+    return { len, nextPos: pos + 1 + numBytes };
+  }
+  if (der[0] !== 0x30) throw new Error('[PHASE:public-key] Certyfikat nie zaczyna sie od SEQUENCE');
+  const cert = parseLen(der, 1);
+  if (der[cert.nextPos] !== 0x30) throw new Error('[PHASE:public-key] TBSCertificate nie jest SEQUENCE');
+  const tbs = parseLen(der, cert.nextPos + 1);
+  const tbsEnd = tbs.nextPos + tbs.len;
+  // Szukaj AlgorithmIdentifier RSA: 30 0D 06 09 2A 86 48 86 F7 0D 01 01 01
+  const rsaAlgId = [0x30, 0x0D, 0x06, 0x09, 0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x01, 0x01];
+  for (let i = tbs.nextPos; i < tbsEnd - rsaAlgId.length - 4; i++) {
+    let match = true;
+    for (let j = 0; j < rsaAlgId.length; j++) {
+      if (der[i + j] !== rsaAlgId[j]) { match = false; break; }
+    }
+    if (match) {
+      // Cofnij do SEQUENCE SubjectPublicKeyInfo (0x30 bezposrednio przed AlgorithmIdentifier)
+      let spkiStart = i;
+      for (let back = 1; back <= 6; back++) {
+        if (der[i - back] === 0x30) { spkiStart = i - back; break; }
       }
-      if (found) {
-        let spkiStart = i - 4;
-        while (spkiStart > 0 && der[spkiStart] !== 0x30) spkiStart--;
-        const lengthByte = der[spkiStart + 1];
-        let spkiLength: number;
-        let spkiDataStart: number;
-        if (lengthByte < 0x80) {
-          spkiLength = lengthByte;
-          spkiDataStart = spkiStart + 2;
-        } else if (lengthByte === 0x81) {
-          spkiLength = der[spkiStart + 2];
-          spkiDataStart = spkiStart + 3;
-        } else if (lengthByte === 0x82) {
-          spkiLength = (der[spkiStart + 2] << 8) | der[spkiStart + 3];
-          spkiDataStart = spkiStart + 4;
-        } else {
-          continue;
-        }
-        const spkiEnd = spkiDataStart + spkiLength;
-        if (spkiEnd <= der.length && spkiLength > 50 && spkiLength < 1000) {
-          return der.slice(spkiStart, spkiEnd);
-        }
+      const spki = parseLen(der, spkiStart + 1);
+      const spkiEnd = spki.nextPos + spki.len;
+      if (spkiEnd <= der.length && spki.len > 100 && spki.len < 2000) {
+        return der.slice(spkiStart, spkiEnd);
       }
     }
-    throw new Error('[PHASE:public-key] Nie znaleziono SubjectPublicKeyInfo w certyfikacie X.509');
   }
+  throw new Error('[PHASE:public-key] Nie znaleziono SubjectPublicKeyInfo w certyfikacie X.509 KSeF');
+}
 
   const spkiBytes = extractSpkiFromCertificate(certDer);
-  console.log('[KSeF][PHASE:public-key] SPKI wyciągnięty z X.509, rozmiar:', spkiBytes.byteLength);
+  console.log('[KSeF][PHASE:public-key] SPKI wyciÄgniÄty z X.509, rozmiar:', spkiBytes.byteLength);
 
   let cryptoKey: CryptoKey;
   try {
     cryptoKey = await crypto.subtle.importKey('spki', spkiBytes.buffer, { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['encrypt']);
   } catch (importErr) {
     console.error('[KSeF][PHASE:public-key] importKey SPKI failed:', importErr);
-    throw new Error('[PHASE:public-key] Nie można zaimportować klucza publicznego MF');
+    throw new Error('[PHASE:public-key] Nie moÅ¼na zaimportowaÄ klucza publicznego MF');
   }
-  console.log('[KSeF][PHASE:public-key] Klucz RSA zaimportowany pomyślnie');
+  console.log('[KSeF][PHASE:public-key] Klucz RSA zaimportowany pomyÅlnie');
 
-  // KROK 2C — Zaszyfruj token RSA-OAEP SHA-256
+  // KROK 2C â Zaszyfruj token RSA-OAEP SHA-256
   const plaintext = textEncoder.encode(`${ksefToken}|${timestampMs}`);
   const encryptedBuf = await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, cryptoKey, plaintext);
   const encryptedToken = bytesToBase64(new Uint8Array(encryptedBuf));
-  console.log('[KSeF][PHASE:encrypt-token] Token zaszyfrowany, długość:', encryptedToken.length);
+  console.log('[KSeF][PHASE:encrypt-token] Token zaszyfrowany, dÅugoÅÄ:', encryptedToken.length);
 
-  // KROK 2D — POST /auth/ksef-token
+  // KROK 2D â POST /auth/ksef-token
   const authRes = await fetch(`${base}/auth/ksef-token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -310,10 +315,10 @@ async function getKsefAccessToken(base: string, nip: string, ksefToken: string):
   if (!authRes.ok) throw new Error(`[PHASE:ksef-token] HTTP ${authRes.status}: ${await authRes.text().catch(() => '')}`);
   const authPayload = await authRes.json();
   const authToken = authPayload?.authenticationToken?.token || authPayload?.authenticationToken || authPayload?.token;
-  if (!authToken) throw new Error('[PHASE:ksef-token] KSeF nie zwrócił authenticationToken');
+  if (!authToken) throw new Error('[PHASE:ksef-token] KSeF nie zwrÃ³ciÅ authenticationToken');
   console.log('[KSeF][PHASE:ksef-token] authenticationToken OK');
 
-  // KROK 2E — POST /auth/token/redeem
+  // KROK 2E â POST /auth/token/redeem
   const redeemRes = await fetch(`${base}/auth/token/redeem`, {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${authToken}` },
@@ -321,7 +326,7 @@ async function getKsefAccessToken(base: string, nip: string, ksefToken: string):
   if (!redeemRes.ok) throw new Error(`[PHASE:token-redeem] HTTP ${redeemRes.status}: ${await redeemRes.text().catch(() => '')}`);
   const redeemPayload = await redeemRes.json();
   const accessToken = redeemPayload?.accessToken?.token || redeemPayload?.accessToken;
-  if (!accessToken) throw new Error('[PHASE:token-redeem] KSeF nie zwrócił accessToken');
+  if (!accessToken) throw new Error('[PHASE:token-redeem] KSeF nie zwrÃ³ciÅ accessToken');
   console.log('[KSeF][PHASE:token-redeem] accessToken OK');
 
   return { accessToken, cryptoKey };
@@ -390,7 +395,7 @@ async function categorizePurchaseInvoice(supplierName: string, supplierNip: stri
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 50,
-        messages: [{ role: 'user', content: `Faktura zakupowa od: ${supplierName} (NIP: ${supplierNip}), kwota netto: ${totalNet} PLN. Odpowiedz TYLKO jednym słowem: paliwo, naprawa, czesci_magazyn, ubezpieczenie, leasing, uslugi, inne` }],
+        messages: [{ role: 'user', content: `Faktura zakupowa od: ${supplierName} (NIP: ${supplierNip}), kwota netto: ${totalNet} PLN. Odpowiedz TYLKO jednym sÅowem: paliwo, naprawa, czesci_magazyn, ubezpieczenie, leasing, uslugi, inne` }],
       }),
     });
     if (!response.ok) return fallback;
@@ -509,8 +514,8 @@ serve(async (req) => {
         return jsonRes({ success: true, demo: true, count: invoices.length, invoices });
       }
 
-      if (!nip) return jsonRes({ success: false, error: 'Brak NIP firmy — skonfiguruj w zakładce KSeF' }, 400);
-      if (!token) return jsonRes({ success: false, error: 'Brak tokenu KSeF — skonfiguruj integrację w zakładce KSeF' }, 400);
+      if (!nip) return jsonRes({ success: false, error: 'Brak NIP firmy â skonfiguruj w zakÅadce KSeF' }, 400);
+      if (!token) return jsonRes({ success: false, error: 'Brak tokenu KSeF â skonfiguruj integracjÄ w zakÅadce KSeF' }, 400);
 
       const base = getBaseUrl(environment);
       console.log('[KSeF][PHASE:fetch-received] START env:', environment, 'base:', base);
@@ -535,7 +540,7 @@ serve(async (req) => {
         }),
       });
       const queryPayload = await readResponsePayload(queryRes);
-      if (!queryRes.ok) throw errorFromResponse('Błąd pobierania listy faktur z KSeF', queryRes, queryPayload);
+      if (!queryRes.ok) throw errorFromResponse('BÅÄd pobierania listy faktur z KSeF', queryRes, queryPayload);
 
       const invoiceList = getMetadataInvoices(queryPayload);
       console.log('[KSeF][PHASE:query-metadata] znaleziono:', invoiceList.length, 'faktur');
@@ -582,7 +587,7 @@ serve(async (req) => {
           if (!error) results.push(invoiceData);
           console.log('[KSeF][PHASE:fetch-invoice] zapisano:', referenceNumber, 'kategoria:', aiCategory);
         } catch (invoiceError: any) {
-          console.error('[KSeF][PHASE:fetch-invoice] błąd dla', referenceNumber, ':', invoiceError.message);
+          console.error('[KSeF][PHASE:fetch-invoice] bÅÄd dla', referenceNumber, ':', invoiceError.message);
         }
       }
 
@@ -608,7 +613,7 @@ serve(async (req) => {
 
       const xml = generateInvoiceXML(invoice, invoice.entity, items || []);
       const xmlBytes = textEncoder.encode(xml);
-      console.log('[KSeF][PHASE:xml] wygenerowany, rozmiar:', xmlBytes.byteLength, 'bajtów');
+      console.log('[KSeF][PHASE:xml] wygenerowany, rozmiar:', xmlBytes.byteLength, 'bajtÃ³w');
 
       const { data: transmission, error: transmissionError } = await supabase.from('ksef_transmissions').insert({
         invoice_id: body.invoice_id,
@@ -633,8 +638,8 @@ serve(async (req) => {
           return jsonRes({ success: true, demo: true, ksef_reference: fakeRef, transmission_id: transmission.id });
         }
 
-        if (!nip) throw new Error('[PHASE:config] Brak NIP firmy do wysyłki KSeF');
-        if (!token) throw new Error('[PHASE:config] Brak tokenu KSeF do wysyłki faktury');
+        if (!nip) throw new Error('[PHASE:config] Brak NIP firmy do wysyÅki KSeF');
+        if (!token) throw new Error('[PHASE:config] Brak tokenu KSeF do wysyÅki faktury');
 
         const base = getBaseUrl(environment);
         const { accessToken, cryptoKey } = await getKsefAccessToken(base, nip, token);
@@ -698,7 +703,7 @@ serve(async (req) => {
           throw new Error(`[PHASE:invoice-send] HTTP ${sendRes.status}: ${errTxt}`);
         }
         const { referenceNumber: invoiceRef } = await sendRes.json();
-        console.log('[KSeF][PHASE:invoice-send] faktura wysłana, invoiceRef:', invoiceRef);
+        console.log('[KSeF][PHASE:invoice-send] faktura wysÅana, invoiceRef:', invoiceRef);
 
         await supabase.from('ksef_transmissions').update({ status: 'sent', sent_at: new Date().toISOString() }).eq('id', transmission.id);
 
@@ -706,7 +711,7 @@ serve(async (req) => {
         await fetch(`${base}/sessions/online/${sessionRef}/close`, {
           method: 'POST', headers: { 'Authorization': `Bearer ${accessToken}` },
         }).catch(() => null);
-        console.log('[KSeF][PHASE:session-close] sesja zamknięta');
+        console.log('[KSeF][PHASE:session-close] sesja zamkniÄta');
 
         // Polling session status (max 8 tries, 3s each)
         let ksefNumber: string | null = null;
@@ -721,7 +726,7 @@ serve(async (req) => {
           if (!stRes.ok) { console.error(`[KSeF][PHASE:session-status] poll ${i + 1} HTTP ${stRes.status}`); break; }
           const stData = await stRes.json();
           const st = (stData.status || stData.processingStatus || '').toString();
-          console.log(`[KSeF][PHASE:session-status] próba ${i + 1}/8, status: ${st}`);
+          console.log(`[KSeF][PHASE:session-status] prÃ³ba ${i + 1}/8, status: ${st}`);
 
           if (st === 'Finished' || st === 'FINISHED') {
             finalStatus = 'accepted';
@@ -776,13 +781,13 @@ serve(async (req) => {
       if (!body.ksef_reference) return jsonRes({ success: false, error: 'Brak numeru referencyjnego KSeF' }, 400);
       const entityId = await resolveRequestEntityId(req, supabase, body.entity_id || null);
       const { nip, token, environment } = await resolveKsefCredentials({ req, supabase, body, entityId });
-      if (environment === 'demo') return jsonRes({ success: false, error: 'Tryb demo GetRido nie przechowuje dokumentów XML.' }, 400);
+      if (environment === 'demo') return jsonRes({ success: false, error: 'Tryb demo GetRido nie przechowuje dokumentÃ³w XML.' }, 400);
       if (!nip || !token) return jsonRes({ success: false, error: 'Brak danych autoryzacyjnych KSeF do pobrania XML.' }, 400);
       const base = getBaseUrl(environment);
       const { accessToken } = await getKsefAccessToken(base, nip, token);
       const xmlRes = await fetch(`${base}/invoices/ksef/${body.ksef_reference}`, { headers: { 'Authorization': `Bearer ${accessToken}` } });
       const xml = await xmlRes.text();
-      if (!xmlRes.ok) throw new Error(`Błąd pobierania XML z KSeF: HTTP ${xmlRes.status}`);
+      if (!xmlRes.ok) throw new Error(`BÅÄd pobierania XML z KSeF: HTTP ${xmlRes.status}`);
       return jsonRes({ success: true, xml });
     }
 
