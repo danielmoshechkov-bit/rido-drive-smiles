@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -33,6 +33,9 @@ const SMS_PROVIDERS = [
   { value: 'custom', label: 'Własne API', apiUrl: '' },
 ];
 
+const DEFAULT_PROVIDER = 'justsend';
+const DEFAULT_PROVIDER_CONFIG = SMS_PROVIDERS.find((provider) => provider.value === DEFAULT_PROVIDER)!;
+
 export const SMSIntegrationsPanel = () => {
   const [settings, setSettings] = useState<SMSSettings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -41,33 +44,52 @@ export const SMSIntegrationsPanel = () => {
   const [apiKey, setApiKey] = useState('');
   const [testPhone, setTestPhone] = useState('');
   const [formData, setFormData] = useState({
-    provider: 'justsend',
-    api_url: '',
+    provider: DEFAULT_PROVIDER,
+    api_url: DEFAULT_PROVIDER_CONFIG.apiUrl,
     sender_name: 'GetRido.pl',
     is_active: false,
   });
 
+  const activeProvider = useMemo(
+    () => SMS_PROVIDERS.find((provider) => provider.value === formData.provider) || DEFAULT_PROVIDER_CONFIG,
+    [formData.provider]
+  );
+
   useEffect(() => {
-    fetchSettings();
+    void fetchSettings();
   }, []);
 
   const fetchSettings = async () => {
+    setLoading(true);
     try {
       const { data, error } = await supabase
         .from('sms_settings')
-        .select('*')
+        .select('id, provider, api_url, api_key_secret_name, sender_name, is_active')
+        .order('updated_at', { ascending: false })
+        .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
-      if (error && error.code !== 'PGRST116') throw error;
+      if (error) throw error;
 
       if (data) {
-        setSettings(data);
+        const provider = data.provider || DEFAULT_PROVIDER;
+        const providerConfig = SMS_PROVIDERS.find((item) => item.value === provider) || DEFAULT_PROVIDER_CONFIG;
+
+        setSettings(data as SMSSettings);
         setFormData({
-          provider: data.provider || 'smsapi',
-          api_url: data.api_url || '',
-          sender_name: data.sender_name || 'RIDO',
-          is_active: data.is_active || false,
+          provider,
+          api_url: data.api_url || providerConfig.apiUrl || '',
+          sender_name: data.sender_name || 'GetRido.pl',
+          is_active: Boolean(data.is_active),
+        });
+      } else {
+        setSettings(null);
+        setFormData({
+          provider: DEFAULT_PROVIDER,
+          api_url: DEFAULT_PROVIDER_CONFIG.apiUrl,
+          sender_name: 'GetRido.pl',
+          is_active: false,
         });
       }
     } catch (error) {
@@ -78,23 +100,28 @@ export const SMSIntegrationsPanel = () => {
   };
 
   const handleProviderChange = (provider: string) => {
-    const providerConfig = SMS_PROVIDERS.find(p => p.value === provider);
-    setFormData({
-      ...formData,
+    const providerConfig = SMS_PROVIDERS.find((item) => item.value === provider);
+    setFormData((prev) => ({
+      ...prev,
       provider,
-      api_url: providerConfig?.apiUrl || '',
-    });
+      api_url: provider === 'custom' ? prev.api_url : providerConfig?.apiUrl || '',
+    }));
   };
 
   const handleSave = async () => {
     setSaving(true);
     try {
+      const providerConfig = SMS_PROVIDERS.find((item) => item.value === formData.provider);
       const updateData = {
         provider: formData.provider,
-        api_url: formData.api_url,
-        sender_name: formData.sender_name,
+        api_url: formData.provider === 'custom'
+          ? formData.api_url.trim()
+          : (providerConfig?.apiUrl || formData.api_url.trim()),
+        sender_name: (formData.sender_name || 'GetRido.pl').slice(0, 11),
         is_active: formData.is_active,
-        api_key_secret_name: apiKey ? 'SMS_API_KEY' : settings?.api_key_secret_name,
+        api_key_secret_name: formData.provider === 'justsend'
+          ? 'SMSAPI_TOKEN'
+          : (settings?.api_key_secret_name || null),
         updated_at: new Date().toISOString(),
       };
 
@@ -113,25 +140,18 @@ export const SMSIntegrationsPanel = () => {
         if (error) throw error;
       }
 
+      setApiKey('');
       toast({
         title: 'Zapisano',
-        description: 'Ustawienia SMS zostały zaktualizowane',
+        description: 'Ustawienia SMS zostały zapisane w portalu i działają globalnie.',
       });
 
-      if (apiKey) {
-        toast({
-          title: 'Uwaga',
-          description: 'Klucz API należy dodać jako sekret w Supabase Edge Functions',
-          variant: 'default',
-        });
-      }
-
-      fetchSettings();
+      await fetchSettings();
     } catch (error) {
       console.error('Error saving SMS settings:', error);
       toast({
         title: 'Błąd',
-        description: 'Nie udało się zapisać ustawień',
+        description: 'Nie udało się zapisać ustawień SMS',
         variant: 'destructive',
       });
     } finally {
@@ -140,7 +160,7 @@ export const SMSIntegrationsPanel = () => {
   };
 
   const handleTestSMS = async () => {
-    if (!testPhone) {
+    if (!testPhone.trim()) {
       toast({
         title: 'Błąd',
         description: 'Podaj numer telefonu do testu',
@@ -154,7 +174,7 @@ export const SMSIntegrationsPanel = () => {
       const { data, error } = await supabase.functions.invoke('send-sms', {
         body: {
           phone: testPhone,
-          message: `Test SMS z portalu GetRido — ${new Date().toLocaleTimeString('pl-PL')}. Integracja JustSend dziala poprawnie.`,
+          message: `Test SMS z portalu GetRido — ${new Date().toLocaleTimeString('pl-PL')}.`,
           type: 'test',
           sender: formData.sender_name || 'GetRido.pl',
         },
@@ -165,7 +185,7 @@ export const SMSIntegrationsPanel = () => {
 
       toast({
         title: 'SMS wysłany ✓',
-        description: `Wiadomość testowa wysłana na ${testPhone} z nadawcą ${formData.sender_name}`,
+        description: `Wiadomość testowa została wysłana na ${testPhone}`,
       });
     } catch (error) {
       console.error('Test SMS error:', error);
@@ -198,10 +218,10 @@ export const SMSIntegrationsPanel = () => {
                 <CardTitle>Integracja SMS</CardTitle>
                 <CardDescription>
                   Konfiguracja bramki SMS do wysyłania powiadomień
-                <br />
-                <span className="text-xs font-normal text-muted-foreground">
-                  Aktualny dostawca: JustSend (Digital Virgo) — nadawca: <strong>{formData.sender_name}</strong>
-                </span>
+                  <br />
+                  <span className="text-xs font-normal text-muted-foreground">
+                    Aktualny dostawca: {activeProvider.label} — nadawca: <strong>{formData.sender_name || 'GetRido.pl'}</strong>
+                  </span>
                 </CardDescription>
               </div>
             </div>
@@ -221,7 +241,6 @@ export const SMSIntegrationsPanel = () => {
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Provider Selection */}
           <div className="space-y-2">
             <Label htmlFor="provider">Dostawca SMS</Label>
             <Select value={formData.provider} onValueChange={handleProviderChange}>
@@ -238,19 +257,22 @@ export const SMSIntegrationsPanel = () => {
             </Select>
           </div>
 
-          {/* API URL */}
           <div className="space-y-2">
             <Label htmlFor="api_url">URL API</Label>
             <Input
               id="api_url"
               value={formData.api_url}
-              onChange={(e) => setFormData({ ...formData, api_url: e.target.value })}
-              placeholder="https://api.smsapi.pl/sms.do"
+              onChange={(e) => setFormData((prev) => ({ ...prev, api_url: e.target.value }))}
+              placeholder="https://justsend.io/api/sender/bulk/send"
               disabled={formData.provider !== 'custom'}
             />
+            <p className="text-xs text-muted-foreground">
+              {formData.provider === 'custom'
+                ? 'Dla własnego API możesz podać własny adres endpointu.'
+                : 'Dla gotowych dostawców adres ustawia się automatycznie.'}
+            </p>
           </div>
 
-          {/* API Key */}
           <div className="space-y-2">
             <Label htmlFor="api_key">
               <Key className="h-4 w-4 inline mr-2" />
@@ -261,45 +283,45 @@ export const SMSIntegrationsPanel = () => {
               type="password"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
-              placeholder={settings?.api_key_secret_name ? '••••••••••••••••' : 'Wprowadź klucz API'}
+              placeholder={settings?.api_key_secret_name ? '••••••••••••••••' : 'Klucz API'}
+              disabled={formData.provider === 'justsend'}
             />
-            {settings?.api_key_secret_name && (
-              <p className="text-xs text-muted-foreground">
-                Klucz jest już skonfigurowany jako sekret: {settings.api_key_secret_name}
-              </p>
-            )}
+            <p className="text-xs text-muted-foreground">
+              {formData.provider === 'justsend'
+                ? 'JustSend korzysta z globalnego klucza portalu — nie trzeba nic dopisywać ręcznie w Supabase.'
+                : settings?.api_key_secret_name
+                  ? `Klucz jest już zapisany dla dostawcy: ${settings.api_key_secret_name}`
+                  : 'Jeśli używasz własnego dostawcy, uzupełnij jego klucz API.'}
+            </p>
           </div>
 
-          {/* Sender Name */}
           <div className="space-y-2">
             <Label htmlFor="sender_name">Nazwa nadawcy (max 11 znaków)</Label>
             <Input
               id="sender_name"
               value={formData.sender_name}
-              onChange={(e) => setFormData({ ...formData, sender_name: e.target.value.slice(0, 11) })}
+              onChange={(e) => setFormData((prev) => ({ ...prev, sender_name: e.target.value.slice(0, 11) }))}
               placeholder="GetRido.pl"
               maxLength={11}
             />
             <p className="text-xs text-muted-foreground">
-              Alias nadawcy musi być wcześniej dodany w panelu JustSend (new.justsend.pl). Max 11 znaków, bez polskich znaków.
+              Alias nadawcy musi być wcześniej dodany w panelu JustSend. Maksymalnie 11 znaków, bez polskich znaków.
             </p>
           </div>
 
-          {/* Active Toggle */}
           <div className="flex items-center justify-between">
             <div>
               <Label>Aktywuj integrację SMS</Label>
               <p className="text-sm text-muted-foreground">
-                Po aktywacji powiadomienia SMS będą wysyłane automatycznie
+                Po aktywacji ustawienia będą używane globalnie we wszystkich wysyłkach SMS.
               </p>
             </div>
             <Switch
               checked={formData.is_active}
-              onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
+              onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, is_active: checked }))}
             />
           </div>
 
-          {/* Save Button */}
           <Button onClick={handleSave} disabled={saving} className="w-full">
             {saving ? (
               <>
@@ -313,7 +335,6 @@ export const SMSIntegrationsPanel = () => {
         </CardContent>
       </Card>
 
-      {/* Test SMS Card */}
       <Card>
         <CardHeader>
           <div className="flex items-center gap-3">
@@ -321,7 +342,7 @@ export const SMSIntegrationsPanel = () => {
             <div>
               <CardTitle className="text-lg">Test SMS</CardTitle>
               <CardDescription>
-                Wyślij testową wiadomość SMS aby sprawdzić konfigurację
+                Wyślij testową wiadomość SMS, aby sprawdzić bieżącą konfigurację portalu
               </CardDescription>
             </div>
           </div>
@@ -339,8 +360,8 @@ export const SMSIntegrationsPanel = () => {
               placeholder="+48 123 456 789"
             />
           </div>
-          <Button 
-            onClick={handleTestSMS} 
+          <Button
+            onClick={handleTestSMS}
             disabled={testing || !formData.is_active}
             variant="outline"
             className="w-full"
@@ -359,7 +380,7 @@ export const SMSIntegrationsPanel = () => {
           </Button>
           {!formData.is_active && (
             <p className="text-xs text-muted-foreground text-center">
-              Aktywuj integrację SMS aby wysłać wiadomość testową
+              Aktywuj integrację SMS, aby wysłać wiadomość testową.
             </p>
           )}
         </CardContent>
