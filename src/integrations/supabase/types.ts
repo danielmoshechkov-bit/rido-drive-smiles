@@ -9968,6 +9968,7 @@ export type Database = {
           internal_notes: string | null
           invoice_number: string
           issue_date: string
+          ksef_environment: string | null
           ksef_reference: string | null
           ksef_status: string | null
           net_amount: number | null
@@ -10002,6 +10003,7 @@ export type Database = {
           internal_notes?: string | null
           invoice_number: string
           issue_date?: string
+          ksef_environment?: string | null
           ksef_reference?: string | null
           ksef_status?: string | null
           net_amount?: number | null
@@ -10036,6 +10038,7 @@ export type Database = {
           internal_notes?: string | null
           invoice_number?: string
           issue_date?: string
+          ksef_environment?: string | null
           ksef_reference?: string | null
           ksef_status?: string | null
           net_amount?: number | null
@@ -10361,6 +10364,7 @@ export type Database = {
           created_at: string
           direction: string
           entity_id: string | null
+          environment: string | null
           error_message: string | null
           id: string
           invoice_id: string | null
@@ -10368,6 +10372,7 @@ export type Database = {
           response_at: string | null
           sent_at: string | null
           status: string
+          upo_content: string | null
           upo_reference: string | null
           xml_content: string | null
         }
@@ -10375,6 +10380,7 @@ export type Database = {
           created_at?: string
           direction?: string
           entity_id?: string | null
+          environment?: string | null
           error_message?: string | null
           id?: string
           invoice_id?: string | null
@@ -10382,6 +10388,7 @@ export type Database = {
           response_at?: string | null
           sent_at?: string | null
           status?: string
+          upo_content?: string | null
           upo_reference?: string | null
           xml_content?: string | null
         }
@@ -10389,6 +10396,7 @@ export type Database = {
           created_at?: string
           direction?: string
           entity_id?: string | null
+          environment?: string | null
           error_message?: string | null
           id?: string
           invoice_id?: string | null
@@ -10396,6 +10404,7 @@ export type Database = {
           response_at?: string | null
           sent_at?: string | null
           status?: string
+          upo_content?: string | null
           upo_reference?: string | null
           xml_content?: string | null
         }
@@ -13325,6 +13334,7 @@ export type Database = {
           created_at: string | null
           document_number: string
           entity_id: string | null
+          environment: string | null
           id: string
           ksef_number: string | null
           ocr_raw: Json | null
@@ -13337,6 +13347,7 @@ export type Database = {
           total_gross: number | null
           total_net: number | null
           total_vat: number | null
+          user_id: string | null
           xml_content: string | null
         }
         Insert: {
@@ -13346,6 +13357,7 @@ export type Database = {
           created_at?: string | null
           document_number: string
           entity_id?: string | null
+          environment?: string | null
           id?: string
           ksef_number?: string | null
           ocr_raw?: Json | null
@@ -13358,6 +13370,7 @@ export type Database = {
           total_gross?: number | null
           total_net?: number | null
           total_vat?: number | null
+          user_id?: string | null
           xml_content?: string | null
         }
         Update: {
@@ -13367,6 +13380,7 @@ export type Database = {
           created_at?: string | null
           document_number?: string
           entity_id?: string | null
+          environment?: string | null
           id?: string
           ksef_number?: string | null
           ocr_raw?: Json | null
@@ -13379,6 +13393,7 @@ export type Database = {
           total_gross?: number | null
           total_net?: number | null
           total_vat?: number | null
+          user_id?: string | null
           xml_content?: string | null
         }
         Relationships: [
