@@ -138,7 +138,7 @@ export const SMSIntegrationsPanel = () => {
       } else {
         const { error } = await supabase
           .from('sms_settings')
-          .insert(updateData);
+          .insert(updateData as any);
 
         if (error) throw error;
       }
