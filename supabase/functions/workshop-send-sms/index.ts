@@ -32,10 +32,22 @@ serve(async (req) => {
       });
     }
 
-    const appKey = Deno.env.get("SMSAPI_TOKEN");
+    // Pobierz klucz API z bazy (admin panel) lub env
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+    );
+    const { data: smsSettings } = await supabaseAdmin
+      .from("sms_settings")
+      .select("api_key, sender_name")
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const appKey = smsSettings?.api_key || Deno.env.get("SMSAPI_TOKEN");
     if (!appKey) {
-      console.error("[JustSend] SMSAPI_TOKEN (App-Key) not configured");
-      return new Response(JSON.stringify({ error: "SMS API not configured — brak klucza JustSend" }), {
+      console.error("[JustSend] Brak klucza API — ani w sms_settings, ani w env SMSAPI_TOKEN");
+      return new Response(JSON.stringify({ error: "Brak klucza API JustSend. Wprowadź go w Admin → Bramki SMS." }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

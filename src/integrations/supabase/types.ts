@@ -16381,6 +16381,7 @@ export type Database = {
       }
       sms_settings: {
         Row: {
+          api_key: string | null
           api_key_secret_name: string | null
           api_url: string | null
           created_at: string | null
@@ -16391,6 +16392,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          api_key?: string | null
           api_key_secret_name?: string | null
           api_url?: string | null
           created_at?: string | null
@@ -16401,6 +16403,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          api_key?: string | null
           api_key_secret_name?: string | null
           api_url?: string | null
           created_at?: string | null

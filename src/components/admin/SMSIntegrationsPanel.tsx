@@ -112,18 +112,21 @@ export const SMSIntegrationsPanel = () => {
     setSaving(true);
     try {
       const providerConfig = SMS_PROVIDERS.find((item) => item.value === formData.provider);
-      const updateData = {
+      const updateData: Record<string, any> = {
         provider: formData.provider,
         api_url: formData.provider === 'custom'
           ? formData.api_url.trim()
           : (providerConfig?.apiUrl || formData.api_url.trim()),
         sender_name: (formData.sender_name || 'GetRido.pl').slice(0, 11),
         is_active: formData.is_active,
-        api_key_secret_name: formData.provider === 'justsend'
-          ? 'SMSAPI_TOKEN'
-          : (settings?.api_key_secret_name || null),
+        api_key_secret_name: 'SMSAPI_TOKEN',
         updated_at: new Date().toISOString(),
       };
+
+      // Jeśli admin wpisał klucz API — zapisz go w bazie
+      if (apiKey.trim()) {
+        updateData.api_key = apiKey.trim();
+      }
 
       if (settings?.id) {
         const { error } = await supabase
@@ -135,7 +138,7 @@ export const SMSIntegrationsPanel = () => {
       } else {
         const { error } = await supabase
           .from('sms_settings')
-          .insert(updateData);
+          .insert(updateData as any);
 
         if (error) throw error;
       }
@@ -284,14 +287,11 @@ export const SMSIntegrationsPanel = () => {
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
               placeholder={settings?.api_key_secret_name ? '••••••••••••••••' : 'Klucz API'}
-              disabled={formData.provider === 'justsend'}
             />
             <p className="text-xs text-muted-foreground">
-              {formData.provider === 'justsend'
-                ? 'JustSend korzysta z globalnego klucza portalu — nie trzeba nic dopisywać ręcznie w Supabase.'
-                : settings?.api_key_secret_name
-                  ? `Klucz jest już zapisany dla dostawcy: ${settings.api_key_secret_name}`
-                  : 'Jeśli używasz własnego dostawcy, uzupełnij jego klucz API.'}
+              {settings?.api_key_secret_name
+                ? 'Klucz API jest już zapisany. Wpisz nowy, aby go zaktualizować.'
+                : 'Wprowadź klucz API (App-Key) z panelu JustSend → Ustawienia → API.'}
             </p>
           </div>
 
