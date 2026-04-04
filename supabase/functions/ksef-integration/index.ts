@@ -442,7 +442,7 @@ serve(async (req) => {
 
     // ========== generate_xml ==========
     if (action === 'generate_xml') {
-      const { data: invoice, error: invErr } = await supabase.from('invoices').select('*').eq('id', body.invoice_id).single();
+      const { data: invoice, error: invErr } = await supabase.from('user_invoices').select('*').eq('id', body.invoice_id).single();
       if (invErr || !invoice) throw new Error('Faktura nie znaleziona');
       const { data: items } = await supabase.from('invoice_items').select('*').eq('invoice_id', body.invoice_id);
       const { data: entity } = await supabase.from('entities').select('*').eq('id', invoice.entity_id).single();
