@@ -318,12 +318,454 @@ function escapeXml(str: string): string {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 }
 
-// ========== generateInvoiceXML — FA(3) schema ==========
+function normalizeText(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  const text = String(value).trim();
+  return text ? text : null;
+}
 
-function generateInvoiceXML(invoice: any, entity: any, items: any[]): string {
+function safeJsonObject(value: unknown): Record<string, any> {
+  if (!value) return {};
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+  return typeof value === 'object' ? value as Record<string, any> : {};
+}
+
+function pickSourceValue(candidates: Array<{ value: unknown; source: string }>): { value: string | null; source: string | null } {
+  for (const candidate of candidates) {
+    const normalized = normalizeText(candidate.value);
+    if (normalized) return { value: normalized, source: candidate.source };
+  }
+  return { value: null, source: null };
+}
+
+function normalizeBinaryFlag(value: unknown, fallback: '1' | '2' = '2'): '1' | '2' {
+  if (value === null || value === undefined || value === '') return fallback;
+  const normalized = String(value).trim().toLowerCase();
+  if (value === 1 || normalized === '1' || normalized === 'true' || normalized === 'tak' || normalized === 'yes') return '1';
+  if (value === 2 || normalized === '2' || normalized === 'false' || normalized === 'nie' || normalized === 'no') return '2';
+  return fallback;
+}
+
+function parsePolishAddress(rawAddress: unknown): { raw: string | null; street: string | null; postalCode: string | null; city: string | null } {
+  const raw = normalizeText(rawAddress);
+  if (!raw) return { raw: null, street: null, postalCode: null, city: null };
+
+  let street: string | null = raw;
+  let postalCode: string | null = null;
+  let city: string | null = null;
+
+  const parts = raw.split(',').map((part) => part.trim()).filter(Boolean);
+  if (parts.length > 1) {
+    street = normalizeText(parts.slice(0, -1).join(', '));
+    const tail = parts[parts.length - 1];
+    const tailMatch = tail.match(/(\d{2}-\d{3})(?:\s+(.+))?$/);
+    if (tailMatch) {
+      postalCode = normalizeText(tailMatch[1]);
+      city = normalizeText(tailMatch[2]);
+    } else {
+      city = normalizeText(tail);
+    }
+  } else {
+    const inlineMatch = raw.match(/^(.*?)(?:,?\s+)?(\d{2}-\d{3})(?:\s+(.+))$/);
+    if (inlineMatch) {
+      street = normalizeText(inlineMatch[1]);
+      postalCode = normalizeText(inlineMatch[2]);
+      city = normalizeText(inlineMatch[3]);
+    }
+  }
+
+  return { raw, street: normalizeText(street), postalCode, city };
+}
+
+function extractXmlFragment(xml: string, tag: string): string {
+  return xml.match(new RegExp(`<${tag}\\b[^>]*>[\\s\\S]*?<\\/${tag}>`))?.[0] || '';
+}
+
+function countXmlTags(xml: string, tag: string): number {
+  return Array.from(xml.matchAll(new RegExp(`<${tag}(?:\\s|>)`, 'g'))).length;
+}
+
+function hasEmptyTag(xml: string, tag: string): boolean {
+  return new RegExp(`<${tag}[^>]*>\\s*<\\/${tag}>`).test(xml);
+}
+
+function addViolation(list: Array<{ kind: string; path: string; message: string }>, kind: string, path: string, message: string) {
+  list.push({ kind, path, message });
+}
+
+function ensureTagOrder(fragment: string, tags: string[], basePath: string, violations: Array<{ kind: string; path: string; message: string }>) {
+  let lastIndex = -1;
+  let lastTag = '';
+  for (const tag of tags) {
+    const idx = fragment.indexOf(`<${tag}`);
+    if (idx === -1) continue;
+    if (idx < lastIndex) {
+      addViolation(violations, 'sequence', `${basePath}/${tag}`, `Element <${tag}> występuje przed <${lastTag}>, choć XSD wymaga odwrotnej kolejności.`);
+    } else {
+      lastIndex = idx;
+      lastTag = tag;
+    }
+  }
+}
+
+function buildAddressXml(tagName: string, address: { country?: string | null; line1?: string | null; line2?: string | null; gln?: string | null }, baseIndent = '    '): string {
+  const line1 = normalizeText(address.line1);
+  if (!line1) return '';
+
+  const line2 = normalizeText(address.line2);
+  const gln = normalizeText(address.gln);
+  const country = normalizeText(address.country) || 'PL';
+  const lines = [
+    `<${tagName}>`,
+    `  <KodKraju>${escapeXml(country)}</KodKraju>`,
+    `  <AdresL1>${escapeXml(line1)}</AdresL1>`,
+    ...(line2 ? [`  <AdresL2>${escapeXml(line2)}</AdresL2>`] : []),
+    ...(gln ? [`  <GLN>${escapeXml(gln)}</GLN>`] : []),
+    `</${tagName}>`,
+  ];
+
+  return lines.map((line) => `${baseIndent}${line}`).join('\n');
+}
+
+async function resolveSellerEntityForInvoice(req: Request, supabase: any, invoice: any) {
+  let company: any = null;
+  let companySettings: any = null;
+
+  if (invoice.company_id) {
+    const { data } = await supabase.from('user_invoice_companies').select('*').eq('id', invoice.company_id).maybeSingle();
+    company = data || null;
+  }
+
+  const effectiveUserId = invoice.user_id || (await getUserFromJwt(req, supabase))?.id;
+  if (effectiveUserId) {
+    const { data } = await supabase.from('company_settings').select('*').eq('user_id', effectiveUserId).maybeSingle();
+    companySettings = data || null;
+  }
+
+  const nip = pickSourceValue([
+    { value: company?.nip, source: 'user_invoice_companies.nip' },
+    { value: companySettings?.nip, source: 'company_settings.nip' },
+  ]);
+  const name = pickSourceValue([
+    { value: company?.name, source: 'user_invoice_companies.name' },
+    { value: company?.company_name, source: 'user_invoice_companies.company_name' },
+    { value: companySettings?.company_name, source: 'company_settings.company_name' },
+  ]);
+  const addressStreet = pickSourceValue([
+    {
+      value: [company?.address_street, company?.address_building_number, company?.address_apartment_number].filter(Boolean).join(' '),
+      source: 'user_invoice_companies.address_*',
+    },
+    {
+      value: [companySettings?.street, companySettings?.building_number, companySettings?.apartment_number].filter(Boolean).join(' '),
+      source: 'company_settings.street/building_number/apartment_number',
+    },
+  ]);
+  const addressPostalCode = pickSourceValue([
+    { value: company?.address_postal_code, source: 'user_invoice_companies.address_postal_code' },
+    { value: companySettings?.postal_code, source: 'company_settings.postal_code' },
+  ]);
+  const addressCity = pickSourceValue([
+    { value: company?.address_city, source: 'user_invoice_companies.address_city' },
+    { value: companySettings?.city, source: 'company_settings.city' },
+  ]);
+  const bankAccount = pickSourceValue([
+    { value: company?.bank_account, source: 'user_invoice_companies.bank_account' },
+    { value: companySettings?.bank_account, source: 'company_settings.bank_account' },
+  ]);
+
+  return {
+    nip: nip.value,
+    name: name.value,
+    address_street: addressStreet.value,
+    address_postal_code: addressPostalCode.value,
+    address_city: addressCity.value,
+    bank_account: bankAccount.value,
+    fieldSources: {
+      nip: nip.source,
+      name: name.source,
+      address_street: addressStreet.source,
+      address_postal_code: addressPostalCode.source,
+      address_city: addressCity.source,
+      bank_account: bankAccount.source,
+    },
+    rawSellerObject: {
+      invoice_company_id: invoice.company_id || null,
+      company,
+      companySettings,
+    },
+  };
+}
+
+function resolveSellerSource(entity: any) {
+  return {
+    nip: normalizeText(entity?.nip),
+    name: normalizeText(entity?.name || entity?.company_name),
+    addressStreet: normalizeText(entity?.address_street || entity?.street),
+    addressPostalCode: normalizeText(entity?.address_postal_code || entity?.postal_code),
+    addressCity: normalizeText(entity?.address_city || entity?.city),
+    bankAccount: normalizeText(entity?.bank_account),
+    fieldSources: entity?.fieldSources || {
+      nip: entity?.nip ? 'entity.nip' : null,
+      name: entity?.name ? 'entity.name' : entity?.company_name ? 'entity.company_name' : null,
+      address_street: entity?.address_street ? 'entity.address_street' : entity?.street ? 'entity.street' : null,
+      address_postal_code: entity?.address_postal_code ? 'entity.address_postal_code' : entity?.postal_code ? 'entity.postal_code' : null,
+      address_city: entity?.address_city ? 'entity.address_city' : entity?.city ? 'entity.city' : null,
+      bank_account: entity?.bank_account ? 'entity.bank_account' : null,
+    },
+    rawSellerObject: entity?.rawSellerObject || entity || null,
+  };
+}
+
+function resolveBuyerSource(invoice: any) {
+  const buyerSnapshot = safeJsonObject(invoice?.buyer_snapshot);
+  const rawAddress = pickSourceValue([
+    { value: buyerSnapshot.address, source: 'buyer_snapshot.address' },
+    { value: buyerSnapshot.full_address, source: 'buyer_snapshot.full_address' },
+    { value: buyerSnapshot.buyer_address, source: 'buyer_snapshot.buyer_address' },
+    { value: invoice?.buyer_address, source: 'user_invoices.buyer_address' },
+  ]);
+  const parsedAddress = parsePolishAddress(rawAddress.value);
+
+  const nip = pickSourceValue([
+    { value: buyerSnapshot.nip, source: 'buyer_snapshot.nip' },
+    { value: buyerSnapshot.tax_id, source: 'buyer_snapshot.tax_id' },
+    { value: buyerSnapshot.buyer_nip, source: 'buyer_snapshot.buyer_nip' },
+    { value: invoice?.buyer_nip, source: 'user_invoices.buyer_nip' },
+  ]);
+  const name = pickSourceValue([
+    { value: buyerSnapshot.name, source: 'buyer_snapshot.name' },
+    { value: buyerSnapshot.companyName, source: 'buyer_snapshot.companyName' },
+    { value: buyerSnapshot.company_name, source: 'buyer_snapshot.company_name' },
+    { value: invoice?.buyer_name, source: 'user_invoices.buyer_name' },
+  ]);
+  const addressStreet = pickSourceValue([
+    { value: buyerSnapshot.address_street, source: 'buyer_snapshot.address_street' },
+    { value: buyerSnapshot.street, source: 'buyer_snapshot.street' },
+    { value: buyerSnapshot.addressLine1, source: 'buyer_snapshot.addressLine1' },
+    { value: parsedAddress.street, source: rawAddress.source ? `parsed:${rawAddress.source}` : 'parsed:address' },
+  ]);
+  const addressPostalCode = pickSourceValue([
+    { value: buyerSnapshot.address_postal_code, source: 'buyer_snapshot.address_postal_code' },
+    { value: buyerSnapshot.postal_code, source: 'buyer_snapshot.postal_code' },
+    { value: parsedAddress.postalCode, source: rawAddress.source ? `parsed:${rawAddress.source}` : 'parsed:address' },
+  ]);
+  const addressCity = pickSourceValue([
+    { value: buyerSnapshot.address_city, source: 'buyer_snapshot.address_city' },
+    { value: buyerSnapshot.city, source: 'buyer_snapshot.city' },
+    { value: parsedAddress.city, source: rawAddress.source ? `parsed:${rawAddress.source}` : 'parsed:address' },
+  ]);
+  const jstSource = pickSourceValue([
+    { value: buyerSnapshot.jst, source: 'buyer_snapshot.jst' },
+    { value: buyerSnapshot.is_jst, source: 'buyer_snapshot.is_jst' },
+    { value: invoice?.buyer_jst, source: 'user_invoices.buyer_jst' },
+    { value: invoice?.is_jst, source: 'user_invoices.is_jst' },
+  ]);
+  const gvSource = pickSourceValue([
+    { value: buyerSnapshot.gv, source: 'buyer_snapshot.gv' },
+    { value: buyerSnapshot.is_gv, source: 'buyer_snapshot.is_gv' },
+    { value: invoice?.buyer_gv, source: 'user_invoices.buyer_gv' },
+    { value: invoice?.is_gv, source: 'user_invoices.is_gv' },
+  ]);
+
+  return {
+    nip: nip.value,
+    brakId: nip.value ? null : '1',
+    name: name.value,
+    addressRaw: rawAddress.value,
+    addressStreet: addressStreet.value,
+    addressPostalCode: addressPostalCode.value,
+    addressCity: addressCity.value,
+    jst: normalizeBinaryFlag(jstSource.value, '2'),
+    gv: normalizeBinaryFlag(gvSource.value, '2'),
+    fieldSources: {
+      nip: nip.source,
+      brakId: nip.value ? null : 'derived:BrakID',
+      name: name.source,
+      addressRaw: rawAddress.source,
+      addressStreet: addressStreet.source,
+      addressPostalCode: addressPostalCode.source,
+      addressCity: addressCity.source,
+      jst: jstSource.source || 'default:2',
+      gv: gvSource.source || 'default:2',
+    },
+    rawBuyerObject: {
+      buyerSnapshot,
+      invoiceBuyerFields: {
+        buyer_nip: invoice?.buyer_nip ?? null,
+        buyer_name: invoice?.buyer_name ?? null,
+        buyer_address: invoice?.buyer_address ?? null,
+      },
+    },
+  };
+}
+
+function validatePodmiot1Xsd(podmiot1: string, sellerSource: any) {
+  const violations: Array<{ kind: string; path: string; message: string }> = [];
+  const basePath = 'Faktura/Podmiot1';
+
+  if (!podmiot1) {
+    addViolation(violations, 'missing', basePath, 'Brak sekcji Podmiot1.');
+    return violations;
+  }
+
+  if (countXmlTags(podmiot1, 'DaneIdentyfikacyjne') === 0) addViolation(violations, 'minOccurs', `${basePath}/DaneIdentyfikacyjne`, 'TPodmiot1 wymaga elementu DaneIdentyfikacyjne (minOccurs=1).');
+  if (countXmlTags(podmiot1, 'DaneIdentyfikacyjne') > 1) addViolation(violations, 'maxOccurs', `${basePath}/DaneIdentyfikacyjne`, 'DaneIdentyfikacyjne może wystąpić tylko raz (maxOccurs=1).');
+  if (countXmlTags(podmiot1, 'Adres') === 0) addViolation(violations, 'minOccurs', `${basePath}/Adres`, 'Podmiot1 wymaga elementu Adres (minOccurs=1).');
+  if (countXmlTags(podmiot1, 'Adres') > 1) addViolation(violations, 'maxOccurs', `${basePath}/Adres`, 'Adres może wystąpić tylko raz w Podmiot1 (maxOccurs=1).');
+
+  ensureTagOrder(podmiot1, ['DaneIdentyfikacyjne', 'Adres', 'AdresKoresp', 'DaneKontaktowe', 'StatusInfoPodatnika'], basePath, violations);
+
+  if (!sellerSource.nip) addViolation(violations, 'minOccurs', `${basePath}/DaneIdentyfikacyjne/NIP`, 'TPodmiot1/NIP jest obowiązkowy i nie może być pusty.');
+  if (!sellerSource.name) addViolation(violations, 'minOccurs', `${basePath}/DaneIdentyfikacyjne/Nazwa`, 'TPodmiot1/Nazwa jest obowiązkowa i nie może być pusta.');
+  if (!sellerSource.addressStreet) addViolation(violations, 'minOccurs', `${basePath}/Adres/AdresL1`, 'TAdres/AdresL1 dla Podmiot1 jest obowiązkowy, bo Adres ma minOccurs=1.');
+
+  if (hasEmptyTag(podmiot1, 'NIP')) addViolation(violations, 'empty', `${basePath}/DaneIdentyfikacyjne/NIP`, 'Nie wolno generować pustego tagu <NIP>.');
+  if (hasEmptyTag(podmiot1, 'Nazwa')) addViolation(violations, 'empty', `${basePath}/DaneIdentyfikacyjne/Nazwa`, 'Nie wolno generować pustego tagu <Nazwa>.');
+  if (hasEmptyTag(podmiot1, 'AdresL1')) addViolation(violations, 'empty', `${basePath}/Adres/AdresL1`, 'Nie wolno generować pustego tagu <AdresL1>.');
+
+  const nameInsideData = /<DaneIdentyfikacyjne>[\s\S]*<Nazwa>[^<]+<\/Nazwa>[\s\S]*<\/DaneIdentyfikacyjne>/.test(podmiot1);
+  if (countXmlTags(podmiot1, 'Nazwa') > 0 && !nameInsideData) {
+    addViolation(violations, 'wrong-nesting', `${basePath}/DaneIdentyfikacyjne/Nazwa`, 'W TPodmiot1 element <Nazwa> musi znajdować się wewnątrz <DaneIdentyfikacyjne>.');
+  }
+
+  return violations;
+}
+
+function validatePodmiot2Xsd(podmiot2: string, buyerSource: any) {
+  const violations: Array<{ kind: string; path: string; message: string }> = [];
+  const basePath = 'Faktura/Podmiot2';
+
+  if (!podmiot2) {
+    addViolation(violations, 'missing', basePath, 'Brak sekcji Podmiot2.');
+    return violations;
+  }
+
+  if (countXmlTags(podmiot2, 'DaneIdentyfikacyjne') === 0) addViolation(violations, 'minOccurs', `${basePath}/DaneIdentyfikacyjne`, 'Podmiot2 wymaga elementu DaneIdentyfikacyjne (minOccurs=1).');
+  if (countXmlTags(podmiot2, 'DaneIdentyfikacyjne') > 1) addViolation(violations, 'maxOccurs', `${basePath}/DaneIdentyfikacyjne`, 'DaneIdentyfikacyjne może wystąpić tylko raz (maxOccurs=1).');
+  if (countXmlTags(podmiot2, 'JST') === 0) addViolation(violations, 'minOccurs', `${basePath}/JST`, 'Podmiot2/JST jest obowiązkowy (minOccurs=1).');
+  if (countXmlTags(podmiot2, 'JST') > 1) addViolation(violations, 'maxOccurs', `${basePath}/JST`, 'Podmiot2/JST może wystąpić tylko raz (maxOccurs=1).');
+  if (countXmlTags(podmiot2, 'GV') === 0) addViolation(violations, 'minOccurs', `${basePath}/GV`, 'Podmiot2/GV jest obowiązkowy (minOccurs=1).');
+  if (countXmlTags(podmiot2, 'GV') > 1) addViolation(violations, 'maxOccurs', `${basePath}/GV`, 'Podmiot2/GV może wystąpić tylko raz (maxOccurs=1).');
+  if (countXmlTags(podmiot2, 'Adres') > 1) addViolation(violations, 'maxOccurs', `${basePath}/Adres`, 'Podmiot2/Adres może wystąpić tylko raz (maxOccurs=1).');
+
+  ensureTagOrder(podmiot2, ['DaneIdentyfikacyjne', 'Adres', 'AdresKoresp', 'DaneKontaktowe', 'NrKlienta', 'IDNabywcy', 'JST', 'GV'], basePath, violations);
+
+  const nipCount = countXmlTags(podmiot2, 'NIP');
+  const brakIdCount = countXmlTags(podmiot2, 'BrakID');
+  const kodUECount = countXmlTags(podmiot2, 'KodUE');
+  const nrVatUECount = countXmlTags(podmiot2, 'NrVatUE');
+  const nrIdCount = countXmlTags(podmiot2, 'NrID');
+  const choiceCount = Number(nipCount > 0) + Number(kodUECount > 0 || nrVatUECount > 0) + Number(nrIdCount > 0) + Number(brakIdCount > 0);
+
+  if (choiceCount === 0) {
+    addViolation(violations, 'choice', `${basePath}/DaneIdentyfikacyjne`, 'TPodmiot2 wymaga dokładnie jednego identyfikatora: NIP albo KodUE+NrVatUE albo KodKraju+NrID albo BrakID.');
+  }
+  if (choiceCount > 1) {
+    addViolation(violations, 'choice', `${basePath}/DaneIdentyfikacyjne`, 'TPodmiot2 narusza xsd:choice — wygenerowano więcej niż jeden wariant identyfikatora.');
+  }
+  if ((kodUECount > 0 && nrVatUECount === 0) || (kodUECount === 0 && nrVatUECount > 0)) {
+    addViolation(violations, 'choice', `${basePath}/DaneIdentyfikacyjne`, 'Wariant VAT UE wymaga jednoczesnej obecności <KodUE> i <NrVatUE>.');
+  }
+
+  if (hasEmptyTag(podmiot2, 'NIP')) addViolation(violations, 'empty', `${basePath}/DaneIdentyfikacyjne/NIP`, 'Nie wolno generować pustego tagu <NIP>.');
+  if (hasEmptyTag(podmiot2, 'BrakID')) addViolation(violations, 'empty', `${basePath}/DaneIdentyfikacyjne/BrakID`, 'Nie wolno generować pustego tagu <BrakID>.');
+  if (hasEmptyTag(podmiot2, 'Nazwa')) addViolation(violations, 'empty', `${basePath}/DaneIdentyfikacyjne/Nazwa`, 'Nie wolno generować pustego tagu <Nazwa>.');
+  if (hasEmptyTag(podmiot2, 'AdresL1')) addViolation(violations, 'empty', `${basePath}/Adres/AdresL1`, 'Nie wolno generować pustego tagu <AdresL1>.');
+  if (hasEmptyTag(podmiot2, 'JST')) addViolation(violations, 'empty', `${basePath}/JST`, 'Nie wolno generować pustego tagu <JST>.');
+  if (hasEmptyTag(podmiot2, 'GV')) addViolation(violations, 'empty', `${basePath}/GV`, 'Nie wolno generować pustego tagu <GV>.');
+
+  const nameInsideData = /<DaneIdentyfikacyjne>[\s\S]*<Nazwa>[^<]+<\/Nazwa>[\s\S]*<\/DaneIdentyfikacyjne>/.test(podmiot2);
+  if (countXmlTags(podmiot2, 'Nazwa') > 0 && !nameInsideData) {
+    addViolation(violations, 'wrong-nesting', `${basePath}/DaneIdentyfikacyjne/Nazwa`, 'Zgodnie z TPodmiot2 element <Nazwa> musi znajdować się wewnątrz <DaneIdentyfikacyjne>.');
+  }
+
+  if (!/^<[\s\S]*<JST>[12]<\/JST>[\s\S]*$/.test(podmiot2)) {
+    addViolation(violations, 'sequence', `${basePath}/JST`, 'Podmiot2/JST musi być obecny i mieć wartość 1 albo 2.');
+  }
+  if (!/^<[\s\S]*<GV>[12]<\/GV>[\s\S]*$/.test(podmiot2)) {
+    addViolation(violations, 'sequence', `${basePath}/GV`, 'Podmiot2/GV musi być obecny i mieć wartość 1 albo 2.');
+  }
+
+  if (!buyerSource.nip && buyerSource.brakId !== '1') {
+    addViolation(violations, 'choice', `${basePath}/DaneIdentyfikacyjne`, 'Brak NIP nabywcy bez poprawnego BrakID=1 narusza xsd:choice dla TPodmiot2.');
+  }
+
+  return violations;
+}
+
+function validateSemanticRules(sellerSource: any, buyerSource: any) {
+  const violations: Array<{ kind: string; path: string; message: string }> = [];
+
+  if (!buyerSource.name) {
+    addViolation(violations, 'semantic', 'Faktura/Podmiot2/DaneIdentyfikacyjne/Nazwa', 'buyer.name jest puste — w naszym standardowym flow KSeF wymagamy nazwy nabywcy.');
+  }
+  if (!buyerSource.addressRaw && !buyerSource.addressStreet) {
+    addViolation(violations, 'semantic', 'Faktura/Podmiot2/Adres', 'buyer.address jest puste — adres nabywcy jest wymagany w tym flow.');
+  }
+  if (!buyerSource.addressStreet) {
+    addViolation(violations, 'semantic', 'Faktura/Podmiot2/Adres/AdresL1', 'Nie udało się zbudować buyer.address_street dla Podmiot2/Adres/AdresL1.');
+  }
+  if (!sellerSource.nip) {
+    addViolation(violations, 'semantic', 'Faktura/Podmiot1/DaneIdentyfikacyjne/NIP', 'Brak NIP sprzedawcy uniemożliwia poprawną wysyłkę do KSeF.');
+  }
+  if (!sellerSource.name) {
+    addViolation(violations, 'semantic', 'Faktura/Podmiot1/DaneIdentyfikacyjne/Nazwa', 'Brak nazwy sprzedawcy uniemożliwia poprawną wysyłkę do KSeF.');
+  }
+  if (!sellerSource.addressStreet) {
+    addViolation(violations, 'semantic', 'Faktura/Podmiot1/Adres/AdresL1', 'Brak adresu sprzedawcy uniemożliwia poprawną wysyłkę do KSeF.');
+  }
+  if (!['1', '2'].includes(buyerSource.jst)) {
+    addViolation(violations, 'semantic', 'Faktura/Podmiot2/JST', 'JST musi mieć świadomie ustawioną wartość 1 albo 2.');
+  }
+  if (!['1', '2'].includes(buyerSource.gv)) {
+    addViolation(violations, 'semantic', 'Faktura/Podmiot2/GV', 'GV musi mieć świadomie ustawioną wartość 1 albo 2.');
+  }
+
+  return violations;
+}
+
+function buildWarnings(sellerSource: any, buyerSource: any) {
+  const warnings = [
+    `buyer.nip source: ${buyerSource.fieldSources.nip || 'derived:BrakID'}`,
+    `buyer.name source: ${buyerSource.fieldSources.name || 'missing'}`,
+    `buyer.address source: ${buyerSource.fieldSources.addressRaw || 'missing'}`,
+    `buyer.address_street source: ${buyerSource.fieldSources.addressStreet || 'missing'}`,
+    `buyer.address_postal_code source: ${buyerSource.fieldSources.addressPostalCode || 'missing'}`,
+    `buyer.address_city source: ${buyerSource.fieldSources.addressCity || 'missing'}`,
+    `buyer.jst source: ${buyerSource.fieldSources.jst}`,
+    `buyer.gv source: ${buyerSource.fieldSources.gv}`,
+    `seller.nip source: ${sellerSource.fieldSources.nip || 'missing'}`,
+    `seller.name source: ${sellerSource.fieldSources.name || 'missing'}`,
+    `seller.address_street source: ${sellerSource.fieldSources.address_street || 'missing'}`,
+    `seller.address_postal_code source: ${sellerSource.fieldSources.address_postal_code || 'missing'}`,
+    `seller.address_city source: ${sellerSource.fieldSources.address_city || 'missing'}`,
+  ];
+
+  if (!buyerSource.nip) warnings.push('Brak buyer.nip — generator użyje <BrakID>1</BrakID> zgodnie z FA(3).');
+  if (!buyerSource.name) warnings.push('Brak buyer.name — tag <Nazwa> nie zostanie wygenerowany.');
+  if (!buyerSource.addressStreet) warnings.push('Brak buyer.address_street — tag <Adres> nie zostanie wygenerowany.');
+  if (!buyerSource.addressPostalCode || !buyerSource.addressCity) warnings.push('buyer.address_postal_code lub buyer.address_city są niepełne.');
+  if (buyerSource.fieldSources.jst === 'default:2') warnings.push('Podmiot2/JST ustawiono domyślnie na 2 (nie dotyczy JST).');
+  if (buyerSource.fieldSources.gv === 'default:2') warnings.push('Podmiot2/GV ustawiono domyślnie na 2 (nie dotyczy GV).');
+
+  return Array.from(new Set(warnings));
+}
+
+function buildKsefInvoiceArtifacts(invoice: any, entity: any, items: any[]) {
   const issueDate = invoice.issue_date || new Date().toISOString().split('T')[0];
   const saleDate = invoice.sale_date || issueDate;
-  const buyer = invoice.buyer_snapshot || {};
+  const buyerSource = resolveBuyerSource(invoice);
+  const sellerSource = resolveSellerSource(entity);
+  const formCode = 'FA (3) / 1-0E';
+  const invoiceType = 'VAT';
 
   const vatByRate: Record<string, { net: number; vat: number }> = {};
   items.forEach((item) => {
@@ -333,7 +775,7 @@ function generateInvoiceXML(invoice: any, entity: any, items: any[]): string {
     vatByRate[rate].vat += Number(item.vat_amount) || 0;
   });
 
-  const grossTotal = items.reduce((s, i) => s + (Number(i.gross_amount) || 0), 0);
+  const grossTotal = items.reduce((sum, item) => sum + (Number(item.gross_amount) || 0), 0);
 
   let vatBreakdownXML = '';
   for (const [rate, amounts] of Object.entries(vatByRate)) {
@@ -342,10 +784,10 @@ function generateInvoiceXML(invoice: any, entity: any, items: any[]): string {
     } else if (rate === 'np') {
       vatBreakdownXML += `\n        <P_13_7>${amounts.net.toFixed(2)}</P_13_7>`;
     } else {
-      const r = parseInt(rate) || 23;
-      const f = r === 23 ? '1' : r === 8 ? '3' : r === 5 ? '5' : r === 0 ? '6' : '1';
-      vatBreakdownXML += `\n        <P_13_${f}>${amounts.net.toFixed(2)}</P_13_${f}>`;
-      vatBreakdownXML += `\n        <P_14_${f}>${amounts.vat.toFixed(2)}</P_14_${f}>`;
+      const numericRate = parseInt(rate) || 23;
+      const fieldSuffix = numericRate === 23 ? '1' : numericRate === 8 ? '3' : numericRate === 5 ? '5' : numericRate === 0 ? '6' : '1';
+      vatBreakdownXML += `\n        <P_13_${fieldSuffix}>${amounts.net.toFixed(2)}</P_13_${fieldSuffix}>`;
+      vatBreakdownXML += `\n        <P_14_${fieldSuffix}>${amounts.vat.toFixed(2)}</P_14_${fieldSuffix}>`;
     }
   }
 
@@ -363,25 +805,46 @@ function generateInvoiceXML(invoice: any, entity: any, items: any[]): string {
       </FaWiersz>`;
   }).join('');
 
-  const buyerNipEl = buyer.nip ? `<NIP>${escapeXml(buyer.nip)}</NIP>` : '<BrakID>1</BrakID>';
-
-  const bankEl = entity?.bank_account
-    ? `<RachunekBankowy><NrRB>${String(entity.bank_account).replace(/\s/g, '')}</NrRB></RachunekBankowy>`
+  const bankEl = sellerSource.bankAccount
+    ? `<RachunekBankowy><NrRB>${sellerSource.bankAccount.replace(/\s/g, '')}</NrRB></RachunekBankowy>`
     : '';
 
   const formaPlatnosci = invoice.payment_method === 'cash' ? '1' : '2';
+  const sellerAdresL2 = [sellerSource.addressPostalCode, sellerSource.addressCity].filter(Boolean).join(' ') || null;
+  const buyerAdresL2 = [buyerSource.addressPostalCode, buyerSource.addressCity].filter(Boolean).join(' ') || null;
+  const sellerAddressXml = buildAddressXml('Adres', { country: 'PL', line1: sellerSource.addressStreet, line2: sellerAdresL2 });
+  const buyerAddressXml = buildAddressXml('Adres', { country: 'PL', line1: buyerSource.addressStreet, line2: buyerAdresL2 });
 
-  // Build Podmiot2 Adres - skip empty elements
-  const buyerAdresL1 = (buyer.address_street || '').trim();
-  const buyerAdresL2 = ((buyer.address_postal_code || '') + ' ' + (buyer.address_city || '')).trim();
-  const buyerAdresLines = `<AdresL1>${escapeXml(buyerAdresL1 || '-')}</AdresL1>${buyerAdresL2 ? `\n      <AdresL2>${escapeXml(buyerAdresL2)}</AdresL2>` : ''}`;
+  const podmiot1Lines = [
+    '<Podmiot1>',
+    '  <DaneIdentyfikacyjne>',
+    ...(sellerSource.nip ? [`    <NIP>${escapeXml(sellerSource.nip)}</NIP>`] : []),
+    ...(sellerSource.name ? [`    <Nazwa>${escapeXml(sellerSource.name)}</Nazwa>`] : []),
+    '  </DaneIdentyfikacyjne>',
+    ...(sellerAddressXml ? [sellerAddressXml] : []),
+    '</Podmiot1>',
+  ];
+  const podmiot1 = podmiot1Lines.join('\n');
 
-  // Build Podmiot1 Adres
-  const sellerAdresL1 = (entity?.address_street || '').trim();
-  const sellerAdresL2 = ((entity?.address_postal_code || '') + ' ' + (entity?.address_city || '')).trim();
-  const sellerAdresLines = `<AdresL1>${escapeXml(sellerAdresL1 || '-')}</AdresL1>${sellerAdresL2 ? `\n      <AdresL2>${escapeXml(sellerAdresL2)}</AdresL2>` : ''}`;
+  const buyerIdentifierLines = buyerSource.nip
+    ? [`    <NIP>${escapeXml(buyerSource.nip)}</NIP>`]
+    : buyerSource.brakId
+      ? [`    <BrakID>${buyerSource.brakId}</BrakID>`]
+      : [];
+  const podmiot2Lines = [
+    '<Podmiot2>',
+    '  <DaneIdentyfikacyjne>',
+    ...buyerIdentifierLines,
+    ...(buyerSource.name ? [`    <Nazwa>${escapeXml(buyerSource.name)}</Nazwa>`] : []),
+    '  </DaneIdentyfikacyjne>',
+    ...(buyerAddressXml ? [buyerAddressXml] : []),
+    `  <JST>${buyerSource.jst}</JST>`,
+    `  <GV>${buyerSource.gv}</GV>`,
+    '</Podmiot2>',
+  ];
+  const podmiot2 = podmiot2Lines.join('\n');
 
-  return `<?xml version="1.0" encoding="UTF-8"?>
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <Faktura xmlns="http://crd.gov.pl/wzor/2025/06/25/13775/">
   <Naglowek>
     <KodFormularza kodSystemowy="FA (3)" wersjaSchemy="1-0E">FA</KodFormularza>
@@ -389,26 +852,8 @@ function generateInvoiceXML(invoice: any, entity: any, items: any[]): string {
     <DataWytworzeniaFa>${new Date().toISOString()}</DataWytworzeniaFa>
     <SystemInfo>GetRido</SystemInfo>
   </Naglowek>
-  <Podmiot1>
-    <DaneIdentyfikacyjne>
-      <NIP>${escapeXml(entity?.nip || '')}</NIP>
-      <Nazwa>${escapeXml(entity?.name || entity?.company_name || '')}</Nazwa>
-    </DaneIdentyfikacyjne>
-    <Adres>
-      <KodKraju>PL</KodKraju>
-      ${sellerAdresLines}
-    </Adres>
-  </Podmiot1>
-  <Podmiot2>
-    <DaneIdentyfikacyjne>
-      ${buyerNipEl}
-      <Nazwa>${escapeXml(buyer.name || 'Nabywca')}</Nazwa>
-    </DaneIdentyfikacyjne>
-    <Adres>
-      <KodKraju>PL</KodKraju>
-      ${buyerAdresLines}
-    </Adres>
-  </Podmiot2>
+  ${podmiot1.split('\n').join('\n  ')}
+  ${podmiot2.split('\n').join('\n  ')}
   <Fa>
     <KodWaluty>${invoice.currency || 'PLN'}</KodWaluty>
     <P_1>${issueDate}</P_1>
@@ -433,6 +878,32 @@ function generateInvoiceXML(invoice: any, entity: any, items: any[]): string {
     </Platnosc>
   </Fa>
 </Faktura>`;
+
+  const normalizedPodmiot1 = extractXmlFragment(xml, 'Podmiot1');
+  const normalizedPodmiot2 = extractXmlFragment(xml, 'Podmiot2');
+  const xsdViolations = [
+    ...validatePodmiot1Xsd(normalizedPodmiot1, sellerSource),
+    ...validatePodmiot2Xsd(normalizedPodmiot2, buyerSource),
+  ];
+  const semanticViolations = validateSemanticRules(sellerSource, buyerSource);
+  const warnings = buildWarnings(sellerSource, buyerSource);
+
+  return {
+    xml,
+    podmiot1: normalizedPodmiot1,
+    podmiot2: normalizedPodmiot2,
+    formCode,
+    invoiceType,
+    warnings,
+    xsdViolations,
+    semanticViolations,
+    buyerSource,
+    sellerSource,
+  };
+}
+
+function generateInvoiceXML(invoice: any, entity: any, items: any[]): string {
+  return buildKsefInvoiceArtifacts(invoice, entity, items).xml;
 }
 
 // ========== INVOICE STATUS CODES ==========
