@@ -1200,10 +1200,21 @@ serve(async (req) => {
       }
       const { data: items } = await supabase.from('user_invoice_items').select('*').eq('invoice_id', body.invoice_id).order('sort_order');
 
+      // Validate correction invoices have required original invoice data
+      const invoiceTypeVal = invoice.invoice_type || 'VAT';
+      if (['KOR', 'KOR_ZAL', 'KOR_ROZ'].includes(invoiceTypeVal) || invoice.is_correction === true) {
+        const corrNumber = invoice.corrected_invoice_number;
+        const corrDate = invoice.corrected_invoice_date || invoice.corrected_issue_date;
+        if (!corrNumber || !corrDate) {
+          throw new Error('Faktura korygująca wymaga numeru i daty pierwotnej faktury. Uzupełnij dane korekty przed wysyłką.');
+        }
+      }
+
       // Use shared seller resolution + XML builder with full XSD validation
       const sellerEntity = await resolveSellerEntityForInvoice(req, supabase, invoice);
       const artifacts = buildKsefInvoiceArtifacts(invoice, sellerEntity, items || []);
       const { xml } = artifacts;
+      console.log('[KSeF][send] XML:', xml);
 
       // Pre-send XSD validation — block if critical violations found
       const criticalViolations = artifacts.xsdViolations.filter(v => ['minOccurs', 'choice', 'missing'].includes(v.kind));
