@@ -297,6 +297,35 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
       
       if (session?.user) {
         await loadUserCompanyData(session.user.id);
+        
+        // Auto-generate next invoice number based on last invoice in DB
+        if (!editInvoiceId) {
+          const now = new Date();
+          const year = format(now, 'yyyy');
+          const month = format(now, 'MM');
+          const prefix = `FV/${year}/${month}/`;
+          
+          const { data: lastInvoice } = await supabase
+            .from('user_invoices')
+            .select('invoice_number')
+            .eq('user_id', session.user.id)
+            .like('invoice_number', `FV/${year}/%`)
+            .order('invoice_number', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          
+          let nextNum = 1;
+          if (lastInvoice?.invoice_number) {
+            const parts = lastInvoice.invoice_number.split('/');
+            const lastNumStr = parts[parts.length - 1];
+            const lastNum = parseInt(lastNumStr, 10);
+            if (!isNaN(lastNum)) {
+              nextNum = lastNum + 1;
+            }
+          }
+          setInvoiceNumber(`${prefix}${String(nextNum).padStart(3, '0')}`);
+        }
+        
         // Check if user has KSeF token configured
         const { data: cs } = await supabase
           .from('company_settings')
