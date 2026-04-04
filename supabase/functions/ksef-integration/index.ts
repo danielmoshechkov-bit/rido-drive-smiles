@@ -746,7 +746,7 @@ serve(async (req) => {
         return jsonRes({ success: true, status: 'accepted', ksef_reference: ksefNumber, environment });
       }
 
-      if (st === 'failed') {
+      if (st.includes('fail') || st.includes('error') || st.includes('reject')) {
         let errDetail = 'Faktura odrzucona przez KSeF';
         try {
           const fRes = await fetch(`${base}/sessions/${sessionRef}/invoices/failed`, { headers: { 'Authorization': `Bearer ${accessToken}` } });
