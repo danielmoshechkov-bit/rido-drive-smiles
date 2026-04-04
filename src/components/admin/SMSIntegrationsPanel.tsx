@@ -135,12 +135,27 @@ export const SMSIntegrationsPanel = () => {
 
         if (error) throw error;
       } else {
-        updateData.api_key = apiKey.trim() || '';
-        const { error } = await supabase
+        // Try to fetch existing row first (singleton pattern)
+        const { data: existing } = await supabase
           .from('sms_settings')
-          .insert(updateData as any);
+          .select('id')
+          .limit(1)
+          .maybeSingle();
 
-        if (error) throw error;
+        if (existing?.id) {
+          updateData.api_key = apiKey.trim() || undefined;
+          const { error } = await supabase
+            .from('sms_settings')
+            .update(updateData)
+            .eq('id', existing.id);
+          if (error) throw error;
+        } else {
+          updateData.api_key = apiKey.trim() || '';
+          const { error } = await supabase
+            .from('sms_settings')
+            .insert(updateData as any);
+          if (error) throw error;
+        }
       }
 
       setApiKey('');
