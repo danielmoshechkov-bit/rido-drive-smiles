@@ -957,66 +957,72 @@ export function InventoryPurchaseOCR({ entityId, showKsefOption }: Props) {
             </>
           )}
 
-          {/* History */}
-          {viewMode === 'history' && (
-            <Card>
-              <CardHeader><CardTitle className="flex items-center gap-2"><History className="h-5 w-5" />Historia faktur zakupowych</CardTitle></CardHeader>
-              <CardContent>
-                {loadingInvoices ? (
-                  <div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
-                ) : pastInvoices.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>Brak faktur zakupowych</p>
-                  </div>
-                ) : (
-                  <div className="border rounded-lg overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Nr dokumentu</TableHead>
-                          <TableHead>Dostawca</TableHead>
-                          <TableHead>Data</TableHead>
-                          <TableHead className="text-right">Netto</TableHead>
-                          <TableHead className="text-right">Brutto</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead></TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {pastInvoices.map(inv => (
-                          <TableRow key={inv.id}>
-                            <TableCell className="font-mono text-sm">{inv.document_number}</TableCell>
-                            <TableCell>
-                              <p className="text-sm">{inv.supplier_name || '—'}</p>
-                              {inv.supplier_nip && <p className="text-xs text-muted-foreground">NIP: {inv.supplier_nip}</p>}
-                            </TableCell>
-                            <TableCell className="text-sm">{inv.purchase_date || new Date(inv.created_at).toLocaleDateString('pl-PL')}</TableCell>
-                            <TableCell className="text-right font-mono text-sm">{inv.total_net?.toFixed(2) || '—'}</TableCell>
-                            <TableCell className="text-right font-mono text-sm font-semibold">{inv.total_gross?.toFixed(2) || '—'}</TableCell>
-                            <TableCell>
-                              <Badge variant={inv.status === 'approved' ? 'default' : 'secondary'}>
-                                {inv.status === 'approved' ? 'Zatwierdzona' : inv.status || 'Nowa'}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              {inv.pdf_url && (
-                                <a href={inv.pdf_url} target="_blank" rel="noopener noreferrer">
-                                  <Button variant="ghost" size="icon" className="h-8 w-8"><Eye className="h-4 w-4" /></Button>
-                                </a>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
         </>
       )}
+
+      {/* History view - shown when clicking "Dodane" tab */}
+      {activeTab === 'zakupy' && viewMode === 'history' && (
+        <Card>
+          <CardHeader><CardTitle className="flex items-center gap-2"><History className="h-5 w-5" />Dodane faktury zakupowe</CardTitle></CardHeader>
+          <CardContent>
+            {loadingInvoices ? (
+              <div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
+            ) : pastInvoices.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>Brak faktur zakupowych</p>
+              </div>
+            ) : (
+              <div className="border rounded-lg overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nr dokumentu</TableHead>
+                      <TableHead>Dostawca</TableHead>
+                      <TableHead>Data</TableHead>
+                      <TableHead className="text-right">Netto</TableHead>
+                      <TableHead className="text-right">Brutto</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {pastInvoices.map(inv => (
+                      <TableRow key={inv.id}>
+                        <TableCell className="font-mono text-sm">{inv.document_number}</TableCell>
+                        <TableCell>
+                          <p className="text-sm">{inv.supplier_name || '—'}</p>
+                          {inv.supplier_nip && <p className="text-xs text-muted-foreground">NIP: {inv.supplier_nip}</p>}
+                        </TableCell>
+                        <TableCell className="text-sm">{inv.purchase_date || new Date(inv.created_at).toLocaleDateString('pl-PL')}</TableCell>
+                        <TableCell className="text-right font-mono text-sm">{inv.total_net?.toFixed(2) || '—'}</TableCell>
+                        <TableCell className="text-right font-mono text-sm font-semibold">{inv.total_gross?.toFixed(2) || '—'}</TableCell>
+                        <TableCell>
+                          <Badge variant={inv.status === 'approved' ? 'default' : 'secondary'}>
+                            {inv.status === 'approved' ? 'Zatwierdzona' : inv.status || 'Nowa'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            {inv.pdf_url && (
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setPreviewInvoice(inv)} title="Podgląd">
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* KSeF tab */}
+      {activeTab === 'ksef' && showKsefOption && <PurchaseInvoicesKSeF />}
 
       {/* ═══════════ TOWARY TAB ═══════════ */}
       {activeTab === 'towary' && (
