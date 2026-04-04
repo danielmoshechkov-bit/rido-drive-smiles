@@ -365,8 +365,16 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
                   {invoice.invoice_type === 'proforma' && (
                     <Badge className="text-[10px] px-1.5 py-0 bg-violet-500/10 text-violet-600 border-violet-200">Pro forma</Badge>
                   )}
+                  {invoice.invoice_type === 'correction' && (
+                    <Badge className="text-[10px] px-1.5 py-0 bg-amber-500/10 text-amber-600 border-amber-200">Korekta</Badge>
+                  )}
                 </div>
-                <p className="text-xs text-muted-foreground">{invoice.buyer_name || 'Brak nabywcy'}</p>
+                <p className="text-xs text-muted-foreground">
+                  {invoice.buyer_name || 'Brak nabywcy'}
+                  {invoice.invoice_type === 'correction' && (invoice as any).corrected_invoice_number && (
+                    <span className="ml-1">→ {(invoice as any).corrected_invoice_number}</span>
+                  )}
+                </p>
               </div>
             </div>
             
