@@ -695,6 +695,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
         buyer.address_apartment_number ? `/${buyer.address_apartment_number}` : ''
       ].filter(Boolean).join(' ');
 
+      let resultInvoiceId: string | null = null;
       // Check if we're editing an existing invoice
       if (editInvoiceId) {
         // UPDATE existing invoice
@@ -743,6 +744,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
         await supabase.from('user_invoice_items').insert(itemsToInsert);
         
         toast.success('Zmiany zostały zapisane!');
+        resultInvoiceId = editInvoiceId;
       } else {
         // INSERT new invoice
         const { data: savedInvoice, error } = await supabase
@@ -772,7 +774,9 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
           .single();
 
         if (error) throw error;
-        if (savedInvoice) setLastSavedInvoiceId(savedInvoice.id);
+        const newInvoiceId = savedInvoice?.id || null;
+        if (newInvoiceId) setLastSavedInvoiceId(newInvoiceId);
+        resultInvoiceId = newInvoiceId;
 
         // Save invoice items
         if (savedInvoice) {
@@ -817,7 +821,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
       }
 
       onSaved?.();
-      return true; // Return success
+      return resultInvoiceId; // Return saved invoice ID
     } catch (err) {
       console.error('Error saving invoice:', err);
       toast.error('Błąd podczas zapisywania faktury');
@@ -857,14 +861,14 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
 
     setIsIssuing(true);
     try {
-      await handleSave();
+      const savedId = await handleSave();
       setInvoiceIssued(true);
       setShowPreview(true);
       toast.success('Faktura została wystawiona!');
 
       // Auto-send to KSeF if enabled
-      if (autoSendKsef && (lastSavedInvoiceId || editInvoiceId)) {
-        const invoiceIdToSend = editInvoiceId || lastSavedInvoiceId;
+      const invoiceIdToSend = editInvoiceId || savedId;
+      if (autoSendKsef && invoiceIdToSend) {
         try {
           const { data, error } = await supabase.functions.invoke('ksef-integration', {
             body: { action: 'send', invoice_id: invoiceIdToSend },
