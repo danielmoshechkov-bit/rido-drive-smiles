@@ -571,27 +571,22 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
                 {invoice.is_paid ? 'Cofnij opłacenie' : 'Oznacz jako opłaconą'}
               </Button>
               
-              {/* PDF button - disabled during KSeF processing */}
+              {/* PDF/Podgląd button - opens preview modal */}
               <Button 
                 size="sm" 
                 variant="outline" 
-                onClick={handleDownloadPdf} 
+                onClick={handleOpenPreview} 
                 disabled={isGeneratingPdf || liveKsefStatus === 'processing' || liveKsefStatus === 'sent'}
-                title={liveKsefStatus === 'processing' || liveKsefStatus === 'sent' ? 'Czekaj na zatwierdzenie KSeF' : 'Pobierz PDF'}
+                title={liveKsefStatus === 'processing' || liveKsefStatus === 'sent' ? 'Czekaj na zatwierdzenie KSeF' : 'Podgląd faktury'}
               >
                 {isGeneratingPdf ? (
                   <Loader2 className="h-4 w-4 mr-1 animate-spin" />
                 ) : (
-                  <Download className="h-4 w-4 mr-1" />
+                  <FileText className="h-4 w-4 mr-1" />
                 )}
                 {liveKsefStatus === 'processing' || liveKsefStatus === 'sent' 
                   ? '⏳ Czekaj na KSeF...' 
-                  : isGeneratingPdf ? 'Generuję...' : 'PDF'}
-              </Button>
-              
-              <Button size="sm" variant="outline" onClick={handleSendEmail}>
-                <Mail className="h-4 w-4 mr-1" />
-                Email
+                  : isGeneratingPdf ? 'Ładuję...' : 'Podgląd / PDF'}
               </Button>
               
               <Popover open={showReminderPopover} onOpenChange={setShowReminderPopover}>
