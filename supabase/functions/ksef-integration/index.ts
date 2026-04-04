@@ -544,7 +544,7 @@ serve(async (req) => {
     // ========== send ==========
     if (action === 'send') {
       const { data: invoice, error: invErr } = await supabase
-        .from('invoices').select('*, entity:entities(*)').eq('id', body.invoice_id).single();
+        .from('user_invoices').select('*, entity:entities(*)').eq('id', body.invoice_id).single();
       if (invErr || !invoice) throw new Error('Faktura nie znaleziona');
       const { data: items } = await supabase.from('invoice_items').select('*').eq('invoice_id', body.invoice_id);
 
