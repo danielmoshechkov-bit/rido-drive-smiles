@@ -1300,6 +1300,47 @@ serve(async (req) => {
             ksef_invoice_ref: invoiceRef,
           }).eq('id', transmission.id);
         }
+        await supabase.from('user_invoices').update({
+          ksef_status: 'processing',
+          ksef_session_ref: sessionRef,
+          ksef_invoice_ref: invoiceRef,
+          ksef_environment: environment,
+          ksef_error: null,
+        }).eq('id', body.invoice_id);
+
+        // ===== Poll for result BEFORE closing session (token still valid) =====
+        let pollResult: any = null;
+        if (sessionRef && invoiceRef) {
+          for (let attempt = 0; attempt < 10; attempt++) {
+            await new Promise((r) => setTimeout(r, 5000));
+            try {
+              const pollRes = await fetch(`${base}/sessions/${sessionRef}/invoices/${invoiceRef}`, {
+                headers: { 'Authorization': `Bearer ${accessToken}` },
+              });
+              if (!pollRes.ok) {
+                const pollText = await pollRes.text().catch(() => '');
+                console.warn('[KSeF][send] poll HTTP', pollRes.status, pollText.slice(0, 200));
+                continue;
+              }
+              const pollData = await pollRes.json();
+              const pollCode = pollData?.status?.code;
+              const pollKsefNumber = pollData?.ksefNumber || null;
+              console.log('[KSeF][send] poll attempt', attempt + 1, 'code:', pollCode, 'ksefNumber:', pollKsefNumber);
+
+              if (pollCode === 200 && pollKsefNumber) {
+                pollResult = { status: 'accepted', ksef_reference: pollKsefNumber, upo: pollData?.upoDownloadUrl };
+                break;
+              }
+              if (pollCode && pollCode >= 400) {
+                const errMsg = INVOICE_STATUS_MESSAGES[pollCode] || pollData?.status?.description || `Błąd faktury (${pollCode})`;
+                pollResult = { status: 'rejected', error: errMsg, error_code: pollCode };
+                break;
+              }
+            } catch (pollErr: any) {
+              console.warn('[KSeF][send] poll error:', pollErr.message);
+            }
+          }
+        }
 
         // ===== Close session =====
         console.log('[KSeF][send] session.close.request');
@@ -1315,125 +1356,36 @@ serve(async (req) => {
           console.warn('[KSeF][send] session close timeout — ignoruj:', e.message);
         }
 
-        // Save processing status with invoiceRef
-        if (transmission?.id) {
-          await supabase.from('ksef_transmissions').update({
-            status: 'processing',
-            ksef_reference_number: sessionRef,
+        // ===== Save final result =====
+        if (pollResult?.status === 'accepted') {
+          await supabase.from('user_invoices').update({
+            ksef_status: 'accepted',
+            ksef_reference: pollResult.ksef_reference,
+            ksef_session_ref: sessionRef,
             ksef_invoice_ref: invoiceRef,
-            environment,
-          }).eq('id', transmission.id);
-        }
-        await supabase.from('user_invoices').update({
-          ksef_status: 'processing',
-          ksef_session_ref: sessionRef,
-          ksef_invoice_ref: invoiceRef,
-          ksef_environment: environment,
-          ksef_error: null,
-        }).eq('id', body.invoice_id);
-
-        if (sessionRef && invoiceRef) {
-          for (let attempt = 0; attempt < 10; attempt++) {
-            await new Promise((r) => setTimeout(r, 5000));
-
-            try {
-              const pollRes = await fetch(`${base}/sessions/${sessionRef}/invoices/${invoiceRef}`, {
-                headers: { 'Authorization': `Bearer ${accessToken}` },
-              });
-
-              if (!pollRes.ok) {
-                const pollText = await pollRes.text().catch(() => '');
-                console.warn('[KSeF][send] poll HTTP', pollRes.status, pollText.slice(0, 200));
-                continue;
-              }
-
-              const pollData = await pollRes.json();
-              const pollCode = pollData?.status?.code;
-              const pollDesc = pollData?.status?.description || null;
-              const pollKsefNumber = pollData?.ksefNumber || null;
-              const pollUpoDownloadUrl = pollData?.upoDownloadUrl || null;
-
-              console.log('[KSeF][send] poll attempt', attempt + 1, 'code:', pollCode, 'ksefNumber:', pollKsefNumber);
-
-              if (pollCode === 200 && pollKsefNumber) {
-                await supabase.from('user_invoices').update({
-                  ksef_status: 'accepted',
-                  ksef_reference: pollKsefNumber,
-                  ksef_session_ref: sessionRef,
-                  ksef_invoice_ref: invoiceRef,
-                  ksef_environment: environment,
-                  ksef_error: null,
-                }).eq('id', body.invoice_id);
-
-                if (transmission?.id) {
-                  const txUpdate: any = {
-                    status: 'accepted',
-                    ksef_reference_number: pollKsefNumber,
-                    ksef_invoice_ref: invoiceRef,
-                    response_at: new Date().toISOString(),
-                    environment,
-                  };
-                  if (pollUpoDownloadUrl) txUpdate.upo_download_url = pollUpoDownloadUrl;
-                  await supabase.from('ksef_transmissions').update(txUpdate).eq('id', transmission.id);
-                }
-
-                return jsonRes({
-                  success: true,
-                  status: 'accepted',
-                  session_ref: sessionRef,
-                  invoice_ref: invoiceRef,
-                  ksef_reference: pollKsefNumber,
-                  message: 'Faktura przyjęta przez KSeF',
-                  environment,
-                });
-              }
-
-              if (pollCode === 445 || pollCode === 450 || (pollCode && pollCode >= 400)) {
-                const errMsg = INVOICE_STATUS_MESSAGES[pollCode] || pollDesc || `Błąd faktury (${pollCode})`;
-
-                await supabase.from('user_invoices').update({
-                  ksef_status: 'rejected',
-                  ksef_session_ref: sessionRef,
-                  ksef_invoice_ref: invoiceRef,
-                  ksef_environment: environment,
-                  ksef_error: errMsg,
-                }).eq('id', body.invoice_id);
-
-                if (transmission?.id) {
-                  await supabase.from('ksef_transmissions').update({
-                    status: 'rejected',
-                    ksef_reference_number: sessionRef,
-                    ksef_invoice_ref: invoiceRef,
-                    error_message: `${pollCode}: ${errMsg}`,
-                    response_at: new Date().toISOString(),
-                    environment,
-                  }).eq('id', transmission.id);
-                }
-
-                return jsonRes({
-                  success: false,
-                  status: 'rejected',
-                  session_ref: sessionRef,
-                  invoice_ref: invoiceRef,
-                  error: errMsg,
-                  error_code: pollCode,
-                  environment,
-                });
-              }
-            } catch (pollErr: any) {
-              console.warn('[KSeF][send] poll error:', pollErr.message);
-            }
+            ksef_environment: environment,
+            ksef_error: null,
+          }).eq('id', body.invoice_id);
+          if (transmission?.id) {
+            const txUp: any = { status: 'accepted', ksef_reference_number: pollResult.ksef_reference, ksef_invoice_ref: invoiceRef, response_at: new Date().toISOString(), environment };
+            if (pollResult.upo) txUp.upo_download_url = pollResult.upo;
+            await supabase.from('ksef_transmissions').update(txUp).eq('id', transmission.id);
           }
+          return jsonRes({ success: true, status: 'accepted', session_ref: sessionRef, invoice_ref: invoiceRef, ksef_reference: pollResult.ksef_reference, message: 'Faktura przyjęta przez KSeF', environment });
+        }
+        if (pollResult?.status === 'rejected') {
+          await supabase.from('user_invoices').update({ ksef_status: 'rejected', ksef_session_ref: sessionRef, ksef_invoice_ref: invoiceRef, ksef_environment: environment, ksef_error: pollResult.error }).eq('id', body.invoice_id);
+          if (transmission?.id) {
+            await supabase.from('ksef_transmissions').update({ status: 'rejected', ksef_reference_number: sessionRef, ksef_invoice_ref: invoiceRef, error_message: pollResult.error, response_at: new Date().toISOString(), environment }).eq('id', transmission.id);
+          }
+          return jsonRes({ success: false, status: 'rejected', session_ref: sessionRef, invoice_ref: invoiceRef, error: pollResult.error, error_code: pollResult.error_code, environment });
         }
 
-        return jsonRes({
-          success: true,
-          status: 'processing',
-          session_ref: sessionRef,
-          invoice_ref: invoiceRef,
-          message: 'Faktura wysłana do KSeF — oczekiwanie na numer KSeF',
-          environment,
-        });
+        // Polling timed out — save refs for frontend recovery
+        if (transmission?.id) {
+          await supabase.from('ksef_transmissions').update({ status: 'processing', ksef_reference_number: sessionRef, ksef_invoice_ref: invoiceRef, environment }).eq('id', transmission.id);
+        }
+        return jsonRes({ success: true, status: 'processing', session_ref: sessionRef, invoice_ref: invoiceRef, message: 'Faktura wysłana do KSeF — oczekiwanie na numer KSeF', environment });
       } catch (sendErr: any) {
         console.error('[KSeF][send] FULL ERROR:', sendErr.message);
         if (transmission?.id) await supabase.from('ksef_transmissions').update({ status: 'error', error_message: sendErr.message, response_at: new Date().toISOString() }).eq('id', transmission.id);
