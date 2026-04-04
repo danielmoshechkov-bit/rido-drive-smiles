@@ -4,7 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { FloatingInput } from '@/components/ui/floating-input';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, FileText, ArrowRight, ArrowDown } from 'lucide-react';
+import { Loader2, FileText, ArrowDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { calculateItemTotals, InvoiceItem } from '@/utils/invoiceHtmlGenerator';
 import {
