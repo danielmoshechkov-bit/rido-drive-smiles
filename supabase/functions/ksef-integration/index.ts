@@ -783,12 +783,14 @@ serve(async (req) => {
           return jsonRes({ success: true, status: 'processing', message: `Sesja jeszcze przetwarzana (HTTP ${stRes.status})` });
         }
         const stData = await stRes.json();
+        // KSeF returns status as { code: number, description: string }
+        const statusCode = stData?.status?.code;
         const statusRaw = stData?.status;
-        const st = String(statusRaw?.value || statusRaw || stData?.processingStatus || '').toLowerCase();
         console.log('[KSeF][check_status] status raw:', JSON.stringify(statusRaw));
-        console.log('[KSeF][check_status] session:', sessionRef, 'status:', st);
+        console.log('[KSeF][check_status] session:', sessionRef, 'statusCode:', statusCode);
 
-        if (st.includes('finish') || st.includes('success') || st === '200') {
+        // Per KSeF 2.0 API: code 200 = success, 100/170 = in progress, 445 = error
+        if (statusCode === 200) {
           let ksefNumber: string | null = null;
           try {
             const ilRes = await fetch(`${base}/sessions/${sessionRef}/invoices`, { headers: { 'Authorization': `Bearer ${accessToken}` } });
