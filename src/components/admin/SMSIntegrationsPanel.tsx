@@ -63,8 +63,7 @@ export const SMSIntegrationsPanel = () => {
   const fetchSettings = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('sms_settings')
+      const { data, error } = await (supabase.from('sms_settings') as any)
         .select('id, provider, api_url, api_key_secret_name, api_key, sender_name, is_active')
         .limit(1)
         .maybeSingle();
