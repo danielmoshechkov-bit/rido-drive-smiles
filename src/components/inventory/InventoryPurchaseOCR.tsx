@@ -7,13 +7,15 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
 // OCR uses analyze-invoice edge function directly
 import { toast } from 'sonner';
 import {
   Upload, FileText, Loader2, CheckCircle, Plus, Scan, Eye, Trash2,
-  History, Package, Download, Edit, Save, X, Search, AlertCircle,
+  History, Package, Download, Edit, Save, Search, AlertCircle, ChevronsUpDown,
 } from 'lucide-react';
 
 /* ─── Types ──────────────────────────────────────────────────────────── */
@@ -76,7 +78,13 @@ interface Props {
 /* ─── Component ──────────────────────────────────────────────────────── */
 
 export function InventoryPurchaseOCR({ entityId }: Props) {
+  // Company NIP for buyer validation
+  const [companyNip, setCompanyNip] = useState<string | null>(null);
+  const [companyName, setCompanyName] = useState<string | null>(null);
+  const [buyerNip, setBuyerNip] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+
 
   // Tab
   const [activeTab, setActiveTab] = useState<'zakupy' | 'towary' | 'eksport'>('zakupy');
@@ -159,11 +167,26 @@ export function InventoryPurchaseOCR({ entityId }: Props) {
     setLoadingInvoices(false);
   }, []);
 
+  const fetchCompanyNip = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data } = await supabase
+      .from('company_settings')
+      .select('nip, company_name')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (data) {
+      setCompanyNip(data.nip?.replace(/[^0-9]/g, '') || null);
+      setCompanyName(data.company_name || null);
+    }
+  }, []);
+
   useEffect(() => {
     fetchProducts();
     fetchInvoices();
     fetchSupplierMappings();
-  }, [fetchProducts, fetchInvoices, fetchSupplierMappings]);
+    fetchCompanyNip();
+  }, [fetchProducts, fetchInvoices, fetchSupplierMappings, fetchCompanyNip]);
 
   /* ── File upload (click + drag-and-drop) ───────────────────────────── */
 
@@ -269,6 +292,10 @@ export function InventoryPurchaseOCR({ entityId }: Props) {
         vat_total: d.suma_vat || 0,
         gross_total: d.suma_brutto || 0,
       });
+
+      // Extract buyer NIP for mismatch detection
+      const extractedBuyerNip = (d.nabywca?.nip || '').replace(/[^0-9]/g, '');
+      setBuyerNip(extractedBuyerNip || null);
 
       const ocrItemsList: OCRItem[] = (d.pozycje || []).map((item: any) => {
         const qty = Number(item.ilosc) || 1;
@@ -408,7 +435,16 @@ export function InventoryPurchaseOCR({ entityId }: Props) {
     setProcessing(true);
 
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error('Musisz być zalogowany');
+        setProcessing(false);
+        return;
+      }
+
       const insertPayload: any = {
+        user_id: user.id,
+        entity_id: entityId || null,
         document_number: invoiceHeader.document_number || `FZ-${Date.now()}`,
         supplier_name: invoiceHeader.supplier_name,
         supplier_nip: invoiceHeader.supplier_nip,
@@ -429,7 +465,8 @@ export function InventoryPurchaseOCR({ entityId }: Props) {
         .single();
 
       if (invError || !invoice) {
-        toast.error('Błąd tworzenia faktury');
+        console.error('Invoice insert error:', invError);
+        toast.error(`Błąd tworzenia faktury: ${invError?.message || 'Nieznany błąd'}`);
         setProcessing(false);
         return;
       }
@@ -773,7 +810,23 @@ export function InventoryPurchaseOCR({ entityId }: Props) {
                         <span>VAT: <strong>{invoiceHeader.vat_total?.toFixed(2)} zł</strong></span>
                         <span>Brutto: <strong>{invoiceHeader.gross_total?.toFixed(2)} zł</strong></span>
                       </div>
-                    </div>
+                      </div>
+
+                    {/* Buyer NIP mismatch warning */}
+                    {buyerNip && companyNip && buyerNip !== companyNip && (
+                      <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-700 text-sm flex items-start gap-2">
+                        <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-semibold text-amber-800 dark:text-amber-300">⚠️ Nabywca nie zgadza się z kontem firmowym!</p>
+                          <p className="text-amber-700 dark:text-amber-400 mt-1">
+                            NIP na fakturze: <strong>{buyerNip}</strong> — Twoja firma ({companyName || ''}): <strong>{companyNip}</strong>
+                          </p>
+                          <p className="text-amber-600 dark:text-amber-500 text-xs mt-1">
+                            Ta faktura jest wystawiona na inną firmę. Jeśli ją zapiszesz, księgowa może ją odrzucić.
+                          </p>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Items table */}
                     {ocrItems.length > 0 && (
@@ -807,15 +860,40 @@ export function InventoryPurchaseOCR({ entityId }: Props) {
                                   {invoiceMode === 'magazyn' && (
                                     <TableCell>
                                       <div className="flex items-center gap-1">
-                                        <Select value={item.mapped_product_id || '_none'} onValueChange={(v) => handleMapProduct(index, v === '_none' ? '' : v)}>
-                                          <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Wybierz..." /></SelectTrigger>
-                                          <SelectContent>
-                                            <SelectItem value="_none">— brak —</SelectItem>
-                                            {products.map(p => (
-                                              <SelectItem key={p.id} value={p.id}>{p.name} {p.sku ? `(${p.sku})` : ''}</SelectItem>
-                                            ))}
-                                          </SelectContent>
-                                        </Select>
+                                        <Popover>
+                                          <PopoverTrigger asChild>
+                                            <Button variant="outline" size="sm" className="h-8 text-xs justify-between w-36">
+                                              <span className="truncate">
+                                                {item.mapped_product_id 
+                                                  ? (products.find(p => p.id === item.mapped_product_id)?.name || 'Wybrano')
+                                                  : '— brak —'}
+                                              </span>
+                                              <ChevronsUpDown className="h-3 w-3 ml-1 opacity-50 shrink-0" />
+                                            </Button>
+                                          </PopoverTrigger>
+                                          <PopoverContent className="w-64 p-0" align="start">
+                                            <Command>
+                                              <CommandInput placeholder="Szukaj produktu..." className="h-9" />
+                                              <CommandList>
+                                                <CommandEmpty>Brak produktów</CommandEmpty>
+                                                <CommandGroup>
+                                                  <CommandItem value="_none" onSelect={() => handleMapProduct(index, '')}>
+                                                    — brak —
+                                                  </CommandItem>
+                                                  {products.map(p => (
+                                                    <CommandItem key={p.id} value={`${p.name} ${p.sku || ''}`} onSelect={() => handleMapProduct(index, p.id)}>
+                                                      <div className="flex items-center gap-2">
+                                                        {item.mapped_product_id === p.id && <CheckCircle className="h-3 w-3 text-primary shrink-0" />}
+                                                        <span className="truncate">{p.name}</span>
+                                                        {p.sku && <span className="text-[10px] text-muted-foreground shrink-0">({p.sku})</span>}
+                                                      </div>
+                                                    </CommandItem>
+                                                  ))}
+                                                </CommandGroup>
+                                              </CommandList>
+                                            </Command>
+                                          </PopoverContent>
+                                        </Popover>
                                         <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => openNewProductDialog(index)} title="Utwórz nowy produkt">
                                           <Plus className="h-3 w-3" />
                                         </Button>
