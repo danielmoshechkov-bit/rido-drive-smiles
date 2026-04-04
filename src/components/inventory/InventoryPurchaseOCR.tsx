@@ -431,7 +431,16 @@ export function InventoryPurchaseOCR({ entityId }: Props) {
     setProcessing(true);
 
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error('Musisz być zalogowany');
+        setProcessing(false);
+        return;
+      }
+
       const insertPayload: any = {
+        user_id: user.id,
+        entity_id: entityId || null,
         document_number: invoiceHeader.document_number || `FZ-${Date.now()}`,
         supplier_name: invoiceHeader.supplier_name,
         supplier_nip: invoiceHeader.supplier_nip,
@@ -452,7 +461,8 @@ export function InventoryPurchaseOCR({ entityId }: Props) {
         .single();
 
       if (invError || !invoice) {
-        toast.error('Błąd tworzenia faktury');
+        console.error('Invoice insert error:', invError);
+        toast.error(`Błąd tworzenia faktury: ${invError?.message || 'Nieznany błąd'}`);
         setProcessing(false);
         return;
       }
