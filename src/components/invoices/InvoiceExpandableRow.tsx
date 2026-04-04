@@ -175,9 +175,31 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
     }
   };
 
+  const handleKsefStatusChange = async () => {
+    // Refetch latest KSeF data from DB
+    const { data: fresh } = await supabase
+      .from('user_invoices')
+      .select('ksef_status, ksef_reference')
+      .eq('id', invoice.id)
+      .single();
+    if (fresh) {
+      setLiveKsefStatus(fresh.ksef_status || undefined);
+      setLiveKsefReference(fresh.ksef_reference || undefined);
+    }
+    onUpdate();
+  };
+
   const handleDownloadPdf = async () => {
     setIsGeneratingPdf(true);
     try {
+      // Always refetch latest ksef data before PDF
+      const { data: freshInvoice } = await supabase
+        .from('user_invoices')
+        .select('ksef_status, ksef_reference')
+        .eq('id', invoice.id)
+        .single();
+      const latestKsefRef = freshInvoice?.ksef_reference || liveKsefReference;
+
       const { data: items } = await supabase
         .from('user_invoice_items')
         .select('*')
@@ -235,7 +257,7 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
           nip: invoice.buyer_nip || '',
           address_street: invoice.buyer_address || '',
         },
-        ksef_reference: invoice.ksef_reference || undefined,
+        ksef_reference: latestKsefRef || undefined,
       };
 
       const html = generateInvoiceHtml(invoiceData);
