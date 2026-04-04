@@ -50,6 +50,7 @@ import { DiscountSection, DiscountConfig, calculateDiscount } from './DiscountSe
 import { AuthModal } from '@/components/auth/AuthModal';
 import { supabase } from '@/integrations/supabase/client';
 import { useNipLookup, CompanyData } from '@/hooks/useNipLookup';
+import { CorrectionInvoiceSection, CorrectionData } from './CorrectionInvoiceSection';
 
 const VAT_RATES = ['23', '8', '5', '0', 'zw', 'np'];
 const UNITS = ['szt.', 'usł.', 'godz.', 'km', 'kg', 'm²', 'm³', 'kpl.'];
@@ -226,6 +227,9 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
   const [isIssuing, setIsIssuing] = useState(false);
   const [invoiceIssued, setInvoiceIssued] = useState(false);
   const [lastSavedInvoiceId, setLastSavedInvoiceId] = useState<string | null>(null);
+  
+  // Correction invoice state
+  const [correctionData, setCorrectionData] = useState<CorrectionData | null>(null);
   
   // User's saved company
   const [savedCompanyId, setSavedCompanyId] = useState<string | null>(null);
@@ -1008,6 +1012,31 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
           )}
         </CardContent>
       </Card>
+
+      {/* Correction Invoice Section - shown only for correction type */}
+      {invoiceType === 'correction' && (
+        <CorrectionInvoiceSection
+          onOriginalSelected={(originalInvoice, originalItems) => {
+            // Auto-fill buyer data from original invoice
+            setBuyer(prev => ({
+              ...prev,
+              name: originalInvoice.buyer_name || prev.name,
+              nip: originalInvoice.buyer_nip || prev.nip,
+              address_street: originalInvoice.buyer_address || prev.address_street,
+            }));
+            // Load original items into the items list (user edits them as "after" values)
+            if (originalItems.length > 0) {
+              setItems(originalItems.map(item => ({
+                ...item,
+                unit_gross_price: Math.round(item.unit_net_price * (1 + (parseFloat(item.vat_rate) || 0) / 100) * 100) / 100,
+              })));
+            }
+            // Add correction note
+            setNotes(prev => prev || `Korekta do faktury ${originalInvoice.invoice_number}`);
+          }}
+          onCorrectionDataChange={setCorrectionData}
+        />
+      )}
 
       {/* Seller Section - Collapsible */}
       <Card>
