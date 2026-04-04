@@ -1035,6 +1035,14 @@ serve(async (req) => {
     if (action === 'debug') {
       const { data: invoice, error: invErr } = await supabase.from('user_invoices').select('*').eq('id', body.invoice_id).single();
       if (invErr || !invoice) return jsonRes({ success: false, error: 'Faktura nie znaleziona' }, 404);
+      if (invoice.corrected_invoice_id) {
+        const { data: orig } = await supabase.from('user_invoices').select('invoice_number, issue_date, ksef_reference').eq('id', invoice.corrected_invoice_id).maybeSingle();
+        if (orig) {
+          invoice.corrected_invoice_number = orig.invoice_number;
+          invoice.corrected_invoice_date = orig.issue_date;
+          invoice.corrected_ksef_reference = orig.ksef_reference;
+        }
+      }
       const { data: items } = await supabase.from('user_invoice_items').select('*').eq('invoice_id', body.invoice_id).order('sort_order');
 
       // Use shared resolveSellerEntityForInvoice + buildKsefInvoiceArtifacts
