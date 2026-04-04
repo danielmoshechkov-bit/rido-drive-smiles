@@ -33,13 +33,20 @@ export function KsefSendButton({ invoiceId, size = 'sm', onStatusChange }: KsefS
         .from('user_invoices')
         .select('ksef_status, ksef_reference, ksef_invoice_ref')
         .eq('id', invoiceId)
-        .single();
+        .maybeSingle();
 
       if (data) {
         setKsefStatus(data.ksef_status || null);
         setKsefReference(data.ksef_reference || null);
         setInvoiceRef((data as any).ksef_invoice_ref || null);
         if (data.ksef_status === 'processing' || data.ksef_status === 'sent') {
+          const currentInvoiceRef = (data as any).ksef_invoice_ref || null;
+          if (currentInvoiceRef) {
+            setInvoiceRef(currentInvoiceRef);
+            startPolling(null, currentInvoiceRef);
+            return;
+          }
+
           const { data: tx } = await supabase
             .from('ksef_transmissions')
             .select('ksef_reference_number, ksef_invoice_ref')
@@ -47,10 +54,10 @@ export function KsefSendButton({ invoiceId, size = 'sm', onStatusChange }: KsefS
             .order('created_at', { ascending: false })
             .limit(1)
             .maybeSingle();
-          if (tx?.ksef_reference_number) {
-            setSessionRef(tx.ksef_reference_number);
+          if (tx?.ksef_reference_number || (tx as any)?.ksef_invoice_ref) {
+            setSessionRef(tx?.ksef_reference_number || null);
             setInvoiceRef((tx as any).ksef_invoice_ref || null);
-            startPolling(tx.ksef_reference_number, (tx as any).ksef_invoice_ref);
+            startPolling(tx?.ksef_reference_number || null, (tx as any).ksef_invoice_ref);
           }
         }
       }
@@ -61,7 +68,7 @@ export function KsefSendButton({ invoiceId, size = 'sm', onStatusChange }: KsefS
     }
   };
 
-  const startPolling = (sRef: string, iRef?: string | null) => {
+  const startPolling = (sRef?: string | null, iRef?: string | null) => {
     if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     setPollingTimedOut(false);
     let attempts = 0;
@@ -75,7 +82,7 @@ export function KsefSendButton({ invoiceId, size = 'sm', onStatusChange }: KsefS
       }
       try {
         const { data, error } = await supabase.functions.invoke('ksef-integration', {
-          body: { action: 'check_status', session_ref: sRef, invoice_ref: iRef || invoiceRef, invoice_id: invoiceId },
+          body: { action: 'check_status', session_ref: sRef ?? null, invoice_ref: iRef || invoiceRef, invoice_id: invoiceId },
         });
         if (error) return;
         if (data?.status === 'accepted') {
@@ -105,11 +112,9 @@ export function KsefSendButton({ invoiceId, size = 'sm', onStatusChange }: KsefS
       if (!data?.success) throw new Error(data?.error || 'Błąd wysyłania do KSeF');
 
       setKsefStatus('processing');
-      if (data.session_ref) {
-        setSessionRef(data.session_ref);
-        setInvoiceRef(data.invoice_ref || null);
-        startPolling(data.session_ref, data.invoice_ref);
-      }
+      setSessionRef(data.session_ref || null);
+      setInvoiceRef(data.invoice_ref || null);
+      startPolling(data.session_ref || null, data.invoice_ref || null);
       toast.success(data.message || 'Faktura wysłana do KSeF');
       onStatusChange?.();
     } catch (err: any) {
