@@ -347,7 +347,15 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
                 <FileText className="h-4 w-4 text-primary" />
               </div>
               <div>
-                <p className="font-semibold text-sm">{invoice.invoice_number || 'Faktura'}</p>
+                <div className="flex items-center gap-2">
+                  <p className="font-semibold text-sm">{invoice.invoice_number || (invoice.ksef_status === 'draft' ? 'Szkic' : 'Faktura')}</p>
+                  {invoice.ksef_status === 'draft' && (
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Szkic</Badge>
+                  )}
+                  {invoice.invoice_type === 'proforma' && (
+                    <Badge className="text-[10px] px-1.5 py-0 bg-violet-500/10 text-violet-600 border-violet-200">Pro forma</Badge>
+                  )}
+                </div>
                 <p className="text-xs text-muted-foreground">{invoice.buyer_name || 'Brak nabywcy'}</p>
               </div>
             </div>
