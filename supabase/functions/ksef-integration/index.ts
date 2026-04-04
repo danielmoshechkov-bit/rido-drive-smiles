@@ -1135,56 +1135,23 @@ serve(async (req) => {
       if (invErr || !invoice) throw new Error('Faktura nie znaleziona');
       const { data: items } = await supabase.from('user_invoice_items').select('*').eq('invoice_id', body.invoice_id).order('sort_order');
 
-      // Get seller data
-      let sellerEntity: any = {};
-      if (invoice.company_id) {
-        const { data: company } = await supabase.from('user_invoice_companies').select('*').eq('id', invoice.company_id).maybeSingle();
-        if (company) {
-          sellerEntity = {
-            nip: company.nip,
-            name: company.name,
-            address_street: [company.address_street, company.address_building_number, company.address_apartment_number].filter(Boolean).join(' '),
-            address_postal_code: company.address_postal_code,
-            address_city: company.address_city,
-            bank_account: company.bank_account,
-          };
-        }
-      }
-      const effectiveUserId = invoice.user_id || (await getUserFromJwt(req, supabase))?.id;
-      if (!sellerEntity.nip && effectiveUserId) {
-        const { data: cs } = await supabase.from('company_settings').select('*').eq('user_id', effectiveUserId).maybeSingle();
-        if (cs) {
-          sellerEntity = {
-            nip: cs.nip,
-            name: cs.company_name,
-            address_street: [cs.street, cs.building_number, cs.apartment_number].filter(Boolean).join(' '),
-            address_postal_code: cs.postal_code,
-            address_city: cs.city,
-            bank_account: cs.bank_account,
-          };
-        }
+      // Use shared seller resolution + XML builder with full XSD validation
+      const sellerEntity = await resolveSellerEntityForInvoice(req, supabase, invoice);
+      const artifacts = buildKsefInvoiceArtifacts(invoice, sellerEntity, items || []);
+      const { xml } = artifacts;
+
+      // Pre-send XSD validation — block if critical violations found
+      const criticalViolations = artifacts.xsdViolations.filter(v => ['minOccurs', 'choice', 'missing'].includes(v.kind));
+      if (criticalViolations.length > 0) {
+        console.error('[KSeF][send] BLOCKED: XSD violations detected before send:', JSON.stringify(criticalViolations));
+        return jsonRes({
+          success: false,
+          error: 'Faktura nie przeszła walidacji XSD FA(3) — wysyłka zablokowana.',
+          xsdViolations: criticalViolations,
+          warnings: artifacts.warnings,
+        }, 400);
       }
 
-      // Parse buyer_address which is stored as "street, postal_code city"
-      const rawAddr = invoice.buyer_address || '';
-      let bStreet = rawAddr, bPostal = '', bCity = '';
-      const commaIdx = rawAddr.lastIndexOf(',');
-      if (commaIdx > -1) {
-        bStreet = rawAddr.substring(0, commaIdx).trim();
-        const rest = rawAddr.substring(commaIdx + 1).trim();
-        const spaceIdx = rest.indexOf(' ');
-        if (spaceIdx > -1) {
-          bPostal = rest.substring(0, spaceIdx);
-          bCity = rest.substring(spaceIdx + 1);
-        } else {
-          bCity = rest;
-        }
-      }
-      console.log('[KSeF] buyer_address parsed:', JSON.stringify({ rawAddr, bStreet, bPostal, bCity }));
-      const buyerSnapshot = { nip: invoice.buyer_nip, name: invoice.buyer_name, address_street: bStreet, address_postal_code: bPostal, address_city: bCity };
-      const invoiceForXml = { ...invoice, buyer_snapshot: buyerSnapshot };
-
-      const xml = generateInvoiceXML(invoiceForXml, sellerEntity, items || []);
       const xmlBytes = new TextEncoder().encode(xml);
 
       // Size validation (max 1 MB for online session)
