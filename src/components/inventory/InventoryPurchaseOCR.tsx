@@ -96,6 +96,7 @@ export function InventoryPurchaseOCR({ entityId }: Props) {
   const [uploading, setUploading] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [fileBase64, setFileBase64] = useState<string | null>(null);
+  const [fileMimeType, setFileMimeType] = useState<string>('');
   const [uploadedFileUrl, setUploadedFileUrl] = useState<string | null>(null);
   const [invoiceHeader, setInvoiceHeader] = useState<InvoiceHeader | null>(null);
   const [ocrItems, setOcrItems] = useState<OCRItem[]>([]);
