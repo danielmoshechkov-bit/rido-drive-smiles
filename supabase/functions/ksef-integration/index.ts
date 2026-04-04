@@ -1049,6 +1049,8 @@ serve(async (req) => {
 
       const { accessToken } = await getKsefAccessToken(base, nip, token);
 
+      // KSeF requires plain YYYY-MM-DD format without timezone
+      console.log('[KSeF][fetch_received] dateFrom:', dateFrom, 'dateTo:', dateTo);
       const queryRes = await fetch(`${base}/invoices/query/metadata`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
@@ -1056,8 +1058,8 @@ serve(async (req) => {
           filters: {
             subjectType: 'subject2',
             dateRange: {
-              startDate: `${dateFrom}T00:00:00Z`,
-              endDate: `${dateTo}T23:59:59Z`,
+              startDate: dateFrom,
+              endDate: dateTo,
             },
           },
           page: 0,
@@ -1312,7 +1314,6 @@ serve(async (req) => {
         }
         await supabase.from('user_invoices').update({
           ksef_status: 'processing',
-          ksef_reference: sessionRef,
           ksef_invoice_ref: invoiceRef,
           ksef_environment: environment,
         }).eq('id', body.invoice_id);

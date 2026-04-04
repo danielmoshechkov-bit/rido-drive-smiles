@@ -266,9 +266,19 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
         printWindow.document.write(html);
         printWindow.document.close();
         printWindow.focus();
-        setTimeout(() => {
-          printWindow.print();
-        }, 300);
+        // Wait for QR code image to load before printing
+        const imgs = printWindow.document.querySelectorAll('img.ksef-qr');
+        if (imgs.length > 0) {
+          let loaded = 0;
+          const tryPrint = () => { loaded++; if (loaded >= imgs.length) setTimeout(() => printWindow.print(), 100); };
+          imgs.forEach(img => {
+            if ((img as HTMLImageElement).complete) tryPrint();
+            else { img.addEventListener('load', tryPrint); img.addEventListener('error', tryPrint); }
+          });
+          setTimeout(() => printWindow.print(), 3000);
+        } else {
+          setTimeout(() => printWindow.print(), 300);
+        }
       }
 
       toast.success('PDF gotowy do druku');
@@ -524,13 +534,22 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
                 {invoice.is_paid ? 'Cofnij opłacenie' : 'Oznacz jako opłaconą'}
               </Button>
               
-              <Button size="sm" variant="outline" onClick={handleDownloadPdf} disabled={isGeneratingPdf}>
+              {/* PDF button - disabled during KSeF processing */}
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={handleDownloadPdf} 
+                disabled={isGeneratingPdf || liveKsefStatus === 'processing' || liveKsefStatus === 'sent'}
+                title={liveKsefStatus === 'processing' || liveKsefStatus === 'sent' ? 'Czekaj na zatwierdzenie KSeF' : 'Pobierz PDF'}
+              >
                 {isGeneratingPdf ? (
                   <Loader2 className="h-4 w-4 mr-1 animate-spin" />
                 ) : (
                   <Download className="h-4 w-4 mr-1" />
                 )}
-                {isGeneratingPdf ? 'Generuję...' : 'PDF'}
+                {liveKsefStatus === 'processing' || liveKsefStatus === 'sent' 
+                  ? '⏳ Czekaj na KSeF...' 
+                  : isGeneratingPdf ? 'Generuję...' : 'PDF'}
               </Button>
               
               <Button size="sm" variant="outline" onClick={handleSendEmail}>

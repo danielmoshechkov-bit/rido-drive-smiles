@@ -472,11 +472,11 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
 
     ${invoice.ksef_reference ? `
     <div style="margin-top: 20px; padding: 12px; border: 1px solid #e5e7eb; border-radius: 8px; display: flex; align-items: center; gap: 12px;">
-      <img src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent('https://efaktura.mf.gov.pl/api/ksef?id=' + invoice.ksef_reference)}" alt="KSeF QR" style="width: 80px; height: 80px;" />
+      <img class="ksef-qr" src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent('https://efaktura.mf.gov.pl/web/verify?id=' + invoice.ksef_reference)}" alt="KSeF QR" style="width: 80px; height: 80px;" />
       <div style="font-size: 10px; color: #6b7280;">
-        <div style="font-weight: 600; margin-bottom: 2px;">Faktura w KSeF</div>
-        <div>Nr ref.: ${invoice.ksef_reference}</div>
-        <div>Weryfikacja: efaktura.mf.gov.pl</div>
+        <div style="font-weight: 600; margin-bottom: 2px; color: #16a34a;">✅ Faktura w Krajowym Systemie e-Faktur</div>
+        <div style="font-weight: 600;">Nr KSeF: ${invoice.ksef_reference}</div>
+        <div style="margin-top: 2px;">Weryfikacja: <a href="https://efaktura.mf.gov.pl/web/verify?id=${encodeURIComponent(invoice.ksef_reference)}" style="color: #7c3aed;">efaktura.mf.gov.pl</a></div>
       </div>
     </div>
     ` : ''}
@@ -502,8 +502,19 @@ export const printInvoice = (invoice: InvoiceData): void => {
     printWindow.document.write(html);
     printWindow.document.close();
     printWindow.focus();
-    setTimeout(() => {
-      printWindow.print();
-    }, 250);
+    // Wait for QR code image to load before printing
+    const imgs = printWindow.document.querySelectorAll('img.ksef-qr');
+    if (imgs.length > 0) {
+      let loaded = 0;
+      const tryPrint = () => { loaded++; if (loaded >= imgs.length) setTimeout(() => printWindow.print(), 100); };
+      imgs.forEach(img => {
+        if ((img as HTMLImageElement).complete) tryPrint();
+        else { img.addEventListener('load', tryPrint); img.addEventListener('error', tryPrint); }
+      });
+      // Fallback timeout
+      setTimeout(() => printWindow.print(), 3000);
+    } else {
+      setTimeout(() => printWindow.print(), 250);
+    }
   }
 };
