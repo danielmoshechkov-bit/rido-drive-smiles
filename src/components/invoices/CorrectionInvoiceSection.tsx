@@ -3,9 +3,18 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FloatingInput } from '@/components/ui/floating-input';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, FileText, ArrowRight } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
+import { Loader2, FileText, ArrowDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { calculateItemTotals, InvoiceItem } from '@/utils/invoiceHtmlGenerator';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 interface OriginalInvoice {
   id: string;
@@ -15,9 +24,11 @@ interface OriginalInvoice {
   gross_total: number;
   buyer_nip?: string;
   buyer_address?: string;
+  sale_date?: string;
+  ksef_reference?: string;
 }
 
-interface CorrectionItem {
+export interface CorrectionItem {
   name: string;
   quantity_before: number;
   quantity_after: number;
@@ -30,20 +41,44 @@ interface CorrectionItem {
 export interface CorrectionData {
   originalInvoiceId: string;
   originalInvoiceNumber: string;
+  originalIssueDate: string;
+  originalSaleDate: string;
+  originalKsefReference?: string;
+  correctionReason: string;
+  correctionReasonText?: string;
   items: CorrectionItem[];
 }
+
+const CORRECTION_REASONS = [
+  { value: 'wrong_price', label: 'Błędna cena' },
+  { value: 'wrong_quantity', label: 'Błędna ilość' },
+  { value: 'wrong_buyer', label: 'Błędny nabywca' },
+  { value: 'return', label: 'Zwrot towaru/usługi' },
+  { value: 'wrong_vat', label: 'Błędna stawka VAT' },
+  { value: 'other', label: 'Inny powód' },
+];
 
 interface CorrectionInvoiceSectionProps {
   onOriginalSelected: (invoice: OriginalInvoice, items: InvoiceItem[]) => void;
   onCorrectionDataChange: (data: CorrectionData | null) => void;
 }
 
+function calcItemTotals(qty: number, netPrice: number, vatRate: string) {
+  const rate = parseFloat(vatRate) || 0;
+  const net = Math.round(qty * netPrice * 100) / 100;
+  const vat = Math.round(net * (rate / 100) * 100) / 100;
+  const gross = Math.round((net + vat) * 100) / 100;
+  return { net, vat, gross };
+}
+
 export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataChange }: CorrectionInvoiceSectionProps) {
   const [invoices, setInvoices] = useState<OriginalInvoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string>('');
-  const [originalItems, setOriginalItems] = useState<any[]>([]);
   const [correctionItems, setCorrectionItems] = useState<CorrectionItem[]>([]);
+  const [correctionReason, setCorrectionReason] = useState('wrong_price');
+  const [correctionReasonText, setCorrectionReasonText] = useState('');
+  const [selectedInvoice, setSelectedInvoice] = useState<OriginalInvoice | null>(null);
 
   useEffect(() => {
     loadInvoices();
@@ -55,22 +90,36 @@ export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataC
 
     const { data } = await supabase
       .from('user_invoices')
-      .select('id, invoice_number, buyer_name, issue_date, gross_total, buyer_nip, buyer_address')
+      .select('id, invoice_number, buyer_name, issue_date, sale_date, gross_total, buyer_nip, buyer_address, ksef_reference, ksef_status')
       .eq('user_id', session.user.id)
       .in('invoice_type', ['invoice', 'vat_margin', 'advance'])
       .order('created_at', { ascending: false })
       .limit(50);
 
-    setInvoices(data || []);
+    setInvoices((data || []) as OriginalInvoice[]);
     setLoading(false);
+  };
+
+  const emitChange = (items: CorrectionItem[], reason: string, reasonText: string, invoice: OriginalInvoice | null) => {
+    if (!invoice) { onCorrectionDataChange(null); return; }
+    onCorrectionDataChange({
+      originalInvoiceId: invoice.id,
+      originalInvoiceNumber: invoice.invoice_number,
+      originalIssueDate: invoice.issue_date,
+      originalSaleDate: invoice.sale_date || invoice.issue_date,
+      originalKsefReference: invoice.ksef_reference,
+      correctionReason: reason,
+      correctionReasonText: reason === 'other' ? reasonText : undefined,
+      items,
+    });
   };
 
   const handleSelect = async (invoiceId: string) => {
     setSelectedId(invoiceId);
-    const invoice = invoices.find(i => i.id === invoiceId);
+    const invoice = invoices.find(i => i.id === invoiceId) || null;
+    setSelectedInvoice(invoice);
     if (!invoice) return;
 
-    // Load original invoice items
     const { data: items } = await supabase
       .from('user_invoice_items')
       .select('*')
@@ -78,9 +127,7 @@ export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataC
       .order('sort_order');
 
     const loadedItems = items || [];
-    setOriginalItems(loadedItems);
 
-    // Create correction items with before = original, after = same (user will edit)
     const cItems: CorrectionItem[] = loadedItems.map((item: any) => ({
       name: item.name || '',
       quantity_before: item.quantity || 0,
@@ -92,8 +139,7 @@ export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataC
     }));
     setCorrectionItems(cItems);
 
-    // Convert to InvoiceItems for parent
-    const invoiceItems: InvoiceItem[] = loadedItems.map((item: any) => 
+    const invoiceItems: InvoiceItem[] = loadedItems.map((item: any) =>
       calculateItemTotals({
         name: item.name || '',
         quantity: item.quantity || 1,
@@ -104,27 +150,39 @@ export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataC
     );
 
     onOriginalSelected(invoice, invoiceItems);
-    onCorrectionDataChange({
-      originalInvoiceId: invoiceId,
-      originalInvoiceNumber: invoice.invoice_number,
-      items: cItems,
-    });
+    emitChange(cItems, correctionReason, correctionReasonText, invoice);
   };
 
   const updateCorrectionItem = (index: number, field: 'quantity_after' | 'unit_net_price_after', value: number) => {
     setCorrectionItems(prev => {
       const updated = [...prev];
       updated[index] = { ...updated[index], [field]: value };
-
-      onCorrectionDataChange({
-        originalInvoiceId: selectedId,
-        originalInvoiceNumber: invoices.find(i => i.id === selectedId)?.invoice_number || '',
-        items: updated,
-      });
-
+      emitChange(updated, correctionReason, correctionReasonText, selectedInvoice);
       return updated;
     });
   };
+
+  const handleReasonChange = (reason: string) => {
+    setCorrectionReason(reason);
+    emitChange(correctionItems, reason, correctionReasonText, selectedInvoice);
+  };
+
+  // Calculate totals
+  const totalsBefore = correctionItems.reduce((acc, item) => {
+    const t = calcItemTotals(item.quantity_before, item.unit_net_price_before, item.vat_rate);
+    return { net: acc.net + t.net, vat: acc.vat + t.vat, gross: acc.gross + t.gross };
+  }, { net: 0, vat: 0, gross: 0 });
+
+  const totalsAfter = correctionItems.reduce((acc, item) => {
+    const t = calcItemTotals(item.quantity_after, item.unit_net_price_after, item.vat_rate);
+    return { net: acc.net + t.net, vat: acc.vat + t.vat, gross: acc.gross + t.gross };
+  }, { net: 0, vat: 0, gross: 0 });
+
+  const diffNet = Math.round((totalsAfter.net - totalsBefore.net) * 100) / 100;
+  const diffVat = Math.round((totalsAfter.vat - totalsBefore.vat) * 100) / 100;
+  const diffGross = Math.round((totalsAfter.gross - totalsBefore.gross) * 100) / 100;
+
+  const fmt = (n: number) => n.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   if (loading) {
     return (
@@ -138,16 +196,16 @@ export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataC
   }
 
   return (
-    <Card className="border-amber-200 bg-amber-50/30 dark:border-amber-800 dark:bg-amber-950/20">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-sm flex items-center gap-2">
-          <FileText className="h-4 w-4" />
-          Korekta do faktury
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Original invoice selector */}
-        <div>
+    <div className="space-y-4">
+      {/* Select original invoice */}
+      <Card className="border-amber-200 bg-amber-50/30 dark:border-amber-800 dark:bg-amber-950/20">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            Korekta do faktury
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
           <Select value={selectedId} onValueChange={handleSelect}>
             <SelectTrigger>
               <SelectValue placeholder="Wybierz fakturę do korekty..." />
@@ -158,103 +216,226 @@ export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataC
                   <span className="flex items-center gap-2">
                     <span className="font-medium">{inv.invoice_number}</span>
                     <span className="text-muted-foreground text-xs">
-                      {inv.buyer_name} • {Number(inv.gross_total || 0).toLocaleString('pl-PL')} zł
+                      {inv.buyer_name} • {fmt(Number(inv.gross_total || 0))} zł
                     </span>
                   </span>
                 </SelectItem>
               ))}
               {invoices.length === 0 && (
-                <SelectItem value="__none" disabled>
-                  Brak faktur do korekty
-                </SelectItem>
+                <SelectItem value="__none" disabled>Brak faktur do korekty</SelectItem>
               )}
             </SelectContent>
           </Select>
-        </div>
 
-        {/* Before/After items */}
-        {correctionItems.length > 0 && (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="bg-background">Przed</Badge>
-              <ArrowRight className="h-3 w-3 text-muted-foreground" />
-              <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30">Po korekcie</Badge>
+          {/* Correction reason */}
+          {selectedId && (
+            <div className="space-y-2">
+              <label className="text-xs font-medium">Powód korekty</label>
+              <Select value={correctionReason} onValueChange={handleReasonChange}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CORRECTION_REASONS.map(r => (
+                    <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {correctionReason === 'other' && (
+                <FloatingInput
+                  label="Opis powodu korekty"
+                  value={correctionReasonText}
+                  onChange={e => {
+                    setCorrectionReasonText(e.target.value);
+                    emitChange(correctionItems, correctionReason, e.target.value, selectedInvoice);
+                  }}
+                />
+              )}
             </div>
+          )}
+        </CardContent>
+      </Card>
 
-            {correctionItems.map((item, idx) => {
-              const vatRate = parseFloat(item.vat_rate) || 0;
-              const grossBefore = Math.round(item.quantity_before * item.unit_net_price_before * (1 + vatRate / 100) * 100) / 100;
-              const grossAfter = Math.round(item.quantity_after * item.unit_net_price_after * (1 + vatRate / 100) * 100) / 100;
-              const diff = grossAfter - grossBefore;
+      {/* BYŁO / POWINNO BYĆ tables */}
+      {correctionItems.length > 0 && (
+        <>
+          {/* SEKCJA B — BYŁO */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Badge variant="outline" className="bg-muted">BYŁO</Badge>
+                <span className="text-muted-foreground text-xs">(dane z faktury pierwotnej — tylko do odczytu)</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-8">Lp.</TableHead>
+                      <TableHead>Nazwa</TableHead>
+                      <TableHead className="text-right w-16">Ilość</TableHead>
+                      <TableHead className="w-12">J.m.</TableHead>
+                      <TableHead className="text-right w-24">Cena netto</TableHead>
+                      <TableHead className="text-right w-24">Wart. netto</TableHead>
+                      <TableHead className="text-right w-14">VAT%</TableHead>
+                      <TableHead className="text-right w-20">VAT</TableHead>
+                      <TableHead className="text-right w-24">Brutto</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {correctionItems.map((item, idx) => {
+                      const t = calcItemTotals(item.quantity_before, item.unit_net_price_before, item.vat_rate);
+                      return (
+                        <TableRow key={idx} className="bg-muted/30">
+                          <TableCell className="text-xs">{idx + 1}</TableCell>
+                          <TableCell className="text-xs font-medium">{item.name}</TableCell>
+                          <TableCell className="text-xs text-right">{item.quantity_before}</TableCell>
+                          <TableCell className="text-xs">{item.unit}</TableCell>
+                          <TableCell className="text-xs text-right">{fmt(item.unit_net_price_before)}</TableCell>
+                          <TableCell className="text-xs text-right">{fmt(t.net)}</TableCell>
+                          <TableCell className="text-xs text-right">{item.vat_rate}%</TableCell>
+                          <TableCell className="text-xs text-right">{fmt(t.vat)}</TableCell>
+                          <TableCell className="text-xs text-right font-medium">{fmt(t.gross)}</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                    <TableRow className="bg-muted/50 font-medium">
+                      <TableCell colSpan={5} className="text-xs text-right">Razem BYŁO:</TableCell>
+                      <TableCell className="text-xs text-right">{fmt(totalsBefore.net)}</TableCell>
+                      <TableCell />
+                      <TableCell className="text-xs text-right">{fmt(totalsBefore.vat)}</TableCell>
+                      <TableCell className="text-xs text-right">{fmt(totalsBefore.gross)}</TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
 
-              return (
-                <div key={idx} className="p-3 border rounded-lg bg-background space-y-2">
-                  <p className="text-sm font-medium">{item.name}</p>
-                  
-                  <div className="grid grid-cols-2 gap-3">
-                    {/* Before column */}
-                    <div className="space-y-1 opacity-60">
-                      <p className="text-xs text-muted-foreground">Przed</p>
-                      <div className="grid grid-cols-2 gap-2">
-                        <FloatingInput
-                          label="Ilość"
-                          type="number"
-                          value={item.quantity_before}
-                          disabled
-                          className="bg-muted text-xs h-10"
-                        />
-                        <FloatingInput
-                          label="Cena netto"
-                          type="number"
-                          value={item.unit_net_price_before}
-                          disabled
-                          className="bg-muted text-xs h-10"
-                        />
-                      </div>
-                      <p className="text-xs text-right text-muted-foreground">
-                        Brutto: {grossBefore.toLocaleString('pl-PL')} zł
-                      </p>
-                    </div>
-
-                    {/* After column */}
-                    <div className="space-y-1">
-                      <p className="text-xs text-primary font-medium">Po korekcie</p>
-                      <div className="grid grid-cols-2 gap-2">
-                        <FloatingInput
-                          label="Ilość"
-                          type="number"
-                          min={0}
-                          step={0.01}
-                          value={item.quantity_after}
-                          onChange={(e) => updateCorrectionItem(idx, 'quantity_after', parseFloat(e.target.value) || 0)}
-                          className="text-xs h-10 border-primary/30"
-                        />
-                        <FloatingInput
-                          label="Cena netto"
-                          type="number"
-                          min={0}
-                          step={0.01}
-                          value={item.unit_net_price_after}
-                          onChange={(e) => updateCorrectionItem(idx, 'unit_net_price_after', parseFloat(e.target.value) || 0)}
-                          className="text-xs h-10 border-primary/30"
-                        />
-                      </div>
-                      <div className="flex justify-between text-xs">
-                        <span className="text-muted-foreground">Brutto: {grossAfter.toLocaleString('pl-PL')} zł</span>
-                        {diff !== 0 && (
-                          <span className={diff < 0 ? 'text-red-600' : 'text-green-600'}>
-                            {diff > 0 ? '+' : ''}{diff.toLocaleString('pl-PL')} zł
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+          {/* Arrow */}
+          <div className="flex justify-center">
+            <ArrowDown className="h-6 w-6 text-primary" />
           </div>
-        )}
-      </CardContent>
-    </Card>
+
+          {/* SEKCJA C — POWINNO BYĆ */}
+          <Card className="border-primary/30">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30">POWINNO BYĆ</Badge>
+                <span className="text-muted-foreground text-xs">(edytuj wartości, które chcesz skorygować)</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-8">Lp.</TableHead>
+                      <TableHead>Nazwa</TableHead>
+                      <TableHead className="text-right w-20">Ilość</TableHead>
+                      <TableHead className="w-12">J.m.</TableHead>
+                      <TableHead className="text-right w-28">Cena netto</TableHead>
+                      <TableHead className="text-right w-24">Wart. netto</TableHead>
+                      <TableHead className="text-right w-14">VAT%</TableHead>
+                      <TableHead className="text-right w-20">VAT</TableHead>
+                      <TableHead className="text-right w-24">Brutto</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {correctionItems.map((item, idx) => {
+                      const t = calcItemTotals(item.quantity_after, item.unit_net_price_after, item.vat_rate);
+                      return (
+                        <TableRow key={idx}>
+                          <TableCell className="text-xs">{idx + 1}</TableCell>
+                          <TableCell className="text-xs font-medium">{item.name}</TableCell>
+                          <TableCell className="p-1">
+                            <input
+                              type="number"
+                              min={0}
+                              step={0.01}
+                              className="w-full h-8 text-xs text-right border rounded px-2 bg-background"
+                              value={item.quantity_after}
+                              onChange={e => updateCorrectionItem(idx, 'quantity_after', parseFloat(e.target.value) || 0)}
+                            />
+                          </TableCell>
+                          <TableCell className="text-xs">{item.unit}</TableCell>
+                          <TableCell className="p-1">
+                            <input
+                              type="number"
+                              min={0}
+                              step={0.01}
+                              className="w-full h-8 text-xs text-right border rounded px-2 bg-background"
+                              value={item.unit_net_price_after}
+                              onChange={e => updateCorrectionItem(idx, 'unit_net_price_after', parseFloat(e.target.value) || 0)}
+                            />
+                          </TableCell>
+                          <TableCell className="text-xs text-right">{fmt(t.net)}</TableCell>
+                          <TableCell className="text-xs text-right">{item.vat_rate}%</TableCell>
+                          <TableCell className="text-xs text-right">{fmt(t.vat)}</TableCell>
+                          <TableCell className="text-xs text-right font-medium">{fmt(t.gross)}</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                    <TableRow className="font-medium">
+                      <TableCell colSpan={5} className="text-xs text-right">Razem PO KOREKCIE:</TableCell>
+                      <TableCell className="text-xs text-right">{fmt(totalsAfter.net)}</TableCell>
+                      <TableCell />
+                      <TableCell className="text-xs text-right">{fmt(totalsAfter.vat)}</TableCell>
+                      <TableCell className="text-xs text-right">{fmt(totalsAfter.gross)}</TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* SEKCJA D — PODSUMOWANIE RÓŻNICY */}
+          <Card className="border-2 border-dashed">
+            <CardContent className="pt-4">
+              <h4 className="text-sm font-semibold mb-3">Podsumowanie korekty</h4>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Netto wg pierwotnej:</span>
+                  <span>{fmt(totalsBefore.net)} zł</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Netto wg korekty:</span>
+                  <span>{fmt(totalsAfter.net)} zł</span>
+                </div>
+                <div className="flex justify-between font-medium">
+                  <span>Różnica netto:</span>
+                  <span className={diffNet < 0 ? 'text-destructive' : diffNet > 0 ? 'text-green-600' : ''}>
+                    {diffNet > 0 ? '+' : ''}{fmt(diffNet)} zł
+                  </span>
+                </div>
+                <Separator />
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">VAT wg pierwotnej:</span>
+                  <span>{fmt(totalsBefore.vat)} zł</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">VAT wg korekty:</span>
+                  <span>{fmt(totalsAfter.vat)} zł</span>
+                </div>
+                <div className="flex justify-between font-medium">
+                  <span>Różnica VAT:</span>
+                  <span className={diffVat < 0 ? 'text-destructive' : diffVat > 0 ? 'text-green-600' : ''}>
+                    {diffVat > 0 ? '+' : ''}{fmt(diffVat)} zł
+                  </span>
+                </div>
+                <Separator />
+                <div className="flex justify-between text-base font-bold">
+                  <span>RAZEM KOREKTA BRUTTO:</span>
+                  <span className={diffGross < 0 ? 'text-destructive' : diffGross > 0 ? 'text-green-600' : 'text-primary'}>
+                    {diffGross > 0 ? '+' : ''}{fmt(diffGross)} zł
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      )}
+    </div>
   );
 }

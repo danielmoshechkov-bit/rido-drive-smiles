@@ -808,12 +808,41 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
         resultInvoiceId = editInvoiceId;
       } else {
         // INSERT new invoice
-        const { data: savedInvoice, error } = await supabase
-          .from('user_invoices')
-          .insert({
+        // Determine correction-specific fields
+        const isCorrection = invoiceType === 'correction' && correctionData;
+        
+        // Generate correction invoice number if needed
+        let finalInvoiceNumber = asDraft ? null : invoiceData.invoice_number;
+        if (isCorrection && !asDraft) {
+          const now = new Date();
+          const year = format(now, 'yyyy');
+          const { data: lastCorr } = await supabase
+            .from('user_invoices')
+            .select('invoice_number')
+            .eq('user_id', user.id)
+            .eq('is_correction', true)
+            .like('invoice_number', `KOR/${year}/%`)
+            .order('invoice_number', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          
+          let nextNum = 1;
+          if (lastCorr?.invoice_number) {
+            const parts = lastCorr.invoice_number.split('/');
+            const ln = parseInt(parts[parts.length - 1], 10);
+            if (!isNaN(ln)) nextNum = ln + 1;
+          }
+          finalInvoiceNumber = `KOR/${year}/${String(nextNum).padStart(3, '0')}`;
+        }
+
+        const correctionReasonLabel = isCorrection 
+          ? (correctionData!.correctionReasonText || correctionData!.correctionReason)
+          : undefined;
+
+        const insertData: any = {
             user_id: user.id,
             company_id: companyIdToUse,
-            invoice_number: asDraft ? null : invoiceData.invoice_number,
+            invoice_number: finalInvoiceNumber,
             invoice_type: invoiceData.type,
             issue_date: invoiceData.issue_date,
             sale_date: invoiceData.sale_date,
@@ -830,8 +859,18 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
             paid_amount: paidAmount,
             is_paid: isFullyPaid,
             notes: notes,
-            ksef_status: asDraft ? 'draft' : undefined
-          })
+            ksef_status: asDraft ? 'draft' : undefined,
+        };
+        if (isCorrection) {
+          insertData.is_correction = true;
+          insertData.corrected_invoice_id = correctionData!.originalInvoiceId;
+          insertData.corrected_invoice_number = correctionData!.originalInvoiceNumber;
+          insertData.correction_reason = correctionReasonLabel;
+        }
+
+        const { data: savedInvoice, error } = await supabase
+          .from('user_invoices')
+          .insert(insertData)
           .select()
           .single();
 
