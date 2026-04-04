@@ -22,6 +22,7 @@ import { CompanySetupWizard } from '@/components/invoices/CompanySetupWizard';
 import { CostInvoiceModal } from '@/components/invoices/CostInvoiceModal';
 import { SimpleFreeInvoice } from '@/components/invoices/SimpleFreeInvoice';
 import { InvoiceExpandableRow } from '@/components/invoices/InvoiceExpandableRow';
+import { InvoiceListWithActions } from '@/components/invoices/InvoiceListWithActions';
 import { SearchCategoryModal } from '@/components/search/SearchCategoryModal';
 import { InventoryModuleView } from '@/components/inventory';
 import { InventoryPurchaseOCR } from '@/components/inventory/InventoryPurchaseOCR';
