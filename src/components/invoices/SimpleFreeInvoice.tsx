@@ -695,6 +695,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
         buyer.address_apartment_number ? `/${buyer.address_apartment_number}` : ''
       ].filter(Boolean).join(' ');
 
+      let resultInvoiceId: string | null = null;
       // Check if we're editing an existing invoice
       if (editInvoiceId) {
         // UPDATE existing invoice
