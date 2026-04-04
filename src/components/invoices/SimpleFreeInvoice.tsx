@@ -296,6 +296,16 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
       
       if (session?.user) {
         await loadUserCompanyData(session.user.id);
+        // Check if user has KSeF token configured
+        const { data: cs } = await supabase
+          .from('company_settings')
+          .select('ksef_token')
+          .eq('user_id', session.user.id)
+          .maybeSingle();
+        if (cs?.ksef_token) {
+          setHasKsefToken(true);
+          setAutoSendKsef(true);
+        }
       }
     };
     checkAuthAndLoadData();
