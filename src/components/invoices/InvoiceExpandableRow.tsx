@@ -9,7 +9,7 @@ import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { generateInvoiceHtml } from '@/utils/invoiceHtmlGenerator';
+import { generateInvoiceHtml, type InvoiceData } from '@/utils/invoiceHtmlGenerator';
 import { formatIBAN } from '@/utils/formatters';
 import { 
   ChevronDown, 
@@ -46,6 +46,7 @@ import {
 } from "@/components/ui/dialog";
 import { SimpleFreeInvoice } from './SimpleFreeInvoice';
 import { KsefSendButton } from './KsefSendButton';
+import { InvoicePreviewModal } from './InvoicePreviewModal';
 
 interface UserInvoice {
   id: string;
