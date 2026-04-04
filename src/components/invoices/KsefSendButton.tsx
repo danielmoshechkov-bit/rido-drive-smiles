@@ -104,6 +104,7 @@ export function KsefSendButton({ invoiceId, size = 'sm', onStatusChange }: KsefS
 
   const handleSendToKsef = async () => {
     setSending(true);
+    setKsefStatus('processing');
     try {
       const { data, error } = await supabase.functions.invoke('ksef-integration', {
         body: { action: 'send', invoice_id: invoiceId },
