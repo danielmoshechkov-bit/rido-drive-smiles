@@ -813,7 +813,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
           .insert({
             user_id: user.id,
             company_id: companyIdToUse,
-            invoice_number: invoiceData.invoice_number,
+            invoice_number: asDraft ? null : invoiceData.invoice_number,
             invoice_type: invoiceData.type,
             issue_date: invoiceData.issue_date,
             sale_date: invoiceData.sale_date,
@@ -829,7 +829,8 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
             gross_total: grossTotal,
             paid_amount: paidAmount,
             is_paid: isFullyPaid,
-            notes: notes
+            notes: notes,
+            ksef_status: asDraft ? 'draft' : undefined
           })
           .select()
           .single();
