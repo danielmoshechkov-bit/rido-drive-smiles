@@ -363,13 +363,23 @@ function generateInvoiceXML(invoice: any, entity: any, items: any[]): string {
       </FaWiersz>`;
   }).join('');
 
-  const buyerNipEl = buyer.nip ? `<NIP>${escapeXml(buyer.nip)}</NIP>` : '';
+  const buyerNipEl = buyer.nip ? `<NIP>${escapeXml(buyer.nip)}</NIP>` : '<BrakID>1</BrakID>';
 
   const bankEl = entity?.bank_account
     ? `<RachunekBankowy><NrRB>${String(entity.bank_account).replace(/\s/g, '')}</NrRB></RachunekBankowy>`
     : '';
 
   const formaPlatnosci = invoice.payment_method === 'cash' ? '1' : '2';
+
+  // Build Podmiot2 Adres - skip empty elements
+  const buyerAdresL1 = (buyer.address_street || '').trim();
+  const buyerAdresL2 = ((buyer.address_postal_code || '') + ' ' + (buyer.address_city || '')).trim();
+  const buyerAdresLines = `<AdresL1>${escapeXml(buyerAdresL1 || '-')}</AdresL1>${buyerAdresL2 ? `\n      <AdresL2>${escapeXml(buyerAdresL2)}</AdresL2>` : ''}`;
+
+  // Build Podmiot1 Adres
+  const sellerAdresL1 = (entity?.address_street || '').trim();
+  const sellerAdresL2 = ((entity?.address_postal_code || '') + ' ' + (entity?.address_city || '')).trim();
+  const sellerAdresLines = `<AdresL1>${escapeXml(sellerAdresL1 || '-')}</AdresL1>${sellerAdresL2 ? `\n      <AdresL2>${escapeXml(sellerAdresL2)}</AdresL2>` : ''}`;
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Faktura xmlns="http://crd.gov.pl/wzor/2025/06/25/13775/">
@@ -386,8 +396,7 @@ function generateInvoiceXML(invoice: any, entity: any, items: any[]): string {
     </DaneIdentyfikacyjne>
     <Adres>
       <KodKraju>PL</KodKraju>
-      <AdresL1>${escapeXml(entity?.address_street || '')}</AdresL1>
-      <AdresL2>${escapeXml(((entity?.address_postal_code || '') + ' ' + (entity?.address_city || '')).trim())}</AdresL2>
+      ${sellerAdresLines}
     </Adres>
   </Podmiot1>
   <Podmiot2>
@@ -397,8 +406,7 @@ function generateInvoiceXML(invoice: any, entity: any, items: any[]): string {
     </DaneIdentyfikacyjne>
     <Adres>
       <KodKraju>PL</KodKraju>
-      <AdresL1>${escapeXml(buyer.address_street || '')}</AdresL1>
-      <AdresL2>${escapeXml(((buyer.address_postal_code || '') + ' ' + (buyer.address_city || '')).trim())}</AdresL2>
+      ${buyerAdresLines}
     </Adres>
   </Podmiot2>
   <Fa>
