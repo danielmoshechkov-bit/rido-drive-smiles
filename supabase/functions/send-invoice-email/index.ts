@@ -283,7 +283,7 @@ serve(async (req) => {
       customMessage: custom_message,
     });
 
-    const fromAddress = `${companyName} via GetRido <onboarding@resend.dev>`;
+    const fromAddress = `${companyName} via GetRido <noreply@getrido.pl>`;
     const replyTo = companyEmail || undefined;
 
     console.log(`Sending email to ${toEmail}, from: ${fromAddress}, subject: ${subject}`);
