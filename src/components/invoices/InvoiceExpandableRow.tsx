@@ -544,22 +544,20 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
                 {invoice.is_paid ? 'Cofnij opłacenie' : 'Oznacz jako opłaconą'}
               </Button>
               
-              {/* PDF button - disabled during KSeF processing */}
+              {/* PDF button - always available */}
               <Button 
                 size="sm" 
                 variant="outline" 
                 onClick={handleDownloadPdf} 
-                disabled={isGeneratingPdf || effectiveKsefStatus === 'processing' || effectiveKsefStatus === 'sent'}
-                title={effectiveKsefStatus === 'processing' || effectiveKsefStatus === 'sent' ? 'Czekaj na zatwierdzenie KSeF' : 'Pobierz PDF'}
+                disabled={isGeneratingPdf}
+                title="Pobierz PDF"
               >
                 {isGeneratingPdf ? (
                   <Loader2 className="h-4 w-4 mr-1 animate-spin" />
                 ) : (
                   <Download className="h-4 w-4 mr-1" />
                 )}
-                {effectiveKsefStatus === 'processing' || effectiveKsefStatus === 'sent' 
-                  ? '⏳ Czekaj na KSeF...' 
-                  : isGeneratingPdf ? 'Generuję...' : 'PDF'}
+                {isGeneratingPdf ? 'Generuję...' : 'PDF'}
               </Button>
               
               <Button size="sm" variant="outline" onClick={handleSendEmail}>
