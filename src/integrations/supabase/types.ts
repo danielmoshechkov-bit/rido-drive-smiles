@@ -9903,6 +9903,27 @@ export type Database = {
           },
         ]
       }
+      invoice_sequences: {
+        Row: {
+          last_number: number
+          month: number
+          user_id: string
+          year: number
+        }
+        Insert: {
+          last_number?: number
+          month: number
+          user_id: string
+          year: number
+        }
+        Update: {
+          last_number?: number
+          month?: number
+          user_id?: string
+          year?: number
+        }
+        Relationships: []
+      }
       invoice_series: {
         Row: {
           created_at: string | null
@@ -21424,6 +21445,10 @@ export type Database = {
       get_next_auto_invoice_number: {
         Args: { p_fleet_id: string; p_month: number; p_year: number }
         Returns: string
+      }
+      get_next_invoice_number: {
+        Args: { p_month: number; p_user_id: string; p_year: number }
+        Returns: number
       }
       get_product_avg_cost: { Args: { p_product_id: string }; Returns: number }
       get_product_stock: { Args: { p_product_id: string }; Returns: number }
