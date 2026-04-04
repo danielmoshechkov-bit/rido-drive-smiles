@@ -69,7 +69,6 @@ function extractSpkiFromX509(der: Uint8Array): Uint8Array {
     return { len, next: pos + 1 + n };
   }
 
-  // RSA AlgorithmIdentifier: 30 0D 06 09 2A 86 48 86 F7 0D 01 01 01 05 00
   const rsaAlgId = [0x30, 0x0D, 0x06, 0x09, 0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x01, 0x01];
 
   for (let i = 0; i < der.length - rsaAlgId.length - 10; i++) {
@@ -79,7 +78,6 @@ function extractSpkiFromX509(der: Uint8Array): Uint8Array {
     }
     if (!match) continue;
 
-    // SPKI SEQUENCE starts at 0x30 right before AlgorithmIdentifier
     let spkiStart = i;
     for (let back = 1; back <= 6; back++) {
       if (der[i - back] === 0x30) { spkiStart = i - back; break; }
@@ -94,9 +92,22 @@ function extractSpkiFromX509(der: Uint8Array): Uint8Array {
   throw new Error('[PHASE:public-key] Nie znaleziono SubjectPublicKeyInfo w certyfikacie X.509');
 }
 
-// ========== KSeF 2.0 AUTH ==========
+// ========== IMPORT RSA KEY FROM CERT ==========
 
-async function getKsefAccessToken(base: string, nip: string, ksefToken: string): Promise<{ accessToken: string; cryptoKey: CryptoKey }> {
+async function importRsaKeyFromCert(certObj: any): Promise<CryptoKey> {
+  const certB64 = certObj.certificate.replace(/-----[^-]+-----/g, '').replace(/\s/g, '');
+  const certDer = b64ToBytes(certB64);
+  const spkiBytes = extractSpkiFromX509(certDer);
+  return crypto.subtle.importKey(
+    'spki', spkiBytes.buffer,
+    { name: 'RSA-OAEP', hash: 'SHA-256' },
+    false, ['encrypt']
+  );
+}
+
+// ========== KSeF 2.0 AUTH (FIX #1: dual certificates) ==========
+
+async function getKsefAccessToken(base: string, nip: string, ksefToken: string): Promise<{ accessToken: string; tokenCryptoKey: CryptoKey; docCryptoKey: CryptoKey }> {
   // Krok 1 — POST /auth/challenge
   console.log('[KSeF][AUTH] Step 1: POST', base + '/auth/challenge');
   const chalRes = await fetch(`${base}/auth/challenge`, {
@@ -120,25 +131,26 @@ async function getKsefAccessToken(base: string, nip: string, ksefToken: string):
   const certificates = await pubKeyRes.json();
 
   const certArr = Array.isArray(certificates) ? certificates : (certificates?.certificates || []);
-  const certObj = certArr.find((c: any) => c.usage?.includes('KsefTokenEncryption')) || certArr[0];
-  if (!certObj?.certificate) throw new Error('[PHASE:public-key] Brak certyfikatu KsefTokenEncryption');
-  console.log('[KSeF][AUTH] Cert found, validTo:', certObj.validTo);
+  
+  // FIX #1: Pobierz DWA certyfikaty osobno
+  const tokenCertObj = certArr.find((c: any) => c.usage?.includes('KsefTokenEncryption')) || certArr[0];
+  const docCertObj = certArr.find((c: any) => c.usage?.includes('SymmetricKeyEncryption')) || certArr[1] || certArr[0];
+  
+  if (!tokenCertObj?.certificate) throw new Error('[PHASE:public-key] Brak certyfikatu KsefTokenEncryption');
+  console.log('[KSeF][AUTH] TokenCert found, usage:', tokenCertObj.usage, 'validTo:', tokenCertObj.validTo);
+  console.log('[KSeF][AUTH] DocCert found, usage:', docCertObj.usage, 'validTo:', docCertObj.validTo);
 
-  const certB64 = certObj.certificate.replace(/-----[^-]+-----/g, '').replace(/\s/g, '');
-  const certDer = b64ToBytes(certB64);
-  const spkiBytes = extractSpkiFromX509(certDer);
-  console.log('[KSeF][AUTH] SPKI extracted, size:', spkiBytes.byteLength);
+  // Import klucz do szyfrowania tokenu (auth)
+  const tokenCryptoKey = await importRsaKeyFromCert(tokenCertObj);
+  console.log('[KSeF][AUTH] Token RSA key imported');
 
-  const cryptoKey = await crypto.subtle.importKey(
-    'spki', spkiBytes.buffer,
-    { name: 'RSA-OAEP', hash: 'SHA-256' },
-    false, ['encrypt']
-  );
-  console.log('[KSeF][AUTH] RSA key imported');
+  // Import klucz do szyfrowania dokumentów (faktur)
+  const docCryptoKey = await importRsaKeyFromCert(docCertObj);
+  console.log('[KSeF][AUTH] Doc RSA key imported');
 
-  // Krok 3 — Zaszyfruj token
+  // Krok 3 — Zaszyfruj token kluczem tokenCryptoKey
   const plaintext = new TextEncoder().encode(`${ksefToken}|${timestampMs}`);
-  const encBuf = await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, cryptoKey, plaintext);
+  const encBuf = await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, tokenCryptoKey, plaintext);
   const encryptedToken = bytesToB64(new Uint8Array(encBuf));
   console.log('[KSeF][AUTH] Token encrypted, len:', encryptedToken.length);
 
@@ -163,7 +175,7 @@ async function getKsefAccessToken(base: string, nip: string, ksefToken: string):
   const referenceNumber = authData?.referenceNumber;
   console.log('[KSeF][AUTH] authenticationToken OK, referenceNumber:', referenceNumber);
 
-  // Krok 4.5 — Krótka pauza przed redeem (KSeF potrzebuje chwili)
+  // Krok 4.5 — Krótka pauza przed redeem
   await new Promise(r => setTimeout(r, 1000));
   console.log('[KSeF][AUTH] Auth ready, proceeding to redeem');
 
@@ -182,7 +194,7 @@ async function getKsefAccessToken(base: string, nip: string, ksefToken: string):
   if (!accessTokenValue) throw new Error('[PHASE:token-redeem] Brak accessToken w odpowiedzi');
   console.log('[KSeF][AUTH] accessToken OK');
 
-  return { accessToken: accessTokenValue, cryptoKey };
+  return { accessToken: accessTokenValue, tokenCryptoKey, docCryptoKey };
 }
 
 // ========== GET USER FROM JWT ==========
@@ -196,7 +208,7 @@ async function getUserFromJwt(req: Request, supabase: any) {
   return data.user || null;
 }
 
-// ========== RESOLVE CREDENTIALS ==========
+// ========== RESOLVE CREDENTIALS (FIX #7: fallback to JWT user) ==========
 
 async function resolveCredentials(req: Request, supabase: any, body: any) {
   let nip = body.nip?.trim() || null;
@@ -206,6 +218,12 @@ async function resolveCredentials(req: Request, supabase: any, body: any) {
 
   const user = await getUserFromJwt(req, supabase);
   userId = user?.id || null;
+
+  // If invoice has user_id, use that; otherwise fall back to JWT user
+  if (body.invoice_id && !userId) {
+    const { data: inv } = await supabase.from('user_invoices').select('user_id').eq('id', body.invoice_id).maybeSingle();
+    userId = inv?.user_id || userId;
+  }
 
   // Try company_settings first
   if (userId && (!nip || !token)) {
@@ -258,7 +276,7 @@ async function categorize(supplierName: string): Promise<string> {
   } catch { return 'inne'; }
 }
 
-// ========== generateInvoiceXML & escapeXml — BEZ ZMIAN ==========
+// ========== generateInvoiceXML & escapeXml — BEZ ZMIAN (poza FIX #4: B2C NIP) ==========
 
 function escapeXml(str: string): string {
   if (!str) return '';
@@ -307,6 +325,9 @@ function generateInvoiceXML(invoice: any, entity: any, items: any[]): string {
         <P_12>${item.vat_rate === 'zw' ? 'zw' : item.vat_rate === 'np' ? 'np' : (item.vat_rate || '23')}</P_12>
       </FaWiersz>`).join('');
 
+  // FIX #4: B2C — pomijaj element NIP gdy brak (osoba fizyczna)
+  const buyerNipElement = buyer.nip ? `<NIP>${buyer.nip}</NIP>` : '';
+
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Faktura xmlns="http://crd.gov.pl/wzor/2023/06/29/12648/">
   <Naglowek>
@@ -328,7 +349,7 @@ function generateInvoiceXML(invoice: any, entity: any, items: any[]): string {
   </Podmiot1>
   <Podmiot2>
     <DaneIdentyfikacyjne>
-      <NIP>${buyer.nip || ''}</NIP>
+      ${buyerNipElement}
       <Nazwa>${escapeXml(buyer.name || '')}</Nazwa>
     </DaneIdentyfikacyjne>
     <Adres>
@@ -455,7 +476,6 @@ serve(async (req) => {
 
       const { accessToken } = await getKsefAccessToken(base, nip, token);
 
-      // Query metadata
       const queryRes = await fetch(`${base}/invoices/query/metadata`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
@@ -533,7 +553,7 @@ serve(async (req) => {
     // ========== send (fire-and-forget) ==========
     if (action === 'send') {
       // Duplicate check
-      const { data: existingInv } = await supabase.from('user_invoices').select('ksef_status').eq('id', body.invoice_id).single();
+      const { data: existingInv } = await supabase.from('user_invoices').select('ksef_status, user_id').eq('id', body.invoice_id).single();
       if (existingInv?.ksef_status === 'accepted' || existingInv?.ksef_status === 'processing') {
         return jsonRes({ success: false, error: 'Faktura już wysłana do KSeF. Status: ' + existingInv.ksef_status });
       }
@@ -543,7 +563,7 @@ serve(async (req) => {
       if (invErr || !invoice) throw new Error('Faktura nie znaleziona');
       const { data: items } = await supabase.from('user_invoice_items').select('*').eq('invoice_id', body.invoice_id).order('sort_order');
 
-      // Get seller data from user_invoice_companies or company_settings
+      // FIX #3: Get seller data with correct field mapping
       let sellerEntity: any = {};
       if (invoice.company_id) {
         const { data: company } = await supabase.from('user_invoice_companies').select('*').eq('id', invoice.company_id).maybeSingle();
@@ -558,10 +578,20 @@ serve(async (req) => {
           };
         }
       }
-      if (!sellerEntity.nip && invoice.user_id) {
-        const { data: cs } = await supabase.from('company_settings').select('*').eq('user_id', invoice.user_id).maybeSingle();
+      // FIX #7: fallback user_id from JWT if invoice.user_id is null
+      const effectiveUserId = invoice.user_id || (await getUserFromJwt(req, supabase))?.id;
+      if (!sellerEntity.nip && effectiveUserId) {
+        const { data: cs } = await supabase.from('company_settings').select('*').eq('user_id', effectiveUserId).maybeSingle();
         if (cs) {
-          sellerEntity = { nip: cs.nip, name: cs.company_name, address_street: cs.address, address_postal_code: '', address_city: '', bank_account: cs.bank_account };
+          sellerEntity = {
+            nip: cs.nip,
+            name: cs.company_name,
+            // FIX #3: correct field mapping from company_settings
+            address_street: [cs.street, cs.building_number, cs.apartment_number].filter(Boolean).join(' '),
+            address_postal_code: cs.postal_code,
+            address_city: cs.city,
+            bank_account: cs.bank_account,
+          };
         }
       }
 
@@ -588,7 +618,8 @@ serve(async (req) => {
         if (!token) throw new Error('Brak tokenu KSeF');
 
         const base = getBaseUrl(environment);
-        const { accessToken, cryptoKey } = await getKsefAccessToken(base, nip, token);
+        // FIX #1: get both keys
+        const { accessToken, docCryptoKey } = await getKsefAccessToken(base, nip, token);
 
         // AES-256-CBC encryption of XML
         const aesKey = await crypto.subtle.generateKey({ name: 'AES-CBC', length: 256 }, true, ['encrypt']);
@@ -600,8 +631,8 @@ serve(async (req) => {
         ivPlusEnc.set(iv, 0);
         ivPlusEnc.set(encXmlBytes, iv.byteLength);
 
-        // Encrypt AES key with MF RSA key
-        const encAesKeyBuf = await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, cryptoKey, rawAesKey);
+        // FIX #1: Encrypt AES key with docCryptoKey (SymmetricKeyEncryption), NOT tokenCryptoKey
+        const encAesKeyBuf = await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, docCryptoKey, rawAesKey);
         const encryptedSymmetricKey = bytesToB64(new Uint8Array(encAesKeyBuf));
         const initializationVector = bytesToB64(iv);
 
@@ -632,17 +663,20 @@ serve(async (req) => {
           await supabase.from('ksef_transmissions').update({ status: 'session_open', ksef_reference_number: sessionRef, environment }).eq('id', transmission.id);
         }
 
-        // Send invoice — payload per KSeF 2.0 OpenAPI spec
+        // FIX #2: Send invoice — correct nested payload per KSeF 2.0 OpenAPI spec
         const sendRes = await fetch(`${base}/sessions/online/${sessionRef}/invoices`, {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            invoiceHash: xmlHash,
-            invoiceSize: xmlBytes.byteLength,
-            encryptedInvoiceHash: encHash,
-            encryptedInvoiceSize: ivPlusEnc.byteLength,
-            encryptedInvoiceContent: bytesToB64(ivPlusEnc),
-            offlineMode: false,
+            invoiceHash: {
+              hashSHA: { algorithm: 'SHA-256', encoding: 'Base64', value: xmlHash },
+              fileSize: xmlBytes.byteLength,
+            },
+            encryptedDocumentHash: {
+              hashSHA: { algorithm: 'SHA-256', encoding: 'Base64', value: encHash },
+              fileSize: ivPlusEnc.byteLength,
+            },
+            encryptedDocumentContent: bytesToB64(ivPlusEnc),
           }),
         });
         if (!sendRes.ok) {
@@ -656,12 +690,20 @@ serve(async (req) => {
 
         if (transmission?.id) await supabase.from('ksef_transmissions').update({ status: 'sent', sent_at: new Date().toISOString() }).eq('id', transmission.id);
 
-        // Close session (fire and forget)
-        fetch(`${base}/sessions/online/${sessionRef}/close`, {
-          method: 'POST', headers: { 'Authorization': `Bearer ${accessToken}` },
-        }).catch(() => null);
+        // FIX #5: Close session with timeout instead of fire-and-forget
+        try {
+          await Promise.race([
+            fetch(`${base}/sessions/online/${sessionRef}/close`, {
+              method: 'POST', headers: { 'Authorization': `Bearer ${accessToken}` },
+            }),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000)),
+          ]);
+          console.log('[KSeF] session closed:', sessionRef);
+        } catch {
+          console.warn('[KSeF] session close timeout — ignoruj');
+        }
 
-        // Save processing status — DON'T poll, return immediately
+        // Save processing status
         if (transmission?.id) {
           await supabase.from('ksef_transmissions').update({
             status: 'processing',
@@ -690,7 +732,7 @@ serve(async (req) => {
       }
     }
 
-    // ========== check_status ==========
+    // ========== check_status (FIX #6: handle 401 gracefully) ==========
     if (action === 'check_status') {
       try {
         const sessionRef = body.session_ref;
@@ -702,11 +744,26 @@ serve(async (req) => {
         if (!nip || !token) return jsonRes({ success: true, status: 'processing' });
 
         const base = getBaseUrl(environment);
-        const { accessToken } = await getKsefAccessToken(base, nip, token);
+        let accessToken: string;
+        try {
+          const authResult = await getKsefAccessToken(base, nip, token);
+          accessToken = authResult.accessToken;
+        } catch (authErr: any) {
+          // FIX #6: token expired or auth failed — return processing instead of error
+          console.warn('[KSeF][check_status] auth failed, returning processing:', authErr.message);
+          return jsonRes({ success: true, status: 'processing', message: 'Autoryzacja wygasła — spróbuj ponownie za chwilę' });
+        }
 
         const stRes = await fetch(`${base}/sessions/${sessionRef}`, {
           headers: { 'Authorization': `Bearer ${accessToken}` },
         });
+        
+        // FIX #6: handle 401 gracefully
+        if (stRes.status === 401) {
+          console.warn('[KSeF][check_status] 401 — token expired');
+          return jsonRes({ success: true, status: 'processing', message: 'Token KSeF wygasł — ponów próbę' });
+        }
+        
         if (!stRes.ok) {
           return jsonRes({ success: true, status: 'processing', message: `Sesja jeszcze przetwarzana (HTTP ${stRes.status})` });
         }
