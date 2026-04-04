@@ -668,7 +668,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
     };
   };
 
-  const handleSave = async () => {
+  const handleSave = async (asDraft?: boolean) => {
     try {
       // Use getSession() to get the user ID from the current auth token
       // This ensures the user_id matches auth.uid() in RLS policies
