@@ -1314,7 +1314,6 @@ serve(async (req) => {
         }
         await supabase.from('user_invoices').update({
           ksef_status: 'processing',
-          ksef_reference: sessionRef,
           ksef_invoice_ref: invoiceRef,
           ksef_environment: environment,
         }).eq('id', body.invoice_id);
