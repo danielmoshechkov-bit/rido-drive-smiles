@@ -571,7 +571,7 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
                 </PopoverContent>
               </Popover>
               
-              <KsefSendButton invoiceId={invoice.id} size="sm" onStatusChange={onUpdate} />
+              <KsefSendButton invoiceId={invoice.id} size="sm" onStatusChange={handleKsefStatusChange} />
 
               <Button size="sm" variant="outline" onClick={handleEdit}>
                 <Edit className="h-4 w-4 mr-1" />
