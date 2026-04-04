@@ -283,14 +283,60 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
     }
   };
 
+  const generatePdfBase64 = async (): Promise<string | null> => {
+    try {
+      const data = await prepareInvoiceData();
+      if (!data) return null;
+      const { generateInvoiceHtml } = await import('@/utils/invoiceHtmlGenerator');
+      const html = generateInvoiceHtml(data);
+      const html2pdf = (await import('html2pdf.js')).default;
+      
+      const container = document.createElement('div');
+      container.innerHTML = html;
+      container.style.position = 'absolute';
+      container.style.left = '-9999px';
+      document.body.appendChild(container);
+      
+      const pdfBlob: Blob = await (html2pdf()
+        .set({
+          margin: 0,
+          filename: 'faktura.pdf',
+          image: { type: 'jpeg', quality: 0.95 },
+          html2canvas: { scale: 2, useCORS: true },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        })
+        .from(container) as any)
+        .output('blob');
+      
+      document.body.removeChild(container);
+      
+      // Convert blob to base64
+      const reader = new FileReader();
+      return new Promise((resolve) => {
+        reader.onload = () => {
+          const base64 = (reader.result as string).split(',')[1];
+          resolve(base64);
+        };
+        reader.readAsDataURL(pdfBlob);
+      });
+    } catch (err) {
+      console.error('Error generating PDF:', err);
+      return null;
+    }
+  };
+
   const handleSendInvoiceEmail = async (email: string) => {
     setIsSendingEmail(true);
     try {
+      toast.info('Generuję PDF i wysyłam...');
+      const pdfBase64 = await generatePdfBase64();
+      
       const { data, error } = await supabase.functions.invoke('send-invoice-email', {
         body: { 
           invoice_id: invoice.id,
           recipient_email: email,
           type: 'new_invoice',
+          pdf_base64: pdfBase64 || undefined,
         }
       });
 
