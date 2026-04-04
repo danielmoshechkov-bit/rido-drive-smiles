@@ -1,22 +1,18 @@
 import { useState, useEffect } from 'react';
-import { format, addDays, subDays } from 'date-fns';
+import { format, subDays } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { generateInvoiceHtml, type InvoiceData } from '@/utils/invoiceHtmlGenerator';
+import { type InvoiceData } from '@/utils/invoiceHtmlGenerator';
 import { formatIBAN } from '@/utils/formatters';
 import { 
   ChevronDown, 
   ChevronRight,
   CheckCircle, 
-  Download, 
-  Mail, 
   Clock, 
   Edit, 
   Trash2,
@@ -24,7 +20,6 @@ import {
   Calendar,
   Loader2,
   TrendingUp,
-  Send
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -39,10 +34,6 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
 } from "@/components/ui/dialog";
 import { SimpleFreeInvoice } from './SimpleFreeInvoice';
 import { KsefSendButton } from './KsefSendButton';
