@@ -1,22 +1,18 @@
 import { useState, useEffect } from 'react';
-import { format, addDays, subDays } from 'date-fns';
+import { format, subDays } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { generateInvoiceHtml } from '@/utils/invoiceHtmlGenerator';
+import { type InvoiceData } from '@/utils/invoiceHtmlGenerator';
 import { formatIBAN } from '@/utils/formatters';
 import { 
   ChevronDown, 
   ChevronRight,
   CheckCircle, 
-  Download, 
-  Mail, 
   Clock, 
   Edit, 
   Trash2,
@@ -24,7 +20,6 @@ import {
   Calendar,
   Loader2,
   TrendingUp,
-  Send
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -39,13 +34,10 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
 } from "@/components/ui/dialog";
 import { SimpleFreeInvoice } from './SimpleFreeInvoice';
 import { KsefSendButton } from './KsefSendButton';
+import { InvoicePreviewModal } from './InvoicePreviewModal';
 
 interface UserInvoice {
   id: string;
@@ -97,15 +89,15 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
     setLiveKsefReference(invoice.ksef_reference);
   }, [invoice.ksef_status, invoice.ksef_reference]);
 
-  const effectiveKsefStatus = liveKsefReference ? 'accepted' : liveKsefStatus;
   
-  // Email dialog state
-  const [showEmailDialog, setShowEmailDialog] = useState(false);
-  const [emailAddress, setEmailAddress] = useState('');
-  const [sendingEmail, setSendingEmail] = useState(false);
+  // Edit dialog state
   
   // Edit dialog state
   const [showEditDialog, setShowEditDialog] = useState(false);
+  
+  // Preview modal state
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [previewInvoiceData, setPreviewInvoiceData] = useState<InvoiceData | null>(null);
   
   // Reminder dialog state
   const [showReminderPopover, setShowReminderPopover] = useState(false);
@@ -197,139 +189,112 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
     onUpdate();
   };
 
-  const handleDownloadPdf = async () => {
+  const prepareInvoiceData = async (): Promise<InvoiceData | null> => {
+    // Always refetch latest ksef data before PDF
+    const { data: freshInvoice } = await supabase
+      .from('user_invoices')
+      .select('ksef_status, ksef_reference')
+      .eq('id', invoice.id)
+      .maybeSingle();
+    const latestKsefRef = freshInvoice?.ksef_reference || liveKsefReference;
+
+    const { data: items } = await supabase
+      .from('user_invoice_items')
+      .select('*')
+      .eq('invoice_id', invoice.id);
+
+    let companyData: any = null;
+    if (invoice.company_id) {
+      const { data: company } = await supabase
+        .from('user_invoice_companies')
+        .select('*')
+        .eq('id', invoice.company_id)
+        .maybeSingle();
+      companyData = company;
+    }
+
+    return {
+      invoice_number: invoice.invoice_number || 'Faktura',
+      type: invoice.invoice_type || 'invoice',
+      issue_date: invoice.issue_date || new Date().toISOString().split('T')[0],
+      sale_date: invoice.sale_date || invoice.issue_date || new Date().toISOString().split('T')[0],
+      due_date: invoice.due_date || new Date().toISOString().split('T')[0],
+      issue_place: invoice.issue_place || '',
+      payment_method: (invoice.payment_method || 'transfer') as 'transfer' | 'cash' | 'card',
+      notes: invoice.notes || '',
+      currency: invoice.currency || 'PLN',
+      paid_amount: invoice.paid_amount || 0,
+      is_fully_paid: invoice.is_paid || false,
+      items: (items || []).map((item: any) => ({
+        name: item.name || '',
+        pkwiu: item.pkwiu || '',
+        quantity: item.quantity || 1,
+        unit: item.unit || 'szt.',
+        unit_net_price: item.unit_net_price || 0,
+        vat_rate: item.vat_rate || '23',
+        net_amount: item.net_amount || 0,
+        vat_amount: item.vat_amount || 0,
+        gross_amount: item.gross_amount || 0,
+      })),
+      seller: {
+        name: companyData?.name || '',
+        nip: companyData?.nip || '',
+        address_street: companyData?.address_street || '',
+        address_building_number: companyData?.address_building_number || '',
+        address_apartment_number: companyData?.address_apartment_number || '',
+        address_city: companyData?.address_city || '',
+        address_postal_code: companyData?.address_postal_code || '',
+        bank_name: companyData?.bank_name || '',
+        bank_account: formatIBAN(companyData?.bank_account),
+        email: companyData?.email || '',
+        phone: companyData?.phone || '',
+        logo_url: companyData?.logo_url || '',
+      },
+      buyer: {
+        name: invoice.buyer_name || '',
+        nip: invoice.buyer_nip || '',
+        address_street: invoice.buyer_address || '',
+      },
+      ksef_reference: latestKsefRef || undefined,
+    };
+  };
+
+  const handleOpenPreview = async () => {
     setIsGeneratingPdf(true);
     try {
-      // Always refetch latest ksef data before PDF
-      const { data: freshInvoice } = await supabase
-        .from('user_invoices')
-        .select('ksef_status, ksef_reference')
-        .eq('id', invoice.id)
-        .maybeSingle();
-      const latestKsefRef = freshInvoice?.ksef_reference || liveKsefReference;
-
-      const { data: items } = await supabase
-        .from('user_invoice_items')
-        .select('*')
-        .eq('invoice_id', invoice.id);
-
-      let companyData: any = null;
-      if (invoice.company_id) {
-        const { data: company } = await supabase
-          .from('user_invoice_companies')
-          .select('*')
-          .eq('id', invoice.company_id)
-          .maybeSingle();
-        companyData = company;
+      const data = await prepareInvoiceData();
+      if (data) {
+        setPreviewInvoiceData(data);
+        setShowPreviewModal(true);
       }
-
-      const invoiceData = {
-        invoice_number: invoice.invoice_number || 'Faktura',
-        type: invoice.invoice_type || 'invoice',
-        issue_date: invoice.issue_date || new Date().toISOString().split('T')[0],
-        sale_date: invoice.sale_date || invoice.issue_date || new Date().toISOString().split('T')[0],
-        due_date: invoice.due_date || new Date().toISOString().split('T')[0],
-        issue_place: invoice.issue_place || '',
-        payment_method: (invoice.payment_method || 'transfer') as 'transfer' | 'cash' | 'card',
-        notes: invoice.notes || '',
-        currency: invoice.currency || 'PLN',
-        paid_amount: invoice.paid_amount || 0,
-        is_fully_paid: invoice.is_paid || false,
-        items: (items || []).map((item: any) => ({
-          name: item.name || '',
-          pkwiu: item.pkwiu || '',
-          quantity: item.quantity || 1,
-          unit: item.unit || 'szt.',
-          unit_net_price: item.unit_net_price || 0,
-          vat_rate: item.vat_rate || '23',
-          net_amount: item.net_amount || 0,
-          vat_amount: item.vat_amount || 0,
-          gross_amount: item.gross_amount || 0,
-        })),
-        seller: {
-          name: companyData?.name || '',
-          nip: companyData?.nip || '',
-          address_street: companyData?.address_street || '',
-          address_building_number: companyData?.address_building_number || '',
-          address_apartment_number: companyData?.address_apartment_number || '',
-          address_city: companyData?.address_city || '',
-          address_postal_code: companyData?.address_postal_code || '',
-          bank_name: companyData?.bank_name || '',
-          bank_account: formatIBAN(companyData?.bank_account),
-          email: companyData?.email || '',
-          phone: companyData?.phone || '',
-          logo_url: companyData?.logo_url || '',
-        },
-        buyer: {
-          name: invoice.buyer_name || '',
-          nip: invoice.buyer_nip || '',
-          address_street: invoice.buyer_address || '',
-        },
-        ksef_reference: latestKsefRef || undefined,
-      };
-
-      const html = generateInvoiceHtml(invoiceData);
-      const printWindow = window.open('', '_blank');
-      if (printWindow) {
-        printWindow.document.write(html);
-        printWindow.document.close();
-        printWindow.focus();
-        // Wait for QR code image to load before printing
-        const imgs = printWindow.document.querySelectorAll('img.ksef-qr');
-        if (imgs.length > 0) {
-          let loaded = 0;
-          const tryPrint = () => { loaded++; if (loaded >= imgs.length) setTimeout(() => printWindow.print(), 100); };
-          imgs.forEach(img => {
-            if ((img as HTMLImageElement).complete) tryPrint();
-            else { img.addEventListener('load', tryPrint); img.addEventListener('error', tryPrint); }
-          });
-          setTimeout(() => printWindow.print(), 3000);
-        } else {
-          setTimeout(() => printWindow.print(), 300);
-        }
-      }
-
-      toast.success('PDF gotowy do druku');
     } catch (err: any) {
-      console.error('Error generating PDF:', err);
-      toast.error('Błąd generowania PDF');
+      console.error('Error preparing invoice preview:', err);
+      toast.error('Błąd przygotowania podglądu');
     } finally {
       setIsGeneratingPdf(false);
     }
   };
 
-  const handleSendEmail = () => {
-    setShowEmailDialog(true);
-  };
-
-  const handleSendEmailSubmit = async () => {
-    if (!emailAddress || !emailAddress.includes('@')) {
-      toast.error('Podaj prawidłowy adres email');
-      return;
-    }
-
-    setSendingEmail(true);
+  const handleSendInvoiceEmail = async (email: string) => {
     try {
-      const { data, error } = await supabase.functions.invoke('send-invoice-email', {
+      const { error } = await supabase.functions.invoke('send-invoice-email', {
         body: { 
-          invoice_id: invoice.id, 
+          invoice_id: invoice.id,
+          recipient_email: email,
           type: 'new_invoice',
-          // Pass recipient email via custom approach since edge function uses buyer_snapshot
         }
       });
 
       if (error) throw error;
-
-      toast.success(`Faktura wysłana na ${emailAddress}`);
-      setShowEmailDialog(false);
-      setEmailAddress('');
+      toast.success(`Faktura wysłana na ${email}`);
     } catch (err: any) {
       console.error('Error sending email:', err);
       toast.error('Błąd wysyłania email: ' + (err.message || 'Nieznany błąd'));
-    } finally {
-      setSendingEmail(false);
     }
   };
+
+
+
 
   const handleSetReminder = (selectedDate: Date) => {
     if (!selectedDate) {
@@ -563,27 +528,22 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
                 {invoice.is_paid ? 'Cofnij opłacenie' : 'Oznacz jako opłaconą'}
               </Button>
               
-              {/* PDF button - disabled during KSeF processing */}
+              {/* PDF/Podgląd button - opens preview modal */}
               <Button 
                 size="sm" 
                 variant="outline" 
-                onClick={handleDownloadPdf} 
+                onClick={handleOpenPreview} 
                 disabled={isGeneratingPdf || liveKsefStatus === 'processing' || liveKsefStatus === 'sent'}
-                title={liveKsefStatus === 'processing' || liveKsefStatus === 'sent' ? 'Czekaj na zatwierdzenie KSeF' : 'Pobierz PDF'}
+                title={liveKsefStatus === 'processing' || liveKsefStatus === 'sent' ? 'Czekaj na zatwierdzenie KSeF' : 'Podgląd faktury'}
               >
                 {isGeneratingPdf ? (
                   <Loader2 className="h-4 w-4 mr-1 animate-spin" />
                 ) : (
-                  <Download className="h-4 w-4 mr-1" />
+                  <FileText className="h-4 w-4 mr-1" />
                 )}
                 {liveKsefStatus === 'processing' || liveKsefStatus === 'sent' 
                   ? '⏳ Czekaj na KSeF...' 
-                  : isGeneratingPdf ? 'Generuję...' : 'PDF'}
-              </Button>
-              
-              <Button size="sm" variant="outline" onClick={handleSendEmail}>
-                <Mail className="h-4 w-4 mr-1" />
-                Email
+                  : isGeneratingPdf ? 'Ładuję...' : 'Podgląd / PDF'}
               </Button>
               
               <Popover open={showReminderPopover} onOpenChange={setShowReminderPopover}>
@@ -686,44 +646,20 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Email Dialog */}
-      <Dialog open={showEmailDialog} onOpenChange={setShowEmailDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Wyślij fakturę emailem</DialogTitle>
-            <DialogDescription>
-              Podaj adres email, na który wysłać fakturę {invoice.invoice_number}
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Adres email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="klient@firma.pl"
-                value={emailAddress}
-                onChange={(e) => setEmailAddress(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowEmailDialog(false)}>
-              Anuluj
-            </Button>
-            <Button onClick={handleSendEmailSubmit} disabled={sendingEmail}>
-              {sendingEmail ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Send className="h-4 w-4 mr-2" />
-              )}
-              Wyślij
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Invoice Preview Modal */}
+      {previewInvoiceData && (
+        <InvoicePreviewModal
+          open={showPreviewModal}
+          onOpenChange={(open) => {
+            setShowPreviewModal(open);
+            if (!open) setPreviewInvoiceData(null);
+          }}
+          invoiceData={previewInvoiceData}
+          isLoggedIn={true}
+          invoiceIssued={!!invoice.ksef_status && invoice.ksef_status !== 'draft'}
+          onSend={handleSendInvoiceEmail}
+        />
+      )}
 
       {/* Edit Dialog - Full Invoice Form */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
