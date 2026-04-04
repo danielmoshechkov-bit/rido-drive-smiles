@@ -215,6 +215,7 @@ export function InvoiceDetailSheet({ invoice, open, onOpenChange, onUpdate }: In
           nip: invoice.buyer_nip || '',
           address_street: invoice.buyer_address || '',
         },
+        ksef_reference: invoice.ksef_reference || undefined,
       };
 
       // Generate HTML and open print window

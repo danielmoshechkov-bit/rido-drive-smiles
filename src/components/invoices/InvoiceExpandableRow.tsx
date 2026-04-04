@@ -225,6 +225,7 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
           nip: invoice.buyer_nip || '',
           address_street: invoice.buyer_address || '',
         },
+        ksef_reference: invoice.ksef_reference || undefined,
       };
 
       const html = generateInvoiceHtml(invoiceData);
