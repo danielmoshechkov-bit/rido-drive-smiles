@@ -711,10 +711,16 @@ serve(async (req) => {
         return jsonRes({ success: true, status: 'processing', message: `Sesja jeszcze przetwarzana (HTTP ${stRes.status})` });
       }
       const stData = await stRes.json();
-      const st = String(stData.status || stData.processingStatus || '').toLowerCase();
+      const st = String(
+        stData?.status?.value || 
+        stData?.status || 
+        stData?.processingStatus || 
+        ''
+      ).toLowerCase();
+      console.log('[KSeF][check_status] status raw:', JSON.stringify(stData?.status));
       console.log('[KSeF][check_status] session:', sessionRef, 'status:', st);
 
-      if (st === 'finished') {
+      if (st.includes('finish') || st.includes('success') || st === '200') {
         // Get KSeF reference number
         let ksefNumber: string | null = null;
         let upoXml: string | null = null;
