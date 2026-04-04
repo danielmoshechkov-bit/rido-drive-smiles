@@ -63,6 +63,8 @@ export interface InvoiceData {
   issued_by?: string;
   // PDF options
   compact_pdf?: boolean;
+  // KSeF
+  ksef_reference?: string;
 }
 
 export type Currency = 'PLN' | 'EUR' | 'USD' | 'GBP' | 'CHF' | 'CZK';
