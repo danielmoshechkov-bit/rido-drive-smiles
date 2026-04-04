@@ -688,6 +688,7 @@ serve(async (req) => {
       }
 
       console.log('[KSeF][send] invoice.xml.generated, size:', xmlBytes.byteLength, 'bytes');
+      console.log('[KSeF][send] invoice.xml.first1500:', xml.substring(0, 1500));
 
       // Create transmission record
       const { data: transmission } = await supabase.from('ksef_transmissions').insert({
