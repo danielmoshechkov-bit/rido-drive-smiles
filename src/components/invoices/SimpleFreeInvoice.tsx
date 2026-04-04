@@ -861,6 +861,23 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
       setInvoiceIssued(true);
       setShowPreview(true);
       toast.success('Faktura została wystawiona!');
+
+      // Auto-send to KSeF if enabled
+      if (autoSendKsef && (lastSavedInvoiceId || editInvoiceId)) {
+        const invoiceIdToSend = editInvoiceId || lastSavedInvoiceId;
+        try {
+          const { data, error } = await supabase.functions.invoke('ksef-integration', {
+            body: { action: 'send', invoice_id: invoiceIdToSend },
+          });
+          if (error || !data?.success) {
+            toast.error('Faktura wystawiona, ale błąd wysyłania do KSeF: ' + (data?.error || error?.message || ''));
+          } else {
+            toast.success('Faktura wysłana do KSeF');
+          }
+        } catch (ksefErr: any) {
+          toast.error('Błąd KSeF: ' + ksefErr.message);
+        }
+      }
     } catch (err) {
       console.error('Error issuing invoice:', err);
       // Error toast already shown in handleSave
