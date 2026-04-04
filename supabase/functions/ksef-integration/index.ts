@@ -544,17 +544,42 @@ serve(async (req) => {
     // ========== send ==========
     if (action === 'send') {
       const { data: invoice, error: invErr } = await supabase
-        .from('user_invoices').select('*, entity:entities(*)').eq('id', body.invoice_id).single();
+        .from('user_invoices').select('*').eq('id', body.invoice_id).single();
       if (invErr || !invoice) throw new Error('Faktura nie znaleziona');
-      const { data: items } = await supabase.from('invoice_items').select('*').eq('invoice_id', body.invoice_id);
+      const { data: items } = await supabase.from('user_invoice_items').select('*').eq('invoice_id', body.invoice_id).order('sort_order');
 
-      const xml = generateInvoiceXML(invoice, invoice.entity, items || []);
+      // Get seller data from user_invoice_companies or company_settings
+      let sellerEntity: any = {};
+      if (invoice.company_id) {
+        const { data: company } = await supabase.from('user_invoice_companies').select('*').eq('id', invoice.company_id).maybeSingle();
+        if (company) {
+          sellerEntity = {
+            nip: company.nip,
+            name: company.name,
+            address_street: [company.address_street, company.address_building_number, company.address_apartment_number].filter(Boolean).join(' '),
+            address_postal_code: company.address_postal_code,
+            address_city: company.address_city,
+            bank_account: company.bank_account,
+          };
+        }
+      }
+      if (!sellerEntity.nip && invoice.user_id) {
+        const { data: cs } = await supabase.from('company_settings').select('*').eq('user_id', invoice.user_id).maybeSingle();
+        if (cs) {
+          sellerEntity = { nip: cs.nip, name: cs.company_name, address_street: cs.address, address_postal_code: '', address_city: '', bank_account: cs.bank_account };
+        }
+      }
+
+      // Build buyer snapshot for XML generator
+      const buyerSnapshot = { nip: invoice.buyer_nip, name: invoice.buyer_name, address_street: invoice.buyer_address };
+      const invoiceForXml = { ...invoice, buyer_snapshot: buyerSnapshot };
+
+      const xml = generateInvoiceXML(invoiceForXml, sellerEntity, items || []);
       const xmlBytes = new TextEncoder().encode(xml);
 
       // Create transmission record
       const { data: transmission } = await supabase.from('ksef_transmissions').insert({
         invoice_id: body.invoice_id,
-        entity_id: invoice.entity_id,
         direction: 'outgoing',
         status: 'pending',
         xml_content: xml,
