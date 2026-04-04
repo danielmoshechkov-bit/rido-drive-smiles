@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { format, addDays, subDays } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
@@ -87,6 +87,16 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   
+  // Live KSeF status tracking (updates without page refresh)
+  const [liveKsefStatus, setLiveKsefStatus] = useState<string | undefined>(invoice.ksef_status);
+  const [liveKsefReference, setLiveKsefReference] = useState<string | undefined>(invoice.ksef_reference);
+  
+  // Sync from prop when parent refetches
+  useEffect(() => {
+    setLiveKsefStatus(invoice.ksef_status);
+    setLiveKsefReference(invoice.ksef_reference);
+  }, [invoice.ksef_status, invoice.ksef_reference]);
+  
   // Email dialog state
   const [showEmailDialog, setShowEmailDialog] = useState(false);
   const [emailAddress, setEmailAddress] = useState('');
@@ -165,9 +175,31 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
     }
   };
 
+  const handleKsefStatusChange = async () => {
+    // Refetch latest KSeF data from DB
+    const { data: fresh } = await supabase
+      .from('user_invoices')
+      .select('ksef_status, ksef_reference')
+      .eq('id', invoice.id)
+      .single();
+    if (fresh) {
+      setLiveKsefStatus(fresh.ksef_status || undefined);
+      setLiveKsefReference(fresh.ksef_reference || undefined);
+    }
+    onUpdate();
+  };
+
   const handleDownloadPdf = async () => {
     setIsGeneratingPdf(true);
     try {
+      // Always refetch latest ksef data before PDF
+      const { data: freshInvoice } = await supabase
+        .from('user_invoices')
+        .select('ksef_status, ksef_reference')
+        .eq('id', invoice.id)
+        .single();
+      const latestKsefRef = freshInvoice?.ksef_reference || liveKsefReference;
+
       const { data: items } = await supabase
         .from('user_invoice_items')
         .select('*')
@@ -225,7 +257,7 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
           nip: invoice.buyer_nip || '',
           address_street: invoice.buyer_address || '',
         },
-        ksef_reference: invoice.ksef_reference || undefined,
+        ksef_reference: latestKsefRef || undefined,
       };
 
       const html = generateInvoiceHtml(invoiceData);
@@ -484,15 +516,15 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
                 {invoice.is_paid ? 'Cofnij opłacenie' : 'Oznacz jako opłaconą'}
               </Button>
               
-              <Button size="sm" variant="outline" onClick={handleDownloadPdf} disabled={isGeneratingPdf || invoice.ksef_status === 'processing' || invoice.ksef_status === 'sent'}>
+              <Button size="sm" variant="outline" onClick={handleDownloadPdf} disabled={isGeneratingPdf || liveKsefStatus === 'processing' || liveKsefStatus === 'sent'}>
                 {isGeneratingPdf ? (
                   <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                ) : invoice.ksef_status === 'processing' || invoice.ksef_status === 'sent' ? (
+                ) : liveKsefStatus === 'processing' || liveKsefStatus === 'sent' ? (
                   <Clock className="h-4 w-4 mr-1 animate-pulse" />
                 ) : (
                   <Download className="h-4 w-4 mr-1" />
                 )}
-                {invoice.ksef_status === 'processing' || invoice.ksef_status === 'sent' ? 'KSeF...' : 'PDF'}
+                {liveKsefStatus === 'processing' || liveKsefStatus === 'sent' ? 'KSeF...' : 'PDF'}
               </Button>
               
               <Button size="sm" variant="outline" onClick={handleSendEmail}>
@@ -539,7 +571,7 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
                 </PopoverContent>
               </Popover>
               
-              <KsefSendButton invoiceId={invoice.id} size="sm" onStatusChange={onUpdate} />
+              <KsefSendButton invoiceId={invoice.id} size="sm" onStatusChange={handleKsefStatusChange} />
 
               <Button size="sm" variant="outline" onClick={handleEdit}>
                 <Edit className="h-4 w-4 mr-1" />
