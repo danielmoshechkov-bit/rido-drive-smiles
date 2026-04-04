@@ -64,7 +64,9 @@ export interface InvoiceData {
   // PDF options
   compact_pdf?: boolean;
   // KSeF
+  ksef_status?: string;
   ksef_reference?: string;
+  ksef_acceptance_date?: string;
 }
 
 export type Currency = 'PLN' | 'EUR' | 'USD' | 'GBP' | 'CHF' | 'CZK';
@@ -89,6 +91,41 @@ export const formatCurrency = (amount: number, currency: string = 'PLN'): string
 
 export const formatDate = (dateStr: string): string => {
   return new Date(dateStr).toLocaleDateString('pl-PL');
+};
+
+export const isOfficialKsefReference = (value?: string): boolean => {
+  if (!value) return false;
+  const trimmed = value.trim();
+  return /^\d{10}-\d{8}-[A-Z0-9-]+$/i.test(trimmed) && !trimmed.includes('-SO-');
+};
+
+export const printHtmlDocument = (html: string): void => {
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) return;
+
+  printWindow.document.write(html);
+  printWindow.document.close();
+  printWindow.focus();
+
+  const startedAt = Date.now();
+  const waitForAssetsAndPrint = () => {
+    const qrImages = printWindow.document.querySelectorAll('img.ksef-qr');
+
+    if (qrImages.length === 0) {
+      setTimeout(() => printWindow.print(), 250);
+      return;
+    }
+
+    const allReady = Array.from(qrImages).every((img) => (img as HTMLImageElement).complete);
+    if (allReady || Date.now() - startedAt > 3000) {
+      setTimeout(() => printWindow.print(), 100);
+      return;
+    }
+
+    setTimeout(waitForAssetsAndPrint, 150);
+  };
+
+  setTimeout(waitForAssetsAndPrint, 150);
 };
 
 export const numberToWords = (num: number): string => {
@@ -183,6 +220,10 @@ const formatAddress = (entity: InvoiceSeller | InvoiceBuyer): string => {
 
 export const generateInvoiceHtml = (invoice: InvoiceData): string => {
   const { seller, buyer, items, currency = 'PLN', compact_pdf = false } = invoice;
+  const hasAcceptedKsef = isOfficialKsefReference(invoice.ksef_reference);
+  const verificationUrl = hasAcceptedKsef
+    ? `https://efaktura.mf.gov.pl/web/verify?id=${encodeURIComponent(invoice.ksef_reference!)}`
+    : '';
   
   const netTotal = items.reduce((sum, item) => sum + item.net_amount, 0);
   const vatTotal = items.reduce((sum, item) => sum + item.vat_amount, 0);
@@ -319,10 +360,38 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     .footer { display: flex; justify-content: space-between; margin-top: 16px; padding-top: 8px; }
     .signature { width: 160px; text-align: center; }
     .signature-line { border-top: 1px solid #333; margin-top: 30px; padding-top: 4px; font-size: 7px; color: #666; }
+     .draft-watermark {
+       position: fixed;
+       inset: 0;
+       display: flex;
+       align-items: center;
+       justify-content: center;
+       font-size: 52px;
+       font-weight: 700;
+       letter-spacing: 6px;
+       color: rgba(124, 58, 237, 0.12);
+       transform: rotate(-28deg);
+       pointer-events: none;
+       z-index: 0;
+     }
+     .content-layer { position: relative; z-index: 1; }
+     .ksef-box {
+       margin-top: 20px;
+       padding: 12px;
+       border: 1px solid #e5e7eb;
+       border-radius: 8px;
+       display: flex;
+       align-items: center;
+       gap: 12px;
+       background: #f8fafc;
+     }
+     .ksef-box-title { font-weight: 700; margin-bottom: 4px; color: #15803d; }
+     .ksef-box-line { margin-top: 2px; }
   </style>
 </head>
 <body>
-  <div class="invoice">
+  ${!hasAcceptedKsef ? '<div class="draft-watermark">KOPIA ROBOCZA</div>' : ''}
+  <div class="invoice content-layer">
     <div class="top-meta">
       ${invoice.issue_place ? `${invoice.issue_place}, ` : ''}${formatDate(invoice.issue_date)}
     </div>
@@ -470,13 +539,14 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     </div>
     ` : ''}
 
-    ${invoice.ksef_reference ? `
-    <div style="margin-top: 20px; padding: 12px; border: 1px solid #e5e7eb; border-radius: 8px; display: flex; align-items: center; gap: 12px;">
-      <img class="ksef-qr" src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent('https://efaktura.mf.gov.pl/web/verify?id=' + invoice.ksef_reference)}" alt="KSeF QR" style="width: 80px; height: 80px;" />
+    ${hasAcceptedKsef ? `
+    <div class="ksef-box">
+      <img class="ksef-qr" src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(verificationUrl)}" alt="Kod QR KSeF" style="width: 80px; height: 80px;" />
       <div style="font-size: 10px; color: #6b7280;">
-        <div style="font-weight: 600; margin-bottom: 2px; color: #16a34a;">✅ Faktura w Krajowym Systemie e-Faktur</div>
-        <div style="font-weight: 600;">Nr KSeF: ${invoice.ksef_reference}</div>
-        <div style="margin-top: 2px;">Weryfikacja: <a href="https://efaktura.mf.gov.pl/web/verify?id=${encodeURIComponent(invoice.ksef_reference)}" style="color: #7c3aed;">efaktura.mf.gov.pl</a></div>
+        <div class="ksef-box-title">Faktura w KSeF</div>
+        <div class="ksef-box-line"><strong>Numer KSeF:</strong> ${invoice.ksef_reference}</div>
+        ${invoice.ksef_acceptance_date ? `<div class="ksef-box-line"><strong>Data przyjęcia:</strong> ${formatDate(invoice.ksef_acceptance_date)}</div>` : ''}
+        <div class="ksef-box-line"><strong>Weryfikacja:</strong> <a href="${verificationUrl}" style="color: #7c3aed;">efaktura.mf.gov.pl</a></div>
       </div>
     </div>
     ` : ''}
@@ -497,24 +567,5 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
 
 export const printInvoice = (invoice: InvoiceData): void => {
   const html = generateInvoiceHtml(invoice);
-  const printWindow = window.open('', '_blank');
-  if (printWindow) {
-    printWindow.document.write(html);
-    printWindow.document.close();
-    printWindow.focus();
-    // Wait for QR code image to load before printing
-    const imgs = printWindow.document.querySelectorAll('img.ksef-qr');
-    if (imgs.length > 0) {
-      let loaded = 0;
-      const tryPrint = () => { loaded++; if (loaded >= imgs.length) setTimeout(() => printWindow.print(), 100); };
-      imgs.forEach(img => {
-        if ((img as HTMLImageElement).complete) tryPrint();
-        else { img.addEventListener('load', tryPrint); img.addEventListener('error', tryPrint); }
-      });
-      // Fallback timeout
-      setTimeout(() => printWindow.print(), 3000);
-    } else {
-      setTimeout(() => printWindow.print(), 250);
-    }
-  }
+  printHtmlDocument(html);
 };
