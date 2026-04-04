@@ -669,7 +669,7 @@ serve(async (req) => {
               if (fRes.ok) { const fd = await fRes.json(); errDetail = JSON.stringify(fd?.invoices?.[0]?.status || fd).slice(0, 400); }
             } catch { /* ignore */ }
             if (transmission?.id) await supabase.from('ksef_transmissions').update({ status: 'rejected', error_message: errDetail, response_at: new Date().toISOString() }).eq('id', transmission.id);
-            await supabase.from('invoices').update({ ksef_status: 'rejected' }).eq('id', body.invoice_id);
+            await supabase.from('user_invoices').update({ ksef_status: 'rejected' }).eq('id', body.invoice_id);
             return jsonRes({ success: false, error: errDetail, session_ref: sessionRef });
           }
         }
