@@ -17463,8 +17463,10 @@ export type Database = {
           issue_date: string
           issue_place: string | null
           ksef_environment: string | null
+          ksef_error: string | null
           ksef_invoice_ref: string | null
           ksef_reference: string | null
+          ksef_session_ref: string | null
           ksef_status: string | null
           net_total: number | null
           notes: string | null
@@ -17501,8 +17503,10 @@ export type Database = {
           issue_date: string
           issue_place?: string | null
           ksef_environment?: string | null
+          ksef_error?: string | null
           ksef_invoice_ref?: string | null
           ksef_reference?: string | null
+          ksef_session_ref?: string | null
           ksef_status?: string | null
           net_total?: number | null
           notes?: string | null
@@ -17539,8 +17543,10 @@ export type Database = {
           issue_date?: string
           issue_place?: string | null
           ksef_environment?: string | null
+          ksef_error?: string | null
           ksef_invoice_ref?: string | null
           ksef_reference?: string | null
+          ksef_session_ref?: string | null
           ksef_status?: string | null
           net_total?: number | null
           notes?: string | null

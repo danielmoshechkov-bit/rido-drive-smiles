@@ -36,10 +36,11 @@ export function KsefSendButton({ invoiceId, size = 'sm', onStatusChange }: KsefS
         .maybeSingle();
 
       if (data) {
-        setKsefStatus(data.ksef_status || null);
+        const effectiveStatus = data.ksef_reference ? 'accepted' : (data.ksef_status || null);
+        setKsefStatus(effectiveStatus);
         setKsefReference(data.ksef_reference || null);
         setInvoiceRef((data as any).ksef_invoice_ref || null);
-        if (data.ksef_status === 'processing' || data.ksef_status === 'sent') {
+        if (effectiveStatus === 'processing' || effectiveStatus === 'sent') {
           const currentInvoiceRef = (data as any).ksef_invoice_ref || null;
           if (currentInvoiceRef) {
             setInvoiceRef(currentInvoiceRef);
@@ -111,10 +112,22 @@ export function KsefSendButton({ invoiceId, size = 'sm', onStatusChange }: KsefS
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'Błąd wysyłania do KSeF');
 
+      if (data.status === 'accepted' && data.ksef_reference) {
+        setKsefStatus('accepted');
+        setKsefReference(data.ksef_reference || null);
+        setSessionRef(data.session_ref || null);
+        setInvoiceRef(data.invoice_ref || null);
+        toast.success('Faktura zaakceptowana przez KSeF' + (data.ksef_reference ? `: ${data.ksef_reference}` : ''));
+        onStatusChange?.();
+        return;
+      }
+
       setKsefStatus('processing');
       setSessionRef(data.session_ref || null);
       setInvoiceRef(data.invoice_ref || null);
-      startPolling(data.session_ref || null, data.invoice_ref || null);
+      if (data.status === 'processing') {
+        startPolling(data.session_ref || null, data.invoice_ref || null);
+      }
       toast.success(data.message || 'Faktura wysłana do KSeF');
       onStatusChange?.();
     } catch (err: any) {

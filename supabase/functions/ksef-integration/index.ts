@@ -1326,9 +1326,105 @@ serve(async (req) => {
         }
         await supabase.from('user_invoices').update({
           ksef_status: 'processing',
+          ksef_session_ref: sessionRef,
           ksef_invoice_ref: invoiceRef,
           ksef_environment: environment,
+          ksef_error: null,
         }).eq('id', body.invoice_id);
+
+        if (sessionRef && invoiceRef) {
+          for (let attempt = 0; attempt < 10; attempt++) {
+            await new Promise((r) => setTimeout(r, 5000));
+
+            try {
+              const pollRes = await fetch(`${base}/sessions/${sessionRef}/invoices/${invoiceRef}`, {
+                headers: { 'Authorization': `Bearer ${accessToken}` },
+              });
+
+              if (!pollRes.ok) {
+                const pollText = await pollRes.text().catch(() => '');
+                console.warn('[KSeF][send] poll HTTP', pollRes.status, pollText.slice(0, 200));
+                continue;
+              }
+
+              const pollData = await pollRes.json();
+              const pollCode = pollData?.status?.code;
+              const pollDesc = pollData?.status?.description || null;
+              const pollKsefNumber = pollData?.ksefNumber || null;
+              const pollUpoDownloadUrl = pollData?.upoDownloadUrl || null;
+
+              console.log('[KSeF][send] poll attempt', attempt + 1, 'code:', pollCode, 'ksefNumber:', pollKsefNumber);
+
+              if (pollCode === 200 && pollKsefNumber) {
+                await supabase.from('user_invoices').update({
+                  ksef_status: 'accepted',
+                  ksef_reference: pollKsefNumber,
+                  ksef_session_ref: sessionRef,
+                  ksef_invoice_ref: invoiceRef,
+                  ksef_environment: environment,
+                  ksef_error: null,
+                }).eq('id', body.invoice_id);
+
+                if (transmission?.id) {
+                  const txUpdate: any = {
+                    status: 'accepted',
+                    ksef_reference_number: pollKsefNumber,
+                    ksef_invoice_ref: invoiceRef,
+                    response_at: new Date().toISOString(),
+                    environment,
+                  };
+                  if (pollUpoDownloadUrl) txUpdate.upo_download_url = pollUpoDownloadUrl;
+                  await supabase.from('ksef_transmissions').update(txUpdate).eq('id', transmission.id);
+                }
+
+                return jsonRes({
+                  success: true,
+                  status: 'accepted',
+                  session_ref: sessionRef,
+                  invoice_ref: invoiceRef,
+                  ksef_reference: pollKsefNumber,
+                  message: 'Faktura przyjęta przez KSeF',
+                  environment,
+                });
+              }
+
+              if (pollCode === 445 || pollCode === 450 || (pollCode && pollCode >= 400)) {
+                const errMsg = INVOICE_STATUS_MESSAGES[pollCode] || pollDesc || `Błąd faktury (${pollCode})`;
+
+                await supabase.from('user_invoices').update({
+                  ksef_status: 'rejected',
+                  ksef_session_ref: sessionRef,
+                  ksef_invoice_ref: invoiceRef,
+                  ksef_environment: environment,
+                  ksef_error: errMsg,
+                }).eq('id', body.invoice_id);
+
+                if (transmission?.id) {
+                  await supabase.from('ksef_transmissions').update({
+                    status: 'rejected',
+                    ksef_reference_number: sessionRef,
+                    ksef_invoice_ref: invoiceRef,
+                    error_message: `${pollCode}: ${errMsg}`,
+                    response_at: new Date().toISOString(),
+                    environment,
+                  }).eq('id', transmission.id);
+                }
+
+                return jsonRes({
+                  success: false,
+                  status: 'rejected',
+                  session_ref: sessionRef,
+                  invoice_ref: invoiceRef,
+                  error: errMsg,
+                  error_code: pollCode,
+                  environment,
+                });
+              }
+            } catch (pollErr: any) {
+              console.warn('[KSeF][send] poll error:', pollErr.message);
+            }
+          }
+        }
 
         return jsonRes({
           success: true,
@@ -1341,7 +1437,7 @@ serve(async (req) => {
       } catch (sendErr: any) {
         console.error('[KSeF][send] FULL ERROR:', sendErr.message);
         if (transmission?.id) await supabase.from('ksef_transmissions').update({ status: 'error', error_message: sendErr.message, response_at: new Date().toISOString() }).eq('id', transmission.id);
-        await supabase.from('user_invoices').update({ ksef_status: 'rejected' }).eq('id', body.invoice_id);
+        await supabase.from('user_invoices').update({ ksef_status: 'rejected', ksef_error: sendErr.message }).eq('id', body.invoice_id);
         throw sendErr;
       }
     }
@@ -1349,9 +1445,23 @@ serve(async (req) => {
     // ========== check_status (FIX BŁĄD 3, 4, 6: use invoice_ref for individual status) ==========
     if (action === 'check_status') {
       try {
-        const sessionRef = body.session_ref;
+        let sessionRef = body.session_ref;
         const invoiceRef = body.invoice_ref;
         const invoiceId = body.invoice_id;
+        
+        if (!sessionRef && invoiceId) {
+          const { data: inv } = await supabase
+            .from('user_invoices')
+            .select('ksef_session_ref, ksef_invoice_ref, ksef_reference, ksef_status')
+            .eq('id', invoiceId)
+            .maybeSingle();
+
+          sessionRef = inv?.ksef_session_ref || null;
+          if (inv?.ksef_reference) {
+            return jsonRes({ success: true, status: 'accepted', ksef_reference: inv.ksef_reference });
+          }
+        }
+
         if (!sessionRef) return jsonRes({ success: true, status: 'processing' });
 
         // If we don't have invoice_ref from body, try to load it from DB
@@ -1436,7 +1546,7 @@ serve(async (req) => {
                 if (invoiceStatusCode && invoiceStatusCode >= 400) {
                   const errMsg = INVOICE_STATUS_MESSAGES[invoiceStatusCode] || invoiceStatusDesc || `Błąd faktury (${invoiceStatusCode})`;
                   console.error('[KSeF][check_status] Invoice REJECTED:', invoiceStatusCode, errMsg);
-                  if (invoiceId) await supabase.from('user_invoices').update({ ksef_status: 'rejected' }).eq('id', invoiceId);
+                    if (invoiceId) await supabase.from('user_invoices').update({ ksef_status: 'rejected', ksef_session_ref: sessionRef, ksef_error: errMsg }).eq('id', invoiceId);
                   await supabase.from('ksef_transmissions').update({ 
                     status: 'rejected', 
                     error_message: `${invoiceStatusCode}: ${errMsg}`,
@@ -1472,7 +1582,7 @@ serve(async (req) => {
                 
                 if (invoiceStatusCode && invoiceStatusCode >= 400) {
                   const errMsg = INVOICE_STATUS_MESSAGES[invoiceStatusCode] || `Błąd faktury (${invoiceStatusCode})`;
-                  if (invoiceId) await supabase.from('user_invoices').update({ ksef_status: 'rejected' }).eq('id', invoiceId);
+                    if (invoiceId) await supabase.from('user_invoices').update({ ksef_status: 'rejected', ksef_session_ref: sessionRef, ksef_error: errMsg }).eq('id', invoiceId);
                   return jsonRes({ success: false, status: 'rejected', error: errMsg, error_code: invoiceStatusCode });
                 }
               } else {
@@ -1492,7 +1602,10 @@ serve(async (req) => {
             await supabase.from('user_invoices').update({ 
               ksef_status: 'accepted', 
               ksef_reference: ksefNumber, 
-              ksef_environment: environment 
+              ksef_session_ref: sessionRef,
+              ksef_invoice_ref: effectiveInvoiceRef,
+              ksef_environment: environment,
+              ksef_error: null,
             }).eq('id', invoiceId);
           }
           
@@ -1558,7 +1671,7 @@ serve(async (req) => {
 
           console.error('[KSeF][check_status] Session REJECTED:', statusCode, errDetail);
           if (invoiceId) {
-            await supabase.from('user_invoices').update({ ksef_status: 'rejected' }).eq('id', invoiceId);
+            await supabase.from('user_invoices').update({ ksef_status: 'rejected', ksef_session_ref: sessionRef, ksef_error: errDetail }).eq('id', invoiceId);
           }
           await supabase.from('ksef_transmissions').update({ 
             status: 'rejected', 

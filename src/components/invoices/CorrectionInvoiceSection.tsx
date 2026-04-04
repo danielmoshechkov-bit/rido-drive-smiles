@@ -4,6 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { FloatingInput } from '@/components/ui/floating-input';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Loader2, FileText, ArrowDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { calculateItemTotals, InvoiceItem } from '@/utils/invoiceHtmlGenerator';
@@ -35,7 +36,12 @@ export interface CorrectionItem {
   unit: string;
   unit_net_price_before: number;
   unit_net_price_after: number;
-  vat_rate: string;
+  vat_rate_before: string;
+  vat_rate_after: string;
+  edit_quantity: boolean;
+  edit_price: boolean;
+  edit_vat: boolean;
+  is_return: boolean;
 }
 
 export interface CorrectionData {
@@ -61,7 +67,10 @@ const CORRECTION_REASONS = [
 interface CorrectionInvoiceSectionProps {
   onOriginalSelected: (invoice: OriginalInvoice, items: InvoiceItem[]) => void;
   onCorrectionDataChange: (data: CorrectionData | null) => void;
+  onCorrectionItemsChange?: (items: InvoiceItem[]) => void;
 }
+
+const VAT_OPTIONS = ['23', '8', '5', '0', 'zw', 'np'];
 
 function calcItemTotals(qty: number, netPrice: number, vatRate: string) {
   const rate = parseFloat(vatRate) || 0;
@@ -71,7 +80,34 @@ function calcItemTotals(qty: number, netPrice: number, vatRate: string) {
   return { net, vat, gross };
 }
 
-export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataChange }: CorrectionInvoiceSectionProps) {
+function applyReasonPreset(item: CorrectionItem, reason: string): CorrectionItem {
+  switch (reason) {
+    case 'wrong_price':
+      return { ...item, edit_price: true };
+    case 'wrong_quantity':
+      return { ...item, edit_quantity: true, is_return: false };
+    case 'wrong_vat':
+      return { ...item, edit_vat: true };
+    case 'return':
+      return { ...item, is_return: true, edit_quantity: true, quantity_after: 0 };
+    default:
+      return item;
+  }
+}
+
+function toAfterInvoiceItems(items: CorrectionItem[]): InvoiceItem[] {
+  return items.map((item) =>
+    calculateItemTotals({
+      name: item.name,
+      quantity: item.quantity_after,
+      unit: item.unit,
+      unit_net_price: item.unit_net_price_after,
+      vat_rate: item.vat_rate_after,
+    })
+  );
+}
+
+export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataChange, onCorrectionItemsChange }: CorrectionInvoiceSectionProps) {
   const [invoices, setInvoices] = useState<OriginalInvoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string>('');
@@ -101,7 +137,14 @@ export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataC
   };
 
   const emitChange = (items: CorrectionItem[], reason: string, reasonText: string, invoice: OriginalInvoice | null) => {
-    if (!invoice) { onCorrectionDataChange(null); return; }
+    if (!invoice) {
+      onCorrectionItemsChange?.([]);
+      onCorrectionDataChange(null);
+      return;
+    }
+
+    onCorrectionItemsChange?.(toAfterInvoiceItems(items));
+
     onCorrectionDataChange({
       originalInvoiceId: invoice.id,
       originalInvoiceNumber: invoice.invoice_number,
@@ -128,15 +171,20 @@ export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataC
 
     const loadedItems = items || [];
 
-    const cItems: CorrectionItem[] = loadedItems.map((item: any) => ({
+    const cItems: CorrectionItem[] = loadedItems.map((item: any) => applyReasonPreset({
       name: item.name || '',
       quantity_before: item.quantity || 0,
       quantity_after: item.quantity || 0,
       unit: item.unit || 'szt.',
       unit_net_price_before: item.unit_net_price || 0,
       unit_net_price_after: item.unit_net_price || 0,
-      vat_rate: item.vat_rate || '23',
-    }));
+      vat_rate_before: item.vat_rate || '23',
+      vat_rate_after: item.vat_rate || '23',
+      edit_quantity: false,
+      edit_price: false,
+      edit_vat: false,
+      is_return: false,
+    }, correctionReason));
     setCorrectionItems(cItems);
 
     const invoiceItems: InvoiceItem[] = loadedItems.map((item: any) =>
@@ -153,7 +201,7 @@ export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataC
     emitChange(cItems, correctionReason, correctionReasonText, invoice);
   };
 
-  const updateCorrectionItem = (index: number, field: 'quantity_after' | 'unit_net_price_after', value: number) => {
+  const updateCorrectionItem = (index: number, field: 'quantity_after' | 'unit_net_price_after' | 'vat_rate_after', value: number | string) => {
     setCorrectionItems(prev => {
       const updated = [...prev];
       updated[index] = { ...updated[index], [field]: value };
@@ -162,19 +210,40 @@ export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataC
     });
   };
 
+  const toggleCorrectionMode = (index: number, field: 'edit_quantity' | 'edit_price' | 'edit_vat' | 'is_return', checked: boolean) => {
+    setCorrectionItems(prev => {
+      const updated = [...prev];
+      const current = updated[index];
+      const next = { ...current, [field]: checked };
+
+      if (field === 'is_return') {
+        next.edit_quantity = checked ? true : next.edit_quantity;
+        next.quantity_after = checked ? 0 : (current.quantity_after === 0 ? current.quantity_before : current.quantity_after);
+      }
+
+      updated[index] = next;
+      emitChange(updated, correctionReason, correctionReasonText, selectedInvoice);
+      return updated;
+    });
+  };
+
   const handleReasonChange = (reason: string) => {
     setCorrectionReason(reason);
-    emitChange(correctionItems, reason, correctionReasonText, selectedInvoice);
+    setCorrectionItems(prev => {
+      const updated = prev.map(item => applyReasonPreset(item, reason));
+      emitChange(updated, reason, correctionReasonText, selectedInvoice);
+      return updated;
+    });
   };
 
   // Calculate totals
   const totalsBefore = correctionItems.reduce((acc, item) => {
-    const t = calcItemTotals(item.quantity_before, item.unit_net_price_before, item.vat_rate);
+    const t = calcItemTotals(item.quantity_before, item.unit_net_price_before, item.vat_rate_before);
     return { net: acc.net + t.net, vat: acc.vat + t.vat, gross: acc.gross + t.gross };
   }, { net: 0, vat: 0, gross: 0 });
 
   const totalsAfter = correctionItems.reduce((acc, item) => {
-    const t = calcItemTotals(item.quantity_after, item.unit_net_price_after, item.vat_rate);
+    const t = calcItemTotals(item.quantity_after, item.unit_net_price_after, item.vat_rate_after);
     return { net: acc.net + t.net, vat: acc.vat + t.vat, gross: acc.gross + t.gross };
   }, { net: 0, vat: 0, gross: 0 });
 
@@ -285,7 +354,7 @@ export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataC
                   </TableHeader>
                   <TableBody>
                     {correctionItems.map((item, idx) => {
-                      const t = calcItemTotals(item.quantity_before, item.unit_net_price_before, item.vat_rate);
+                      const t = calcItemTotals(item.quantity_before, item.unit_net_price_before, item.vat_rate_before);
                       return (
                         <TableRow key={idx} className="bg-muted/30">
                           <TableCell className="text-xs">{idx + 1}</TableCell>
@@ -294,7 +363,7 @@ export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataC
                           <TableCell className="text-xs">{item.unit}</TableCell>
                           <TableCell className="text-xs text-right">{fmt(item.unit_net_price_before)}</TableCell>
                           <TableCell className="text-xs text-right">{fmt(t.net)}</TableCell>
-                          <TableCell className="text-xs text-right">{item.vat_rate}%</TableCell>
+                          <TableCell className="text-xs text-right">{item.vat_rate_before}%</TableCell>
                           <TableCell className="text-xs text-right">{fmt(t.vat)}</TableCell>
                           <TableCell className="text-xs text-right font-medium">{fmt(t.gross)}</TableCell>
                         </TableRow>
@@ -344,18 +413,41 @@ export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataC
                   </TableHeader>
                   <TableBody>
                     {correctionItems.map((item, idx) => {
-                      const t = calcItemTotals(item.quantity_after, item.unit_net_price_after, item.vat_rate);
+                      const t = calcItemTotals(item.quantity_after, item.unit_net_price_after, item.vat_rate_after);
                       return (
                         <TableRow key={idx}>
                           <TableCell className="text-xs">{idx + 1}</TableCell>
-                          <TableCell className="text-xs font-medium">{item.name}</TableCell>
+                          <TableCell className="text-xs">
+                            <div className="space-y-2">
+                              <div className="font-medium">{item.name}</div>
+                              <div className="flex flex-wrap gap-3 text-[11px] text-muted-foreground">
+                                <label className="flex items-center gap-1">
+                                  <Checkbox checked={item.edit_quantity} onCheckedChange={(checked) => toggleCorrectionMode(idx, 'edit_quantity', checked === true)} />
+                                  Ilość
+                                </label>
+                                <label className="flex items-center gap-1">
+                                  <Checkbox checked={item.edit_price} onCheckedChange={(checked) => toggleCorrectionMode(idx, 'edit_price', checked === true)} />
+                                  Cena
+                                </label>
+                                <label className="flex items-center gap-1">
+                                  <Checkbox checked={item.edit_vat} onCheckedChange={(checked) => toggleCorrectionMode(idx, 'edit_vat', checked === true)} />
+                                  VAT
+                                </label>
+                                <label className="flex items-center gap-1">
+                                  <Checkbox checked={item.is_return} onCheckedChange={(checked) => toggleCorrectionMode(idx, 'is_return', checked === true)} />
+                                  Zwrot
+                                </label>
+                              </div>
+                            </div>
+                          </TableCell>
                           <TableCell className="p-1">
                             <input
                               type="number"
                               min={0}
                               step={0.01}
-                              className="w-full h-8 text-xs text-right border rounded px-2 bg-background"
+                              className="w-full h-8 text-xs text-right border border-border rounded px-2 bg-background disabled:opacity-50"
                               value={item.quantity_after}
+                              disabled={!item.edit_quantity && !item.is_return}
                               onChange={e => updateCorrectionItem(idx, 'quantity_after', parseFloat(e.target.value) || 0)}
                             />
                           </TableCell>
@@ -365,13 +457,25 @@ export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataC
                               type="number"
                               min={0}
                               step={0.01}
-                              className="w-full h-8 text-xs text-right border rounded px-2 bg-background"
+                              className="w-full h-8 text-xs text-right border border-border rounded px-2 bg-background disabled:opacity-50"
                               value={item.unit_net_price_after}
+                              disabled={!item.edit_price}
                               onChange={e => updateCorrectionItem(idx, 'unit_net_price_after', parseFloat(e.target.value) || 0)}
                             />
                           </TableCell>
                           <TableCell className="text-xs text-right">{fmt(t.net)}</TableCell>
-                          <TableCell className="text-xs text-right">{item.vat_rate}%</TableCell>
+                          <TableCell className="p-1">
+                            <Select value={item.vat_rate_after} onValueChange={(value) => updateCorrectionItem(idx, 'vat_rate_after', value)} disabled={!item.edit_vat}>
+                              <SelectTrigger className="h-8 text-xs">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {VAT_OPTIONS.map((rate) => (
+                                  <SelectItem key={rate} value={rate}>{rate}%</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
                           <TableCell className="text-xs text-right">{fmt(t.vat)}</TableCell>
                           <TableCell className="text-xs text-right font-medium">{fmt(t.gross)}</TableCell>
                         </TableRow>
@@ -405,7 +509,7 @@ export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataC
                 </div>
                 <div className="flex justify-between font-medium">
                   <span>Różnica netto:</span>
-                  <span className={diffNet < 0 ? 'text-destructive' : diffNet > 0 ? 'text-green-600' : ''}>
+                  <span className={diffNet < 0 ? 'text-destructive' : diffNet > 0 ? 'text-primary' : ''}>
                     {diffNet > 0 ? '+' : ''}{fmt(diffNet)} zł
                   </span>
                 </div>
@@ -420,14 +524,14 @@ export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataC
                 </div>
                 <div className="flex justify-between font-medium">
                   <span>Różnica VAT:</span>
-                  <span className={diffVat < 0 ? 'text-destructive' : diffVat > 0 ? 'text-green-600' : ''}>
+                  <span className={diffVat < 0 ? 'text-destructive' : diffVat > 0 ? 'text-primary' : ''}>
                     {diffVat > 0 ? '+' : ''}{fmt(diffVat)} zł
                   </span>
                 </div>
                 <Separator />
                 <div className="flex justify-between text-base font-bold">
                   <span>RAZEM KOREKTA BRUTTO:</span>
-                  <span className={diffGross < 0 ? 'text-destructive' : diffGross > 0 ? 'text-green-600' : 'text-primary'}>
+                  <span className={diffGross < 0 ? 'text-destructive' : diffGross > 0 ? 'text-primary' : 'text-primary'}>
                     {diffGross > 0 ? '+' : ''}{fmt(diffGross)} zł
                   </span>
                 </div>

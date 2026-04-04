@@ -955,6 +955,11 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
       return;
     }
 
+    if (invoiceType === 'correction' && !correctionData) {
+      toast.error('Wybierz fakturę pierwotną i zakres korekty');
+      return;
+    }
+
     if (items.every(item => !item.name || item.quantity === 0)) {
       toast.error('Dodaj co najmniej jedną pozycję na fakturze');
       return;
@@ -978,7 +983,12 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
           if (error || !data?.success) {
             toast.error('Faktura wystawiona, ale błąd wysyłania do KSeF: ' + (data?.error || error?.message || ''));
           } else {
-            toast.success('Faktura wysłana do KSeF');
+            if (data.status === 'accepted' && data.ksef_reference) {
+              toast.success(`Faktura przyjęta przez KSeF: ${data.ksef_reference}`);
+            } else {
+              toast.success(data.message || 'Faktura wysłana do KSeF');
+            }
+            onSaved?.();
           }
         } catch (ksefErr: any) {
           toast.error('Błąd KSeF: ' + ksefErr.message);
@@ -1078,6 +1088,14 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
             }
             // Add correction note
             setNotes(prev => prev || `Korekta do faktury ${originalInvoice.invoice_number}`);
+          }}
+          onCorrectionItemsChange={(afterItems) => {
+            if (afterItems.length === 0) return;
+            setItems(afterItems.map((item) => ({
+              ...item,
+              unit_gross_price: Math.round(item.unit_net_price * (1 + (parseFloat(item.vat_rate) || 0) / 100) * 100) / 100,
+              lastEditedField: 'net',
+            })));
           }}
           onCorrectionDataChange={setCorrectionData}
         />
