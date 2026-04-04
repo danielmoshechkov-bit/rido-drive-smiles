@@ -1,4 +1,4 @@
-// InventoryPurchaseOCR v4 - Full module with Zakupy OCR, Towary CRUD, CSV export
+// InventoryPurchaseOCR v5 - Unified purchase module with batch upload
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,12 +11,12 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
-// OCR uses analyze-invoice edge function directly
 import { toast } from 'sonner';
 import {
   Upload, FileText, Loader2, CheckCircle, Plus, Scan, Eye, Trash2,
-  History, Package, Download, Edit, Save, Search, AlertCircle, ChevronsUpDown,
+  History, Package, Download, Edit, Save, Search, AlertCircle, ChevronsUpDown, X,
 } from 'lucide-react';
+import { PurchaseInvoicesKSeF } from '@/components/accounting/PurchaseInvoicesKSeF';
 
 /* ─── Types ──────────────────────────────────────────────────────────── */
 
