@@ -768,9 +768,9 @@ function buildKsefInvoiceArtifacts(invoice: any, entity: any, items: any[]) {
   const sellerSource = resolveSellerSource(entity);
   const formCode = 'FA (3) / 1-0E';
   
-  // Determine invoice type for KSeF
-  const isCorrection = invoice.is_correction === true || invoice.invoice_type === 'correction';
-  const invoiceType = isCorrection ? 'KOR' : 'VAT';
+  // Determine invoice type for KSeF — support all types
+  const isCorrection = invoice.is_correction === true || invoice.invoice_type === 'KOR' || invoice.invoice_type === 'correction' || invoice.invoice_type === 'KOR_ZAL' || invoice.invoice_type === 'KOR_ROZ';
+  const invoiceType = isCorrection ? 'KOR' : (invoice.invoice_type || 'VAT');
 
   const vatByRate: Record<string, { net: number; vat: number }> = {};
   items.forEach((item) => {
