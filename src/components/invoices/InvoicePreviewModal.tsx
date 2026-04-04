@@ -46,17 +46,23 @@ export function InvoicePreviewModal({
     const iframe = iframeRef.current;
     if (!iframe) return;
 
-    window.requestAnimationFrame(() => {
+    const measure = () => {
       try {
         const doc = iframe.contentDocument;
         const bodyHeight = doc?.body?.scrollHeight || 0;
         const htmlHeight = doc?.documentElement?.scrollHeight || 0;
         const nextHeight = Math.max(bodyHeight, htmlHeight, 1120);
-        setIframeHeight(nextHeight);
+        setIframeHeight(nextHeight + 20); // small buffer to avoid scrollbar
       } catch (error) {
         console.error('Could not sync invoice preview height:', error);
       }
-    });
+    };
+
+    // Measure multiple times to catch late-rendering content (images, fonts)
+    measure();
+    setTimeout(measure, 300);
+    setTimeout(measure, 800);
+    setTimeout(measure, 1500);
   };
 
   useEffect(() => {
@@ -211,15 +217,15 @@ export function InvoicePreviewModal({
             </div>
           )}
 
-          {/* Invoice Preview - full width responsive */}
+          {/* Invoice Preview - single scrollbar only */}
           <div className="flex-1 overflow-y-auto overflow-x-hidden bg-muted/50 p-2 md:p-4">
             <div 
-              className="mx-auto bg-white shadow-xl rounded-lg w-full max-w-[100%]"
+              className="mx-auto bg-white shadow-xl rounded-lg w-full"
             >
               <iframe
                 ref={iframeRef}
-                className="w-full border-0"
-                style={{ height: `${iframeHeight}px` }}
+                className="w-full border-0 block"
+                style={{ height: `${iframeHeight}px`, overflow: 'hidden' }}
                 title="Podgląd faktury"
                 sandbox="allow-same-origin"
                 scrolling="no"
