@@ -651,7 +651,23 @@ serve(async (req) => {
         }
       }
 
-      const buyerSnapshot = { nip: invoice.buyer_nip, name: invoice.buyer_name, address_street: invoice.buyer_address };
+      // Parse buyer_address which is stored as "street, postal_code city"
+      const rawAddr = invoice.buyer_address || '';
+      let bStreet = rawAddr, bPostal = '', bCity = '';
+      const commaIdx = rawAddr.lastIndexOf(',');
+      if (commaIdx > -1) {
+        bStreet = rawAddr.substring(0, commaIdx).trim();
+        const rest = rawAddr.substring(commaIdx + 1).trim();
+        const spaceIdx = rest.indexOf(' ');
+        if (spaceIdx > -1) {
+          bPostal = rest.substring(0, spaceIdx);
+          bCity = rest.substring(spaceIdx + 1);
+        } else {
+          bCity = rest;
+        }
+      }
+      console.log('[KSeF] buyer_address parsed:', JSON.stringify({ rawAddr, bStreet, bPostal, bCity }));
+      const buyerSnapshot = { nip: invoice.buyer_nip, name: invoice.buyer_name, address_street: bStreet, address_postal_code: bPostal, address_city: bCity };
       const invoiceForXml = { ...invoice, buyer_snapshot: buyerSnapshot };
 
       const xml = generateInvoiceXML(invoiceForXml, sellerEntity, items || []);
