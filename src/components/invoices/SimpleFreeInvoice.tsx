@@ -821,7 +821,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
       }
 
       onSaved?.();
-      return lastSavedInvoiceId; // Return saved invoice ID
+      return resultInvoiceId; // Return saved invoice ID
     } catch (err) {
       console.error('Error saving invoice:', err);
       toast.error('Błąd podczas zapisywania faktury');
