@@ -160,7 +160,23 @@ async function getKsefAccessToken(base: string, nip: string, ksefToken: string):
   const authData = await authRes.json();
   const authenticationToken = authData?.authenticationToken?.token || authData?.authenticationToken;
   if (!authenticationToken) throw new Error('[PHASE:ksef-token] Brak authenticationToken w odpowiedzi: ' + JSON.stringify(authData).slice(0, 300));
-  console.log('[KSeF][AUTH] authenticationToken OK');
+  const referenceNumber = authData?.referenceNumber;
+  console.log('[KSeF][AUTH] authenticationToken OK, referenceNumber:', referenceNumber);
+
+  // Krok 4.5 — Polling statusu uwierzytelniania
+  if (referenceNumber) {
+    for (let i = 0; i < 15; i++) {
+      await new Promise(r => setTimeout(r, 2000));
+      const stRes = await fetch(`${base}/auth/${referenceNumber}`, {
+        headers: { 'Authorization': `Bearer ${authenticationToken}` }
+      });
+      if (!stRes.ok) continue;
+      const stData = await stRes.json();
+      const st = String(stData.authenticationStatus || stData.processingStatus || stData.status || '');
+      console.log('[KSeF][PHASE:auth-status] proba', i + 1, 'status:', st);
+      if (st === '200' || st.toLowerCase().includes('success') || st.toLowerCase().includes('authentic')) break;
+    }
+  }
 
   // Krok 5 — POST /auth/token/redeem
   console.log('[KSeF][AUTH] Step 5: POST', base + '/auth/token/redeem');
