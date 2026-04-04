@@ -928,9 +928,10 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
       setShowPreview(true);
       toast.success('Faktura została wystawiona!');
 
-      // Auto-send to KSeF if enabled
+      // Auto-send to KSeF if enabled (skip for proforma, drafts, non-VAT documents)
+      const isKsefEligible = ['invoice', 'correction', 'advance', 'final'].includes(invoiceType);
       const invoiceIdToSend = editInvoiceId || savedId;
-      if (autoSendKsef && invoiceIdToSend) {
+      if (autoSendKsef && invoiceIdToSend && isKsefEligible) {
         try {
           const { data, error } = await supabase.functions.invoke('ksef-integration', {
             body: { action: 'send', invoice_id: invoiceIdToSend },
