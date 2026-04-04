@@ -1053,17 +1053,15 @@ serve(async (req) => {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          queryCriteria: {
+          filters: {
             subjectType: 'subject2',
             dateRange: {
-              from: `${dateFrom}T00:00:00Z`,
-              to: `${dateTo}T23:59:59Z`,
-              dateType: 'Invoicing',
+              startDate: `${dateFrom}T00:00:00Z`,
+              endDate: `${dateTo}T23:59:59Z`,
             },
           },
-          pageOffset: 0,
-          pageSize: 100,
-          sortOrder: 'ASC',
+          page: 0,
+          size: 100,
         }),
       });
       if (!queryRes.ok) {

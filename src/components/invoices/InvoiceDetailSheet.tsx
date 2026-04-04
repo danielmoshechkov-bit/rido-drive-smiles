@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
@@ -62,6 +62,7 @@ export function InvoiceDetailSheet({ invoice, open, onOpenChange, onUpdate }: In
   const [isUpdating, setIsUpdating] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [liveInvoice, setLiveInvoice] = useState<UserInvoice | null>(null);
   const [editData, setEditData] = useState({
     buyer_name: '',
     buyer_nip: '',
@@ -69,7 +70,22 @@ export function InvoiceDetailSheet({ invoice, open, onOpenChange, onUpdate }: In
     notes: '',
   });
 
-  if (!invoice) return null;
+  // Use liveInvoice (refetched) if available, otherwise prop
+  const currentInvoice = liveInvoice && liveInvoice.id === invoice?.id ? { ...invoice, ...liveInvoice } : invoice;
+
+  const refetchInvoice = useCallback(async () => {
+    if (!invoice?.id) return;
+    const { data } = await supabase
+      .from('user_invoices')
+      .select('ksef_status, ksef_reference')
+      .eq('id', invoice.id)
+      .single();
+    if (data) {
+      setLiveInvoice(prev => ({ ...(prev || invoice!), ksef_status: data.ksef_status || undefined, ksef_reference: data.ksef_reference || undefined }));
+    }
+  }, [invoice?.id]);
+
+  if (!currentInvoice) return null;
 
   const handleStartEdit = () => {
     setEditData({
@@ -151,11 +167,14 @@ export function InvoiceDetailSheet({ invoice, open, onOpenChange, onUpdate }: In
   const handleDownloadPdf = async () => {
     setIsGeneratingPdf(true);
     try {
+      // Re-fetch latest ksef data before generating PDF
+      await refetchInvoice();
+
       // Fetch invoice items
       const { data: items, error: itemsError } = await supabase
         .from('user_invoice_items')
         .select('*')
-        .eq('invoice_id', invoice.id);
+        .eq('invoice_id', currentInvoice.id);
 
       if (itemsError) {
         console.error('Error fetching invoice items:', itemsError);
@@ -215,7 +234,7 @@ export function InvoiceDetailSheet({ invoice, open, onOpenChange, onUpdate }: In
           nip: invoice.buyer_nip || '',
           address_street: invoice.buyer_address || '',
         },
-        ksef_reference: invoice.ksef_reference || undefined,
+        ksef_reference: currentInvoice.ksef_reference || undefined,
       };
 
       // Generate HTML and open print window
@@ -466,13 +485,15 @@ export function InvoiceDetailSheet({ invoice, open, onOpenChange, onUpdate }: In
                 {invoice.is_paid ? 'Oznacz jako nieopłaconą' : 'Oznacz jako opłaconą'}
               </Button>
               <div className="grid grid-cols-2 gap-2">
-                <Button variant="outline" onClick={handleDownloadPdf} disabled={isGeneratingPdf}>
+                <Button variant="outline" onClick={handleDownloadPdf} disabled={isGeneratingPdf || currentInvoice.ksef_status === 'processing' || currentInvoice.ksef_status === 'sent'}>
                   {isGeneratingPdf ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : currentInvoice.ksef_status === 'processing' || currentInvoice.ksef_status === 'sent' ? (
+                    <Clock className="h-4 w-4 mr-2" />
                   ) : (
                     <Download className="h-4 w-4 mr-2" />
                   )}
-                  Pobierz PDF
+                  {currentInvoice.ksef_status === 'processing' || currentInvoice.ksef_status === 'sent' ? 'Czekaj na KSeF...' : 'Pobierz PDF'}
                 </Button>
                 <Button variant="outline" onClick={handleSendEmail}>
                   <Mail className="h-4 w-4 mr-2" />
@@ -489,7 +510,7 @@ export function InvoiceDetailSheet({ invoice, open, onOpenChange, onUpdate }: In
                   Edytuj
                 </Button>
               </div>
-              <KsefSendButton invoiceId={invoice.id} size="default" onStatusChange={onUpdate} />
+              <KsefSendButton invoiceId={currentInvoice.id} size="default" onStatusChange={() => { refetchInvoice(); onUpdate(); }} />
             </>
           )}
         </div>
