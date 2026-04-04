@@ -293,38 +293,8 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
     }
   };
 
-  const handleSendEmail = () => {
-    setShowEmailDialog(true);
-  };
 
-  const handleSendEmailSubmit = async () => {
-    if (!emailAddress || !emailAddress.includes('@')) {
-      toast.error('Podaj prawidłowy adres email');
-      return;
-    }
 
-    setSendingEmail(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('send-invoice-email', {
-        body: { 
-          invoice_id: invoice.id, 
-          type: 'new_invoice',
-          // Pass recipient email via custom approach since edge function uses buyer_snapshot
-        }
-      });
-
-      if (error) throw error;
-
-      toast.success(`Faktura wysłana na ${emailAddress}`);
-      setShowEmailDialog(false);
-      setEmailAddress('');
-    } catch (err: any) {
-      console.error('Error sending email:', err);
-      toast.error('Błąd wysyłania email: ' + (err.message || 'Nieznany błąd'));
-    } finally {
-      setSendingEmail(false);
-    }
-  };
 
   const handleSetReminder = (selectedDate: Date) => {
     if (!selectedDate) {
