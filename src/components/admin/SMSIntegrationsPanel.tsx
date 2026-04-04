@@ -64,13 +64,11 @@ export const SMSIntegrationsPanel = () => {
     try {
       const { data, error } = await supabase
         .from('sms_settings')
-        .select('id, provider, api_url, api_key_secret_name, sender_name, is_active')
-        .order('updated_at', { ascending: false })
-        .order('created_at', { ascending: false })
+        .select('id, provider, api_url, api_key_secret_name, api_key, sender_name, is_active')
         .limit(1)
-        .maybeSingle();
+        .single();
 
-      if (error) throw error;
+      if (error && error.code !== 'PGRST116') throw error;
 
       if (data) {
         const provider = data.provider || DEFAULT_PROVIDER;
