@@ -285,48 +285,56 @@ function escapeXml(str: string): string {
 
 function generateInvoiceXML(invoice: any, entity: any, items: any[]): string {
   const issueDate = invoice.issue_date || new Date().toISOString().split('T')[0];
+  const saleDate = invoice.sale_date || issueDate;
   const buyer = invoice.buyer_snapshot || {};
-  const grossTotal = items.reduce((sum, item) => sum + (item.gross_amount || 0), 0);
 
   const vatByRate: Record<string, { net: number; vat: number }> = {};
   items.forEach((item) => {
-    const rate = item.vat_rate || '23';
+    const rate = String(item.vat_rate || '23');
     if (!vatByRate[rate]) vatByRate[rate] = { net: 0, vat: 0 };
-    vatByRate[rate].net += item.net_amount || 0;
-    vatByRate[rate].vat += item.vat_amount || 0;
+    vatByRate[rate].net += Number(item.net_amount) || 0;
+    vatByRate[rate].vat += Number(item.vat_amount) || 0;
   });
 
-  const vatBreakdownXML = Object.entries(vatByRate).map(([rate, amounts]) => {
-    if (rate === 'zw' || rate === 'np') {
-      return `
-        <P_13_${rate === 'zw' ? '6' : '7'}>${amounts.net.toFixed(2)}</P_13_${rate === 'zw' ? '6' : '7'}>`;
+  const grossTotal = items.reduce((s, i) => s + (Number(i.gross_amount) || 0), 0);
+  const netTotal = items.reduce((s, i) => s + (Number(i.net_amount) || 0), 0);
+  const vatTotal = items.reduce((s, i) => s + (Number(i.vat_amount) || 0), 0);
+
+  let vatBreakdownXML = '';
+  for (const [rate, amounts] of Object.entries(vatByRate)) {
+    if (rate === 'zw') {
+      vatBreakdownXML += `\n        <P_13_6>${amounts.net.toFixed(2)}</P_13_6>`;
+    } else if (rate === 'np') {
+      vatBreakdownXML += `\n        <P_13_7>${amounts.net.toFixed(2)}</P_13_7>`;
+    } else {
+      const r = parseInt(rate) || 23;
+      const f = r === 23 ? '1' : r === 8 ? '3' : r === 5 ? '5' : r === 0 ? '6' : '1';
+      vatBreakdownXML += `\n        <P_13_${f}>${amounts.net.toFixed(2)}</P_13_${f}>`;
+      vatBreakdownXML += `\n        <P_14_${f}>${amounts.vat.toFixed(2)}</P_14_${f}>`;
     }
+  }
 
-    const rateNum = parseInt(rate, 10) || 23;
-    let fieldNum = '1';
-    if (rateNum === 23) fieldNum = '1';
-    else if (rateNum === 8) fieldNum = '3';
-    else if (rateNum === 5) fieldNum = '5';
-    else if (rateNum === 0) fieldNum = '6';
-
+  const itemsXML = items.map((item, idx) => {
+    const vatCode = item.vat_rate === 'zw' ? 'zw' : item.vat_rate === 'np' ? 'np' : String(item.vat_rate || '23');
     return `
-        <P_13_${fieldNum}>${amounts.net.toFixed(2)}</P_13_${fieldNum}>
-        <P_14_${fieldNum}>${amounts.vat.toFixed(2)}</P_14_${fieldNum}>`;
+      <FaWiersz>
+        <NrWierszaFa>${idx + 1}</NrWierszaFa>
+        <P_7>${escapeXml(item.name || 'Usługa')}</P_7>
+        <P_8A>${escapeXml(item.unit || 'szt')}</P_8A>
+        <P_8B>${Number(item.quantity || 1).toFixed(4)}</P_8B>
+        <P_9A>${Number(item.unit_net_price || 0).toFixed(2)}</P_9A>
+        <P_11>${Number(item.net_amount || 0).toFixed(2)}</P_11>
+        <P_12>${vatCode}</P_12>
+      </FaWiersz>`;
   }).join('');
 
-  const itemsXML = items.map((item, index) => `
-      <FaWiersz>
-        <NrWierszaFa>${index + 1}</NrWierszaFa>
-        <P_7>${escapeXml(item.name || 'Usługa')}</P_7>
-        <P_8A>${item.unit || 'szt'}</P_8A>
-        <P_8B>${item.quantity || 1}</P_8B>
-        <P_9A>${(item.unit_net_price || 0).toFixed(2)}</P_9A>
-        <P_11>${(item.net_amount || 0).toFixed(2)}</P_11>
-        <P_12>${item.vat_rate === 'zw' ? 'zw' : item.vat_rate === 'np' ? 'np' : (item.vat_rate || '23')}</P_12>
-      </FaWiersz>`).join('');
+  const buyerNipEl = buyer.nip ? `<NIP>${escapeXml(buyer.nip)}</NIP>` : '';
 
-  // FIX #4: B2C — pomijaj element NIP gdy brak (osoba fizyczna)
-  const buyerNipElement = buyer.nip ? `<NIP>${buyer.nip}</NIP>` : '';
+  const bankEl = entity?.bank_account
+    ? `<RachunekBankowy><NrRB>${String(entity.bank_account).replace(/\s/g, '')}</NrRB></RachunekBankowy>`
+    : '';
+
+  const formaPlatnosci = invoice.payment_method === 'cash' ? '1' : '2';
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Faktura xmlns="http://crd.gov.pl/wzor/2023/06/29/12648/">
@@ -334,35 +342,35 @@ function generateInvoiceXML(invoice: any, entity: any, items: any[]): string {
     <KodFormularza kodSystemowy="FA (3)" wersjaSchemy="1-0E">FA</KodFormularza>
     <WariantFormularza>3</WariantFormularza>
     <DataWytworzeniaFa>${new Date().toISOString()}</DataWytworzeniaFa>
-    <SystemInfo>RIDO Fleet Management</SystemInfo>
+    <SystemInfo>GetRido</SystemInfo>
   </Naglowek>
   <Podmiot1>
     <DaneIdentyfikacyjne>
-      <NIP>${entity?.nip || ''}</NIP>
-      <Nazwa>${escapeXml(entity?.name || '')}</Nazwa>
+      <NIP>${escapeXml(entity?.nip || '')}</NIP>
+      <Nazwa>${escapeXml(entity?.name || entity?.company_name || '')}</Nazwa>
     </DaneIdentyfikacyjne>
     <Adres>
       <KodKraju>PL</KodKraju>
       <AdresL1>${escapeXml(entity?.address_street || '')}</AdresL1>
-      <AdresL2>${escapeXml(`${entity?.address_postal_code || ''} ${entity?.address_city || ''}`.trim())}</AdresL2>
+      <AdresL2>${escapeXml(((entity?.address_postal_code || '') + ' ' + (entity?.address_city || '')).trim())}</AdresL2>
     </Adres>
   </Podmiot1>
   <Podmiot2>
     <DaneIdentyfikacyjne>
-      ${buyerNipElement}
-      <Nazwa>${escapeXml(buyer.name || '')}</Nazwa>
+      ${buyerNipEl}
+      <Nazwa>${escapeXml(buyer.name || 'Nabywca')}</Nazwa>
     </DaneIdentyfikacyjne>
     <Adres>
       <KodKraju>PL</KodKraju>
       <AdresL1>${escapeXml(buyer.address_street || '')}</AdresL1>
-      <AdresL2>${escapeXml(`${buyer.address_postal_code || ''} ${buyer.address_city || ''}`.trim())}</AdresL2>
+      <AdresL2>${escapeXml(((buyer.address_postal_code || '') + ' ' + (buyer.address_city || '')).trim())}</AdresL2>
     </Adres>
   </Podmiot2>
   <Fa>
     <KodWaluty>${invoice.currency || 'PLN'}</KodWaluty>
     <P_1>${issueDate}</P_1>
     <P_2>${escapeXml(invoice.invoice_number || '')}</P_2>
-    <P_6>${invoice.sale_date || issueDate}</P_6>${vatBreakdownXML}
+    <P_6>${saleDate}</P_6>${vatBreakdownXML}
     <P_15>${grossTotal.toFixed(2)}</P_15>
     <Adnotacje>
       <P_16>2</P_16>
@@ -377,8 +385,8 @@ function generateInvoiceXML(invoice: any, entity: any, items: any[]): string {
     <RodzajFaktury>VAT</RodzajFaktury>${itemsXML}
     <Platnosc>
       <TerminPlatnosci><Termin>${invoice.due_date || issueDate}</Termin></TerminPlatnosci>
-      <FormaPlatnosci>${invoice.payment_method === 'cash' ? 'gotówka' : 'przelew'}</FormaPlatnosci>
-      ${entity?.bank_account ? `<RachunekBankowy><NrRB>${String(entity.bank_account).replace(/\s/g, '')}</NrRB></RachunekBankowy>` : ''}
+      <FormaPlatnosci>${formaPlatnosci}</FormaPlatnosci>
+      ${bankEl}
     </Platnosc>
   </Fa>
 </Faktura>`;
