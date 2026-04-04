@@ -516,15 +516,15 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
                 {invoice.is_paid ? 'Cofnij opłacenie' : 'Oznacz jako opłaconą'}
               </Button>
               
-              <Button size="sm" variant="outline" onClick={handleDownloadPdf} disabled={isGeneratingPdf || invoice.ksef_status === 'processing' || invoice.ksef_status === 'sent'}>
+              <Button size="sm" variant="outline" onClick={handleDownloadPdf} disabled={isGeneratingPdf || liveKsefStatus === 'processing' || liveKsefStatus === 'sent'}>
                 {isGeneratingPdf ? (
                   <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                ) : invoice.ksef_status === 'processing' || invoice.ksef_status === 'sent' ? (
+                ) : liveKsefStatus === 'processing' || liveKsefStatus === 'sent' ? (
                   <Clock className="h-4 w-4 mr-1 animate-pulse" />
                 ) : (
                   <Download className="h-4 w-4 mr-1" />
                 )}
-                {invoice.ksef_status === 'processing' || invoice.ksef_status === 'sent' ? 'KSeF...' : 'PDF'}
+                {liveKsefStatus === 'processing' || liveKsefStatus === 'sent' ? 'KSeF...' : 'PDF'}
               </Button>
               
               <Button size="sm" variant="outline" onClick={handleSendEmail}>
