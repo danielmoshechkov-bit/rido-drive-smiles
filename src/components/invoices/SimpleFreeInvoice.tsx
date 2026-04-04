@@ -48,6 +48,7 @@ import { UnitSelector } from './UnitSelector';
 import { DiscountSection, DiscountConfig, calculateDiscount } from './DiscountSection';
 import { AuthModal } from '@/components/auth/AuthModal';
 import { supabase } from '@/integrations/supabase/client';
+import { useNipLookup, CompanyData } from '@/hooks/useNipLookup';
 
 const VAT_RATES = ['23', '8', '5', '0', 'zw', 'np'];
 const UNITS = ['szt.', 'usł.', 'godz.', 'km', 'kg', 'm²', 'm³', 'kpl.'];
