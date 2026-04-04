@@ -45,6 +45,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { SimpleFreeInvoice } from './SimpleFreeInvoice';
+import { KsefSendButton } from './KsefSendButton';
 
 interface UserInvoice {
   id: string;
