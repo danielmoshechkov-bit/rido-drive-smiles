@@ -334,12 +334,15 @@ export function ServiceProviderAccountingView() {
       )}
 
       {/* Modals */}
-      {showNewInvoice && (
-        <SimpleFreeInvoice
-          onClose={() => { setShowNewInvoice(false); loadData(); }}
-          onSaved={() => { setShowNewInvoice(false); loadData(); }}
-        />
-      )}
+      <Dialog open={showNewInvoice} onOpenChange={(open) => { setShowNewInvoice(open); if (!open) loadData(); }}>
+        <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto p-0">
+          <DialogTitle className="sr-only">Wystaw fakturę</DialogTitle>
+          <SimpleFreeInvoice
+            onClose={() => { setShowNewInvoice(false); loadData(); }}
+            onSaved={() => { setShowNewInvoice(false); loadData(); }}
+          />
+        </DialogContent>
+      </Dialog>
 
       <CostInvoiceModal
         open={showCostInvoice}
