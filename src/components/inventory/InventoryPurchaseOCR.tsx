@@ -78,7 +78,7 @@ interface Props {
 
 /* ─── Component ──────────────────────────────────────────────────────── */
 
-export function InventoryPurchaseOCR({ entityId }: Props) {
+export function InventoryPurchaseOCR({ entityId, showKsefOption }: Props) {
   // Company NIP for buyer validation
   const [companyNip, setCompanyNip] = useState<string | null>(null);
   const [companyName, setCompanyName] = useState<string | null>(null);
