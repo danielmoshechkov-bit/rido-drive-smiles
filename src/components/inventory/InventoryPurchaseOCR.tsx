@@ -73,6 +73,7 @@ interface PurchaseInvoice {
 
 interface Props {
   entityId?: string;
+  showKsefOption?: boolean;
 }
 
 /* ─── Component ──────────────────────────────────────────────────────── */
