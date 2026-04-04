@@ -297,7 +297,7 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
       container.style.left = '-9999px';
       document.body.appendChild(container);
       
-      const pdfBlob: Blob = await html2pdf()
+      const pdfBlob: Blob = await (html2pdf()
         .set({
           margin: 0,
           filename: 'faktura.pdf',
@@ -305,7 +305,7 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
           html2canvas: { scale: 2, useCORS: true },
           jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
         })
-        .from(container)
+        .from(container) as any)
         .output('blob');
       
       document.body.removeChild(container);
