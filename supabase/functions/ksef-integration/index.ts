@@ -895,7 +895,7 @@ function buildKsefInvoiceArtifacts(invoice: any, entity: any, items: any[]) {
       <P_23>2</P_23>
       <PMarzy><P_PMarzyN>1</P_PMarzyN></PMarzy>
     </Adnotacje>
-    <RodzajFaktury>${invoiceType}</RodzajFaktury>${daneFaKorygowanejXml}${itemsXML}
+    <RodzajFaktury>${invoiceType}</RodzajFaktury>${correctionBlockXml}${itemsXML}
     <Platnosc>
       <TerminPlatnosci><Termin>${invoice.due_date || issueDate}</Termin></TerminPlatnosci>
       <FormaPlatnosci>${formaPlatnosci}</FormaPlatnosci>
