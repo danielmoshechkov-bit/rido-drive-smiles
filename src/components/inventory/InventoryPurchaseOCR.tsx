@@ -76,6 +76,10 @@ interface Props {
 /* ─── Component ──────────────────────────────────────────────────────── */
 
 export function InventoryPurchaseOCR({ entityId }: Props) {
+  // Company NIP for buyer validation
+  const [companyNip, setCompanyNip] = useState<string | null>(null);
+  const [companyName, setCompanyName] = useState<string | null>(null);
+  const [buyerNip, setBuyerNip] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Tab
