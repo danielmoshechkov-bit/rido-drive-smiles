@@ -869,17 +869,21 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
       // Auto-send to KSeF if enabled
       const invoiceIdToSend = editInvoiceId || savedId;
       if (autoSendKsef && invoiceIdToSend) {
-        try {
-          const { data, error } = await supabase.functions.invoke('ksef-integration', {
-            body: { action: 'send', invoice_id: invoiceIdToSend },
-          });
-          if (error || !data?.success) {
-            toast.error('Faktura wystawiona, ale błąd wysyłania do KSeF: ' + (data?.error || error?.message || ''));
-          } else {
-            toast.success('Faktura wysłana do KSeF');
+        if (!buyer.nip?.trim()) {
+          toast.warning('KSeF wymaga NIP nabywcy — faktura nie została wysłana do KSeF');
+        } else {
+          try {
+            const { data, error } = await supabase.functions.invoke('ksef-integration', {
+              body: { action: 'send', invoice_id: invoiceIdToSend },
+            });
+            if (error || !data?.success) {
+              toast.error('Faktura wystawiona, ale błąd wysyłania do KSeF: ' + (data?.error || error?.message || ''));
+            } else {
+              toast.success('Faktura wysłana do KSeF');
+            }
+          } catch (ksefErr: any) {
+            toast.error('Błąd KSeF: ' + ksefErr.message);
           }
-        } catch (ksefErr: any) {
-          toast.error('Błąd KSeF: ' + ksefErr.message);
         }
       }
     } catch (err) {
