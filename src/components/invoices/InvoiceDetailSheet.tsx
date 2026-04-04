@@ -62,6 +62,7 @@ export function InvoiceDetailSheet({ invoice, open, onOpenChange, onUpdate }: In
   const [isUpdating, setIsUpdating] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [liveInvoice, setLiveInvoice] = useState<UserInvoice | null>(null);
   const [editData, setEditData] = useState({
     buyer_name: '',
     buyer_nip: '',
@@ -69,7 +70,22 @@ export function InvoiceDetailSheet({ invoice, open, onOpenChange, onUpdate }: In
     notes: '',
   });
 
-  if (!invoice) return null;
+  // Use liveInvoice (refetched) if available, otherwise prop
+  const currentInvoice = liveInvoice && liveInvoice.id === invoice?.id ? { ...invoice, ...liveInvoice } : invoice;
+
+  const refetchInvoice = useCallback(async () => {
+    if (!invoice?.id) return;
+    const { data } = await supabase
+      .from('user_invoices')
+      .select('ksef_status, ksef_reference')
+      .eq('id', invoice.id)
+      .single();
+    if (data) {
+      setLiveInvoice(prev => ({ ...(prev || invoice!), ksef_status: data.ksef_status || undefined, ksef_reference: data.ksef_reference || undefined }));
+    }
+  }, [invoice?.id]);
+
+  if (!currentInvoice) return null;
 
   const handleStartEdit = () => {
     setEditData({
