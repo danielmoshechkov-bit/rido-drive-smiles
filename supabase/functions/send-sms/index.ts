@@ -6,31 +6,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const JUSTSEND_API_URL = 'https://justsend.io/api/sender/bulk/send';
-const DEFAULT_SENDER = 'GetRido.pl';
-
-interface SMSRequest {
-  phone: string;
-  message: string;
-  driver_id?: string;
-  fleet_id?: string;
-  type?: string;
-  sender?: string;
-  dry_run?: boolean;
-}
-
-function normalizePhone(raw: string): string {
-  let phone = raw.replace(/[\s\-\(\)\+]/g, '');
-  if (phone.startsWith('48') && phone.length >= 11) return phone;
-  if (phone.startsWith('0')) phone = phone.substring(1);
-  if (phone.length === 9) return '48' + phone;
-  return phone;
-}
-
-function sanitizeSender(sender: string): string {
-  return sender.replace(/[^a-zA-Z0-9.\-]/g, '').slice(0, 11) || DEFAULT_SENDER;
-}
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -42,25 +17,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { data: settings } = await supabase
-      .from('sms_settings')
-      .select('provider, api_url, sender_name, is_active, api_key_secret_name, api_key')
-      .order('updated_at', { ascending: false })
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    // Klucz API: najpierw z bazy (admin panel), potem z env (Supabase secrets)
-    const SMSAPI_TOKEN = settings?.api_key || Deno.env.get('SMSAPI_TOKEN');
-    if (!SMSAPI_TOKEN) {
-      console.error('SMSAPI_TOKEN not configured — neither in sms_settings.api_key nor env');
-      return new Response(
-        JSON.stringify({ success: false, error: 'Brak klucza API JustSend. Wprowadź go w panelu Admin → Bramki SMS.' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const { phone, message, driver_id, fleet_id, type = 'generic', sender, dry_run = false }: SMSRequest = await req.json();
+    const { phone, message, driver_id, fleet_id, type = 'generic', sender, dry_run = false } = await req.json();
 
     if (!phone || !message) {
       return new Response(
@@ -69,91 +26,127 @@ serve(async (req) => {
       );
     }
 
-    const provider = settings?.provider || 'justsend';
-    const apiUrl = settings?.api_url || JUSTSEND_API_URL;
-    const senderName = sanitizeSender(sender || settings?.sender_name || DEFAULT_SENDER);
-    const isActive = settings?.is_active ?? true;
-    const msisdn = normalizePhone(phone);
+    // Pobierz ustawienia SMS z bazy
+    const { data: settings, error: settingsError } = await supabase
+      .from('sms_settings')
+      .select('api_key, sender_name, provider, is_active, api_url')
+      .limit(1)
+      .single();
 
-    if (provider !== 'justsend') {
+    // Fallback: klucz z env jeśli brak w bazie
+    const apiKey = settings?.api_key || Deno.env.get('SMSAPI_TOKEN');
+
+    if (!apiKey) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Portal obsługuje obecnie wysyłkę SMS przez JustSend.' }),
+        JSON.stringify({ success: false, error: 'Brak klucza API SMS. Wprowadź go w panelu Admin → Bramki SMS.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const provider = settings?.provider || 'justsend';
+    const senderName = (sender || settings?.sender_name || 'GetRido.pl').replace(/[^a-zA-Z0-9.\-]/g, '').slice(0, 11);
+    const isActive = settings?.is_active ?? true;
+
+    if (!isActive && type !== 'test' && !dry_run) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Integracja SMS jest nieaktywna. Aktywuj w panelu admina.' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    if (!isActive && type !== 'test' && !dry_run) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Integracja SMS jest wyłączona w portalu.' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // Normalizacja numeru telefonu
+    let msisdn = phone.replace(/[\s\-\(\)\+]/g, '');
+    if (msisdn.startsWith('48') && msisdn.length >= 11) {
+      // already has prefix
+    } else if (msisdn.startsWith('0')) {
+      msisdn = '48' + msisdn.substring(1);
+    } else if (msisdn.length === 9) {
+      msisdn = '48' + msisdn;
     }
 
     if (dry_run) {
       return new Response(
-        JSON.stringify({
-          success: true,
-          dry_run: true,
-          provider,
-          api_url: apiUrl,
-          sender: senderName,
-          is_active: isActive,
-        }),
+        JSON.stringify({ success: true, dry_run: true, provider, sender: senderName, is_active: isActive }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const campaignName = `GetRido-${type}-${Date.now()}`;
-    const sendDate = new Date(Date.now() + 5000).toISOString().replace(/\.\d+Z$/, '+00:00');
-    const payload = {
-      name: campaignName,
-      bulkType: 'STANDARD',
-      bulkVariant: 'PRO',
-      sender: senderName,
-      message,
-      sendDate,
-      recipients: [{ msisdn }],
-    };
+    console.log(`[SMS] Sending via ${provider} to ${msisdn}, sender=${senderName}`);
 
-    console.log(`[JustSend] Sending SMS to ${msisdn}, sender=${senderName}, provider=${provider}`);
+    let response: Response;
+    let responseText: string;
 
-    const smsResponse = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'App-Key': SMSAPI_TOKEN,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
+    if (provider === 'justsend') {
+      const apiUrl = settings?.api_url || 'https://justsend.io/api/sender/bulk/send';
+      const campaignName = `GetRido-${type}-${Date.now()}`;
+      const sendDate = new Date(Date.now() + 5000).toISOString().replace(/\.\d+Z$/, '+00:00');
 
-    const responseStatus = smsResponse.status;
-    let responseBody = '(empty response)';
-    try {
-      responseBody = await smsResponse.text();
-    } catch {
-      responseBody = '(empty response)';
-    }
+      const payload = {
+        name: campaignName,
+        bulkType: 'STANDARD',
+        bulkVariant: 'PRO',
+        sender: senderName,
+        message,
+        sendDate,
+        recipients: [{ msisdn }],
+      };
 
-    console.log(`[JustSend] Response status: ${responseStatus}, body: ${responseBody}`);
+      response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'App-Key': apiKey,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+      responseText = await response.text();
 
-    if (responseStatus !== 200 && responseStatus !== 201) {
+    } else if (provider === 'smsapi') {
+      const params = new URLSearchParams({
+        to: msisdn,
+        message,
+        format: 'json',
+        from: senderName || 'INFO',
+        encoding: 'utf-8',
+      });
+
+      response = await fetch('https://api.smsapi.pl/sms.do', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: params.toString(),
+      });
+      responseText = await response.text();
+
+    } else {
       return new Response(
-        JSON.stringify({
-          success: false,
-          error: `JustSend API error (HTTP ${responseStatus})`,
-          details: responseBody,
-        }),
+        JSON.stringify({ success: false, error: `Nieznany dostawca SMS: ${provider}` }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    console.log(`[SMS] Response: ${response.status} - ${responseText}`);
+
+    const isSuccess = response.status === 200 || response.status === 201;
+
+    if (!isSuccess) {
+      return new Response(
+        JSON.stringify({ success: false, error: `Błąd SMS (HTTP ${response.status})`, details: responseText }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Deduct SMS credit if fleet
     if (fleet_id) {
-      await supabase.rpc('deduct_sms_credit', { p_provider_id: fleet_id }).catch((error: any) => {
-        console.warn('[JustSend] Could not deduct SMS credit:', error?.message);
+      await supabase.rpc('deduct_sms_credit', { p_provider_id: fleet_id }).catch((e: any) => {
+        console.warn('[SMS] Could not deduct credit:', e?.message);
       });
     }
 
+    // Log to driver_communications
     await supabase.from('driver_communications').insert({
       driver_id: driver_id || null,
       type: 'sms',
@@ -164,26 +157,21 @@ serve(async (req) => {
       metadata: {
         phone: msisdn,
         sender: senderName,
-        justsend_response: responseBody,
+        provider,
         fleet_id,
-        campaign_name: campaignName,
+        response: responseText,
       },
-    }).catch((error: any) => {
-      console.warn('[JustSend] Could not log SMS to driver_communications:', error?.message);
+    }).catch((e: any) => {
+      console.warn('[SMS] Could not log:', e?.message);
     });
 
     return new Response(
-      JSON.stringify({
-        success: true,
-        phone: msisdn,
-        sender: senderName,
-        justsend_status: responseStatus,
-        response: responseBody,
-      }),
+      JSON.stringify({ success: true, phone: msisdn, sender: senderName, details: responseText }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
+
   } catch (error: any) {
-    console.error('[JustSend] Unexpected error:', error);
+    console.error('[SMS] Error:', error);
     return new Response(
       JSON.stringify({ success: false, error: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

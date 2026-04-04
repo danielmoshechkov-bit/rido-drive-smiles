@@ -286,7 +286,7 @@ export const SMSIntegrationsPanel = () => {
               type="password"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
-              placeholder={settings?.api_key_secret_name ? '••••••••••••••••' : 'Klucz API'}
+              placeholder={((settings as any)?.api_key) ? '••••••••• (klucz zapisany)' : 'Klucz API'}
             />
             <p className="text-xs text-muted-foreground">
               {settings?.api_key_secret_name
