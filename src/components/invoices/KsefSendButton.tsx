@@ -17,6 +17,7 @@ export function KsefSendButton({ invoiceId, size = 'sm', onStatusChange }: KsefS
   const [sessionRef, setSessionRef] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [pollingTimedOut, setPollingTimedOut] = useState(false);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
