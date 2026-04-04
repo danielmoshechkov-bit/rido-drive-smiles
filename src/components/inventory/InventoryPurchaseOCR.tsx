@@ -667,10 +667,11 @@ export function InventoryPurchaseOCR({ entityId, showKsefOption }: Props) {
 
   return (
     <div className="space-y-6">
-      {/* Tab bar */}
-      <div className="flex gap-2 flex-wrap">
+      {/* Single-line tab bar */}
+      <div className="flex gap-2 flex-wrap items-center">
         {[
-          { id: 'zakupy' as const, label: 'Zakupy (OCR)', icon: Upload },
+          { id: 'zakupy' as const, label: 'Dodaj fakturę', icon: Upload },
+          ...(showKsefOption ? [{ id: 'ksef' as const, label: 'Pobierz z KSeF', icon: Download }] : []),
           { id: 'towary' as const, label: 'Towary', icon: Package },
           { id: 'eksport' as const, label: 'Eksport CSV', icon: Download },
         ].map(tab => (
@@ -678,13 +679,22 @@ export function InventoryPurchaseOCR({ entityId, showKsefOption }: Props) {
             key={tab.id}
             variant={activeTab === tab.id ? 'default' : 'outline'}
             size="sm"
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => setActiveTab(tab.id as any)}
             className="rounded-full"
           >
             <tab.icon className="h-4 w-4 mr-2" />
             {tab.label}
           </Button>
         ))}
+        <Button
+          variant={viewMode === 'history' && activeTab === 'zakupy' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => { setActiveTab('zakupy'); setViewMode('history'); }}
+          className="rounded-full"
+        >
+          <History className="h-4 w-4 mr-2" />
+          Dodane ({pastInvoices.length})
+        </Button>
       </div>
 
       {/* ═══════════ ZAKUPY TAB ═══════════ */}
