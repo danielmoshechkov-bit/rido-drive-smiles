@@ -1161,7 +1161,12 @@ serve(async (req) => {
       }
 
       console.log('[KSeF][send] invoice.xml.generated, size:', xmlBytes.byteLength, 'bytes');
-      console.log('[KSeF][send] invoice.xml.first1500:', xml.substring(0, 1500));
+      console.log('[KSeF][send] invoice.xml.full:\n', xml);
+      console.log('[KSeF][send] Podmiot1:\n', artifacts.podmiot1);
+      console.log('[KSeF][send] Podmiot2:\n', artifacts.podmiot2);
+      console.log('[KSeF][send] formCode:', artifacts.formCode, 'invoiceType:', artifacts.invoiceType);
+      console.log('[KSeF][send] buyerSource:', JSON.stringify(artifacts.buyerSource));
+      console.log('[KSeF][send] sellerSource:', JSON.stringify(artifacts.sellerSource));
 
       // Create transmission record
       const { data: transmission } = await supabase.from('ksef_transmissions').insert({
