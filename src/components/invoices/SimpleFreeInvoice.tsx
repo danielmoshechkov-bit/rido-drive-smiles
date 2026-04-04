@@ -744,6 +744,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
         await supabase.from('user_invoice_items').insert(itemsToInsert);
         
         toast.success('Zmiany zostały zapisane!');
+        resultInvoiceId = editInvoiceId;
       } else {
         // INSERT new invoice
         const { data: savedInvoice, error } = await supabase
