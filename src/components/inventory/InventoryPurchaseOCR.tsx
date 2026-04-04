@@ -113,6 +113,12 @@ export function InventoryPurchaseOCR({ entityId, showKsefOption }: Props) {
   const [ocrDone, setOcrDone] = useState(false);
   const [dragOver, setDragOver] = useState(false);
 
+  // Batch upload: queue files, then process
+  const [uploadedFiles, setUploadedFiles] = useState<Array<{ file: File; base64: string; mimeType: string; url?: string }>>([]);
+
+  // Purchase invoice preview modal
+  const [previewInvoice, setPreviewInvoice] = useState<PurchaseInvoice | null>(null);
+
   // Invoice mode: 'magazyn' = add to inventory, 'kosztowa' = cost invoice only
   const [invoiceMode, setInvoiceMode] = useState<'magazyn' | 'kosztowa'>('magazyn');
   const [autoMatchedCount, setAutoMatchedCount] = useState(0);
