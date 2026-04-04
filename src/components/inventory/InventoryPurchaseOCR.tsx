@@ -1256,6 +1256,79 @@ export function InventoryPurchaseOCR({ entityId, showKsefOption }: Props) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ═══════════ PURCHASE INVOICE PREVIEW MODAL ═══════════ */}
+      <Dialog open={!!previewInvoice} onOpenChange={(open) => { if (!open) setPreviewInvoice(null); }}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5" />
+              Podgląd faktury zakupowej
+            </DialogTitle>
+            <DialogDescription>{previewInvoice?.document_number}</DialogDescription>
+          </DialogHeader>
+          {previewInvoice && (
+            <div className="space-y-4">
+              {/* Document preview */}
+              {previewInvoice.pdf_url && (
+                <div className="border rounded-lg overflow-hidden bg-muted/30">
+                  <iframe src={previewInvoice.pdf_url} className="w-full h-[500px]" title="Podgląd dokumentu" />
+                </div>
+              )}
+
+              {/* Invoice details */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div>
+                  <p className="text-xs text-muted-foreground">Nr dokumentu</p>
+                  <p className="font-medium">{previewInvoice.document_number}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Dostawca</p>
+                  <p className="font-medium">{previewInvoice.supplier_name || '—'}</p>
+                  {previewInvoice.supplier_nip && <p className="text-xs text-muted-foreground">NIP: {previewInvoice.supplier_nip}</p>}
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Data zakupu</p>
+                  <p className="font-medium">{previewInvoice.purchase_date || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Status</p>
+                  <Badge variant={previewInvoice.status === 'approved' ? 'default' : 'secondary'}>
+                    {previewInvoice.status === 'approved' ? 'Zatwierdzona' : previewInvoice.status || 'Nowa'}
+                  </Badge>
+                </div>
+              </div>
+
+              {/* Amounts */}
+              <div className="flex justify-end">
+                <div className="space-y-1 text-sm w-48">
+                  <div className="flex justify-between"><span className="text-muted-foreground">Netto:</span><span>{previewInvoice.total_net?.toFixed(2) || '—'} zł</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">VAT:</span><span>{previewInvoice.total_vat?.toFixed(2) || '—'} zł</span></div>
+                  <div className="flex justify-between font-bold pt-1 border-t"><span>Brutto:</span><span>{previewInvoice.total_gross?.toFixed(2) || '—'} zł</span></div>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-2 pt-2 border-t">
+                {previewInvoice.pdf_url && (
+                  <a href={previewInvoice.pdf_url} download target="_blank" rel="noopener noreferrer">
+                    <Button variant="outline" size="sm"><Download className="h-4 w-4 mr-2" />Pobierz</Button>
+                  </a>
+                )}
+                <Button variant="destructive" size="sm" onClick={async () => {
+                  if (!confirm('Na pewno usunąć tę fakturę?')) return;
+                  await supabase.from('purchase_invoices').delete().eq('id', previewInvoice.id);
+                  setPreviewInvoice(null);
+                  fetchInvoices();
+                  toast.success('Faktura usunięta');
+                }}>
+                  <Trash2 className="h-4 w-4 mr-2" />Usuń
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
