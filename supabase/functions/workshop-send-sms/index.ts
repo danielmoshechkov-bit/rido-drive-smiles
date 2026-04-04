@@ -40,9 +40,8 @@ serve(async (req) => {
     const { data: smsSettings } = await supabaseAdmin
       .from("sms_settings")
       .select("api_key, sender_name")
-      .order("updated_at", { ascending: false })
       .limit(1)
-      .maybeSingle();
+      .single();
 
     const appKey = smsSettings?.api_key || Deno.env.get("SMSAPI_TOKEN");
     if (!appKey) {
