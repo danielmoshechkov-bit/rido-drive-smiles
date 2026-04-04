@@ -574,6 +574,8 @@ function resolveBuyerSource(invoice: any) {
     { value: invoice?.buyer_gv, source: 'user_invoices.buyer_gv' },
     { value: invoice?.is_gv, source: 'user_invoices.is_gv' },
   ]);
+  const jst = ['1','2'].includes(String(jstSource.value)) ? String(jstSource.value) : '2';
+  const gv = ['1','2'].includes(String(gvSource.value)) ? String(gvSource.value) : '2';
 
   return {
     nip: nip.value,
@@ -583,8 +585,8 @@ function resolveBuyerSource(invoice: any) {
     addressStreet: addressStreet.value,
     addressPostalCode: addressPostalCode.value,
     addressCity: addressCity.value,
-    jst: normalizeBinaryFlag(jstSource.value, '2'),
-    gv: normalizeBinaryFlag(gvSource.value, '2'),
+    jst: jst,
+    gv: gv,
     fieldSources: {
       nip: nip.source,
       brakId: nip.value ? null : 'derived:BrakID',
