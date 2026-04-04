@@ -187,6 +187,7 @@ export function InventoryPurchaseOCR({ entityId }: Props) {
     try {
       const b64 = await fileToBase64(file);
       setFileBase64(b64);
+      setFileMimeType(file.type || 'application/octet-stream');
 
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { toast.error('Musisz być zalogowany'); setUploading(false); return; }
@@ -204,12 +205,15 @@ export function InventoryPurchaseOCR({ entityId }: Props) {
 
       const { data: { publicUrl } } = supabase.storage.from('documents').getPublicUrl(fileName);
       setUploadedFileUrl(publicUrl);
-      toast.success('Plik przesłany. Kliknij "Rozpoznaj" aby AI odczytało fakturę.');
+      setUploading(false);
+      
+      // Auto-trigger OCR immediately after upload
+      await runOCR(b64, file.type || 'application/octet-stream');
     } catch (err) {
       console.error('File processing error:', err);
       toast.error('Błąd przetwarzania pliku');
-    } finally {
       setUploading(false);
+    } finally {
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
