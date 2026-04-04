@@ -13,7 +13,7 @@ import { PendingInvoicesReview } from '@/components/invoices/PendingInvoicesRevi
 import { InvoiceEmailSetup } from '@/components/invoices/InvoiceEmailSetup';
 import { InvoiceNotificationBell } from '@/components/invoices/InvoiceNotificationBell';
 import { KsefUserSettings } from '@/components/ksef/KsefUserSettings';
-import { PurchaseInvoicesKSeF } from '@/components/accounting/PurchaseInvoicesKSeF';
+
 import { useKsefUnreadCount } from '@/hooks/useKsefUnreadCount';
 import {
   Dialog,
