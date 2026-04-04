@@ -17448,6 +17448,9 @@ export type Database = {
           buyer_name: string | null
           buyer_nip: string | null
           company_id: string | null
+          corrected_invoice_id: string | null
+          corrected_invoice_number: string | null
+          correction_reason: string | null
           created_at: string | null
           currency: string | null
           due_date: string | null
@@ -17455,6 +17458,7 @@ export type Database = {
           id: string
           invoice_number: string
           invoice_type: string | null
+          is_correction: boolean | null
           is_paid: boolean | null
           issue_date: string
           issue_place: string | null
@@ -17482,6 +17486,9 @@ export type Database = {
           buyer_name?: string | null
           buyer_nip?: string | null
           company_id?: string | null
+          corrected_invoice_id?: string | null
+          corrected_invoice_number?: string | null
+          correction_reason?: string | null
           created_at?: string | null
           currency?: string | null
           due_date?: string | null
@@ -17489,6 +17496,7 @@ export type Database = {
           id?: string
           invoice_number: string
           invoice_type?: string | null
+          is_correction?: boolean | null
           is_paid?: boolean | null
           issue_date: string
           issue_place?: string | null
@@ -17516,6 +17524,9 @@ export type Database = {
           buyer_name?: string | null
           buyer_nip?: string | null
           company_id?: string | null
+          corrected_invoice_id?: string | null
+          corrected_invoice_number?: string | null
+          correction_reason?: string | null
           created_at?: string | null
           currency?: string | null
           due_date?: string | null
@@ -17523,6 +17534,7 @@ export type Database = {
           id?: string
           invoice_number?: string
           invoice_type?: string | null
+          is_correction?: boolean | null
           is_paid?: boolean | null
           issue_date?: string
           issue_place?: string | null
@@ -17551,6 +17563,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "user_invoice_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_invoices_corrected_invoice_id_fkey"
+            columns: ["corrected_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "user_invoices"
             referencedColumns: ["id"]
           },
         ]
