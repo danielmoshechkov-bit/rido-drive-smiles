@@ -60,11 +60,14 @@ export function KsefSendButton({ invoiceId, size = 'sm', onStatusChange }: KsefS
 
   const startPolling = (sRef: string) => {
     if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    setPollingTimedOut(false);
     let attempts = 0;
+    const maxAttempts = 12; // 12 * 5s = 60s timeout
     pollIntervalRef.current = setInterval(async () => {
       attempts++;
-      if (attempts > 60) { // max 5 min
+      if (attempts > maxAttempts) {
         if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+        setPollingTimedOut(true);
         return;
       }
       try {
