@@ -149,16 +149,21 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
     }
   };
 
+  const isKsefSent = ['accepted', 'processing', 'sent'].includes(invoice.ksef_status || '');
+  const canDelete = !isKsefSent;
+
   const handleDelete = async () => {
+    if (isKsefSent) {
+      toast.error('Nie można usunąć faktury wysłanej do KSeF. Wystaw korektę.');
+      return;
+    }
     setIsDeleting(true);
     try {
-      // First delete invoice items
       await supabase
         .from('user_invoice_items')
         .delete()
         .eq('invoice_id', invoice.id);
 
-      // Then delete the invoice
       const { error } = await supabase
         .from('user_invoices')
         .delete()
@@ -396,18 +401,31 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
                 <p className="text-[10px] text-orange-500 font-semibold">PAMIĘTAJ</p>
               </div>
               
-              {/* Krzyzyk usuwania */}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowDeleteDialog(true);
-                }}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
+              {/* Delete button - blocked for KSeF-sent invoices */}
+              {canDelete ? (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowDeleteDialog(true);
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-muted-foreground opacity-40 cursor-not-allowed"
+                  disabled
+                  title="Nie można usunąć faktury wysłanej do KSeF. Wystaw korektę."
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
               
               <Badge 
                 className={`cursor-pointer transition-colors min-w-[100px] justify-center ${
@@ -545,20 +563,22 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
                 {invoice.is_paid ? 'Cofnij opłacenie' : 'Oznacz jako opłaconą'}
               </Button>
               
-              {/* PDF button - always available */}
+              {/* PDF button - disabled during KSeF processing */}
               <Button 
                 size="sm" 
                 variant="outline" 
                 onClick={handleDownloadPdf} 
-                disabled={isGeneratingPdf}
-                title="Pobierz PDF"
+                disabled={isGeneratingPdf || liveKsefStatus === 'processing' || liveKsefStatus === 'sent'}
+                title={liveKsefStatus === 'processing' || liveKsefStatus === 'sent' ? 'Czekaj na zatwierdzenie KSeF' : 'Pobierz PDF'}
               >
                 {isGeneratingPdf ? (
                   <Loader2 className="h-4 w-4 mr-1 animate-spin" />
                 ) : (
                   <Download className="h-4 w-4 mr-1" />
                 )}
-                {isGeneratingPdf ? 'Generuję...' : 'PDF'}
+                {liveKsefStatus === 'processing' || liveKsefStatus === 'sent' 
+                  ? '⏳ Czekaj na KSeF...' 
+                  : isGeneratingPdf ? 'Generuję...' : 'PDF'}
               </Button>
               
               <Button size="sm" variant="outline" onClick={handleSendEmail}>
@@ -612,15 +632,28 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
                 Edytuj
               </Button>
               
-              <Button 
-                size="sm" 
-                variant="outline" 
-                className="text-destructive hover:bg-destructive/10"
-                onClick={() => setShowDeleteDialog(true)}
-              >
-                <Trash2 className="h-4 w-4 mr-1" />
-                Usuń
-              </Button>
+              {canDelete ? (
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="text-destructive hover:bg-destructive/10"
+                  onClick={() => setShowDeleteDialog(true)}
+                >
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  Usuń
+                </Button>
+              ) : (
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="opacity-40 cursor-not-allowed"
+                  disabled
+                  title="Nie można usunąć faktury wysłanej do KSeF. Wystaw korektę."
+                >
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  Usuń
+                </Button>
+              )}
             </div>
           </div>
         )}

@@ -150,17 +150,10 @@ export function KsefSendButton({ invoiceId, size = 'sm', onStatusChange }: KsefS
 
   if (ksefStatus === 'accepted') {
     return (
-      <div className="flex items-center gap-1">
-        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800">
-          <CheckCircle className="h-3 w-3 mr-1" />
-          ✅ Wysłano
-        </Badge>
-        {ksefReference && (
-          <span className="text-xs text-muted-foreground truncate max-w-[120px]" title={ksefReference}>
-            {ksefReference}
-          </span>
-        )}
-      </div>
+      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800">
+        <CheckCircle className="h-3 w-3 mr-1" />
+        ✅ Wysłano
+      </Badge>
     );
   }
 
