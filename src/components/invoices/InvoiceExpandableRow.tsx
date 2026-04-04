@@ -689,44 +689,20 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Email Dialog */}
-      <Dialog open={showEmailDialog} onOpenChange={setShowEmailDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Wyślij fakturę emailem</DialogTitle>
-            <DialogDescription>
-              Podaj adres email, na który wysłać fakturę {invoice.invoice_number}
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Adres email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="klient@firma.pl"
-                value={emailAddress}
-                onChange={(e) => setEmailAddress(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowEmailDialog(false)}>
-              Anuluj
-            </Button>
-            <Button onClick={handleSendEmailSubmit} disabled={sendingEmail}>
-              {sendingEmail ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Send className="h-4 w-4 mr-2" />
-              )}
-              Wyślij
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Invoice Preview Modal */}
+      {previewInvoiceData && (
+        <InvoicePreviewModal
+          open={showPreviewModal}
+          onOpenChange={(open) => {
+            setShowPreviewModal(open);
+            if (!open) setPreviewInvoiceData(null);
+          }}
+          invoiceData={previewInvoiceData}
+          isLoggedIn={true}
+          invoiceIssued={!!invoice.ksef_status && invoice.ksef_status !== 'draft'}
+          onSend={handleSendInvoiceEmail}
+        />
+      )}
 
       {/* Edit Dialog - Full Invoice Form */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
