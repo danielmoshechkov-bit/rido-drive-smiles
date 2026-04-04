@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Loader2, Send, CheckCircle, RefreshCw } from 'lucide-react';
+import { Loader2, Send, CheckCircle, RefreshCw, Clock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 interface KsefSendButtonProps {
@@ -14,11 +14,14 @@ interface KsefSendButtonProps {
 export function KsefSendButton({ invoiceId, size = 'sm', onStatusChange }: KsefSendButtonProps) {
   const [ksefStatus, setKsefStatus] = useState<string | null>(null);
   const [ksefReference, setKsefReference] = useState<string | null>(null);
+  const [sessionRef, setSessionRef] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     loadKsefStatus();
+    return () => { if (pollIntervalRef.current) clearInterval(pollIntervalRef.current); };
   }, [invoiceId]);
 
   const loadKsefStatus = async () => {
@@ -33,12 +36,56 @@ export function KsefSendButton({ invoiceId, size = 'sm', onStatusChange }: KsefS
       if (data) {
         setKsefStatus(data.ksef_status || null);
         setKsefReference(data.ksef_reference || null);
+        // If processing, try to find session_ref and start polling
+        if (data.ksef_status === 'processing' || data.ksef_status === 'sent') {
+          const { data: tx } = await supabase
+            .from('ksef_transmissions')
+            .select('ksef_reference_number')
+            .eq('invoice_id', invoiceId)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (tx?.ksef_reference_number) {
+            setSessionRef(tx.ksef_reference_number);
+            startPolling(tx.ksef_reference_number);
+          }
+        }
       }
     } catch (err) {
       console.error('Error loading KSeF status:', err);
     } finally {
       setLoading(false);
     }
+  };
+
+  const startPolling = (sRef: string) => {
+    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    let attempts = 0;
+    pollIntervalRef.current = setInterval(async () => {
+      attempts++;
+      if (attempts > 60) { // max 5 min
+        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+        return;
+      }
+      try {
+        const { data, error } = await supabase.functions.invoke('ksef-integration', {
+          body: { action: 'check_status', session_ref: sRef, invoice_id: invoiceId },
+        });
+        if (error) return;
+        if (data?.status === 'accepted') {
+          setKsefStatus('accepted');
+          setKsefReference(data.ksef_reference || null);
+          if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+          toast.success('Faktura zaakceptowana przez KSeF' + (data.ksef_reference ? `: ${data.ksef_reference}` : ''));
+          onStatusChange?.();
+        } else if (data?.status === 'rejected') {
+          setKsefStatus('rejected');
+          if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+          toast.error('Faktura odrzucona przez KSeF: ' + (data.error || ''));
+          onStatusChange?.();
+        }
+      } catch { /* ignore polling errors */ }
+    }, 5000);
   };
 
   const handleSendToKsef = async () => {
@@ -51,9 +98,12 @@ export function KsefSendButton({ invoiceId, size = 'sm', onStatusChange }: KsefS
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'Błąd wysyłania do KSeF');
 
-      toast.success('Faktura wysłana do KSeF');
-      setKsefStatus('accepted');
-      setKsefReference(data.ksef_reference || null);
+      setKsefStatus('processing');
+      if (data.session_ref) {
+        setSessionRef(data.session_ref);
+        startPolling(data.session_ref);
+      }
+      toast.success(data.message || 'Faktura wysłana do KSeF');
       onStatusChange?.();
     } catch (err: any) {
       console.error('Error sending to KSeF:', err);
@@ -78,7 +128,7 @@ export function KsefSendButton({ invoiceId, size = 'sm', onStatusChange }: KsefS
       <div className="flex items-center gap-1">
         <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800">
           <CheckCircle className="h-3 w-3 mr-1" />
-          W KSeF
+          ✅ Wysłano
         </Badge>
         {ksefReference && (
           <span className="text-xs text-muted-foreground truncate max-w-[120px]" title={ksefReference}>
@@ -89,7 +139,16 @@ export function KsefSendButton({ invoiceId, size = 'sm', onStatusChange }: KsefS
     );
   }
 
-  if (ksefStatus === 'sent' || ksefStatus === 'processing' || sending) {
+  if (ksefStatus === 'processing' || ksefStatus === 'sent') {
+    return (
+      <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800">
+        <Clock className="h-3 w-3 mr-1 animate-pulse" />
+        ⏳ Przetwarzanie przez KSeF...
+      </Badge>
+    );
+  }
+
+  if (sending) {
     return (
       <Button size={size} variant="outline" disabled>
         <Loader2 className="h-4 w-4 mr-1 animate-spin" />
@@ -107,7 +166,7 @@ export function KsefSendButton({ invoiceId, size = 'sm', onStatusChange }: KsefS
         onClick={handleSendToKsef}
       >
         <RefreshCw className="h-4 w-4 mr-1" />
-        Ponów KSeF
+        ❌ Ponów KSeF
       </Button>
     );
   }
