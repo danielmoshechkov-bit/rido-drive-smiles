@@ -1,4 +1,4 @@
-// InventoryPurchaseOCR v4 - Full module with Zakupy OCR, Towary CRUD, CSV export
+// InventoryPurchaseOCR v5 - Unified purchase module with batch upload
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,12 +11,12 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
-// OCR uses analyze-invoice edge function directly
 import { toast } from 'sonner';
 import {
   Upload, FileText, Loader2, CheckCircle, Plus, Scan, Eye, Trash2,
   History, Package, Download, Edit, Save, Search, AlertCircle, ChevronsUpDown,
 } from 'lucide-react';
+import { PurchaseInvoicesKSeF } from '@/components/accounting/PurchaseInvoicesKSeF';
 
 /* ─── Types ──────────────────────────────────────────────────────────── */
 
@@ -73,11 +73,12 @@ interface PurchaseInvoice {
 
 interface Props {
   entityId?: string;
+  showKsefOption?: boolean;
 }
 
 /* ─── Component ──────────────────────────────────────────────────────── */
 
-export function InventoryPurchaseOCR({ entityId }: Props) {
+export function InventoryPurchaseOCR({ entityId, showKsefOption }: Props) {
   // Company NIP for buyer validation
   const [companyNip, setCompanyNip] = useState<string | null>(null);
   const [companyName, setCompanyName] = useState<string | null>(null);
@@ -87,7 +88,8 @@ export function InventoryPurchaseOCR({ entityId }: Props) {
 
 
   // Tab
-  const [activeTab, setActiveTab] = useState<'zakupy' | 'towary' | 'eksport'>('zakupy');
+  const [activeTab, setActiveTab] = useState<'zakupy' | 'towary' | 'eksport' | 'ksef'>('zakupy');
+  
 
   // Products from DB
   const [products, setProducts] = useState<Product[]>([]);
@@ -110,6 +112,9 @@ export function InventoryPurchaseOCR({ entityId }: Props) {
   const [ocrItems, setOcrItems] = useState<OCRItem[]>([]);
   const [ocrDone, setOcrDone] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+
+  // Purchase invoice preview modal
+  const [previewInvoice, setPreviewInvoice] = useState<PurchaseInvoice | null>(null);
 
   // Invoice mode: 'magazyn' = add to inventory, 'kosztowa' = cost invoice only
   const [invoiceMode, setInvoiceMode] = useState<'magazyn' | 'kosztowa'>('magazyn');
@@ -229,9 +234,7 @@ export function InventoryPurchaseOCR({ entityId }: Props) {
       const { data: { publicUrl } } = supabase.storage.from('documents').getPublicUrl(fileName);
       setUploadedFileUrl(publicUrl);
       setUploading(false);
-      
-      // Auto-trigger OCR immediately after upload
-      await runOCR(b64, file.type || 'application/octet-stream');
+      toast.success('Plik przesłany. Kliknij "Rozpoznaj" aby AI odczytało fakturę.');
     } catch (err) {
       console.error('File processing error:', err);
       toast.error('Błąd przetwarzania pliku');
@@ -661,10 +664,11 @@ export function InventoryPurchaseOCR({ entityId }: Props) {
 
   return (
     <div className="space-y-6">
-      {/* Tab bar */}
-      <div className="flex gap-2 flex-wrap">
+      {/* Single-line tab bar */}
+      <div className="flex gap-2 flex-wrap items-center">
         {[
-          { id: 'zakupy' as const, label: 'Zakupy (OCR)', icon: Upload },
+          { id: 'zakupy' as const, label: 'Dodaj fakturę', icon: Upload },
+          ...(showKsefOption ? [{ id: 'ksef' as const, label: 'Pobierz z KSeF', icon: Download }] : []),
           { id: 'towary' as const, label: 'Towary', icon: Package },
           { id: 'eksport' as const, label: 'Eksport CSV', icon: Download },
         ].map(tab => (
@@ -672,27 +676,27 @@ export function InventoryPurchaseOCR({ entityId }: Props) {
             key={tab.id}
             variant={activeTab === tab.id ? 'default' : 'outline'}
             size="sm"
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => setActiveTab(tab.id as any)}
             className="rounded-full"
           >
             <tab.icon className="h-4 w-4 mr-2" />
             {tab.label}
           </Button>
         ))}
+        <Button
+          variant={viewMode === 'history' && activeTab === 'zakupy' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => { setActiveTab('zakupy'); setViewMode('history'); }}
+          className="rounded-full"
+        >
+          <History className="h-4 w-4 mr-2" />
+          Dodane ({pastInvoices.length})
+        </Button>
       </div>
 
       {/* ═══════════ ZAKUPY TAB ═══════════ */}
-      {activeTab === 'zakupy' && (
+      {activeTab === 'zakupy' && viewMode === 'upload' && (
         <>
-          <div className="flex gap-2">
-            <Button variant={viewMode === 'upload' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('upload')} className="rounded-full">
-              <Upload className="h-4 w-4 mr-2" />Nowa faktura
-            </Button>
-            <Button variant={viewMode === 'history' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('history')} className="rounded-full">
-              <History className="h-4 w-4 mr-2" />Historia ({pastInvoices.length})
-            </Button>
-          </div>
-
           {viewMode === 'upload' && (
             <>
               {/* Dropzone */}
@@ -950,66 +954,72 @@ export function InventoryPurchaseOCR({ entityId }: Props) {
             </>
           )}
 
-          {/* History */}
-          {viewMode === 'history' && (
-            <Card>
-              <CardHeader><CardTitle className="flex items-center gap-2"><History className="h-5 w-5" />Historia faktur zakupowych</CardTitle></CardHeader>
-              <CardContent>
-                {loadingInvoices ? (
-                  <div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
-                ) : pastInvoices.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>Brak faktur zakupowych</p>
-                  </div>
-                ) : (
-                  <div className="border rounded-lg overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Nr dokumentu</TableHead>
-                          <TableHead>Dostawca</TableHead>
-                          <TableHead>Data</TableHead>
-                          <TableHead className="text-right">Netto</TableHead>
-                          <TableHead className="text-right">Brutto</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead></TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {pastInvoices.map(inv => (
-                          <TableRow key={inv.id}>
-                            <TableCell className="font-mono text-sm">{inv.document_number}</TableCell>
-                            <TableCell>
-                              <p className="text-sm">{inv.supplier_name || '—'}</p>
-                              {inv.supplier_nip && <p className="text-xs text-muted-foreground">NIP: {inv.supplier_nip}</p>}
-                            </TableCell>
-                            <TableCell className="text-sm">{inv.purchase_date || new Date(inv.created_at).toLocaleDateString('pl-PL')}</TableCell>
-                            <TableCell className="text-right font-mono text-sm">{inv.total_net?.toFixed(2) || '—'}</TableCell>
-                            <TableCell className="text-right font-mono text-sm font-semibold">{inv.total_gross?.toFixed(2) || '—'}</TableCell>
-                            <TableCell>
-                              <Badge variant={inv.status === 'approved' ? 'default' : 'secondary'}>
-                                {inv.status === 'approved' ? 'Zatwierdzona' : inv.status || 'Nowa'}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              {inv.pdf_url && (
-                                <a href={inv.pdf_url} target="_blank" rel="noopener noreferrer">
-                                  <Button variant="ghost" size="icon" className="h-8 w-8"><Eye className="h-4 w-4" /></Button>
-                                </a>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
         </>
       )}
+
+      {/* History view - shown when clicking "Dodane" tab */}
+      {activeTab === 'zakupy' && viewMode === 'history' && (
+        <Card>
+          <CardHeader><CardTitle className="flex items-center gap-2"><History className="h-5 w-5" />Dodane faktury zakupowe</CardTitle></CardHeader>
+          <CardContent>
+            {loadingInvoices ? (
+              <div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
+            ) : pastInvoices.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>Brak faktur zakupowych</p>
+              </div>
+            ) : (
+              <div className="border rounded-lg overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nr dokumentu</TableHead>
+                      <TableHead>Dostawca</TableHead>
+                      <TableHead>Data</TableHead>
+                      <TableHead className="text-right">Netto</TableHead>
+                      <TableHead className="text-right">Brutto</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {pastInvoices.map(inv => (
+                      <TableRow key={inv.id}>
+                        <TableCell className="font-mono text-sm">{inv.document_number}</TableCell>
+                        <TableCell>
+                          <p className="text-sm">{inv.supplier_name || '—'}</p>
+                          {inv.supplier_nip && <p className="text-xs text-muted-foreground">NIP: {inv.supplier_nip}</p>}
+                        </TableCell>
+                        <TableCell className="text-sm">{inv.purchase_date || new Date(inv.created_at).toLocaleDateString('pl-PL')}</TableCell>
+                        <TableCell className="text-right font-mono text-sm">{inv.total_net?.toFixed(2) || '—'}</TableCell>
+                        <TableCell className="text-right font-mono text-sm font-semibold">{inv.total_gross?.toFixed(2) || '—'}</TableCell>
+                        <TableCell>
+                          <Badge variant={inv.status === 'approved' ? 'default' : 'secondary'}>
+                            {inv.status === 'approved' ? 'Zatwierdzona' : inv.status || 'Nowa'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            {inv.pdf_url && (
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setPreviewInvoice(inv)} title="Podgląd">
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* KSeF tab */}
+      {activeTab === 'ksef' && showKsefOption && <PurchaseInvoicesKSeF />}
 
       {/* ═══════════ TOWARY TAB ═══════════ */}
       {activeTab === 'towary' && (
@@ -1244,6 +1254,79 @@ export function InventoryPurchaseOCR({ entityId }: Props) {
             <Button variant="outline" onClick={() => setEditProductOpen(false)}>Anuluj</Button>
             <Button onClick={handleSaveProduct}><Save className="h-4 w-4 mr-2" />Zapisz</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══════════ PURCHASE INVOICE PREVIEW MODAL ═══════════ */}
+      <Dialog open={!!previewInvoice} onOpenChange={(open) => { if (!open) setPreviewInvoice(null); }}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5" />
+              Podgląd faktury zakupowej
+            </DialogTitle>
+            <DialogDescription>{previewInvoice?.document_number}</DialogDescription>
+          </DialogHeader>
+          {previewInvoice && (
+            <div className="space-y-4">
+              {/* Document preview */}
+              {previewInvoice.pdf_url && (
+                <div className="border rounded-lg overflow-hidden bg-muted/30">
+                  <iframe src={previewInvoice.pdf_url} className="w-full h-[500px]" title="Podgląd dokumentu" />
+                </div>
+              )}
+
+              {/* Invoice details */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div>
+                  <p className="text-xs text-muted-foreground">Nr dokumentu</p>
+                  <p className="font-medium">{previewInvoice.document_number}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Dostawca</p>
+                  <p className="font-medium">{previewInvoice.supplier_name || '—'}</p>
+                  {previewInvoice.supplier_nip && <p className="text-xs text-muted-foreground">NIP: {previewInvoice.supplier_nip}</p>}
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Data zakupu</p>
+                  <p className="font-medium">{previewInvoice.purchase_date || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Status</p>
+                  <Badge variant={previewInvoice.status === 'approved' ? 'default' : 'secondary'}>
+                    {previewInvoice.status === 'approved' ? 'Zatwierdzona' : previewInvoice.status || 'Nowa'}
+                  </Badge>
+                </div>
+              </div>
+
+              {/* Amounts */}
+              <div className="flex justify-end">
+                <div className="space-y-1 text-sm w-48">
+                  <div className="flex justify-between"><span className="text-muted-foreground">Netto:</span><span>{previewInvoice.total_net?.toFixed(2) || '—'} zł</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">VAT:</span><span>{previewInvoice.total_vat?.toFixed(2) || '—'} zł</span></div>
+                  <div className="flex justify-between font-bold pt-1 border-t"><span>Brutto:</span><span>{previewInvoice.total_gross?.toFixed(2) || '—'} zł</span></div>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-2 pt-2 border-t">
+                {previewInvoice.pdf_url && (
+                  <a href={previewInvoice.pdf_url} download target="_blank" rel="noopener noreferrer">
+                    <Button variant="outline" size="sm"><Download className="h-4 w-4 mr-2" />Pobierz</Button>
+                  </a>
+                )}
+                <Button variant="destructive" size="sm" onClick={async () => {
+                  if (!confirm('Na pewno usunąć tę fakturę?')) return;
+                  await supabase.from('purchase_invoices').delete().eq('id', previewInvoice.id);
+                  setPreviewInvoice(null);
+                  fetchInvoices();
+                  toast.success('Faktura usunięta');
+                }}>
+                  <Trash2 className="h-4 w-4 mr-2" />Usuń
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
