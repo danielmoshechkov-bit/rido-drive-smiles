@@ -772,7 +772,8 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
           .single();
 
         if (error) throw error;
-        if (savedInvoice) setLastSavedInvoiceId(savedInvoice.id);
+        const newInvoiceId = savedInvoice?.id || null;
+        if (newInvoiceId) setLastSavedInvoiceId(newInvoiceId);
 
         // Save invoice items
         if (savedInvoice) {
