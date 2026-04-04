@@ -792,11 +792,31 @@ serve(async (req) => {
         // Per KSeF 2.0 API: code 200 = success, 100/170 = in progress, 445 = error
         if (statusCode === 200) {
           let ksefNumber: string | null = null;
+          let invoiceStatus: any = null;
           try {
             const ilRes = await fetch(`${base}/sessions/${sessionRef}/invoices`, { headers: { 'Authorization': `Bearer ${accessToken}` } });
             if (ilRes.ok) {
               const ilData = await ilRes.json();
-              ksefNumber = ilData.invoices?.[0]?.ksefReferenceNumber || null;
+              const firstInv = ilData.invoices?.[0];
+              ksefNumber = firstInv?.ksefNumber || null;
+              invoiceStatus = firstInv?.status;
+              console.log('[KSeF][check_status] invoice status:', JSON.stringify(invoiceStatus), 'ksefNumber:', ksefNumber);
+              
+              // Check individual invoice status code
+              if (invoiceStatus?.code === 450) {
+                // XML validation error
+                const errDetail = invoiceStatus?.description || 'Błąd walidacji XML faktury';
+                if (invoiceId) await supabase.from('user_invoices').update({ ksef_status: 'rejected' }).eq('id', invoiceId);
+                return jsonRes({ success: false, status: 'rejected', error: errDetail });
+              }
+              if (invoiceStatus?.code === 435) {
+                if (invoiceId) await supabase.from('user_invoices').update({ ksef_status: 'rejected' }).eq('id', invoiceId);
+                return jsonRes({ success: false, status: 'rejected', error: 'Błąd odszyfrowania faktury (435)' });
+              }
+              if (invoiceStatus?.code === 440) {
+                if (invoiceId) await supabase.from('user_invoices').update({ ksef_status: 'rejected' }).eq('id', invoiceId);
+                return jsonRes({ success: false, status: 'rejected', error: 'Duplikat faktury (440)' });
+              }
             }
           } catch { /* ignore */ }
 
