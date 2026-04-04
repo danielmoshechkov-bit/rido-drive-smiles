@@ -259,34 +259,50 @@ export function KsefUserSettings() {
               <CardDescription>Kliknij aby rozwinąć instrukcję — zajmie to ok. 5 minut</CardDescription>
             </CardHeader>
           </CollapsibleTrigger>
-          <CollapsibleContent>
+           <CollapsibleContent>
             <CardContent className="space-y-5 pt-0">
               <div>
                 <h4 className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-2">Etap 1 — Wybierz środowisko</h4>
                 <p className="text-sm text-muted-foreground">
-                  Zalecamy zacząć od środowiska <strong>Demo</strong> — używasz prawdziwego tokenu ale faktury nie trafiają do urzędu. Gdy wszystko działa — przełącz na Produkcyjne.
+                  <strong>Demo</strong> (zalecane na start): <a href="https://ap-demo.ksef.mf.gov.pl" target="_blank" rel="noopener noreferrer" className="text-primary underline">ap-demo.ksef.mf.gov.pl</a> — faktury bez skutków prawnych.<br/>
+                  <strong>Produkcja</strong>: <a href="https://ap.ksef.mf.gov.pl/web/" target="_blank" rel="noopener noreferrer" className="text-primary underline">ap.ksef.mf.gov.pl/web/</a> — faktury trafiają do urzędu.
                 </p>
               </div>
               <div>
-                <h4 className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-2">Etap 2 — Zaloguj się i wygeneruj token</h4>
-                <ol className="space-y-2 text-sm">
-                  {[
-                    { step: 1, title: 'Wejdź na stronę KSeF', desc: <>Demo: <a href="https://ksef-demo.mf.gov.pl" target="_blank" rel="noopener noreferrer" className="text-primary underline">ksef-demo.mf.gov.pl</a> · Produkcja: <a href="https://ap.ksef.mf.gov.pl/web/" target="_blank" rel="noopener noreferrer" className="text-primary underline">ap.ksef.mf.gov.pl/web/</a></> },
-                    { step: 2, title: 'Zaloguj się Profilem Zaufanym lub podpisem kwalifikowanym', desc: null },
-                    { step: 3, title: 'Przejdź do: Tokeny → Wygeneruj nowy token', desc: null },
-                    { step: 4, title: 'Nadaj nazwę „GetRido", zaznacz: Wystawianie faktur + Dostęp do faktur', desc: null },
-                    { step: 5, title: 'Skopiuj token — pojawia się TYLKO RAZ', desc: null },
-                    { step: 6, title: 'Wklej token poniżej i kliknij „Testuj połączenie"', desc: null },
-                  ].map(s => (
-                    <li key={s.step} className="flex gap-2">
-                      <Badge variant="outline" className="h-5 w-5 shrink-0 flex items-center justify-center rounded-full text-xs">{s.step}</Badge>
-                      <div>
-                        <span className="font-medium">{s.title}</span>
-                        {s.desc && <p className="text-muted-foreground">{s.desc}</p>}
-                      </div>
-                    </li>
-                  ))}
+                <h4 className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-2">Etap 2 — Zaloguj się</h4>
+                <p className="text-sm text-muted-foreground">
+                  Zaloguj się <strong>Profilem Zaufanym</strong> lub <strong>podpisem kwalifikowanym</strong>.
+                </p>
+              </div>
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-2">Etap 3 — Nadaj sobie uprawnienia (WYMAGANE PRZED TOKENEM)</h4>
+                <ol className="space-y-1 text-sm text-muted-foreground list-decimal list-inside">
+                  <li>Menu: <strong>Uprawnienia → Nadaj uprawnienie</strong></li>
+                  <li>Wybierz: <strong>„Osobie fizycznej do pracy w KSeF"</strong></li>
+                  <li>Wpisz swój <strong>PESEL</strong></li>
+                  <li>Kliknij <strong>„Nadaj uprawnienia"</strong> i odśwież stronę</li>
                 </ol>
+                <Alert className="border-destructive/50 bg-destructive/10 mt-2 py-2">
+                  <AlertTriangle className="h-3 w-3 text-destructive" />
+                  <AlertDescription className="text-destructive text-xs font-medium">
+                    BEZ TEGO KROKU TOKEN NIE BĘDZIE DZIAŁAĆ — otrzymasz błąd 403.
+                  </AlertDescription>
+                </Alert>
+              </div>
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-2">Etap 4 — Wygeneruj token</h4>
+                <ol className="space-y-1 text-sm text-muted-foreground list-decimal list-inside">
+                  <li><strong>Tokeny → Generuj nowy token</strong></li>
+                  <li>Nazwa: <strong>„GetRido"</strong></li>
+                  <li>Zaznacz: ✅ <strong>InvoiceRead</strong> ✅ <strong>InvoiceWrite</strong> ✅ <strong>CredentialsRead</strong></li>
+                  <li>Skopiuj token — pojawia się <strong>TYLKO RAZ</strong></li>
+                </ol>
+              </div>
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-2">Etap 5 — Wklej token w GetRido</h4>
+                <p className="text-sm text-muted-foreground">
+                  Wklej token poniżej → <strong>Zapisz</strong> → <strong>Testuj połączenie</strong>.
+                </p>
               </div>
               <Alert className="border-blue-300 bg-blue-50 dark:bg-blue-950/20">
                 <Info className="h-4 w-4 text-blue-600" />
