@@ -470,6 +470,17 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     </div>
     ` : ''}
 
+    ${invoice.ksef_reference ? `
+    <div style="margin-top: 20px; padding: 12px; border: 1px solid #e5e7eb; border-radius: 8px; display: flex; align-items: center; gap: 12px;">
+      <img src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent('https://efaktura.mf.gov.pl/api/ksef?id=' + invoice.ksef_reference)}" alt="KSeF QR" style="width: 80px; height: 80px;" />
+      <div style="font-size: 10px; color: #6b7280;">
+        <div style="font-weight: 600; margin-bottom: 2px;">Faktura w KSeF</div>
+        <div>Nr ref.: ${invoice.ksef_reference}</div>
+        <div>Weryfikacja: efaktura.mf.gov.pl</div>
+      </div>
+    </div>
+    ` : ''}
+
     <div class="footer">
       <div class="signature">
         <div class="signature-line">Podpis osoby upoważnionej<br>do odbioru faktury</div>
