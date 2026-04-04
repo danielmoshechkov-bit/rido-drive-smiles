@@ -1110,13 +1110,41 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
                 onChange={(e) => setBuyer(prev => ({ ...prev, name: e.target.value }))}
               />
             </div>
-            <div>
+            <div className="relative">
               <FloatingInput
                 label="NIP (opcjonalnie)"
                 value={buyer.nip || ''}
-                onChange={(e) => setBuyer(prev => ({ ...prev, nip: e.target.value.replace(/\D/g, '') }))}
+                onChange={(e) => {
+                  const clean = e.target.value.replace(/\D/g, '');
+                  setBuyer(prev => ({ ...prev, nip: clean }));
+                  if (clean.length === 10) {
+                    nipLookup(clean);
+                  } else {
+                    nipReset();
+                  }
+                }}
                 maxLength={10}
+                className="pr-10"
               />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-0 top-0 h-12 w-10"
+                onClick={() => {
+                  const clean = (buyer.nip || '').replace(/\D/g, '');
+                  if (clean.length === 10) nipLookup(clean);
+                  else toast.error('Wpisz 10-cyfrowy NIP');
+                }}
+                disabled={nipLoading}
+                title="Wyszukaj firmę po NIP"
+              >
+                {nipLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                ) : (
+                  <Search className="h-4 w-4 text-muted-foreground" />
+                )}
+              </Button>
             </div>
             <Popover>
               <PopoverTrigger asChild>
