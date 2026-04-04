@@ -418,7 +418,7 @@ export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataC
                   <TableBody>
                     {correctionItems.map((item, idx) => {
                       const t = calcItemTotals(item.quantity_after, item.unit_net_price_after, item.vat_rate_after);
-                      const beforeT = calcItemTotals(item.quantity_before, item.unit_net_price_before, item.vat_rate_before);
+                      
                       const nameChanged = item.name_after !== item.name;
                       const qtyChanged = item.quantity_after !== item.quantity_before;
                       const priceChanged = item.unit_net_price_after !== item.unit_net_price_before;
