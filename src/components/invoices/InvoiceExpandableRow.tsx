@@ -401,18 +401,31 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
                 <p className="text-[10px] text-orange-500 font-semibold">PAMIĘTAJ</p>
               </div>
               
-              {/* Krzyzyk usuwania */}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowDeleteDialog(true);
-                }}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
+              {/* Delete button - blocked for KSeF-sent invoices */}
+              {canDelete ? (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowDeleteDialog(true);
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-muted-foreground opacity-40 cursor-not-allowed"
+                  disabled
+                  title="Nie można usunąć faktury wysłanej do KSeF. Wystaw korektę."
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
               
               <Badge 
                 className={`cursor-pointer transition-colors min-w-[100px] justify-center ${
