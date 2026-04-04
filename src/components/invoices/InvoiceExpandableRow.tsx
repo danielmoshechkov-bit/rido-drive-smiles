@@ -284,8 +284,9 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
   };
 
   const handleSendInvoiceEmail = async (email: string) => {
+    setIsSendingEmail(true);
     try {
-      const { error } = await supabase.functions.invoke('send-invoice-email', {
+      const { data, error } = await supabase.functions.invoke('send-invoice-email', {
         body: { 
           invoice_id: invoice.id,
           recipient_email: email,
@@ -294,10 +295,15 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
       });
 
       if (error) throw error;
+      if (data && !data.success) throw new Error(data.error || 'Nie udało się wysłać');
       toast.success(`Faktura wysłana na ${email}`);
+      setShowInlineEmail(false);
+      setInlineEmail('');
     } catch (err: any) {
       console.error('Error sending email:', err);
       toast.error('Błąd wysyłania email: ' + (err.message || 'Nieznany błąd'));
+    } finally {
+      setIsSendingEmail(false);
     }
   };
 
