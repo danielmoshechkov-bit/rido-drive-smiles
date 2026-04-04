@@ -507,7 +507,7 @@ export function InvoiceDetailSheet({ invoice, open, onOpenChange, onUpdate }: In
                   Edytuj
                 </Button>
               </div>
-              <KsefSendButton invoiceId={invoice.id} size="default" onStatusChange={onUpdate} />
+              <KsefSendButton invoiceId={currentInvoice.id} size="default" onStatusChange={() => { refetchInvoice(); onUpdate(); }} />
             </>
           )}
         </div>
