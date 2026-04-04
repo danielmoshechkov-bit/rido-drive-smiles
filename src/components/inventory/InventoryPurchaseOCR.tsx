@@ -77,7 +77,6 @@ interface Props {
 
 export function InventoryPurchaseOCR({ entityId }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { execute: executeAI, isLoading: aiLoading } = useGetRidoAI();
 
   // Tab
   const [activeTab, setActiveTab] = useState<'zakupy' | 'towary' | 'eksport'>('zakupy');
