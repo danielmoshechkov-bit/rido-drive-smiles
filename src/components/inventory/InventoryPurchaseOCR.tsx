@@ -15,7 +15,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
   Upload, FileText, Loader2, CheckCircle, Plus, Scan, Eye, Trash2,
-  History, Package, Download, Edit, Save, X, Search, AlertCircle,
+  History, Package, Download, Edit, Save, Search, AlertCircle, ChevronsUpDown,
 } from 'lucide-react';
 
 /* ─── Types ──────────────────────────────────────────────────────────── */
