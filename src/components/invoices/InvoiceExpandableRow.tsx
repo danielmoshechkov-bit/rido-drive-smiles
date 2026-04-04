@@ -87,6 +87,16 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   
+  // Live KSeF status tracking (updates without page refresh)
+  const [liveKsefStatus, setLiveKsefStatus] = useState<string | undefined>(invoice.ksef_status);
+  const [liveKsefReference, setLiveKsefReference] = useState<string | undefined>(invoice.ksef_reference);
+  
+  // Sync from prop when parent refetches
+  useEffect(() => {
+    setLiveKsefStatus(invoice.ksef_status);
+    setLiveKsefReference(invoice.ksef_reference);
+  }, [invoice.ksef_status, invoice.ksef_reference]);
+  
   // Email dialog state
   const [showEmailDialog, setShowEmailDialog] = useState(false);
   const [emailAddress, setEmailAddress] = useState('');
