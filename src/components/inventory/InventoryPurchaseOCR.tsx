@@ -809,7 +809,23 @@ export function InventoryPurchaseOCR({ entityId }: Props) {
                         <span>VAT: <strong>{invoiceHeader.vat_total?.toFixed(2)} zł</strong></span>
                         <span>Brutto: <strong>{invoiceHeader.gross_total?.toFixed(2)} zł</strong></span>
                       </div>
-                    </div>
+                      </div>
+
+                    {/* Buyer NIP mismatch warning */}
+                    {buyerNip && companyNip && buyerNip !== companyNip && (
+                      <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-700 text-sm flex items-start gap-2">
+                        <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-semibold text-amber-800 dark:text-amber-300">⚠️ Nabywca nie zgadza się z kontem firmowym!</p>
+                          <p className="text-amber-700 dark:text-amber-400 mt-1">
+                            NIP na fakturze: <strong>{buyerNip}</strong> — Twoja firma ({companyName || ''}): <strong>{companyNip}</strong>
+                          </p>
+                          <p className="text-amber-600 dark:text-amber-500 text-xs mt-1">
+                            Ta faktura jest wystawiona na inną firmę. Jeśli ją zapiszesz, księgowa może ją odrzucić.
+                          </p>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Items table */}
                     {ocrItems.length > 0 && (
