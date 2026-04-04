@@ -17,6 +17,7 @@ export function KsefSendButton({ invoiceId, size = 'sm', onStatusChange }: KsefS
   const [sessionRef, setSessionRef] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [pollingTimedOut, setPollingTimedOut] = useState(false);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -60,11 +61,14 @@ export function KsefSendButton({ invoiceId, size = 'sm', onStatusChange }: KsefS
 
   const startPolling = (sRef: string) => {
     if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    setPollingTimedOut(false);
     let attempts = 0;
+    const maxAttempts = 12; // 12 * 5s = 60s timeout
     pollIntervalRef.current = setInterval(async () => {
       attempts++;
-      if (attempts > 60) { // max 5 min
+      if (attempts > maxAttempts) {
         if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+        setPollingTimedOut(true);
         return;
       }
       try {
@@ -140,6 +144,29 @@ export function KsefSendButton({ invoiceId, size = 'sm', onStatusChange }: KsefS
   }
 
   if (ksefStatus === 'processing' || ksefStatus === 'sent') {
+    if (pollingTimedOut) {
+      return (
+        <div className="flex items-center gap-1">
+          <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800">
+            <Clock className="h-3 w-3 mr-1" />
+            KSeF przetwarza — sprawdź za chwilę
+          </Badge>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-6 px-2 text-xs"
+            onClick={() => {
+              setPollingTimedOut(false);
+              if (sessionRef) startPolling(sessionRef);
+              else loadKsefStatus();
+            }}
+          >
+            <RefreshCw className="h-3 w-3 mr-1" />
+            Sprawdź status
+          </Button>
+        </div>
+      );
+    }
     return (
       <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800">
         <Clock className="h-3 w-3 mr-1 animate-pulse" />

@@ -692,77 +692,73 @@ serve(async (req) => {
 
     // ========== check_status ==========
     if (action === 'check_status') {
-      const sessionRef = body.session_ref;
-      const invoiceId = body.invoice_id;
-      if (!sessionRef) return jsonRes({ success: false, error: 'Brak session_ref' }, 400);
+      try {
+        const sessionRef = body.session_ref;
+        const invoiceId = body.invoice_id;
+        if (!sessionRef) return jsonRes({ success: true, status: 'processing' });
 
-      const creds = await resolveCredentials(req, supabase, body);
-      const { nip, token, environment } = creds;
-      if (!nip || !token) return jsonRes({ success: false, error: 'Brak danych autoryzacyjnych KSeF' }, 400);
+        const creds = await resolveCredentials(req, supabase, body);
+        const { nip, token, environment } = creds;
+        if (!nip || !token) return jsonRes({ success: true, status: 'processing' });
 
-      const base = getBaseUrl(environment);
-      const { accessToken } = await getKsefAccessToken(base, nip, token);
+        const base = getBaseUrl(environment);
+        const { accessToken } = await getKsefAccessToken(base, nip, token);
 
-      const stRes = await fetch(`${base}/sessions/${sessionRef}`, {
-        headers: { 'Authorization': `Bearer ${accessToken}` },
-      });
-      if (!stRes.ok) {
-        const txt = await stRes.text().catch(() => '');
-        return jsonRes({ success: true, status: 'processing', message: `Sesja jeszcze przetwarzana (HTTP ${stRes.status})` });
-      }
-      const stData = await stRes.json();
-      const st = String(
-        stData?.status?.value || 
-        stData?.status || 
-        stData?.processingStatus || 
-        ''
-      ).toLowerCase();
-      console.log('[KSeF][check_status] status raw:', JSON.stringify(stData?.status));
-      console.log('[KSeF][check_status] session:', sessionRef, 'status:', st);
+        const stRes = await fetch(`${base}/sessions/${sessionRef}`, {
+          headers: { 'Authorization': `Bearer ${accessToken}` },
+        });
+        if (!stRes.ok) {
+          return jsonRes({ success: true, status: 'processing', message: `Sesja jeszcze przetwarzana (HTTP ${stRes.status})` });
+        }
+        const stData = await stRes.json();
+        const statusRaw = stData?.status;
+        const st = String(statusRaw?.value || statusRaw || stData?.processingStatus || '').toLowerCase();
+        console.log('[KSeF][check_status] status raw:', JSON.stringify(statusRaw));
+        console.log('[KSeF][check_status] session:', sessionRef, 'status:', st);
 
-      if (st.includes('finish') || st.includes('success') || st === '200') {
-        // Get KSeF reference number
-        let ksefNumber: string | null = null;
-        let upoXml: string | null = null;
-        try {
-          const ilRes = await fetch(`${base}/sessions/${sessionRef}/invoices`, { headers: { 'Authorization': `Bearer ${accessToken}` } });
-          if (ilRes.ok) {
-            const ilData = await ilRes.json();
-            ksefNumber = ilData.invoices?.[0]?.ksefReferenceNumber || null;
+        if (st.includes('finish') || st.includes('success') || st === '200') {
+          let ksefNumber: string | null = null;
+          try {
+            const ilRes = await fetch(`${base}/sessions/${sessionRef}/invoices`, { headers: { 'Authorization': `Bearer ${accessToken}` } });
+            if (ilRes.ok) {
+              const ilData = await ilRes.json();
+              ksefNumber = ilData.invoices?.[0]?.ksefReferenceNumber || null;
+            }
+          } catch { /* ignore */ }
+
+          if (invoiceId) {
+            await supabase.from('user_invoices').update({ ksef_status: 'accepted', ksef_reference: ksefNumber, ksef_environment: environment }).eq('id', invoiceId);
           }
-        } catch { /* ignore */ }
+          await supabase.from('ksef_transmissions').update({
+            status: 'accepted',
+            ksef_reference_number: ksefNumber || sessionRef,
+            response_at: new Date().toISOString(),
+            environment,
+          }).eq('ksef_reference_number', sessionRef);
 
-        // Update DB
-        if (invoiceId) {
-          await supabase.from('user_invoices').update({ ksef_status: 'accepted', ksef_reference: ksefNumber, ksef_environment: environment }).eq('id', invoiceId);
+          return jsonRes({ success: true, status: 'accepted', ksef_reference: ksefNumber, environment });
         }
-        await supabase.from('ksef_transmissions').update({
-          status: 'accepted',
-          ksef_reference_number: ksefNumber || sessionRef,
-          response_at: new Date().toISOString(),
-          environment,
-        }).eq('ksef_reference_number', sessionRef);
 
-        return jsonRes({ success: true, status: 'accepted', ksef_reference: ksefNumber, environment });
-      }
+        if (st.includes('fail') || st.includes('error') || st.includes('reject')) {
+          let errDetail = 'Faktura odrzucona przez KSeF';
+          try {
+            const fRes = await fetch(`${base}/sessions/${sessionRef}/invoices/failed`, { headers: { 'Authorization': `Bearer ${accessToken}` } });
+            if (fRes.ok) { const fd = await fRes.json(); errDetail = JSON.stringify(fd?.invoices?.[0]?.status || fd).slice(0, 400); }
+          } catch { /* ignore */ }
 
-      if (st.includes('fail') || st.includes('error') || st.includes('reject')) {
-        let errDetail = 'Faktura odrzucona przez KSeF';
-        try {
-          const fRes = await fetch(`${base}/sessions/${sessionRef}/invoices/failed`, { headers: { 'Authorization': `Bearer ${accessToken}` } });
-          if (fRes.ok) { const fd = await fRes.json(); errDetail = JSON.stringify(fd?.invoices?.[0]?.status || fd).slice(0, 400); }
-        } catch { /* ignore */ }
+          if (invoiceId) {
+            await supabase.from('user_invoices').update({ ksef_status: 'rejected' }).eq('id', invoiceId);
+          }
+          await supabase.from('ksef_transmissions').update({ status: 'rejected', error_message: errDetail, response_at: new Date().toISOString() }).eq('ksef_reference_number', sessionRef);
 
-        if (invoiceId) {
-          await supabase.from('user_invoices').update({ ksef_status: 'rejected' }).eq('id', invoiceId);
+          return jsonRes({ success: false, status: 'rejected', error: errDetail });
         }
-        await supabase.from('ksef_transmissions').update({ status: 'rejected', error_message: errDetail, response_at: new Date().toISOString() }).eq('ksef_reference_number', sessionRef);
 
-        return jsonRes({ success: false, status: 'rejected', error: errDetail });
+        return jsonRes({ success: true, status: 'processing', message: 'Sesja KSeF w trakcie przetwarzania' });
+      } catch (checkErr: any) {
+        console.error('[KSeF][check_status] error:', checkErr.message);
+        return jsonRes({ success: true, status: 'processing' });
       }
-
-      // Still processing
-      return jsonRes({ success: true, status: 'processing', message: 'Sesja KSeF w trakcie przetwarzania' });
     }
 
     // ========== download ==========
