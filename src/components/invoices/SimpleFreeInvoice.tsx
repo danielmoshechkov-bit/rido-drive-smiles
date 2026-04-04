@@ -275,6 +275,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
         bank_account: company.bank_account || ''
       });
       setSellerExpanded(false);
+      if (!issuePlace) setIssuePlace(company.address_city || '');
       return;
     }
     
@@ -309,6 +310,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
         bank_account: entity.bank_account || ''
       });
       setSellerExpanded(false);
+      if (!issuePlace) setIssuePlace(entity.address_city || '');
     }
   };
 
