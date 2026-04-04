@@ -167,11 +167,14 @@ export function InvoiceDetailSheet({ invoice, open, onOpenChange, onUpdate }: In
   const handleDownloadPdf = async () => {
     setIsGeneratingPdf(true);
     try {
+      // Re-fetch latest ksef data before generating PDF
+      await refetchInvoice();
+
       // Fetch invoice items
       const { data: items, error: itemsError } = await supabase
         .from('user_invoice_items')
         .select('*')
-        .eq('invoice_id', invoice.id);
+        .eq('invoice_id', currentInvoice.id);
 
       if (itemsError) {
         console.error('Error fetching invoice items:', itemsError);
