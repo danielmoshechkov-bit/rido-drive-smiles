@@ -632,15 +632,28 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
                 Edytuj
               </Button>
               
-              <Button 
-                size="sm" 
-                variant="outline" 
-                className="text-destructive hover:bg-destructive/10"
-                onClick={() => setShowDeleteDialog(true)}
-              >
-                <Trash2 className="h-4 w-4 mr-1" />
-                Usuń
-              </Button>
+              {canDelete ? (
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="text-destructive hover:bg-destructive/10"
+                  onClick={() => setShowDeleteDialog(true)}
+                >
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  Usuń
+                </Button>
+              ) : (
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="opacity-40 cursor-not-allowed"
+                  disabled
+                  title="Nie można usunąć faktury wysłanej do KSeF. Wystaw korektę."
+                >
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  Usuń
+                </Button>
+              )}
             </div>
           </div>
         )}
