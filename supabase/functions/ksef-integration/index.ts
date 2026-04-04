@@ -1002,110 +1002,32 @@ serve(async (req) => {
       if (invErr || !invoice) return jsonRes({ success: false, error: 'Faktura nie znaleziona' }, 404);
       const { data: items } = await supabase.from('user_invoice_items').select('*').eq('invoice_id', body.invoice_id).order('sort_order');
 
-      // Build seller entity — same logic as in 'send'
-      let sellerEntity: any = {};
-      if (invoice.company_id) {
-        const { data: company } = await supabase.from('user_invoice_companies').select('*').eq('id', invoice.company_id).maybeSingle();
-        if (company) {
-          sellerEntity = {
-            nip: company.nip,
-            name: company.name,
-            address_street: [company.address_street, company.address_building_number, company.address_apartment_number].filter(Boolean).join(' '),
-            address_postal_code: company.address_postal_code,
-            address_city: company.address_city,
-            bank_account: company.bank_account,
-          };
-        }
-      }
-      const effectiveUserId = invoice.user_id || (await getUserFromJwt(req, supabase))?.id;
-      if (!sellerEntity.nip && effectiveUserId) {
-        const { data: cs } = await supabase.from('company_settings').select('*').eq('user_id', effectiveUserId).maybeSingle();
-        if (cs) {
-          sellerEntity = {
-            nip: cs.nip,
-            name: cs.company_name,
-            address_street: [cs.street, cs.building_number, cs.apartment_number].filter(Boolean).join(' '),
-            address_postal_code: cs.postal_code,
-            address_city: cs.city,
-            bank_account: cs.bank_account,
-          };
-        }
-      }
+      // Use shared resolveSellerEntityForInvoice + buildKsefInvoiceArtifacts
+      const sellerEntity = await resolveSellerEntityForInvoice(req, supabase, invoice);
+      const artifacts = buildKsefInvoiceArtifacts(invoice, sellerEntity, items || []);
 
-      // Parse buyer_address — same logic as in 'send'
-      const rawAddr = invoice.buyer_address || '';
-      let bStreet = rawAddr, bPostal = '', bCity = '';
-      const commaIdx = rawAddr.lastIndexOf(',');
-      if (commaIdx > -1) {
-        bStreet = rawAddr.substring(0, commaIdx).trim();
-        const rest = rawAddr.substring(commaIdx + 1).trim();
-        const spaceIdx = rest.indexOf(' ');
-        if (spaceIdx > -1) {
-          bPostal = rest.substring(0, spaceIdx);
-          bCity = rest.substring(spaceIdx + 1);
-        } else {
-          bCity = rest;
-        }
-      }
-      const buyerSnapshot = { nip: invoice.buyer_nip, name: invoice.buyer_name, address_street: bStreet, address_postal_code: bPostal, address_city: bCity };
-      const invoiceForXml = { ...invoice, buyer_snapshot: buyerSnapshot };
-
-      const xml = generateInvoiceXML(invoiceForXml, sellerEntity, items || []);
-      console.log('[KSeF][DEBUG] XML generated, size:', xml.length);
-      console.log('[KSeF][DEBUG] Full XML:\n', xml);
-
-      // Extract Podmiot2 fragment
-      const podmiot2Match = xml.match(/<Podmiot2>[\s\S]*?<\/Podmiot2>/);
-      const podmiot2 = podmiot2Match ? podmiot2Match[0] : '';
-
-      // Warnings
-      const warnings: string[] = [];
-      if (!buyerSnapshot.nip) warnings.push('Brak buyer NIP (buyer_nip is empty)');
-      if (!buyerSnapshot.name) warnings.push('Brak buyer name (buyer_name is empty)');
-      if (!rawAddr) warnings.push('Brak buyer address (buyer_address is empty)');
-      if (!bStreet) warnings.push('Brak parsed street from buyer_address');
-      if (!bPostal) warnings.push('Brak parsed postal_code from buyer_address');
-      if (!bCity) warnings.push('Brak parsed city from buyer_address');
-      if (podmiot2 && !podmiot2.includes('<Nazwa>')) warnings.push('Podmiot2 nie zawiera <Nazwa>');
-      if (podmiot2 && podmiot2.includes('<Nazwa></Nazwa>')) warnings.push('Podmiot2 ma pusty tag <Nazwa>');
-      if (podmiot2 && !podmiot2.includes('<Adres>')) warnings.push('Podmiot2 nie zawiera <Adres>');
-      if (podmiot2 && !podmiot2.includes('<AdresL1>')) warnings.push('Podmiot2 nie zawiera <AdresL1>');
-      if (podmiot2 && podmiot2.includes('<AdresL1>-</AdresL1>')) warnings.push('Podmiot2 AdresL1 ma fallback "-" — prawdopodobnie brak adresu');
-      // Schema FA(3) nie wymaga JST/GV w Podmiot2 — ale sprawdźmy
-      if (podmiot2 && !podmiot2.includes('<JST>')) warnings.push('Podmiot2 nie zawiera <JST> (opcjonalne w FA(3))');
-      if (podmiot2 && !podmiot2.includes('<GV>')) warnings.push('Podmiot2 nie zawiera <GV> (opcjonalne w FA(3))');
-
-      // Field mapping info
-      warnings.push(`Field mapping: buyer_nip="${invoice.buyer_nip || ''}", buyer_name="${invoice.buyer_name || ''}", buyer_address="${invoice.buyer_address || ''}", buyer_snapshot.nip="${buyerSnapshot.nip || ''}", buyer_snapshot.name="${buyerSnapshot.name || ''}"`);
-
-      console.log('[KSeF][DEBUG] Podmiot2:\n', podmiot2);
-      console.log('[KSeF][DEBUG] buyerSource:', JSON.stringify(buyerSnapshot));
+      console.log('[KSeF][DEBUG] XML generated, size:', artifacts.xml.length);
+      console.log('[KSeF][DEBUG] Full XML:\n', artifacts.xml);
+      console.log('[KSeF][DEBUG] Podmiot1:\n', artifacts.podmiot1);
+      console.log('[KSeF][DEBUG] Podmiot2:\n', artifacts.podmiot2);
+      console.log('[KSeF][DEBUG] formCode:', artifacts.formCode, 'invoiceType:', artifacts.invoiceType);
+      console.log('[KSeF][DEBUG] buyerSource:', JSON.stringify(artifacts.buyerSource));
+      console.log('[KSeF][DEBUG] sellerSource:', JSON.stringify(artifacts.sellerSource));
+      console.log('[KSeF][DEBUG] xsdViolations:', JSON.stringify(artifacts.xsdViolations));
+      console.log('[KSeF][DEBUG] semanticViolations:', JSON.stringify(artifacts.semanticViolations));
 
       return jsonRes({
         success: true,
-        xml,
-        podmiot2,
-        formCode: 'FA (3)',
-        invoiceType: 'VAT',
-        warnings,
-        buyerSource: {
-          nip: buyerSnapshot.nip || null,
-          name: buyerSnapshot.name || null,
-          address: rawAddr || null,
-          parsed: { street: bStreet, postal: bPostal, city: bCity },
-          rawBuyerObject: {
-            buyer_nip: invoice.buyer_nip,
-            buyer_name: invoice.buyer_name,
-            buyer_address: invoice.buyer_address,
-          },
-        },
-        sellerSource: {
-          nip: sellerEntity.nip || null,
-          name: sellerEntity.name || null,
-          address_street: sellerEntity.address_street || null,
-          address_postal_code: sellerEntity.address_postal_code || null,
-          address_city: sellerEntity.address_city || null,
-        },
+        xml: artifacts.xml,
+        podmiot1: artifacts.podmiot1,
+        podmiot2: artifacts.podmiot2,
+        formCode: artifacts.formCode,
+        invoiceType: artifacts.invoiceType,
+        warnings: artifacts.warnings,
+        xsdViolations: artifacts.xsdViolations,
+        semanticViolations: artifacts.semanticViolations,
+        buyerSource: artifacts.buyerSource,
+        sellerSource: artifacts.sellerSource,
       });
     }
 
