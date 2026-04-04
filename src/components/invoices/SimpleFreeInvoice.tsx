@@ -857,14 +857,14 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
 
     setIsIssuing(true);
     try {
-      await handleSave();
+      const savedId = await handleSave();
       setInvoiceIssued(true);
       setShowPreview(true);
       toast.success('Faktura została wystawiona!');
 
       // Auto-send to KSeF if enabled
-      if (autoSendKsef && (lastSavedInvoiceId || editInvoiceId)) {
-        const invoiceIdToSend = editInvoiceId || lastSavedInvoiceId;
+      const invoiceIdToSend = editInvoiceId || savedId;
+      if (autoSendKsef && invoiceIdToSend) {
         try {
           const { data, error } = await supabase.functions.invoke('ksef-integration', {
             body: { action: 'send', invoice_id: invoiceIdToSend },
