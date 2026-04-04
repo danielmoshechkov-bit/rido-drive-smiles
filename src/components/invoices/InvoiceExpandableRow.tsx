@@ -89,12 +89,8 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
     setLiveKsefReference(invoice.ksef_reference);
   }, [invoice.ksef_status, invoice.ksef_reference]);
 
-  const effectiveKsefStatus = liveKsefReference ? 'accepted' : liveKsefStatus;
   
-  // Email dialog state
-  const [showEmailDialog, setShowEmailDialog] = useState(false);
-  const [emailAddress, setEmailAddress] = useState('');
-  const [sendingEmail, setSendingEmail] = useState(false);
+  // Edit dialog state
   
   // Edit dialog state
   const [showEditDialog, setShowEditDialog] = useState(false);
