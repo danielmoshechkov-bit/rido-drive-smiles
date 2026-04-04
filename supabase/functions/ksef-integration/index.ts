@@ -532,6 +532,12 @@ serve(async (req) => {
 
     // ========== send (fire-and-forget) ==========
     if (action === 'send') {
+      // Duplicate check
+      const { data: existingInv } = await supabase.from('user_invoices').select('ksef_status').eq('id', body.invoice_id).single();
+      if (existingInv?.ksef_status === 'accepted' || existingInv?.ksef_status === 'processing') {
+        return jsonRes({ success: false, error: 'Faktura już wysłana do KSeF. Status: ' + existingInv.ksef_status });
+      }
+
       const { data: invoice, error: invErr } = await supabase
         .from('user_invoices').select('*').eq('id', body.invoice_id).single();
       if (invErr || !invoice) throw new Error('Faktura nie znaleziona');
