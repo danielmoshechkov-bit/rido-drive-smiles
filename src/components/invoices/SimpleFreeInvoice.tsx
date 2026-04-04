@@ -1598,6 +1598,9 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
                 <div>
                   <Label className="font-medium">Wyślij do KSeF po wystawieniu</Label>
                   <p className="text-xs text-muted-foreground">Wymagane od 1.04.2026 dla faktur VAT</p>
+                  {autoSendKsef && !buyer.nip?.trim() && (
+                    <p className="text-xs text-destructive mt-1">⚠️ KSeF wymaga NIP nabywcy</p>
+                  )}
                 </div>
                 <Checkbox 
                   checked={autoSendKsef}
