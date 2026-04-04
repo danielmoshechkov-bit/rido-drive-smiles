@@ -289,6 +289,10 @@ export function InventoryPurchaseOCR({ entityId }: Props) {
         gross_total: d.suma_brutto || 0,
       });
 
+      // Extract buyer NIP for mismatch detection
+      const extractedBuyerNip = (d.nabywca?.nip || '').replace(/[^0-9]/g, '');
+      setBuyerNip(extractedBuyerNip || null);
+
       const ocrItemsList: OCRItem[] = (d.pozycje || []).map((item: any) => {
         const qty = Number(item.ilosc) || 1;
         const netPrice = Number(item.cena_netto) || 0;
