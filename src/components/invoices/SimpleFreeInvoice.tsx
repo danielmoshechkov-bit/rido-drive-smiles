@@ -27,7 +27,8 @@ import {
   MapPin,
   ImagePlus,
   X,
-  Loader2
+  Loader2,
+  Search
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { 
@@ -48,6 +49,7 @@ import { UnitSelector } from './UnitSelector';
 import { DiscountSection, DiscountConfig, calculateDiscount } from './DiscountSection';
 import { AuthModal } from '@/components/auth/AuthModal';
 import { supabase } from '@/integrations/supabase/client';
+import { useNipLookup, CompanyData } from '@/hooks/useNipLookup';
 
 const VAT_RATES = ['23', '8', '5', '0', 'zw', 'np'];
 const UNITS = ['szt.', 'usł.', 'godz.', 'km', 'kg', 'm²', 'm³', 'kpl.'];
@@ -227,6 +229,26 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
   
   // User's saved company
   const [savedCompanyId, setSavedCompanyId] = useState<string | null>(null);
+
+  // NIP lookup for buyer
+  const { lookup: nipLookup, loading: nipLoading, company: nipCompany, reset: nipReset } = useNipLookup();
+
+  // Auto-fill buyer when NIP lookup succeeds
+  useEffect(() => {
+    if (nipCompany) {
+      setBuyer(prev => ({
+        ...prev,
+        name: nipCompany.name || prev.name,
+        nip: nipCompany.nip || prev.nip,
+        address_street: nipCompany.street || prev.address_street,
+        address_building_number: nipCompany.buildingNumber || prev.address_building_number,
+        address_apartment_number: nipCompany.apartmentNumber || prev.address_apartment_number,
+        address_city: nipCompany.city || prev.address_city,
+        address_postal_code: nipCompany.postalCode || prev.address_postal_code,
+      }));
+      toast.success(`Znaleziono: ${nipCompany.name}`);
+    }
+  }, [nipCompany]);
 
   // Check auth state and load saved company data
   // Helper function to load user company data from multiple sources
@@ -1089,13 +1111,41 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
                 onChange={(e) => setBuyer(prev => ({ ...prev, name: e.target.value }))}
               />
             </div>
-            <div>
+            <div className="relative">
               <FloatingInput
                 label="NIP (opcjonalnie)"
                 value={buyer.nip || ''}
-                onChange={(e) => setBuyer(prev => ({ ...prev, nip: e.target.value.replace(/\D/g, '') }))}
+                onChange={(e) => {
+                  const clean = e.target.value.replace(/\D/g, '');
+                  setBuyer(prev => ({ ...prev, nip: clean }));
+                  if (clean.length === 10) {
+                    nipLookup(clean);
+                  } else {
+                    nipReset();
+                  }
+                }}
                 maxLength={10}
+                className="pr-10"
               />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-0 top-0 h-12 w-10"
+                onClick={() => {
+                  const clean = (buyer.nip || '').replace(/\D/g, '');
+                  if (clean.length === 10) nipLookup(clean);
+                  else toast.error('Wpisz 10-cyfrowy NIP');
+                }}
+                disabled={nipLoading}
+                title="Wyszukaj firmę po NIP"
+              >
+                {nipLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                ) : (
+                  <Search className="h-4 w-4 text-muted-foreground" />
+                )}
+              </Button>
             </div>
             <Popover>
               <PopoverTrigger asChild>

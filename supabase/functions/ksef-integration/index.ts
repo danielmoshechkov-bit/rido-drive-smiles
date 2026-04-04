@@ -636,18 +636,20 @@ serve(async (req) => {
         const rawAesKey = new Uint8Array(await crypto.subtle.exportKey('raw', aesKey));
         const encXmlBuf = await crypto.subtle.encrypt({ name: 'AES-CBC', iv }, aesKey, xmlBytes);
         const encXmlBytes = new Uint8Array(encXmlBuf);
-        const ivPlusEnc = new Uint8Array(iv.byteLength + encXmlBytes.byteLength);
-        ivPlusEnc.set(iv, 0);
-        ivPlusEnc.set(encXmlBytes, iv.byteLength);
+        // IMPORTANT: IV goes ONLY in session open, NOT in encryptedInvoiceContent
+        // encryptedInvoiceContent = only the AES-CBC ciphertext, without IV prefix
 
-        // FIX #1: Encrypt AES key with docCryptoKey (SymmetricKeyEncryption), NOT tokenCryptoKey
+        // Encrypt AES key with docCryptoKey (SymmetricKeyEncryption)
         const encAesKeyBuf = await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, docCryptoKey, rawAesKey);
         const encryptedSymmetricKey = bytesToB64(new Uint8Array(encAesKeyBuf));
         const initializationVector = bytesToB64(iv);
 
-        // SHA-256 hashes
+        // SHA-256 hashes per KSeF 2.0 OpenAPI: Sha256HashBase64 = plain base64 string, 44 chars
         const xmlHash = bytesToB64(new Uint8Array(await crypto.subtle.digest('SHA-256', xmlBytes)));
-        const encHash = bytesToB64(new Uint8Array(await crypto.subtle.digest('SHA-256', ivPlusEnc)));
+        const encHash = bytesToB64(new Uint8Array(await crypto.subtle.digest('SHA-256', encXmlBytes)));
+
+        console.log('[KSeF] xmlHash:', xmlHash.length, 'chars, invoiceSize:', xmlBytes.byteLength);
+        console.log('[KSeF] encHash:', encHash.length, 'chars, encInvoiceSize:', encXmlBytes.byteLength);
 
         // Open session
         const sessionRes = await fetch(`${base}/sessions/online`, {
@@ -672,21 +674,25 @@ serve(async (req) => {
           await supabase.from('ksef_transmissions').update({ status: 'session_open', ksef_reference_number: sessionRef, environment }).eq('id', transmission.id);
         }
 
-        // FIX #2: Send invoice — correct nested payload per KSeF 2.0 OpenAPI spec
+        // Send invoice — FLAT payload per KSeF 2.0 OpenAPI SendInvoiceRequest schema:
+        // invoiceHash: Sha256HashBase64 (string, 44 chars) — hash of original XML
+        // invoiceSize: int64 — size of original XML in bytes
+        // encryptedInvoiceHash: Sha256HashBase64 (string, 44 chars) — hash of encrypted XML (without IV)
+        // encryptedInvoiceSize: int64 — size of encrypted XML in bytes (without IV)
+        // encryptedInvoiceContent: base64 string — AES-CBC ciphertext WITHOUT IV
+        const sendPayload = {
+          invoiceHash: xmlHash,
+          invoiceSize: xmlBytes.byteLength,
+          encryptedInvoiceHash: encHash,
+          encryptedInvoiceSize: encXmlBytes.byteLength,
+          encryptedInvoiceContent: bytesToB64(encXmlBytes),
+          offlineMode: false,
+        };
+        console.log('[KSeF] sendPayload keys:', Object.keys(sendPayload));
         const sendRes = await fetch(`${base}/sessions/online/${sessionRef}/invoices`, {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            invoiceHash: {
-              hashSHA: { algorithm: 'SHA-256', encoding: 'Base64', value: xmlHash },
-              fileSize: xmlBytes.byteLength,
-            },
-            encryptedDocumentHash: {
-              hashSHA: { algorithm: 'SHA-256', encoding: 'Base64', value: encHash },
-              fileSize: ivPlusEnc.byteLength,
-            },
-            encryptedDocumentContent: bytesToB64(ivPlusEnc),
-          }),
+          body: JSON.stringify(sendPayload),
         });
         if (!sendRes.ok) {
           const errTxt = (await sendRes.text()).slice(0, 300);
@@ -777,18 +783,40 @@ serve(async (req) => {
           return jsonRes({ success: true, status: 'processing', message: `Sesja jeszcze przetwarzana (HTTP ${stRes.status})` });
         }
         const stData = await stRes.json();
+        // KSeF returns status as { code: number, description: string }
+        const statusCode = stData?.status?.code;
         const statusRaw = stData?.status;
-        const st = String(statusRaw?.value || statusRaw || stData?.processingStatus || '').toLowerCase();
         console.log('[KSeF][check_status] status raw:', JSON.stringify(statusRaw));
-        console.log('[KSeF][check_status] session:', sessionRef, 'status:', st);
+        console.log('[KSeF][check_status] session:', sessionRef, 'statusCode:', statusCode);
 
-        if (st.includes('finish') || st.includes('success') || st === '200') {
+        // Per KSeF 2.0 API: code 200 = success, 100/170 = in progress, 445 = error
+        if (statusCode === 200) {
           let ksefNumber: string | null = null;
+          let invoiceStatus: any = null;
           try {
             const ilRes = await fetch(`${base}/sessions/${sessionRef}/invoices`, { headers: { 'Authorization': `Bearer ${accessToken}` } });
             if (ilRes.ok) {
               const ilData = await ilRes.json();
-              ksefNumber = ilData.invoices?.[0]?.ksefReferenceNumber || null;
+              const firstInv = ilData.invoices?.[0];
+              ksefNumber = firstInv?.ksefNumber || null;
+              invoiceStatus = firstInv?.status;
+              console.log('[KSeF][check_status] invoice status:', JSON.stringify(invoiceStatus), 'ksefNumber:', ksefNumber);
+              
+              // Check individual invoice status code
+              if (invoiceStatus?.code === 450) {
+                // XML validation error
+                const errDetail = invoiceStatus?.description || 'Błąd walidacji XML faktury';
+                if (invoiceId) await supabase.from('user_invoices').update({ ksef_status: 'rejected' }).eq('id', invoiceId);
+                return jsonRes({ success: false, status: 'rejected', error: errDetail });
+              }
+              if (invoiceStatus?.code === 435) {
+                if (invoiceId) await supabase.from('user_invoices').update({ ksef_status: 'rejected' }).eq('id', invoiceId);
+                return jsonRes({ success: false, status: 'rejected', error: 'Błąd odszyfrowania faktury (435)' });
+              }
+              if (invoiceStatus?.code === 440) {
+                if (invoiceId) await supabase.from('user_invoices').update({ ksef_status: 'rejected' }).eq('id', invoiceId);
+                return jsonRes({ success: false, status: 'rejected', error: 'Duplikat faktury (440)' });
+              }
             }
           } catch { /* ignore */ }
 
@@ -805,7 +833,7 @@ serve(async (req) => {
           return jsonRes({ success: true, status: 'accepted', ksef_reference: ksefNumber, environment });
         }
 
-        if (st.includes('fail') || st.includes('error') || st.includes('reject')) {
+        if (statusCode === 445 || statusCode === 450 || statusCode === 435 || statusCode === 440) {
           let errDetail = 'Faktura odrzucona przez KSeF';
           try {
             const fRes = await fetch(`${base}/sessions/${sessionRef}/invoices/failed`, { headers: { 'Authorization': `Bearer ${accessToken}` } });
