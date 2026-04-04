@@ -624,24 +624,29 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
                     <p className="text-sm font-medium">Wyślij fakturę mailem</p>
                   </div>
                   <div className="flex gap-2">
-                    <Input
-                      type="email"
-                      value={inlineEmail}
-                      onChange={(e) => setInlineEmail(e.target.value)}
-                      placeholder="adres@email.com"
-                      className="flex-1 h-8 text-sm"
-                      autoFocus
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && inlineEmail) {
-                          handleSendInvoiceEmail(inlineEmail);
-                        }
-                      }}
-                    />
+                    <div className="relative flex-1">
+                      <Input
+                        type="email"
+                        value={inlineEmail}
+                        onChange={(e) => setInlineEmail(e.target.value)}
+                        placeholder="adres@email.com"
+                        className="h-8 text-sm pr-8"
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && inlineEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inlineEmail)) {
+                            handleSendInvoiceEmail(inlineEmail);
+                          }
+                        }}
+                      />
+                      {inlineEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inlineEmail) && (
+                        <CheckCircle className="h-4 w-4 text-green-500 absolute right-2 top-1/2 -translate-y-1/2" />
+                      )}
+                    </div>
                     <Button 
                       size="sm" 
                       className="h-8"
                       onClick={() => handleSendInvoiceEmail(inlineEmail)} 
-                      disabled={isSendingEmail || !inlineEmail}
+                      disabled={isSendingEmail || !inlineEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inlineEmail)}
                     >
                       {isSendingEmail ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Wyślij'}
                     </Button>

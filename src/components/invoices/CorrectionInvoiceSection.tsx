@@ -4,7 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { FloatingInput } from '@/components/ui/floating-input';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Checkbox } from '@/components/ui/checkbox';
+
 import { Loader2, FileText, ArrowDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { calculateItemTotals, InvoiceItem } from '@/utils/invoiceHtmlGenerator';
@@ -391,12 +391,12 @@ export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataC
             <ArrowDown className="h-6 w-6 text-primary" />
           </div>
 
-          {/* SEKCJA C — POWINNO BYĆ */}
+          {/* SEKCJA C — POWINNO BYĆ (directly editable) */}
           <Card className="border-primary/30">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2">
                 <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30">POWINNO BYĆ</Badge>
-                <span className="text-muted-foreground text-xs">(edytuj wartości, które chcesz skorygować)</span>
+                <span className="text-muted-foreground text-xs">(kliknij w pole, aby je zmienić)</span>
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
@@ -418,51 +418,36 @@ export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataC
                   <TableBody>
                     {correctionItems.map((item, idx) => {
                       const t = calcItemTotals(item.quantity_after, item.unit_net_price_after, item.vat_rate_after);
+                      
+                      const nameChanged = item.name_after !== item.name;
+                      const qtyChanged = item.quantity_after !== item.quantity_before;
+                      const priceChanged = item.unit_net_price_after !== item.unit_net_price_before;
+                      const vatChanged = item.vat_rate_after !== item.vat_rate_before;
                       return (
                         <TableRow key={idx}>
                           <TableCell className="text-xs">{idx + 1}</TableCell>
-                          <TableCell className="text-xs">
-                            <div className="space-y-2">
-                              <input
-                                type="text"
-                                className="w-full h-8 text-xs border border-border rounded px-2 bg-background disabled:opacity-50"
-                                value={item.name_after}
-                                disabled={!item.edit_name}
-                                onChange={e => updateCorrectionItem(idx, 'name_after', e.target.value)}
-                              />
-                              <div className="flex flex-wrap gap-3 text-[11px] text-muted-foreground">
-                                <label className="flex items-center gap-1">
-                                  <Checkbox checked={item.edit_name} onCheckedChange={(checked) => toggleCorrectionMode(idx, 'edit_name', checked === true)} />
-                                  Nazwa
-                                </label>
-                                <label className="flex items-center gap-1">
-                                  <Checkbox checked={item.edit_quantity} onCheckedChange={(checked) => toggleCorrectionMode(idx, 'edit_quantity', checked === true)} />
-                                  Ilość
-                                </label>
-                                <label className="flex items-center gap-1">
-                                  <Checkbox checked={item.edit_price} onCheckedChange={(checked) => toggleCorrectionMode(idx, 'edit_price', checked === true)} />
-                                  Cena
-                                </label>
-                                <label className="flex items-center gap-1">
-                                  <Checkbox checked={item.edit_vat} onCheckedChange={(checked) => toggleCorrectionMode(idx, 'edit_vat', checked === true)} />
-                                  VAT
-                                </label>
-                                <label className="flex items-center gap-1">
-                                  <Checkbox checked={item.is_return} onCheckedChange={(checked) => toggleCorrectionMode(idx, 'is_return', checked === true)} />
-                                  Zwrot
-                                </label>
-                              </div>
-                            </div>
+                          <TableCell className="p-1">
+                            <input
+                              type="text"
+                              className={`w-full h-8 text-xs border rounded px-2 bg-background transition-colors ${nameChanged ? 'border-primary bg-primary/5 font-medium' : 'border-border'}`}
+                              value={item.name_after}
+                              onChange={e => {
+                                toggleCorrectionMode(idx, 'edit_name', true);
+                                updateCorrectionItem(idx, 'name_after', e.target.value);
+                              }}
+                            />
                           </TableCell>
                           <TableCell className="p-1">
                             <input
                               type="number"
                               min={0}
                               step={0.01}
-                              className="w-full h-8 text-xs text-right border border-border rounded px-2 bg-background disabled:opacity-50"
+                              className={`w-full h-8 text-xs text-right border rounded px-2 bg-background transition-colors ${qtyChanged ? 'border-primary bg-primary/5 font-medium' : 'border-border'}`}
                               value={item.quantity_after}
-                              disabled={!item.edit_quantity && !item.is_return}
-                              onChange={e => updateCorrectionItem(idx, 'quantity_after', parseFloat(e.target.value) || 0)}
+                              onChange={e => {
+                                toggleCorrectionMode(idx, 'edit_quantity', true);
+                                updateCorrectionItem(idx, 'quantity_after', parseFloat(e.target.value) || 0);
+                              }}
                             />
                           </TableCell>
                           <TableCell className="text-xs">{item.unit}</TableCell>
@@ -471,16 +456,21 @@ export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataC
                               type="number"
                               min={0}
                               step={0.01}
-                              className="w-full h-8 text-xs text-right border border-border rounded px-2 bg-background disabled:opacity-50"
+                              className={`w-full h-8 text-xs text-right border rounded px-2 bg-background transition-colors ${priceChanged ? 'border-primary bg-primary/5 font-medium' : 'border-border'}`}
                               value={item.unit_net_price_after}
-                              disabled={!item.edit_price}
-                              onChange={e => updateCorrectionItem(idx, 'unit_net_price_after', parseFloat(e.target.value) || 0)}
+                              onChange={e => {
+                                toggleCorrectionMode(idx, 'edit_price', true);
+                                updateCorrectionItem(idx, 'unit_net_price_after', parseFloat(e.target.value) || 0);
+                              }}
                             />
                           </TableCell>
                           <TableCell className="text-xs text-right">{fmt(t.net)}</TableCell>
                           <TableCell className="p-1">
-                            <Select value={item.vat_rate_after} onValueChange={(value) => updateCorrectionItem(idx, 'vat_rate_after', value)} disabled={!item.edit_vat}>
-                              <SelectTrigger className="h-8 text-xs">
+                            <Select value={item.vat_rate_after} onValueChange={(value) => {
+                              toggleCorrectionMode(idx, 'edit_vat', true);
+                              updateCorrectionItem(idx, 'vat_rate_after', value);
+                            }}>
+                              <SelectTrigger className={`h-8 text-xs ${vatChanged ? 'border-primary bg-primary/5' : ''}`}>
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>

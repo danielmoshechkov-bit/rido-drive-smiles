@@ -283,7 +283,7 @@ serve(async (req) => {
       customMessage: custom_message,
     });
 
-    const fromAddress = `${companyName} via GetRido <onboarding@resend.dev>`;
+    const fromAddress = `${companyName} via GetRido <noreply@getrido.pl>`;
     const replyTo = companyEmail || undefined;
 
     console.log(`Sending email to ${toEmail}, from: ${fromAddress}, subject: ${subject}`);
@@ -298,15 +298,19 @@ serve(async (req) => {
     };
 
     // Add PDF attachment if provided
-    if (pdf_base64) {
+    if (pdf_base64 && pdf_base64.length > 100) {
       const pdfFilename = `${invoiceNumber || 'Faktura'}.pdf`.replace(/\//g, '-');
+      // Resend expects content as a base64 string for attachments
       emailOptions.attachments = [
         {
           filename: pdfFilename,
           content: pdf_base64,
+          type: 'application/pdf',
         }
       ];
       console.log(`Attaching PDF: ${pdfFilename} (${Math.round(pdf_base64.length / 1024)}KB base64)`);
+    } else {
+      console.log('No PDF attachment - pdf_base64 is', pdf_base64 ? `too short (${pdf_base64.length})` : 'null/undefined');
     }
 
     const emailResponse = await resend.emails.send(emailOptions);
