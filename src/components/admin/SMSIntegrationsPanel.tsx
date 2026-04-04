@@ -64,13 +64,11 @@ export const SMSIntegrationsPanel = () => {
     try {
       const { data, error } = await supabase
         .from('sms_settings')
-        .select('id, provider, api_url, api_key_secret_name, sender_name, is_active')
-        .order('updated_at', { ascending: false })
-        .order('created_at', { ascending: false })
+        .select('id, provider, api_url, api_key_secret_name, api_key, sender_name, is_active')
         .limit(1)
-        .maybeSingle();
+        .single();
 
-      if (error) throw error;
+      if (error && error.code !== 'PGRST116') throw error;
 
       if (data) {
         const provider = data.provider || DEFAULT_PROVIDER;
@@ -112,12 +110,13 @@ export const SMSIntegrationsPanel = () => {
     setSaving(true);
     try {
       const providerConfig = SMS_PROVIDERS.find((item) => item.value === formData.provider);
+      const senderClean = (formData.sender_name || 'GetRido.pl').replace(/[^a-zA-Z0-9.\-]/g, '').slice(0, 11);
       const updateData: Record<string, any> = {
         provider: formData.provider,
         api_url: formData.provider === 'custom'
           ? formData.api_url.trim()
           : (providerConfig?.apiUrl || formData.api_url.trim()),
-        sender_name: (formData.sender_name || 'GetRido.pl').slice(0, 11),
+        sender_name: senderClean,
         is_active: formData.is_active,
         api_key_secret_name: 'SMSAPI_TOKEN',
         updated_at: new Date().toISOString(),
@@ -136,6 +135,7 @@ export const SMSIntegrationsPanel = () => {
 
         if (error) throw error;
       } else {
+        updateData.api_key = apiKey.trim() || '';
         const { error } = await supabase
           .from('sms_settings')
           .insert(updateData as any);
@@ -150,11 +150,11 @@ export const SMSIntegrationsPanel = () => {
       });
 
       await fetchSettings();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving SMS settings:', error);
       toast({
         title: 'Błąd',
-        description: 'Nie udało się zapisać ustawień SMS',
+        description: error?.message || 'Nie udało się zapisać ustawień SMS',
         variant: 'destructive',
       });
     } finally {
@@ -286,7 +286,7 @@ export const SMSIntegrationsPanel = () => {
               type="password"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
-              placeholder={settings?.api_key_secret_name ? '••••••••••••••••' : 'Klucz API'}
+              placeholder={((settings as any)?.api_key) ? '••••••••• (klucz zapisany)' : 'Klucz API'}
             />
             <p className="text-xs text-muted-foreground">
               {settings?.api_key_secret_name
