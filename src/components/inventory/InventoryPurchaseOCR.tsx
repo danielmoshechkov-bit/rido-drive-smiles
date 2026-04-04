@@ -689,8 +689,8 @@ export function InventoryPurchaseOCR({ entityId }: Props) {
                   </div>
 
                   {fileBase64 && !ocrDone && (
-                    <Button onClick={handleOCR} disabled={processing || aiLoading} className="w-full mt-4" size="lg">
-                      {(processing || aiLoading) ? (
+                    <Button onClick={handleOCR} disabled={processing} className="w-full mt-4" size="lg">
+                      {processing ? (
                         <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Rozpoznawanie przez AI...</>
                       ) : (
                         <><Scan className="h-4 w-4 mr-2" />Rozpoznaj fakturę (AI OCR)</>
