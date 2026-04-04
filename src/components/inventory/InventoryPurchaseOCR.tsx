@@ -237,9 +237,7 @@ export function InventoryPurchaseOCR({ entityId, showKsefOption }: Props) {
       const { data: { publicUrl } } = supabase.storage.from('documents').getPublicUrl(fileName);
       setUploadedFileUrl(publicUrl);
       setUploading(false);
-      
-      // Auto-trigger OCR immediately after upload
-      await runOCR(b64, file.type || 'application/octet-stream');
+      toast.success('Plik przesłany. Kliknij "Rozpoznaj" aby AI odczytało fakturę.');
     } catch (err) {
       console.error('File processing error:', err);
       toast.error('Błąd przetwarzania pliku');
