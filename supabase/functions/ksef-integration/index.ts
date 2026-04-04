@@ -1468,6 +1468,12 @@ serve(async (req) => {
             } catch { /* ignore */ }
           }
 
+          // Only mark as accepted if we actually got a ksefNumber
+          if (!ksefNumber) {
+            console.log('[KSeF][check_status] session OK but no ksefNumber yet — still processing');
+            return jsonRes({ success: true, status: 'processing', message: 'Sesja aktywna, faktura jeszcze przetwarzana...' });
+          }
+
           // SUCCESS: save ksefNumber
           if (invoiceId) {
             await supabase.from('user_invoices').update({ 
@@ -1491,7 +1497,6 @@ serve(async (req) => {
           if (upoDownloadUrl) {
             try {
               console.log('[KSeF][check_status] upo.download.request');
-              // Per docs: UPO download does NOT require Bearer token
               const upoRes = await fetch(upoDownloadUrl);
               if (upoRes.ok) {
                 const upoXml = await upoRes.text();
