@@ -159,6 +159,8 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
   const [issuedBy, setIssuedBy] = useState('');
   const [companyLogo, setCompanyLogo] = useState<string | null>(null);
   const [compactPdf, setCompactPdf] = useState(false);
+  const [autoSendKsef, setAutoSendKsef] = useState(false);
+  const [hasKsefToken, setHasKsefToken] = useState(false);
   
   // Collapsible sections
   const [sellerExpanded, setSellerExpanded] = useState(true);
