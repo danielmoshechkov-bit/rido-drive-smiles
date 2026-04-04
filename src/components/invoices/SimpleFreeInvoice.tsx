@@ -159,6 +159,8 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
   const [issuedBy, setIssuedBy] = useState('');
   const [companyLogo, setCompanyLogo] = useState<string | null>(null);
   const [compactPdf, setCompactPdf] = useState(false);
+  const [autoSendKsef, setAutoSendKsef] = useState(false);
+  const [hasKsefToken, setHasKsefToken] = useState(false);
   
   // Collapsible sections
   const [sellerExpanded, setSellerExpanded] = useState(true);
@@ -221,6 +223,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
   // Invoice issuing state
   const [isIssuing, setIsIssuing] = useState(false);
   const [invoiceIssued, setInvoiceIssued] = useState(false);
+  const [lastSavedInvoiceId, setLastSavedInvoiceId] = useState<string | null>(null);
   
   // User's saved company
   const [savedCompanyId, setSavedCompanyId] = useState<string | null>(null);
@@ -294,6 +297,16 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
       
       if (session?.user) {
         await loadUserCompanyData(session.user.id);
+        // Check if user has KSeF token configured
+        const { data: cs } = await supabase
+          .from('company_settings')
+          .select('ksef_token')
+          .eq('user_id', session.user.id)
+          .maybeSingle();
+        if (cs?.ksef_token) {
+          setHasKsefToken(true);
+          setAutoSendKsef(true);
+        }
       }
     };
     checkAuthAndLoadData();
@@ -759,6 +772,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
           .single();
 
         if (error) throw error;
+        if (savedInvoice) setLastSavedInvoiceId(savedInvoice.id);
 
         // Save invoice items
         if (savedInvoice) {
@@ -847,6 +861,23 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
       setInvoiceIssued(true);
       setShowPreview(true);
       toast.success('Faktura została wystawiona!');
+
+      // Auto-send to KSeF if enabled
+      if (autoSendKsef && (lastSavedInvoiceId || editInvoiceId)) {
+        const invoiceIdToSend = editInvoiceId || lastSavedInvoiceId;
+        try {
+          const { data, error } = await supabase.functions.invoke('ksef-integration', {
+            body: { action: 'send', invoice_id: invoiceIdToSend },
+          });
+          if (error || !data?.success) {
+            toast.error('Faktura wystawiona, ale błąd wysyłania do KSeF: ' + (data?.error || error?.message || ''));
+          } else {
+            toast.success('Faktura wysłana do KSeF');
+          }
+        } catch (ksefErr: any) {
+          toast.error('Błąd KSeF: ' + ksefErr.message);
+        }
+      }
     } catch (err) {
       console.error('Error issuing invoice:', err);
       // Error toast already shown in handleSave
@@ -1549,6 +1580,20 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
                 <Checkbox 
                   checked={compactPdf}
                   onCheckedChange={(checked) => setCompactPdf(checked as boolean)}
+                />
+              </div>
+
+              <Separator />
+
+              {/* KSeF auto-send */}
+              <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
+                <div>
+                  <Label className="font-medium">Wyślij do KSeF po wystawieniu</Label>
+                  <p className="text-xs text-muted-foreground">Wymagane od 1.04.2026 dla faktur VAT</p>
+                </div>
+                <Checkbox 
+                  checked={autoSendKsef}
+                  onCheckedChange={(checked) => setAutoSendKsef(checked as boolean)}
                 />
               </div>
 

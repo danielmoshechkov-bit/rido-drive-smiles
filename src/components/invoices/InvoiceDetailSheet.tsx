@@ -22,6 +22,7 @@ import {
   CreditCard,
   Loader2
 } from 'lucide-react';
+import { KsefSendButton } from './KsefSendButton';
 
 interface UserInvoice {
   id: string;
@@ -46,6 +47,8 @@ interface UserInvoice {
   currency?: string;
   notes?: string;
   created_at: string;
+  ksef_status?: string;
+  ksef_reference?: string;
 }
 
 interface InvoiceDetailSheetProps {
@@ -212,6 +215,7 @@ export function InvoiceDetailSheet({ invoice, open, onOpenChange, onUpdate }: In
           nip: invoice.buyer_nip || '',
           address_street: invoice.buyer_address || '',
         },
+        ksef_reference: invoice.ksef_reference || undefined,
       };
 
       // Generate HTML and open print window
@@ -485,6 +489,7 @@ export function InvoiceDetailSheet({ invoice, open, onOpenChange, onUpdate }: In
                   Edytuj
                 </Button>
               </div>
+              <KsefSendButton invoiceId={invoice.id} size="default" onStatusChange={onUpdate} />
             </>
           )}
         </div>

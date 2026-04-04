@@ -45,6 +45,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { SimpleFreeInvoice } from './SimpleFreeInvoice';
+import { KsefSendButton } from './KsefSendButton';
 
 interface UserInvoice {
   id: string;
@@ -69,6 +70,8 @@ interface UserInvoice {
   currency?: string;
   notes?: string;
   created_at: string;
+  ksef_status?: string;
+  ksef_reference?: string;
 }
 
 interface InvoiceExpandableRowProps {
@@ -222,6 +225,7 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
           nip: invoice.buyer_nip || '',
           address_street: invoice.buyer_address || '',
         },
+        ksef_reference: invoice.ksef_reference || undefined,
       };
 
       const html = generateInvoiceHtml(invoiceData);
@@ -533,6 +537,8 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
                 </PopoverContent>
               </Popover>
               
+              <KsefSendButton invoiceId={invoice.id} size="sm" onStatusChange={onUpdate} />
+
               <Button size="sm" variant="outline" onClick={handleEdit}>
                 <Edit className="h-4 w-4 mr-1" />
                 Edytuj
