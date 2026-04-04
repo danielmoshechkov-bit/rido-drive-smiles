@@ -502,8 +502,19 @@ export const printInvoice = (invoice: InvoiceData): void => {
     printWindow.document.write(html);
     printWindow.document.close();
     printWindow.focus();
-    setTimeout(() => {
-      printWindow.print();
-    }, 250);
+    // Wait for QR code image to load before printing
+    const imgs = printWindow.document.querySelectorAll('img.ksef-qr');
+    if (imgs.length > 0) {
+      let loaded = 0;
+      const tryPrint = () => { loaded++; if (loaded >= imgs.length) setTimeout(() => printWindow.print(), 100); };
+      imgs.forEach(img => {
+        if ((img as HTMLImageElement).complete) tryPrint();
+        else { img.addEventListener('load', tryPrint); img.addEventListener('error', tryPrint); }
+      });
+      // Fallback timeout
+      setTimeout(() => printWindow.print(), 3000);
+    } else {
+      setTimeout(() => printWindow.print(), 250);
+    }
   }
 };
