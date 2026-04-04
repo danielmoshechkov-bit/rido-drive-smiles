@@ -1,0 +1,1 @@
+DELETE FROM purchase_invoices WHERE ksef_number LIKE 'DEMO-%';
