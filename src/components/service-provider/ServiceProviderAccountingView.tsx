@@ -54,7 +54,7 @@ export function ServiceProviderAccountingView() {
   const [invoiceYear, setInvoiceYear] = useState(new Date().getFullYear());
   const [invoiceMonth, setInvoiceMonth] = useState(new Date().getMonth() + 1);
   const [showMissingCompanyModal, setShowMissingCompanyModal] = useState(false);
-  const [showKsefPurchase, setShowKsefPurchase] = useState(false);
+  
 
   useEffect(() => {
     loadData();
