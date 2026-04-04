@@ -372,7 +372,7 @@ function generateInvoiceXML(invoice: any, entity: any, items: any[]): string {
   const formaPlatnosci = invoice.payment_method === 'cash' ? '1' : '2';
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<Faktura xmlns="http://crd.gov.pl/wzor/2023/06/29/12648/">
+<Faktura xmlns="http://crd.gov.pl/wzor/2025/06/25/13775/">
   <Naglowek>
     <KodFormularza kodSystemowy="FA (3)" wersjaSchemy="1-0E">FA</KodFormularza>
     <WariantFormularza>3</WariantFormularza>
