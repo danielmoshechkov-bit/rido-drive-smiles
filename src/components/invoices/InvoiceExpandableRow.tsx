@@ -108,6 +108,10 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
   // Edit dialog state
   const [showEditDialog, setShowEditDialog] = useState(false);
   
+  // Preview modal state
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [previewInvoiceData, setPreviewInvoiceData] = useState<InvoiceData | null>(null);
+  
   // Reminder dialog state
   const [showReminderPopover, setShowReminderPopover] = useState(false);
   const [reminderDate, setReminderDate] = useState<Date | undefined>(
