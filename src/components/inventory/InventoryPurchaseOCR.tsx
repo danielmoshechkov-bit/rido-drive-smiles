@@ -163,11 +163,26 @@ export function InventoryPurchaseOCR({ entityId }: Props) {
     setLoadingInvoices(false);
   }, []);
 
+  const fetchCompanyNip = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data } = await supabase
+      .from('company_settings')
+      .select('nip, company_name')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (data) {
+      setCompanyNip(data.nip?.replace(/[^0-9]/g, '') || null);
+      setCompanyName(data.company_name || null);
+    }
+  }, []);
+
   useEffect(() => {
     fetchProducts();
     fetchInvoices();
     fetchSupplierMappings();
-  }, [fetchProducts, fetchInvoices, fetchSupplierMappings]);
+    fetchCompanyNip();
+  }, [fetchProducts, fetchInvoices, fetchSupplierMappings, fetchCompanyNip]);
 
   /* ── File upload (click + drag-and-drop) ───────────────────────────── */
 
