@@ -46,17 +46,23 @@ export function InvoicePreviewModal({
     const iframe = iframeRef.current;
     if (!iframe) return;
 
-    window.requestAnimationFrame(() => {
+    const measure = () => {
       try {
         const doc = iframe.contentDocument;
         const bodyHeight = doc?.body?.scrollHeight || 0;
         const htmlHeight = doc?.documentElement?.scrollHeight || 0;
         const nextHeight = Math.max(bodyHeight, htmlHeight, 1120);
-        setIframeHeight(nextHeight);
+        setIframeHeight(nextHeight + 20); // small buffer to avoid scrollbar
       } catch (error) {
         console.error('Could not sync invoice preview height:', error);
       }
-    });
+    };
+
+    // Measure multiple times to catch late-rendering content (images, fonts)
+    measure();
+    setTimeout(measure, 300);
+    setTimeout(measure, 800);
+    setTimeout(measure, 1500);
   };
 
   useEffect(() => {
