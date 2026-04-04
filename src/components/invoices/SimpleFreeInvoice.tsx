@@ -229,6 +229,26 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
   // User's saved company
   const [savedCompanyId, setSavedCompanyId] = useState<string | null>(null);
 
+  // NIP lookup for buyer
+  const { lookup: nipLookup, loading: nipLoading, company: nipCompany, reset: nipReset } = useNipLookup();
+
+  // Auto-fill buyer when NIP lookup succeeds
+  useEffect(() => {
+    if (nipCompany) {
+      setBuyer(prev => ({
+        ...prev,
+        name: nipCompany.name || prev.name,
+        nip: nipCompany.nip || prev.nip,
+        address_street: nipCompany.street || prev.address_street,
+        address_building_number: nipCompany.buildingNumber || prev.address_building_number,
+        address_apartment_number: nipCompany.apartmentNumber || prev.address_apartment_number,
+        address_city: nipCompany.city || prev.address_city,
+        address_postal_code: nipCompany.postalCode || prev.address_postal_code,
+      }));
+      toast.success(`Znaleziono: ${nipCompany.name}`);
+    }
+  }, [nipCompany]);
+
   // Check auth state and load saved company data
   // Helper function to load user company data from multiple sources
   const loadUserCompanyData = async (userId: string) => {
