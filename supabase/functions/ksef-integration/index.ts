@@ -990,10 +990,10 @@ serve(async (req) => {
     if (action === 'generate_xml') {
       const { data: invoice, error: invErr } = await supabase.from('user_invoices').select('*').eq('id', body.invoice_id).single();
       if (invErr || !invoice) throw new Error('Faktura nie znaleziona');
-      const { data: items } = await supabase.from('invoice_items').select('*').eq('invoice_id', body.invoice_id);
-      const { data: entity } = await supabase.from('entities').select('*').eq('id', invoice.entity_id).single();
-      const xml = generateInvoiceXML(invoice, entity, items || []);
-      return jsonRes({ success: true, xml });
+      const { data: items } = await supabase.from('user_invoice_items').select('*').eq('invoice_id', body.invoice_id).order('sort_order');
+      const sellerEntity = await resolveSellerEntityForInvoice(req, supabase, invoice);
+      const artifacts = buildKsefInvoiceArtifacts(invoice, sellerEntity, items || []);
+      return jsonRes({ success: true, xml: artifacts.xml, warnings: artifacts.warnings, xsdViolations: artifacts.xsdViolations });
     }
 
     // ========== debug ==========
