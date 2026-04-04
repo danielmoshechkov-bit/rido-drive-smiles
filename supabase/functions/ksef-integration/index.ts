@@ -768,9 +768,9 @@ function buildKsefInvoiceArtifacts(invoice: any, entity: any, items: any[]) {
   const sellerSource = resolveSellerSource(entity);
   const formCode = 'FA (3) / 1-0E';
   
-  // Determine invoice type for KSeF
-  const isCorrection = invoice.is_correction === true || invoice.invoice_type === 'correction';
-  const invoiceType = isCorrection ? 'KOR' : 'VAT';
+  // Determine invoice type for KSeF — support all types
+  const isCorrection = invoice.is_correction === true || invoice.invoice_type === 'KOR' || invoice.invoice_type === 'correction' || invoice.invoice_type === 'KOR_ZAL' || invoice.invoice_type === 'KOR_ROZ';
+  const invoiceType = isCorrection ? 'KOR' : (invoice.invoice_type || 'VAT');
 
   const vatByRate: Record<string, { net: number; vat: number }> = {};
   items.forEach((item) => {
@@ -849,25 +849,24 @@ function buildKsefInvoiceArtifacts(invoice: any, entity: any, items: any[]) {
   ];
   const podmiot2 = podmiot2Lines.join('\n');
 
-  // Build correction-specific elements (P_3C = original invoice number, P_3D = original issue date)
+  // Build correction-specific elements
   let correctionElements = '';
-  let daneFaKorygowanejXml = '';
+  let correctionBlockXml = '';
   if (isCorrection) {
     const origNumber = invoice.corrected_invoice_number || '';
     const origDate = invoice.corrected_invoice_date || invoice.corrected_issue_date || invoice.sale_date || issueDate;
     if (origNumber) correctionElements += `\n        <P_3C>${escapeXml(origNumber)}</P_3C>`;
     if (origDate) correctionElements += `\n        <P_3D>${origDate}</P_3D>`;
     
-    // DaneFaKorygowanej is required by XSD FA(3) for KOR invoices
-    const corrOrigDate = invoice.corrected_invoice_date || invoice.corrected_issue_date || invoice.sale_date || issueDate;
-    const corrOrigNumber = invoice.corrected_invoice_number || invoice.invoice_number || '';
+    // DaneFaKorygowanej + TypKorekty required by XSD FA(3) for KOR invoices
     const hasKsefRef = !!invoice.corrected_ksef_reference;
-    daneFaKorygowanejXml = `
+    correctionBlockXml = `
     <DaneFaKorygowanej>
-      <DataWystFaKorygowanej>${corrOrigDate}</DataWystFaKorygowanej>
-      <NrFaKorygowanej>${escapeXml(corrOrigNumber)}</NrFaKorygowanej>
+      <DataWystFaKorygowanej>${origDate}</DataWystFaKorygowanej>
+      <NrFaKorygowanej>${escapeXml(origNumber)}</NrFaKorygowanej>
       ${hasKsefRef ? '<NrKSeF>1</NrKSeF>' : '<NrKSeFN>1</NrKSeFN>'}
-    </DaneFaKorygowanej>`;
+    </DaneFaKorygowanej>
+    <TypKorekty>2</TypKorekty>`;
   }
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -896,7 +895,7 @@ function buildKsefInvoiceArtifacts(invoice: any, entity: any, items: any[]) {
       <P_23>2</P_23>
       <PMarzy><P_PMarzyN>1</P_PMarzyN></PMarzy>
     </Adnotacje>
-    <RodzajFaktury>${invoiceType}</RodzajFaktury>${daneFaKorygowanejXml}${itemsXML}
+    <RodzajFaktury>${invoiceType}</RodzajFaktury>${correctionBlockXml}${itemsXML}
     <Platnosc>
       <TerminPlatnosci><Termin>${invoice.due_date || issueDate}</Termin></TerminPlatnosci>
       <FormaPlatnosci>${formaPlatnosci}</FormaPlatnosci>
@@ -1201,10 +1200,21 @@ serve(async (req) => {
       }
       const { data: items } = await supabase.from('user_invoice_items').select('*').eq('invoice_id', body.invoice_id).order('sort_order');
 
+      // Validate correction invoices have required original invoice data
+      const invoiceTypeVal = invoice.invoice_type || 'VAT';
+      if (['KOR', 'KOR_ZAL', 'KOR_ROZ'].includes(invoiceTypeVal) || invoice.is_correction === true) {
+        const corrNumber = invoice.corrected_invoice_number;
+        const corrDate = invoice.corrected_invoice_date || invoice.corrected_issue_date;
+        if (!corrNumber || !corrDate) {
+          throw new Error('Faktura korygująca wymaga numeru i daty pierwotnej faktury. Uzupełnij dane korekty przed wysyłką.');
+        }
+      }
+
       // Use shared seller resolution + XML builder with full XSD validation
       const sellerEntity = await resolveSellerEntityForInvoice(req, supabase, invoice);
       const artifacts = buildKsefInvoiceArtifacts(invoice, sellerEntity, items || []);
       const { xml } = artifacts;
+      console.log('[KSeF][send] XML:', xml);
 
       // Pre-send XSD validation — block if critical violations found
       const criticalViolations = artifacts.xsdViolations.filter(v => ['minOccurs', 'choice', 'missing'].includes(v.kind));
