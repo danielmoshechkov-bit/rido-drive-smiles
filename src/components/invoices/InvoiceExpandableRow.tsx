@@ -20,6 +20,8 @@ import {
   Calendar,
   Loader2,
   TrendingUp,
+  Send,
+  Mail,
 } from 'lucide-react';
 import {
   AlertDialog,
