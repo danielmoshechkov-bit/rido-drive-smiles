@@ -31,6 +31,7 @@ interface OriginalInvoice {
 
 export interface CorrectionItem {
   name: string;
+  name_after: string;
   quantity_before: number;
   quantity_after: number;
   unit: string;
@@ -38,6 +39,7 @@ export interface CorrectionItem {
   unit_net_price_after: number;
   vat_rate_before: string;
   vat_rate_after: string;
+  edit_name: boolean;
   edit_quantity: boolean;
   edit_price: boolean;
   edit_vat: boolean;
@@ -98,7 +100,7 @@ function applyReasonPreset(item: CorrectionItem, reason: string): CorrectionItem
 function toAfterInvoiceItems(items: CorrectionItem[]): InvoiceItem[] {
   return items.map((item) =>
     calculateItemTotals({
-      name: item.name,
+      name: item.name_after,
       quantity: item.quantity_after,
       unit: item.unit,
       unit_net_price: item.unit_net_price_after,
@@ -173,6 +175,7 @@ export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataC
 
     const cItems: CorrectionItem[] = loadedItems.map((item: any) => applyReasonPreset({
       name: item.name || '',
+      name_after: item.name || '',
       quantity_before: item.quantity || 0,
       quantity_after: item.quantity || 0,
       unit: item.unit || 'szt.',
@@ -180,6 +183,7 @@ export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataC
       unit_net_price_after: item.unit_net_price || 0,
       vat_rate_before: item.vat_rate || '23',
       vat_rate_after: item.vat_rate || '23',
+      edit_name: false,
       edit_quantity: false,
       edit_price: false,
       edit_vat: false,
@@ -201,7 +205,7 @@ export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataC
     emitChange(cItems, correctionReason, correctionReasonText, invoice);
   };
 
-  const updateCorrectionItem = (index: number, field: 'quantity_after' | 'unit_net_price_after' | 'vat_rate_after', value: number | string) => {
+  const updateCorrectionItem = (index: number, field: 'name_after' | 'quantity_after' | 'unit_net_price_after' | 'vat_rate_after', value: number | string) => {
     setCorrectionItems(prev => {
       const updated = [...prev];
       updated[index] = { ...updated[index], [field]: value };
@@ -210,7 +214,7 @@ export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataC
     });
   };
 
-  const toggleCorrectionMode = (index: number, field: 'edit_quantity' | 'edit_price' | 'edit_vat' | 'is_return', checked: boolean) => {
+  const toggleCorrectionMode = (index: number, field: 'edit_name' | 'edit_quantity' | 'edit_price' | 'edit_vat' | 'is_return', checked: boolean) => {
     setCorrectionItems(prev => {
       const updated = [...prev];
       const current = updated[index];
@@ -419,8 +423,18 @@ export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataC
                           <TableCell className="text-xs">{idx + 1}</TableCell>
                           <TableCell className="text-xs">
                             <div className="space-y-2">
-                              <div className="font-medium">{item.name}</div>
+                              <input
+                                type="text"
+                                className="w-full h-8 text-xs border border-border rounded px-2 bg-background disabled:opacity-50"
+                                value={item.name_after}
+                                disabled={!item.edit_name}
+                                onChange={e => updateCorrectionItem(idx, 'name_after', e.target.value)}
+                              />
                               <div className="flex flex-wrap gap-3 text-[11px] text-muted-foreground">
+                                <label className="flex items-center gap-1">
+                                  <Checkbox checked={item.edit_name} onCheckedChange={(checked) => toggleCorrectionMode(idx, 'edit_name', checked === true)} />
+                                  Nazwa
+                                </label>
                                 <label className="flex items-center gap-1">
                                   <Checkbox checked={item.edit_quantity} onCheckedChange={(checked) => toggleCorrectionMode(idx, 'edit_quantity', checked === true)} />
                                   Ilość
