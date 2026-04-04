@@ -1423,15 +1423,10 @@ export default function ClientPortal() {
                   </CardHeader>
                   <CardContent>
                     {invoices.length > 0 ? (
-                      <div className="space-y-3 pb-20">
-                        {invoices.map((invoice) => (
-                          <InvoiceExpandableRow
-                            key={invoice.id}
-                            invoice={invoice}
-                            onUpdate={() => user && fetchUserInvoices(user.id)}
-                          />
-                        ))}
-                      </div>
+                      <InvoiceListWithActions
+                        invoices={invoices}
+                        onUpdate={() => user && fetchUserInvoices(user.id)}
+                      />
                     ) : (
                       <div className="text-center py-12 text-muted-foreground">
                         <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
