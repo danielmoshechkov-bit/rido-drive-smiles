@@ -228,6 +228,9 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
   const [invoiceIssued, setInvoiceIssued] = useState(false);
   const [lastSavedInvoiceId, setLastSavedInvoiceId] = useState<string | null>(null);
   
+  // Correction invoice state
+  const [correctionData, setCorrectionData] = useState<CorrectionData | null>(null);
+  
   // User's saved company
   const [savedCompanyId, setSavedCompanyId] = useState<string | null>(null);
 
