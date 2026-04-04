@@ -624,7 +624,7 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
                     <p className="text-sm font-medium">Wyślij fakturę mailem</p>
                   </div>
                   <div className="flex gap-2">
-                    <div className="relative flex-1">
+                      <div className="relative flex-1">
                       <Input
                         type="email"
                         value={inlineEmail}
@@ -638,8 +638,8 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
                           }
                         }}
                       />
-                      {inlineEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inlineEmail) && (
-                        <CheckCircle className="h-4 w-4 text-green-500 absolute right-2 top-1/2 -translate-y-1/2" />
+                      {inlineEmail.length > 5 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inlineEmail) && !isSendingEmail && (
+                        <CheckCircle className="h-4 w-4 text-green-500 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
                       )}
                     </div>
                     <Button 

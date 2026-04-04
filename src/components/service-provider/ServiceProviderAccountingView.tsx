@@ -284,30 +284,7 @@ export function ServiceProviderAccountingView() {
 
       {/* Zakupy */}
       {subTab === 'zakupy' && (
-        <div className="space-y-4">
-          <div className="flex items-center gap-3">
-            <Button
-              variant={!showKsefPurchase ? 'default' : 'outline'}
-              onClick={() => setShowKsefPurchase(false)}
-            >
-              <ShoppingBag className="h-4 w-4 mr-2" />
-              Zakupy (OCR)
-            </Button>
-            <Button
-              variant={showKsefPurchase ? 'default' : 'outline'}
-              onClick={() => setShowKsefPurchase(true)}
-              className="gap-2"
-            >
-              <Download className="h-4 w-4" />
-              Pobierz z KSeF
-            </Button>
-          </div>
-          {showKsefPurchase ? (
-            <PurchaseInvoicesKSeF />
-          ) : (
-            <InventoryPurchaseOCR entityId={userEntities[0]?.id} />
-          )}
-        </div>
+        <InventoryPurchaseOCR entityId={userEntities[0]?.id} showKsefOption />
       )}
 
       {/* Oczekujące na sprawdzenie */}
