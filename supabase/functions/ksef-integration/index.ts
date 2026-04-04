@@ -682,7 +682,7 @@ serve(async (req) => {
           ...(upoXml ? { upo_content: upoXml } : {}),
           environment,
         }).eq('id', transmission.id);
-        await supabase.from('invoices').update({ ksef_status: finalStatus, ksef_reference: ksefNumber, ksef_environment: environment }).eq('id', body.invoice_id);
+        await supabase.from('user_invoices').update({ ksef_status: finalStatus, ksef_reference: ksefNumber, ksef_environment: environment }).eq('id', body.invoice_id);
 
         return jsonRes({ success: true, ksef_reference: ksefNumber, session_ref: sessionRef, status: finalStatus, upo_available: !!upoXml, environment });
       } catch (sendErr: any) {
