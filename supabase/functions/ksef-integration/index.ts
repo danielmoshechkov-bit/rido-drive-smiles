@@ -851,11 +851,23 @@ function buildKsefInvoiceArtifacts(invoice: any, entity: any, items: any[]) {
 
   // Build correction-specific elements (P_3C = original invoice number, P_3D = original issue date)
   let correctionElements = '';
+  let daneFaKorygowanejXml = '';
   if (isCorrection) {
     const origNumber = invoice.corrected_invoice_number || '';
-    const origDate = invoice.corrected_issue_date || invoice.sale_date || issueDate;
+    const origDate = invoice.corrected_invoice_date || invoice.corrected_issue_date || invoice.sale_date || issueDate;
     if (origNumber) correctionElements += `\n        <P_3C>${escapeXml(origNumber)}</P_3C>`;
     if (origDate) correctionElements += `\n        <P_3D>${origDate}</P_3D>`;
+    
+    // DaneFaKorygowanej is required by XSD FA(3) for KOR invoices
+    const corrOrigDate = invoice.corrected_invoice_date || invoice.corrected_issue_date || invoice.sale_date || issueDate;
+    const corrOrigNumber = invoice.corrected_invoice_number || invoice.invoice_number || '';
+    const hasKsefRef = !!invoice.corrected_ksef_reference;
+    daneFaKorygowanejXml = `
+    <DaneFaKorygowanej>
+      <DataWystFaKorygowanej>${corrOrigDate}</DataWystFaKorygowanej>
+      <NrFaKorygowanej>${escapeXml(corrOrigNumber)}</NrFaKorygowanej>
+      ${hasKsefRef ? '<NrKSeF>1</NrKSeF>' : '<NrKSeFN>1</NrKSeFN>'}
+    </DaneFaKorygowanej>`;
   }
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
