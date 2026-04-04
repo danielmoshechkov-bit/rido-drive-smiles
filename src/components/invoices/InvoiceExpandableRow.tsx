@@ -88,14 +88,16 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   
   // Live KSeF status tracking (updates without page refresh)
-  const [liveKsefStatus, setLiveKsefStatus] = useState<string | undefined>(invoice.ksef_status);
+  const [liveKsefStatus, setLiveKsefStatus] = useState<string | undefined>(invoice.ksef_reference ? 'accepted' : invoice.ksef_status);
   const [liveKsefReference, setLiveKsefReference] = useState<string | undefined>(invoice.ksef_reference);
   
   // Sync from prop when parent refetches
   useEffect(() => {
-    setLiveKsefStatus(invoice.ksef_status);
+    setLiveKsefStatus(invoice.ksef_reference ? 'accepted' : invoice.ksef_status);
     setLiveKsefReference(invoice.ksef_reference);
   }, [invoice.ksef_status, invoice.ksef_reference]);
+
+  const effectiveKsefStatus = liveKsefReference ? 'accepted' : liveKsefStatus;
   
   // Email dialog state
   const [showEmailDialog, setShowEmailDialog] = useState(false);
@@ -197,7 +199,7 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
         .from('user_invoices')
         .select('ksef_status, ksef_reference')
         .eq('id', invoice.id)
-        .single();
+        .maybeSingle();
       const latestKsefRef = freshInvoice?.ksef_reference || liveKsefReference;
 
       const { data: items } = await supabase
@@ -547,15 +549,15 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
                 size="sm" 
                 variant="outline" 
                 onClick={handleDownloadPdf} 
-                disabled={isGeneratingPdf || liveKsefStatus === 'processing' || liveKsefStatus === 'sent'}
-                title={liveKsefStatus === 'processing' || liveKsefStatus === 'sent' ? 'Czekaj na zatwierdzenie KSeF' : 'Pobierz PDF'}
+                disabled={isGeneratingPdf || effectiveKsefStatus === 'processing' || effectiveKsefStatus === 'sent'}
+                title={effectiveKsefStatus === 'processing' || effectiveKsefStatus === 'sent' ? 'Czekaj na zatwierdzenie KSeF' : 'Pobierz PDF'}
               >
                 {isGeneratingPdf ? (
                   <Loader2 className="h-4 w-4 mr-1 animate-spin" />
                 ) : (
                   <Download className="h-4 w-4 mr-1" />
                 )}
-                {liveKsefStatus === 'processing' || liveKsefStatus === 'sent' 
+                {effectiveKsefStatus === 'processing' || effectiveKsefStatus === 'sent' 
                   ? '⏳ Czekaj na KSeF...' 
                   : isGeneratingPdf ? 'Generuję...' : 'PDF'}
               </Button>
