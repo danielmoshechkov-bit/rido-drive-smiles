@@ -82,6 +82,9 @@ export function InventoryPurchaseOCR({ entityId }: Props) {
   const [buyerNip, setBuyerNip] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Product search in dropdown
+  const [productDropdownSearch, setProductDropdownSearch] = useState('');
+
   // Tab
   const [activeTab, setActiveTab] = useState<'zakupy' | 'towary' | 'eksport'>('zakupy');
 
