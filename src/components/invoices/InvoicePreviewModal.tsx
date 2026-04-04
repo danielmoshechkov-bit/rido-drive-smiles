@@ -3,8 +3,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   Download, 
   Send, 
@@ -13,7 +11,7 @@ import {
   Loader2,
   Save
 } from 'lucide-react';
-import { InvoiceData, generateInvoiceHtml, formatCurrency } from '@/utils/invoiceHtmlGenerator';
+import { InvoiceData, generateInvoiceHtml } from '@/utils/invoiceHtmlGenerator';
 import { AuthModal } from '@/components/auth/AuthModal';
 
 interface InvoicePreviewModalProps {
@@ -41,7 +39,31 @@ export function InvoicePreviewModal({
   const [isSending, setIsSending] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [pendingAction, setPendingAction] = useState<'save' | 'send' | null>(null);
+  const [iframeHeight, setIframeHeight] = useState(1120);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  const syncIframeHeight = () => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+
+    window.requestAnimationFrame(() => {
+      try {
+        const doc = iframe.contentDocument;
+        const bodyHeight = doc?.body?.scrollHeight || 0;
+        const htmlHeight = doc?.documentElement?.scrollHeight || 0;
+        const nextHeight = Math.max(bodyHeight, htmlHeight, 1120);
+        setIframeHeight(nextHeight);
+      } catch (error) {
+        console.error('Could not sync invoice preview height:', error);
+      }
+    });
+  };
+
+  useEffect(() => {
+    if (open) {
+      setIframeHeight(1120);
+    }
+  }, [open, invoiceData]);
 
   const handleDownloadPdf = () => {
     const html = generateInvoiceHtml(invoiceData);
@@ -190,16 +212,18 @@ export function InvoicePreviewModal({
           )}
 
           {/* Invoice Preview - full width responsive */}
-          <div className="flex-1 overflow-auto bg-muted/50 p-2 md:p-4">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden bg-muted/50 p-2 md:p-4">
             <div 
-              className="mx-auto bg-white shadow-xl rounded-lg overflow-hidden w-full max-w-[100%]"
+              className="mx-auto bg-white shadow-xl rounded-lg w-full max-w-[100%]"
             >
               <iframe
                 ref={iframeRef}
                 className="w-full border-0"
-                style={{ minHeight: '80vh' }}
+                style={{ height: `${iframeHeight}px` }}
                 title="Podgląd faktury"
                 sandbox="allow-same-origin"
+                scrolling="no"
+                onLoad={syncIframeHeight}
                 srcDoc={open ? generateInvoiceHtml(invoiceData) : ''}
               />
             </div>

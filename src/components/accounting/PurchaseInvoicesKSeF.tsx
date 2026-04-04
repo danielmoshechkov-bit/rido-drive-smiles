@@ -125,7 +125,11 @@ export function PurchaseInvoicesKSeF() {
       if (error) throw new Error(error.message || 'Błąd Edge Function');
       if (!data?.success) throw new Error(data?.error || 'Błąd pobierania faktur');
 
-      toast.success('Pobrano ' + (data.count || 0) + ' faktur z KSeF' + (data.demo ? ' (DEMO)' : ''));
+      if ((data.count || 0) > 0) {
+        toast.success('Pobrano ' + (data.count || 0) + ' faktur z KSeF' + (data.demo ? ' (DEMO)' : ''));
+      } else {
+        toast.success('Brak nowych faktur w KSeF dla wybranego zakresu.');
+      }
       queryClient.invalidateQueries({ queryKey: ['purchase-invoices-ksef'] });
     } catch (err: any) {
       setKsefError(err.message);

@@ -1063,19 +1063,21 @@ serve(async (req) => {
 
       // KSeF requires plain YYYY-MM-DD format without timezone
       console.log('[KSeF][fetch_received] dateFrom:', dateFrom, 'dateTo:', dateTo);
-      const queryRes = await fetch(`${base}/invoices/query/metadata`, {
+      const queryUrl = new URL(`${base}/invoices/query/metadata`);
+      queryUrl.searchParams.set('pageOffset', '0');
+      queryUrl.searchParams.set('pageSize', '100');
+      queryUrl.searchParams.set('sortOrder', 'DESC');
+
+      const queryRes = await fetch(queryUrl.toString(), {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          filters: {
-            subjectType: 'subject2',
-            dateRange: {
-              startDate: dateFrom,
-              endDate: dateTo,
-            },
+          subjectType: 'subject2',
+          dateRange: {
+            from: dateFrom,
+            to: dateTo,
+            dateType: 'permanentStorage',
           },
-          page: 0,
-          size: 100,
         }),
       });
       if (!queryRes.ok) {
@@ -1083,7 +1085,7 @@ serve(async (req) => {
         throw new Error(`[PHASE:query-metadata] HTTP ${queryRes.status}: ${txt.slice(0, 300)}`);
       }
       const queryData = await queryRes.json();
-      const invoiceList = queryData?.invoices || queryData?.items || queryData?.data?.invoices || [];
+      const invoiceList = queryData?.items || queryData?.invoices || queryData?.data?.items || queryData?.data?.invoices || [];
       console.log('[KSeF][fetch_received] found:', invoiceList.length, 'invoices');
 
       const results: any[] = [];

@@ -35,6 +35,7 @@ const SMS_PROVIDERS = [
 
 const DEFAULT_PROVIDER = 'justsend';
 const DEFAULT_PROVIDER_CONFIG = SMS_PROVIDERS.find((provider) => provider.value === DEFAULT_PROVIDER)!;
+const sanitizeSenderName = (value: string) => value.replace(/[^a-zA-Z0-9.\-]/g, '').slice(0, 11);
 
 export const SMSIntegrationsPanel = () => {
   const [settings, setSettings] = useState<SMSSettings | null>(null);
@@ -66,9 +67,9 @@ export const SMSIntegrationsPanel = () => {
         .from('sms_settings')
         .select('id, provider, api_url, api_key_secret_name, api_key, sender_name, is_active')
         .limit(1)
-        .single();
+        .maybeSingle();
 
-      if (error && error.code !== 'PGRST116') throw error;
+      if (error) throw error;
 
       if (data) {
         const provider = data.provider || DEFAULT_PROVIDER;
@@ -110,7 +111,7 @@ export const SMSIntegrationsPanel = () => {
     setSaving(true);
     try {
       const providerConfig = SMS_PROVIDERS.find((item) => item.value === formData.provider);
-      const senderClean = (formData.sender_name || 'GetRido.pl').replace(/[^a-zA-Z0-9.\-]/g, '').slice(0, 11);
+      const senderClean = sanitizeSenderName(formData.sender_name || 'GetRido.pl');
       const updateData: Record<string, any> = {
         provider: formData.provider,
         api_url: formData.provider === 'custom'
@@ -127,44 +128,33 @@ export const SMSIntegrationsPanel = () => {
         updateData.api_key = apiKey.trim();
       }
 
-      if (settings?.id) {
-        const { error } = await supabase
-          .from('sms_settings')
-          .update(updateData)
-          .eq('id', settings.id);
+      const { error } = await supabase
+        .from('sms_settings')
+        .update(updateData)
+        .not('id', 'is', null);
 
-        if (error) throw error;
-      } else {
-        // Try to fetch existing row first (singleton pattern)
-        const { data: existing } = await supabase
-          .from('sms_settings')
-          .select('id')
-          .limit(1)
-          .maybeSingle();
-
-        if (existing?.id) {
-          updateData.api_key = apiKey.trim() || undefined;
-          const { error } = await supabase
-            .from('sms_settings')
-            .update(updateData)
-            .eq('id', existing.id);
-          if (error) throw error;
-        } else {
-          updateData.api_key = apiKey.trim() || '';
-          const { error } = await supabase
-            .from('sms_settings')
-            .insert(updateData as any);
-          if (error) throw error;
-        }
-      }
+      if (error) throw error;
 
       setApiKey('');
+      setSettings((prev) => ({
+        id: prev?.id || '',
+        provider: updateData.provider,
+        api_url: updateData.api_url,
+        api_key_secret_name: updateData.api_key_secret_name,
+        sender_name: updateData.sender_name,
+        is_active: Boolean(updateData.is_active),
+      }));
+      setFormData((prev) => ({
+        ...prev,
+        provider: updateData.provider,
+        api_url: updateData.api_url,
+        sender_name: senderClean,
+        is_active: Boolean(updateData.is_active),
+      }));
       toast({
         title: 'Zapisano',
         description: 'Ustawienia SMS zostały zapisane w portalu i działają globalnie.',
       });
-
-      await fetchSettings();
     } catch (error: any) {
       console.error('Error saving SMS settings:', error);
       toast({
