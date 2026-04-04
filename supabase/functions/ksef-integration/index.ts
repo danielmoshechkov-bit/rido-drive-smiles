@@ -483,13 +483,14 @@ serve(async (req) => {
           queryCriteria: {
             subjectType: 'subject2',
             dateRange: {
-              startDate: `${dateFrom}T00:00:00Z`,
-              endDate: `${dateTo}T23:59:59Z`,
+              from: `${dateFrom}T00:00:00Z`,
+              to: `${dateTo}T23:59:59Z`,
               dateType: 'Invoicing',
             },
           },
           pageOffset: 0,
           pageSize: 100,
+          sortOrder: 'ASC',
         }),
       });
       if (!queryRes.ok) {
