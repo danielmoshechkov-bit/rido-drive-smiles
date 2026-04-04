@@ -698,17 +698,8 @@ export function InventoryPurchaseOCR({ entityId, showKsefOption }: Props) {
       </div>
 
       {/* ═══════════ ZAKUPY TAB ═══════════ */}
-      {activeTab === 'zakupy' && (
+      {activeTab === 'zakupy' && viewMode === 'upload' && (
         <>
-          <div className="flex gap-2">
-            <Button variant={viewMode === 'upload' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('upload')} className="rounded-full">
-              <Upload className="h-4 w-4 mr-2" />Nowa faktura
-            </Button>
-            <Button variant={viewMode === 'history' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('history')} className="rounded-full">
-              <History className="h-4 w-4 mr-2" />Historia ({pastInvoices.length})
-            </Button>
-          </div>
-
           {viewMode === 'upload' && (
             <>
               {/* Dropzone */}
