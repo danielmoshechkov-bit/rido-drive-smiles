@@ -185,7 +185,8 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
       .eq('id', invoice.id)
       .single();
     if (fresh) {
-      setLiveKsefStatus(fresh.ksef_status || undefined);
+      const newStatus = fresh.ksef_reference ? 'accepted' : (fresh.ksef_status || undefined);
+      setLiveKsefStatus(newStatus);
       setLiveKsefReference(fresh.ksef_reference || undefined);
     }
     onUpdate();
