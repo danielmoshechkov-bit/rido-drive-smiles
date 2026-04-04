@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
-import { useGetRidoAI } from '@/hooks/useGetRidoAI';
+// OCR uses analyze-invoice edge function directly
 import { toast } from 'sonner';
 import {
   Upload, FileText, Loader2, CheckCircle, Plus, Scan, Eye, Trash2,
@@ -77,7 +77,6 @@ interface Props {
 
 export function InventoryPurchaseOCR({ entityId }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { execute: executeAI, isLoading: aiLoading } = useGetRidoAI();
 
   // Tab
   const [activeTab, setActiveTab] = useState<'zakupy' | 'towary' | 'eksport'>('zakupy');
@@ -97,6 +96,7 @@ export function InventoryPurchaseOCR({ entityId }: Props) {
   const [uploading, setUploading] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [fileBase64, setFileBase64] = useState<string | null>(null);
+  const [fileMimeType, setFileMimeType] = useState<string>('');
   const [uploadedFileUrl, setUploadedFileUrl] = useState<string | null>(null);
   const [invoiceHeader, setInvoiceHeader] = useState<InvoiceHeader | null>(null);
   const [ocrItems, setOcrItems] = useState<OCRItem[]>([]);
@@ -187,6 +187,7 @@ export function InventoryPurchaseOCR({ entityId }: Props) {
     try {
       const b64 = await fileToBase64(file);
       setFileBase64(b64);
+      setFileMimeType(file.type || 'application/octet-stream');
 
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { toast.error('Musisz być zalogowany'); setUploading(false); return; }
@@ -204,12 +205,15 @@ export function InventoryPurchaseOCR({ entityId }: Props) {
 
       const { data: { publicUrl } } = supabase.storage.from('documents').getPublicUrl(fileName);
       setUploadedFileUrl(publicUrl);
-      toast.success('Plik przesłany. Kliknij "Rozpoznaj" aby AI odczytało fakturę.');
+      setUploading(false);
+      
+      // Auto-trigger OCR immediately after upload
+      await runOCR(b64, file.type || 'application/octet-stream');
     } catch (err) {
       console.error('File processing error:', err);
       toast.error('Błąd przetwarzania pliku');
-    } finally {
       setUploading(false);
+    } finally {
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
@@ -226,101 +230,86 @@ export function InventoryPurchaseOCR({ entityId }: Props) {
     if (file) processFile(file);
   };
 
-  /* ── OCR via AI ──────────────────────────────────────────────────── */
+  /* ── OCR via analyze-invoice Edge Function (Claude) ──────────────── */
 
-  const handleOCR = async () => {
-    if (!fileBase64) return;
+  const runOCR = async (base64Data: string, mimeType: string) => {
     setProcessing(true);
 
     try {
-      const result = await executeAI({
-        feature: 'ocr',
-        taskType: 'ocr',
-        query: `Odczytaj tę fakturę zakupową i zwróć JSON z polami:
-{
-  "supplier_name": "...",
-  "supplier_nip": "...",
-  "document_number": "...",
-  "purchase_date": "YYYY-MM-DD",
-  "payment_method": "przelew/gotówka/karta",
-  "items": [
-    {
-      "name": "nazwa towaru",
-      "quantity": 1,
-      "unit": "szt.",
-      "unit_price_net": 10.00,
-      "vat_rate": 23,
-      "total_net": 10.00,
-      "total_gross": 12.30,
-      "supplier_symbol": "kod dostawcy jeśli jest",
-      "gtu_code": "GTU_XX jeśli jest"
-    }
-  ],
-  "net_total": 0,
-  "vat_total": 0,
-  "gross_total": 0
-}
-Odpowiedz TYLKO samym JSON bez żadnego tekstu, bez markdown.`,
-        imageBase64: fileBase64,
+      const { data: extractedData, error: extractError } = await supabase.functions.invoke('analyze-invoice', {
+        body: { 
+          fileBase64: base64Data,
+          mimeType: mimeType
+        }
       });
 
-      if (!result?.result) {
-        toast.error('AI nie zwróciło wyniku. Sprawdź konfigurację OCR w Centrum AI.');
+      if (extractError) {
+        console.error('analyze-invoice error:', extractError);
+        toast.error('Nie udało się odczytać faktury. Spróbuj ponownie.');
         setProcessing(false);
         return;
       }
 
-      let parsed: any;
-      try {
-        let jsonStr = result.result;
-        const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
-        if (jsonMatch) jsonStr = jsonMatch[1];
-        jsonStr = jsonStr.trim();
-        parsed = JSON.parse(jsonStr);
-      } catch {
-        toast.error('AI zwróciło nieprawidłowy format. Spróbuj ponownie.');
+      if (!extractedData?.success || !extractedData?.data) {
+        toast.error('AI nie zwróciło wyniku. Spróbuj ponownie.');
         setProcessing(false);
         return;
       }
 
+      const d = extractedData.data;
+
+      // Map analyze-invoice response to our format
       setInvoiceHeader({
-        supplier_name: parsed.supplier_name,
-        supplier_nip: parsed.supplier_nip,
-        document_number: parsed.document_number,
-        purchase_date: parsed.purchase_date,
-        payment_method: parsed.payment_method,
-        net_total: parsed.net_total,
-        vat_total: parsed.vat_total,
-        gross_total: parsed.gross_total,
+        supplier_name: d.sprzedawca?.nazwa || '',
+        supplier_nip: d.sprzedawca?.nip || '',
+        document_number: d.numer_faktury || '',
+        purchase_date: d.data_wystawienia || new Date().toISOString().split('T')[0],
+        payment_method: 'przelew',
+        net_total: d.suma_netto || 0,
+        vat_total: d.suma_vat || 0,
+        gross_total: d.suma_brutto || 0,
       });
 
-      const items: OCRItem[] = (parsed.items || []).map((item: any) => ({
-        name: item.name || '',
-        quantity: Number(item.quantity) || 1,
-        unit: item.unit || 'szt.',
-        unit_price_net: Number(item.unit_price_net) || 0,
-        vat_rate: Number(String(item.vat_rate || '23').replace('%', '')),
-        total_net: Number(item.total_net) || 0,
-        total_gross: Number(item.total_gross) || 0,
-        supplier_symbol: item.supplier_symbol || '',
-        gtu_code: item.gtu_code || '',
-        mapped_product_id: autoMatchProduct(item.name, item.supplier_symbol),
-      }));
+      const ocrItemsList: OCRItem[] = (d.pozycje || []).map((item: any) => {
+        const qty = Number(item.ilosc) || 1;
+        const netPrice = Number(item.cena_netto) || 0;
+        const vatRate = Number(String(item.vat_proc || '23').replace('%', ''));
+        const totalNet = Number(item.wartosc_netto) || qty * netPrice;
+        const totalGross = Number(item.wartosc_brutto) || totalNet * (1 + vatRate / 100);
+        return {
+          name: item.nazwa || '',
+          quantity: qty,
+          unit: item.jednostka || 'szt.',
+          unit_price_net: netPrice,
+          vat_rate: vatRate,
+          total_net: totalNet,
+          total_gross: totalGross,
+          supplier_symbol: '',
+          gtu_code: '',
+          mapped_product_id: autoMatchProduct(item.nazwa || '', ''),
+        };
+      });
 
-      const matched = items.filter(i => i.mapped_product_id).length;
+      const matched = ocrItemsList.filter(i => i.mapped_product_id).length;
       setAutoMatchedCount(matched);
-      setOcrItems(items);
+      setOcrItems(ocrItemsList);
       setOcrDone(true);
       if (matched > 0) {
-        toast.success(`Rozpoznano ${items.length} pozycji. 🧠 ${matched} auto-dopasowanych z pamięci!`);
+        toast.success(`Rozpoznano ${ocrItemsList.length} pozycji. 🧠 ${matched} auto-dopasowanych z pamięci!`);
       } else {
-        toast.success(`Rozpoznano ${items.length} pozycji na fakturze.`);
+        toast.success(`Rozpoznano ${ocrItemsList.length} pozycji na fakturze.`);
       }
-    } catch {
-      toast.error('Błąd OCR. Sprawdź konfigurację AI.');
+    } catch (err) {
+      console.error('OCR error:', err);
+      toast.error('Błąd OCR. Spróbuj ponownie.');
     } finally {
       setProcessing(false);
     }
+  };
+
+  const handleOCR = async () => {
+    if (!fileBase64 || !fileMimeType) return;
+    await runOCR(fileBase64, fileMimeType);
   };
 
   /* ── Auto-match (by supplier_symbol/index first, then name) ──────── */
@@ -700,8 +689,8 @@ Odpowiedz TYLKO samym JSON bez żadnego tekstu, bez markdown.`,
                   </div>
 
                   {fileBase64 && !ocrDone && (
-                    <Button onClick={handleOCR} disabled={processing || aiLoading} className="w-full mt-4" size="lg">
-                      {(processing || aiLoading) ? (
+                    <Button onClick={handleOCR} disabled={processing} className="w-full mt-4" size="lg">
+                      {processing ? (
                         <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Rozpoznawanie przez AI...</>
                       ) : (
                         <><Scan className="h-4 w-4 mr-2" />Rozpoznaj fakturę (AI OCR)</>
