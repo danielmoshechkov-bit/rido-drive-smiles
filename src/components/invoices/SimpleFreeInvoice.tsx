@@ -668,7 +668,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
     };
   };
 
-  const handleSave = async () => {
+  const handleSave = async (asDraft?: boolean) => {
     try {
       // Use getSession() to get the user ID from the current auth token
       // This ensures the user_id matches auth.uid() in RLS policies
@@ -746,6 +746,10 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
       const grossTotal = invoiceData.items.reduce((sum, item) => sum + item.gross_amount, 0);
 
       // Build buyer address
+      // Determine ksef_status based on invoice type
+      const isNonKsefType = ['proforma', 'receipt', 'kp', 'kw', 'wz', 'pz', 'nota'].includes(invoiceType);
+      const isDraft = asDraft === true;
+      
       const buyerAddress = [
         buyer.address_street,
         buyer.address_building_number,
@@ -809,7 +813,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
           .insert({
             user_id: user.id,
             company_id: companyIdToUse,
-            invoice_number: invoiceData.invoice_number,
+            invoice_number: asDraft ? null : invoiceData.invoice_number,
             invoice_type: invoiceData.type,
             issue_date: invoiceData.issue_date,
             sale_date: invoiceData.sale_date,
@@ -825,7 +829,8 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
             gross_total: grossTotal,
             paid_amount: paidAmount,
             is_paid: isFullyPaid,
-            notes: notes
+            notes: notes,
+            ksef_status: asDraft ? 'draft' : undefined
           })
           .select()
           .single();
@@ -923,9 +928,10 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
       setShowPreview(true);
       toast.success('Faktura została wystawiona!');
 
-      // Auto-send to KSeF if enabled
+      // Auto-send to KSeF if enabled (skip for proforma, drafts, non-VAT documents)
+      const isKsefEligible = ['invoice', 'correction', 'advance', 'final'].includes(invoiceType);
       const invoiceIdToSend = editInvoiceId || savedId;
-      if (autoSendKsef && invoiceIdToSend) {
+      if (autoSendKsef && invoiceIdToSend && isKsefEligible) {
         try {
           const { data, error } = await supabase.functions.invoke('ksef-integration', {
             body: { action: 'send', invoice_id: invoiceIdToSend },
@@ -1746,26 +1752,66 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
 
       {/* Sticky Issue Invoice Button - always visible */}
       <div className="sticky bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t p-4 -mx-4 mt-4">
-        <Button 
-          onClick={handleIssueInvoice} 
-          size="lg" 
-          className="w-full gap-2"
-          disabled={isIssuing}
-        >
-          {isIssuing ? (
-            <>
-              <Loader2 className="h-5 w-5 animate-spin" />
-              Wystawianie...
-            </>
-          ) : (
-            <>
-              <Receipt className="h-5 w-5" />
-              {editInvoiceId ? 'Zapisz zmiany' : 'Wystaw fakturę'}
-            </>
+        <div className="flex gap-2">
+          {/* Save as Draft */}
+          {!editInvoiceId && (
+            <Button 
+              variant="outline"
+              size="lg"
+              className="gap-2"
+              disabled={isIssuing}
+              onClick={async () => {
+                if (!isLoggedIn) { setShowAuthModal(true); return; }
+                setIsIssuing(true);
+                try {
+                  await handleSave(true);
+                  toast.success('Szkic został zapisany');
+                  onSaved?.();
+                } catch { /* handled in handleSave */ }
+                finally { setIsIssuing(false); }
+              }}
+            >
+              <FileText className="h-5 w-5" />
+              Zapisz szkic
+            </Button>
           )}
-        </Button>
+          
+          {/* Preview PDF */}
+          <Button 
+            variant="outline"
+            size="lg"
+            className="gap-2"
+            onClick={() => setShowPreview(true)}
+          >
+            <Eye className="h-5 w-5" />
+            Podgląd
+          </Button>
+          
+          {/* Issue Invoice - main action */}
+          <Button 
+            onClick={handleIssueInvoice} 
+            size="lg" 
+            className="flex-1 gap-2"
+            disabled={isIssuing}
+          >
+            {isIssuing ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Wystawianie...
+              </>
+            ) : (
+              <>
+                <Receipt className="h-5 w-5" />
+                {editInvoiceId ? 'Zapisz zmiany' : 'Wystaw fakturę'}
+              </>
+            )}
+          </Button>
+        </div>
         <p className="text-center text-xs text-muted-foreground mt-2">
-          Faktura zostanie zapisana na Twoim koncie. Będziesz mógł ją pobrać jako PDF lub wysłać emailem.
+          {invoiceType === 'proforma' 
+            ? 'Pro forma nie jest wysyłana do KSeF. Możesz ją później przekonwertować na fakturę VAT.'
+            : 'Faktura zostanie zapisana na Twoim koncie. Będziesz mógł ją pobrać jako PDF lub wysłać emailem.'
+          }
         </p>
       </div>
 
