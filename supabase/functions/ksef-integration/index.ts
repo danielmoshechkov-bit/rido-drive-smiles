@@ -442,7 +442,7 @@ serve(async (req) => {
 
     // ========== generate_xml ==========
     if (action === 'generate_xml') {
-      const { data: invoice, error: invErr } = await supabase.from('invoices').select('*').eq('id', body.invoice_id).single();
+      const { data: invoice, error: invErr } = await supabase.from('user_invoices').select('*').eq('id', body.invoice_id).single();
       if (invErr || !invoice) throw new Error('Faktura nie znaleziona');
       const { data: items } = await supabase.from('invoice_items').select('*').eq('invoice_id', body.invoice_id);
       const { data: entity } = await supabase.from('entities').select('*').eq('id', invoice.entity_id).single();
@@ -544,7 +544,7 @@ serve(async (req) => {
     // ========== send ==========
     if (action === 'send') {
       const { data: invoice, error: invErr } = await supabase
-        .from('invoices').select('*, entity:entities(*)').eq('id', body.invoice_id).single();
+        .from('user_invoices').select('*, entity:entities(*)').eq('id', body.invoice_id).single();
       if (invErr || !invoice) throw new Error('Faktura nie znaleziona');
       const { data: items } = await supabase.from('invoice_items').select('*').eq('invoice_id', body.invoice_id);
 
@@ -669,7 +669,7 @@ serve(async (req) => {
               if (fRes.ok) { const fd = await fRes.json(); errDetail = JSON.stringify(fd?.invoices?.[0]?.status || fd).slice(0, 400); }
             } catch { /* ignore */ }
             if (transmission?.id) await supabase.from('ksef_transmissions').update({ status: 'rejected', error_message: errDetail, response_at: new Date().toISOString() }).eq('id', transmission.id);
-            await supabase.from('invoices').update({ ksef_status: 'rejected' }).eq('id', body.invoice_id);
+            await supabase.from('user_invoices').update({ ksef_status: 'rejected' }).eq('id', body.invoice_id);
             return jsonRes({ success: false, error: errDetail, session_ref: sessionRef });
           }
         }
@@ -682,7 +682,7 @@ serve(async (req) => {
           ...(upoXml ? { upo_content: upoXml } : {}),
           environment,
         }).eq('id', transmission.id);
-        await supabase.from('invoices').update({ ksef_status: finalStatus, ksef_reference: ksefNumber, ksef_environment: environment }).eq('id', body.invoice_id);
+        await supabase.from('user_invoices').update({ ksef_status: finalStatus, ksef_reference: ksefNumber, ksef_environment: environment }).eq('id', body.invoice_id);
 
         return jsonRes({ success: true, ksef_reference: ksefNumber, session_ref: sessionRef, status: finalStatus, upo_available: !!upoXml, environment });
       } catch (sendErr: any) {

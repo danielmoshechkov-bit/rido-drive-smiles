@@ -17452,6 +17452,9 @@ export type Database = {
           is_paid: boolean | null
           issue_date: string
           issue_place: string | null
+          ksef_environment: string | null
+          ksef_reference: string | null
+          ksef_status: string | null
           net_total: number | null
           notes: string | null
           paid_amount: number | null
@@ -17482,6 +17485,9 @@ export type Database = {
           is_paid?: boolean | null
           issue_date: string
           issue_place?: string | null
+          ksef_environment?: string | null
+          ksef_reference?: string | null
+          ksef_status?: string | null
           net_total?: number | null
           notes?: string | null
           paid_amount?: number | null
@@ -17512,6 +17518,9 @@ export type Database = {
           is_paid?: boolean | null
           issue_date?: string
           issue_place?: string | null
+          ksef_environment?: string | null
+          ksef_reference?: string | null
+          ksef_status?: string | null
           net_total?: number | null
           notes?: string | null
           paid_amount?: number | null
