@@ -851,11 +851,23 @@ function buildKsefInvoiceArtifacts(invoice: any, entity: any, items: any[]) {
 
   // Build correction-specific elements (P_3C = original invoice number, P_3D = original issue date)
   let correctionElements = '';
+  let daneFaKorygowanejXml = '';
   if (isCorrection) {
     const origNumber = invoice.corrected_invoice_number || '';
-    const origDate = invoice.corrected_issue_date || invoice.sale_date || issueDate;
+    const origDate = invoice.corrected_invoice_date || invoice.corrected_issue_date || invoice.sale_date || issueDate;
     if (origNumber) correctionElements += `\n        <P_3C>${escapeXml(origNumber)}</P_3C>`;
     if (origDate) correctionElements += `\n        <P_3D>${origDate}</P_3D>`;
+    
+    // DaneFaKorygowanej is required by XSD FA(3) for KOR invoices
+    const corrOrigDate = invoice.corrected_invoice_date || invoice.corrected_issue_date || invoice.sale_date || issueDate;
+    const corrOrigNumber = invoice.corrected_invoice_number || invoice.invoice_number || '';
+    const hasKsefRef = !!invoice.corrected_ksef_reference;
+    daneFaKorygowanejXml = `
+    <DaneFaKorygowanej>
+      <DataWystFaKorygowanej>${corrOrigDate}</DataWystFaKorygowanej>
+      <NrFaKorygowanej>${escapeXml(corrOrigNumber)}</NrFaKorygowanej>
+      ${hasKsefRef ? '<NrKSeF>1</NrKSeF>' : '<NrKSeFN>1</NrKSeFN>'}
+    </DaneFaKorygowanej>`;
   }
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -884,7 +896,7 @@ function buildKsefInvoiceArtifacts(invoice: any, entity: any, items: any[]) {
       <P_23>2</P_23>
       <PMarzy><P_PMarzyN>1</P_PMarzyN></PMarzy>
     </Adnotacje>
-    <RodzajFaktury>${invoiceType}</RodzajFaktury>${itemsXML}
+    <RodzajFaktury>${invoiceType}</RodzajFaktury>${daneFaKorygowanejXml}${itemsXML}
     <Platnosc>
       <TerminPlatnosci><Termin>${invoice.due_date || issueDate}</Termin></TerminPlatnosci>
       <FormaPlatnosci>${formaPlatnosci}</FormaPlatnosci>
@@ -1004,6 +1016,15 @@ serve(async (req) => {
     if (action === 'generate_xml') {
       const { data: invoice, error: invErr } = await supabase.from('user_invoices').select('*').eq('id', body.invoice_id).single();
       if (invErr || !invoice) throw new Error('Faktura nie znaleziona');
+      // For corrections, fetch original invoice data
+      if (invoice.corrected_invoice_id) {
+        const { data: orig } = await supabase.from('user_invoices').select('invoice_number, issue_date, ksef_reference').eq('id', invoice.corrected_invoice_id).maybeSingle();
+        if (orig) {
+          invoice.corrected_invoice_number = orig.invoice_number;
+          invoice.corrected_invoice_date = orig.issue_date;
+          invoice.corrected_ksef_reference = orig.ksef_reference;
+        }
+      }
       const { data: items } = await supabase.from('user_invoice_items').select('*').eq('invoice_id', body.invoice_id).order('sort_order');
       const sellerEntity = await resolveSellerEntityForInvoice(req, supabase, invoice);
       const artifacts = buildKsefInvoiceArtifacts(invoice, sellerEntity, items || []);
@@ -1014,6 +1035,14 @@ serve(async (req) => {
     if (action === 'debug') {
       const { data: invoice, error: invErr } = await supabase.from('user_invoices').select('*').eq('id', body.invoice_id).single();
       if (invErr || !invoice) return jsonRes({ success: false, error: 'Faktura nie znaleziona' }, 404);
+      if (invoice.corrected_invoice_id) {
+        const { data: orig } = await supabase.from('user_invoices').select('invoice_number, issue_date, ksef_reference').eq('id', invoice.corrected_invoice_id).maybeSingle();
+        if (orig) {
+          invoice.corrected_invoice_number = orig.invoice_number;
+          invoice.corrected_invoice_date = orig.issue_date;
+          invoice.corrected_ksef_reference = orig.ksef_reference;
+        }
+      }
       const { data: items } = await supabase.from('user_invoice_items').select('*').eq('invoice_id', body.invoice_id).order('sort_order');
 
       // Use shared resolveSellerEntityForInvoice + buildKsefInvoiceArtifacts
@@ -1162,6 +1191,14 @@ serve(async (req) => {
       const { data: invoice, error: invErr } = await supabase
         .from('user_invoices').select('*').eq('id', body.invoice_id).single();
       if (invErr || !invoice) throw new Error('Faktura nie znaleziona');
+      if (invoice.corrected_invoice_id) {
+        const { data: orig } = await supabase.from('user_invoices').select('invoice_number, issue_date, ksef_reference').eq('id', invoice.corrected_invoice_id).maybeSingle();
+        if (orig) {
+          invoice.corrected_invoice_number = orig.invoice_number;
+          invoice.corrected_invoice_date = orig.issue_date;
+          invoice.corrected_ksef_reference = orig.ksef_reference;
+        }
+      }
       const { data: items } = await supabase.from('user_invoice_items').select('*').eq('invoice_id', body.invoice_id).order('sort_order');
 
       // Use shared seller resolution + XML builder with full XSD validation
