@@ -70,6 +70,8 @@ interface UserInvoice {
   currency?: string;
   notes?: string;
   created_at: string;
+  ksef_status?: string;
+  ksef_reference?: string;
 }
 
 interface InvoiceExpandableRowProps {
