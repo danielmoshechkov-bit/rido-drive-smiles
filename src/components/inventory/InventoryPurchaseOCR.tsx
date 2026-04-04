@@ -89,7 +89,7 @@ export function InventoryPurchaseOCR({ entityId, showKsefOption }: Props) {
 
   // Tab
   const [activeTab, setActiveTab] = useState<'zakupy' | 'towary' | 'eksport' | 'ksef'>('zakupy');
-  const [showKsefPurchase, setShowKsefPurchase] = useState(false);
+  
 
   // Products from DB
   const [products, setProducts] = useState<Product[]>([]);
