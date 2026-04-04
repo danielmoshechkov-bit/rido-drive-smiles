@@ -128,10 +128,23 @@ export const SMSIntegrationsPanel = () => {
         updateData.api_key = apiKey.trim();
       }
 
-      const { error } = await supabase
-        .from('sms_settings')
-        .update(updateData)
-        .not('id', 'is', null);
+      // Use .from() with type assertion to handle columns not in generated types
+      const { data: existing } = await (supabase.from('sms_settings') as any)
+        .select('id')
+        .limit(1)
+        .maybeSingle();
+
+      let error: any;
+      if (existing?.id) {
+        const res = await (supabase.from('sms_settings') as any)
+          .update(updateData)
+          .eq('id', existing.id);
+        error = res.error;
+      } else {
+        const res = await (supabase.from('sms_settings') as any)
+          .insert(updateData);
+        error = res.error;
+      }
 
       if (error) throw error;
 
