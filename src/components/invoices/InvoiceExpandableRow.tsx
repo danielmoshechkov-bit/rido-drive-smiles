@@ -202,104 +202,107 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
     onUpdate();
   };
 
-  const handleDownloadPdf = async () => {
+  const prepareInvoiceData = async (): Promise<InvoiceData | null> => {
+    // Always refetch latest ksef data before PDF
+    const { data: freshInvoice } = await supabase
+      .from('user_invoices')
+      .select('ksef_status, ksef_reference')
+      .eq('id', invoice.id)
+      .maybeSingle();
+    const latestKsefRef = freshInvoice?.ksef_reference || liveKsefReference;
+
+    const { data: items } = await supabase
+      .from('user_invoice_items')
+      .select('*')
+      .eq('invoice_id', invoice.id);
+
+    let companyData: any = null;
+    if (invoice.company_id) {
+      const { data: company } = await supabase
+        .from('user_invoice_companies')
+        .select('*')
+        .eq('id', invoice.company_id)
+        .maybeSingle();
+      companyData = company;
+    }
+
+    return {
+      invoice_number: invoice.invoice_number || 'Faktura',
+      type: invoice.invoice_type || 'invoice',
+      issue_date: invoice.issue_date || new Date().toISOString().split('T')[0],
+      sale_date: invoice.sale_date || invoice.issue_date || new Date().toISOString().split('T')[0],
+      due_date: invoice.due_date || new Date().toISOString().split('T')[0],
+      issue_place: invoice.issue_place || '',
+      payment_method: (invoice.payment_method || 'transfer') as 'transfer' | 'cash' | 'card',
+      notes: invoice.notes || '',
+      currency: invoice.currency || 'PLN',
+      paid_amount: invoice.paid_amount || 0,
+      is_fully_paid: invoice.is_paid || false,
+      items: (items || []).map((item: any) => ({
+        name: item.name || '',
+        pkwiu: item.pkwiu || '',
+        quantity: item.quantity || 1,
+        unit: item.unit || 'szt.',
+        unit_net_price: item.unit_net_price || 0,
+        vat_rate: item.vat_rate || '23',
+        net_amount: item.net_amount || 0,
+        vat_amount: item.vat_amount || 0,
+        gross_amount: item.gross_amount || 0,
+      })),
+      seller: {
+        name: companyData?.name || '',
+        nip: companyData?.nip || '',
+        address_street: companyData?.address_street || '',
+        address_building_number: companyData?.address_building_number || '',
+        address_apartment_number: companyData?.address_apartment_number || '',
+        address_city: companyData?.address_city || '',
+        address_postal_code: companyData?.address_postal_code || '',
+        bank_name: companyData?.bank_name || '',
+        bank_account: formatIBAN(companyData?.bank_account),
+        email: companyData?.email || '',
+        phone: companyData?.phone || '',
+        logo_url: companyData?.logo_url || '',
+      },
+      buyer: {
+        name: invoice.buyer_name || '',
+        nip: invoice.buyer_nip || '',
+        address_street: invoice.buyer_address || '',
+      },
+      ksef_reference: latestKsefRef || undefined,
+    };
+  };
+
+  const handleOpenPreview = async () => {
     setIsGeneratingPdf(true);
     try {
-      // Always refetch latest ksef data before PDF
-      const { data: freshInvoice } = await supabase
-        .from('user_invoices')
-        .select('ksef_status, ksef_reference')
-        .eq('id', invoice.id)
-        .maybeSingle();
-      const latestKsefRef = freshInvoice?.ksef_reference || liveKsefReference;
-
-      const { data: items } = await supabase
-        .from('user_invoice_items')
-        .select('*')
-        .eq('invoice_id', invoice.id);
-
-      let companyData: any = null;
-      if (invoice.company_id) {
-        const { data: company } = await supabase
-          .from('user_invoice_companies')
-          .select('*')
-          .eq('id', invoice.company_id)
-          .maybeSingle();
-        companyData = company;
+      const data = await prepareInvoiceData();
+      if (data) {
+        setPreviewInvoiceData(data);
+        setShowPreviewModal(true);
       }
-
-      const invoiceData = {
-        invoice_number: invoice.invoice_number || 'Faktura',
-        type: invoice.invoice_type || 'invoice',
-        issue_date: invoice.issue_date || new Date().toISOString().split('T')[0],
-        sale_date: invoice.sale_date || invoice.issue_date || new Date().toISOString().split('T')[0],
-        due_date: invoice.due_date || new Date().toISOString().split('T')[0],
-        issue_place: invoice.issue_place || '',
-        payment_method: (invoice.payment_method || 'transfer') as 'transfer' | 'cash' | 'card',
-        notes: invoice.notes || '',
-        currency: invoice.currency || 'PLN',
-        paid_amount: invoice.paid_amount || 0,
-        is_fully_paid: invoice.is_paid || false,
-        items: (items || []).map((item: any) => ({
-          name: item.name || '',
-          pkwiu: item.pkwiu || '',
-          quantity: item.quantity || 1,
-          unit: item.unit || 'szt.',
-          unit_net_price: item.unit_net_price || 0,
-          vat_rate: item.vat_rate || '23',
-          net_amount: item.net_amount || 0,
-          vat_amount: item.vat_amount || 0,
-          gross_amount: item.gross_amount || 0,
-        })),
-        seller: {
-          name: companyData?.name || '',
-          nip: companyData?.nip || '',
-          address_street: companyData?.address_street || '',
-          address_building_number: companyData?.address_building_number || '',
-          address_apartment_number: companyData?.address_apartment_number || '',
-          address_city: companyData?.address_city || '',
-          address_postal_code: companyData?.address_postal_code || '',
-          bank_name: companyData?.bank_name || '',
-          bank_account: formatIBAN(companyData?.bank_account),
-          email: companyData?.email || '',
-          phone: companyData?.phone || '',
-          logo_url: companyData?.logo_url || '',
-        },
-        buyer: {
-          name: invoice.buyer_name || '',
-          nip: invoice.buyer_nip || '',
-          address_street: invoice.buyer_address || '',
-        },
-        ksef_reference: latestKsefRef || undefined,
-      };
-
-      const html = generateInvoiceHtml(invoiceData);
-      const printWindow = window.open('', '_blank');
-      if (printWindow) {
-        printWindow.document.write(html);
-        printWindow.document.close();
-        printWindow.focus();
-        // Wait for QR code image to load before printing
-        const imgs = printWindow.document.querySelectorAll('img.ksef-qr');
-        if (imgs.length > 0) {
-          let loaded = 0;
-          const tryPrint = () => { loaded++; if (loaded >= imgs.length) setTimeout(() => printWindow.print(), 100); };
-          imgs.forEach(img => {
-            if ((img as HTMLImageElement).complete) tryPrint();
-            else { img.addEventListener('load', tryPrint); img.addEventListener('error', tryPrint); }
-          });
-          setTimeout(() => printWindow.print(), 3000);
-        } else {
-          setTimeout(() => printWindow.print(), 300);
-        }
-      }
-
-      toast.success('PDF gotowy do druku');
     } catch (err: any) {
-      console.error('Error generating PDF:', err);
-      toast.error('Błąd generowania PDF');
+      console.error('Error preparing invoice preview:', err);
+      toast.error('Błąd przygotowania podglądu');
     } finally {
       setIsGeneratingPdf(false);
+    }
+  };
+
+  const handleSendInvoiceEmail = async (email: string) => {
+    try {
+      const { error } = await supabase.functions.invoke('send-invoice-email', {
+        body: { 
+          invoice_id: invoice.id,
+          recipient_email: email,
+          type: 'new_invoice',
+        }
+      });
+
+      if (error) throw error;
+      toast.success(`Faktura wysłana na ${email}`);
+    } catch (err: any) {
+      console.error('Error sending email:', err);
+      toast.error('Błąd wysyłania email: ' + (err.message || 'Nieznany błąd'));
     }
   };
 
