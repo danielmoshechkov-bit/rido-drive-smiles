@@ -767,7 +767,10 @@ function buildKsefInvoiceArtifacts(invoice: any, entity: any, items: any[]) {
   const buyerSource = resolveBuyerSource(invoice);
   const sellerSource = resolveSellerSource(entity);
   const formCode = 'FA (3) / 1-0E';
-  const invoiceType = 'VAT';
+  
+  // Determine invoice type for KSeF
+  const isCorrection = invoice.is_correction === true || invoice.invoice_type === 'correction';
+  const invoiceType = isCorrection ? 'KOR' : 'VAT';
 
   const vatByRate: Record<string, { net: number; vat: number }> = {};
   items.forEach((item) => {
@@ -846,6 +849,15 @@ function buildKsefInvoiceArtifacts(invoice: any, entity: any, items: any[]) {
   ];
   const podmiot2 = podmiot2Lines.join('\n');
 
+  // Build correction-specific elements (P_3C = original invoice number, P_3D = original issue date)
+  let correctionElements = '';
+  if (isCorrection) {
+    const origNumber = invoice.corrected_invoice_number || '';
+    const origDate = invoice.corrected_issue_date || invoice.sale_date || issueDate;
+    if (origNumber) correctionElements += `\n        <P_3C>${escapeXml(origNumber)}</P_3C>`;
+    if (origDate) correctionElements += `\n        <P_3D>${origDate}</P_3D>`;
+  }
+
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <Faktura xmlns="http://crd.gov.pl/wzor/2025/06/25/13775/">
   <Naglowek>
@@ -859,7 +871,7 @@ function buildKsefInvoiceArtifacts(invoice: any, entity: any, items: any[]) {
   <Fa>
     <KodWaluty>${invoice.currency || 'PLN'}</KodWaluty>
     <P_1>${issueDate}</P_1>
-    <P_2>${escapeXml(invoice.invoice_number || '')}</P_2>
+    <P_2>${escapeXml(invoice.invoice_number || '')}</P_2>${correctionElements}
     <P_6>${saleDate}</P_6>${vatBreakdownXML}
     <P_15>${grossTotal.toFixed(2)}</P_15>
     <Adnotacje>
@@ -872,7 +884,7 @@ function buildKsefInvoiceArtifacts(invoice: any, entity: any, items: any[]) {
       <P_23>2</P_23>
       <PMarzy><P_PMarzyN>1</P_PMarzyN></PMarzy>
     </Adnotacje>
-    <RodzajFaktury>VAT</RodzajFaktury>${itemsXML}
+    <RodzajFaktury>${invoiceType}</RodzajFaktury>${itemsXML}
     <Platnosc>
       <TerminPlatnosci><Termin>${invoice.due_date || issueDate}</Termin></TerminPlatnosci>
       <FormaPlatnosci>${formaPlatnosci}</FormaPlatnosci>
