@@ -1566,6 +1566,20 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
 
               <Separator />
 
+              {/* KSeF auto-send */}
+              <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
+                <div>
+                  <Label className="font-medium">Wyślij do KSeF po wystawieniu</Label>
+                  <p className="text-xs text-muted-foreground">Wymagane od 1.04.2026 dla faktur VAT</p>
+                </div>
+                <Checkbox 
+                  checked={autoSendKsef}
+                  onCheckedChange={(checked) => setAutoSendKsef(checked as boolean)}
+                />
+              </div>
+
+              <Separator />
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label>Podpis na fakturze</Label>
