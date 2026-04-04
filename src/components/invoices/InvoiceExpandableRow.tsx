@@ -3,6 +3,7 @@ import { format, subDays } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { supabase } from '@/integrations/supabase/client';
@@ -20,6 +21,8 @@ import {
   Calendar,
   Loader2,
   TrendingUp,
+  Send,
+  Mail,
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -99,6 +102,11 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [previewInvoiceData, setPreviewInvoiceData] = useState<InvoiceData | null>(null);
   
+  // Inline email send state
+  const [showInlineEmail, setShowInlineEmail] = useState(false);
+  const [inlineEmail, setInlineEmail] = useState('');
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+
   // Reminder dialog state
   const [showReminderPopover, setShowReminderPopover] = useState(false);
   const [reminderDate, setReminderDate] = useState<Date | undefined>(
@@ -276,8 +284,9 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
   };
 
   const handleSendInvoiceEmail = async (email: string) => {
+    setIsSendingEmail(true);
     try {
-      const { error } = await supabase.functions.invoke('send-invoice-email', {
+      const { data, error } = await supabase.functions.invoke('send-invoice-email', {
         body: { 
           invoice_id: invoice.id,
           recipient_email: email,
@@ -286,10 +295,15 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
       });
 
       if (error) throw error;
+      if (data && !data.success) throw new Error(data.error || 'Nie udało się wysłać');
       toast.success(`Faktura wysłana na ${email}`);
+      setShowInlineEmail(false);
+      setInlineEmail('');
     } catch (err: any) {
       console.error('Error sending email:', err);
       toast.error('Błąd wysyłania email: ' + (err.message || 'Nieznany błąd'));
+    } finally {
+      setIsSendingEmail(false);
     }
   };
 
@@ -545,6 +559,49 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
                   ? '⏳ Czekaj na KSeF...' 
                   : isGeneratingPdf ? 'Ładuję...' : 'Podgląd / PDF'}
               </Button>
+
+              {/* Wyślij email button */}
+              <Popover open={showInlineEmail} onOpenChange={setShowInlineEmail}>
+                <PopoverTrigger asChild>
+                  <Button size="sm" variant="outline">
+                    {isSendingEmail ? (
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4 mr-1" />
+                    )}
+                    Wyślij
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 p-3" align="start">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Mail className="h-4 w-4 text-primary" />
+                    <p className="text-sm font-medium">Wyślij fakturę mailem</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Input
+                      type="email"
+                      value={inlineEmail}
+                      onChange={(e) => setInlineEmail(e.target.value)}
+                      placeholder="adres@email.com"
+                      className="flex-1 h-8 text-sm"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && inlineEmail) {
+                          handleSendInvoiceEmail(inlineEmail);
+                        }
+                      }}
+                    />
+                    <Button 
+                      size="sm" 
+                      className="h-8"
+                      onClick={() => handleSendInvoiceEmail(inlineEmail)} 
+                      disabled={isSendingEmail || !inlineEmail}
+                    >
+                      {isSendingEmail ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Wyślij'}
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
               
               <Popover open={showReminderPopover} onOpenChange={setShowReminderPopover}>
                 <PopoverTrigger asChild>

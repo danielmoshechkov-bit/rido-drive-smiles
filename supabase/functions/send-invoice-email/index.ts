@@ -209,8 +209,8 @@ serve(async (req) => {
 
     const buyerName = invoice.buyer_name || "Szanowny Kliencie";
     const invoiceNumber = invoice.invoice_number || "";
-    const grossAmount = (invoice.total_gross || 0).toLocaleString("pl-PL", { minimumFractionDigits: 2 });
-    const netAmount = (invoice.total_net || 0).toLocaleString("pl-PL", { minimumFractionDigits: 2 });
+    const grossAmount = (invoice.total_gross || invoice.gross_total || 0).toLocaleString("pl-PL", { minimumFractionDigits: 2 });
+    const netAmount = (invoice.total_net || invoice.net_total || 0).toLocaleString("pl-PL", { minimumFractionDigits: 2 });
     const dueDate = invoice.due_date
       ? new Date(invoice.due_date).toLocaleDateString("pl-PL")
       : "brak";
@@ -223,22 +223,32 @@ serve(async (req) => {
       buyerName, invoiceNumber, grossAmount, netAmount, dueDate, issueDate, customMessage: custom_message,
     });
 
-    console.log(`Sending email to ${toEmail}, subject: ${subject}`);
+    // Use onboarding@resend.dev as the from address (works without domain verification)
+    const fromAddress = `${companyName} via GetRido <onboarding@resend.dev>`;
+    const replyTo = company?.email || undefined;
+
+    console.log(`Sending email to ${toEmail}, from: ${fromAddress}, subject: ${subject}`);
 
     const emailResponse = await resend.emails.send({
-      from: `${companyName} via GetRido <noreply@getrido.pl>`,
+      from: fromAddress,
       to: [toEmail],
       subject,
       html,
+      reply_to: replyTo,
     });
 
-    console.log("Email sent successfully:", emailResponse);
+    console.log("Resend API response:", JSON.stringify(emailResponse));
+
+    // Check for actual errors in the response
+    if (emailResponse.error) {
+      throw new Error(`Resend error: ${emailResponse.error.message || JSON.stringify(emailResponse.error)}`);
+    }
 
     return new Response(
       JSON.stringify({
         success: true,
         message: `Email wysłany do ${toEmail}`,
-        email_id: emailResponse.id,
+        email_id: emailResponse.data?.id,
       }),
       { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
