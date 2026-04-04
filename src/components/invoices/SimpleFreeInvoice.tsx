@@ -1013,6 +1013,31 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
         </CardContent>
       </Card>
 
+      {/* Correction Invoice Section - shown only for correction type */}
+      {invoiceType === 'correction' && (
+        <CorrectionInvoiceSection
+          onOriginalSelected={(originalInvoice, originalItems) => {
+            // Auto-fill buyer data from original invoice
+            setBuyer(prev => ({
+              ...prev,
+              name: originalInvoice.buyer_name || prev.name,
+              nip: originalInvoice.buyer_nip || prev.nip,
+              address_street: originalInvoice.buyer_address || prev.address_street,
+            }));
+            // Load original items into the items list (user edits them as "after" values)
+            if (originalItems.length > 0) {
+              setItems(originalItems.map(item => ({
+                ...item,
+                unit_gross_price: Math.round(item.unit_net_price * (1 + (parseFloat(item.vat_rate) || 0) / 100) * 100) / 100,
+              })));
+            }
+            // Add correction note
+            setNotes(prev => prev || `Korekta do faktury ${originalInvoice.invoice_number}`);
+          }}
+          onCorrectionDataChange={setCorrectionData}
+        />
+      )}
+
       {/* Seller Section - Collapsible */}
       <Card>
         <CardHeader 
