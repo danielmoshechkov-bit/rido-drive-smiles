@@ -746,6 +746,10 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
       const grossTotal = invoiceData.items.reduce((sum, item) => sum + item.gross_amount, 0);
 
       // Build buyer address
+      // Determine ksef_status based on invoice type
+      const isNonKsefType = ['proforma', 'receipt', 'kp', 'kw', 'wz', 'pz', 'nota'].includes(invoiceType);
+      const isDraft = asDraft === true;
+      
       const buyerAddress = [
         buyer.address_street,
         buyer.address_building_number,
