@@ -612,7 +612,13 @@ serve(async (req) => {
             encryption: { encryptedSymmetricKey, initializationVector },
           }),
         });
-        if (!sessionRes.ok) throw new Error(`[PHASE:session-open] HTTP ${sessionRes.status}: ${(await sessionRes.text()).slice(0, 300)}`);
+        if (!sessionRes.ok) {
+          const errBody = await sessionRes.text().catch(() => '');
+          if (sessionRes.status === 403) {
+            throw new Error('Token KSeF nie ma uprawnień do wysyłania faktur (InvoiceWrite). Sprawdź uprawnienia tokenu w portalu KSeF Ministerstwa Finansów.');
+          }
+          throw new Error(`[PHASE:session-open] HTTP ${sessionRes.status}: ${errBody.slice(0, 300)}`);
+        }
         const { referenceNumber: sessionRef } = await sessionRes.json();
         console.log('[KSeF] session opened:', sessionRef);
 

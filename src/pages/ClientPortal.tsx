@@ -1817,6 +1817,7 @@ export default function ClientPortal() {
         }}
       >
         <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto p-0">
+          <DialogTitle className="sr-only">Wystaw fakturę</DialogTitle>
           <SimpleFreeInvoice 
             onClose={() => setShowNewInvoice(false)}
             onSaved={() => {
