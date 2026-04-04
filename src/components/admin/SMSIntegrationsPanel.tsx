@@ -23,6 +23,7 @@ interface SMSSettings {
   api_key_secret_name: string | null;
   sender_name: string | null;
   is_active: boolean;
+  has_api_key?: boolean;
 }
 
 const SMS_PROVIDERS = [
@@ -36,6 +37,8 @@ const SMS_PROVIDERS = [
 const DEFAULT_PROVIDER = 'justsend';
 const DEFAULT_PROVIDER_CONFIG = SMS_PROVIDERS.find((provider) => provider.value === DEFAULT_PROVIDER)!;
 const sanitizeSenderName = (value: string) => value.replace(/[^a-zA-Z0-9.\-]/g, '').slice(0, 11);
+const resolveProviderConfig = (provider: string) =>
+  SMS_PROVIDERS.find((item) => item.value === provider) || DEFAULT_PROVIDER_CONFIG;
 
 export const SMSIntegrationsPanel = () => {
   const [settings, setSettings] = useState<SMSSettings | null>(null);
@@ -52,7 +55,7 @@ export const SMSIntegrationsPanel = () => {
   });
 
   const activeProvider = useMemo(
-    () => SMS_PROVIDERS.find((provider) => provider.value === formData.provider) || DEFAULT_PROVIDER_CONFIG,
+    () => resolveProviderConfig(formData.provider),
     [formData.provider]
   );
 
@@ -63,23 +66,25 @@ export const SMSIntegrationsPanel = () => {
   const fetchSettings = async () => {
     setLoading(true);
     try {
-      const { data, error } = await (supabase.from('sms_settings') as any)
-        .select('id, provider, api_url, api_key_secret_name, api_key, sender_name, is_active')
-        .limit(1)
-        .maybeSingle();
+      const { data, error } = await supabase.functions.invoke('admin-sms-settings', {
+        body: { action: 'get' },
+      });
 
       if (error) throw error;
+      if (data && !data.success) throw new Error(data.error || 'Nie udało się pobrać ustawień SMS');
 
-      if (data) {
-        const provider = data.provider || DEFAULT_PROVIDER;
-        const providerConfig = SMS_PROVIDERS.find((item) => item.value === provider) || DEFAULT_PROVIDER_CONFIG;
+      const smsSettings = (data?.settings || null) as SMSSettings | null;
 
-        setSettings(data as SMSSettings);
+      if (smsSettings) {
+        const provider = smsSettings.provider || DEFAULT_PROVIDER;
+        const providerConfig = resolveProviderConfig(provider);
+
+        setSettings(smsSettings);
         setFormData({
           provider,
-          api_url: data.api_url || providerConfig.apiUrl || '',
-          sender_name: data.sender_name || 'GetRido.pl',
-          is_active: Boolean(data.is_active),
+          api_url: smsSettings.api_url || providerConfig.apiUrl || '',
+          sender_name: smsSettings.sender_name || 'GetRido.pl',
+          is_active: Boolean(smsSettings.is_active),
         });
       } else {
         setSettings(null);
@@ -90,15 +95,20 @@ export const SMSIntegrationsPanel = () => {
           is_active: false,
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching SMS settings:', error);
+      toast({
+        title: 'Błąd',
+        description: error?.message || 'Nie udało się pobrać ustawień SMS',
+        variant: 'destructive',
+      });
     } finally {
       setLoading(false);
     }
   };
 
   const handleProviderChange = (provider: string) => {
-    const providerConfig = SMS_PROVIDERS.find((item) => item.value === provider);
+    const providerConfig = resolveProviderConfig(provider);
     setFormData((prev) => ({
       ...prev,
       provider,
@@ -109,7 +119,7 @@ export const SMSIntegrationsPanel = () => {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const providerConfig = SMS_PROVIDERS.find((item) => item.value === formData.provider);
+      const providerConfig = resolveProviderConfig(formData.provider);
       const senderClean = sanitizeSenderName(formData.sender_name || 'GetRido.pl');
       const updateData: Record<string, any> = {
         provider: formData.provider,
@@ -127,41 +137,34 @@ export const SMSIntegrationsPanel = () => {
         updateData.api_key = apiKey.trim();
       }
 
-      // Use .from() with type assertion to handle columns not in generated types
-      const { data: existing } = await (supabase.from('sms_settings') as any)
-        .select('id')
-        .limit(1)
-        .maybeSingle();
-
-      let error: any;
-      if (existing?.id) {
-        const res = await (supabase.from('sms_settings') as any)
-          .update(updateData)
-          .eq('id', existing.id);
-        error = res.error;
-      } else {
-        const res = await (supabase.from('sms_settings') as any)
-          .insert(updateData);
-        error = res.error;
-      }
+      const { data, error } = await supabase.functions.invoke('admin-sms-settings', {
+        body: {
+          action: 'save',
+          ...updateData,
+        },
+      });
 
       if (error) throw error;
+      if (data && !data.success) throw new Error(data.error || 'Nie udało się zapisać ustawień SMS');
+
+      const savedSettings = data?.settings as SMSSettings | undefined;
 
       setApiKey('');
-      setSettings((prev) => ({
-        id: prev?.id || '',
+      setSettings(savedSettings || {
+        id: settings?.id || '',
         provider: updateData.provider,
         api_url: updateData.api_url,
         api_key_secret_name: updateData.api_key_secret_name,
         sender_name: updateData.sender_name,
         is_active: Boolean(updateData.is_active),
-      }));
+        has_api_key: Boolean(apiKey.trim() || settings?.has_api_key),
+      });
       setFormData((prev) => ({
         ...prev,
-        provider: updateData.provider,
-        api_url: updateData.api_url,
-        sender_name: senderClean,
-        is_active: Boolean(updateData.is_active),
+        provider: savedSettings?.provider || updateData.provider,
+        api_url: savedSettings?.api_url || updateData.api_url,
+        sender_name: savedSettings?.sender_name || senderClean,
+        is_active: Boolean(savedSettings?.is_active ?? updateData.is_active),
       }));
       toast({
         title: 'Zapisano',
@@ -303,7 +306,7 @@ export const SMSIntegrationsPanel = () => {
               type="password"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
-              placeholder={((settings as any)?.api_key) ? '••••••••• (klucz zapisany)' : 'Klucz API'}
+              placeholder={settings?.has_api_key ? '••••••••• (klucz zapisany)' : 'Klucz API'}
             />
             <p className="text-xs text-muted-foreground">
               {settings?.api_key_secret_name
