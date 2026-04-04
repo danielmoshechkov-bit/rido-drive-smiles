@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -11,6 +11,13 @@ interface KsefSendButtonProps {
   onStatusChange?: () => void;
 }
 
+interface InvoiceKsefSnapshot {
+  ksef_status: string | null;
+  ksef_reference: string | null;
+  ksef_invoice_ref: string | null;
+  ksef_session_ref: string | null;
+}
+
 export function KsefSendButton({ invoiceId, size = 'sm', onStatusChange }: KsefSendButtonProps) {
   const [ksefStatus, setKsefStatus] = useState<string | null>(null);
   const [ksefReference, setKsefReference] = useState<string | null>(null);
@@ -21,91 +28,182 @@ export function KsefSendButton({ invoiceId, size = 'sm', onStatusChange }: KsefS
   const [pollingTimedOut, setPollingTimedOut] = useState(false);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => {
-    loadKsefStatus();
-    return () => { if (pollIntervalRef.current) clearInterval(pollIntervalRef.current); };
-  }, [invoiceId]);
+  function clearPolling() {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+  }
 
-  const loadKsefStatus = async () => {
+  function syncSnapshot(
+    snapshot: Partial<InvoiceKsefSnapshot> & {
+      status?: string | null;
+      session_ref?: string | null;
+      invoice_ref?: string | null;
+    },
+    notifyParent = false,
+  ) {
+    const nextReference = snapshot.ksef_reference || null;
+    const nextStatus = nextReference ? 'accepted' : (snapshot.status ?? snapshot.ksef_status ?? null);
+    const nextSessionRef = snapshot.session_ref ?? snapshot.ksef_session_ref ?? null;
+    const nextInvoiceRef = snapshot.invoice_ref ?? snapshot.ksef_invoice_ref ?? null;
+
+    setKsefStatus(nextStatus);
+    setKsefReference(nextReference);
+    setSessionRef(nextSessionRef);
+    setInvoiceRef(nextInvoiceRef);
+
+    if (nextStatus === 'processing' || nextStatus === 'sent') {
+      setPollingTimedOut(false);
+      startPolling(nextSessionRef, nextInvoiceRef);
+    } else {
+      clearPolling();
+      setPollingTimedOut(false);
+    }
+
+    if (notifyParent) {
+      onStatusChange?.();
+    }
+  }
+
+  async function fetchCurrentStatusFromDb(): Promise<InvoiceKsefSnapshot | null> {
+    const { data, error } = await (supabase.from('user_invoices') as any)
+      .select('ksef_status, ksef_reference, ksef_invoice_ref, ksef_session_ref')
+      .eq('id', invoiceId)
+      .maybeSingle();
+
+    if (error) throw error;
+    return (data || null) as InvoiceKsefSnapshot | null;
+  }
+
+  async function loadKsefStatus(notifyParent = false) {
     setLoading(true);
     try {
-      const { data } = await supabase
-        .from('user_invoices')
-        .select('ksef_status, ksef_reference, ksef_invoice_ref')
-        .eq('id', invoiceId)
-        .maybeSingle();
+      const data = await fetchCurrentStatusFromDb();
 
       if (data) {
-        const effectiveStatus = data.ksef_reference ? 'accepted' : (data.ksef_status || null);
-        setKsefStatus(effectiveStatus);
-        setKsefReference(data.ksef_reference || null);
-        setInvoiceRef((data as any).ksef_invoice_ref || null);
-        if (effectiveStatus === 'processing' || effectiveStatus === 'sent') {
-          const currentInvoiceRef = (data as any).ksef_invoice_ref || null;
-          if (currentInvoiceRef) {
-            setInvoiceRef(currentInvoiceRef);
-            startPolling(null, currentInvoiceRef);
-            return;
-          }
+        syncSnapshot(data, notifyParent);
 
-          const { data: tx } = await supabase
-            .from('ksef_transmissions')
+        const effectiveStatus = data.ksef_reference ? 'accepted' : (data.ksef_status || null);
+        if ((effectiveStatus === 'processing' || effectiveStatus === 'sent') && !data.ksef_session_ref && !data.ksef_invoice_ref) {
+          const { data: tx } = await (supabase.from('ksef_transmissions') as any)
             .select('ksef_reference_number, ksef_invoice_ref')
             .eq('invoice_id', invoiceId)
             .order('created_at', { ascending: false })
             .limit(1)
             .maybeSingle();
-          if (tx?.ksef_reference_number || (tx as any)?.ksef_invoice_ref) {
-            setSessionRef(tx?.ksef_reference_number || null);
-            setInvoiceRef((tx as any).ksef_invoice_ref || null);
-            startPolling(tx?.ksef_reference_number || null, (tx as any).ksef_invoice_ref);
+
+          if (tx?.ksef_reference_number || tx?.ksef_invoice_ref) {
+            syncSnapshot(
+              {
+                status: effectiveStatus,
+                ksef_reference: data.ksef_reference,
+                session_ref: tx?.ksef_reference_number || null,
+                invoice_ref: tx?.ksef_invoice_ref || null,
+              },
+              notifyParent,
+            );
           }
         }
       }
+
+      return data;
     } catch (err) {
       console.error('Error loading KSeF status:', err);
+      return null;
     } finally {
       setLoading(false);
     }
-  };
+  }
 
-  const startPolling = (sRef?: string | null, iRef?: string | null) => {
-    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+  function startPolling(sRef?: string | null, iRef?: string | null) {
+    clearPolling();
     setPollingTimedOut(false);
+
     let attempts = 0;
     const maxAttempts = 12;
+
     pollIntervalRef.current = setInterval(async () => {
       attempts++;
       if (attempts > maxAttempts) {
-        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+        clearPolling();
         setPollingTimedOut(true);
         return;
       }
+
       try {
         const { data, error } = await supabase.functions.invoke('ksef-integration', {
-          body: { action: 'check_status', session_ref: sRef ?? null, invoice_ref: iRef || invoiceRef, invoice_id: invoiceId },
+          body: {
+            action: 'check_status',
+            session_ref: sRef ?? null,
+            invoice_ref: iRef ?? null,
+            invoice_id: invoiceId,
+          },
         });
-        if (error) return;
-        if (data?.status === 'accepted') {
-          setKsefStatus('accepted');
-          setKsefReference(data.ksef_reference || null);
-          if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-          toast.success('Faktura zaakceptowana przez KSeF' + (data.ksef_reference ? `: ${data.ksef_reference}` : ''));
-          onStatusChange?.();
-        } else if (data?.status === 'rejected') {
-          setKsefStatus('rejected');
-          if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-          toast.error('Faktura odrzucona przez KSeF: ' + (data.error || ''));
-          onStatusChange?.();
+
+        if (error) {
+          return;
         }
-      } catch { /* ignore polling errors */ }
+
+        if (data?.status === 'accepted') {
+          syncSnapshot(data, true);
+          toast.success('Faktura zaakceptowana przez KSeF' + (data.ksef_reference ? `: ${data.ksef_reference}` : ''));
+        } else if (data?.status === 'rejected') {
+          syncSnapshot(data, true);
+          toast.error('Faktura odrzucona przez KSeF: ' + (data.error || ''));
+        }
+      } catch {
+        // ignore transient polling errors
+      }
     }, 5000);
-  };
+  }
+
+  useEffect(() => {
+    void loadKsefStatus();
+
+    const channel = supabase
+      .channel(`invoice-ksef-status-${invoiceId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'user_invoices',
+          filter: `id=eq.${invoiceId}`,
+        },
+        (payload) => {
+          syncSnapshot(payload.new as any, true);
+        },
+      )
+      .subscribe();
+
+    return () => {
+      clearPolling();
+      void supabase.removeChannel(channel);
+    };
+  }, [invoiceId, onStatusChange]);
 
   const handleSendToKsef = async () => {
     setSending(true);
-    setKsefStatus('processing');
+
     try {
+      const freshInvoice = await fetchCurrentStatusFromDb();
+      const freshStatus = freshInvoice?.ksef_reference ? 'accepted' : (freshInvoice?.ksef_status || null);
+
+      if (freshStatus === 'accepted') {
+        syncSnapshot(freshInvoice || {}, true);
+        toast.success('Faktura jest już zaakceptowana przez KSeF');
+        return;
+      }
+
+      if (freshStatus === 'processing' || freshStatus === 'sent') {
+        syncSnapshot(freshInvoice || {}, true);
+        toast.success('Faktura jest już przetwarzana przez KSeF');
+        return;
+      }
+
+      setKsefStatus('processing');
+
       const { data, error } = await supabase.functions.invoke('ksef-integration', {
         body: { action: 'send', invoice_id: invoiceId },
       });
@@ -114,27 +212,38 @@ export function KsefSendButton({ invoiceId, size = 'sm', onStatusChange }: KsefS
       if (!data?.success) throw new Error(data?.error || 'Błąd wysyłania do KSeF');
 
       if (data.status === 'accepted' && data.ksef_reference) {
-        setKsefStatus('accepted');
-        setKsefReference(data.ksef_reference || null);
-        setSessionRef(data.session_ref || null);
-        setInvoiceRef(data.invoice_ref || null);
+        syncSnapshot(data, true);
         toast.success('Faktura zaakceptowana przez KSeF' + (data.ksef_reference ? `: ${data.ksef_reference}` : ''));
-        onStatusChange?.();
         return;
       }
 
-      setKsefStatus('processing');
-      setSessionRef(data.session_ref || null);
-      setInvoiceRef(data.invoice_ref || null);
-      if (data.status === 'processing') {
-        startPolling(data.session_ref || null, data.invoice_ref || null);
+      if (data.status === 'processing' || data.status === 'sent') {
+        syncSnapshot(data, true);
+        toast.success(data.message || 'Faktura wysłana do KSeF');
+        return;
       }
+
+      await loadKsefStatus(true);
       toast.success(data.message || 'Faktura wysłana do KSeF');
-      onStatusChange?.();
     } catch (err: any) {
       console.error('Error sending to KSeF:', err);
+
+      const recoveredInvoice = await fetchCurrentStatusFromDb().catch(() => null);
+      const recoveredStatus = recoveredInvoice?.ksef_reference ? 'accepted' : (recoveredInvoice?.ksef_status || null);
+
+      if (recoveredStatus === 'accepted') {
+        syncSnapshot(recoveredInvoice || {}, true);
+        toast.success('Faktura jest już zaakceptowana przez KSeF');
+        return;
+      }
+
+      if (recoveredStatus === 'processing' || recoveredStatus === 'sent') {
+        syncSnapshot(recoveredInvoice || {}, true);
+        toast.success('Faktura jest już przetwarzana przez KSeF');
+        return;
+      }
+
       toast.error('Błąd wysyłania do KSeF: ' + (err.message || ''));
-      setKsefStatus('rejected');
     } finally {
       setSending(false);
     }
@@ -181,8 +290,7 @@ export function KsefSendButton({ invoiceId, size = 'sm', onStatusChange }: KsefS
             className="h-6 px-2 text-xs"
             onClick={() => {
               setPollingTimedOut(false);
-              if (sessionRef) startPolling(sessionRef, invoiceRef);
-              else loadKsefStatus();
+              startPolling(sessionRef, invoiceRef);
             }}
           >
             <RefreshCw className="h-3 w-3 mr-1" />
@@ -191,6 +299,7 @@ export function KsefSendButton({ invoiceId, size = 'sm', onStatusChange }: KsefS
         </div>
       );
     }
+
     return (
       <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800">
         <Clock className="h-3 w-3 mr-1 animate-pulse" />
@@ -201,8 +310,8 @@ export function KsefSendButton({ invoiceId, size = 'sm', onStatusChange }: KsefS
 
   if (ksefStatus === 'rejected') {
     return (
-      <Button 
-        size={size} 
+      <Button
+        size={size}
         variant="outline"
         className="text-destructive hover:bg-destructive/10"
         onClick={handleSendToKsef}
@@ -214,8 +323,8 @@ export function KsefSendButton({ invoiceId, size = 'sm', onStatusChange }: KsefS
   }
 
   return (
-    <Button 
-      size={size} 
+    <Button
+      size={size}
       variant="outline"
       className="text-primary hover:bg-primary/10"
       onClick={handleSendToKsef}

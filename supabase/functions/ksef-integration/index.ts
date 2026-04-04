@@ -1140,10 +1140,23 @@ serve(async (req) => {
 
     // ========== send ==========
     if (action === 'send') {
-      // Duplicate check
-      const { data: existingInv } = await supabase.from('user_invoices').select('ksef_status, user_id').eq('id', body.invoice_id).single();
-      if (existingInv?.ksef_status === 'accepted' || existingInv?.ksef_status === 'processing') {
-        return jsonRes({ success: false, error: 'Faktura już wysłana do KSeF. Status: ' + existingInv.ksef_status });
+      // Duplicate check — if invoice is already in KSeF, return current status instead of hard error
+      const { data: existingInv } = await supabase
+        .from('user_invoices')
+        .select('ksef_status, ksef_reference, ksef_session_ref, ksef_invoice_ref, user_id')
+        .eq('id', body.invoice_id)
+        .single();
+
+      const existingStatus = existingInv?.ksef_reference ? 'accepted' : existingInv?.ksef_status;
+      if (existingStatus === 'accepted' || existingStatus === 'processing' || existingStatus === 'sent') {
+        return jsonRes({
+          success: true,
+          status: existingStatus,
+          ksef_reference: existingInv?.ksef_reference || null,
+          session_ref: existingInv?.ksef_session_ref || null,
+          invoice_ref: existingInv?.ksef_invoice_ref || null,
+          message: `Faktura była już wcześniej wysłana do KSeF. Status: ${existingStatus}`,
+        });
       }
 
       const { data: invoice, error: invErr } = await supabase
