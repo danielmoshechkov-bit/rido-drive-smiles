@@ -149,16 +149,21 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
     }
   };
 
+  const isKsefSent = ['accepted', 'processing', 'sent'].includes(invoice.ksef_status || '');
+  const canDelete = !isKsefSent;
+
   const handleDelete = async () => {
+    if (isKsefSent) {
+      toast.error('Nie można usunąć faktury wysłanej do KSeF. Wystaw korektę.');
+      return;
+    }
     setIsDeleting(true);
     try {
-      // First delete invoice items
       await supabase
         .from('user_invoice_items')
         .delete()
         .eq('invoice_id', invoice.id);
 
-      // Then delete the invoice
       const { error } = await supabase
         .from('user_invoices')
         .delete()

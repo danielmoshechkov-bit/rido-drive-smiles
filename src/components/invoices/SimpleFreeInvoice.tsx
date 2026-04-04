@@ -329,29 +329,22 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
         // Auto-generate next invoice number based on last invoice in DB
         if (!editInvoiceId) {
           const now = new Date();
-          const year = format(now, 'yyyy');
-          const month = format(now, 'MM');
-          const prefix = `FV/${year}/${month}/`;
+          const year = parseInt(format(now, 'yyyy'));
+          const month = parseInt(format(now, 'MM'));
           
-          const { data: lastInvoice } = await supabase
-            .from('user_invoices')
-            .select('invoice_number')
-            .eq('user_id', session.user.id)
-            .like('invoice_number', `FV/${year}/%`)
-            .order('invoice_number', { ascending: false })
-            .limit(1)
-            .maybeSingle();
+          // Use atomic sequence to prevent duplicate numbers
+          const { data: nextNum, error: seqErr } = await supabase
+            .rpc('get_next_invoice_number', { p_user_id: session.user.id, p_year: year, p_month: month });
           
-          let nextNum = 1;
-          if (lastInvoice?.invoice_number) {
-            const parts = lastInvoice.invoice_number.split('/');
-            const lastNumStr = parts[parts.length - 1];
-            const lastNum = parseInt(lastNumStr, 10);
-            if (!isNaN(lastNum)) {
-              nextNum = lastNum + 1;
-            }
+          if (seqErr) {
+            console.error('Error getting next invoice number:', seqErr);
+            // Fallback to old logic
+            const prefix = `FV/${year}/${String(month).padStart(2, '0')}/`;
+            setInvoiceNumber(`${prefix}001`);
+          } else {
+            const prefix = `FV/${year}/${String(month).padStart(2, '0')}/`;
+            setInvoiceNumber(`${prefix}${String(nextNum).padStart(3, '0')}`);
           }
-          setInvoiceNumber(`${prefix}${String(nextNum).padStart(3, '0')}`);
         }
         
         // Check if user has KSeF token configured
