@@ -10368,11 +10368,13 @@ export type Database = {
           error_message: string | null
           id: string
           invoice_id: string | null
+          ksef_invoice_ref: string | null
           ksef_reference_number: string | null
           response_at: string | null
           sent_at: string | null
           status: string
           upo_content: string | null
+          upo_download_url: string | null
           upo_reference: string | null
           xml_content: string | null
         }
@@ -10384,11 +10386,13 @@ export type Database = {
           error_message?: string | null
           id?: string
           invoice_id?: string | null
+          ksef_invoice_ref?: string | null
           ksef_reference_number?: string | null
           response_at?: string | null
           sent_at?: string | null
           status?: string
           upo_content?: string | null
+          upo_download_url?: string | null
           upo_reference?: string | null
           xml_content?: string | null
         }
@@ -10400,11 +10404,13 @@ export type Database = {
           error_message?: string | null
           id?: string
           invoice_id?: string | null
+          ksef_invoice_ref?: string | null
           ksef_reference_number?: string | null
           response_at?: string | null
           sent_at?: string | null
           status?: string
           upo_content?: string | null
+          upo_download_url?: string | null
           upo_reference?: string | null
           xml_content?: string | null
         }
@@ -17453,6 +17459,7 @@ export type Database = {
           issue_date: string
           issue_place: string | null
           ksef_environment: string | null
+          ksef_invoice_ref: string | null
           ksef_reference: string | null
           ksef_status: string | null
           net_total: number | null
@@ -17486,6 +17493,7 @@ export type Database = {
           issue_date: string
           issue_place?: string | null
           ksef_environment?: string | null
+          ksef_invoice_ref?: string | null
           ksef_reference?: string | null
           ksef_status?: string | null
           net_total?: number | null
@@ -17519,6 +17527,7 @@ export type Database = {
           issue_date?: string
           issue_place?: string | null
           ksef_environment?: string | null
+          ksef_invoice_ref?: string | null
           ksef_reference?: string | null
           ksef_status?: string | null
           net_total?: number | null
