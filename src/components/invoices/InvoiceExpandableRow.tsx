@@ -559,6 +559,49 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
                   ? '⏳ Czekaj na KSeF...' 
                   : isGeneratingPdf ? 'Ładuję...' : 'Podgląd / PDF'}
               </Button>
+
+              {/* Wyślij email button */}
+              <Popover open={showInlineEmail} onOpenChange={setShowInlineEmail}>
+                <PopoverTrigger asChild>
+                  <Button size="sm" variant="outline">
+                    {isSendingEmail ? (
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4 mr-1" />
+                    )}
+                    Wyślij
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 p-3" align="start">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Mail className="h-4 w-4 text-primary" />
+                    <p className="text-sm font-medium">Wyślij fakturę mailem</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Input
+                      type="email"
+                      value={inlineEmail}
+                      onChange={(e) => setInlineEmail(e.target.value)}
+                      placeholder="adres@email.com"
+                      className="flex-1 h-8 text-sm"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && inlineEmail) {
+                          handleSendInvoiceEmail(inlineEmail);
+                        }
+                      }}
+                    />
+                    <Button 
+                      size="sm" 
+                      className="h-8"
+                      onClick={() => handleSendInvoiceEmail(inlineEmail)} 
+                      disabled={isSendingEmail || !inlineEmail}
+                    >
+                      {isSendingEmail ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Wyślij'}
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
               
               <Popover open={showReminderPopover} onOpenChange={setShowReminderPopover}>
                 <PopoverTrigger asChild>
