@@ -861,15 +861,40 @@ export function InventoryPurchaseOCR({ entityId }: Props) {
                                   {invoiceMode === 'magazyn' && (
                                     <TableCell>
                                       <div className="flex items-center gap-1">
-                                        <Select value={item.mapped_product_id || '_none'} onValueChange={(v) => handleMapProduct(index, v === '_none' ? '' : v)}>
-                                          <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Wybierz..." /></SelectTrigger>
-                                          <SelectContent>
-                                            <SelectItem value="_none">— brak —</SelectItem>
-                                            {products.map(p => (
-                                              <SelectItem key={p.id} value={p.id}>{p.name} {p.sku ? `(${p.sku})` : ''}</SelectItem>
-                                            ))}
-                                          </SelectContent>
-                                        </Select>
+                                        <Popover>
+                                          <PopoverTrigger asChild>
+                                            <Button variant="outline" size="sm" className="h-8 text-xs justify-between w-36">
+                                              <span className="truncate">
+                                                {item.mapped_product_id 
+                                                  ? (products.find(p => p.id === item.mapped_product_id)?.name || 'Wybrano')
+                                                  : '— brak —'}
+                                              </span>
+                                              <ChevronsUpDown className="h-3 w-3 ml-1 opacity-50 shrink-0" />
+                                            </Button>
+                                          </PopoverTrigger>
+                                          <PopoverContent className="w-64 p-0" align="start">
+                                            <Command>
+                                              <CommandInput placeholder="Szukaj produktu..." className="h-9" />
+                                              <CommandList>
+                                                <CommandEmpty>Brak produktów</CommandEmpty>
+                                                <CommandGroup>
+                                                  <CommandItem value="_none" onSelect={() => handleMapProduct(index, '')}>
+                                                    — brak —
+                                                  </CommandItem>
+                                                  {products.map(p => (
+                                                    <CommandItem key={p.id} value={`${p.name} ${p.sku || ''}`} onSelect={() => handleMapProduct(index, p.id)}>
+                                                      <div className="flex items-center gap-2">
+                                                        {item.mapped_product_id === p.id && <CheckCircle className="h-3 w-3 text-primary shrink-0" />}
+                                                        <span className="truncate">{p.name}</span>
+                                                        {p.sku && <span className="text-[10px] text-muted-foreground shrink-0">({p.sku})</span>}
+                                                      </div>
+                                                    </CommandItem>
+                                                  ))}
+                                                </CommandGroup>
+                                              </CommandList>
+                                            </Command>
+                                          </PopoverContent>
+                                        </Popover>
                                         <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => openNewProductDialog(index)} title="Utwórz nowy produkt">
                                           <Plus className="h-3 w-3" />
                                         </Button>
