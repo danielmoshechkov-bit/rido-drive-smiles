@@ -631,9 +631,11 @@ serve(async (req) => {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            invoiceHash: { hashSHA: { algorithm: 'SHA-256', encoding: 'Base64', value: xmlHash }, fileSize: xmlBytes.byteLength },
-            encryptedDocumentHash: { hashSHA: { algorithm: 'SHA-256', encoding: 'Base64', value: encHash }, fileSize: ivPlusEnc.byteLength },
-            encryptedDocumentContent: bytesToB64(ivPlusEnc),
+            invoiceHash: xmlHash,
+            invoiceSize: xmlBytes.byteLength,
+            encryptedInvoiceHash: encHash,
+            encryptedInvoiceSize: ivPlusEnc.byteLength,
+            encryptedInvoiceContent: bytesToB64(ivPlusEnc),
           }),
         });
         if (!sendRes.ok) {
