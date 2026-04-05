@@ -850,21 +850,26 @@ function buildKsefInvoiceArtifacts(invoice: any, entity: any, items: any[]) {
   const podmiot2 = podmiot2Lines.join('\n');
 
   // Build correction-specific elements
-  let correctionElements = '';
   let correctionBlockXml = '';
   if (isCorrection) {
     const origNumber = invoice.corrected_invoice_number || '';
     const origDate = invoice.corrected_invoice_date || invoice.corrected_issue_date || invoice.sale_date || issueDate;
-    if (origNumber) correctionElements += `\n        <P_3C>${escapeXml(origNumber)}</P_3C>`;
-    if (origDate) correctionElements += `\n        <P_3D>${origDate}</P_3D>`;
+    
+    if (!origNumber) {
+      console.error('[KSeF] Correction invoice missing original invoice number');
+    }
     
     // DaneFaKorygowanej + TypKorekty required by XSD FA(3) for KOR invoices
+    // P_3C and P_3D do NOT exist in FA(3) schema — removed
     const hasKsefRef = !!invoice.corrected_ksef_reference;
     correctionBlockXml = `
     <DaneFaKorygowanej>
       <DataWystFaKorygowanej>${origDate}</DataWystFaKorygowanej>
       <NrFaKorygowanej>${escapeXml(origNumber)}</NrFaKorygowanej>
-      ${hasKsefRef ? '<NrKSeF>1</NrKSeF>' : '<NrKSeFN>1</NrKSeFN>'}
+      ${hasKsefRef
+        ? `<NrKSeF>1</NrKSeF>
+      <NrKSeFFaKorygowanej>${escapeXml(invoice.corrected_ksef_reference)}</NrKSeFFaKorygowanej>`
+        : '<NrKSeFN>1</NrKSeFN>'}
     </DaneFaKorygowanej>
     <TypKorekty>2</TypKorekty>`;
   }
