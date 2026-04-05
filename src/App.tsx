@@ -168,6 +168,7 @@ const App = () => (
                 <Route path="/prawne" element={<LegalPage />} />
                 <Route path="/umowa/:rentalId" element={<RentalClientPortal />} />
                 <Route path="/warsztat/klient/:code" element={<WorkshopClientCard />} />
+                <Route path="/marketplace/dodaj" element={<GeneralListingAdd />} />
                 {/* Aliases for marketplace add listing */}
                 <Route path="/dodaj" element={<AddVehicleListing />} />
                 <Route path="/dodaj-ogloszenie" element={<AddVehicleListing />} />

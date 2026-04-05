@@ -112,6 +112,15 @@ const mainTiles: MarketplaceTile[] = [
     available: true
   },
   {
+    id: 'marketplace',
+    title: 'Marketplace',
+    description: 'Sprzedawaj i kupuj wszystko z AI',
+    icon: ShoppingCart,
+    image: tileAutoMarketplace,
+    link: '/marketplace/dodaj',
+    available: true
+  },
+  {
     id: 'ksiegowosc',
     title: 'Księgowość',
     description: 'Darmowy program do faktur online',
