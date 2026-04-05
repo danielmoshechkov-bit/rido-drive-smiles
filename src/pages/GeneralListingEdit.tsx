@@ -313,7 +313,7 @@ export default function GeneralListingEdit() {
               if (data) setExistingPhotos(data);
             }}
           />
-        )
+        )}
 
         <div className="flex gap-3">
           <Button onClick={handleSave} disabled={saving || uploadingPhotos} size="lg" className="gap-2">
