@@ -355,7 +355,7 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
   const isCorrection = invoice.type === 'correction' && !!invoice.correction_data;
   const isAdvance = invoice.type === 'advance';
   const isFinal = invoice.type === 'final';
-  const isSimplified = invoice.type === 'simplified';
+  const _isSimplified = invoice.type === 'simplified';
 
   const displayItems = isCorrection ? invoice.correction_data!.after_items : items;
   
