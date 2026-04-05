@@ -144,10 +144,12 @@ async function translateOne(
   console.log('translateOne START:', item.listing_id, 'type:', item.listing_type, 'provider:', provider)
 
   const SUPPORTED_LANGS = ['en', 'ru', 'de', 'ua']
-  const rawLangs = item.target_langs || ['en', 'ru', 'de', 'ua']
-  const langs = (Array.isArray(rawLangs) ? rawLangs : ['en', 'ru', 'de', 'ua'])
+  const rawLangs = item.target_langs || ['en', 'ru']
+  const allLangs = (Array.isArray(rawLangs) ? rawLangs : ['en', 'ru'])
     .filter((l: string) => SUPPORTED_LANGS.includes(l))
-  if (langs.length === 0) langs.push('en', 'ru', 'de', 'ua')
+  if (allLangs.length === 0) allLangs.push('en', 'ru')
+  // Limit to 2 languages per batch to stay within 60s Edge Function timeout
+  const langs = allLangs.slice(0, 2)
   let savedCount = 0
   let skippedCount = 0
   let failedCount = 0
