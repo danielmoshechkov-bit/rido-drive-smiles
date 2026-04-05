@@ -139,7 +139,7 @@ serve(async (req) => {
 })
 
 async function translateOne(
-  sb: any, item: any, model: string, provider: 'kimi' | 'anthropic' | 'lovable'
+  sb: any, item: any, model: string, provider: 'kimi' | 'anthropic' | 'lovable', kimiApiKey?: string
 ) {
   console.log('translateOne START:', item.listing_id, 'type:', item.listing_type, 'provider:', provider)
 
