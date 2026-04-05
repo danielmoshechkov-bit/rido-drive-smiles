@@ -529,7 +529,7 @@ export function FeaturedListings({ className, categoryContext, hideViewMore }: F
                 : "bg-background border-blue-500 hover:opacity-80"
             )}
           >
-            Wynajem
+            {t('featured.forRent')}
           </button>
         </div>
       )}
