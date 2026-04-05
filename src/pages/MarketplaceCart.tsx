@@ -72,12 +72,16 @@ export default function MarketplaceCart() {
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <UniversalHomeButton />
-            <span className="font-bold text-lg text-primary">Koszyk</span>
+            <Button variant="ghost" size="sm" onClick={() => navigate("/marketplace")} className="gap-2">
+              <ArrowLeft className="h-4 w-4" />
+              <span className="hidden sm:inline">Wróć do listy</span>
+            </Button>
+            <div className="hidden md:flex items-center gap-2 cursor-pointer" onClick={() => navigate("/easy")}>
+              <img src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" alt="RIDO" className="h-8 w-8" />
+              <span className="font-bold text-lg"><span className="text-primary">RIDO</span> Marketplace</span>
+            </div>
           </div>
-          <Button variant="ghost" size="sm" onClick={() => navigate("/marketplace")}>
-            <ArrowLeft className="h-4 w-4 mr-2" /> Kontynuuj zakupy
-          </Button>
+          <span className="font-bold text-lg text-primary">Koszyk</span>
         </div>
       </header>
 
