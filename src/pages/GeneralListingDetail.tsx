@@ -177,7 +177,7 @@ export default function GeneralListingDetail() {
   }
 
   const cond = listing.condition ? CONDITION_MAP[listing.condition] : null;
-  const currentPhoto = photos[selectedPhoto];
+  
   const aiScoreRaw = listing.ai_score;
   const aiScore5 = aiScoreRaw ? Number(aiScoreRaw) / 2 : null;
   const aiStars = aiScore5 ? Math.round(aiScore5) : 0;
