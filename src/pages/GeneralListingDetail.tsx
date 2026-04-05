@@ -34,6 +34,8 @@ export default function GeneralListingDetail() {
   const [selectedPhoto, setSelectedPhoto] = useState(0);
   const [isFav, setIsFav] = useState(false);
   const [aiAssessing, setAiAssessing] = useState(false);
+  const [sellerRating, setSellerRating] = useState<{ avg: number; count: number } | null>(null);
+  const { addToCart, isInCart } = useCart();
 
   useEffect(() => { window.scrollTo(0, 0); }, [id]);
 
