@@ -167,6 +167,10 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
   const [autoSendKsef, setAutoSendKsef] = useState(false);
   const [hasKsefToken, setHasKsefToken] = useState(false);
   
+  // Margin invoice fields
+  const [marginPurchasePrice, setMarginPurchasePrice] = useState<number>(0);
+  const [marginProcedureType, setMarginProcedureType] = useState<string>('used_goods');
+  
   // Collapsible sections
   const [sellerExpanded, setSellerExpanded] = useState(true);
   const [discountConfig, setDiscountConfig] = useState<DiscountConfig>({
