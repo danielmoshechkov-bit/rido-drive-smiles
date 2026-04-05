@@ -387,7 +387,7 @@ export default function GeneralMarketplace() {
                     size="sm"
                     className="h-7 w-7 p-0"
                     onClick={() => setViewMode('list')}
-                    title="Lista"
+                    title={t('marketplace.list')}
                   >
                     <ListIcon className="h-4 w-4" />
                   </Button>
