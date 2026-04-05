@@ -252,6 +252,7 @@ export default function AdminAIAgentsPage() {
               <Plus className="h-4 w-4" /> Dodaj agenta
             </Button>
           </div>
+        </div>
 
         {/* Module filter */}
         <div className="flex flex-wrap gap-2">
