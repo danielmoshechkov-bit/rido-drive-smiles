@@ -598,7 +598,22 @@ export default function MarketplaceDashboard() {
             </Card>
           </TabsContent>
 
-          {/* SETTINGS TAB */}
+          {/* GENERAL MARKETPLACE TAB */}
+          <TabsContent value="general" className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold">RidoMarket — Ogłoszenia</h2>
+                <p className="text-sm text-muted-foreground">Twoje ogłoszenia z marketplace ogólnego</p>
+              </div>
+              <Button onClick={() => navigate("/marketplace/dodaj")}>
+                <Plus className="h-4 w-4 mr-2" />
+                Dodaj ogłoszenie
+              </Button>
+            </div>
+            <GeneralListingsTab userId={user?.id} />
+          </TabsContent>
+
+
           <TabsContent value="settings" className="space-y-6">
             <Card>
               <CardHeader>
