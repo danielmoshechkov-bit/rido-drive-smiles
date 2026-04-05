@@ -7716,6 +7716,8 @@ export type Database = {
         Row: {
           created_at: string | null
           id: string
+          invoice_subject: string | null
+          invoice_template: string | null
           password_reset_subject: string | null
           password_reset_subject_en: string | null
           password_reset_subject_kz: string | null
@@ -7748,6 +7750,8 @@ export type Database = {
         Insert: {
           created_at?: string | null
           id?: string
+          invoice_subject?: string | null
+          invoice_template?: string | null
           password_reset_subject?: string | null
           password_reset_subject_en?: string | null
           password_reset_subject_kz?: string | null
@@ -7780,6 +7784,8 @@ export type Database = {
         Update: {
           created_at?: string | null
           id?: string
+          invoice_subject?: string | null
+          invoice_template?: string | null
           password_reset_subject?: string | null
           password_reset_subject_en?: string | null
           password_reset_subject_kz?: string | null
