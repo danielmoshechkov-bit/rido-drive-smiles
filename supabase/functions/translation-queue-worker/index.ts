@@ -108,6 +108,8 @@ async function translateOne(sb: any, item: any) {
   const kimiKey = Deno.env.get('KIMI_API_KEY')
   if (!kimiKey) throw new Error('KIMI_API_KEY not configured')
 
+  console.log('Translating listing:', item.listing_id, 'type:', item.listing_type)
+
   const langs = item.target_langs || ['en', 'ru', 'ua', 'de', 'vi', 'kz']
 
   for (const lang of langs) {
@@ -115,16 +117,20 @@ async function translateOne(sb: any, item: any) {
       .from('listing_translations')
       .select('id')
       .eq('listing_id', item.listing_id)
+      .eq('listing_type', item.listing_type || 'general')
       .eq('target_lang', lang)
       .single()
 
-    if (existing) continue
+    if (existing) {
+      console.log(`Translation exists for ${item.listing_id}/${lang}, skipping`)
+      continue
+    }
 
     const langName = LANG_NAMES[lang] || lang
     const result = await callKimiWithRetry(kimiKey, item.title, item.description || '', langName)
 
     if (result) {
-      await sb.from('listing_translations').upsert({
+      const row = {
         listing_id: item.listing_id,
         listing_type: item.listing_type || 'general',
         target_lang: lang,
@@ -133,7 +139,30 @@ async function translateOne(sb: any, item: any) {
         source_lang: item.source_lang || 'pl',
         translated_by: 'kimi',
         translated_at: new Date().toISOString()
-      }, { onConflict: 'listing_id,listing_type,target_lang' })
+      }
+
+      const { error: upsertError } = await sb
+        .from('listing_translations')
+        .upsert(row, {
+          onConflict: 'listing_id,listing_type,target_lang',
+          ignoreDuplicates: false
+        })
+
+      if (upsertError) {
+        console.error(`Upsert failed for ${item.listing_id}/${lang}:`, upsertError.message, upsertError.details)
+        // Fallback: try plain insert
+        const { error: insertError } = await sb
+          .from('listing_translations')
+          .insert(row)
+
+        if (insertError) {
+          console.error(`Insert fallback also failed:`, insertError.message)
+        } else {
+          console.log(`Insert fallback succeeded for ${item.listing_id}/${lang}`)
+        }
+      } else {
+        console.log(`Saved translation ${item.listing_id}/${lang}`)
+      }
     }
   }
 
