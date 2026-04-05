@@ -538,7 +538,7 @@ export function FeaturedListings({ className, categoryContext, hideViewMore }: F
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <h2 className="text-lg md:text-xl font-bold">
-            Proponowane oferty
+            {t('featured.title')}
           </h2>
         </div>
         {!hideViewMore && (
