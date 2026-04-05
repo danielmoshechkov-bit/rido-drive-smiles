@@ -769,8 +769,18 @@ function buildKsefInvoiceArtifacts(invoice: any, entity: any, items: any[]) {
   const formCode = 'FA (3) / 1-0E';
   
   // Determine invoice type for KSeF — support all types
-  const isCorrection = invoice.is_correction === true || invoice.invoice_type === 'KOR' || invoice.invoice_type === 'correction' || invoice.invoice_type === 'KOR_ZAL' || invoice.invoice_type === 'KOR_ROZ';
-  const invoiceType = isCorrection ? 'KOR' : (invoice.invoice_type || 'VAT');
+  const rawType = invoice.invoice_type || 'VAT';
+  const isCorrection = invoice.is_correction === true || ['KOR', 'correction', 'KOR_ZAL', 'KOR_ROZ'].includes(rawType);
+  
+  // Map invoice_type to KSeF RodzajFaktury
+  let invoiceType: string;
+  if (rawType === 'KOR_ZAL') invoiceType = 'KOR_ZAL';
+  else if (rawType === 'KOR_ROZ') invoiceType = 'KOR_ROZ';
+  else if (isCorrection) invoiceType = 'KOR';
+  else if (rawType === 'ZAL' || rawType === 'advance') invoiceType = 'ZAL';
+  else if (rawType === 'ROZ' || rawType === 'final') invoiceType = 'ROZ';
+  else if (rawType === 'UPR') invoiceType = 'UPR';
+  else invoiceType = 'VAT';
 
   const vatByRate: Record<string, { net: number; vat: number }> = {};
   items.forEach((item) => {
