@@ -872,6 +872,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
             currency: invoiceData.currency,
             buyer_name: buyer.name,
             buyer_nip: buyer.nip,
+            buyer_email: buyer.email || null,
             buyer_address: `${buyerAddress}, ${buyer.address_postal_code} ${buyer.address_city}`,
             net_total: netTotal,
             vat_total: vatTotal,
