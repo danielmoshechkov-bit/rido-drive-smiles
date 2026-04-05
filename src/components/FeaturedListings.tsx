@@ -586,10 +586,10 @@ export function FeaturedListings({ className, categoryContext, hideViewMore }: F
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-xl">
-              Wybierz kategorię
+              {t('featured.chooseCategory')}
             </DialogTitle>
             <DialogDescription>
-              Przejdź do wybranego portalu ogłoszeń
+              {t('featured.chooseCategoryDesc')}
             </DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
