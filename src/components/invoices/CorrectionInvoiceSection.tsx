@@ -130,7 +130,7 @@ export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataC
       .from('user_invoices')
       .select('id, invoice_number, buyer_name, issue_date, sale_date, gross_total, buyer_nip, buyer_address, ksef_reference, ksef_status')
       .eq('user_id', session.user.id)
-      .in('invoice_type', ['invoice', 'vat_margin', 'advance', 'VAT', 'ZAL'])
+      .not('invoice_type', 'in', '("KOR","KOR_ZAL","KOR_ROZ")')
       .order('created_at', { ascending: false })
       .limit(50);
 
