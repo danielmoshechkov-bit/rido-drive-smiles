@@ -756,6 +756,79 @@ export default function ServiceProviderDashboard() {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+
+            {/* Activation Dialog */}
+            <Dialog open={activationDialog} onOpenChange={setActivationDialog}>
+              <DialogContent className="max-w-lg">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <ShieldCheck className="h-5 w-5 text-primary" />
+                    Aktywuj profil usługodawcy
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 max-h-[60vh] overflow-y-auto">
+                  <p className="text-sm text-muted-foreground">Uzupełnij dane — po aktywacji Twoja firma i usługi będą widoczne publicznie w portalu.</p>
+                  <div className="space-y-2">
+                    <Label>Nazwa firmy *</Label>
+                    <Input value={activationForm.company_name} onChange={e => setActivationForm(p => ({ ...p, company_name: e.target.value }))} placeholder="Np. Auto Serwis Kowalski" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Kategoria główna *</Label>
+                    <Select value={activationForm.category_id} onValueChange={v => setActivationForm(p => ({ ...p, category_id: v }))}>
+                      <SelectTrigger><SelectValue placeholder="Wybierz kategorię" /></SelectTrigger>
+                      <SelectContent>
+                        {serviceCategories.map(cat => (
+                          <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Opis firmy *</Label>
+                    <Textarea rows={3} value={activationForm.description} onChange={e => setActivationForm(p => ({ ...p, description: e.target.value }))} placeholder="Opisz czym zajmuje się Twoja firma..." />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Telefon *</Label>
+                      <Input value={activationForm.company_phone} onChange={e => setActivationForm(p => ({ ...p, company_phone: e.target.value }))} placeholder="+48..." />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>E-mail</Label>
+                      <Input value={activationForm.company_email} onChange={e => setActivationForm(p => ({ ...p, company_email: e.target.value }))} placeholder="kontakt@firma.pl" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Miasto *</Label>
+                      <Input value={activationForm.company_city} onChange={e => setActivationForm(p => ({ ...p, company_city: e.target.value }))} placeholder="Warszawa" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Kod pocztowy</Label>
+                      <Input value={activationForm.company_postal_code} onChange={e => setActivationForm(p => ({ ...p, company_postal_code: e.target.value }))} placeholder="00-000" />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Adres</Label>
+                    <Input value={activationForm.company_address} onChange={e => setActivationForm(p => ({ ...p, company_address: e.target.value }))} placeholder="ul. Przykładowa 1" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>NIP</Label>
+                    <Input value={activationForm.company_nip} onChange={e => setActivationForm(p => ({ ...p, company_nip: e.target.value }))} placeholder="1234567890" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Zdjęcie okładkowe</Label>
+                    <Input type="file" accept="image/*" onChange={e => setCoverImageFile(e.target.files?.[0] || null)} />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setActivationDialog(false)}>Anuluj</Button>
+                  <Button onClick={handleActivateProfile} disabled={activationSaving} className="gap-2">
+                    {activationSaving ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" /> : <ShieldCheck className="h-4 w-4" />}
+                    Aktywuj profil
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </TabsContent>
 
           {/* Calendar Tab */}
