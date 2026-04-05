@@ -7,8 +7,11 @@ import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
+import { useCart } from "@/hooks/useCart";
+import { PendingReviewBanner } from "@/components/marketplace/PendingReviewBanner";
+import { MarketCompareBar } from "@/components/marketplace/MarketCompareBar";
 import {
-  ArrowLeft, Heart, Share2, MapPin, Eye, ShoppingCart,
+  ArrowLeft, Heart, Share2, MapPin, Eye, ShoppingCart, Star,
   Sparkles, User, Calendar, CheckCircle, Loader2, ImageIcon, AlertTriangle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
