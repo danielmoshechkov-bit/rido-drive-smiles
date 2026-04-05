@@ -171,6 +171,16 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
   const [marginPurchasePrice, setMarginPurchasePrice] = useState<number>(0);
   const [marginProcedureType, setMarginProcedureType] = useState<string>('used_goods');
   
+  // VAT RR (farmer invoice) fields
+  const [farmerPesel, setFarmerPesel] = useState('');
+  const [farmerIdNumber, setFarmerIdNumber] = useState('');
+  const [flatRatePercent, setFlatRatePercent] = useState<number>(7);
+  
+  // Computed: which type-specific features are active
+  const isNoVatType = ['receipt', 'nota'].includes(invoiceType);
+  const isMarginType = invoiceType === 'vat_margin' || invoiceType === 'margin';
+  const isVatRRType = invoiceType === 'vat_rr';
+  
   // Collapsible sections
   const [sellerExpanded, setSellerExpanded] = useState(true);
   const [discountConfig, setDiscountConfig] = useState<DiscountConfig>({
@@ -668,6 +678,12 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
       is_margin: invoiceType === 'vat_margin' || invoiceType === 'margin',
       margin_purchase_price: marginPurchasePrice || undefined,
       margin_procedure_type: marginProcedureType as any,
+      // VAT RR data
+      vat_rr_data: invoiceType === 'vat_rr' ? {
+        farmer_pesel: farmerPesel || undefined,
+        farmer_id_number: farmerIdNumber || undefined,
+        flat_rate_percent: flatRatePercent,
+      } : undefined,
     };
   };
 
@@ -1129,6 +1145,87 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
         />
       )}
 
+      {/* VAT Margin specific fields */}
+      {(invoiceType === 'vat_margin' || invoiceType === 'margin') && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Calculator className="h-4 w-4" />
+              Dane faktury marża
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="p-3 rounded-lg border border-amber-200 bg-amber-50 text-sm text-amber-800">
+              ⚠ Faktura VAT marża — VAT nie jest wykazywany na dokumencie dla klienta. VAT liczony od marży (sprzedaż - zakup).
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <FloatingInput
+                label="Cena zakupu (wewnętrzna)"
+                type="number"
+                min={0}
+                step={0.01}
+                value={marginPurchasePrice || ''}
+                onChange={(e) => setMarginPurchasePrice(parseFloat(e.target.value) || 0)}
+              />
+              <div className="relative">
+                <div className="flex h-12 w-full rounded-md border border-input bg-background">
+                  <span className="absolute left-3 top-1 text-xs text-primary">Typ procedury</span>
+                  <Select value={marginProcedureType} onValueChange={setMarginProcedureType}>
+                    <SelectTrigger className="h-12 border-0 pt-4 pb-1 shadow-none focus:ring-0">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="used_goods">Towary używane</SelectItem>
+                      <SelectItem value="tourism">Usługi turystyczne</SelectItem>
+                      <SelectItem value="art">Dzieła sztuki</SelectItem>
+                      <SelectItem value="antiques">Antyki / kolekcjonerskie</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* VAT RR specific fields */}
+      {invoiceType === 'vat_rr' && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <User className="h-4 w-4" />
+              Dane rolnika ryczałtowego
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="p-3 rounded-lg border border-green-200 bg-green-50 text-sm text-green-800">
+              Faktura VAT RR — wystawiana przez nabywcę produktów rolnych od rolnika ryczałtowego (art. 116 ustawy o VAT).
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <FloatingInput
+                label="PESEL rolnika"
+                value={farmerPesel}
+                onChange={(e) => setFarmerPesel(e.target.value.replace(/\D/g, ''))}
+                maxLength={11}
+              />
+              <FloatingInput
+                label="Nr dowodu osobistego"
+                value={farmerIdNumber}
+                onChange={(e) => setFarmerIdNumber(e.target.value)}
+              />
+              <FloatingInput
+                label="Stawka ryczałtu %"
+                type="number"
+                min={0}
+                max={100}
+                step={1}
+                value={flatRatePercent}
+                onChange={(e) => setFlatRatePercent(parseFloat(e.target.value) || 7)}
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
       {/* Seller Section - Collapsible */}
       <Card>
         <CardHeader 
@@ -1476,24 +1573,35 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
               {/* Row 2: Cena netto + Cena brutto (always side by side) */}
               <div className="grid grid-cols-2 gap-3">
                 <FloatingInput
-                  label="Cena netto"
+                  label={['receipt', 'nota'].includes(invoiceType) ? 'Cena' : 'Cena netto'}
                   type="number"
                   min={0}
                   step={0.01}
                   value={item.unit_net_price || ''}
                   onChange={(e) => updateItem(index, 'unit_net_price', parseFloat(e.target.value) || 0)}
                 />
-                <FloatingInput
-                  label="Cena brutto"
-                  type="number"
-                  min={0}
-                  step={0.01}
-                  value={item.unit_gross_price || ''}
-                  onChange={(e) => updateItem(index, 'unit_gross_price', parseFloat(e.target.value) || 0)}
-                />
+                {!['receipt', 'nota'].includes(invoiceType) && (
+                  <FloatingInput
+                    label="Cena brutto"
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={item.unit_gross_price || ''}
+                    onChange={(e) => updateItem(index, 'unit_gross_price', parseFloat(e.target.value) || 0)}
+                  />
+                )}
+                {['receipt', 'nota'].includes(invoiceType) && (
+                  <FloatingInput
+                    label="Wartość"
+                    value={formatAmount(item.net_amount)}
+                    disabled
+                    className="bg-muted font-medium"
+                  />
+                )}
               </div>
               
-              {/* Row 3: VAT + Suma brutto (always side by side) */}
+              {/* Row 3: VAT + Suma brutto — hidden for receipt/nota */}
+              {!['receipt', 'nota'].includes(invoiceType) && (
               <div className="grid grid-cols-2 gap-3">
                 <div className="relative">
                   <div className="flex h-12 w-full rounded-md border border-input bg-background">
@@ -1515,6 +1623,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
                   className="bg-muted font-medium"
                 />
               </div>
+              )}
 
               {/* Discount row (only if per_item discount enabled) */}
               {discountConfig.type === 'per_item' && (

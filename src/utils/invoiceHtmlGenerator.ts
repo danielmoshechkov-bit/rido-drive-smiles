@@ -89,6 +89,13 @@ export interface InvoiceData {
   is_margin?: boolean;
   margin_purchase_price?: number;
   margin_procedure_type?: 'used_goods' | 'tourism' | 'art' | 'antiques';
+  // VAT RR (farmer invoice) data
+  vat_rr_data?: {
+    farmer_pesel?: string;
+    farmer_id_number?: string;
+    flat_rate_percent: number; // typically 7%
+    declaration_text?: string;
+  };
 }
 
 export type Currency = 'PLN' | 'EUR' | 'USD' | 'GBP' | 'CHF' | 'CZK';
@@ -400,6 +407,13 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
   const isMargin = invoice.is_margin === true || ['margin', 'vat_margin'].includes(invoice.type);
   const isSimplified = ['simplified', 'UPR'].includes(invoice.type);
   const isFinal = ['final', 'ROZ'].includes(invoice.type);
+  const isReceipt = invoice.type === 'receipt';
+  const isNota = invoice.type === 'nota';
+  const isVatRR = invoice.type === 'vat_rr';
+  const isProforma = invoice.type === 'proforma';
+  
+  // Documents without VAT columns
+  const noVatDocument = isReceipt || isNota || isMargin;
 
   const displayItems = isCorrection ? invoice.correction_data!.after_items : items;
   
@@ -426,7 +440,32 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
   let invoiceTitle = 'Faktura VAT';
   let footerNote = '';
 
-  if (isAdvance) {
+  if (isReceipt) {
+    themeColor = '#2563eb';
+    themeColorLight = '#eff6ff';
+    themeColorBorder = '#bfdbfe';
+    invoiceTitle = 'RACHUNEK';
+    footerNote = '';
+  } else if (isNota) {
+    themeColor = '#64748b';
+    themeColorLight = '#f1f5f9';
+    themeColorBorder = '#cbd5e1';
+    invoiceTitle = 'NOTA KSIĘGOWA';
+    footerNote = '';
+  } else if (isVatRR) {
+    themeColor = '#15803d';
+    themeColorLight = '#f0fdf4';
+    themeColorBorder = '#bbf7d0';
+    invoiceTitle = 'FAKTURA VAT RR';
+    const rrRate = invoice.vat_rr_data?.flat_rate_percent || 7;
+    footerNote = `Faktura VAT RR wystawiona na podstawie art. 116 ustawy z dnia 11 marca 2004 r. o podatku od towarów i usług. Zryczałtowany zwrot VAT: ${rrRate}%.`;
+  } else if (isProforma) {
+    themeColor = '#7c3aed';
+    themeColorLight = '#f8f5ff';
+    themeColorBorder = '#ede9fe';
+    invoiceTitle = 'FAKTURA PROFORMA';
+    footerNote = 'Dokument nie jest fakturą VAT w rozumieniu ustawy o podatku od towarów i usług. Nie stanowi podstawy do odliczenia VAT.';
+  } else if (isAdvance) {
     themeColor = '#1D9E75';
     themeColorLight = '#E1F5EE';
     themeColorBorder = '#9FE1CB';
@@ -460,6 +499,7 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
   const cellPadding = compact_pdf ? '2px 4px' : '4px 6px';
   const cellFontSize = compact_pdf ? '8px' : '9px';
   
+  // Standard items HTML (VAT columns)
   const itemsHtml = displayItems.map((item, index) => `
     <tr>
       <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: center; font-size: ${cellFontSize};">${index + 1}</td>
@@ -473,6 +513,37 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
       <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: right; font-weight: bold; font-size: ${cellFontSize};">${formatCurrency(item.gross_amount, currency)}</td>
     </tr>
   `).join('');
+
+  // Simple items HTML (no VAT columns) — for rachunek, nota
+  const simpleItemsHtml = displayItems.map((item, index) => `
+    <tr>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: center; font-size: ${cellFontSize};">${index + 1}</td>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; font-size: ${cellFontSize};">${item.name}</td>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: center; font-size: ${cellFontSize};">${item.unit}</td>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: right; font-size: ${cellFontSize};">${item.quantity}</td>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: right; font-size: ${cellFontSize};">${formatCurrency(item.unit_net_price, currency)}</td>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: right; font-weight: bold; font-size: ${cellFontSize};">${formatCurrency(item.net_amount, currency)}</td>
+    </tr>
+  `).join('');
+
+  // VAT RR items HTML — with flat-rate VAT
+  const rrRate = invoice.vat_rr_data?.flat_rate_percent || 7;
+  const vatRRItemsHtml = displayItems.map((item, index) => {
+    const rrVat = Math.round(item.net_amount * (rrRate / 100) * 100) / 100;
+    const rrGross = Math.round((item.net_amount + rrVat) * 100) / 100;
+    return `
+    <tr>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: center; font-size: ${cellFontSize};">${index + 1}</td>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; font-size: ${cellFontSize};">${item.name}</td>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: center; font-size: ${cellFontSize};">${item.unit}</td>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: right; font-size: ${cellFontSize};">${item.quantity}</td>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: right; font-size: ${cellFontSize};">${formatCurrency(item.unit_net_price, currency)}</td>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: right; font-size: ${cellFontSize};">${formatCurrency(item.net_amount, currency)}</td>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: center; font-size: ${cellFontSize};">${rrRate}%</td>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: right; font-size: ${cellFontSize};">${formatCurrency(rrVat, currency)}</td>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: right; font-weight: bold; font-size: ${cellFontSize};">${formatCurrency(rrGross, currency)}</td>
+    </tr>`;
+  }).join('');
 
   // VAT summary rows - table format with fixed column widths
   const vatSummaryHtml = Object.entries(vatSummary).map(([rate, amounts]) => `
@@ -615,7 +686,7 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
   </style>
 </head>
 <body>
-  ${!hasAcceptedKsef ? '<div class="draft-watermark">KOPIA ROBOCZA</div>' : ''}
+  ${isProforma ? '<div class="draft-watermark">PROFORMA</div>' : (!hasAcceptedKsef && !isReceipt && !isNota ? '<div class="draft-watermark">KOPIA ROBOCZA</div>' : '')}
   <div class="invoice content-layer">
     <div class="top-meta">
       ${invoice.issue_place ? `${invoice.issue_place}, ` : ''}${formatDate(invoice.issue_date)}
@@ -663,7 +734,7 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
 
     <div class="parties">
       <div class="party">
-        <div class="party-label">Sprzedawca</div>
+        <div class="party-label">${isVatRR ? 'Nabywca (kupujący)' : 'Sprzedawca'}</div>
         <div class="party-name">${seller.name || ''}</div>
         <div class="party-details">
           ${seller.nip ? `NIP: ${seller.nip}<br>` : ''}
@@ -671,7 +742,7 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
         </div>
       </div>
       <div class="party">
-        <div class="party-label">Nabywca</div>
+        <div class="party-label">${isVatRR ? 'Dostawca (rolnik ryczałtowy)' : 'Nabywca'}</div>
         ${isSimplified && buyer.nip && !buyer.name ? `
         <div class="party-name">NIP nabywcy: ${buyer.nip}</div>
         <div class="party-details" style="font-style: italic;">(pełne dane nabywcy opcjonalne przy fakturze uproszczonej)</div>
@@ -679,13 +750,50 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
         <div class="party-name">${buyer.name || ''}</div>
         <div class="party-details">
           ${buyer.nip ? `NIP: ${buyer.nip}<br>` : ''}
+          ${isVatRR && invoice.vat_rr_data?.farmer_pesel ? `PESEL: ${invoice.vat_rr_data.farmer_pesel}<br>` : ''}
+          ${isVatRR && invoice.vat_rr_data?.farmer_id_number ? `Nr dowodu: ${invoice.vat_rr_data.farmer_id_number}<br>` : ''}
           ${formatAddress(buyer)}
         </div>
         `}
       </div>
     </div>
 
-    ${isCorrection && invoice.correction_data ? generateCorrectionTablesHtml(invoice.correction_data, currency, cellPadding, cellFontSize) : isMargin ? `
+    ${isCorrection && invoice.correction_data ? generateCorrectionTablesHtml(invoice.correction_data, currency, cellPadding, cellFontSize) : (isReceipt || isNota) ? `
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 22px; background-color: ${themeColor} !important; color: #ffffff !important;">Lp.</th>
+          <th style="background-color: ${themeColor} !important; color: #ffffff !important;">Nazwa towaru / usługi</th>
+          <th style="width: 32px; background-color: ${themeColor} !important; color: #ffffff !important;">Jm.</th>
+          <th style="width: 45px; background-color: ${themeColor} !important; color: #ffffff !important;">Ilość</th>
+          <th style="width: 75px; background-color: ${themeColor} !important; color: #ffffff !important;">Cena</th>
+          <th style="width: 80px; background-color: ${themeColor} !important; color: #ffffff !important;">Wartość</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${simpleItemsHtml}
+      </tbody>
+    </table>
+    ` : isVatRR ? `
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 22px; background-color: ${themeColor} !important; color: #ffffff !important;">Lp.</th>
+          <th style="background-color: ${themeColor} !important; color: #ffffff !important;">Nazwa produktu rolnego</th>
+          <th style="width: 32px; background-color: ${themeColor} !important; color: #ffffff !important;">Jm.</th>
+          <th style="width: 40px; background-color: ${themeColor} !important; color: #ffffff !important;">Ilość</th>
+          <th style="width: 65px; background-color: ${themeColor} !important; color: #ffffff !important;">Cena jedn.</th>
+          <th style="width: 65px; background-color: ${themeColor} !important; color: #ffffff !important;">Wart. netto</th>
+          <th style="width: 35px; background-color: ${themeColor} !important; color: #ffffff !important;">Stawka</th>
+          <th style="width: 55px; background-color: ${themeColor} !important; color: #ffffff !important;">Zwrot VAT</th>
+          <th style="width: 65px; background-color: ${themeColor} !important; color: #ffffff !important;">Wart. brutto</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${vatRRItemsHtml}
+      </tbody>
+    </table>
+    ` : isMargin ? `
     <table>
       <thead>
         <tr>
@@ -729,7 +837,37 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     </table>
     `}
 
-    ${!isCorrection && !isMargin ? `
+    ${isVatRR ? (() => {
+      const rrNetT = displayItems.reduce((s, i) => s + i.net_amount, 0);
+      const rrVatT = Math.round(rrNetT * (rrRate / 100) * 100) / 100;
+      const rrGrossT = Math.round((rrNetT + rrVatT) * 100) / 100;
+      return `
+    <div class="vat-summary" style="margin-top: 8px; font-size: 8px;">
+      <div style="font-size: 9px; font-weight: 600; margin-bottom: 4px; color: #666;">Podsumowanie faktury VAT RR</div>
+      <table style="width: 60%; max-width: 350px; border-collapse: collapse; table-layout: fixed; font-size: 8px;">
+        <thead>
+          <tr class="vat-header" style="background-color: ${themeColor} !important;">
+            <th style="width: 25%; padding: 4px 6px; text-align: right; font-weight: 600; color: #fff !important; background-color: ${themeColor} !important;">Stawka</th>
+            <th style="width: 25%; padding: 4px 6px; text-align: right; font-weight: 600; color: #fff !important; background-color: ${themeColor} !important;">Netto</th>
+            <th style="width: 25%; padding: 4px 6px; text-align: right; font-weight: 600; color: #fff !important; background-color: ${themeColor} !important;">Zwrot VAT</th>
+            <th style="width: 25%; padding: 4px 6px; text-align: right; font-weight: 600; color: #fff !important; background-color: ${themeColor} !important;">Brutto</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="background-color: ${themeColorLight};">
+            <td style="padding: 3px 6px; text-align: right; font-weight: 600;">${rrRate}%</td>
+            <td style="padding: 3px 6px; text-align: right;">${formatCurrency(rrNetT, currency)}</td>
+            <td style="padding: 3px 6px; text-align: right;">${formatCurrency(rrVatT, currency)}</td>
+            <td style="padding: 3px 6px; text-align: right; font-weight: 600;">${formatCurrency(rrGrossT, currency)}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div style="background: ${themeColorLight}; padding: 8px 12px; margin: 8px 0; border-radius: 4px; border-left: 3px solid ${themeColor}; font-size: 8px;">
+      <div style="font-weight: 600; margin-bottom: 4px; color: ${themeColor};">Oświadczenie rolnika ryczałtowego</div>
+      <div style="color: #555;">${invoice.vat_rr_data?.declaration_text || 'Oświadczam, że jestem rolnikiem ryczałtowym zwolnionym od podatku od towarów i usług na podstawie art. 43 ust. 1 pkt 3 ustawy z dnia 11 marca 2004 r. o podatku od towarów i usług.'}</div>
+    </div>`;
+    })() : (isReceipt || isNota) ? '' : !isCorrection && !isMargin ? `
     <div class="vat-summary" style="margin-top: 8px; font-size: 8px;">
       <div style="font-size: 9px; font-weight: 600; margin-bottom: 4px; color: #666;">Podsumowanie faktury</div>
       <table style="width: 60%; max-width: 350px; border-collapse: collapse; table-layout: fixed; font-size: 8px;">
@@ -777,19 +915,24 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
 
     <div class="totals">
       <div class="totals-table">
-        ${!isMargin ? `
+        ${(isReceipt || isNota) ? '' : !isMargin ? `
         <div class="totals-row">
           <span>Razem netto:</span>
           <span style="font-weight: bold;">${formatCurrency(netTotal, currency)}</span>
         </div>
+        ${!isVatRR ? `
         <div class="totals-row">
           <span>VAT:</span>
           <span style="font-weight: bold;">${formatCurrency(vatTotal, currency)}</span>
-        </div>
+        </div>` : `
+        <div class="totals-row">
+          <span>Zryczałtowany zwrot VAT (${rrRate}%):</span>
+          <span style="font-weight: bold;">${formatCurrency(Math.round(netTotal * (rrRate / 100) * 100) / 100, currency)}</span>
+        </div>`}
         ` : ''}
         <div class="totals-row grand" style="background-color: ${themeColor} !important; color: #ffffff !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;">
-          <span style="color: #ffffff !important; font-weight: bold;">${isAdvance ? 'OTRZYMANO ZALICZKĘ:' : 'DO ZAPŁATY:'}</span>
-          <span style="font-weight: bold; font-size: 13px; color: #ffffff !important;">${formatCurrency(grossTotal, currency)}</span>
+          <span style="color: #ffffff !important; font-weight: bold;">${isAdvance ? 'OTRZYMANO ZALICZKĘ:' : isVatRR ? 'DO WYPŁATY ROLNIKOWI:' : (isReceipt || isNota) ? 'RAZEM:' : 'DO ZAPŁATY:'}</span>
+          <span style="font-weight: bold; font-size: 13px; color: #ffffff !important;">${formatCurrency(isVatRR ? Math.round((netTotal + netTotal * (rrRate / 100)) * 100) / 100 : (isReceipt || isNota) ? netTotal : grossTotal, currency)}</span>
         </div>
         ${(invoice.paid_amount && invoice.paid_amount > 0) ? `
         <div class="totals-row" style="margin-top: 6px; border-top: 1px solid #ddd; padding-top: 6px;">
