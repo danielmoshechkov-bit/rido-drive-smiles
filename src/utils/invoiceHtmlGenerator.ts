@@ -686,7 +686,7 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
   </style>
 </head>
 <body>
-  ${!hasAcceptedKsef ? '<div class="draft-watermark">KOPIA ROBOCZA</div>' : ''}
+  ${isProforma ? '<div class="draft-watermark">PROFORMA</div>' : (!hasAcceptedKsef && !isReceipt && !isNota ? '<div class="draft-watermark">KOPIA ROBOCZA</div>' : '')}
   <div class="invoice content-layer">
     <div class="top-meta">
       ${invoice.issue_place ? `${invoice.issue_place}, ` : ''}${formatDate(invoice.issue_date)}
