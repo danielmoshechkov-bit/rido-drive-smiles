@@ -81,7 +81,10 @@ export default function VehicleDetailPage() {
   const [user, setUser] = useState<any>(null);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [showVin, setShowVin] = useState(false);
-
+  const { i18n } = useTranslation();
+  const { title: translatedTitle, description: translatedDesc, isTranslated } = useListingTranslation(
+    listing?.id || '', listing?.title || '', listing?.description || '', 'vehicle'
+  );
   useEffect(() => {
     const checkUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
