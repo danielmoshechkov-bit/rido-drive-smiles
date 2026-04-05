@@ -177,18 +177,29 @@ export default function ServicesMarketplace() {
       
       if (cats) setCategories(cats);
 
-      // Load providers with their services
+      // Load providers with their services (legacy + provider_services)
       const { data: provs } = await supabase
         .from('service_providers')
         .select(`
           *,
           category:service_categories(*),
-          services(id, name, price, price_type)
+          services(id, name, price, price_type),
+          provider_services(id, name, price_from, price_to, status, category)
         `)
         .eq('status', 'active')
         .order('rating_avg', { ascending: false, nullsFirst: false });
       
-      if (provs) setProviders(provs as ServiceProvider[]);
+      if (provs) {
+        // Merge provider_services into services for each provider
+        const merged = provs.map((p: any) => {
+          const legacyServices = p.services || [];
+          const provServices = (p.provider_services || [])
+            .filter((ps: any) => ps.status === 'active')
+            .map((ps: any) => ({ id: ps.id, name: ps.name, price: ps.price_from, price_type: 'fixed' }));
+          return { ...p, services: [...provServices, ...legacyServices] };
+        });
+        setProviders(merged as ServiceProvider[]);
+      }
     } catch (error) {
       console.error('Error loading services data:', error);
     } finally {
