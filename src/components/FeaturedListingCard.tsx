@@ -487,7 +487,7 @@ export function FeaturedListingCard({ listing, viewMode, onClick, showTransactio
             {/* Services list */}
             {listing.category === 'service' && listing.featured_services && listing.featured_services.length > 0 && (
               <div className="space-y-1.5">
-                <h4 className="text-sm font-medium">Usługi:</h4>
+                <h4 className="text-sm font-medium">{t('listing.services')}:</h4>
                 {listing.featured_services.map((service, idx) => (
                   <div key={idx} className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">{service.name}</span>
