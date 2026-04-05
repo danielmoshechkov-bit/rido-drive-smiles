@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import { useListingTranslation } from "@/hooks/useListingTranslation";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -79,7 +81,10 @@ export default function VehicleDetailPage() {
   const [user, setUser] = useState<any>(null);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [showVin, setShowVin] = useState(false);
-
+  const { i18n } = useTranslation();
+  const { title: translatedTitle, description: translatedDesc, isTranslated } = useListingTranslation(
+    listing?.id || '', listing?.title || '', listing?.description || '', 'vehicle'
+  );
   useEffect(() => {
     const checkUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -227,13 +232,20 @@ export default function VehicleDetailPage() {
       </header>
 
       <main className="container mx-auto px-4 py-6 max-w-7xl">
-        <VehiclePhotoGallery photos={listing.photos || []} title={listing.title} />
+        <VehiclePhotoGallery photos={listing.photos || []} title={translatedTitle} />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
           <div className="lg:col-span-2 space-y-6">
             <div>
               <div className="flex items-start justify-between gap-4 mb-2">
-                <h1 className="text-2xl md:text-3xl font-bold">{listing.title}</h1>
+                <h1 className="text-2xl md:text-3xl font-bold">
+                  {translatedTitle}
+                  {isTranslated && (
+                    <span className="text-xs font-normal text-muted-foreground ml-2">
+                      {i18n.language === 'en' ? '(Translated)' : i18n.language === 'ru' ? '(Переведено)' : ''}
+                    </span>
+                  )}
+                </h1>
                 {listing.transactionType && (
                   <Badge style={{ backgroundColor: listing.transactionColor }} className="text-white shrink-0">
                     {listing.transactionType}
@@ -302,7 +314,7 @@ export default function VehicleDetailPage() {
             <div>
               <h2 className="text-xl font-bold text-foreground mb-4">Opis</h2>
               <div className="prose prose-sm max-w-none text-foreground leading-relaxed space-y-3">
-                {(listing.description || "Brak opisu").split(/\n{2,}|\n(?=[A-ZŻŹĆĄŚĘŁÓŃ])/g).map((block: string, i: number) => {
+                {(translatedDesc || "Brak opisu").split(/\n{2,}|\n(?=[A-ZŻŹĆĄŚĘŁÓŃ])/g).map((block: string, i: number) => {
                   const trimmed = block.trim();
                   if (!trimmed) return null;
                   const isHeader = trimmed.endsWith(':') && trimmed.length < 60;

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useListingTranslation } from "@/hooks/useListingTranslation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -64,6 +65,11 @@ interface FeaturedListingCardProps {
 }
 
 export function FeaturedListingCard({ listing, viewMode, onClick, showTransactionBadge = false }: FeaturedListingCardProps) {
+  const listingType = listing.category === 'vehicle' ? 'vehicle' : listing.category === 'property' ? 'real_estate' : 'general';
+  const { title, description } = useListingTranslation(
+    listing.id, listing.title, listing.description || '', listingType
+  );
+
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [showQuickView, setShowQuickView] = useState(false);
   const [showLightbox, setShowLightbox] = useState(false);
@@ -191,7 +197,7 @@ export function FeaturedListingCard({ listing, viewMode, onClick, showTransactio
             {photos[currentPhotoIndex] ? (
               <img 
                 src={photos[currentPhotoIndex]} 
-                alt={listing.title}
+                alt={title}
                 className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-110"
               />
             ) : (
@@ -293,7 +299,7 @@ export function FeaturedListingCard({ listing, viewMode, onClick, showTransactio
           )}>
             {/* Title - max 2 lines */}
             <h3 className="font-semibold text-sm line-clamp-1 group-hover:text-primary transition-colors leading-tight">
-              {listing.title}
+              {title}
             </h3>
 
             {/* City - directly under title with minimal gap for services */}
@@ -361,7 +367,7 @@ export function FeaturedListingCard({ listing, viewMode, onClick, showTransactio
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {getCategoryIcon(listing.category)}
-              {listing.title}
+              {title}
             </DialogTitle>
           </DialogHeader>
           
@@ -370,7 +376,7 @@ export function FeaturedListingCard({ listing, viewMode, onClick, showTransactio
             {photos[currentPhotoIndex] ? (
               <img 
                 src={photos[currentPhotoIndex]}
-                alt={listing.title}
+                alt={title}
                 className="w-full h-full object-cover object-center"
               />
             ) : (
@@ -445,11 +451,11 @@ export function FeaturedListingCard({ listing, viewMode, onClick, showTransactio
             </div>
 
             {/* Description - show in QuickView modal */}
-            {listing.description && (
+            {description && (
               <div className="space-y-1.5">
                 <h4 className="text-sm font-medium">Opis:</h4>
                 <p className="text-sm text-muted-foreground line-clamp-4 whitespace-pre-line">
-                  {listing.description}
+                  {description}
                 </p>
               </div>
             )}
@@ -511,7 +517,7 @@ export function FeaturedListingCard({ listing, viewMode, onClick, showTransactio
         initialIndex={currentPhotoIndex}
         open={showLightbox}
         onOpenChange={setShowLightbox}
-        alt={listing.title}
+        alt={title}
       />
     </>
   );

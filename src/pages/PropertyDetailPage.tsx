@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import { useListingTranslation } from "@/hooks/useListingTranslation";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -219,7 +221,10 @@ export default function PropertyDetailPage() {
   const [user, setUser] = useState<any>(null);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [showMessageDialog, setShowMessageDialog] = useState(false);
-
+  const { i18n } = useTranslation();
+  const { title: translatedTitle, description: translatedDesc, isTranslated } = useListingTranslation(
+    listing?.id || '', listing?.title || '', listing?.description || '', 'real_estate'
+  );
   // Scroll to top on mount
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -393,7 +398,7 @@ export default function PropertyDetailPage() {
 
       <main className="container mx-auto px-4 py-6 max-w-7xl">
         {/* Photo Gallery */}
-        <PropertyPhotoGallery photos={listing.photos || []} title={listing.title} />
+        <PropertyPhotoGallery photos={listing.photos || []} title={translatedTitle} />
 
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
@@ -402,7 +407,14 @@ export default function PropertyDetailPage() {
             {/* Title & Price */}
             <div>
               <div className="flex items-start justify-between gap-4 mb-2">
-                <h1 className="text-2xl md:text-3xl font-bold">{listing.title}</h1>
+                <h1 className="text-2xl md:text-3xl font-bold">
+                  {translatedTitle}
+                  {isTranslated && (
+                    <span className="text-xs font-normal text-muted-foreground ml-2">
+                      {i18n.language === 'en' ? '(Translated)' : i18n.language === 'ru' ? '(Переведено)' : ''}
+                    </span>
+                  )}
+                </h1>
                 {listing.transactionType && (
                   <Badge 
                     style={{ backgroundColor: listing.transactionColor || '#10b981' }}
@@ -538,7 +550,7 @@ export default function PropertyDetailPage() {
                 />
               ) : (
                 <div className="prose prose-sm max-w-none text-foreground leading-relaxed space-y-3">
-                  {(listing.description || "Brak opisu").split(/\n{2,}|\n(?=[A-ZŻŹĆĄŚĘŁÓŃ])/g).map((block, i) => {
+                  {(translatedDesc || "Brak opisu").split(/\n{2,}|\n(?=[A-ZŻŹĆĄŚĘŁÓŃ])/g).map((block, i) => {
                     const trimmed = block.trim();
                     if (!trimmed) return null;
                     // Detect section headers (short lines ending with colon or all-caps-ish)

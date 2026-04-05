@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { useListingTranslation } from "@/hooks/useListingTranslation";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -89,6 +90,7 @@ export function VehicleListingCard({
   compact = false
 }: VehicleListingCardProps) {
   const navigate = useNavigate();
+  const { title } = useListingTranslation(listing.id, listing.title, '', 'vehicle');
   const [showContact, setShowContact] = useState(false);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [showLightbox, setShowLightbox] = useState(false);
@@ -370,7 +372,7 @@ export function VehicleListingCard({
 
         {/* Content */}
         <div className={cn("p-4 flex flex-col", compact && "p-2")}>
-          <h3 className={cn("font-bold leading-tight", compact ? "text-sm line-clamp-1" : "text-lg line-clamp-2 min-h-[3.5rem]")}>{listing.title}</h3>
+          <h3 className={cn("font-bold leading-tight", compact ? "text-sm line-clamp-1" : "text-lg line-clamp-2 min-h-[3.5rem]")}>{title}</h3>
 
           <div className={cn("flex flex-wrap items-center text-muted-foreground h-5 mt-1", compact ? "text-xs" : "text-sm")}>
             {listing.year && <span className="flex items-center gap-1"><Calendar className={cn(compact ? "h-3 w-3" : "h-3.5 w-3.5")} />{listing.year}</span>}

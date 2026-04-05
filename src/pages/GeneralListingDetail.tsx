@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { useCart } from "@/hooks/useCart";
+import { useListingTranslation } from "@/hooks/useListingTranslation";
 import { PendingReviewBanner } from "@/components/marketplace/PendingReviewBanner";
 import { MarketCompareBar } from "@/components/marketplace/MarketCompareBar";
 import { GeneralListingCard } from "@/components/marketplace/GeneralListingCard";
@@ -40,6 +42,7 @@ export default function GeneralListingDetail() {
   const [similarListings, setSimilarListings] = useState<any[]>([]);
   const [similarPhotos, setSimilarPhotos] = useState<Record<string, any[]>>({});
   const { addToCart, isInCart } = useCart();
+  const { i18n } = useTranslation();
 
   useEffect(() => { window.scrollTo(0, 0); }, [id]);
 
@@ -156,6 +159,11 @@ export default function GeneralListingDetail() {
       setAiAssessing(false);
     }
   };
+
+  // Translation hook — must be before any early returns
+  const { title: translatedTitle, description: translatedDesc, isTranslated } = useListingTranslation(
+    listing?.id || '', listing?.title || '', listing?.description || '', 'general'
+  );
 
   if (loading) {
     return (
@@ -343,12 +351,19 @@ export default function GeneralListingDetail() {
                 </>
               )}
               <span>›</span>
-              <span className="truncate max-w-[200px]">{listing.title}</span>
+              <span className="truncate max-w-[200px]">{translatedTitle}</span>
             </div>
 
             {/* Title + price */}
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold leading-tight mb-2">{listing.title}</h1>
+              <h1 className="text-2xl md:text-3xl font-bold leading-tight mb-2">
+                {translatedTitle}
+                {isTranslated && (
+                  <span className="text-xs font-normal text-muted-foreground ml-2">
+                    {i18n.language === 'en' ? '(Translated)' : i18n.language === 'ru' ? '(Переведено)' : i18n.language === 'ua' ? '(Перекладено)' : ''}
+                  </span>
+                )}
+              </h1>
               <div className="flex items-baseline gap-2">
                 <span className="text-3xl md:text-4xl font-bold text-primary">
                   {listing.price ? `${Number(listing.price).toLocaleString("pl-PL")}\u00A0zł` : "Zapytaj o cenę"}
@@ -419,7 +434,7 @@ export default function GeneralListingDetail() {
             <div>
               <h2 className="text-xl font-semibold mb-4">Opis</h2>
               <div className="prose prose-sm max-w-none text-muted-foreground whitespace-pre-wrap leading-relaxed">
-                {listing.description || "Brak opisu."}
+                {translatedDesc || "Brak opisu."}
               </div>
             </div>
           </div>
