@@ -81,6 +81,7 @@ export default function AdminAIAgentsPage() {
     agent_id: '', name: '', description: '', icon: 'bot', model: 'gpt-4o-mini',
     system_prompt: '', module: 'ogolne',
   });
+  const [translatingAll, setTranslatingAll] = useState(false);
 
   useEffect(() => {
     if (!roleLoading && !isAdmin) navigate('/');
