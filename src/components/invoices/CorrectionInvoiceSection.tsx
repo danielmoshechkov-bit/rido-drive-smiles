@@ -399,7 +399,7 @@ export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataC
                 <span className="text-muted-foreground text-xs">(kliknij w pole, aby je zmienić)</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-0">
+            <CardContent className="px-0 py-0">
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
