@@ -230,8 +230,8 @@ export function MarketplaceVehicleCard({ listing, onReserve, isLoggedIn }: Marke
         {/* Expandable Details */}
         {showDetails && (
           <div className="mt-4 pt-4 border-t space-y-2">
-            {listing.description && (
-              <p className="text-sm text-muted-foreground mb-3">{listing.description}</p>
+            {(translatedDesc || listing.description) && (
+              <p className="text-sm text-muted-foreground mb-3">{translatedDesc || listing.description}</p>
             )}
             
             <div className="flex items-center gap-2 text-sm">
