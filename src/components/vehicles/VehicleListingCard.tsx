@@ -90,6 +90,7 @@ export function VehicleListingCard({
   compact = false
 }: VehicleListingCardProps) {
   const navigate = useNavigate();
+  const { title } = useListingTranslation(listing.id, listing.title, '', 'vehicle');
   const [showContact, setShowContact] = useState(false);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [showLightbox, setShowLightbox] = useState(false);
