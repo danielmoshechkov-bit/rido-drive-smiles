@@ -157,6 +157,7 @@ export default function AdminAIAgentsPage() {
   // Group agents by module (using description keyword matching as fallback)
   const getAgentModule = (agent: AgentConfig): string => {
     const desc = (agent.description + ' ' + agent.agent_id).toLowerCase();
+    if (desc.includes('tłumacz') || desc.includes('translat') || desc.includes('translation')) return 'translation';
     if (desc.includes('nieruchom') || desc.includes('listing') || desc.includes('asari')) return 'nieruchomosci';
     if (desc.includes('warsztat') || desc.includes('workshop') || desc.includes('parts') || desc.includes('serwis')) return 'warsztat';
     if (desc.includes('faktur') || desc.includes('invoice') || desc.includes('ksef') || desc.includes('księgow') || desc.includes('accounting')) return 'faktury';
