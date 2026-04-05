@@ -197,7 +197,8 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
     return (
       <div className="flex gap-0 min-h-[calc(100vh-200px)]">
         <WorkshopSidebar activeModule="zlecenia" onNavigate={(key) => { setSelectedOrder(null); setActiveModule(key); }} />
-        <div className="flex-1 pl-3 min-w-0">
+        <div className="flex-1 md:pl-3 min-w-0">
+          <MobileBackButton onBack={() => setSelectedOrder(null)} label="Zlecenia" />
           <WorkshopOrderDetail
             order={currentSelectedOrder}
             providerId={providerId}
@@ -212,7 +213,8 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
     return (
       <div className="flex gap-0 min-h-[calc(100vh-200px)]">
         <WorkshopSidebar activeModule="pojazdy" onNavigate={(key) => { setSelectedVehicle(null); goTo(key); }} />
-        <div className="flex-1 pl-3 min-w-0">
+        <div className="flex-1 md:pl-3 min-w-0">
+          <MobileBackButton onBack={() => setSelectedVehicle(null)} label="Pojazdy" />
           <WorkshopVehicleDetail
             vehicle={selectedVehicle}
             providerId={providerId}
