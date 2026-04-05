@@ -356,7 +356,7 @@ export function FeaturedListingCard({ listing, viewMode, onClick, showTransactio
                 className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-primary transition-colors"
               >
                 <Info className="h-3 w-3" />
-                <span className="hidden sm:inline">Rozwiń</span>
+                <span className="hidden sm:inline">{t('featured.expand')}</span>
               </button>
             </div>
           </CardContent>
