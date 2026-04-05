@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import {
-  Package, Eye, Plus, Loader2, Star, Sparkles,
+  Package, Eye, Plus, Loader2, Star, Sparkles, Wand2,
   MoreVertical, Edit, RefreshCw, CheckCircle, Archive, Trash2, ImageIcon
 } from "lucide-react";
 import {
