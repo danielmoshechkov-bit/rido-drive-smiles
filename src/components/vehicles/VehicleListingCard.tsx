@@ -372,7 +372,7 @@ export function VehicleListingCard({
 
         {/* Content */}
         <div className={cn("p-4 flex flex-col", compact && "p-2")}>
-          <h3 className={cn("font-bold leading-tight", compact ? "text-sm line-clamp-1" : "text-lg line-clamp-2 min-h-[3.5rem]")}>{listing.title}</h3>
+          <h3 className={cn("font-bold leading-tight", compact ? "text-sm line-clamp-1" : "text-lg line-clamp-2 min-h-[3.5rem]")}>{title}</h3>
 
           <div className={cn("flex flex-wrap items-center text-muted-foreground h-5 mt-1", compact ? "text-xs" : "text-sm")}>
             {listing.year && <span className="flex items-center gap-1"><Calendar className={cn(compact ? "h-3 w-3" : "h-3.5 w-3.5")} />{listing.year}</span>}

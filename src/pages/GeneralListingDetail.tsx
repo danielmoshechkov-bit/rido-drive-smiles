@@ -42,6 +42,7 @@ export default function GeneralListingDetail() {
   const [similarListings, setSimilarListings] = useState<any[]>([]);
   const [similarPhotos, setSimilarPhotos] = useState<Record<string, any[]>>({});
   const { addToCart, isInCart } = useCart();
+  const { i18n } = useTranslation();
 
   useEffect(() => { window.scrollTo(0, 0); }, [id]);
 
