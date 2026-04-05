@@ -52,6 +52,8 @@ export function PropertyPhotoGallery({ photos, title }: PropertyPhotoGalleryProp
     if (e.key === "ArrowRight") nextPhoto();
     if (e.key === "ArrowLeft") prevPhoto();
     if (e.key === "Escape") setIsLightboxOpen(false);
+  };
+
   // Mobile swipe handlers — simple single-image navigation
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
