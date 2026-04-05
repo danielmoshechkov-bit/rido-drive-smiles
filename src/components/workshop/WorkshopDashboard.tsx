@@ -290,7 +290,8 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
   return (
     <div className="flex gap-0 min-h-[calc(100vh-200px)]">
       <WorkshopSidebar activeModule={activeModule} onNavigate={goTo} />
-      <div className="flex-1 pl-3 min-w-0">
+      <div className="flex-1 md:pl-3 min-w-0">
+        <MobileBackButton onBack={() => goTo(null)} />
         {renderModuleContent()}
       </div>
     </div>
