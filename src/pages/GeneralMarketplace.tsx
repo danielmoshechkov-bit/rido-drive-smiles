@@ -436,12 +436,12 @@ export default function GeneralMarketplace() {
             ) : paginated.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-center">
                 <PackageOpen className="h-16 w-16 text-muted-foreground/50 mb-4" />
-                <h2 className="text-xl font-semibold mb-2">Brak ogłoszeń</h2>
+                <h2 className="text-xl font-semibold mb-2">{t('marketplace.noListings')}</h2>
                 <p className="text-muted-foreground mb-4">
-                  {hasActiveFilters ? "Zmień filtry lub" : "Bądź pierwszy —"} dodaj ogłoszenie!
+                  {hasActiveFilters ? t('marketplace.changeFilters') : t('marketplace.beFirst')} {t('marketplace.noListingsHint')}
                 </p>
                 <Button onClick={() => navigate("/marketplace/dodaj")}>
-                  <Plus className="h-4 w-4 mr-2" /> Dodaj ogłoszenie
+                  <Plus className="h-4 w-4 mr-2" /> {t('marketplace.addListing')}
                 </Button>
               </div>
             ) : (
