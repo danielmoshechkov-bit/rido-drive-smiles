@@ -170,7 +170,7 @@ async function translateOne(
     } else if (provider === 'lovable') {
       result = await callLovableWithRetry(item.title, item.description || '', langName, model)
     } else {
-      result = await callKimiWithRetry(item.title, item.description || '', langName, model)
+      result = await callKimiWithRetry(item.title, item.description || '', langName, model, kimiApiKey)
     }
 
     if (!result) {
