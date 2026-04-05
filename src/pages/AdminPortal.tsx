@@ -177,14 +177,14 @@ export default function AdminPortal() {
             </div>
           </div>
 
-          {/* Mobile - simplified tabs */}
-          <div className="md:hidden overflow-x-auto">
-            <div className="flex gap-2 pb-2">
-              {tabs.slice(0, 5).map(tab => (
+          {/* Mobile - scrollable tabs */}
+          <div className="md:hidden overflow-x-auto scrollbar-hide -mx-4 px-4">
+            <div className="flex gap-1.5 pb-2 flex-nowrap">
+              {tabs.map(tab => (
                 <button
                   key={tab.value}
                   onClick={() => setActiveTab(tab.value)}
-                  className={`px-3 py-2 rounded-full text-sm whitespace-nowrap flex items-center gap-1 ${
+                  className={`px-2.5 py-2 rounded-full text-xs whitespace-nowrap flex-shrink-0 flex items-center gap-1 ${
                     activeTab === tab.value 
                       ? 'bg-primary text-primary-foreground' 
                       : 'bg-muted text-muted-foreground'

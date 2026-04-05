@@ -586,6 +586,9 @@ export default function VehicleMarketplace() {
               <List className="h-4 w-4" />
             </Button>
           </div>
+          <p className="text-sm text-muted-foreground">
+            Znaleziono: <span className="font-medium text-foreground">{filteredListings.length.toLocaleString()}</span> ogłoszeń
+          </p>
         </div>
       </section>
 
