@@ -45,6 +45,7 @@ import OfertaPage from "./pages/OfertaPage";
 import PropertyCompare from "./pages/PropertyCompare";
 import RealEstateAgentRegister from "./pages/RealEstateAgentRegister";
 import RealEstateAgentDashboard from "./pages/RealEstateAgentDashboard";
+import GeneralListingAdd from "./pages/GeneralListingAdd";
 import FleetLanding from "./pages/FleetLanding";
 import FleetRegister from "./pages/FleetRegister";
 import FleetRegisterSuccess from "./pages/FleetRegisterSuccess";
@@ -167,6 +168,7 @@ const App = () => (
                 <Route path="/prawne" element={<LegalPage />} />
                 <Route path="/umowa/:rentalId" element={<RentalClientPortal />} />
                 <Route path="/warsztat/klient/:code" element={<WorkshopClientCard />} />
+                <Route path="/marketplace/dodaj" element={<GeneralListingAdd />} />
                 {/* Aliases for marketplace add listing */}
                 <Route path="/dodaj" element={<AddVehicleListing />} />
                 <Route path="/dodaj-ogloszenie" element={<AddVehicleListing />} />

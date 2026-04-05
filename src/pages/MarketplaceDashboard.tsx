@@ -27,6 +27,7 @@ import { DriverOnboardingWizard } from "@/components/driver/DriverOnboardingWiza
 import { AccountSwitcherPanel } from "@/components/AccountSwitcherPanel";
 import { AddListingModal } from "@/components/AddListingModal";
 import { UniversalHomeButton } from "@/components/UniversalHomeButton";
+import { GeneralListingsTab } from "@/components/marketplace/GeneralListingsTab";
 
 interface MarketplaceProfile {
   id: string;
@@ -387,7 +388,13 @@ export default function MarketplaceDashboard() {
               value="listings"
               className="px-5 py-2.5 rounded-full text-sm whitespace-nowrap transition-all duration-150 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:font-semibold hover:bg-white/90 hover:text-primary"
             >
-              Ogłoszenia
+              Ogłoszenia (Pojazdy)
+            </TabsTrigger>
+            <TabsTrigger 
+              value="general"
+              className="px-5 py-2.5 rounded-full text-sm whitespace-nowrap transition-all duration-150 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:font-semibold hover:bg-white/90 hover:text-primary"
+            >
+              Marketplace
             </TabsTrigger>
             <TabsTrigger 
               value="messages"
@@ -592,7 +599,22 @@ export default function MarketplaceDashboard() {
             </Card>
           </TabsContent>
 
-          {/* SETTINGS TAB */}
+          {/* GENERAL MARKETPLACE TAB */}
+          <TabsContent value="general" className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold">RidoMarket — Ogłoszenia</h2>
+                <p className="text-sm text-muted-foreground">Twoje ogłoszenia z marketplace ogólnego</p>
+              </div>
+              <Button onClick={() => navigate("/marketplace/dodaj")}>
+                <Plus className="h-4 w-4 mr-2" />
+                Dodaj ogłoszenie
+              </Button>
+            </div>
+            <GeneralListingsTab userId={user?.id} />
+          </TabsContent>
+
+
           <TabsContent value="settings" className="space-y-6">
             <Card>
               <CardHeader>
