@@ -257,10 +257,10 @@ export default function GeneralMarketplace() {
 
       {/* Price */}
       <div>
-        <label className="text-sm font-medium mb-1.5 block">Cena (zł)</label>
+        <label className="text-sm font-medium mb-1.5 block">{t('marketplace.price')}</label>
         <div className="flex gap-2">
-          <Input type="number" placeholder="Od" value={priceMin} onChange={e => setPriceMin(e.target.value)} />
-          <Input type="number" placeholder="Do" value={priceMax} onChange={e => setPriceMax(e.target.value)} />
+          <Input type="number" placeholder={t('marketplace.from')} value={priceMin} onChange={e => setPriceMin(e.target.value)} />
+          <Input type="number" placeholder={t('marketplace.to')} value={priceMax} onChange={e => setPriceMax(e.target.value)} />
         </div>
       </div>
 
