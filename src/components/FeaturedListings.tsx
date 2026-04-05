@@ -160,10 +160,10 @@ export function FeaturedListings({ className, categoryContext, hideViewMore }: F
         ...(propertiesRentRes.data || [])
       ];
 
-      // Fetch 12 service providers for category view with category_id for image fallback and services
+      // Fetch service providers with both services tables
       const { data: services } = await (supabase as any)
         .from('service_providers')
-        .select('id, company_name, logo_url, cover_image_url, company_city, category_id, status, rating_avg, rating_count, description, category:service_categories(id, name, slug), services(id, name, price, is_featured)')
+        .select('id, company_name, logo_url, cover_image_url, company_city, category_id, status, rating_avg, rating_count, description, category:service_categories(id, name, slug), services(id, name, price, is_featured), provider_services(id, name, price_from, price_to, status)')
         .eq('status', 'active')
         .limit(ITEMS_PER_CATEGORY_SINGLE);
 
