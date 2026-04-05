@@ -27,8 +27,7 @@ export function AIPhotoSection({ listingId, userId, photos, onPhotosUpdated }: A
   const [progress, setProgress] = useState(0);
 
   // Check feature flag
-  const aiPhotoEnabled = flags["ai_photo_edit"] !== false; // default true if flag doesn't exist
-  if (flagsLoading || !aiPhotoEnabled) return null;
+  const aiPhotoEnabled = flags["ai_photo_edit"] !== false;
 
   const nonAiPhotos = photos.filter(p => !p.is_ai_enhanced);
   const photosToProcess = Math.min(nonAiPhotos.length, 5);
