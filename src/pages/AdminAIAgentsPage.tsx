@@ -211,10 +211,47 @@ export default function AdminAIAgentsPage() {
               {agents.length} agentów • {agents.filter(a => a.is_active).length} aktywnych
             </p>
           </div>
-          <Button onClick={() => setAddDialogOpen(true)} className="gap-2">
-            <Plus className="h-4 w-4" /> Dodaj agenta
-          </Button>
-        </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={async () => {
+                setTranslatingAll(true);
+                try {
+                  const { data: listings } = await supabase
+                    .from('general_listings')
+                    .select('id, title, description')
+                    .eq('status', 'active');
+                  if (!listings?.length) {
+                    toast.info('Brak aktywnych ogłoszeń');
+                    setTranslatingAll(false);
+                    return;
+                  }
+                  const payload = listings.map((l: any) => ({
+                    listing_id: l.id,
+                    listing_type: 'general',
+                    title: l.title,
+                    description: l.description || '',
+                    source_lang: 'pl',
+                    source: 'import',
+                    priority: 3,
+                  }));
+                  const { data } = await supabase.functions.invoke('translation-queue-add', { body: payload });
+                  toast.success(`Dodano ${(data as any)?.added || 0} ogłoszeń do kolejki tłumaczeń`);
+                } catch (err: any) {
+                  toast.error('Błąd: ' + err.message);
+                }
+                setTranslatingAll(false);
+              }}
+              disabled={translatingAll}
+              className="gap-2"
+            >
+              {translatingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe className="h-4 w-4" />}
+              Przetłumacz wszystkie ogłoszenia
+            </Button>
+            <Button onClick={() => setAddDialogOpen(true)} className="gap-2">
+              <Plus className="h-4 w-4" /> Dodaj agenta
+            </Button>
+          </div>
 
         {/* Module filter */}
         <div className="flex flex-wrap gap-2">
