@@ -575,6 +575,29 @@ export default function ServiceProviderDashboard() {
 
           {/* Services Tab */}
           <TabsContent value="services" className="mt-6 space-y-4">
+            {/* Activation Banner */}
+            {!isProfileActive && (
+              <Card className="border-primary/30 bg-primary/5">
+                <CardContent className="flex flex-col sm:flex-row items-start sm:items-center gap-4 py-5">
+                  <div className="flex items-center gap-3 flex-1">
+                    <AlertCircle className="h-8 w-8 text-primary flex-shrink-0" />
+                    <div>
+                      <p className="font-semibold text-foreground">Twój profil nie jest jeszcze aktywny w portalu</p>
+                      <p className="text-sm text-muted-foreground">Uzupełnij dane firmy, opis i zdjęcie — Twoje usługi będą wtedy widoczne publicznie w odpowiedniej kategorii.</p>
+                    </div>
+                  </div>
+                  <Button onClick={() => setActivationDialog(true)} className="gap-2 flex-shrink-0">
+                    <ShieldCheck className="h-4 w-4" /> Aktywuj konto
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+            {isProfileActive && (
+              <div className="flex items-center gap-2 text-sm text-green-600">
+                <CheckCircle2 className="h-4 w-4" />
+                <span>Profil aktywny — Twoje usługi są widoczne w portalu</span>
+              </div>
+            )}
             <div className="flex items-center justify-start">
               <Button onClick={() => { resetServiceForm(); setServiceDialog(true); }} className="gap-2">
                 <Plus className="h-4 w-4" /> {t('sp.services.addService')}
