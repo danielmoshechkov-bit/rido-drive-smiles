@@ -52,7 +52,7 @@ interface WorkshopDashboardProps {
 
 function WorkshopSidebar({ activeModule, onNavigate }: { activeModule: string; onNavigate: (key: string | null) => void }) {
   return (
-    <div className="w-[200px] flex-shrink-0 space-y-2 pr-3 border-r border-border">
+    <div className="hidden md:block w-[200px] flex-shrink-0 space-y-2 pr-3 border-r border-border">
       <button
         onClick={() => onNavigate(null)}
         className="w-full text-left px-3 py-2 rounded-lg text-sm font-semibold text-primary hover:bg-primary/10 transition-colors"
@@ -79,6 +79,17 @@ function WorkshopSidebar({ activeModule, onNavigate }: { activeModule: string; o
         ))}
       </div>
     </div>
+  );
+}
+
+function MobileBackButton({ onBack, label = 'Pulpit' }: { onBack: () => void; label?: string }) {
+  return (
+    <button
+      onClick={onBack}
+      className="md:hidden flex items-center gap-1.5 text-sm text-primary font-medium mb-3 hover:underline"
+    >
+      <ArrowLeft className="h-4 w-4" /> {label}
+    </button>
   );
 }
 
