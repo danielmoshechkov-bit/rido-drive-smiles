@@ -121,11 +121,11 @@ function CategoryTileCard({
           <Icon className="h-5 w-5 text-white" />
         </div>
         <h3 className="font-bold text-base text-white leading-tight flex items-center gap-2">
-          {tile.title}
+          {tileTitle}
           {showComingSoon && <Lock className="h-4 w-4 text-white/70" />}
         </h3>
         <p className="text-xs text-white/80 mt-1 line-clamp-2">
-          {tile.description}
+          {tileDesc}
         </p>
         
         {showComingSoon && (
@@ -133,7 +133,7 @@ function CategoryTileCard({
             variant="secondary" 
             className="absolute top-2 right-2 text-xs px-2 py-0.5 bg-white/90"
           >
-            Wkrótce
+            {t('addListing.comingSoon')}
           </Badge>
         )}
         
