@@ -188,7 +188,3 @@ async function callKimiWithRetry(
     return callKimiWithRetry(apiKey, title, description, targetLangName, attempt + 1)
   }
 }
-
-function sleep(ms: number) {
-  return new Promise(resolve => setTimeout(resolve, ms))
-}

@@ -234,3 +234,9 @@ verify_jwt = false
 
 [functions.auto-translate-daily]
 verify_jwt = false
+
+[functions.translation-queue-worker]
+verify_jwt = false
+
+[functions.translation-queue-add]
+verify_jwt = false
