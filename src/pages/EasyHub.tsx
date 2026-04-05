@@ -497,7 +497,7 @@ export default function EasyHub() {
               className="h-9 px-4 text-sm font-medium"
               onClick={() => navigate('/dodaj')}
             >
-              {t('mainPage.addListing')}
+              {t('nav.addListing')}
             </Button>
           </div>
         </div>
