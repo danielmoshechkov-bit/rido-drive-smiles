@@ -451,11 +451,11 @@ export function FeaturedListingCard({ listing, viewMode, onClick, showTransactio
             </div>
 
             {/* Description - show in QuickView modal */}
-            {listing.description && (
+            {description && (
               <div className="space-y-1.5">
                 <h4 className="text-sm font-medium">Opis:</h4>
                 <p className="text-sm text-muted-foreground line-clamp-4 whitespace-pre-line">
-                  {listing.description}
+                  {description}
                 </p>
               </div>
             )}
