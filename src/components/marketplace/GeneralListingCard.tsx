@@ -244,9 +244,9 @@ export function GeneralListingCard({ listing, variant = "grid", onToggleCompare,
         </div>
 
         {/* Condition badge */}
-        {cond && (
-          <Badge variant="outline" className={cn("text-xs", cond.className)}>
-            {cond.label}
+        {condLabel && (
+          <Badge variant="outline" className={cn("text-xs", condClass)}>
+            {condLabel}
           </Badge>
         )}
 
