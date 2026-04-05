@@ -54,7 +54,19 @@ serve(async (req) => {
       }
     }
 
-    console.log(`Using provider=${selectedProvider} model=${selectedModel}`)
+    // Fetch API keys from ai_providers table (admin panel) with fallback to Secrets
+    const { data: kimiProvider } = await sb
+      .from('ai_providers')
+      .select('api_key_encrypted, default_model, is_enabled')
+      .eq('provider_key', 'kimi')
+      .maybeSingle()
+
+    const kimiApiKey = kimiProvider?.api_key_encrypted || Deno.env.get('KIMI_API_KEY')
+    if (kimiProvider?.default_model && selectedProvider === 'kimi') {
+      selectedModel = kimiProvider.default_model
+    }
+
+    console.log(`Using provider=${selectedProvider} model=${selectedModel} kimiKeySource=${kimiProvider?.api_key_encrypted ? 'db' : 'env'}`)
 
     const { data: batch, error } = await sb
       .from('translation_queue')
@@ -82,7 +94,7 @@ serve(async (req) => {
       const chunk = batch.slice(i, i + MAX_PARALLEL)
 
       const results = await Promise.allSettled(
-        chunk.map((item: any) => translateOne(sb, item, selectedModel, selectedProvider))
+        chunk.map((item: any) => translateOne(sb, item, selectedModel, selectedProvider, kimiApiKey))
       )
 
       for (let j = 0; j < results.length; j++) {
@@ -127,7 +139,7 @@ serve(async (req) => {
 })
 
 async function translateOne(
-  sb: any, item: any, model: string, provider: 'kimi' | 'anthropic' | 'lovable'
+  sb: any, item: any, model: string, provider: 'kimi' | 'anthropic' | 'lovable', kimiApiKey?: string
 ) {
   console.log('translateOne START:', item.listing_id, 'type:', item.listing_type, 'provider:', provider)
 
@@ -158,7 +170,7 @@ async function translateOne(
     } else if (provider === 'lovable') {
       result = await callLovableWithRetry(item.title, item.description || '', langName, model)
     } else {
-      result = await callKimiWithRetry(item.title, item.description || '', langName, model)
+      result = await callKimiWithRetry(item.title, item.description || '', langName, model, kimiApiKey)
     }
 
     if (!result) {
@@ -221,10 +233,10 @@ function parseTranslation(text: string, fallbackTitle: string, fallbackDesc: str
 
 // ── Kimi / Moonshot ──
 async function callKimiWithRetry(
-  title: string, description: string, targetLangName: string, model: string, attempt = 1
+  title: string, description: string, targetLangName: string, model: string, externalApiKey?: string, attempt = 1
 ): Promise<{ title: string; description: string } | null> {
-  const apiKey = Deno.env.get('KIMI_API_KEY')
-  if (!apiKey) throw new Error('KIMI_API_KEY not configured')
+  const apiKey = externalApiKey || Deno.env.get('KIMI_API_KEY')
+  if (!apiKey) throw new Error('Brak klucza Kimi — wpisz go w /admin/ai → Dostawcy AI → Kimi')
 
   try {
     const res = await fetch('https://api.moonshot.ai/v1/chat/completions', {
@@ -250,7 +262,7 @@ async function callKimiWithRetry(
       if (attempt >= 3) return null
       const retryAfter = parseInt(res.headers.get('retry-after') || '60')
       await sleep(Math.min(retryAfter * 1000, 60000))
-      return callKimiWithRetry(title, description, targetLangName, model, attempt + 1)
+      return callKimiWithRetry(title, description, targetLangName, model, externalApiKey, attempt + 1)
     }
 
     if (!res.ok) {
@@ -268,7 +280,7 @@ async function callKimiWithRetry(
     console.error(`Kimi error attempt=${attempt}:`, e.message)
     if (attempt >= 3) return null
     await sleep(5000)
-    return callKimiWithRetry(title, description, targetLangName, model, attempt + 1)
+    return callKimiWithRetry(title, description, targetLangName, model, externalApiKey, attempt + 1)
   }
 }
 
