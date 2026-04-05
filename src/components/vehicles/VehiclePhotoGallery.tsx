@@ -154,71 +154,58 @@ export function VehiclePhotoGallery({ photos, title }: VehiclePhotoGalleryProps)
         }
       </div>
 
-      {/* Mobile: Single photo carousel with smooth swipe */}
-      <div className="md:hidden relative overflow-hidden rounded-xl" style={{ maxHeight: '50vh' }}>
-        <div
-          className="flex aspect-[4/3]"
-          style={{
-            transform: `translateX(calc(-${currentIndex * 100}% + ${dragOffset}px))`,
-            transition: isDraggingState ? 'none' : 'transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
-            width: `${displayPhotos.length * 100}%`,
-          }}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-        >
-          {displayPhotos.map((_, idx) => (
-            <img
-              key={idx}
-              src={getPhotoSrc(idx)}
-              alt={`${title} ${idx + 1}`}
-              className="h-full object-cover object-center flex-shrink-0"
-              style={{ width: `${100 / displayPhotos.length}%` }}
-              onError={() => handleImageError(idx)}
-              onClick={() => openLightbox(idx)}
-              draggable={false}
-            />
-          ))}
-        </div>
-
-        {/* Navigation Arrows */}
-        {displayPhotos.length > 1 && (
-          <>
-            <button
-              onClick={() => setCurrentIndex(p => Math.max(0, p - 1))}
-              className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </button>
-            <button
-              onClick={() => setCurrentIndex(p => Math.min(displayPhotos.length - 1, p + 1))}
-              className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full"
-            >
-              <ChevronRight className="h-5 w-5" />
-            </button>
-          </>
-        )}
-
-        {/* Photo Counter */}
-        <div className="absolute bottom-3 right-3 bg-black/60 text-white text-sm px-2 py-1 rounded-lg">
-          {currentIndex + 1} / {displayPhotos.length}
-        </div>
-
-        {/* Dots */}
-        {displayPhotos.length > 1 && (
-          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
-            {displayPhotos.slice(0, 5).map((_, idx) => (
-              <button
-                key={idx}
-                onClick={() => setCurrentIndex(idx)}
-                className={cn(
-                  "w-2 h-2 rounded-full transition-all",
-                  idx === currentIndex ? "bg-white w-4" : "bg-white/50"
-                )}
+      {/* Mobile: OTOMOTO-style grid (1 large + 2 small right) */}
+      <div className="md:hidden relative rounded-xl overflow-hidden">
+        {displayPhotos.length >= 3 ? (
+          <div className="grid grid-cols-[1.5fr_1fr] gap-[2px] aspect-[4/3]" onClick={() => openLightbox(0)}>
+            <div className="row-span-2 relative overflow-hidden">
+              <img
+                src={getPhotoSrc(0)}
+                alt={title}
+                className="w-full h-full object-cover"
+                onError={() => handleImageError(0)}
               />
-            ))}
+            </div>
+            <div className="grid grid-rows-2 gap-[2px]">
+              <div className="relative overflow-hidden cursor-pointer" onClick={(e) => { e.stopPropagation(); openLightbox(1); }}>
+                <img src={getPhotoSrc(1)} alt={`${title} 2`} className="w-full h-full object-cover" onError={() => handleImageError(1)} />
+              </div>
+              <div className="relative overflow-hidden cursor-pointer" onClick={(e) => { e.stopPropagation(); openLightbox(2); }}>
+                <img src={getPhotoSrc(2)} alt={`${title} 3`} className="w-full h-full object-cover" onError={() => handleImageError(2)} />
+                {displayPhotos.length > 3 && (
+                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                    <span className="text-white text-2xl font-bold">+{displayPhotos.length - 3}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* 1-2 photos: single carousel */
+          <div className="relative aspect-[4/3]">
+            <img
+              src={getPhotoSrc(currentIndex)}
+              alt={title}
+              className="w-full h-full object-cover"
+              onError={() => handleImageError(currentIndex)}
+              onClick={() => openLightbox(currentIndex)}
+            />
+            {displayPhotos.length > 1 && (
+              <>
+                <button onClick={() => setCurrentIndex(p => Math.max(0, p - 1))} className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 text-white p-2 rounded-full">
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+                <button onClick={() => setCurrentIndex(p => Math.min(displayPhotos.length - 1, p + 1))} className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 text-white p-2 rounded-full">
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+              </>
+            )}
           </div>
         )}
+        {/* Photo counter */}
+        <div className="absolute bottom-3 right-3 bg-black/60 text-white text-sm px-2 py-1 rounded-lg">
+          {displayPhotos.length} zdjęć
+        </div>
       </div>
 
       {/* Lightbox Modal */}

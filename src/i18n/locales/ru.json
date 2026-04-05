@@ -756,5 +756,28 @@
     "allInvoices": "Все счета",
     "viewAll": "Показать все",
     "sectionUnderConstruction": "Этот раздел в разработке"
+  },
+  "mainPage": {
+    "title": "GetRido",
+    "subtitle": "Всё, что вам нужно — легко и в одном месте.",
+    "searchPlaceholder": "AI поиск - скоро",
+    "login": "Войти / Регистрация",
+    "addListing": "Добавить объявление",
+    "found": "Найдено",
+    "listings": "объявлений",
+    "details": "Детали",
+    "showContact": "Показать контакт",
+    "specification": "Характеристики",
+    "photos": "фото",
+    "search": "Искать",
+    "moreFilters": "Больше фильтров",
+    "showOnMap": "Показать на карте",
+    "forSale": "Продажа",
+    "forRent": "Аренда",
+    "price": "Цена",
+    "location": "Местоположение",
+    "year": "Год",
+    "from": "От",
+    "to": "До"
   }
 }

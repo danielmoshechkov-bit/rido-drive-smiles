@@ -292,43 +292,39 @@ export function VehicleListingCard({
               ) : (
                 <div className="relative cursor-zoom-in w-full h-full" onClick={handlePhotoClick}>
                   <img src={getPhotoSrc(0)} alt={listing.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" onError={() => handleImageError(0)} />
-                  {photos.length > 1 && (
-                    <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded">
-                      1/{photos.length}
-                    </div>
-                  )}
                 </div>
               )}
             </div>
           </div>
 
-          {/* Mobile: OTOMOTO grid with swipe */}
+          {/* Mobile: Single photo with swipe arrows */}
           <div className="md:hidden relative overflow-hidden">
-            <div
-              className="flex"
-              style={{
-                transform: `translateX(calc(-${currentPage * 100}% + ${dragOffset}px))`,
-                transition: isDragging ? 'none' : 'transform 0.35s cubic-bezier(0.25,0.46,0.45,0.94)',
-                width: `${totalPages * 100}%`,
-              }}
-              onTouchStart={handleTouchStart}
-              onTouchMove={handleTouchMove}
-              onTouchEnd={handleTouchEnd}
-            >
-              {mobilePages.map((pageIndices, pageIdx) => (
-                <div key={pageIdx} className="flex-shrink-0" style={{ width: `${100 / totalPages}%` }}>
-                  {renderPhotoPage(pageIndices, pageIdx)}
-                </div>
-              ))}
+            <div className={cn("relative", compact ? "aspect-[3/2]" : "aspect-[4/3]")}>
+              <img
+                src={getPhotoSrc(currentPage)}
+                alt={listing.title}
+                className="w-full h-full object-cover"
+                onError={() => handleImageError(currentPage)}
+                onClick={handlePhotoClick}
+                draggable={false}
+              />
+              {photos.length > 1 && (
+                <>
+                  <button onClick={(e) => { e.stopPropagation(); setCurrentPage(p => (p - 1 + photos.length) % photos.length); }} className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 text-white p-1.5 rounded-full">
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <button onClick={(e) => { e.stopPropagation(); setCurrentPage(p => (p + 1) % photos.length); }} className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 text-white p-1.5 rounded-full">
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                  <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+                    {photos.slice(0, 5).map((_, idx) => (
+                      <div key={idx} className={cn("w-1.5 h-1.5 rounded-full transition-all", idx === currentPage ? "bg-white w-3" : "bg-white/50")} />
+                    ))}
+                    {photos.length > 5 && <span className="text-white text-xs ml-1">+{photos.length - 5}</span>}
+                  </div>
+                </>
+              )}
             </div>
-            {/* Page dots */}
-            {totalPages > 1 && (
-              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
-                {mobilePages.map((_, idx) => (
-                  <div key={idx} className={cn("w-1.5 h-1.5 rounded-full transition-all", idx === currentPage ? "bg-white w-3" : "bg-white/50")} />
-                ))}
-              </div>
-            )}
           </div>
 
           {/* Compare Checkbox */}

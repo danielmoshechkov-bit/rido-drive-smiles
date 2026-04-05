@@ -332,5 +332,28 @@
     "allInvoices": "Alle Rechnungen",
     "viewAll": "Alle anzeigen",
     "sectionUnderConstruction": "Dieser Bereich ist in Arbeit"
+  },
+  "mainPage": {
+    "title": "GetRido",
+    "subtitle": "Alles was du brauchst – einfach und an einem Ort.",
+    "searchPlaceholder": "AI-Suche - bald verfügbar",
+    "login": "Anmelden / Registrieren",
+    "addListing": "Anzeige aufgeben",
+    "found": "Gefunden",
+    "listings": "Anzeigen",
+    "details": "Details",
+    "showContact": "Kontakt anzeigen",
+    "specification": "Spezifikation",
+    "photos": "Fotos",
+    "search": "Suchen",
+    "moreFilters": "Mehr Filter",
+    "showOnMap": "Auf Karte zeigen",
+    "forSale": "Zu verkaufen",
+    "forRent": "Zu vermieten",
+    "price": "Preis",
+    "location": "Standort",
+    "year": "Baujahr",
+    "from": "Von",
+    "to": "Bis"
   }
 }

@@ -332,5 +332,28 @@
     "allInvoices": "Tất cả hóa đơn",
     "viewAll": "Xem tất cả",
     "sectionUnderConstruction": "Phần này đang được phát triển"
+  },
+  "mainPage": {
+    "title": "GetRido",
+    "subtitle": "Tất cả những gì bạn cần – dễ dàng và ở một nơi.",
+    "searchPlaceholder": "Tìm kiếm AI - sắp có",
+    "login": "Đăng nhập / Đăng ký",
+    "addListing": "Đăng tin",
+    "found": "Tìm thấy",
+    "listings": "tin đăng",
+    "details": "Chi tiết",
+    "showContact": "Hiện liên hệ",
+    "specification": "Thông số",
+    "photos": "ảnh",
+    "search": "Tìm kiếm",
+    "moreFilters": "Thêm bộ lọc",
+    "showOnMap": "Xem trên bản đồ",
+    "forSale": "Bán",
+    "forRent": "Cho thuê",
+    "price": "Giá",
+    "location": "Vị trí",
+    "year": "Năm",
+    "from": "Từ",
+    "to": "Đến"
   }
 }

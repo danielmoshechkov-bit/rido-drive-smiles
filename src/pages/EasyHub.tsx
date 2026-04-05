@@ -48,8 +48,8 @@ import { SearchCategoryModal } from "@/components/SearchCategoryModal";
 import { AccountingCategoryModal } from "@/components/AccountingCategoryModal";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { SEOHead, seoConfigs } from "@/components/SEOHead";
-import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { RidoAIChatPanel } from "@/components/ai/RidoAIChatPanel";
+import { useTranslation } from 'react-i18next';
 
 // Import tile images
 import tileCars from "@/assets/tile-cars.jpg";
@@ -308,6 +308,7 @@ export default function EasyHub() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
+  const { t } = useTranslation();
   const [user, setUser] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
@@ -588,8 +589,7 @@ export default function EasyHub() {
               />
             )}
           </div>
-          <div className="flex gap-1.5 sm:gap-2 items-center">
-            <LanguageSwitcher />
+          <div className="flex gap-2 items-center">
             {!user ? (
               <Button
                 variant="outline"
@@ -597,7 +597,7 @@ export default function EasyHub() {
                 className="h-9 px-4 text-sm font-medium"
                 onClick={() => setShowAuthModal(true)}
               >
-                Zaloguj / Zarejestruj
+                {t('mainPage.login')}
               </Button>
             ) : (
               <MyGetRidoButton user={user} size="sm" className="text-xs sm:text-sm px-2 sm:px-3" />
@@ -607,7 +607,7 @@ export default function EasyHub() {
               className="h-9 px-4 text-sm font-medium"
               onClick={() => navigate('/dodaj')}
             >
-              Dodaj ogłoszenie
+              {t('mainPage.addListing')}
             </Button>
           </div>
         </div>
@@ -616,10 +616,10 @@ export default function EasyHub() {
       {/* Hero Section */}
       <section className="container mx-auto px-4 pt-6 pb-3 md:pt-12 md:pb-6 text-center">
         <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold mb-1 md:mb-3" style={{ color: '#4A3AFF' }}>
-          GetRido
+          {t('mainPage.title')}
         </h1>
         <p className="text-xs sm:text-sm md:text-lg text-muted-foreground max-w-xl mx-auto">
-          Wszystko, czego potrzebujesz – łatwo i w jednym miejscu.
+          {t('mainPage.subtitle')}
         </p>
       </section>
 

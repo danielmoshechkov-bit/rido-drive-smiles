@@ -756,5 +756,28 @@
     "allInvoices": "Всі рахунки",
     "viewAll": "Показати все",
     "sectionUnderConstruction": "Цей розділ у розробці"
+  },
+  "mainPage": {
+    "title": "GetRido",
+    "subtitle": "Все, що потрібно — легко і в одному місці.",
+    "searchPlaceholder": "AI пошук - незабаром",
+    "login": "Увійти / Реєстрація",
+    "addListing": "Додати оголошення",
+    "found": "Знайдено",
+    "listings": "оголошень",
+    "details": "Деталі",
+    "showContact": "Показати контакт",
+    "specification": "Характеристики",
+    "photos": "фото",
+    "search": "Шукати",
+    "moreFilters": "Більше фільтрів",
+    "showOnMap": "Показати на карті",
+    "forSale": "Продаж",
+    "forRent": "Оренда",
+    "price": "Ціна",
+    "location": "Розташування",
+    "year": "Рік",
+    "from": "Від",
+    "to": "До"
   }
 }

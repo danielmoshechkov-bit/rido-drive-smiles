@@ -25,7 +25,6 @@ import { UniversalHomeButton } from "@/components/UniversalHomeButton";
 import { MyGetRidoButton } from "@/components/MyGetRidoButton";
 import { PortalCategoryGrid } from "@/components/portal/PortalCategoryGrid";
 import { SEOHead, seoConfigs } from "@/components/SEOHead";
-import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 // Import images
 import heroImage from "@/assets/realestate-hero.jpg";
@@ -759,7 +758,6 @@ export default function RealEstateMarketplace() {
             </span>
           </div>
           <div className="flex items-center gap-1 sm:gap-2">
-            <LanguageSwitcher />
             <MyGetRidoButton user={user} />
             <Button 
               size="sm"
