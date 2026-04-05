@@ -48,6 +48,7 @@ import { SearchCategoryModal } from "@/components/SearchCategoryModal";
 import { AccountingCategoryModal } from "@/components/AccountingCategoryModal";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { SEOHead, seoConfigs } from "@/components/SEOHead";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { RidoAIChatPanel } from "@/components/ai/RidoAIChatPanel";
 import { useTranslation } from 'react-i18next';
 
@@ -480,6 +481,7 @@ export default function EasyHub() {
             )}
           </div>
           <div className="flex gap-2 items-center">
+            <LanguageSwitcher />
             {!user ? (
               <Button
                 variant="outline"
