@@ -99,6 +99,7 @@ export function PropertyListingCard({
   variant = 'grid'
 }: PropertyListingCardProps) {
   const navigate = useNavigate();
+  const { title: translatedTitle } = useListingTranslation(listing.id, listing.title, listing.description || '', 'real_estate');
   const isCompact = compact || variant === 'compact';
   const isList = variant === 'list';
   const [currentPhoto, setCurrentPhoto] = useState(0);
