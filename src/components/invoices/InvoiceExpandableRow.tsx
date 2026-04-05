@@ -293,16 +293,24 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
       
       const container = document.createElement('div');
       container.innerHTML = html;
-      container.style.position = 'absolute';
-      container.style.left = '-9999px';
+      container.style.position = 'fixed';
+      container.style.left = '0';
+      container.style.top = '0';
+      container.style.width = '210mm';
+      container.style.zIndex = '-9999';
+      container.style.opacity = '0';
+      container.style.pointerEvents = 'none';
       document.body.appendChild(container);
+      
+      // Wait for images and rendering
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       const pdfBlob: Blob = await (html2pdf()
         .set({
           margin: 0,
           filename: 'faktura.pdf',
           image: { type: 'jpeg', quality: 0.95 },
-          html2canvas: { scale: 2, useCORS: true },
+          html2canvas: { scale: 2, useCORS: true, width: 794, windowWidth: 794 },
           jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
         })
         .from(container) as any)
@@ -310,11 +318,14 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
       
       document.body.removeChild(container);
       
+      console.log('PDF blob size:', pdfBlob.size, 'bytes');
+      
       // Convert blob to base64
       const reader = new FileReader();
       return new Promise((resolve) => {
         reader.onload = () => {
           const base64 = (reader.result as string).split(',')[1];
+          console.log('PDF base64 length:', base64?.length);
           resolve(base64);
         };
         reader.readAsDataURL(pdfBlob);
