@@ -877,11 +877,11 @@ export default function RealEstateMarketplace() {
 
       {/* Results Count & View Toggle */}
       {!showFullMap && <section className="container mx-auto px-4 py-2">
-        <div className="flex items-center justify-between max-w-7xl mx-auto">
-          {/* Left side - view toggle + sort (moved below) */}
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between max-w-7xl mx-auto flex-wrap gap-2">
+          {/* Left side - view toggle + sort */}
+          <div className="flex items-center gap-2 sm:gap-3">
             {/* View Mode Toggle */}
-            <div className="flex gap-0.5 bg-muted rounded-lg p-0.5">
+            <div className="hidden sm:flex gap-0.5 bg-muted rounded-lg p-0.5">
               <Button 
                 variant={viewMode === 'grid' ? 'default' : 'ghost'} 
                 size="sm"
