@@ -509,7 +509,7 @@ export default function EasyHub() {
           {t('home.tagline')}
         </h1>
         <p className="text-xs sm:text-sm md:text-lg text-muted-foreground max-w-xl mx-auto">
-          {t('mainPage.subtitle')}
+          {t('home.tagline')}
         </p>
       </section>
 
