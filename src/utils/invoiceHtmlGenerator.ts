@@ -734,7 +734,7 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
 
     <div class="parties">
       <div class="party">
-        <div class="party-label">Sprzedawca</div>
+        <div class="party-label">${isVatRR ? 'Nabywca (kupujący)' : 'Sprzedawca'}</div>
         <div class="party-name">${seller.name || ''}</div>
         <div class="party-details">
           ${seller.nip ? `NIP: ${seller.nip}<br>` : ''}
@@ -742,7 +742,7 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
         </div>
       </div>
       <div class="party">
-        <div class="party-label">Nabywca</div>
+        <div class="party-label">${isVatRR ? 'Dostawca (rolnik ryczałtowy)' : 'Nabywca'}</div>
         ${isSimplified && buyer.nip && !buyer.name ? `
         <div class="party-name">NIP nabywcy: ${buyer.nip}</div>
         <div class="party-details" style="font-style: italic;">(pełne dane nabywcy opcjonalne przy fakturze uproszczonej)</div>
@@ -750,6 +750,8 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
         <div class="party-name">${buyer.name || ''}</div>
         <div class="party-details">
           ${buyer.nip ? `NIP: ${buyer.nip}<br>` : ''}
+          ${isVatRR && invoice.vat_rr_data?.farmer_pesel ? `PESEL: ${invoice.vat_rr_data.farmer_pesel}<br>` : ''}
+          ${isVatRR && invoice.vat_rr_data?.farmer_id_number ? `Nr dowodu: ${invoice.vat_rr_data.farmer_id_number}<br>` : ''}
           ${formatAddress(buyer)}
         </div>
         `}
