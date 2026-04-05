@@ -838,7 +838,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
             user_id: user.id,
             company_id: companyIdToUse,
             invoice_number: finalInvoiceNumber,
-            invoice_type: invoiceData.type,
+            invoice_type: normalizeInvoiceType(invoiceData.type),
             issue_date: invoiceData.issue_date,
             sale_date: invoiceData.sale_date,
             due_date: invoiceData.due_date,

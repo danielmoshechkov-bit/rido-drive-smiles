@@ -768,19 +768,35 @@ function buildKsefInvoiceArtifacts(invoice: any, entity: any, items: any[]) {
   const sellerSource = resolveSellerSource(entity);
   const formCode = 'FA (3) / 1-0E';
   
-  // Determine invoice type for KSeF — support all types
+  // Normalize invoice_type to KSeF-compliant values
+  const typeNormalizer: Record<string, string> = {
+    'advance': 'ZAL', 'prepayment': 'ZAL', 'deposit': 'ZAL', 'advance_invoice': 'ZAL', 'zaliczkowa': 'ZAL', 'zaliczka': 'ZAL',
+    'final': 'ROZ', 'settlement': 'ROZ', 'final_invoice': 'ROZ', 'rozliczenie': 'ROZ',
+    'correction': 'KOR', 'corrective': 'KOR', 'credit_note': 'KOR', 'korygujaca': 'KOR',
+    'simplified': 'UPR', 'simplified_invoice': 'UPR', 'uproszczona': 'UPR',
+    'invoice': 'VAT', 'vat_margin': 'VAT',
+  };
   const rawType = invoice.invoice_type || 'VAT';
-  const isCorrection = invoice.is_correction === true || ['KOR', 'correction', 'KOR_ZAL', 'KOR_ROZ'].includes(rawType);
+  const normalizedType = typeNormalizer[rawType] || rawType;
+  
+  const allowedTypes = ['VAT', 'KOR', 'ZAL', 'ROZ', 'UPR', 'KOR_ZAL', 'KOR_ROZ'];
+  if (!allowedTypes.includes(normalizedType) && !['proforma', 'margin'].includes(rawType)) {
+    console.warn(`[KSeF] Nieznany typ faktury: ${rawType} -> ${normalizedType}`);
+  }
+  
+  const isCorrection = invoice.is_correction === true || ['KOR', 'KOR_ZAL', 'KOR_ROZ'].includes(normalizedType);
   
   // Map invoice_type to KSeF RodzajFaktury
   let invoiceType: string;
-  if (rawType === 'KOR_ZAL') invoiceType = 'KOR_ZAL';
-  else if (rawType === 'KOR_ROZ') invoiceType = 'KOR_ROZ';
+  if (normalizedType === 'KOR_ZAL') invoiceType = 'KOR_ZAL';
+  else if (normalizedType === 'KOR_ROZ') invoiceType = 'KOR_ROZ';
   else if (isCorrection) invoiceType = 'KOR';
-  else if (rawType === 'ZAL' || rawType === 'advance') invoiceType = 'ZAL';
-  else if (rawType === 'ROZ' || rawType === 'final') invoiceType = 'ROZ';
-  else if (rawType === 'UPR') invoiceType = 'UPR';
+  else if (normalizedType === 'ZAL') invoiceType = 'ZAL';
+  else if (normalizedType === 'ROZ') invoiceType = 'ROZ';
+  else if (normalizedType === 'UPR') invoiceType = 'UPR';
   else invoiceType = 'VAT';
+  
+  console.log(`[KSeF] invoice_type mapping: raw="${rawType}" -> normalized="${normalizedType}" -> ksef="${invoiceType}"`);
 
   const vatByRate: Record<string, { net: number; vat: number }> = {};
   items.forEach((item) => {
