@@ -146,35 +146,21 @@ export function PropertyPhotoGallery({ photos, title }: PropertyPhotoGalleryProp
         ))}
       </div>
 
-      {/* Mobile Carousel - smooth drag swipe */}
-      <div 
-        className="md:hidden relative aspect-[4/3] rounded-xl overflow-hidden"
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-      >
-        <div
-          className="flex h-full"
-          style={{
-            transform: `translateX(calc(-${currentIndex * 100}% + ${swipeOffset}px))`,
-            transition: isSwiping ? 'none' : 'transform 0.3s ease-out',
-            width: `${displayPhotos.length * 100}%`,
-          }}
-        >
-          {displayPhotos.map((photo, idx) => (
-            <img
-              key={idx}
-              src={getPhotoSrc(idx)}
-              alt={`${title} - zdjęcie ${idx + 1}`}
-              className="h-full object-cover object-center flex-shrink-0"
-              style={{ width: `${100 / displayPhotos.length}%` }}
-              onError={() => handleImageError(idx)}
-              onClick={() => openLightbox(idx)}
-              draggable={false}
-            />
-          ))}
-        </div>
-        
+      {/* Mobile: single image view with arrows — no multi-image strip */}
+      <div className="md:hidden relative aspect-[4/3] rounded-xl overflow-hidden bg-muted">
+        <img
+          key={currentIndex}
+          src={getPhotoSrc(currentIndex)}
+          alt={`${title} - zdjęcie ${currentIndex + 1}`}
+          className="w-full h-full object-cover animate-fade-in"
+          onError={() => handleImageError(currentIndex)}
+          onClick={() => openLightbox(currentIndex)}
+          draggable={false}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        />
+
         {displayPhotos.length > 1 && (
           <>
             <button
@@ -195,8 +181,8 @@ export function PropertyPhotoGallery({ photos, title }: PropertyPhotoGalleryProp
             >
               <ChevronRight className="h-5 w-5" />
             </button>
-            
-            {/* Photo Indicators */}
+
+            {/* Dot indicators */}
             <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
               {displayPhotos.slice(0, 7).map((_, idx) => (
                 <button
