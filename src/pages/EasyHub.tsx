@@ -607,7 +607,7 @@ export default function EasyHub() {
               className="h-9 px-4 text-sm font-medium"
               onClick={() => navigate('/dodaj')}
             >
-              Dodaj ogłoszenie
+              {t('mainPage.addListing')}
             </Button>
           </div>
         </div>
