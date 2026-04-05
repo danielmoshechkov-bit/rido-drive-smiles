@@ -308,7 +308,7 @@ export function PropertyListingCard({
             >
               <img
                 src={getPhotoSrc(currentPhoto)}
-                alt={listing.title}
+                alt={translatedTitle}
                 className="block h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
                 onError={(e) => {
                   handleImageError(currentPhoto);
@@ -401,7 +401,7 @@ export function PropertyListingCard({
             {/* Content - Right side */}
             <div className="flex-1 p-4 flex flex-col">
               {/* Title - 2 linijki, większa czcionka */}
-              <h3 className="font-bold text-lg line-clamp-2 min-h-[3rem]">{listing.title}</h3>
+              <h3 className="font-bold text-lg line-clamp-2 min-h-[3rem]">{translatedTitle}</h3>
 
               {/* Property specs row */}
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground mt-2">
@@ -522,7 +522,7 @@ export function PropertyListingCard({
         >
           <img
             src={getPhotoSrc(currentPhoto)}
-            alt={listing.title}
+            alt={translatedTitle}
             className="block h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
             onError={(e) => {
               handleImageError(currentPhoto);
@@ -646,7 +646,7 @@ export function PropertyListingCard({
           <h3 className={cn(
             "font-semibold leading-snug text-foreground",
             compact ? "text-xs line-clamp-2 mb-0.5" : "text-sm line-clamp-2 mb-1"
-          )}>{listing.title}</h3>
+          )}>{translatedTitle}</h3>
 
           {/* Property Type & Area & Rooms */}
           <div className={cn(
@@ -778,7 +778,7 @@ export function PropertyListingCard({
         initialIndex={currentPhoto}
         open={showLightbox}
         onOpenChange={setShowLightbox}
-        alt={listing.title}
+        alt={translatedTitle}
       />
     </>
   );
