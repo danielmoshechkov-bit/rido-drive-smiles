@@ -756,5 +756,28 @@
     "allInvoices": "Барлық шот-фактуралар",
     "viewAll": "Барлығын көру",
     "sectionUnderConstruction": "Бұл бөлім әзірлеу кезеңінде"
+  },
+  "mainPage": {
+    "title": "GetRido",
+    "subtitle": "Барлық қажетті нәрсе – оңай және бір жерде.",
+    "searchPlaceholder": "AI іздеу - жақында",
+    "login": "Кіру / Тіркелу",
+    "addListing": "Хабарландыру қосу",
+    "found": "Табылды",
+    "listings": "хабарландыру",
+    "details": "Мәліметтер",
+    "showContact": "Байланысты көрсету",
+    "specification": "Сипаттама",
+    "photos": "фото",
+    "search": "Іздеу",
+    "moreFilters": "Қосымша сүзгілер",
+    "showOnMap": "Картада көрсету",
+    "forSale": "Сату",
+    "forRent": "Жалға беру",
+    "price": "Баға",
+    "location": "Орналасқан жері",
+    "year": "Жыл",
+    "from": "Бастап",
+    "to": "Дейін"
   }
 }
