@@ -428,6 +428,7 @@ export default function GeneralListingDetail() {
           <p className="text-muted-foreground text-sm">© 2025 get RIDO. Wszystkie prawa zastrzeżone.</p>
         </div>
       </footer>
+      <MarketCompareBar />
     </div>
   );
 }
