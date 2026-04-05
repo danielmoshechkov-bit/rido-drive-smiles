@@ -1,0 +1,1 @@
+UPDATE translation_queue SET status = 'pending', attempts = 0 WHERE status IN ('done', 'processing');
