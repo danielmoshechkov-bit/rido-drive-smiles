@@ -398,7 +398,7 @@ export default function PropertyDetailPage() {
 
       <main className="container mx-auto px-4 py-6 max-w-7xl">
         {/* Photo Gallery */}
-        <PropertyPhotoGallery photos={listing.photos || []} title={listing.title} />
+        <PropertyPhotoGallery photos={listing.photos || []} title={translatedTitle} />
 
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
