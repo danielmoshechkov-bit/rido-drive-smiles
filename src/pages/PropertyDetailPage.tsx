@@ -550,7 +550,7 @@ export default function PropertyDetailPage() {
                 />
               ) : (
                 <div className="prose prose-sm max-w-none text-foreground leading-relaxed space-y-3">
-                  {(listing.description || "Brak opisu").split(/\n{2,}|\n(?=[A-ZŻŹĆĄŚĘŁÓŃ])/g).map((block, i) => {
+                  {(translatedDesc || "Brak opisu").split(/\n{2,}|\n(?=[A-ZŻŹĆĄŚĘŁÓŃ])/g).map((block, i) => {
                     const trimmed = block.trim();
                     if (!trimmed) return null;
                     // Detect section headers (short lines ending with colon or all-caps-ish)

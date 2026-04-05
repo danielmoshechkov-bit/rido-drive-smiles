@@ -314,7 +314,7 @@ export default function VehicleDetailPage() {
             <div>
               <h2 className="text-xl font-bold text-foreground mb-4">Opis</h2>
               <div className="prose prose-sm max-w-none text-foreground leading-relaxed space-y-3">
-                {(listing.description || "Brak opisu").split(/\n{2,}|\n(?=[A-ZŻŹĆĄŚĘŁÓŃ])/g).map((block: string, i: number) => {
+                {(translatedDesc || "Brak opisu").split(/\n{2,}|\n(?=[A-ZŻŹĆĄŚĘŁÓŃ])/g).map((block: string, i: number) => {
                   const trimmed = block.trim();
                   if (!trimmed) return null;
                   const isHeader = trimmed.endsWith(':') && trimmed.length < 60;
