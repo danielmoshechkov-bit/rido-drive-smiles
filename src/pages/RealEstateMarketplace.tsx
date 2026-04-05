@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,7 @@ import { useCompare, PropertyCompareItem } from "@/contexts/CompareContext";
 import { toast } from "sonner";
 import { UniversalHomeButton } from "@/components/UniversalHomeButton";
 import { MyGetRidoButton } from "@/components/MyGetRidoButton";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { PortalCategoryGrid } from "@/components/portal/PortalCategoryGrid";
 import { SEOHead, seoConfigs } from "@/components/SEOHead";
 
@@ -371,6 +373,7 @@ function mapDbToListing(db: DbListing) {
 }
 
 export default function RealEstateMarketplace() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [user, setUser] = useState<any>(null);
@@ -754,10 +757,11 @@ export default function RealEstateMarketplace() {
               className="font-bold text-sm sm:text-lg md:text-xl text-primary cursor-pointer hover:opacity-80 transition-opacity truncate max-w-[100px] sm:max-w-none"
               onClick={() => { navigate('/nieruchomosci'); window.scrollTo(0, 0); }}
             >
-              Nieruchomości
+              {t('home.nieruchomosci', 'Nieruchomości')}
             </span>
           </div>
           <div className="flex items-center gap-1 sm:gap-2">
+            <LanguageSwitcher />
             <MyGetRidoButton user={user} />
             <Button 
               size="sm"
@@ -771,7 +775,7 @@ export default function RealEstateMarketplace() {
               className="rounded-full px-2 sm:px-3"
             >
               <Plus className="h-4 w-4 sm:mr-1" />
-              <span className="hidden sm:inline">Dodaj ogłoszenie</span>
+              <span className="hidden sm:inline">{t('nav.addListing', 'Dodaj ogłoszenie')}</span>
             </Button>
           </div>
         </div>

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Car, Sparkles, ArrowRight, LayoutGrid, Rows3, List } from "lucide-react";
@@ -17,6 +18,7 @@ import { CompareBar } from "@/components/marketplace/CompareBar";
 import { useCompare } from "@/contexts/CompareContext";
 import { UniversalHomeButton } from "@/components/UniversalHomeButton";
 import { MyGetRidoButton } from "@/components/MyGetRidoButton";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { AddListingModal } from "@/components/AddListingModal";
 import { PortalCategoryGrid } from "@/components/portal/PortalCategoryGrid";
 import { SEOHead, seoConfigs } from "@/components/SEOHead";
@@ -87,6 +89,7 @@ interface VehicleListing {
 const OWNER_EMAILS = ['daniel.moshechkov@gmail.com', 'anastasiia.shapovalova1991@gmail.com'];
 
 export default function VehicleMarketplace() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [listings, setListings] = useState<VehicleListing[]>([]);
   const [filteredListings, setFilteredListings] = useState<VehicleListing[]>([]);
@@ -442,10 +445,11 @@ export default function VehicleMarketplace() {
             
             {/* Portal name only - no duplicate logo */}
             <span className="font-bold text-sm sm:text-lg md:text-xl text-primary truncate max-w-[80px] sm:max-w-none">
-              Giełda Aut
+              {t('home.motoryzacja', 'Giełda Aut')}
             </span>
           </div>
           <div className="flex items-center gap-1 sm:gap-2">
+            <LanguageSwitcher />
             <MyGetRidoButton user={user} />
             <AddListingModal user={user} />
           </div>
