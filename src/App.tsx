@@ -51,6 +51,8 @@ import PropertyCompare from "./pages/PropertyCompare";
 import RealEstateAgentRegister from "./pages/RealEstateAgentRegister";
 import RealEstateAgentDashboard from "./pages/RealEstateAgentDashboard";
 import GeneralListingAdd from "./pages/GeneralListingAdd";
+import GeneralListingEdit from "./pages/GeneralListingEdit";
+import MarketplaceSellerProfile from "./pages/MarketplaceSellerProfile";
 import FleetLanding from "./pages/FleetLanding";
 import FleetRegister from "./pages/FleetRegister";
 import FleetRegisterSuccess from "./pages/FleetRegisterSuccess";
@@ -124,6 +126,8 @@ const App = () => (
                 <Route path="/marketplace/wishlist" element={<MarketplaceWishlist />} />
                 <Route path="/marketplace/compare" element={<MarketplaceCompare />} />
                 <Route path="/marketplace/dodaj" element={<GeneralListingAdd />} />
+                <Route path="/marketplace/edit-listing/:id" element={<GeneralListingEdit />} />
+                <Route path="/marketplace/seller/:userId" element={<MarketplaceSellerProfile />} />
                 <Route path="/easy/login" element={<Navigate to="/easy" replace />} />
                 <Route path="/easy/register" element={<Navigate to="/easy" replace />} />
                 <Route path="/nieruchomosci" element={<RealEstateMarketplace />} />
@@ -179,7 +183,6 @@ const App = () => (
                 <Route path="/prawne" element={<LegalPage />} />
                 <Route path="/umowa/:rentalId" element={<RentalClientPortal />} />
                 <Route path="/warsztat/klient/:code" element={<WorkshopClientCard />} />
-                <Route path="/marketplace/dodaj" element={<GeneralListingAdd />} />
                 {/* Aliases for marketplace add listing */}
                 <Route path="/dodaj" element={<AddVehicleListing />} />
                 <Route path="/dodaj-ogloszenie" element={<AddVehicleListing />} />

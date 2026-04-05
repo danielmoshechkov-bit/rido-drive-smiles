@@ -320,12 +320,15 @@ export default function GeneralListingDetail() {
 
             {/* Seller card */}
             <Card className="p-4">
-              <div className="flex items-center gap-3 mb-2">
+              <div
+                className="flex items-center gap-3 mb-2 cursor-pointer hover:opacity-80 transition"
+                onClick={() => listing.user_id && navigate(`/marketplace/seller/${listing.user_id}`)}
+              >
                 <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
                   <User className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <p className="font-medium text-sm">Sprzedawca</p>
+                  <p className="font-medium text-sm hover:text-primary transition">Sprzedawca</p>
                   {sellerRating ? (
                     <div className="flex items-center gap-1 text-xs text-muted-foreground">
                       <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />

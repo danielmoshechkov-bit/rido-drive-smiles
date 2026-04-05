@@ -28,6 +28,9 @@ import { AccountSwitcherPanel } from "@/components/AccountSwitcherPanel";
 import { AddListingModal } from "@/components/AddListingModal";
 import { UniversalHomeButton } from "@/components/UniversalHomeButton";
 import { GeneralListingsTab } from "@/components/marketplace/GeneralListingsTab";
+import { MyListingsTab } from "@/components/marketplace/MyListingsTab";
+import { MyPurchasesTab } from "@/components/marketplace/MyPurchasesTab";
+import { ShoppingBag, Store } from "lucide-react";
 
 interface MarketplaceProfile {
   id: string;
@@ -409,6 +412,20 @@ export default function MarketplaceDashboard() {
               Ulubione
             </TabsTrigger>
             <TabsTrigger 
+              value="my-listings"
+              className="px-5 py-2.5 rounded-full text-sm whitespace-nowrap transition-all duration-150 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:font-semibold hover:bg-white/90 hover:text-primary"
+            >
+              <Store className="h-4 w-4 mr-1" />
+              Moje ogłoszenia
+            </TabsTrigger>
+            <TabsTrigger 
+              value="my-purchases"
+              className="px-5 py-2.5 rounded-full text-sm whitespace-nowrap transition-all duration-150 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:font-semibold hover:bg-white/90 hover:text-primary"
+            >
+              <ShoppingBag className="h-4 w-4 mr-1" />
+              Moje zakupy
+            </TabsTrigger>
+            <TabsTrigger 
               value="settings"
               className="px-5 py-2.5 rounded-full text-sm whitespace-nowrap transition-all duration-150 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:font-semibold hover:bg-white/90 hover:text-primary"
             >
@@ -614,6 +631,16 @@ export default function MarketplaceDashboard() {
             <GeneralListingsTab userId={user?.id} />
           </TabsContent>
 
+
+          {/* MY LISTINGS TAB */}
+          <TabsContent value="my-listings" className="space-y-6">
+            <MyListingsTab userId={user?.id} />
+          </TabsContent>
+
+          {/* MY PURCHASES TAB */}
+          <TabsContent value="my-purchases" className="space-y-6">
+            <MyPurchasesTab userId={user?.id} />
+          </TabsContent>
 
           <TabsContent value="settings" className="space-y-6">
             <Card>
