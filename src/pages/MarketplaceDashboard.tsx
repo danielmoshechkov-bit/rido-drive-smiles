@@ -387,7 +387,13 @@ export default function MarketplaceDashboard() {
               value="listings"
               className="px-5 py-2.5 rounded-full text-sm whitespace-nowrap transition-all duration-150 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:font-semibold hover:bg-white/90 hover:text-primary"
             >
-              Ogłoszenia
+              Ogłoszenia (Pojazdy)
+            </TabsTrigger>
+            <TabsTrigger 
+              value="general"
+              className="px-5 py-2.5 rounded-full text-sm whitespace-nowrap transition-all duration-150 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:font-semibold hover:bg-white/90 hover:text-primary"
+            >
+              Marketplace
             </TabsTrigger>
             <TabsTrigger 
               value="messages"
