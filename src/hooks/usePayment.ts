@@ -79,13 +79,13 @@ export function useCredits(creditType: string) {
       if (!user) { setLoading(false); return; }
 
       const { data } = await supabase
-        .from("user_credits")
+        .from("user_credits" as any)
         .select("balance")
         .eq("user_id", user.id)
         .eq("credit_type", creditType)
         .maybeSingle();
 
-      setBalance(data?.balance || 0);
+      setBalance((data as any)?.balance || 0);
     } catch { /* ignore */ }
     setLoading(false);
   }, [creditType]);

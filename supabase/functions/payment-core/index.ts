@@ -172,7 +172,7 @@ async function handleInit(supabase: any, body: any) {
 }
 
 async function handleWebhook(supabase: any, body: any) {
-  const { sessionId, amount, originAmount, currency, orderId, methodId, statement } = body;
+  const { sessionId, orderId } = body;
 
   // Find payment
   const { data: payment } = await supabase

@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2, CheckCircle, XCircle, ArrowLeft } from "lucide-react";
-import { UniversalHomeButton } from "@/components/UniversalHomeButton";
+
 
 const productMessages: Record<string, { title: string; desc: string; back: string; backUrl: string }> = {
   marketplace_purchase: { title: "Zakup zakończony!", desc: "Gratulacje! Sprzedawca dostał Twoje dane kontaktowe.", back: "Wróć do marketplace", backUrl: "/marketplace" },
