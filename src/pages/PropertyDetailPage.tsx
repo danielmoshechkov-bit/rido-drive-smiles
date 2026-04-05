@@ -221,7 +221,10 @@ export default function PropertyDetailPage() {
   const [user, setUser] = useState<any>(null);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [showMessageDialog, setShowMessageDialog] = useState(false);
-
+  const { i18n } = useTranslation();
+  const { title: translatedTitle, description: translatedDesc, isTranslated } = useListingTranslation(
+    listing?.id || '', listing?.title || '', listing?.description || '', 'real_estate'
+  );
   // Scroll to top on mount
   useEffect(() => {
     window.scrollTo(0, 0);
