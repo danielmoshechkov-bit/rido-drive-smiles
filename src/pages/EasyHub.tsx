@@ -83,144 +83,35 @@ interface MarketplaceTile {
 
 type CategoryView = 'main' | 'motoryzacja' | 'nieruchomosci';
 
-// Main category tiles (no Portal Kierowcy - moved to Motoryzacja)
-const mainTiles: MarketplaceTile[] = [
-  {
-    id: 'motoryzacja',
-    title: 'Motoryzacja',
-    description: 'Pojazdy, floty i usługi auto',
-    icon: Car,
-    image: tileCars,
-    link: null, // Opens sub-menu
-    available: true
-  },
-  {
-    id: 'nieruchomosci',
-    title: 'Nieruchomości',
-    description: 'Mieszkania, domy i usługi budowlane',
-    icon: Building,
-    image: tileRealEstate,
-    link: null, // Opens sub-menu
-    available: true
-  },
-  {
-    id: 'services',
-    title: 'Usługi',
-    description: 'Wszystkie kategorie usług',
-    icon: Sparkles,
-    image: tileServices,
-    link: '/uslugi',
-    available: true
-  },
-  {
-    id: 'marketplace',
-    title: 'Marketplace',
-    description: 'Sprzedawaj i kupuj wszystko z AI',
-    icon: ShoppingCart,
-    image: tileAutoMarketplace,
-    link: '/marketplace',
-    available: true
-  },
-  {
-    id: 'ksiegowosc',
-    title: 'Księgowość',
-    description: 'Darmowy program do faktur online',
-    icon: Receipt,
-    image: tileInvoicing,
-    link: '/faktury',
-    available: true
-  }
-];
+// Tile builders that use t() — called inside the component
+function buildMainTiles(t: (key: string) => string): MarketplaceTile[] {
+  return [
+    { id: 'motoryzacja', title: t('home.motoryzacja'), description: t('home.motoryzacjaDesc'), icon: Car, image: tileCars, link: null, available: true },
+    { id: 'nieruchomosci', title: t('home.nieruchomosci'), description: t('home.nieruchomosciDesc'), icon: Building, image: tileRealEstate, link: null, available: true },
+    { id: 'services', title: t('home.uslugi'), description: t('home.uslugiDesc'), icon: Sparkles, image: tileServices, link: '/uslugi', available: true },
+    { id: 'marketplace', title: t('home.marketplace'), description: t('home.marketplaceDesc'), icon: ShoppingCart, image: tileAutoMarketplace, link: '/marketplace', available: true },
+    { id: 'ksiegowosc', title: t('home.ksiegowosc'), description: t('home.ksiegowoscDesc'), icon: Receipt, image: tileInvoicing, link: '/faktury', available: true },
+  ];
+}
 
-// Motoryzacja sub-tiles - unique images and icons (includes Portal Kierowcy)
-// Order: Ogłoszenia, Warsztaty, Detailing+PPF, Portal Flotowy, Portal Kierowcy
-const motoryzacjaSubTiles: MarketplaceTile[] = [
-  {
-    id: 'portal-ogloszen-auto',
-    title: 'Portal Ogłoszeń',
-    description: 'Kupuj, sprzedawaj, wymieniaj',
-    icon: ShoppingCart,
-    image: tileAutoMarketplace,
-    link: '/gielda',
-    available: true
-  },
-  {
-    id: 'warsztat',
-    title: 'Warsztaty',
-    description: 'Naprawy i serwis samochodowy',
-    icon: Wrench,
-    image: tileWorkshop,
-    link: '/uslugi?kategoria=warsztat',
-    available: true
-  },
-  {
-    id: 'detailing-ppf',
-    title: 'Detailing i Folia PPF',
-    description: 'Pielęgnacja, ceramika i folie ochronne',
-    icon: Droplets,
-    image: tileDetailing,
-    link: '/uslugi?kategoria=detailing',
-    available: true
-  },
-  {
-    id: 'portal-flotowy',
-    title: 'Portal do zarządzania Flotą',
-    description: 'Zarządzaj flotą, rozliczeniami i kierowcami',
-    icon: Calculator,
-    image: tileFleet,
-    link: '/fleet',
-    available: true
-  },
-  {
-    id: 'portal-kierowcy',
-    title: 'Portal Kierowcy',
-    description: 'Rozliczenia i dokumenty',
-    icon: User,
-    image: tileDriver,
-    link: '/driver',
-    available: true
-  }
-];
+function buildMotoryzacjaSubTiles(t: (key: string) => string): MarketplaceTile[] {
+  return [
+    { id: 'portal-ogloszen-auto', title: t('home.portalOgloszen'), description: t('home.portalOgloszenAutoDesc'), icon: ShoppingCart, image: tileAutoMarketplace, link: '/gielda', available: true },
+    { id: 'warsztat', title: t('home.warsztaty'), description: t('home.warsztatyDesc'), icon: Wrench, image: tileWorkshop, link: '/uslugi?kategoria=warsztat', available: true },
+    { id: 'detailing-ppf', title: t('home.detailing'), description: t('home.detailingDesc'), icon: Droplets, image: tileDetailing, link: '/uslugi?kategoria=detailing', available: true },
+    { id: 'portal-flotowy', title: t('home.portalFlotowy'), description: t('home.portalFlotowyDesc'), icon: Calculator, image: tileFleet, link: '/fleet', available: true },
+    { id: 'portal-kierowcy', title: t('home.portalKierowcy'), description: t('home.portalKierowcyDesc'), icon: User, image: tileDriver, link: '/driver', available: true },
+  ];
+}
 
-// Nieruchomości sub-tiles - unique images and icons
-const nieruchomosciSubTiles: MarketplaceTile[] = [
-  {
-    id: 'portal-ogloszen-nieruchomosci',
-    title: 'Portal Ogłoszeń',
-    description: 'Mieszkania, domy, działki',
-    icon: Home,
-    image: tileRealEstatePortal,
-    link: '/nieruchomosci',
-    available: true
-  },
-  {
-    id: 'projektanci',
-    title: 'Projektanci wnętrz',
-    description: 'Projekty i wizualizacje',
-    icon: Palette,
-    image: tileInteriorDesign,
-    link: '/uslugi?kategoria=projektanci',
-    available: true
-  },
-  {
-    id: 'remonty',
-    title: 'Remonty i wykończenia',
-    description: 'Kompleksowe wykończenia',
-    icon: Paintbrush,
-    image: tileRenovation,
-    link: '/uslugi?kategoria=remonty',
-    available: true
-  },
-  {
-    id: 'budowlanka',
-    title: 'Budowlanka',
-    description: 'Prace budowlane i konstrukcyjne',
-    icon: HardHat,
-    image: tileConstruction,
-    link: '/uslugi?kategoria=budowlanka',
-    available: true
-  }
-];
+function buildNieruchomosciSubTiles(t: (key: string) => string): MarketplaceTile[] {
+  return [
+    { id: 'portal-ogloszen-nieruchomosci', title: t('home.portalOgloszen'), description: t('home.portalOgloszenNierDesc'), icon: Home, image: tileRealEstatePortal, link: '/nieruchomosci', available: true },
+    { id: 'projektanci', title: t('home.projektanci'), description: t('home.projektanciDesc'), icon: Palette, image: tileInteriorDesign, link: '/uslugi?kategoria=projektanci', available: true },
+    { id: 'remonty', title: t('home.remonty'), description: t('home.remontyDesc'), icon: Paintbrush, image: tileRenovation, link: '/uslugi?kategoria=remonty', available: true },
+    { id: 'budowlanka', title: t('home.budowlanka'), description: t('home.budowlankaDesc'), icon: HardHat, image: tileConstruction, link: '/uslugi?kategoria=budowlanka', available: true },
+  ];
+}
 
 function MarketplaceTileCard({ tile, onClick }: { tile: MarketplaceTile; onClick: () => void }) {
   const Icon = tile.icon;
