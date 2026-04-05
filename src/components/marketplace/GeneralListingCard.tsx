@@ -139,7 +139,7 @@ export function GeneralListingCard({ listing, variant = "grid", onToggleCompare,
           </div>
           <div className="flex items-center justify-between">
             <span className="text-base font-bold text-primary">
-              {listing.price ? `${listing.price.toLocaleString("pl-PL")}\u00A0zł` : "Zapytaj o cenę"}
+              {listing.price ? `${listing.price.toLocaleString("pl-PL")}\u00A0zł` : t('marketplace.askPrice')}
             </span>
             <span className="text-xs text-muted-foreground">{timeAgo(listing.created_at)}</span>
           </div>
