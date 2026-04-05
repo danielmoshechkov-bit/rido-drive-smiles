@@ -552,7 +552,7 @@ export default function EasyHub() {
                 disabled
                 className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full h-8 md:h-10 px-4 md:px-6 opacity-60"
               >
-                Wkrótce
+                {t('home.soon')}
               </Button>
             )}
           </div>
