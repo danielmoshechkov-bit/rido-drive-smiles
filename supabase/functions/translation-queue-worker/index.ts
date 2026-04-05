@@ -245,6 +245,8 @@ async function callKimiWithRetry(
   if (!apiKey) throw new Error('Brak klucza Kimi — wpisz go w /admin/ai → Dostawcy AI → Kimi')
 
   try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 10000)
     const res = await fetch('https://api.moonshot.ai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -259,8 +261,10 @@ async function callKimiWithRetry(
         ],
         temperature: 0.1,
         max_tokens: 800
-      })
+      }),
+      signal: controller.signal
     })
+    clearTimeout(timeout)
 
     console.log(`Kimi status: ${res.status} lang=${targetLangName} attempt=${attempt}`)
 
