@@ -678,6 +678,12 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
       is_margin: invoiceType === 'vat_margin' || invoiceType === 'margin',
       margin_purchase_price: marginPurchasePrice || undefined,
       margin_procedure_type: marginProcedureType as any,
+      // VAT RR data
+      vat_rr_data: invoiceType === 'vat_rr' ? {
+        farmer_pesel: farmerPesel || undefined,
+        farmer_id_number: farmerIdNumber || undefined,
+        flat_rate_percent: flatRatePercent,
+      } : undefined,
     };
   };
 
