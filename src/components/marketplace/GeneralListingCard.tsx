@@ -115,7 +115,7 @@ export function GeneralListingCard({ listing, variant = "grid", onToggleCompare,
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground min-h-[140px]">
               <ImageIcon className="h-8 w-8 mb-1" />
-              <span className="text-xs">Brak zdjęcia</span>
+              <span className="text-xs">{t('marketplace.noPhoto')}</span>
             </div>
           )}
           {hasAiPhoto && (
