@@ -60,6 +60,7 @@ import PropertyDetailPage from "./pages/PropertyDetailPage";
 import LegalPage from "./pages/LegalPage";
 import GetRidoMaps from "./pages/GetRidoMaps";
 import ServicesMarketplace from "./pages/ServicesMarketplace";
+import AdminRidoMarket from "./pages/AdminRidoMarket";
 import ServiceProviderDetail from "./pages/ServiceProviderDetail";
 import ServiceProviderDashboard from "./pages/ServiceProviderDashboard";
 import UniversalSearchResults from "./pages/UniversalSearchResults";
@@ -156,6 +157,7 @@ const App = () => (
                 <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
                 <Route path="/admin/dashboard" element={<AdminDashboard />} />
                 <Route path="/admin/marketplace" element={<AdminMarketplace />} />
+                <Route path="/admin/ridomarket" element={<AdminRidoMarket />} />
                 <Route path="/admin/nieruchomosci" element={<AdminRealEstate />} />
                 <Route path="/admin/mapy" element={<AdminMaps />} />
                 <Route path="/admin/portal" element={<AdminPortal />} />

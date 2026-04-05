@@ -58,6 +58,13 @@ const portals: Portal[] = [
     description: 'Zarządzanie giełdą pojazdów',
   },
   {
+    id: 'ridomarket',
+    name: 'RidoMarket',
+    icon: ShoppingCart,
+    path: '/admin/ridomarket',
+    description: 'Ogłoszenia ogólne — marketplace z AI',
+  },
+  {
     id: 'maps',
     name: 'Mapy',
     icon: Map,
@@ -127,6 +134,9 @@ export function AdminPortalSwitcher() {
     }
     if (location.pathname.includes('/admin/nieruchomosci')) {
       return portals.find((p) => p.id === 'realestate');
+    }
+    if (location.pathname.includes('/admin/ridomarket')) {
+      return portals.find((p) => p.id === 'ridomarket');
     }
     if (location.pathname.includes('/admin/marketplace')) {
       return portals.find((p) => p.id === 'marketplace');
