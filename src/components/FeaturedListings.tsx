@@ -209,8 +209,12 @@ export function FeaturedListings({ className, categoryContext, hideViewMore }: F
       const servicesData: Listing[] = [];
       if (services) {
         services.forEach((s: any) => {
-          // Get services list
-          const servicesList = s.services || [];
+          // Combine legacy services and provider_services
+          const legacyServices = s.services || [];
+          const provServices = (s.provider_services || [])
+            .filter((ps: any) => ps.status === 'active')
+            .map((ps: any) => ({ name: ps.name, price: ps.price_from, is_featured: false }));
+          const servicesList = [...legacyServices, ...provServices];
           
           // Get featured services first, then regular ones by lowest price
           const featuredServices = servicesList
