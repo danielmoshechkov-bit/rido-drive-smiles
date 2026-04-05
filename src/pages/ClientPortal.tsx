@@ -588,20 +588,21 @@ export default function ClientPortal() {
                 </span>
               </div>
             </div>
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-2">
               <Button 
                 className="bg-primary hover:bg-primary/90"
+                size="sm"
                 onClick={() => setShowSellModal(true)}
               >
-                <Plus className="h-4 w-4 mr-2" />
-                Dodaj ogłoszenie
+                <Plus className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Dodaj ogłoszenie</span>
               </Button>
-              <div className="scale-90">
+              <div className="hidden sm:block scale-90">
                 <LanguageSelector />
               </div>
               <Button variant="outline" onClick={handleLogout} size="sm" className="rounded-lg text-sm">
-                <LogOut className="h-4 w-4 mr-1" />
-                Wyloguj
+                <LogOut className="h-4 w-4 sm:mr-1" />
+                <span className="hidden sm:inline">Wyloguj</span>
               </Button>
             </div>
           </div>
