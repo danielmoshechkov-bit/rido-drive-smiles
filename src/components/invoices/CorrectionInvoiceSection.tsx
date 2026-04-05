@@ -408,7 +408,9 @@ export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataC
                       <TableHead>Nazwa</TableHead>
                       <TableHead className="text-right w-20">Ilość</TableHead>
                       <TableHead className="w-12">J.m.</TableHead>
-                      <TableHead className="text-right w-28">Cena netto</TableHead>
+                      <TableHead className="text-right w-24">Cena netto</TableHead>
+                      <TableHead className="text-right w-24">Cena brutto</TableHead>
+                      <TableHead className="text-right w-20">Rabat%</TableHead>
                       <TableHead className="text-right w-24">Wart. netto</TableHead>
                       <TableHead className="text-right w-14">VAT%</TableHead>
                       <TableHead className="text-right w-20">VAT</TableHead>
@@ -417,12 +419,17 @@ export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataC
                   </TableHeader>
                   <TableBody>
                     {correctionItems.map((item, idx) => {
-                      const t = calcItemTotals(item.quantity_after, item.unit_net_price_after, item.vat_rate_after);
+                      const discount = (item as any).discount_after ?? 0;
+                      const effectiveNetPrice = item.unit_net_price_after * (1 - discount / 100);
+                      const t = calcItemTotals(item.quantity_after, effectiveNetPrice, item.vat_rate_after);
+                      const vatNum = parseFloat(item.vat_rate_after) || 0;
+                      const unitGross = Math.round(item.unit_net_price_after * (1 + vatNum / 100) * 100) / 100;
                       
                       const nameChanged = item.name_after !== item.name;
                       const qtyChanged = item.quantity_after !== item.quantity_before;
                       const priceChanged = item.unit_net_price_after !== item.unit_net_price_before;
                       const vatChanged = item.vat_rate_after !== item.vat_rate_before;
+                      const discountChanged = discount > 0;
                       return (
                         <TableRow key={idx}>
                           <TableCell className="text-xs">{idx + 1}</TableCell>
@@ -464,6 +471,35 @@ export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataC
                               }}
                             />
                           </TableCell>
+                          <TableCell className="p-1">
+                            <input
+                              type="number"
+                              min={0}
+                              step={0.01}
+                              className={`w-full h-8 text-xs text-right border rounded px-2 bg-background transition-colors ${priceChanged ? 'border-primary bg-primary/5 font-medium' : 'border-border'}`}
+                              value={unitGross}
+                              onChange={e => {
+                                const newGross = parseFloat(e.target.value) || 0;
+                                const newNet = Math.round(newGross / (1 + vatNum / 100) * 100) / 100;
+                                toggleCorrectionMode(idx, 'edit_price', true);
+                                updateCorrectionItem(idx, 'unit_net_price_after', newNet);
+                              }}
+                            />
+                          </TableCell>
+                          <TableCell className="p-1">
+                            <input
+                              type="number"
+                              min={0}
+                              max={100}
+                              step={1}
+                              className={`w-full h-8 text-xs text-right border rounded px-2 bg-background transition-colors ${discountChanged ? 'border-primary bg-primary/5 font-medium' : 'border-border'}`}
+                              value={discount}
+                              onChange={e => {
+                                toggleCorrectionMode(idx, 'edit_price', true);
+                                updateCorrectionItem(idx, 'discount_after' as any, parseFloat(e.target.value) || 0);
+                              }}
+                            />
+                          </TableCell>
                           <TableCell className="text-xs text-right">{fmt(t.net)}</TableCell>
                           <TableCell className="p-1">
                             <Select value={item.vat_rate_after} onValueChange={(value) => {
@@ -486,7 +522,7 @@ export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataC
                       );
                     })}
                     <TableRow className="font-medium">
-                      <TableCell colSpan={5} className="text-xs text-right">Razem PO KOREKCIE:</TableCell>
+                      <TableCell colSpan={7} className="text-xs text-right">Razem PO KOREKCIE:</TableCell>
                       <TableCell className="text-xs text-right">{fmt(totalsAfter.net)}</TableCell>
                       <TableCell />
                       <TableCell className="text-xs text-right">{fmt(totalsAfter.vat)}</TableCell>
