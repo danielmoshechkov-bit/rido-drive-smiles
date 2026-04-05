@@ -329,6 +329,17 @@ export default function GeneralListingAdd() {
         setUploadingPhotos(false);
       }
 
+      // Auto-translate in background (don't block UX)
+      supabase.functions.invoke('auto-translate-listing', {
+        body: {
+          listing_id: listingId,
+          listing_type: 'general',
+          title,
+          description,
+          source_lang: 'pl'
+        }
+      }).catch(err => console.warn('Auto-translate failed:', err));
+
       toast.success("Ogłoszenie opublikowane! 🎉");
       navigate("/marketplace");
     } catch (err: any) {

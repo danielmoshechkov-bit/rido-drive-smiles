@@ -93,6 +93,7 @@ const queryClient = new QueryClient();
 function UISettingsLoader({ children }: { children: React.ReactNode }) {
   // This hook loads settings from DB and applies CSS variable
   useUISettings();
+  useDynamicTranslations();
   return <>{children}</>;
 }
 
