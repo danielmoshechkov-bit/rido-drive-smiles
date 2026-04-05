@@ -15,6 +15,7 @@ import { GlobalRidoAIButton } from "@/components/ai/GlobalRidoAIButton";
 
 import { OnboardingWidget } from "@/components/onboarding";
 import { useUISettings } from "@/hooks/useUISettings";
+import { useDynamicTranslations } from "@/hooks/useDynamicTranslations";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
