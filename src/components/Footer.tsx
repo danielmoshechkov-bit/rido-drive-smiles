@@ -1,6 +1,9 @@
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 const Footer = () => {
+  const { t } = useTranslation();
+
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(sectionId);
     if (element) {
@@ -23,73 +26,73 @@ const Footer = () => {
               <span className="text-lg font-bold">GetRido</span>
             </Link>
             <p className="text-primary-foreground/80 text-xs max-w-xs">
-              GetRido – inteligentny portal, gdzie sprzedajesz, kupujesz i zlecasz z AI na co dzień.
+              {t('footer.description', 'GetRido – inteligentny portal, gdzie sprzedajesz, kupujesz i zlecasz z AI na co dzień.')}
             </p>
           </div>
 
-          {/* Menu - 2x2 grid */}
+          {/* Menu */}
           <div>
-            <h4 className="font-semibold mb-2 text-sm">Menu</h4>
+            <h4 className="font-semibold mb-2 text-sm">{t('footer.menu', 'Menu')}</h4>
             <nav className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
               <button 
                 onClick={() => scrollToSection('home')}
                 className="text-left text-primary-foreground/80 hover:text-primary-foreground hover:underline transition-colors"
               >
-                Strona główna
+                {t('footer.home', 'Strona główna')}
               </button>
               <button 
                 onClick={() => scrollToSection('cennik')}
                 className="text-left text-primary-foreground/80 hover:text-primary-foreground hover:underline transition-colors"
               >
-                Cennik
+                {t('footer.pricing', 'Cennik')}
               </button>
               <button 
                 onClick={() => scrollToSection('jak-zaczac')}
                 className="text-left text-primary-foreground/80 hover:text-primary-foreground hover:underline transition-colors"
               >
-                Jak zacząć
+                {t('footer.howToStart', 'Jak zacząć')}
               </button>
               <button 
                 onClick={() => scrollToSection('kontakt')}
                 className="text-left text-primary-foreground/80 hover:text-primary-foreground hover:underline transition-colors"
               >
-                Kontakt
+                {t('footer.contact', 'Kontakt')}
               </button>
             </nav>
           </div>
 
-          {/* Legal Links - 2x2 grid */}
+          {/* Legal Links */}
           <div>
             <Link 
               to="/prawne" 
               className="font-semibold mb-2 text-sm block hover:underline transition-colors"
             >
-              Informacje prawne
+              {t('footer.info', 'Informacje prawne')}
             </Link>
             <nav className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
               <Link 
                 to="/prawne?tab=polityka" 
                 className="text-primary-foreground/80 hover:text-primary-foreground hover:underline transition-colors"
               >
-                Polityka prywatności
+                {t('footer.privacy', 'Polityka prywatności')}
               </Link>
               <Link 
                 to="/prawne?tab=rodo" 
                 className="text-primary-foreground/80 hover:text-primary-foreground hover:underline transition-colors"
               >
-                RODO
+                {t('footer.gdpr', 'RODO')}
               </Link>
               <Link 
                 to="/prawne?tab=regulamin" 
                 className="text-primary-foreground/80 hover:text-primary-foreground hover:underline transition-colors"
               >
-                Regulamin
+                {t('footer.terms', 'Regulamin')}
               </Link>
               <Link 
                 to="/prawne?tab=cookies" 
                 className="text-primary-foreground/80 hover:text-primary-foreground hover:underline transition-colors"
               >
-                Cookies 🍪
+                {t('common.cookies', 'Cookies 🍪')}
               </Link>
             </nav>
           </div>
@@ -97,7 +100,7 @@ const Footer = () => {
 
         <div className="border-t border-primary-foreground/20 mt-4 pt-3 text-center">
           <p className="text-primary-foreground/60 text-xs">
-            © 2025 GetRido. Wszystkie prawa zastrzeżone.
+            © 2025 {t('footer.copyright', 'GetRido. Wszystkie prawa zastrzeżone.')}
           </p>
         </div>
       </div>
