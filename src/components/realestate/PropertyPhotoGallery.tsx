@@ -16,10 +16,7 @@ export function PropertyPhotoGallery({ photos, title }: PropertyPhotoGalleryProp
 
   // Touch swipe state
   const touchStartX = useRef<number>(0);
-  const touchCurrentX = useRef<number>(0);
   const touchEndX = useRef<number>(0);
-  const [swipeOffset, setSwipeOffset] = useState(0);
-  const [isSwiping, setIsSwiping] = useState(false);
   const lightboxTouchStartX = useRef<number>(0);
   const lightboxTouchEndX = useRef<number>(0);
 
