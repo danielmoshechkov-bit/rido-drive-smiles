@@ -222,13 +222,13 @@ export function AddListingModal({ user, trigger }: AddListingModalProps) {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Plus className="h-5 w-5 text-primary" />
-              Dodaj ogłoszenie
+              {t('addListing.title')}
             </DialogTitle>
             <DialogDescription>
-              Wybierz kategorię ogłoszenia, które chcesz dodać.
+              {t('addListing.chooseCategory')}
               {!user && (
                 <span className="block mt-1 text-primary">
-                  Po wyborze kategorii będziesz mógł się zalogować lub zarejestrować.
+                  {t('addListing.loginHint')}
                 </span>
               )}
             </DialogDescription>
