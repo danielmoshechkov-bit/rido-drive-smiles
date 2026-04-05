@@ -243,13 +243,20 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     ? `https://efaktura.mf.gov.pl/web/verify?id=${encodeURIComponent(invoice.ksef_reference!)}`
     : '';
   
-  const netTotal = items.reduce((sum, item) => sum + item.net_amount, 0);
-  const vatTotal = items.reduce((sum, item) => sum + item.vat_amount, 0);
-  const grossTotal = items.reduce((sum, item) => sum + item.gross_amount, 0);
+  const isCorrection = invoice.type === 'correction' && !!invoice.correction_data;
+  const isAdvance = invoice.type === 'advance';
+  const isFinal = invoice.type === 'final';
+  const isSimplified = invoice.type === 'simplified';
+
+  const displayItems = isCorrection ? invoice.correction_data!.after_items : items;
+  
+  const netTotal = displayItems.reduce((sum, item) => sum + item.net_amount, 0);
+  const vatTotal = displayItems.reduce((sum, item) => sum + item.vat_amount, 0);
+  const grossTotal = displayItems.reduce((sum, item) => sum + item.gross_amount, 0);
   
   // Group items by VAT rate for summary
   const vatSummary: Record<string, { net: number; vat: number; gross: number }> = {};
-  items.forEach(item => {
+  displayItems.forEach(item => {
     const rate = item.vat_rate;
     if (!vatSummary[rate]) {
       vatSummary[rate] = { net: 0, vat: 0, gross: 0 };
@@ -262,7 +269,7 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
   const cellPadding = compact_pdf ? '2px 4px' : '4px 6px';
   const cellFontSize = compact_pdf ? '8px' : '9px';
   
-  const itemsHtml = items.map((item, index) => `
+  const itemsHtml = displayItems.map((item, index) => `
     <tr>
       <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: center; font-size: ${cellFontSize};">${index + 1}</td>
       <td style="border: 1px solid #ddd; padding: ${cellPadding}; font-size: ${cellFontSize};">${item.name}${item.pkwiu ? ` <small>(${item.pkwiu})</small>` : ''}</td>
