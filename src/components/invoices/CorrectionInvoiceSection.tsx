@@ -342,18 +342,18 @@ export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataC
             </CardHeader>
             <CardContent className="px-0 py-0">
               <div className="overflow-x-auto">
-                <Table className="table-fixed w-full">
+                <Table className="w-full">
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[30px] px-1">Lp.</TableHead>
-                      <TableHead className="px-1">Nazwa</TableHead>
-                      <TableHead className="text-right w-[50px] px-1">Ilość</TableHead>
-                      <TableHead className="w-[36px] px-1">J.m.</TableHead>
-                      <TableHead className="text-right w-[80px] px-1">Cena netto</TableHead>
-                      <TableHead className="text-right w-[80px] px-1">Wart. netto</TableHead>
-                      <TableHead className="text-right w-[45px] px-1">VAT%</TableHead>
-                      <TableHead className="text-right w-[65px] px-1">VAT</TableHead>
-                      <TableHead className="text-right w-[80px] px-1">Brutto</TableHead>
+                      <TableHead className="w-8 px-2">Lp.</TableHead>
+                      <TableHead className="px-2 min-w-[120px]">Nazwa</TableHead>
+                      <TableHead className="text-right w-14 px-2">Ilość</TableHead>
+                      <TableHead className="w-10 px-2">J.m.</TableHead>
+                      <TableHead className="text-right w-24 px-2">Cena netto</TableHead>
+                      <TableHead className="text-right w-24 px-2">Wart. netto</TableHead>
+                      <TableHead className="text-right w-16 px-2">VAT%</TableHead>
+                      <TableHead className="text-right w-20 px-2">VAT</TableHead>
+                      <TableHead className="text-right w-24 px-2">Brutto</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -361,24 +361,24 @@ export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataC
                       const t = calcItemTotals(item.quantity_before, item.unit_net_price_before, item.vat_rate_before);
                       return (
                         <TableRow key={idx} className="bg-muted/30">
-                          <TableCell className="text-xs">{idx + 1}</TableCell>
-                          <TableCell className="text-xs font-medium">{item.name}</TableCell>
-                          <TableCell className="text-xs text-right">{item.quantity_before}</TableCell>
-                          <TableCell className="text-xs">{item.unit}</TableCell>
-                          <TableCell className="text-xs text-right">{fmt(item.unit_net_price_before)}</TableCell>
-                          <TableCell className="text-xs text-right">{fmt(t.net)}</TableCell>
-                          <TableCell className="text-xs text-right">{item.vat_rate_before}%</TableCell>
-                          <TableCell className="text-xs text-right">{fmt(t.vat)}</TableCell>
-                          <TableCell className="text-xs text-right font-medium">{fmt(t.gross)}</TableCell>
+                          <TableCell className="text-xs px-2">{idx + 1}</TableCell>
+                          <TableCell className="text-xs font-medium px-2">{item.name}</TableCell>
+                          <TableCell className="text-xs text-right px-2">{item.quantity_before}</TableCell>
+                          <TableCell className="text-xs px-2">{item.unit}</TableCell>
+                          <TableCell className="text-xs text-right px-2">{fmt(item.unit_net_price_before)}</TableCell>
+                          <TableCell className="text-xs text-right px-2">{fmt(t.net)}</TableCell>
+                          <TableCell className="text-xs text-right px-2 whitespace-nowrap">{item.vat_rate_before}%</TableCell>
+                          <TableCell className="text-xs text-right px-2">{fmt(t.vat)}</TableCell>
+                          <TableCell className="text-xs text-right font-medium px-2">{fmt(t.gross)}</TableCell>
                         </TableRow>
                       );
                     })}
                     <TableRow className="bg-muted/50 font-medium">
-                      <TableCell colSpan={5} className="text-xs text-right">Razem BYŁO:</TableCell>
-                      <TableCell className="text-xs text-right">{fmt(totalsBefore.net)}</TableCell>
-                      <TableCell />
-                      <TableCell className="text-xs text-right">{fmt(totalsBefore.vat)}</TableCell>
-                      <TableCell className="text-xs text-right">{fmt(totalsBefore.gross)}</TableCell>
+                      <TableCell colSpan={5} className="text-xs text-right px-2">Razem BYŁO:</TableCell>
+                      <TableCell className="text-xs text-right px-2">{fmt(totalsBefore.net)}</TableCell>
+                      <TableCell className="px-2" />
+                      <TableCell className="text-xs text-right px-2">{fmt(totalsBefore.vat)}</TableCell>
+                      <TableCell className="text-xs text-right px-2">{fmt(totalsBefore.gross)}</TableCell>
                     </TableRow>
                   </TableBody>
                 </Table>
