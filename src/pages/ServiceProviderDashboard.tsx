@@ -93,6 +93,16 @@ export default function ServiceProviderDashboard() {
   const [servicePhotos, setServicePhotos] = useState<File[]>([]);
   const serviceFileRef = useRef<HTMLInputElement>(null);
   const [isDraggingService, setIsDraggingService] = useState(false);
+  const [providerStatus, setProviderStatus] = useState<string | null>(null);
+  const [activationDialog, setActivationDialog] = useState(false);
+  const [activationForm, setActivationForm] = useState({
+    company_name: '', description: '', company_phone: '', company_email: '',
+    company_city: '', company_address: '', company_postal_code: '', company_nip: '',
+    category_id: ''
+  });
+  const [serviceCategories, setServiceCategories] = useState<any[]>([]);
+  const [activationSaving, setActivationSaving] = useState(false);
+  const [coverImageFile, setCoverImageFile] = useState<File | null>(null);
 
   // Settings state
   const [settingsForm, setSettingsForm] = useState({
