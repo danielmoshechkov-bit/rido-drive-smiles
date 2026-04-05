@@ -60,6 +60,7 @@ import PropertyDetailPage from "./pages/PropertyDetailPage";
 import LegalPage from "./pages/LegalPage";
 import GetRidoMaps from "./pages/GetRidoMaps";
 import ServicesMarketplace from "./pages/ServicesMarketplace";
+import AdminRidoMarket from "./pages/AdminRidoMarket";
 import ServiceProviderDetail from "./pages/ServiceProviderDetail";
 import ServiceProviderDashboard from "./pages/ServiceProviderDashboard";
 import UniversalSearchResults from "./pages/UniversalSearchResults";
