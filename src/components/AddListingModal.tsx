@@ -200,8 +200,8 @@ export function AddListingModal({ user, trigger }: AddListingModalProps) {
       ) : (
         <Button onClick={handleOpenModal} size="sm" className="rounded-full text-xs sm:text-sm px-2 sm:px-3">
           <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-0.5 sm:mr-1" />
-          <span className="hidden sm:inline">Dodaj ogłoszenie</span>
-          <span className="sm:hidden">Dodaj</span>
+          <span className="hidden sm:inline">{t('nav.addListing')}</span>
+          <span className="sm:hidden">{t('nav.addListing')}</span>
         </Button>
       )}
 
