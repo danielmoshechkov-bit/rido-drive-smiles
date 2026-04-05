@@ -263,7 +263,7 @@ export function VehicleSearchWithMap({
           </div>
 
           {/* Search Button */}
-          <div className="hidden lg:flex items-end">
+          <div className="hidden xl:flex items-end">
             <Button onClick={handleSearch} className="w-full">
               <Search className="h-4 w-4 mr-2" />
               Szukaj {resultCount !== undefined && `(${resultCount})`}
