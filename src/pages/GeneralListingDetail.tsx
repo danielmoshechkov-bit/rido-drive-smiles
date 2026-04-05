@@ -160,6 +160,7 @@ export default function GeneralListingDetail() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/30">
+      <PendingReviewBanner />
       {/* Header */}
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
