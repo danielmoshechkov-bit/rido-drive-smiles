@@ -168,7 +168,7 @@ function MarketplaceTileCard({ tile, onClick }: { tile: MarketplaceTile; onClick
             variant="secondary" 
             className="absolute top-2 right-2 text-[10px] px-1.5 py-0.5 bg-white/90"
           >
-            Wkrótce
+            {t('home.soon')}
           </Badge>
         )}
         
