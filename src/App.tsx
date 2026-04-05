@@ -120,6 +120,10 @@ const App = () => (
                 <Route path="/easy" element={<EasyHub />} />
                 <Route path="/marketplace" element={<GeneralMarketplace />} />
                 <Route path="/marketplace/listing/:id" element={<GeneralListingDetail />} />
+                <Route path="/marketplace/cart" element={<MarketplaceCart />} />
+                <Route path="/marketplace/wishlist" element={<MarketplaceWishlist />} />
+                <Route path="/marketplace/compare" element={<MarketplaceCompare />} />
+                <Route path="/marketplace/dodaj" element={<GeneralListingAdd />} />
                 <Route path="/easy/login" element={<Navigate to="/easy" replace />} />
                 <Route path="/easy/register" element={<Navigate to="/easy" replace />} />
                 <Route path="/nieruchomosci" element={<RealEstateMarketplace />} />
