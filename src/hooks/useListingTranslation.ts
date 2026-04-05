@@ -45,7 +45,7 @@ export function useListingTranslation(
 
       if (cancelled) return;
 
-      if (data?.title_translated) {
+      if (data && (data as any).title_translated) {
         setTranslation({
           title: (data as any).title_translated,
           description: (data as any).description_translated || originalDescription,
