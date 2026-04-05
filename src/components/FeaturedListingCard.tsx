@@ -505,7 +505,7 @@ export function FeaturedListingCard({ listing, viewMode, onClick, showTransactio
               </div>
               
               <Button onClick={onClick} className="gap-2">
-                Zobacz ogłoszenie
+                {t('listing.viewListing')}
                 <ArrowRight className="h-4 w-4" />
               </Button>
             </div>
