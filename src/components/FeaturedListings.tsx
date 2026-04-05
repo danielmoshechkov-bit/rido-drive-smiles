@@ -547,7 +547,7 @@ export function FeaturedListings({ className, categoryContext, hideViewMore }: F
             className="text-primary gap-1 p-0"
             onClick={handleSeeMore}
           >
-            Zobacz więcej
+            {t('featured.seeMore')}
             <ArrowRight className="h-4 w-4" />
           </Button>
         )}
