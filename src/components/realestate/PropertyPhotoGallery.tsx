@@ -52,36 +52,22 @@ export function PropertyPhotoGallery({ photos, title }: PropertyPhotoGalleryProp
     if (e.key === "ArrowRight") nextPhoto();
     if (e.key === "ArrowLeft") prevPhoto();
     if (e.key === "Escape") setIsLightboxOpen(false);
-  };
-
-  // Mobile carousel swipe handlers — smooth drag
+  // Mobile swipe handlers — simple single-image navigation
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
-    touchCurrentX.current = e.touches[0].clientX;
-    setIsSwiping(true);
   };
   const handleTouchMove = (e: React.TouchEvent) => {
-    touchCurrentX.current = e.touches[0].clientX;
-    const diff = touchCurrentX.current - touchStartX.current;
-    // Clamp at edges
-    if ((currentIndex === 0 && diff > 0) || (currentIndex === displayPhotos.length - 1 && diff < 0)) {
-      setSwipeOffset(diff * 0.3); // dampened at edges
-    } else {
-      setSwipeOffset(diff);
-    }
+    touchEndX.current = e.touches[0].clientX;
   };
   const handleTouchEnd = () => {
-    setIsSwiping(false);
-    const diff = touchStartX.current - touchCurrentX.current;
-    const threshold = 50;
-    if (Math.abs(diff) > threshold) {
+    const diff = touchStartX.current - touchEndX.current;
+    if (Math.abs(diff) > 50) {
       if (diff > 0 && currentIndex < displayPhotos.length - 1) {
-        setCurrentIndex((prev) => prev + 1);
+        setCurrentIndex(prev => prev + 1);
       } else if (diff < 0 && currentIndex > 0) {
-        setCurrentIndex((prev) => prev - 1);
+        setCurrentIndex(prev => prev - 1);
       }
     }
-    setSwipeOffset(0);
   };
 
   // Lightbox swipe handlers
