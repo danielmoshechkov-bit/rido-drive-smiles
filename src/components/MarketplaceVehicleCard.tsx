@@ -182,7 +182,7 @@ export function MarketplaceVehicleCard({ listing, onReserve, isLoggedIn }: Marke
       <CardContent className="p-4">
         {/* Brand & Model */}
         <h3 className="font-bold text-lg leading-tight mb-2">
-          {listing.vehicle.brand} {listing.vehicle.model}
+          {translatedTitle}
         </h3>
 
         {/* Details Row - Year, Location, Fuel on same line */}
