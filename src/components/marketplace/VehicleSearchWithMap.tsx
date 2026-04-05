@@ -409,7 +409,7 @@ export function VehicleSearchWithMap({
           )}
 
           {/* Mobile Search Button */}
-          <div className="lg:hidden ml-auto">
+          <div className="xl:hidden ml-auto">
             <Button onClick={handleSearch} size="sm">
               <Search className="h-4 w-4 mr-1" />
               Szukaj
