@@ -480,13 +480,13 @@ export default function EasyHub() {
               />
             )}
           </div>
-          <div className="flex gap-2 items-center">
+          <div className="flex gap-1.5 sm:gap-2 items-center flex-shrink-0">
             <LanguageSwitcher />
             {!user ? (
               <Button
                 variant="outline"
                 size="sm"
-                className="h-9 px-4 text-sm font-medium"
+                className="h-9 px-2 sm:px-4 text-xs sm:text-sm font-medium whitespace-nowrap"
                 onClick={() => setShowAuthModal(true)}
               >
                 {t('nav.login')}
@@ -494,13 +494,17 @@ export default function EasyHub() {
             ) : (
               <MyGetRidoButton user={user} size="sm" className="text-xs sm:text-sm px-2 sm:px-3" />
             )}
-            <Button
-              size="sm"
-              className="h-9 px-4 text-sm font-medium"
-              onClick={() => navigate('/dodaj')}
-            >
-              {t('nav.addListing')}
-            </Button>
+            <AddListingModal
+              user={user}
+              trigger={
+                <Button
+                  size="sm"
+                  className="h-9 px-2 sm:px-4 text-xs sm:text-sm font-medium whitespace-nowrap"
+                >
+                  {t('nav.addListing')}
+                </Button>
+              }
+            />
           </div>
         </div>
       </header>
