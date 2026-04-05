@@ -113,6 +113,9 @@ export function InventoryPurchaseOCR({ entityId, showKsefOption }: Props) {
   const [ocrDone, setOcrDone] = useState(false);
   const [dragOver, setDragOver] = useState(false);
 
+  // Uploaded file thumbnails
+  const [uploadedFiles, setUploadedFiles] = useState<Array<{ name: string; preview: string; file: File }>>([]);
+
   // Purchase invoice preview modal
   const [previewInvoice, setPreviewInvoice] = useState<PurchaseInvoice | null>(null);
 
