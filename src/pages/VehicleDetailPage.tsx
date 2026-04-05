@@ -300,9 +300,21 @@ export default function VehicleDetailPage() {
             <Separator />
 
             <div>
-              <h2 className="text-xl font-semibold mb-4">Opis</h2>
-              <div className="prose prose-sm max-w-none text-muted-foreground whitespace-pre-line">
-                {listing.description || "Brak opisu"}
+              <h2 className="text-xl font-bold text-foreground mb-4">Opis</h2>
+              <div className="prose prose-sm max-w-none text-foreground leading-relaxed space-y-3">
+                {(listing.description || "Brak opisu").split(/\n{2,}|\n(?=[A-ZŻŹĆĄŚĘŁÓŃ])/g).map((block: string, i: number) => {
+                  const trimmed = block.trim();
+                  if (!trimmed) return null;
+                  const isHeader = trimmed.endsWith(':') && trimmed.length < 60;
+                  if (isHeader) {
+                    return <h3 key={i} className="text-base font-semibold text-foreground mt-4 mb-1">{trimmed}</h3>;
+                  }
+                  return trimmed.split('\n').map((line: string, j: number) => {
+                    const l = line.trim();
+                    if (!l) return null;
+                    return <p key={`${i}-${j}`} className="mb-2 text-foreground">{l}</p>;
+                  });
+                })}
               </div>
             </div>
 
