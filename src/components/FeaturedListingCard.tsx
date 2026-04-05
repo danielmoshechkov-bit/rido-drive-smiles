@@ -109,9 +109,9 @@ export function FeaturedListingCard({ listing, viewMode, onClick, showTransactio
 
   const getCategoryLabel = (category: string) => {
     switch (category) {
-      case 'vehicle': return 'Auto';
-      case 'property': return 'Nieruchomość';
-      case 'service': return 'Usługa';
+      case 'vehicle': return t('listing.vehicle');
+      case 'property': return t('listing.property');
+      case 'service': return t('listing.service');
       default: return '';
     }
   };
