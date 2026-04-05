@@ -238,7 +238,7 @@ export function VehicleSearchWithMap({
           </div>
 
           {/* Location */}
-          <div className="md:col-span-2 lg:col-span-2">
+          <div className="sm:col-span-2 lg:col-span-2">
             <Label className="text-xs text-muted-foreground mb-1 block">Lokalizacja</Label>
             <div className="flex gap-2">
               <VehicleLocationInput
