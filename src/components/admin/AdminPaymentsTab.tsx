@@ -8,7 +8,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, CreditCard, Save, Wallet, History, ShoppingCart, RefreshCw, Gift, Search, Car, MessageSquare, Plus, Minus } from 'lucide-react';
+import { Loader2, CreditCard, Save, Wallet, History, ShoppingCart, RefreshCw, Gift, Search, MessageSquare, Sparkles, Star } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -20,12 +20,22 @@ export function AdminPaymentsTab() {
       <TabsList className="bg-gradient-hero text-primary-foreground rounded-lg p-1 shadow-purple h-10 w-full mb-4">
         <TabsTrigger value="gateways" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm hover:bg-accent/20 rounded-md transition-colors px-2.5 py-1.5 text-sm font-medium flex-1">
           <div className="flex items-center gap-1.5 justify-center">
-            <CreditCard className="h-3.5 w-3.5" /> Bramki płatnicze
+            <CreditCard className="h-3.5 w-3.5" /> Bramki
           </div>
         </TabsTrigger>
         <TabsTrigger value="assign-credits" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm hover:bg-accent/20 rounded-md transition-colors px-2.5 py-1.5 text-sm font-medium flex-1">
           <div className="flex items-center gap-1.5 justify-center">
-            <Gift className="h-3.5 w-3.5" /> Przyznaj kredyty
+            <Gift className="h-3.5 w-3.5" /> Kredyty
+          </div>
+        </TabsTrigger>
+        <TabsTrigger value="onetime" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm hover:bg-accent/20 rounded-md transition-colors px-2.5 py-1.5 text-sm font-medium flex-1">
+          <div className="flex items-center gap-1.5 justify-center">
+            <ShoppingCart className="h-3.5 w-3.5" /> Pakiety
+          </div>
+        </TabsTrigger>
+        <TabsTrigger value="history" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm hover:bg-accent/20 rounded-md transition-colors px-2.5 py-1.5 text-sm font-medium flex-1">
+          <div className="flex items-center gap-1.5 justify-center">
+            <History className="h-3.5 w-3.5" /> Historia
           </div>
         </TabsTrigger>
         <TabsTrigger value="subscriptions" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm hover:bg-accent/20 rounded-md transition-colors px-2.5 py-1.5 text-sm font-medium flex-1">
@@ -33,42 +43,137 @@ export function AdminPaymentsTab() {
             <RefreshCw className="h-3.5 w-3.5" /> Subskrypcje
           </div>
         </TabsTrigger>
-        <TabsTrigger value="onetime" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm hover:bg-accent/20 rounded-md transition-colors px-2.5 py-1.5 text-sm font-medium flex-1">
-          <div className="flex items-center gap-1.5 justify-center">
-            <ShoppingCart className="h-3.5 w-3.5" /> Jednorazowe zakupy
-          </div>
-        </TabsTrigger>
-        <TabsTrigger value="history" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm hover:bg-accent/20 rounded-md transition-colors px-2.5 py-1.5 text-sm font-medium flex-1">
-          <div className="flex items-center gap-1.5 justify-center">
-            <History className="h-3.5 w-3.5" /> Historia płatności
-          </div>
-        </TabsTrigger>
       </TabsList>
 
-      <TabsContent value="gateways">
-        <PaymentGatewayConfig />
-      </TabsContent>
-      <TabsContent value="assign-credits">
-        <AssignCreditsPanel />
-      </TabsContent>
+      <TabsContent value="gateways"><PaymentGatewayConfig /></TabsContent>
+      <TabsContent value="assign-credits"><AssignCreditsPanel /></TabsContent>
+      <TabsContent value="onetime"><CreditPackagesManager /></TabsContent>
+      <TabsContent value="history"><PaymentHistory /></TabsContent>
       <TabsContent value="subscriptions">
         <div className="text-center py-8 text-muted-foreground">
           <RefreshCw className="h-12 w-12 mx-auto mb-4 opacity-30" />
           <p className="font-medium">Subskrypcje miesięczne</p>
-          <p className="text-sm mt-1">Architektura gotowa – konfiguracja wkrótce</p>
+          <p className="text-sm mt-1">Wkrótce — konfiguracja planów abonamentowych</p>
         </div>
-      </TabsContent>
-      <TabsContent value="onetime">
-        <div className="text-center py-8 text-muted-foreground">
-          <ShoppingCart className="h-12 w-12 mx-auto mb-4 opacity-30" />
-          <p className="font-medium">Jednorazowe zakupy</p>
-          <p className="text-sm mt-1">Kredyty pojazdowe – aktywne. Kolejne produkty wkrótce.</p>
-        </div>
-      </TabsContent>
-      <TabsContent value="history">
-        <PaymentHistory />
       </TabsContent>
     </Tabs>
+  );
+}
+
+// ==================== Payment Gateway Config ====================
+
+function PaymentGatewayConfig() {
+  const [provider, setProvider] = useState('przelewy24');
+  const [merchantId, setMerchantId] = useState('');
+  const [apiKey, setApiKey] = useState('');
+  const [posId, setPosId] = useState('');
+  const [isSandbox, setIsSandbox] = useState(true);
+  const [isActive, setIsActive] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [configs, setConfigs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadConfigs();
+  }, []);
+
+  const loadConfigs = async () => {
+    const { data } = await supabase.from('payment_gateway_config').select('*').order('created_at');
+    setConfigs(data || []);
+    if (data && data.length > 0) {
+      const cfg = data[0];
+      setProvider(cfg.provider || 'przelewy24');
+      setMerchantId(cfg.merchant_id || '');
+      setPosId((cfg as any).pos_id || '');
+      setIsSandbox(cfg.is_test_mode !== false);
+      setIsActive(cfg.is_enabled || false);
+    }
+    setLoading(false);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const payload = {
+        provider,
+        merchant_id: merchantId,
+        api_key_secret_name: apiKey || undefined,
+        pos_id: posId || merchantId,
+        is_sandbox: isSandbox,
+        is_enabled: isActive,
+        name: `${provider} ${isSandbox ? '(sandbox)' : '(prod)'}`,
+      };
+
+      if (configs.length > 0) {
+        await supabase.from('payment_gateway_config').update(payload).eq('id', configs[0].id);
+      } else {
+        await supabase.from('payment_gateway_config').insert(payload);
+      }
+      toast.success('Konfiguracja bramki zapisana');
+      await loadConfigs();
+    } catch (e: any) {
+      toast.error('Błąd: ' + e.message);
+    }
+    setSaving(false);
+  };
+
+  if (loading) return <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin" /></div>;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <CreditCard className="h-4 w-4" /> Konfiguracja bramki płatniczej
+        </CardTitle>
+        <CardDescription>Podłącz Przelewy24, PayU lub Stripe</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>Dostawca</Label>
+            <Select value={provider} onValueChange={setProvider}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="przelewy24">Przelewy24</SelectItem>
+                <SelectItem value="payu">PayU</SelectItem>
+                <SelectItem value="stripe">Stripe</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Merchant ID</Label>
+            <Input value={merchantId} onChange={e => setMerchantId(e.target.value)} placeholder="np. 123456" />
+          </div>
+          <div className="space-y-2">
+            <Label>API Key</Label>
+            <Input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="Klucz API" />
+          </div>
+          <div className="space-y-2">
+            <Label>POS ID {provider === 'przelewy24' ? '(dla P24)' : '(opcjonalnie)'}</Label>
+            <Input value={posId} onChange={e => setPosId(e.target.value)} placeholder="POS ID" />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-6 pt-2">
+          <div className="flex items-center gap-2">
+            <Switch checked={isSandbox} onCheckedChange={setIsSandbox} />
+            <Label>Tryb sandbox</Label>
+          </div>
+          <div className="flex items-center gap-2">
+            <Switch checked={isActive} onCheckedChange={setIsActive} />
+            <Label>Bramka aktywna</Label>
+          </div>
+          <Badge variant={isActive ? 'default' : 'secondary'} className="ml-auto">
+            {isActive ? '● Aktywna' : '○ Nieaktywna'}
+          </Badge>
+        </div>
+
+        <Button onClick={handleSave} disabled={saving} className="gap-2">
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          Zapisz konfigurację
+        </Button>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -79,250 +184,107 @@ function AssignCreditsPanel() {
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<{ id: string; email: string }[]>([]);
   const [foundUser, setFoundUser] = useState<{ id: string; email: string } | null>(null);
-  const [creditType, setCreditType] = useState<'vehicle' | 'sms'>('vehicle');
+  const [creditType, setCreditType] = useState('sms');
   const [amount, setAmount] = useState<number | ''>('');
-  const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
-  const [userCredits, setUserCredits] = useState<{ vehicle: number; sms: number }>({ vehicle: 0, sms: 0 });
 
-  // Live search with debounce
   useEffect(() => {
-    if (email.trim().length < 2) {
-      setSearchResults([]);
-      return;
-    }
-
+    if (email.trim().length < 2) { setSearchResults([]); return; }
     const timer = setTimeout(async () => {
       setSearching(true);
       try {
         const { data } = await supabase.rpc('admin_find_user_by_email', { p_email: email.trim() });
         const results = Array.isArray(data) ? data : data ? [data] : [];
         setSearchResults(results.filter((r: any) => r?.id).map((r: any) => ({ id: r.id as string, email: (r.email as string) || '' })));
-      } catch {
-        setSearchResults([]);
-      }
+      } catch { setSearchResults([]); }
       setSearching(false);
     }, 300);
-
     return () => clearTimeout(timer);
   }, [email]);
 
-  const selectUser = async (user: { id: string; email: string }) => {
+  const selectUser = (user: { id: string; email: string }) => {
     setFoundUser(user);
     setEmail(user.email);
     setSearchResults([]);
-    await loadUserCredits(user.id);
-  };
-
-  const loadUserCredits = async (userId: string) => {
-    const { data: vehicleData } = await supabase
-      .from('vehicle_lookup_credits')
-      .select('remaining_credits')
-      .eq('user_id', userId)
-      .maybeSingle();
-
-    setUserCredits({
-      vehicle: vehicleData?.remaining_credits ?? 0,
-      sms: 0,
-    });
   };
 
   const handleAssign = async () => {
     if (!foundUser || !amount || amount <= 0) return;
     setSaving(true);
-
     try {
-      const { data: { user: adminUser } } = await supabase.auth.getUser();
-
-      if (creditType === 'vehicle') {
-        const { data: existing } = await supabase
-          .from('vehicle_lookup_credits')
-          .select('id, remaining_credits, total_credits_purchased')
-          .eq('user_id', foundUser.id)
-          .maybeSingle();
-
-        if (existing) {
-          await supabase
-            .from('vehicle_lookup_credits')
-            .update({
-              remaining_credits: existing.remaining_credits + amount,
-              total_credits_purchased: existing.total_credits_purchased + amount,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', existing.id);
-        } else {
-          await supabase
-            .from('vehicle_lookup_credits')
-            .insert({
-              user_id: foundUser.id,
-              remaining_credits: amount,
-              total_credits_purchased: amount,
-            });
-        }
-
-        await supabase.from('vehicle_lookup_credit_transactions').insert({
-          user_id: foundUser.id,
-          type: 'manual_add',
-          credits: amount,
-          source: 'admin',
-          note: note || `Przyznano przez admina`,
-          created_by_admin_id: adminUser?.id || null,
-        });
-
-        toast.success(`Przyznano ${amount} kredytów sprawdzeń pojazdów dla ${foundUser.email}`);
-      } else {
-        toast.info(`Kredyty SMS zostaną dodane po wdrożeniu modułu SMS`);
-      }
-
-      await loadUserCredits(foundUser.id);
+      const { error } = await supabase.functions.invoke('payment-core', {
+        body: { action: 'admin_grant', user_id: foundUser.id, credit_type: creditType, amount },
+      });
+      if (error) throw error;
+      toast.success(`Przyznano ${amount} kredytów (${creditType}) dla ${foundUser.email}`);
       setAmount('');
-      setNote('');
     } catch (e: any) {
-      toast.error('Błąd: ' + (e?.message || 'Nieznany błąd'));
-    } finally {
-      setSaving(false);
+      toast.error('Błąd: ' + (e?.message || 'Nieznany'));
     }
+    setSaving(false);
   };
 
+  const creditTypes = [
+    { value: 'sms', label: 'SMS', icon: MessageSquare },
+    { value: 'ai', label: 'AI', icon: Sparkles },
+    { value: 'ai_photo', label: 'AI Zdjęcia', icon: Sparkles },
+    { value: 'listing_featured', label: 'Wyróżnienia', icon: Star },
+  ];
+
   return (
-    <div className="space-y-6">
-      {/* Search user - live */}
+    <div className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Search className="h-4 w-4" />
-            Znajdź użytkownika
-          </CardTitle>
-          <CardDescription>Zacznij wpisywać adres e-mail — wyniki pojawią się automatycznie</CardDescription>
+          <CardTitle className="text-base flex items-center gap-2"><Search className="h-4 w-4" /> Znajdź użytkownika</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="relative max-w-md">
             <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Input
-                  placeholder="np. warsztat@test.pl"
-                  value={email}
-                  onChange={e => { setEmail(e.target.value); setFoundUser(null); }}
-                  className="pr-10"
-                />
-                {searching && (
-                  <Loader2 className="h-4 w-4 animate-spin absolute right-3 top-3 text-muted-foreground" />
-                )}
-              </div>
-              <Button
-                onClick={async () => {
-                  if (email.trim().length < 2) return;
-                  setSearching(true);
-                  try {
-                    const { data } = await supabase.rpc('admin_find_user_by_email', { p_email: email.trim() });
-                    const results = Array.isArray(data) ? data : data ? [data] : [];
-                    setSearchResults(results.filter((r: any) => r?.id).map((r: any) => ({ id: r.id as string, email: (r.email as string) || '' })));
-                  } catch {
-                    setSearchResults([]);
-                  }
-                  setSearching(false);
-                }}
-                disabled={searching || email.trim().length < 2}
-                size="sm"
-                className="gap-1"
-              >
-                <Search className="h-4 w-4" />
-                Szukaj
-              </Button>
+              <Input
+                placeholder="Email użytkownika..."
+                value={email}
+                onChange={e => { setEmail(e.target.value); setFoundUser(null); }}
+                className="flex-1"
+              />
+              {searching && <Loader2 className="h-4 w-4 animate-spin absolute right-14 top-3" />}
             </div>
-
-            {/* Dropdown with results */}
             {searchResults.length > 0 && !foundUser && (
               <div className="absolute z-10 w-full mt-1 bg-background border rounded-lg shadow-lg max-h-48 overflow-y-auto">
                 {searchResults.map(user => (
-                  <button
-                    key={user.id}
-                    onClick={() => selectUser(user)}
-                    className="w-full text-left px-4 py-2.5 hover:bg-muted transition-colors text-sm flex items-center gap-2"
-                  >
-                    <Search className="h-3.5 w-3.5 text-muted-foreground" />
+                  <button key={user.id} onClick={() => selectUser(user)} className="w-full text-left px-4 py-2.5 hover:bg-muted transition-colors text-sm">
                     {user.email}
                   </button>
                 ))}
               </div>
             )}
           </div>
-
-          {foundUser && (
-            <p className="text-sm text-green-600 mt-2 flex items-center gap-1">
-              ✓ Wybrany użytkownik: <span className="font-semibold">{foundUser.email}</span>
-            </p>
-          )}
+          {foundUser && <p className="text-sm text-green-600 mt-2">✓ {foundUser.email}</p>}
         </CardContent>
       </Card>
 
-      {/* User found - assign credits */}
       {foundUser && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Gift className="h-4 w-4" />
-              Przyznaj kredyty
-            </CardTitle>
-            <CardDescription>
-              Użytkownik: <span className="font-semibold text-foreground">{foundUser.email}</span>
-            </CardDescription>
+            <CardTitle className="text-base flex items-center gap-2"><Gift className="h-4 w-4" /> Przyznaj kredyty</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Current balances */}
-            <div className="flex gap-4">
-              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-destructive/10">
-                <Car className="h-4 w-4 text-destructive" />
-                <span className="text-sm font-medium">Sprawdzenia pojazdów: <span className="font-bold">{userCredits.vehicle}</span></span>
-              </div>
-              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted">
-                <MessageSquare className="h-4 w-4" />
-                <span className="text-sm font-medium">SMS: <span className="font-bold">{userCredits.sms}</span></span>
-              </div>
-            </div>
-
-            {/* Credit type */}
             <div className="space-y-2">
               <Label>Typ kredytów</Label>
-              <Select value={creditType} onValueChange={(v: 'vehicle' | 'sms') => setCreditType(v)}>
-                <SelectTrigger className="w-full max-w-xs">
-                  <SelectValue />
-                </SelectTrigger>
+              <Select value={creditType} onValueChange={setCreditType}>
+                <SelectTrigger className="max-w-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="vehicle">
-                    <span className="flex items-center gap-2"><Car className="h-4 w-4" /> Sprawdzenia pojazdów</span>
-                  </SelectItem>
-                  <SelectItem value="sms">
-                    <span className="flex items-center gap-2"><MessageSquare className="h-4 w-4" /> Pakiet SMS</span>
-                  </SelectItem>
+                  {creditTypes.map(ct => (
+                    <SelectItem key={ct.value} value={ct.value}>
+                      <span className="flex items-center gap-2"><ct.icon className="h-4 w-4" /> {ct.label}</span>
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
-
-            {/* Amount - free input */}
             <div className="space-y-2">
-              <Label>Liczba kredytów do przyznania</Label>
-              <Input
-                type="number"
-                value={amount}
-                onChange={e => setAmount(e.target.value === '' ? '' : Math.max(1, parseInt(e.target.value) || 1))}
-                placeholder="Wpisz dowolną liczbę, np. 5, 15, 100..."
-                className="max-w-xs"
-                min={1}
-              />
+              <Label>Ilość</Label>
+              <Input type="number" value={amount} onChange={e => setAmount(e.target.value === '' ? '' : Math.max(1, parseInt(e.target.value) || 1))} placeholder="np. 50" className="max-w-xs" min={1} />
             </div>
-
-            {/* Note */}
-            <div className="space-y-2">
-              <Label>Notatka (opcjonalnie)</Label>
-              <Input
-                value={note}
-                onChange={e => setNote(e.target.value)}
-                placeholder="np. Bonus powitalny, rekompensata..."
-              />
-            </div>
-
-            {/* Submit */}
             <Button onClick={handleAssign} disabled={saving || !amount || amount <= 0} className="gap-2">
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Gift className="h-4 w-4" />}
               Przyznaj {amount || 0} kredytów
@@ -334,47 +296,52 @@ function AssignCreditsPanel() {
   );
 }
 
-// ==================== Payment Gateway Config ====================
+// ==================== Credit Packages Manager ====================
 
-function PaymentGatewayConfig() {
-  const [configs, setConfigs] = useState<any[]>([]);
+function CreditPackagesManager() {
+  const [packages, setPackages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetch = async () => {
-      const { data } = await supabase.from('payment_gateway_config').select('*').order('created_at');
-      setConfigs(data || []);
+    supabase.from('credit_packages' as any).select('*').order('credit_type').order('price').then(({ data }) => {
+      setPackages((data as any[]) || []);
       setLoading(false);
-    };
-    fetch();
+    });
   }, []);
 
   if (loading) return <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin" /></div>;
 
+  const typeLabels: Record<string, string> = { sms: 'SMS', ai_photo: 'AI Zdjęcia', listing_featured: 'Wyróżnienia', ai: 'AI' };
+
   return (
     <div className="space-y-4">
-      {configs.length === 0 && (
-        <div className="text-center py-8 text-muted-foreground">
-          <CreditCard className="h-12 w-12 mx-auto mb-4 opacity-30" />
-          <p>Brak skonfigurowanych bramek płatniczych</p>
-          <p className="text-sm mt-1">Dodaj bramkę aby umożliwić płatności online</p>
-        </div>
-      )}
-      {configs.map(cfg => (
-        <Card key={cfg.id}>
-          <CardContent className="pt-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">{cfg.name}</p>
-                <p className="text-sm text-muted-foreground">{cfg.provider}</p>
-              </div>
-              <Badge variant={cfg.is_enabled ? 'default' : 'secondary'}>
-                {cfg.is_enabled ? 'Aktywna' : 'Nieaktywna'}
-              </Badge>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Nazwa</TableHead>
+            <TableHead>Typ</TableHead>
+            <TableHead>Kredyty</TableHead>
+            <TableHead>Cena (zł)</TableHead>
+            <TableHead>Status</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {packages.length === 0 && (
+            <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Brak pakietów</TableCell></TableRow>
+          )}
+          {packages.map((pkg: any) => (
+            <TableRow key={pkg.id}>
+              <TableCell className="font-medium">{pkg.name}</TableCell>
+              <TableCell><Badge variant="outline">{typeLabels[pkg.credit_type] || pkg.credit_type}</Badge></TableCell>
+              <TableCell>{pkg.credits_amount}</TableCell>
+              <TableCell>{Number(pkg.price).toFixed(2)}</TableCell>
+              <TableCell>
+                <Badge variant={pkg.is_active ? 'default' : 'secondary'}>{pkg.is_active ? 'Aktywny' : 'Nieaktywny'}</Badge>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </div>
   );
 }
@@ -382,55 +349,101 @@ function PaymentGatewayConfig() {
 // ==================== Payment History ====================
 
 function PaymentHistory() {
-  const [transactions, setTransactions] = useState<any[]>([]);
+  const [payments, setPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('all');
+  const [totalRevenue, setTotalRevenue] = useState(0);
 
   useEffect(() => {
-    const fetch = async () => {
-      const { data } = await supabase
-        .from('vehicle_lookup_credit_transactions')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(50);
-      setTransactions(data || []);
-      setLoading(false);
-    };
-    fetch();
-  }, []);
+    loadPayments();
+  }, [filter]);
+
+  const loadPayments = async () => {
+    setLoading(true);
+    let query = supabase.from('payments' as any).select('*').order('created_at', { ascending: false }).limit(100);
+    if (filter !== 'all') {
+      query = query.eq('status', filter);
+    }
+    const { data } = await query;
+    const items = (data as any[]) || [];
+    setPayments(items);
+    setTotalRevenue(items.filter((p: any) => p.status === 'paid').reduce((s: number, p: any) => s + Number(p.amount || 0), 0));
+    setLoading(false);
+  };
+
+  const productLabels: Record<string, string> = {
+    marketplace_purchase: 'Marketplace',
+    ai_photo_package: 'AI Zdjęcia',
+    sms_credits: 'SMS',
+    ai_credits: 'AI',
+    listing_featured: 'Wyróżnienie',
+    subscription: 'Subskrypcja',
+    inpost_label: 'InPost',
+  };
+
+  const statusColors: Record<string, string> = {
+    pending: 'secondary',
+    paid: 'default',
+    failed: 'destructive',
+    refunded: 'outline',
+    cancelled: 'secondary',
+  };
 
   if (loading) return <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin" /></div>;
 
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Data</TableHead>
-          <TableHead>Typ</TableHead>
-          <TableHead>Kredyty</TableHead>
-          <TableHead>Cena netto</TableHead>
-          <TableHead>Źródło</TableHead>
-          <TableHead>Notatka</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {transactions.length === 0 && (
-          <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Brak transakcji</TableCell></TableRow>
-        )}
-        {transactions.map(t => (
-          <TableRow key={t.id}>
-            <TableCell className="text-sm">{new Date(t.created_at).toLocaleDateString('pl-PL')}</TableCell>
-            <TableCell>
-              <Badge variant={t.type === 'purchase' ? 'default' : t.type === 'usage' ? 'secondary' : 'outline'}>
-                {t.type === 'purchase' ? 'Zakup' : t.type === 'usage' ? 'Użycie' : t.type === 'manual_add' ? 'Dodane' : 'Odjęte'}
-              </Badge>
-            </TableCell>
-            <TableCell className={t.credits > 0 ? 'text-green-600' : 'text-red-600'}>{t.credits > 0 ? '+' : ''}{t.credits}</TableCell>
-            <TableCell>{t.price_net ? `${Number(t.price_net).toFixed(2)} zł` : '-'}</TableCell>
-            <TableCell className="text-sm">{t.source}</TableCell>
-            <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">{t.note || '-'}</TableCell>
-          </TableRow>
+    <div className="space-y-4">
+      {/* Revenue metric */}
+      <Card className="border-primary/20">
+        <CardContent className="pt-4 flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-primary/10">
+            <Wallet className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Łączny przychód (opłacone)</p>
+            <p className="text-2xl font-bold text-primary">{totalRevenue.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} zł</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Filters */}
+      <div className="flex gap-2 flex-wrap">
+        {['all', 'pending', 'paid', 'failed', 'refunded'].map(s => (
+          <Button key={s} variant={filter === s ? 'default' : 'outline'} size="sm" onClick={() => setFilter(s)}>
+            {s === 'all' ? 'Wszystkie' : s === 'pending' ? 'Oczekujące' : s === 'paid' ? 'Opłacone' : s === 'failed' ? 'Nieudane' : 'Zwroty'}
+          </Button>
         ))}
-      </TableBody>
-    </Table>
+      </div>
+
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Data</TableHead>
+            <TableHead>Typ</TableHead>
+            <TableHead>Kwota</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Bramka</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {payments.length === 0 && (
+            <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Brak transakcji</TableCell></TableRow>
+          )}
+          {payments.map((p: any) => (
+            <TableRow key={p.id}>
+              <TableCell className="text-sm">{new Date(p.created_at).toLocaleDateString('pl-PL')}</TableCell>
+              <TableCell><Badge variant="outline">{productLabels[p.product_type] || p.product_type}</Badge></TableCell>
+              <TableCell className="font-medium">{Number(p.amount).toFixed(2)} zł</TableCell>
+              <TableCell>
+                <Badge variant={(statusColors[p.status] || 'secondary') as any}>
+                  {p.status === 'paid' ? 'Opłacona' : p.status === 'pending' ? 'Oczekuje' : p.status === 'failed' ? 'Nieudana' : p.status}
+                </Badge>
+              </TableCell>
+              <TableCell className="text-sm text-muted-foreground">{p.gateway || '-'}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
   );
 }

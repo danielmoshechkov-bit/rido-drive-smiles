@@ -6143,6 +6143,36 @@ export type Database = {
           },
         ]
       }
+      credit_packages: {
+        Row: {
+          created_at: string | null
+          credit_type: string
+          credits_amount: number
+          id: string
+          is_active: boolean | null
+          name: string
+          price: number
+        }
+        Insert: {
+          created_at?: string | null
+          credit_type: string
+          credits_amount: number
+          id?: string
+          is_active?: boolean | null
+          name: string
+          price: number
+        }
+        Update: {
+          created_at?: string | null
+          credit_type?: string
+          credits_amount?: number
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          price?: number
+        }
+        Relationships: []
+      }
       crm_agent_mappings: {
         Row: {
           agent_id: string | null
@@ -12098,6 +12128,62 @@ export type Database = {
           },
         ]
       }
+      marketplace_orders: {
+        Row: {
+          amount: number
+          buyer_id: string
+          created_at: string | null
+          delivery_address: Json | null
+          delivery_type: string | null
+          id: string
+          inpost_label_url: string | null
+          inpost_point_id: string | null
+          listing_id: string | null
+          order_status: string | null
+          payment_id: string | null
+          seller_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          amount: number
+          buyer_id: string
+          created_at?: string | null
+          delivery_address?: Json | null
+          delivery_type?: string | null
+          id?: string
+          inpost_label_url?: string | null
+          inpost_point_id?: string | null
+          listing_id?: string | null
+          order_status?: string | null
+          payment_id?: string | null
+          seller_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          amount?: number
+          buyer_id?: string
+          created_at?: string | null
+          delivery_address?: Json | null
+          delivery_type?: string | null
+          id?: string
+          inpost_label_url?: string | null
+          inpost_point_id?: string | null
+          listing_id?: string | null
+          order_status?: string | null
+          payment_id?: string | null
+          seller_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketplace_orders_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       marketplace_saved_searches: {
         Row: {
           category_id: string | null
@@ -12747,6 +12833,57 @@ export type Database = {
           provider?: string
           updated_at?: string | null
           webhook_url?: string | null
+        }
+        Relationships: []
+      }
+      payments: {
+        Row: {
+          amount: number
+          created_at: string | null
+          currency: string | null
+          description: string | null
+          gateway: string | null
+          gateway_session_id: string | null
+          gateway_transaction_id: string | null
+          id: string
+          metadata: Json | null
+          product_ref_id: string | null
+          product_type: string
+          status: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          currency?: string | null
+          description?: string | null
+          gateway?: string | null
+          gateway_session_id?: string | null
+          gateway_transaction_id?: string | null
+          id?: string
+          metadata?: Json | null
+          product_ref_id?: string | null
+          product_type: string
+          status?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          currency?: string | null
+          description?: string | null
+          gateway?: string | null
+          gateway_session_id?: string | null
+          gateway_transaction_id?: string | null
+          id?: string
+          metadata?: Json | null
+          product_ref_id?: string | null
+          product_type?: string
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string
         }
         Relationships: []
       }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -6,21 +6,58 @@ import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { UniversalHomeButton } from "@/components/UniversalHomeButton";
 import { useCart } from "@/hooks/useCart";
+import { usePayment } from "@/hooks/usePayment";
 import { ShoppingCart, X, ArrowLeft, Truck, Package, MapPin, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 export default function MarketplaceCart() {
   const navigate = useNavigate();
   const { items, removeFromCart, clearCart, loading } = useCart();
+  const { initiatePayment, loading: paying } = usePayment();
   const [shipping, setShipping] = useState("inpost");
-  const [showPayDialog, setShowPayDialog] = useState(false);
+  const [inpostPoint, setInpostPoint] = useState("");
 
   const shippingCost = shipping === "personal" ? 0 : shipping === "inpost" ? 14.99 : 19.99;
   const subtotal = items.reduce((sum, i) => sum + (i.price || 0), 0);
   const total = subtotal + shippingCost;
+
+  const handleCheckout = async () => {
+    if (items.length === 0) return;
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast.error("Musisz być zalogowany");
+      navigate("/gielda/logowanie");
+      return;
+    }
+
+    // For now, process first item as a purchase
+    const firstItem = items[0];
+    const result = await initiatePayment({
+      productType: "marketplace_purchase",
+      productRefId: firstItem.listing_id,
+      amount: total,
+      description: `Zakup: ${firstItem.title}`,
+      metadata: {
+        listing_id: firstItem.listing_id,
+        items_count: items.length,
+      },
+      deliveryType: shipping,
+      inpostPointId: shipping === "inpost" ? inpostPoint : undefined,
+      onSuccess: () => {
+        clearCart();
+        toast.success("Zamówienie złożone!");
+      },
+    });
+
+    if (result?.simulated) {
+      clearCart();
+      navigate(`/payment/success?payment_id=${result.paymentId}`);
+    }
+  };
 
   if (loading) {
     return (
@@ -116,9 +153,22 @@ export default function MarketplaceCart() {
                     </Label>
                   </div>
                 </RadioGroup>
-                <p className="text-xs text-muted-foreground mt-3 flex items-center gap-1">
-                  <MapPin className="h-3 w-3" /> Integracja InPost wkrótce
-                </p>
+
+                {shipping === "inpost" && (
+                  <div className="mt-3">
+                    <Label className="text-sm">Numer paczkomatu lub miejscowość</Label>
+                    <Input
+                      value={inpostPoint}
+                      onChange={e => setInpostPoint(e.target.value)}
+                      placeholder="np. WAW123M lub Warszawa"
+                      className="mt-1"
+                    />
+                    {/* TODO: Podłączyć InPost Geowidget API po podpisaniu umowy ShipX */}
+                    <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                      <MapPin className="h-3 w-3" /> Wyszukiwarka paczkomatów wkrótce
+                    </p>
+                  </div>
+                )}
               </Card>
             </div>
 
@@ -141,26 +191,20 @@ export default function MarketplaceCart() {
                     <span className="text-primary">{total.toLocaleString("pl-PL", { minimumFractionDigits: 2 })}\u00A0zł</span>
                   </div>
                 </div>
-                <Button className="w-full mt-4" size="lg" onClick={() => setShowPayDialog(true)}>
-                  Przejdź do płatności
+                <Button
+                  className="w-full mt-4"
+                  size="lg"
+                  onClick={handleCheckout}
+                  disabled={paying}
+                >
+                  {paying ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  Zapłać {total.toLocaleString("pl-PL", { minimumFractionDigits: 2 })} zł
                 </Button>
               </Card>
             </div>
           </div>
         )}
       </main>
-
-      <Dialog open={showPayDialog} onOpenChange={setShowPayDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Płatności online — wkrótce</DialogTitle>
-            <DialogDescription>
-              System płatności online jest w przygotowaniu. Na razie skontaktuj się ze sprzedawcą bezpośrednio przez stronę ogłoszenia.
-            </DialogDescription>
-          </DialogHeader>
-          <Button onClick={() => setShowPayDialog(false)}>Rozumiem</Button>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
