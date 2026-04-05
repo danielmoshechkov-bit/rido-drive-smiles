@@ -51,6 +51,8 @@ import { AuthModal } from '@/components/auth/AuthModal';
 import { supabase } from '@/integrations/supabase/client';
 import { useNipLookup, CompanyData } from '@/hooks/useNipLookup';
 import { CorrectionInvoiceSection, CorrectionData } from './CorrectionInvoiceSection';
+import { normalizeInvoiceType } from '@/utils/invoiceTypeMapping';
+import { ksefTypeToUi } from './InvoiceTypeSelector';
 
 const VAT_RATES = ['23', '8', '5', '0', 'zw', 'np'];
 const UNITS = ['szt.', 'usł.', 'godz.', 'km', 'kg', 'm²', 'm³', 'kpl.'];
@@ -758,7 +760,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
           .update({
             company_id: companyIdToUse,
             invoice_number: invoiceData.invoice_number,
-            invoice_type: invoiceData.type,
+            invoice_type: normalizeInvoiceType(invoiceData.type),
             issue_date: invoiceData.issue_date,
             sale_date: invoiceData.sale_date,
             due_date: invoiceData.due_date,
@@ -836,7 +838,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
             user_id: user.id,
             company_id: companyIdToUse,
             invoice_number: finalInvoiceNumber,
-            invoice_type: invoiceData.type,
+            invoice_type: normalizeInvoiceType(invoiceData.type),
             issue_date: invoiceData.issue_date,
             sale_date: invoiceData.sale_date,
             due_date: invoiceData.due_date,

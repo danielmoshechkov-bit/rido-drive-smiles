@@ -201,7 +201,7 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
     // Always refetch latest ksef data before PDF
     const { data: freshInvoice } = await supabase
       .from('user_invoices')
-      .select('ksef_status, ksef_reference')
+      .select('ksef_status, ksef_reference, corrected_invoice_id, corrected_invoice_number, corrected_invoice_date, correction_reason, is_correction')
       .eq('id', invoice.id)
       .maybeSingle();
     const latestKsefRef = freshInvoice?.ksef_reference || liveKsefReference;
@@ -219,6 +219,83 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
         .eq('id', invoice.company_id)
         .maybeSingle();
       companyData = company;
+    }
+
+    // Build correction_data if this is a correction invoice
+    let correctionDataForPdf: InvoiceData['correction_data'] = undefined;
+    const isCorr = freshInvoice?.is_correction || ['KOR', 'KOR_ZAL', 'KOR_ROZ', 'correction'].includes(invoice.invoice_type || '');
+    
+    if (isCorr && freshInvoice?.corrected_invoice_id) {
+      // Fetch original invoice items
+      const { data: originalItems } = await supabase
+        .from('user_invoice_items')
+        .select('*')
+        .eq('invoice_id', freshInvoice.corrected_invoice_id)
+        .order('sort_order');
+      
+      const { data: originalInvoice } = await supabase
+        .from('user_invoices')
+        .select('invoice_number, issue_date, net_total, vat_total, gross_total')
+        .eq('id', freshInvoice.corrected_invoice_id)
+        .maybeSingle();
+
+      const mapItems = (rawItems: any[]) => (rawItems || []).map((item: any) => ({
+        name: item.name || '',
+        pkwiu: item.pkwiu || '',
+        quantity: item.quantity || 1,
+        unit: item.unit || 'szt.',
+        unit_net_price: item.unit_net_price || 0,
+        vat_rate: item.vat_rate || '23',
+        net_amount: item.net_amount || 0,
+        vat_amount: item.vat_amount || 0,
+        gross_amount: item.gross_amount || 0,
+      }));
+
+      const beforeItems = mapItems(originalItems || []);
+      const afterItems = mapItems(items || []);
+
+      const beforeTotals = {
+        net: originalInvoice?.net_total || beforeItems.reduce((s, i) => s + i.net_amount, 0),
+        vat: originalInvoice?.vat_total || beforeItems.reduce((s, i) => s + i.vat_amount, 0),
+        gross: originalInvoice?.gross_total || beforeItems.reduce((s, i) => s + i.gross_amount, 0),
+      };
+      const afterTotals = {
+        net: afterItems.reduce((s, i) => s + i.net_amount, 0),
+        vat: afterItems.reduce((s, i) => s + i.vat_amount, 0),
+        gross: afterItems.reduce((s, i) => s + i.gross_amount, 0),
+      };
+
+      // Auto-detect correction reason if not explicitly set
+      let reason = freshInvoice.correction_reason || '';
+      if (!reason) {
+        const reasons: string[] = [];
+        for (let i = 0; i < Math.max(beforeItems.length, afterItems.length); i++) {
+          const b = beforeItems[i];
+          const a = afterItems[i];
+          if (!b && a) { reasons.push('Dodano pozycję'); continue; }
+          if (b && !a) { reasons.push('Usunięto pozycję'); continue; }
+          if (!b || !a) continue;
+          if (b.name !== a.name) reasons.push('Błędna nazwa');
+          if (b.quantity !== a.quantity) reasons.push('Błędna ilość');
+          if (b.unit_net_price !== a.unit_net_price) reasons.push('Błędna cena');
+        }
+        reason = [...new Set(reasons)].join(', ') || 'Korekta faktury';
+      }
+
+      correctionDataForPdf = {
+        original_invoice_number: freshInvoice.corrected_invoice_number || originalInvoice?.invoice_number || '',
+        original_invoice_date: freshInvoice.corrected_invoice_date || originalInvoice?.issue_date || '',
+        correction_reason: reason,
+        before_items: beforeItems,
+        after_items: afterItems,
+        before_totals: beforeTotals,
+        after_totals: afterTotals,
+        diff_totals: {
+          net: afterTotals.net - beforeTotals.net,
+          vat: afterTotals.vat - beforeTotals.vat,
+          gross: afterTotals.gross - beforeTotals.gross,
+        },
+      };
     }
 
     return {
@@ -264,6 +341,7 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
         address_street: invoice.buyer_address || '',
       },
       ksef_reference: latestKsefRef || undefined,
+      correction_data: correctionDataForPdf,
     };
   };
 
@@ -409,13 +487,22 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
                   {invoice.invoice_type === 'proforma' && (
                     <Badge className="text-[10px] px-1.5 py-0 bg-violet-500/10 text-violet-600 border-violet-200">Pro forma</Badge>
                   )}
-                  {invoice.invoice_type === 'correction' && (
+                  {(invoice.invoice_type === 'correction' || invoice.invoice_type === 'KOR' || invoice.invoice_type === 'KOR_ZAL' || invoice.invoice_type === 'KOR_ROZ') && (
                     <Badge className="text-[10px] px-1.5 py-0 bg-amber-500/10 text-amber-600 border-amber-200">Korekta</Badge>
+                  )}
+                  {(invoice.invoice_type === 'ZAL' || invoice.invoice_type === 'advance') && (
+                    <Badge className="text-[10px] px-1.5 py-0 bg-blue-500/10 text-blue-600 border-blue-200">Zaliczkowa</Badge>
+                  )}
+                  {(invoice.invoice_type === 'ROZ' || invoice.invoice_type === 'final') && (
+                    <Badge className="text-[10px] px-1.5 py-0 bg-green-500/10 text-green-600 border-green-200">Rozliczająca</Badge>
+                  )}
+                  {(invoice.invoice_type === 'UPR' || invoice.invoice_type === 'simplified') && (
+                    <Badge className="text-[10px] px-1.5 py-0 bg-orange-500/10 text-orange-600 border-orange-200">Uproszczona</Badge>
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {invoice.buyer_name || 'Brak nabywcy'}
-                  {invoice.invoice_type === 'correction' && (invoice as any).corrected_invoice_number && (
+                  {(invoice.invoice_type === 'correction' || invoice.invoice_type === 'KOR' || invoice.invoice_type === 'KOR_ZAL' || invoice.invoice_type === 'KOR_ROZ') && (invoice as any).corrected_invoice_number && (
                     <span className="ml-1">→ {(invoice as any).corrected_invoice_number}</span>
                   )}
                 </p>
