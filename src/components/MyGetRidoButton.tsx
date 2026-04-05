@@ -208,7 +208,7 @@ export function MyGetRidoButton({ user, variant = "outline", size = "sm", classN
         {(accountTypes.isAccounting || accountTypes.isServiceProvider || accountTypes.isAdmin) && (
           <DropdownMenuItem onClick={() => navigate('/faktury')}>
             <FileText className="h-4 w-4 mr-2" />
-            Wystaw fakturę
+            {t('myAccount.issueInvoice')}
           </DropdownMenuItem>
         )}
         
