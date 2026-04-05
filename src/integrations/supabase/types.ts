@@ -5490,6 +5490,35 @@ export type Database = {
           },
         ]
       }
+      cart_items: {
+        Row: {
+          added_at: string | null
+          id: string
+          listing_id: string
+          user_id: string
+        }
+        Insert: {
+          added_at?: string | null
+          id?: string
+          listing_id: string
+          user_id: string
+        }
+        Update: {
+          added_at?: string | null
+          id?: string
+          listing_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cart_items_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "general_listings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cities: {
         Row: {
           created_at: string
@@ -10819,6 +10848,53 @@ export type Database = {
         }
         Relationships: []
       }
+      listing_reviews: {
+        Row: {
+          comment: string | null
+          created_at: string | null
+          id: string
+          listing_id: string | null
+          reviewer_id: string
+          score_avg: number | null
+          score_contact: number
+          score_description: number
+          score_shipping: number
+          seller_id: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string | null
+          id?: string
+          listing_id?: string | null
+          reviewer_id: string
+          score_avg?: number | null
+          score_contact: number
+          score_description: number
+          score_shipping: number
+          seller_id: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string | null
+          id?: string
+          listing_id?: string | null
+          reviewer_id?: string
+          score_avg?: number | null
+          score_contact?: number
+          score_description?: number
+          score_shipping?: number
+          seller_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "listing_reviews_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "general_listings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       local_seo_posts: {
         Row: {
           call_to_action: string | null
@@ -12632,6 +12708,38 @@ export type Database = {
           webhook_url?: string | null
         }
         Relationships: []
+      }
+      pending_reviews: {
+        Row: {
+          buyer_id: string
+          created_at: string | null
+          id: string
+          listing_id: string | null
+          seller_id: string
+        }
+        Insert: {
+          buyer_id: string
+          created_at?: string | null
+          id?: string
+          listing_id?: string | null
+          seller_id: string
+        }
+        Update: {
+          buyer_id?: string
+          created_at?: string | null
+          id?: string
+          listing_id?: string | null
+          seller_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pending_reviews_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "general_listings"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       pending_service_reviews: {
         Row: {
@@ -17885,6 +17993,35 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      user_wishlists: {
+        Row: {
+          added_at: string | null
+          id: string
+          listing_id: string
+          user_id: string
+        }
+        Insert: {
+          added_at?: string | null
+          id?: string
+          listing_id: string
+          user_id: string
+        }
+        Update: {
+          added_at?: string | null
+          id?: string
+          listing_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_wishlists_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "general_listings"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_workspace_settings: {
         Row: {

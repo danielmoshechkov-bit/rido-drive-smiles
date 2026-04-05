@@ -7,8 +7,11 @@ import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
+import { useCart } from "@/hooks/useCart";
+import { PendingReviewBanner } from "@/components/marketplace/PendingReviewBanner";
+import { MarketCompareBar } from "@/components/marketplace/MarketCompareBar";
 import {
-  ArrowLeft, Heart, Share2, MapPin, Eye, ShoppingCart,
+  ArrowLeft, Heart, Share2, MapPin, Eye, ShoppingCart, Star,
   Sparkles, User, Calendar, CheckCircle, Loader2, ImageIcon, AlertTriangle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -31,6 +34,8 @@ export default function GeneralListingDetail() {
   const [selectedPhoto, setSelectedPhoto] = useState(0);
   const [isFav, setIsFav] = useState(false);
   const [aiAssessing, setAiAssessing] = useState(false);
+  const [sellerRating, setSellerRating] = useState<{ avg: number; count: number } | null>(null);
+  const { addToCart, isInCart } = useCart();
 
   useEffect(() => { window.scrollTo(0, 0); }, [id]);
 
@@ -65,6 +70,18 @@ export default function GeneralListingDetail() {
       supabase.functions.invoke("track-listing-interaction", {
         body: { listingId: id, interactionType: "view" }
       }).catch(() => {});
+
+      // Fetch seller rating
+      if (listRes.data.user_id) {
+        const { data: reviews } = await supabase
+          .from("listing_reviews")
+          .select("score_avg")
+          .eq("seller_id", listRes.data.user_id);
+        if (reviews && reviews.length > 0) {
+          const avg = reviews.reduce((s, r) => s + Number(r.score_avg), 0) / reviews.length;
+          setSellerRating({ avg, count: reviews.length });
+        }
+      }
 
       // Fav
       const favs = JSON.parse(localStorage.getItem("rido_market_favs") || "[]");
@@ -143,6 +160,7 @@ export default function GeneralListingDetail() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/30">
+      <PendingReviewBanner />
       {/* Header */}
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
@@ -280,8 +298,17 @@ export default function GeneralListingDetail() {
 
             {/* Action buttons */}
             <div className="grid grid-cols-2 gap-2">
-              <Button disabled className="gap-1.5" title="Płatności wkrótce">
-                <ShoppingCart className="h-4 w-4" /> Kup teraz
+              <Button
+                className="gap-1.5"
+                disabled={isInCart(listing.id)}
+                onClick={() => {
+                  const photoUrl = photos[0]?.url || null;
+                  addToCart(listing.id, listing.title, listing.price, photoUrl);
+                  toast.success("Dodano do koszyka");
+                }}
+              >
+                <ShoppingCart className="h-4 w-4" />
+                {isInCart(listing.id) ? "W koszyku" : "Do koszyka"}
               </Button>
               <Button variant="outline" onClick={toggleFav} className="gap-1.5">
                 <Heart className={cn("h-4 w-4", isFav && "fill-red-500 text-red-500")} />
@@ -299,7 +326,15 @@ export default function GeneralListingDetail() {
                 </div>
                 <div>
                   <p className="font-medium text-sm">Sprzedawca</p>
-                  <p className="text-xs text-muted-foreground">Użytkownik GetRido</p>
+                  {sellerRating ? (
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                      <span>{sellerRating.avg.toFixed(1)}</span>
+                      <span>({sellerRating.count} ocen)</span>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Użytkownik GetRido</p>
+                  )}
                 </div>
               </div>
               <Button variant="outline" size="sm" disabled className="w-full mt-2" title="Wiadomości wkrótce">
@@ -393,6 +428,7 @@ export default function GeneralListingDetail() {
           <p className="text-muted-foreground text-sm">© 2025 get RIDO. Wszystkie prawa zastrzeżone.</p>
         </div>
       </footer>
+      <MarketCompareBar />
     </div>
   );
 }

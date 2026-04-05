@@ -2,6 +2,9 @@ import { Toaster } from "@/components/ui/toaster";
 import AddVehicleListing from "./pages/AddVehicleListing";
 import GeneralMarketplace from "./pages/GeneralMarketplace";
 import GeneralListingDetail from "./pages/GeneralListingDetail";
+import MarketplaceCart from "./pages/MarketplaceCart";
+import MarketplaceWishlist from "./pages/MarketplaceWishlist";
+import MarketplaceCompare from "./pages/MarketplaceCompare";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -117,6 +120,10 @@ const App = () => (
                 <Route path="/easy" element={<EasyHub />} />
                 <Route path="/marketplace" element={<GeneralMarketplace />} />
                 <Route path="/marketplace/listing/:id" element={<GeneralListingDetail />} />
+                <Route path="/marketplace/cart" element={<MarketplaceCart />} />
+                <Route path="/marketplace/wishlist" element={<MarketplaceWishlist />} />
+                <Route path="/marketplace/compare" element={<MarketplaceCompare />} />
+                <Route path="/marketplace/dodaj" element={<GeneralListingAdd />} />
                 <Route path="/easy/login" element={<Navigate to="/easy" replace />} />
                 <Route path="/easy/register" element={<Navigate to="/easy" replace />} />
                 <Route path="/nieruchomosci" element={<RealEstateMarketplace />} />
