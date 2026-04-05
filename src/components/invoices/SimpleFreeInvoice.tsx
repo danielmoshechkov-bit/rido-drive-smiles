@@ -171,6 +171,16 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
   const [marginPurchasePrice, setMarginPurchasePrice] = useState<number>(0);
   const [marginProcedureType, setMarginProcedureType] = useState<string>('used_goods');
   
+  // VAT RR (farmer invoice) fields
+  const [farmerPesel, setFarmerPesel] = useState('');
+  const [farmerIdNumber, setFarmerIdNumber] = useState('');
+  const [flatRatePercent, setFlatRatePercent] = useState<number>(7);
+  
+  // Computed: which type-specific features are active
+  const isNoVatType = ['receipt', 'nota'].includes(invoiceType);
+  const isMarginType = invoiceType === 'vat_margin' || invoiceType === 'margin';
+  const isVatRRType = invoiceType === 'vat_rr';
+  
   // Collapsible sections
   const [sellerExpanded, setSellerExpanded] = useState(true);
   const [discountConfig, setDiscountConfig] = useState<DiscountConfig>({
