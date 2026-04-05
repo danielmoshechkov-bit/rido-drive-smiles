@@ -220,6 +220,12 @@ export function InventoryPurchaseOCR({ entityId, showKsefOption }: Props) {
       setFileBase64(b64);
       setFileMimeType(file.type || 'application/octet-stream');
 
+      // Create thumbnail preview
+      const previewUrl = file.type.startsWith('image/') 
+        ? URL.createObjectURL(file) 
+        : '';
+      setUploadedFiles(prev => [...prev, { name: file.name, preview: previewUrl, file }]);
+
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { toast.error('Musisz być zalogowany'); setUploading(false); return; }
 
