@@ -6,8 +6,8 @@ const CORS = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const BATCH_SIZE = 20
-const MAX_PARALLEL = 3
+const BATCH_SIZE = 5
+const MAX_PARALLEL = 2
 
 const LANG_NAMES: Record<string, string> = {
   en: 'English', ru: 'Russian', ua: 'Ukrainian',
@@ -144,10 +144,12 @@ async function translateOne(
   console.log('translateOne START:', item.listing_id, 'type:', item.listing_type, 'provider:', provider)
 
   const SUPPORTED_LANGS = ['en', 'ru', 'de', 'ua']
-  const rawLangs = item.target_langs || ['en', 'ru', 'de', 'ua']
-  const langs = (Array.isArray(rawLangs) ? rawLangs : ['en', 'ru', 'de', 'ua'])
+  const rawLangs = item.target_langs || ['en', 'ru']
+  const allLangs = (Array.isArray(rawLangs) ? rawLangs : ['en', 'ru'])
     .filter((l: string) => SUPPORTED_LANGS.includes(l))
-  if (langs.length === 0) langs.push('en', 'ru', 'de', 'ua')
+  if (allLangs.length === 0) allLangs.push('en', 'ru')
+  // Limit to 2 languages per batch to stay within 60s Edge Function timeout
+  const langs = allLangs.slice(0, 2)
   let savedCount = 0
   let skippedCount = 0
   let failedCount = 0
@@ -243,6 +245,8 @@ async function callKimiWithRetry(
   if (!apiKey) throw new Error('Brak klucza Kimi — wpisz go w /admin/ai → Dostawcy AI → Kimi')
 
   try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 10000)
     const res = await fetch('https://api.moonshot.ai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -257,8 +261,10 @@ async function callKimiWithRetry(
         ],
         temperature: 0.1,
         max_tokens: 800
-      })
+      }),
+      signal: controller.signal
     })
+    clearTimeout(timeout)
 
     console.log(`Kimi status: ${res.status} lang=${targetLangName} attempt=${attempt}`)
 
@@ -292,10 +298,12 @@ async function callKimiWithRetry(
 async function callAnthropicWithRetry(
   title: string, description: string, targetLangName: string, model: string, attempt = 1
 ): Promise<{ title: string; description: string } | null> {
-  const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
+  const apiKey = (Deno.env.get('ANTHROPIC_API_KEY') || '').trim()
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured')
 
   try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 10000)
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -304,14 +312,16 @@ async function callAnthropicWithRetry(
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: model || 'claude-sonnet-4-20250514',
+        model: model || 'claude-haiku-4-5-20251001',
         max_tokens: 800,
         messages: [{
           role: 'user',
           content: `${TRANSLATE_PROMPT(targetLangName)}\n\nTITLE: ${title}\nDESC: ${description}`
         }]
-      })
+      }),
+      signal: controller.signal
     })
+    clearTimeout(timeout)
 
     console.log(`Anthropic status: ${res.status} lang=${targetLangName} attempt=${attempt}`)
 
@@ -348,6 +358,8 @@ async function callLovableWithRetry(
   if (!apiKey) throw new Error('LOVABLE_API_KEY not configured')
 
   try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 10000)
     const res = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -362,8 +374,10 @@ async function callLovableWithRetry(
         ],
         temperature: 0.1,
         max_tokens: 800
-      })
+      }),
+      signal: controller.signal
     })
+    clearTimeout(timeout)
 
     console.log(`Lovable status: ${res.status} lang=${targetLangName} attempt=${attempt}`)
 
