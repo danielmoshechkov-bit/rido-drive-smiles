@@ -81,6 +81,9 @@ import AdminAIAgentsPage from "./pages/AdminAIAgentsPage";
 import AdminMarketing from "./pages/AdminMarketing";
 import ConfirmViewingPage from "./pages/ConfirmViewingPage";
 import MyViewingsPage from "./pages/MyViewingsPage";
+import PaymentSuccess from "./pages/PaymentSuccess";
+import PaymentCancel from "./pages/PaymentCancel";
+import BuyCredits from "./pages/BuyCredits";
 const queryClient = new QueryClient();
 
 /**
