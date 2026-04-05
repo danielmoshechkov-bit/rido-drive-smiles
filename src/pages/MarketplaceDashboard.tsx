@@ -632,6 +632,16 @@ export default function MarketplaceDashboard() {
           </TabsContent>
 
 
+          {/* MY LISTINGS TAB */}
+          <TabsContent value="my-listings" className="space-y-6">
+            <MyListingsTab userId={user?.id} />
+          </TabsContent>
+
+          {/* MY PURCHASES TAB */}
+          <TabsContent value="my-purchases" className="space-y-6">
+            <MyPurchasesTab userId={user?.id} />
+          </TabsContent>
+
           <TabsContent value="settings" className="space-y-6">
             <Card>
               <CardHeader>
