@@ -193,7 +193,7 @@ export function MyGetRidoButton({ user, variant = "outline", size = "sm", classN
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => navigate('/klient')}>
           <UserCircle className="h-4 w-4 mr-2" />
-          Portal Klienta
+          {t('myAccount.clientPortal')}
         </DropdownMenuItem>
         
         {/* Service Provider Panel */}
