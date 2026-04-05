@@ -75,11 +75,13 @@ const categories: CategoryTile[] = [
 function CategoryTileCard({ 
   tile, 
   onClick,
-  isOwner
+  isOwner,
+  t
 }: { 
   tile: CategoryTile; 
   onClick: () => void;
   isOwner: boolean;
+  t: (key: string) => string;
 }) {
   const Icon = tile.icon;
   
