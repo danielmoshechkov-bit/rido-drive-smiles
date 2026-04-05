@@ -195,7 +195,7 @@ export function FeaturedListings({ className, categoryContext, hideViewMore }: F
         properties.forEach((p: any) => {
           propertiesData.push({
             id: p.id,
-            title: p.title || 'Nieruchomość',
+            title: p.title || t('listing.property'),
             price: p.price || 0,
             photos: p.photos || [],
             city: p.city,
