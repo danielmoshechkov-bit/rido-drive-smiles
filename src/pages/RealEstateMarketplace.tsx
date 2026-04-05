@@ -751,7 +751,7 @@ export default function RealEstateMarketplace() {
             
             {/* Portal name - clickable, scrolls to top */}
             <span 
-              className="font-bold text-lg md:text-xl text-primary cursor-pointer hover:opacity-80 transition-opacity"
+              className="font-bold text-sm sm:text-lg md:text-xl text-primary cursor-pointer hover:opacity-80 transition-opacity truncate max-w-[100px] sm:max-w-none"
               onClick={() => { navigate('/nieruchomosci'); window.scrollTo(0, 0); }}
             >
               Nieruchomości

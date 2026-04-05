@@ -441,7 +441,7 @@ export default function VehicleMarketplace() {
             <UniversalHomeButton />
             
             {/* Portal name only - no duplicate logo */}
-            <span className="font-bold text-lg md:text-xl text-primary">
+            <span className="font-bold text-sm sm:text-lg md:text-xl text-primary truncate max-w-[80px] sm:max-w-none">
               Giełda Aut
             </span>
           </div>

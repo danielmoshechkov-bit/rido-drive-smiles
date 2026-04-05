@@ -34,12 +34,12 @@ export function TabsPill(props: React.ComponentProps<typeof Tabs>) {
   return (
     <Tabs {...props}>
       <div 
-        className="rounded-[9999px] p-1.5 shadow-[0_8px_30px_rgba(108,60,240,0.18)]"
+        className="rounded-[9999px] p-1.5 shadow-[0_8px_30px_rgba(108,60,240,0.18)] overflow-x-auto scrollbar-hide"
         style={{ backgroundColor: 'var(--nav-bar-color, #6C3CF0)' }}
       >
         <TabsList
           className="
-            flex w-full items-center gap-1 overflow-x-auto scrollbar-hide
+            flex w-max min-w-full items-center gap-1 overflow-x-auto scrollbar-hide
             rounded-[9999px] px-2
             min-h-[48px]
           "
