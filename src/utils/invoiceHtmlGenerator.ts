@@ -391,10 +391,10 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     ? `https://efaktura.mf.gov.pl/web/verify?id=${encodeURIComponent(invoice.ksef_reference!)}`
     : '';
   
-  const isCorrection = invoice.type === 'correction' && !!invoice.correction_data;
-  const isAdvance = invoice.type === 'advance';
-  const isFinal = invoice.type === 'final';
-  const _isSimplified = invoice.type === 'simplified';
+  const isCorrection = ['correction', 'KOR', 'KOR_ZAL', 'KOR_ROZ'].includes(invoice.type) && !!invoice.correction_data;
+  const isAdvance = ['advance', 'ZAL'].includes(invoice.type);
+  const isFinal = ['final', 'ROZ'].includes(invoice.type);
+  const _isSimplified = ['simplified', 'UPR'].includes(invoice.type);
 
   const displayItems = isCorrection ? invoice.correction_data!.after_items : items;
   
