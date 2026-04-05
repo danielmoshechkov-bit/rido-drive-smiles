@@ -445,7 +445,7 @@ export default function VehicleMarketplace() {
               Giełda Aut
             </span>
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             <MyGetRidoButton user={user} />
             <AddListingModal user={user} />
           </div>
@@ -557,10 +557,7 @@ export default function VehicleMarketplace() {
       {/* Results Count & View Toggle */}
       <section className="container mx-auto px-4 py-2">
         <div className="flex items-center justify-between max-w-7xl mx-auto">
-          <p className="text-sm text-muted-foreground">
-            Znaleziono: <span className="font-medium text-foreground">{filteredListings.length.toLocaleString()}</span> ogłoszeń
-          </p>
-          <div className="flex gap-0.5 bg-muted rounded-lg p-0.5">
+          <div className="hidden sm:flex gap-0.5 bg-muted rounded-lg p-0.5">
             <Button 
               variant={viewMode === 'grid' ? 'default' : 'ghost'} 
               size="sm"
@@ -589,6 +586,9 @@ export default function VehicleMarketplace() {
               <List className="h-4 w-4" />
             </Button>
           </div>
+          <p className="text-sm text-muted-foreground">
+            Znaleziono: <span className="font-medium text-foreground">{filteredListings.length.toLocaleString()}</span> ogłoszeń
+          </p>
         </div>
       </section>
 
@@ -596,11 +596,11 @@ export default function VehicleMarketplace() {
       <section className="container mx-auto px-4 py-6">
         {loading ? (
           <div className={cn(
-            "grid gap-4 md:gap-6 max-w-7xl mx-auto",
+            "grid gap-3 sm:gap-4 md:gap-6 max-w-7xl mx-auto",
             viewMode === 'list' 
               ? "grid-cols-1" 
               : viewMode === 'compact' 
-                ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5" 
+                ? "grid-cols-2 lg:grid-cols-4 xl:grid-cols-5" 
                 : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
           )}>
             {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
@@ -624,11 +624,11 @@ export default function VehicleMarketplace() {
           </div>
         ) : (
           <div className={cn(
-            "grid gap-4 md:gap-6 max-w-7xl mx-auto",
+            "grid gap-3 sm:gap-4 md:gap-6 max-w-7xl mx-auto",
             viewMode === 'list' 
               ? "grid-cols-1" 
               : viewMode === 'compact' 
-                ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5" 
+                ? "grid-cols-2 lg:grid-cols-4 xl:grid-cols-5" 
                 : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
           )}>
             {filteredListings.map(listing => (

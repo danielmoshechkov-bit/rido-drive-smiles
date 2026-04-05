@@ -18,6 +18,9 @@ export default {
 			}
 		},
 		extend: {
+			screens: {
+				'xs': '380px',
+			},
 			fontFamily: {
 				sans: ['"Inter"', '"Space Grotesk"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
 				display: ['"Space Grotesk"', '"Inter"', 'ui-sans-serif', 'system-ui', 'sans-serif'],

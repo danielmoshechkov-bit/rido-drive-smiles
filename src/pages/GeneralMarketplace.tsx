@@ -308,13 +308,13 @@ export default function GeneralMarketplace() {
               RidoMarket
             </span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             {/* Cart icon */}
             <Button
               variant="ghost"
               size="sm"
               onClick={() => navigate("/marketplace/cart")}
-              className="relative"
+              className="relative px-2"
             >
               <ShoppingCart className="h-4 w-4" />
               {cartCount > 0 && (
@@ -324,10 +324,9 @@ export default function GeneralMarketplace() {
               )}
             </Button>
             <MyGetRidoButton user={user} />
-            <Button onClick={() => navigate("/marketplace/dodaj")} size="sm" className="gap-1.5 rounded-full">
+            <Button onClick={() => navigate("/marketplace/dodaj")} size="sm" className="gap-1 rounded-full px-2 sm:px-3">
               <Plus className="h-4 w-4" />
               <span className="hidden sm:inline">Dodaj ogłoszenie</span>
-              <span className="sm:hidden">Dodaj</span>
             </Button>
           </div>
         </div>

@@ -757,7 +757,7 @@ export default function RealEstateMarketplace() {
               Nieruchomości
             </span>
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             <MyGetRidoButton user={user} />
             <Button 
               size="sm"
@@ -768,11 +768,10 @@ export default function RealEstateMarketplace() {
                   navigate('/auth?redirect=/nieruchomosci/agent/panel?tab=add');
                 }
               }}
-              className="rounded-full"
+              className="rounded-full px-2 sm:px-3"
             >
-              <Plus className="h-4 w-4 mr-1" />
+              <Plus className="h-4 w-4 sm:mr-1" />
               <span className="hidden sm:inline">Dodaj ogłoszenie</span>
-              <span className="sm:hidden">Dodaj</span>
             </Button>
           </div>
         </div>
@@ -878,11 +877,11 @@ export default function RealEstateMarketplace() {
 
       {/* Results Count & View Toggle */}
       {!showFullMap && <section className="container mx-auto px-4 py-2">
-        <div className="flex items-center justify-between max-w-7xl mx-auto">
-          {/* Left side - view toggle + sort (moved below) */}
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between max-w-7xl mx-auto flex-wrap gap-2">
+          {/* Left side - view toggle + sort */}
+          <div className="flex items-center gap-2 sm:gap-3">
             {/* View Mode Toggle */}
-            <div className="flex gap-0.5 bg-muted rounded-lg p-0.5">
+            <div className="hidden sm:flex gap-0.5 bg-muted rounded-lg p-0.5">
               <Button 
                 variant={viewMode === 'grid' ? 'default' : 'ghost'} 
                 size="sm"
@@ -936,7 +935,7 @@ export default function RealEstateMarketplace() {
       </section>}
 
       {/* Main Content: Listings + Mini Map */}
-      {!loading && !showFullMap && <section className="container mx-auto px-3 sm:px-4 py-6 overflow-x-hidden">
+      {!loading && !showFullMap && <section className="container mx-auto px-3 sm:px-4 py-6 overflow-x-hidden max-w-full">
           <div className="flex gap-6 max-w-7xl mx-auto items-start">
           {/* Listings Column */}
           <div className="flex-1 min-w-0">
