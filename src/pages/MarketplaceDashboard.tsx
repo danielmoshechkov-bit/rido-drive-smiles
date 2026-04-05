@@ -28,6 +28,9 @@ import { AccountSwitcherPanel } from "@/components/AccountSwitcherPanel";
 import { AddListingModal } from "@/components/AddListingModal";
 import { UniversalHomeButton } from "@/components/UniversalHomeButton";
 import { GeneralListingsTab } from "@/components/marketplace/GeneralListingsTab";
+import { MyListingsTab } from "@/components/marketplace/MyListingsTab";
+import { MyPurchasesTab } from "@/components/marketplace/MyPurchasesTab";
+import { ShoppingBag, Store } from "lucide-react";
 
 interface MarketplaceProfile {
   id: string;
