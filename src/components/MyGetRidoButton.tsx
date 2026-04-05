@@ -165,7 +165,7 @@ export function MyGetRidoButton({ user, variant = "outline", size = "sm", classN
         {accountTypes.isAdmin && (
           <DropdownMenuItem onClick={() => navigate('/admin/dashboard')}>
             <Building2 className="h-4 w-4 mr-2" />
-            Panel Administracyjny
+            {t('myAccount.adminPanel')}
           </DropdownMenuItem>
         )}
         {accountTypes.isFleet && (
