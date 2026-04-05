@@ -664,6 +664,10 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
       issued_by: issuedBy,
       // PDF options
       compact_pdf: compactPdf,
+      // Margin data
+      is_margin: invoiceType === 'vat_margin' || invoiceType === 'margin',
+      margin_purchase_price: marginPurchasePrice || undefined,
+      margin_procedure_type: marginProcedureType as any,
     };
   };
 
