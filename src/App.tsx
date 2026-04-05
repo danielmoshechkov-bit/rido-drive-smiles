@@ -15,6 +15,7 @@ import { GlobalRidoAIButton } from "@/components/ai/GlobalRidoAIButton";
 
 import { OnboardingWidget } from "@/components/onboarding";
 import { useUISettings } from "@/hooks/useUISettings";
+import { useDynamicTranslations } from "@/hooks/useDynamicTranslations";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
@@ -93,6 +94,7 @@ const queryClient = new QueryClient();
 function UISettingsLoader({ children }: { children: React.ReactNode }) {
   // This hook loads settings from DB and applies CSS variable
   useUISettings();
+  useDynamicTranslations();
   return <>{children}</>;
 }
 

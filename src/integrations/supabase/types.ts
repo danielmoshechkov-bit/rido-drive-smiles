@@ -10966,6 +10966,42 @@ export type Database = {
           },
         ]
       }
+      listing_translations: {
+        Row: {
+          description_translated: string | null
+          id: string
+          listing_id: string
+          listing_type: string
+          source_lang: string | null
+          target_lang: string
+          title_translated: string
+          translated_at: string | null
+          translated_by: string | null
+        }
+        Insert: {
+          description_translated?: string | null
+          id?: string
+          listing_id: string
+          listing_type?: string
+          source_lang?: string | null
+          target_lang: string
+          title_translated: string
+          translated_at?: string | null
+          translated_by?: string | null
+        }
+        Update: {
+          description_translated?: string | null
+          id?: string
+          listing_id?: string
+          listing_type?: string
+          source_lang?: string | null
+          target_lang?: string
+          title_translated?: string
+          translated_at?: string | null
+          translated_by?: string | null
+        }
+        Relationships: []
+      }
       local_seo_posts: {
         Row: {
           call_to_action: string | null
@@ -17545,6 +17581,36 @@ export type Database = {
           key?: string
           updated_at?: string | null
           value?: Json
+        }
+        Relationships: []
+      }
+      ui_translations: {
+        Row: {
+          id: string
+          key: string
+          lang_code: string
+          model_used: string | null
+          section: string
+          translated_at: string | null
+          value: string
+        }
+        Insert: {
+          id?: string
+          key: string
+          lang_code: string
+          model_used?: string | null
+          section: string
+          translated_at?: string | null
+          value: string
+        }
+        Update: {
+          id?: string
+          key?: string
+          lang_code?: string
+          model_used?: string | null
+          section?: string
+          translated_at?: string | null
+          value?: string
         }
         Relationships: []
       }
