@@ -479,7 +479,7 @@ export function FeaturedListingCard({ listing, viewMode, onClick, showTransactio
                   ))}
                 </div>
                 <span className="text-sm text-muted-foreground">
-                  {listing.rating_avg.toFixed(1)} ({listing.rating_count} opinii)
+                  {listing.rating_avg.toFixed(1)} ({listing.rating_count} {t('listing.reviews')})
                 </span>
               </div>
             )}
