@@ -214,9 +214,15 @@ export default function ServicesMarketplace() {
     if (selectedCategorySlug) {
       const categoryMatch = provider.category?.slug === selectedCategorySlug;
       const hasServicesInCategory = (provider as any).provider_services?.some(
-        (ps: any) => ps.status === 'active'
+        (ps: any) => ps.is_active && (
+          ps.category?.toLowerCase() === selectedCategorySlug.toLowerCase()
+        )
       );
-      if (!categoryMatch && !hasServicesInCategory) {
+      // Also match if provider name contains category slug (e.g. "Warsztat Testowy" for slug "warsztat")
+      const nameMatchesCategory = provider.company_name?.toLowerCase().includes(
+        selectedCategorySlug.replace(/-/g, ' ').toLowerCase()
+      );
+      if (!categoryMatch && !hasServicesInCategory && !nameMatchesCategory) {
         return false;
       }
     }
