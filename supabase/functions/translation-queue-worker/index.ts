@@ -94,7 +94,7 @@ serve(async (req) => {
       const chunk = batch.slice(i, i + MAX_PARALLEL)
 
       const results = await Promise.allSettled(
-        chunk.map((item: any) => translateOne(sb, item, selectedModel, selectedProvider))
+        chunk.map((item: any) => translateOne(sb, item, selectedModel, selectedProvider, kimiApiKey))
       )
 
       for (let j = 0; j < results.length; j++) {
