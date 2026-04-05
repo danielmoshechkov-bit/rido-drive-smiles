@@ -171,7 +171,7 @@ export function MyGetRidoButton({ user, variant = "outline", size = "sm", classN
         {accountTypes.isFleet && (
           <DropdownMenuItem onClick={() => navigate('/fleet/dashboard')}>
             <Car className="h-4 w-4 mr-2" />
-            Zarządzanie Flotą
+            {t('myAccount.fleetPanel')}
           </DropdownMenuItem>
         )}
         {/* Portal Kierowcy - only shown if user has driver role */}
