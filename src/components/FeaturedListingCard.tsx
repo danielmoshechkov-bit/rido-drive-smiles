@@ -517,7 +517,7 @@ export function FeaturedListingCard({ listing, viewMode, onClick, showTransactio
         initialIndex={currentPhotoIndex}
         open={showLightbox}
         onOpenChange={setShowLightbox}
-        alt={listing.title}
+        alt={title}
       />
     </>
   );
