@@ -129,9 +129,9 @@ export function GeneralListingCard({ listing, variant = "grid", onToggleCompare,
         </div>
         <div className="flex-1 p-4 flex flex-col justify-between min-w-0">
           <div>
-            <h3 className="font-medium text-sm leading-tight line-clamp-2 mb-1">{listing.title}</h3>
+            <h3 className="font-medium text-sm leading-tight line-clamp-2 mb-1">{title}</h3>
             <div className="flex items-center gap-2 flex-wrap mb-2">
-              {cond && <Badge variant="outline" className={cn("text-xs", cond.className)}>{cond.label}</Badge>}
+              {condLabel && <Badge variant="outline" className={cn("text-xs", condClass)}>{condLabel}</Badge>}
               {listing.location && (
                 <span className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" />{listing.location}</span>
               )}
