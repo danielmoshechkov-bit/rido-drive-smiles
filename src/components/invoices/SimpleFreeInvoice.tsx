@@ -1573,24 +1573,35 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
               {/* Row 2: Cena netto + Cena brutto (always side by side) */}
               <div className="grid grid-cols-2 gap-3">
                 <FloatingInput
-                  label="Cena netto"
+                  label={['receipt', 'nota'].includes(invoiceType) ? 'Cena' : 'Cena netto'}
                   type="number"
                   min={0}
                   step={0.01}
                   value={item.unit_net_price || ''}
                   onChange={(e) => updateItem(index, 'unit_net_price', parseFloat(e.target.value) || 0)}
                 />
-                <FloatingInput
-                  label="Cena brutto"
-                  type="number"
-                  min={0}
-                  step={0.01}
-                  value={item.unit_gross_price || ''}
-                  onChange={(e) => updateItem(index, 'unit_gross_price', parseFloat(e.target.value) || 0)}
-                />
+                {!['receipt', 'nota'].includes(invoiceType) && (
+                  <FloatingInput
+                    label="Cena brutto"
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={item.unit_gross_price || ''}
+                    onChange={(e) => updateItem(index, 'unit_gross_price', parseFloat(e.target.value) || 0)}
+                  />
+                )}
+                {['receipt', 'nota'].includes(invoiceType) && (
+                  <FloatingInput
+                    label="Wartość"
+                    value={formatAmount(item.net_amount)}
+                    disabled
+                    className="bg-muted font-medium"
+                  />
+                )}
               </div>
               
-              {/* Row 3: VAT + Suma brutto (always side by side) */}
+              {/* Row 3: VAT + Suma brutto — hidden for receipt/nota */}
+              {!['receipt', 'nota'].includes(invoiceType) && (
               <div className="grid grid-cols-2 gap-3">
                 <div className="relative">
                   <div className="flex h-12 w-full rounded-md border border-input bg-background">
@@ -1612,6 +1623,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
                   className="bg-muted font-medium"
                 />
               </div>
+              )}
 
               {/* Discount row (only if per_item discount enabled) */}
               {discountConfig.type === 'per_item' && (
