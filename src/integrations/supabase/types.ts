@@ -13366,9 +13366,11 @@ export type Database = {
           ai_notes: string | null
           created_at: string | null
           document_number: string
+          due_date: string | null
           entity_id: string | null
           environment: string | null
           id: string
+          is_paid: boolean | null
           ksef_number: string | null
           ocr_raw: Json | null
           payment_method: string | null
@@ -13389,9 +13391,11 @@ export type Database = {
           ai_notes?: string | null
           created_at?: string | null
           document_number: string
+          due_date?: string | null
           entity_id?: string | null
           environment?: string | null
           id?: string
+          is_paid?: boolean | null
           ksef_number?: string | null
           ocr_raw?: Json | null
           payment_method?: string | null
@@ -13412,9 +13416,11 @@ export type Database = {
           ai_notes?: string | null
           created_at?: string | null
           document_number?: string
+          due_date?: string | null
           entity_id?: string | null
           environment?: string | null
           id?: string
+          is_paid?: boolean | null
           ksef_number?: string | null
           ocr_raw?: Json | null
           payment_method?: string | null
@@ -17475,6 +17481,7 @@ export type Database = {
           advance_invoice_number: string | null
           advance_ksef_reference: string | null
           buyer_address: string | null
+          buyer_email: string | null
           buyer_name: string | null
           buyer_nip: string | null
           company_id: string | null
@@ -17523,6 +17530,7 @@ export type Database = {
           advance_invoice_number?: string | null
           advance_ksef_reference?: string | null
           buyer_address?: string | null
+          buyer_email?: string | null
           buyer_name?: string | null
           buyer_nip?: string | null
           company_id?: string | null
@@ -17571,6 +17579,7 @@ export type Database = {
           advance_invoice_number?: string | null
           advance_ksef_reference?: string | null
           buyer_address?: string | null
+          buyer_email?: string | null
           buyer_name?: string | null
           buyer_nip?: string | null
           company_id?: string | null
