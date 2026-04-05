@@ -203,7 +203,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
   });
   
   // Buyer
-  const [buyer, setBuyer] = useState<ExtendedBuyer & { country?: string }>({
+  const [buyer, setBuyer] = useState<ExtendedBuyer & { country?: string; email?: string }>({
     name: '',
     nip: '',
     address_street: '',
@@ -211,7 +211,8 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
     address_apartment_number: '',
     address_city: '',
     address_postal_code: '',
-    country: 'Polska'
+    country: 'Polska',
+    email: ''
   });
   
   // Country list for buyer
@@ -793,6 +794,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
             currency: invoiceData.currency,
             buyer_name: buyer.name,
             buyer_nip: buyer.nip,
+            buyer_email: buyer.email || null,
             buyer_address: `${buyerAddress}, ${buyer.address_postal_code} ${buyer.address_city}`,
             net_total: netTotal,
             vat_total: vatTotal,
@@ -871,6 +873,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
             currency: invoiceData.currency,
             buyer_name: buyer.name,
             buyer_nip: buyer.nip,
+            buyer_email: buyer.email || null,
             buyer_address: `${buyerAddress}, ${buyer.address_postal_code} ${buyer.address_city}`,
             net_total: netTotal,
             vat_total: vatTotal,
@@ -1438,6 +1441,14 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
                 label="Miasto"
                 value={buyer.address_city}
                 onChange={(e) => setBuyer(prev => ({ ...prev, address_city: e.target.value }))}
+              />
+            </div>
+            <div className="col-span-2">
+              <FloatingInput
+                label="Email nabywcy (do wysyłki faktur)"
+                type="email"
+                value={buyer.email || ''}
+                onChange={(e) => setBuyer(prev => ({ ...prev, email: e.target.value }))}
               />
             </div>
           </div>

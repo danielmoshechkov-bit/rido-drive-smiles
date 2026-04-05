@@ -63,10 +63,12 @@ interface PurchaseInvoice {
   supplier_name?: string;
   supplier_nip?: string;
   purchase_date?: string;
+  due_date?: string;
   total_net?: number;
   total_vat?: number;
   total_gross?: number;
   status?: string;
+  is_paid?: boolean;
   pdf_url?: string;
   created_at: string;
 }
@@ -1121,39 +1123,82 @@ export function InventoryPurchaseOCR({ entityId, showKsefOption }: Props) {
                       <TableHead>Nr dokumentu</TableHead>
                       <TableHead>Dostawca</TableHead>
                       <TableHead>Data</TableHead>
+                      <TableHead>Termin płatności</TableHead>
                       <TableHead className="text-right">Netto</TableHead>
                       <TableHead className="text-right">Brutto</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead>Płatność</TableHead>
                       <TableHead></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {pastInvoices.map(inv => (
-                      <TableRow key={inv.id}>
-                        <TableCell className="font-mono text-sm">{inv.document_number}</TableCell>
-                        <TableCell>
-                          <p className="text-sm">{inv.supplier_name || '—'}</p>
-                          {inv.supplier_nip && <p className="text-xs text-muted-foreground">NIP: {inv.supplier_nip}</p>}
-                        </TableCell>
-                        <TableCell className="text-sm">{inv.purchase_date || new Date(inv.created_at).toLocaleDateString('pl-PL')}</TableCell>
-                        <TableCell className="text-right font-mono text-sm">{inv.total_net?.toFixed(2) || '—'}</TableCell>
-                        <TableCell className="text-right font-mono text-sm font-semibold">{inv.total_gross?.toFixed(2) || '—'}</TableCell>
-                        <TableCell>
-                          <Badge variant={inv.status === 'approved' ? 'default' : 'secondary'}>
-                            {inv.status === 'approved' ? 'Zatwierdzona' : inv.status || 'Nowa'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            {inv.pdf_url && (
-                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setPreviewInvoice(inv)} title="Podgląd">
-                                <Eye className="h-4 w-4" />
-                              </Button>
+                    {pastInvoices.map(inv => {
+                      const dueDate = inv.due_date ? new Date(inv.due_date) : null;
+                      const today = new Date();
+                      today.setHours(0,0,0,0);
+                      let dueDaysLeft = dueDate ? Math.ceil((dueDate.getTime() - today.getTime()) / (1000*60*60*24)) : null;
+                      let dueColor = 'text-muted-foreground';
+                      let dueBg = '';
+                      if (inv.is_paid) {
+                        dueColor = 'text-green-600';
+                      } else if (dueDaysLeft !== null) {
+                        if (dueDaysLeft < 0) { dueColor = 'text-red-600 font-semibold'; dueBg = 'bg-red-50'; }
+                        else if (dueDaysLeft <= 3) { dueColor = 'text-yellow-600 font-semibold'; dueBg = 'bg-yellow-50'; }
+                        else { dueColor = 'text-green-600'; dueBg = 'bg-green-50'; }
+                      }
+
+                      const togglePaid = async () => {
+                        const newPaid = !inv.is_paid;
+                        await (supabase.from('purchase_invoices').update({ is_paid: newPaid } as any).eq('id', inv.id) as any);
+                        setPastInvoices(prev => prev.map(i => i.id === inv.id ? { ...i, is_paid: newPaid } : i));
+                        toast.success(newPaid ? 'Oznaczono jako opłaconą' : 'Oznaczono jako nieopłaconą');
+                      };
+
+                      return (
+                        <TableRow key={inv.id} className={dueBg}>
+                          <TableCell className="font-mono text-sm">{inv.document_number}</TableCell>
+                          <TableCell>
+                            <p className="text-sm">{inv.supplier_name || '—'}</p>
+                            {inv.supplier_nip && <p className="text-xs text-muted-foreground">NIP: {inv.supplier_nip}</p>}
+                          </TableCell>
+                          <TableCell className="text-sm">{inv.purchase_date || new Date(inv.created_at).toLocaleDateString('pl-PL')}</TableCell>
+                          <TableCell className={`text-sm ${dueColor}`}>
+                            {inv.due_date || '—'}
+                            {dueDaysLeft !== null && !inv.is_paid && (
+                              <span className="block text-xs">
+                                {dueDaysLeft < 0 ? `${Math.abs(dueDaysLeft)} dni po terminie` : dueDaysLeft === 0 ? 'Dziś!' : `za ${dueDaysLeft} dni`}
+                              </span>
                             )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-sm">{inv.total_net?.toFixed(2) || '—'}</TableCell>
+                          <TableCell className="text-right font-mono text-sm font-semibold">{inv.total_gross?.toFixed(2) || '—'}</TableCell>
+                          <TableCell>
+                            <Badge variant={inv.status === 'approved' ? 'default' : 'secondary'}>
+                              {inv.status === 'approved' ? 'Zatwierdzona' : inv.status || 'Nowa'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={`h-7 text-xs px-2 ${inv.is_paid ? 'text-green-600 hover:text-red-500' : 'text-red-500 hover:text-green-600'}`}
+                              onClick={togglePaid}
+                            >
+                              {inv.is_paid ? '✅ Opłacona' : '❌ Nieopłacona'}
+                            </Button>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              {inv.pdf_url && (
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setPreviewInvoice(inv)} title="Podgląd">
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>

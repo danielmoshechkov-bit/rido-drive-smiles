@@ -233,7 +233,16 @@ serve(async (req) => {
     // Determine recipient
     let toEmail = recipient_email;
     if (!toEmail) toEmail = invoice.buyer_email;
-    if (!toEmail) throw new Error("Brak adresu email odbiorcy.");
+    if (!toEmail && invoice.buyer_nip) {
+      // Try to find email from customers table by NIP
+      const { data: customer } = await supabase
+        .from('customers')
+        .select('email')
+        .eq('nip', invoice.buyer_nip)
+        .maybeSingle();
+      if (customer?.email) toEmail = customer.email;
+    }
+    if (!toEmail) throw new Error(`Brak adresu email odbiorcy dla faktury ${invoice.invoice_number}. Dodaj email nabywcy.`);
 
     // Build template data
     const companyName = company?.company_name || company?.name || "GetRido";
