@@ -440,7 +440,32 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
   let invoiceTitle = 'Faktura VAT';
   let footerNote = '';
 
-  if (isAdvance) {
+  if (isReceipt) {
+    themeColor = '#2563eb';
+    themeColorLight = '#eff6ff';
+    themeColorBorder = '#bfdbfe';
+    invoiceTitle = 'RACHUNEK';
+    footerNote = '';
+  } else if (isNota) {
+    themeColor = '#64748b';
+    themeColorLight = '#f1f5f9';
+    themeColorBorder = '#cbd5e1';
+    invoiceTitle = 'NOTA KSIĘGOWA';
+    footerNote = '';
+  } else if (isVatRR) {
+    themeColor = '#15803d';
+    themeColorLight = '#f0fdf4';
+    themeColorBorder = '#bbf7d0';
+    invoiceTitle = 'FAKTURA VAT RR';
+    const rrRate = invoice.vat_rr_data?.flat_rate_percent || 7;
+    footerNote = `Faktura VAT RR wystawiona na podstawie art. 116 ustawy z dnia 11 marca 2004 r. o podatku od towarów i usług. Zryczałtowany zwrot VAT: ${rrRate}%.`;
+  } else if (isProforma) {
+    themeColor = '#7c3aed';
+    themeColorLight = '#f8f5ff';
+    themeColorBorder = '#ede9fe';
+    invoiceTitle = 'FAKTURA PROFORMA';
+    footerNote = 'Dokument nie jest fakturą VAT w rozumieniu ustawy o podatku od towarów i usług. Nie stanowi podstawy do odliczenia VAT.';
+  } else if (isAdvance) {
     themeColor = '#1D9E75';
     themeColorLight = '#E1F5EE';
     themeColorBorder = '#9FE1CB';
