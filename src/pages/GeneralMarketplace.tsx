@@ -351,7 +351,7 @@ export default function GeneralMarketplace() {
                   <SheetTrigger asChild>
                     <Button variant="outline" size="sm" className="lg:hidden gap-1.5">
                       <SlidersHorizontal className="h-4 w-4" />
-                      Filtry
+                      {t('marketplace.filters')}
                       {hasActiveFilters && <Badge className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-xs">!</Badge>}
                     </Button>
                   </SheetTrigger>
