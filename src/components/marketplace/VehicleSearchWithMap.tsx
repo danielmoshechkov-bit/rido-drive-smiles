@@ -196,7 +196,7 @@ export function VehicleSearchWithMap({
     <>
       <div className={cn("bg-background rounded-xl border shadow-lg p-4", className)}>
         {/* Main Search Row */}
-        <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3">
           {/* Brand Select */}
           <div>
             <Label className="text-xs text-muted-foreground mb-1 block">Marka</Label>
@@ -238,7 +238,7 @@ export function VehicleSearchWithMap({
           </div>
 
           {/* Location */}
-          <div className="md:col-span-2 lg:col-span-2">
+          <div className="sm:col-span-2 lg:col-span-2">
             <Label className="text-xs text-muted-foreground mb-1 block">Lokalizacja</Label>
             <div className="flex gap-2">
               <VehicleLocationInput
@@ -263,7 +263,7 @@ export function VehicleSearchWithMap({
           </div>
 
           {/* Search Button */}
-          <div className="hidden lg:flex items-end">
+          <div className="hidden xl:flex items-end">
             <Button onClick={handleSearch} className="w-full">
               <Search className="h-4 w-4 mr-2" />
               Szukaj {resultCount !== undefined && `(${resultCount})`}
@@ -305,7 +305,7 @@ export function VehicleSearchWithMap({
         )}
 
         {/* Price Row */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-3">
           <div>
             <Label className="text-xs text-muted-foreground mb-1 block">Cena od</Label>
             <Input
@@ -363,7 +363,7 @@ export function VehicleSearchWithMap({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-2 mt-3">
+        <div className="flex flex-wrap items-center gap-2 mt-3">
           <Collapsible open={showAdvanced} onOpenChange={setShowAdvanced} className="flex-shrink-0">
             <CollapsibleTrigger asChild>
               <Button variant="outline" size="sm" className="gap-2">
@@ -409,7 +409,7 @@ export function VehicleSearchWithMap({
           )}
 
           {/* Mobile Search Button */}
-          <div className="lg:hidden ml-auto">
+          <div className="xl:hidden ml-auto">
             <Button onClick={handleSearch} size="sm">
               <Search className="h-4 w-4 mr-1" />
               Szukaj
