@@ -11,6 +11,7 @@ interface GeneralListingCardProps {
   listing: {
     id: string;
     title: string;
+    description?: string;
     price: number | null;
     price_negotiable?: boolean;
     condition?: string;
