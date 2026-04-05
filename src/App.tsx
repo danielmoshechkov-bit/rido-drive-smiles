@@ -1,5 +1,7 @@
 import { Toaster } from "@/components/ui/toaster";
 import AddVehicleListing from "./pages/AddVehicleListing";
+import GeneralMarketplace from "./pages/GeneralMarketplace";
+import GeneralListingDetail from "./pages/GeneralListingDetail";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
