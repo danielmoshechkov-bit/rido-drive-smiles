@@ -195,12 +195,12 @@ export default function GeneralMarketplace() {
     <div className="space-y-5">
       {/* AI Search */}
       <div>
-        <label className="text-sm font-medium mb-1.5 block">Wyszukiwarka AI</label>
+        <label className="text-sm font-medium mb-1.5 block">{t('marketplace.aiSearch')}</label>
         <div className="flex gap-2">
           <div className="relative flex-1">
             <Sparkles className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary" />
             <Input
-              placeholder='Opisz czego szukasz...'
+              placeholder={t('marketplace.searchPlaceholder')}
               value={aiQuery}
               onChange={e => setAiQuery(e.target.value)}
               onKeyDown={e => e.key === "Enter" && handleAISearch()}
@@ -216,7 +216,7 @@ export default function GeneralMarketplace() {
             onClick={() => { setAiResults(null); setAiQuery(""); }}
             className="text-xs text-primary mt-1 hover:underline flex items-center gap-1"
           >
-            <X className="h-3 w-3" /> Wyczyść wyniki AI
+            <X className="h-3 w-3" /> {t('marketplace.clearAi')}
           </button>
         )}
       </div>
