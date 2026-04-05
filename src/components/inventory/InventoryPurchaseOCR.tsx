@@ -254,15 +254,15 @@ export function InventoryPurchaseOCR({ entityId, showKsefOption }: Props) {
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) processFile(file);
+    const files = Array.from(e.target.files || []);
+    files.forEach(file => processFile(file));
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file) processFile(file);
+    const files = Array.from(e.dataTransfer.files || []);
+    files.slice(0, 10).forEach(file => processFile(file));
   };
 
   /* ── OCR via analyze-invoice Edge Function (Claude) ──────────────── */
