@@ -83,147 +83,38 @@ interface MarketplaceTile {
 
 type CategoryView = 'main' | 'motoryzacja' | 'nieruchomosci';
 
-// Main category tiles (no Portal Kierowcy - moved to Motoryzacja)
-const mainTiles: MarketplaceTile[] = [
-  {
-    id: 'motoryzacja',
-    title: 'Motoryzacja',
-    description: 'Pojazdy, floty i usługi auto',
-    icon: Car,
-    image: tileCars,
-    link: null, // Opens sub-menu
-    available: true
-  },
-  {
-    id: 'nieruchomosci',
-    title: 'Nieruchomości',
-    description: 'Mieszkania, domy i usługi budowlane',
-    icon: Building,
-    image: tileRealEstate,
-    link: null, // Opens sub-menu
-    available: true
-  },
-  {
-    id: 'services',
-    title: 'Usługi',
-    description: 'Wszystkie kategorie usług',
-    icon: Sparkles,
-    image: tileServices,
-    link: '/uslugi',
-    available: true
-  },
-  {
-    id: 'marketplace',
-    title: 'Marketplace',
-    description: 'Sprzedawaj i kupuj wszystko z AI',
-    icon: ShoppingCart,
-    image: tileAutoMarketplace,
-    link: '/marketplace',
-    available: true
-  },
-  {
-    id: 'ksiegowosc',
-    title: 'Księgowość',
-    description: 'Darmowy program do faktur online',
-    icon: Receipt,
-    image: tileInvoicing,
-    link: '/faktury',
-    available: true
-  }
-];
+// Tile builders that use t() — called inside the component
+function buildMainTiles(t: (key: string) => string): MarketplaceTile[] {
+  return [
+    { id: 'motoryzacja', title: t('home.motoryzacja'), description: t('home.motoryzacjaDesc'), icon: Car, image: tileCars, link: null, available: true },
+    { id: 'nieruchomosci', title: t('home.nieruchomosci'), description: t('home.nieruchomosciDesc'), icon: Building, image: tileRealEstate, link: null, available: true },
+    { id: 'services', title: t('home.uslugi'), description: t('home.uslugiDesc'), icon: Sparkles, image: tileServices, link: '/uslugi', available: true },
+    { id: 'marketplace', title: t('home.marketplace'), description: t('home.marketplaceDesc'), icon: ShoppingCart, image: tileAutoMarketplace, link: '/marketplace', available: true },
+    { id: 'ksiegowosc', title: t('home.ksiegowosc'), description: t('home.ksiegowoscDesc'), icon: Receipt, image: tileInvoicing, link: '/faktury', available: true },
+  ];
+}
 
-// Motoryzacja sub-tiles - unique images and icons (includes Portal Kierowcy)
-// Order: Ogłoszenia, Warsztaty, Detailing+PPF, Portal Flotowy, Portal Kierowcy
-const motoryzacjaSubTiles: MarketplaceTile[] = [
-  {
-    id: 'portal-ogloszen-auto',
-    title: 'Portal Ogłoszeń',
-    description: 'Kupuj, sprzedawaj, wymieniaj',
-    icon: ShoppingCart,
-    image: tileAutoMarketplace,
-    link: '/gielda',
-    available: true
-  },
-  {
-    id: 'warsztat',
-    title: 'Warsztaty',
-    description: 'Naprawy i serwis samochodowy',
-    icon: Wrench,
-    image: tileWorkshop,
-    link: '/uslugi?kategoria=warsztat',
-    available: true
-  },
-  {
-    id: 'detailing-ppf',
-    title: 'Detailing i Folia PPF',
-    description: 'Pielęgnacja, ceramika i folie ochronne',
-    icon: Droplets,
-    image: tileDetailing,
-    link: '/uslugi?kategoria=detailing',
-    available: true
-  },
-  {
-    id: 'portal-flotowy',
-    title: 'Portal do zarządzania Flotą',
-    description: 'Zarządzaj flotą, rozliczeniami i kierowcami',
-    icon: Calculator,
-    image: tileFleet,
-    link: '/fleet',
-    available: true
-  },
-  {
-    id: 'portal-kierowcy',
-    title: 'Portal Kierowcy',
-    description: 'Rozliczenia i dokumenty',
-    icon: User,
-    image: tileDriver,
-    link: '/driver',
-    available: true
-  }
-];
+function buildMotoryzacjaSubTiles(t: (key: string) => string): MarketplaceTile[] {
+  return [
+    { id: 'portal-ogloszen-auto', title: t('home.portalOgloszen'), description: t('home.portalOgloszenAutoDesc'), icon: ShoppingCart, image: tileAutoMarketplace, link: '/gielda', available: true },
+    { id: 'warsztat', title: t('home.warsztaty'), description: t('home.warsztatyDesc'), icon: Wrench, image: tileWorkshop, link: '/uslugi?kategoria=warsztat', available: true },
+    { id: 'detailing-ppf', title: t('home.detailing'), description: t('home.detailingDesc'), icon: Droplets, image: tileDetailing, link: '/uslugi?kategoria=detailing', available: true },
+    { id: 'portal-flotowy', title: t('home.portalFlotowy'), description: t('home.portalFlotowyDesc'), icon: Calculator, image: tileFleet, link: '/fleet', available: true },
+    { id: 'portal-kierowcy', title: t('home.portalKierowcy'), description: t('home.portalKierowcyDesc'), icon: User, image: tileDriver, link: '/driver', available: true },
+  ];
+}
 
-// Nieruchomości sub-tiles - unique images and icons
-const nieruchomosciSubTiles: MarketplaceTile[] = [
-  {
-    id: 'portal-ogloszen-nieruchomosci',
-    title: 'Portal Ogłoszeń',
-    description: 'Mieszkania, domy, działki',
-    icon: Home,
-    image: tileRealEstatePortal,
-    link: '/nieruchomosci',
-    available: true
-  },
-  {
-    id: 'projektanci',
-    title: 'Projektanci wnętrz',
-    description: 'Projekty i wizualizacje',
-    icon: Palette,
-    image: tileInteriorDesign,
-    link: '/uslugi?kategoria=projektanci',
-    available: true
-  },
-  {
-    id: 'remonty',
-    title: 'Remonty i wykończenia',
-    description: 'Kompleksowe wykończenia',
-    icon: Paintbrush,
-    image: tileRenovation,
-    link: '/uslugi?kategoria=remonty',
-    available: true
-  },
-  {
-    id: 'budowlanka',
-    title: 'Budowlanka',
-    description: 'Prace budowlane i konstrukcyjne',
-    icon: HardHat,
-    image: tileConstruction,
-    link: '/uslugi?kategoria=budowlanka',
-    available: true
-  }
-];
+function buildNieruchomosciSubTiles(t: (key: string) => string): MarketplaceTile[] {
+  return [
+    { id: 'portal-ogloszen-nieruchomosci', title: t('home.portalOgloszen'), description: t('home.portalOgloszenNierDesc'), icon: Home, image: tileRealEstatePortal, link: '/nieruchomosci', available: true },
+    { id: 'projektanci', title: t('home.projektanci'), description: t('home.projektanciDesc'), icon: Palette, image: tileInteriorDesign, link: '/uslugi?kategoria=projektanci', available: true },
+    { id: 'remonty', title: t('home.remonty'), description: t('home.remontyDesc'), icon: Paintbrush, image: tileRenovation, link: '/uslugi?kategoria=remonty', available: true },
+    { id: 'budowlanka', title: t('home.budowlanka'), description: t('home.budowlankaDesc'), icon: HardHat, image: tileConstruction, link: '/uslugi?kategoria=budowlanka', available: true },
+  ];
+}
 
 function MarketplaceTileCard({ tile, onClick }: { tile: MarketplaceTile; onClick: () => void }) {
-  const Icon = tile.icon;
+  const { t } = useTranslation();
   
   return (
     <Card 
@@ -277,7 +168,7 @@ function MarketplaceTileCard({ tile, onClick }: { tile: MarketplaceTile; onClick
             variant="secondary" 
             className="absolute top-2 right-2 text-[10px] px-1.5 py-0.5 bg-white/90"
           >
-            Wkrótce
+            {t('home.soon')}
           </Badge>
         )}
         
@@ -461,6 +352,10 @@ export default function EasyHub() {
     }
   };
 
+  const mainTiles = useMemo(() => buildMainTiles(t), [t]);
+  const motoryzacjaSubTiles = useMemo(() => buildMotoryzacjaSubTiles(t), [t]);
+  const nieruchomosciSubTiles = useMemo(() => buildNieruchomosciSubTiles(t), [t]);
+
   // Build dynamic tiles list with conditional visibility
   const dynamicTiles = useMemo(() => {
     let tiles: MarketplaceTile[] = [];
@@ -469,8 +364,8 @@ export default function EasyHub() {
     if (isAdmin) {
       tiles.push({
         id: 'rido-ai',
-        title: 'RidoAI',
-        description: 'Asystent AI – pytaj o wszystko',
+        title: t('home.ridoai'),
+        description: t('home.ridoaiDesc'),
         icon: MessageCircle,
         image: null,
         link: '/rido-ai',
@@ -480,20 +375,15 @@ export default function EasyHub() {
     
     // Add main tiles but filter services for non-authorized users
     mainTiles.forEach(tile => {
-      if (tile.id === 'services') {
-        // Always show services tile, but with different behavior in handleTileClick
-        tiles.push(tile);
-      } else {
-        tiles.push(tile);
-      }
+      tiles.push(tile);
     });
     
     // Insert Maps at position 2 only for owner emails (hasServicesAccess)
     if (mapsVisible && user && hasServicesAccess) {
       tiles.splice(2, 0, {
         id: 'maps',
-        title: 'Mapy',
-        description: 'Nawigacja GetRido Maps',
+        title: t('home.mapy'),
+        description: t('home.mapyDesc'),
         icon: Map,
         image: tileMaps,
         link: '/mapy',
@@ -505,8 +395,8 @@ export default function EasyHub() {
     if (user) {
       tiles.push({
         id: 'moje-konto',
-        title: 'Moje konto',
-        description: 'Ogłoszenia, zakupy, ustawienia',
+        title: t('home.mojeKonto'),
+        description: t('home.mojeKontoDesc'),
         icon: User,
         image: tileClientPortal,
         link: '/klient',
@@ -515,13 +405,13 @@ export default function EasyHub() {
     }
     
     return tiles;
-  }, [mapsVisible, user, hasServicesAccess, isAdmin]);
+  }, [mapsVisible, user, hasServicesAccess, isAdmin, mainTiles, t]);
 
   // Get category title
   const getCategoryTitle = () => {
     switch (activeCategory) {
-      case 'motoryzacja': return 'Motoryzacja';
-      case 'nieruchomosci': return 'Nieruchomości';
+      case 'motoryzacja': return t('home.motoryzacja');
+      case 'nieruchomosci': return t('home.nieruchomosci');
       default: return null;
     }
   };
@@ -533,7 +423,7 @@ export default function EasyHub() {
       case 'nieruchomosci': return nieruchomosciSubTiles;
       default: return dynamicTiles;
     }
-  }, [activeCategory, dynamicTiles]);
+  }, [activeCategory, dynamicTiles, motoryzacjaSubTiles, nieruchomosciSubTiles]);
 
   // Get current SEO config based on category
   const currentSEO = useMemo(() => {
@@ -597,7 +487,7 @@ export default function EasyHub() {
                 className="h-9 px-4 text-sm font-medium"
                 onClick={() => setShowAuthModal(true)}
               >
-                {t('mainPage.login')}
+                {t('nav.login')}
               </Button>
             ) : (
               <MyGetRidoButton user={user} size="sm" className="text-xs sm:text-sm px-2 sm:px-3" />
@@ -607,7 +497,7 @@ export default function EasyHub() {
               className="h-9 px-4 text-sm font-medium"
               onClick={() => navigate('/dodaj')}
             >
-              {t('mainPage.addListing')}
+              {t('nav.addListing')}
             </Button>
           </div>
         </div>
@@ -616,10 +506,10 @@ export default function EasyHub() {
       {/* Hero Section */}
       <section className="container mx-auto px-4 pt-6 pb-3 md:pt-12 md:pb-6 text-center">
         <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold mb-1 md:mb-3" style={{ color: '#4A3AFF' }}>
-          {t('mainPage.title')}
+          GetRido
         </h1>
         <p className="text-xs sm:text-sm md:text-lg text-muted-foreground max-w-xl mx-auto">
-          {t('mainPage.subtitle')}
+          {t('home.tagline')}
         </p>
       </section>
 
@@ -630,7 +520,7 @@ export default function EasyHub() {
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <Input
               type="text"
-              placeholder={hasServicesAccess ? "AI, które znajdzie to za Ciebie…" : "Wyszukiwarka AI - wkrótce dostępna"}
+              placeholder={hasServicesAccess ? t('home.searchPlaceholder') : t('home.searchPlaceholderDisabled')}
               value={searchQuery}
               onChange={(e) => hasServicesAccess && setSearchQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && hasServicesAccess && handleSearch()}
@@ -644,7 +534,7 @@ export default function EasyHub() {
                   disabled={isSearching}
                   className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full h-8 md:h-10 px-4 md:px-6"
                 >
-                  {isSearching ? "..." : "Szukaj"}
+                  {isSearching ? "..." : t('home.searchBtn')}
                 </Button>
               ) : (
                 <SearchCategoryModal
@@ -652,7 +542,7 @@ export default function EasyHub() {
                     <Button
                       className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full h-8 md:h-10 px-4 md:px-6"
                     >
-                      Szukaj
+                      {t('home.searchBtn')}
                     </Button>
                   }
                 />
@@ -662,12 +552,12 @@ export default function EasyHub() {
                 disabled
                 className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full h-8 md:h-10 px-4 md:px-6 opacity-60"
               >
-                Wkrótce
+                {t('home.soon')}
               </Button>
             )}
           </div>
           <p className="text-center text-xs text-muted-foreground mt-2">
-            Powered by <span className="text-primary font-medium">Rido AI</span>
+            {t('home.poweredBy')} <span className="text-primary font-medium">Rido AI</span>
           </p>
         </div>
       </section>
@@ -683,7 +573,7 @@ export default function EasyHub() {
               className="gap-2"
             >
               <ArrowLeft className="h-4 w-4" />
-              Wróć do głównej
+              {t('nav.backToMain')}
             </Button>
           </div>
         </section>
@@ -730,10 +620,10 @@ export default function EasyHub() {
             <div className="relative bg-gradient-to-br from-primary/5 to-primary/10 rounded-2xl p-5 md:p-6 border border-primary/10 shadow-lg flex-1">
               <MessageCircle className="absolute -top-2 -left-2 h-6 w-6 text-primary" />
               <p className="text-sm md:text-base leading-relaxed">
-                <span className="font-bold text-primary">Cześć!</span> Jestem{" "}
+                <span className="font-bold text-primary">{t('home.mascotHi')}</span> {t('home.mascotIntro')}{" "}
                 <strong>Rido AI</strong>.<br /><br />
-                GetRido to inteligentny portal ogłoszeń, ofert i usług.<br /><br />
-                Pomagam znaleźć, porównać i wybrać to, czego potrzebujesz.
+                {t('home.mascotDesc1')}<br /><br />
+                {t('home.mascotDesc2')}
               </p>
             </div>
             <div className="shrink-0">
@@ -751,7 +641,7 @@ export default function EasyHub() {
       {activeCategory === 'main' && (
         <section className="container mx-auto px-4 py-6 md:py-8 text-center">
           <p className="text-muted-foreground text-sm md:text-base">
-            Tworzymy jedno miejsce, które upraszcza życie.
+            {t('home.footerTagline')}
           </p>
         </section>
       )}
