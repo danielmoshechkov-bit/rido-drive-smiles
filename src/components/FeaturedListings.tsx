@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from 'react-i18next';
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -79,6 +80,7 @@ interface FeaturedListingsProps {
 
 export function FeaturedListings({ className, categoryContext, hideViewMore }: FeaturedListingsProps) {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   
   // Determine initial category based on context
   const getInitialCategory = (): ListingCategory => {
@@ -173,7 +175,7 @@ export function FeaturedListings({ className, categoryContext, hideViewMore }: F
         vehicles.forEach((v: any) => {
           vehiclesData.push({
             id: v.id,
-            title: v.title || 'Pojazd',
+            title: v.title || t('listing.vehicle'),
             price: v.price || 0,
             photos: v.photos || [],
             city: v.city,
@@ -193,7 +195,7 @@ export function FeaturedListings({ className, categoryContext, hideViewMore }: F
         properties.forEach((p: any) => {
           propertiesData.push({
             id: p.id,
-            title: p.title || 'Nieruchomość',
+            title: p.title || t('listing.property'),
             price: p.price || 0,
             photos: p.photos || [],
             city: p.city,
@@ -258,7 +260,7 @@ export function FeaturedListings({ className, categoryContext, hideViewMore }: F
           
           servicesData.push({
             id: s.id,
-            title: s.company_name || 'Usługa',
+            title: s.company_name || t('listing.service'),
             price: 0,
             photos: servicePhotos,
             city: s.company_city,
@@ -395,19 +397,19 @@ export function FeaturedListings({ className, categoryContext, hideViewMore }: F
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
           <TabsPill value={activeCategory} onValueChange={(v) => setActiveCategory(v as ListingCategory)}>
             <TabsTrigger value="all" className="gap-2">
-              Wszystko
+              {t('featured.all')}
             </TabsTrigger>
             <TabsTrigger value="vehicles" className="gap-2">
               <Car className="h-4 w-4" />
-              Pojazdy
+              {t('featured.vehicles')}
             </TabsTrigger>
             <TabsTrigger value="properties" className="gap-2">
               <Home className="h-4 w-4" />
-              Nieruchomości
+              {t('featured.properties')}
             </TabsTrigger>
             <TabsTrigger value="services" className="gap-2">
               <Wrench className="h-4 w-4" />
-              Usługi
+              {t('featured.services')}
             </TabsTrigger>
           </TabsPill>
 
@@ -452,11 +454,11 @@ export function FeaturedListings({ className, categoryContext, hideViewMore }: F
               <>
                 <TabsTrigger value="vehicles" className="gap-2">
                   <Car className="h-4 w-4" />
-                  Pojazdy
+                  {t('featured.vehicles')}
                 </TabsTrigger>
                 <TabsTrigger value="services" className="gap-2">
                   <Wrench className="h-4 w-4" />
-                  Usługi
+                  {t('featured.services')}
                 </TabsTrigger>
               </>
             )}
@@ -464,11 +466,11 @@ export function FeaturedListings({ className, categoryContext, hideViewMore }: F
               <>
                 <TabsTrigger value="properties" className="gap-2">
                   <Home className="h-4 w-4" />
-                  Nieruchomości
+                  {t('featured.properties')}
                 </TabsTrigger>
                 <TabsTrigger value="services" className="gap-2">
                   <Wrench className="h-4 w-4" />
-                  Usługi
+                  {t('featured.services')}
                 </TabsTrigger>
               </>
             )}
@@ -516,7 +518,7 @@ export function FeaturedListings({ className, categoryContext, hideViewMore }: F
                 : "bg-background border-emerald-500 hover:opacity-80"
             )}
           >
-            Na sprzedaż
+            {t('featured.forSale')}
           </button>
           <button
             onClick={() => setTransactionType('wynajem')}
@@ -527,7 +529,7 @@ export function FeaturedListings({ className, categoryContext, hideViewMore }: F
                 : "bg-background border-blue-500 hover:opacity-80"
             )}
           >
-            Wynajem
+            {t('featured.forRent')}
           </button>
         </div>
       )}
@@ -536,7 +538,7 @@ export function FeaturedListings({ className, categoryContext, hideViewMore }: F
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <h2 className="text-lg md:text-xl font-bold">
-            Proponowane oferty
+            {t('featured.title')}
           </h2>
         </div>
         {!hideViewMore && (
@@ -545,7 +547,7 @@ export function FeaturedListings({ className, categoryContext, hideViewMore }: F
             className="text-primary gap-1 p-0"
             onClick={handleSeeMore}
           >
-            Zobacz więcej
+            {t('featured.seeMore')}
             <ArrowRight className="h-4 w-4" />
           </Button>
         )}
@@ -573,7 +575,7 @@ export function FeaturedListings({ className, categoryContext, hideViewMore }: F
       {!hideViewMore && (
         <div className="mt-6 text-center md:hidden">
           <Button onClick={handleSeeMore} className="w-full max-w-xs">
-            Zobacz wszystkie ogłoszenia
+            {t('featured.seeAll')}
             <ArrowRight className="h-4 w-4 ml-2" />
           </Button>
         </div>
@@ -584,10 +586,10 @@ export function FeaturedListings({ className, categoryContext, hideViewMore }: F
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-xl">
-              Wybierz kategorię
+              {t('featured.chooseCategory')}
             </DialogTitle>
             <DialogDescription>
-              Przejdź do wybranego portalu ogłoszeń
+              {t('featured.chooseCategoryDesc')}
             </DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
@@ -606,8 +608,8 @@ export function FeaturedListings({ className, categoryContext, hideViewMore }: F
                 <div className="mb-2 p-2 rounded-lg w-fit bg-white/20 backdrop-blur-sm">
                   <Car className="h-5 w-5 text-white" />
                 </div>
-                <h3 className="font-bold text-base text-white leading-tight">Giełda Aut</h3>
-                <p className="text-xs text-white/80 mt-1">Samochody, motocykle, pojazdy</p>
+                <h3 className="font-bold text-base text-white leading-tight">{t('featured.carsTitle')}</h3>
+                <p className="text-xs text-white/80 mt-1">{t('featured.carsDesc')}</p>
                 <div className="absolute top-2 right-2 p-1.5 rounded-full bg-white/20 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity">
                   <ArrowRight className="h-3 w-3 text-white" />
                 </div>
@@ -629,8 +631,8 @@ export function FeaturedListings({ className, categoryContext, hideViewMore }: F
                 <div className="mb-2 p-2 rounded-lg w-fit bg-white/20 backdrop-blur-sm">
                   <Home className="h-5 w-5 text-white" />
                 </div>
-                <h3 className="font-bold text-base text-white leading-tight">Nieruchomości</h3>
-                <p className="text-xs text-white/80 mt-1">Mieszkania, domy, działki</p>
+                <h3 className="font-bold text-base text-white leading-tight">{t('featured.propsTitle')}</h3>
+                <p className="text-xs text-white/80 mt-1">{t('featured.propsDesc')}</p>
                 <div className="absolute top-2 right-2 p-1.5 rounded-full bg-white/20 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity">
                   <ArrowRight className="h-3 w-3 text-white" />
                 </div>
@@ -652,8 +654,8 @@ export function FeaturedListings({ className, categoryContext, hideViewMore }: F
                 <div className="mb-2 p-2 rounded-lg w-fit bg-white/20 backdrop-blur-sm">
                   <Wrench className="h-5 w-5 text-white" />
                 </div>
-                <h3 className="font-bold text-base text-white leading-tight">Usługi</h3>
-                <p className="text-xs text-white/80 mt-1">Fachowcy, remonty, serwis</p>
+                <h3 className="font-bold text-base text-white leading-tight">{t('featured.servicesTitle')}</h3>
+                <p className="text-xs text-white/80 mt-1">{t('featured.servicesDesc')}</p>
                 <div className="absolute top-2 right-2 p-1.5 rounded-full bg-white/20 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity">
                   <ArrowRight className="h-3 w-3 text-white" />
                 </div>

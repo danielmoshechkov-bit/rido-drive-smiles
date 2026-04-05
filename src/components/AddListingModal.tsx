@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from 'react-i18next';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -74,17 +75,27 @@ const categories: CategoryTile[] = [
 function CategoryTileCard({ 
   tile, 
   onClick,
-  isOwner
+  isOwner,
+  t
 }: { 
   tile: CategoryTile; 
   onClick: () => void;
   isOwner: boolean;
+  t: (key: string) => string;
 }) {
   const Icon = tile.icon;
   
   // Check if this tile is accessible
   const isAccessible = tile.available && (!tile.ownerOnly || isOwner);
   const showComingSoon = !tile.available || (tile.ownerOnly && !isOwner);
+  
+  // Translate tile title/description based on id
+  const tileTitle = tile.id === 'vehicles' ? t('addListing.carsTitle') 
+    : tile.id === 'realestate' ? t('addListing.propsTitle')
+    : t('addListing.servicesTitle');
+  const tileDesc = tile.id === 'vehicles' ? t('addListing.carsDesc')
+    : tile.id === 'realestate' ? t('addListing.propsDesc')
+    : t('addListing.servicesDesc');
   
   return (
     <Card 
@@ -110,11 +121,11 @@ function CategoryTileCard({
           <Icon className="h-5 w-5 text-white" />
         </div>
         <h3 className="font-bold text-base text-white leading-tight flex items-center gap-2">
-          {tile.title}
+          {tileTitle}
           {showComingSoon && <Lock className="h-4 w-4 text-white/70" />}
         </h3>
         <p className="text-xs text-white/80 mt-1 line-clamp-2">
-          {tile.description}
+          {tileDesc}
         </p>
         
         {showComingSoon && (
@@ -122,7 +133,7 @@ function CategoryTileCard({
             variant="secondary" 
             className="absolute top-2 right-2 text-xs px-2 py-0.5 bg-white/90"
           >
-            Wkrótce
+            {t('addListing.comingSoon')}
           </Badge>
         )}
         
@@ -138,6 +149,7 @@ function CategoryTileCard({
 
 export function AddListingModal({ user, trigger }: AddListingModalProps) {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [pendingCategory, setPendingCategory] = useState<CategoryTile | null>(null);
@@ -169,7 +181,7 @@ export function AddListingModal({ user, trigger }: AddListingModalProps) {
   const handleOpenModal = () => {
     // Check if user is owner for non-owners show toast
     if (user && !isOwnerEmail(user.email)) {
-      toast.info('Ta funkcja będzie dostępna wkrótce');
+      toast.info(t('addListing.featureComingSoon'));
       return;
     }
     // Always open category selection first, even for non-logged users
@@ -198,8 +210,8 @@ export function AddListingModal({ user, trigger }: AddListingModalProps) {
       ) : (
         <Button onClick={handleOpenModal} size="sm" className="rounded-full text-xs sm:text-sm px-2 sm:px-3">
           <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-0.5 sm:mr-1" />
-          <span className="hidden sm:inline">Dodaj ogłoszenie</span>
-          <span className="sm:hidden">Dodaj</span>
+          <span className="hidden sm:inline">{t('nav.addListing')}</span>
+          <span className="sm:hidden">{t('nav.addListing')}</span>
         </Button>
       )}
 
@@ -220,13 +232,13 @@ export function AddListingModal({ user, trigger }: AddListingModalProps) {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Plus className="h-5 w-5 text-primary" />
-              Dodaj ogłoszenie
+              {t('addListing.title')}
             </DialogTitle>
             <DialogDescription>
-              Wybierz kategorię ogłoszenia, które chcesz dodać.
+              {t('addListing.chooseCategory')}
               {!user && (
                 <span className="block mt-1 text-primary">
-                  Po wyborze kategorii będziesz mógł się zalogować lub zarejestrować.
+                  {t('addListing.loginHint')}
                 </span>
               )}
             </DialogDescription>
@@ -239,6 +251,7 @@ export function AddListingModal({ user, trigger }: AddListingModalProps) {
                 tile={tile}
                 onClick={() => handleCategoryClick(tile)}
                 isOwner={isOwner}
+                t={t}
               />
             ))}
           </div>

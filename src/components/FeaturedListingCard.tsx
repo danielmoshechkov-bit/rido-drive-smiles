@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from 'react-i18next';
 import { useListingTranslation } from "@/hooks/useListingTranslation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -65,6 +66,7 @@ interface FeaturedListingCardProps {
 }
 
 export function FeaturedListingCard({ listing, viewMode, onClick, showTransactionBadge = false }: FeaturedListingCardProps) {
+  const { t } = useTranslation();
   const listingType = listing.category === 'vehicle' ? 'vehicle' : listing.category === 'property' ? 'real_estate' : 'general';
   const { title, description } = useListingTranslation(
     listing.id, listing.title, listing.description || '', listingType
@@ -107,17 +109,17 @@ export function FeaturedListingCard({ listing, viewMode, onClick, showTransactio
 
   const getCategoryLabel = (category: string) => {
     switch (category) {
-      case 'vehicle': return 'Auto';
-      case 'property': return 'Nieruchomość';
-      case 'service': return 'Usługa';
+      case 'vehicle': return t('listing.vehicle');
+      case 'property': return t('listing.property');
+      case 'service': return t('listing.service');
       default: return '';
     }
   };
 
   const getTransactionLabel = (type?: string) => {
     if (!type) return null;
-    if (type === 'sprzedaz' || type === 'sale') return 'Na sprzedaż';
-    if (type.includes('wynajem') || type === 'rent') return 'Na wynajem';
+    if (type === 'sprzedaz' || type === 'sale') return t('listing.forSale');
+    if (type.includes('wynajem') || type === 'rent') return t('listing.forRent');
     return null;
   };
 
@@ -127,7 +129,7 @@ export function FeaturedListingCard({ listing, viewMode, onClick, showTransactio
       if (listing.price_from && listing.price_from > 0) {
         return `od ${listing.price_from.toLocaleString('pl-PL')} zł`;
       }
-      return 'Zapytaj o cenę';
+      return t('listing.askPrice');
     }
     
     const priceStr = listing.price?.toLocaleString('pl-PL') || '0';
@@ -354,7 +356,7 @@ export function FeaturedListingCard({ listing, viewMode, onClick, showTransactio
                 className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-primary transition-colors"
               >
                 <Info className="h-3 w-3" />
-                <span className="hidden sm:inline">Rozwiń</span>
+                <span className="hidden sm:inline">{t('featured.expand')}</span>
               </button>
             </div>
           </CardContent>
@@ -453,7 +455,7 @@ export function FeaturedListingCard({ listing, viewMode, onClick, showTransactio
             {/* Description - show in QuickView modal */}
             {description && (
               <div className="space-y-1.5">
-                <h4 className="text-sm font-medium">Opis:</h4>
+                <h4 className="text-sm font-medium">{t('listing.description')}:</h4>
                 <p className="text-sm text-muted-foreground line-clamp-4 whitespace-pre-line">
                   {description}
                 </p>
@@ -477,7 +479,7 @@ export function FeaturedListingCard({ listing, viewMode, onClick, showTransactio
                   ))}
                 </div>
                 <span className="text-sm text-muted-foreground">
-                  {listing.rating_avg.toFixed(1)} ({listing.rating_count} opinii)
+                  {listing.rating_avg.toFixed(1)} ({listing.rating_count} {t('listing.reviews')})
                 </span>
               </div>
             )}
@@ -485,7 +487,7 @@ export function FeaturedListingCard({ listing, viewMode, onClick, showTransactio
             {/* Services list */}
             {listing.category === 'service' && listing.featured_services && listing.featured_services.length > 0 && (
               <div className="space-y-1.5">
-                <h4 className="text-sm font-medium">Usługi:</h4>
+                <h4 className="text-sm font-medium">{t('listing.services')}:</h4>
                 {listing.featured_services.map((service, idx) => (
                   <div key={idx} className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">{service.name}</span>
@@ -498,12 +500,12 @@ export function FeaturedListingCard({ listing, viewMode, onClick, showTransactio
             {/* Price */}
             <div className="flex items-center justify-between pt-3 border-t">
               <div>
-                <span className="text-xs text-muted-foreground">Cena</span>
+                <span className="text-xs text-muted-foreground">{t('listing.price')}</span>
                 <p className="text-xl font-bold text-primary">{formatPrice()}</p>
               </div>
               
               <Button onClick={onClick} className="gap-2">
-                Zobacz ogłoszenie
+                {t('listing.viewListing')}
                 <ArrowRight className="h-4 w-4" />
               </Button>
             </div>

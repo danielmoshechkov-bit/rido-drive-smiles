@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { User, ChevronDown, LogOut, Car, Building2, Home as HomeIcon, ShoppingCart, Calculator, FileText, UserCircle, Wrench } from "lucide-react";
@@ -16,6 +17,7 @@ interface MyGetRidoButtonProps {
 
 export function MyGetRidoButton({ user, variant = "outline", size = "sm", className }: MyGetRidoButtonProps) {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [accountTypes, setAccountTypes] = useState<{
@@ -135,8 +137,8 @@ export function MyGetRidoButton({ user, variant = "outline", size = "sm", classN
           className={cn("text-xs sm:text-sm px-2 sm:px-3", className)}
         >
           <User className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-          <span className="hidden sm:inline">Moje GetRido</span>
-          <span className="sm:hidden">Moje</span>
+          <span className="hidden sm:inline">{t('myAccount.title')}</span>
+          <span className="sm:hidden">{t('myAccount.titleShort')}</span>
         </Button>
         
         <AuthModal 
@@ -154,8 +156,8 @@ export function MyGetRidoButton({ user, variant = "outline", size = "sm", classN
       <DropdownMenuTrigger asChild>
         <Button variant={variant} size={size} className={cn("text-xs sm:text-sm px-2 sm:px-3", className)}>
           <User className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-          <span className="hidden sm:inline">Moje GetRido</span>
-          <span className="sm:hidden">Moje</span>
+          <span className="hidden sm:inline">{t('myAccount.title')}</span>
+          <span className="sm:hidden">{t('myAccount.titleShort')}</span>
           <ChevronDown className="h-3 w-3 ml-0.5 sm:ml-1" />
         </Button>
       </DropdownMenuTrigger>
@@ -163,13 +165,13 @@ export function MyGetRidoButton({ user, variant = "outline", size = "sm", classN
         {accountTypes.isAdmin && (
           <DropdownMenuItem onClick={() => navigate('/admin/dashboard')}>
             <Building2 className="h-4 w-4 mr-2" />
-            Panel Administracyjny
+            {t('myAccount.adminPanel')}
           </DropdownMenuItem>
         )}
         {accountTypes.isFleet && (
           <DropdownMenuItem onClick={() => navigate('/fleet/dashboard')}>
             <Car className="h-4 w-4 mr-2" />
-            Zarządzanie Flotą
+            {t('myAccount.fleetPanel')}
           </DropdownMenuItem>
         )}
         {/* Portal Kierowcy - only shown if user has driver role */}
@@ -177,13 +179,13 @@ export function MyGetRidoButton({ user, variant = "outline", size = "sm", classN
         {accountTypes.isRealEstate && (
           <DropdownMenuItem onClick={() => navigate('/nieruchomosci/agent/panel')}>
           <HomeIcon className="h-4 w-4 mr-2" />
-            Panel Nieruchomości
+            {t('myAccount.realEstatePanel')}
           </DropdownMenuItem>
         )}
         {(accountTypes.isAccounting || accountTypes.isAdmin) && (
           <DropdownMenuItem onClick={() => navigate('/ksiegowosc')}>
             <Calculator className="h-4 w-4 mr-2" />
-            Panel Księgowy
+            {t('myAccount.accountingPanel')}
           </DropdownMenuItem>
         )}
         
@@ -191,14 +193,14 @@ export function MyGetRidoButton({ user, variant = "outline", size = "sm", classN
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => navigate('/klient')}>
           <UserCircle className="h-4 w-4 mr-2" />
-          Portal Klienta
+          {t('myAccount.clientPortal')}
         </DropdownMenuItem>
         
         {/* Service Provider Panel */}
         {accountTypes.isServiceProvider && (
           <DropdownMenuItem onClick={() => navigate('/uslugi/panel')}>
             <Wrench className="h-4 w-4 mr-2" />
-            Panel Usługodawcy
+            {t('myAccount.servicePanel')}
           </DropdownMenuItem>
         )}
         
@@ -206,14 +208,14 @@ export function MyGetRidoButton({ user, variant = "outline", size = "sm", classN
         {(accountTypes.isAccounting || accountTypes.isServiceProvider || accountTypes.isAdmin) && (
           <DropdownMenuItem onClick={() => navigate('/faktury')}>
             <FileText className="h-4 w-4 mr-2" />
-            Wystaw fakturę
+            {t('myAccount.issueInvoice')}
           </DropdownMenuItem>
         )}
         
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleLogout} className="text-destructive">
           <LogOut className="h-4 w-4 mr-2" />
-          Wyloguj
+          {t('myAccount.logout')}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
