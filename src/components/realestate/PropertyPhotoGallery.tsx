@@ -16,10 +16,7 @@ export function PropertyPhotoGallery({ photos, title }: PropertyPhotoGalleryProp
 
   // Touch swipe state
   const touchStartX = useRef<number>(0);
-  const touchCurrentX = useRef<number>(0);
   const touchEndX = useRef<number>(0);
-  const [swipeOffset, setSwipeOffset] = useState(0);
-  const [isSwiping, setIsSwiping] = useState(false);
   const lightboxTouchStartX = useRef<number>(0);
   const lightboxTouchEndX = useRef<number>(0);
 
@@ -57,34 +54,22 @@ export function PropertyPhotoGallery({ photos, title }: PropertyPhotoGalleryProp
     if (e.key === "Escape") setIsLightboxOpen(false);
   };
 
-  // Mobile carousel swipe handlers — smooth drag
+  // Mobile swipe handlers — simple single-image navigation
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
-    touchCurrentX.current = e.touches[0].clientX;
-    setIsSwiping(true);
   };
   const handleTouchMove = (e: React.TouchEvent) => {
-    touchCurrentX.current = e.touches[0].clientX;
-    const diff = touchCurrentX.current - touchStartX.current;
-    // Clamp at edges
-    if ((currentIndex === 0 && diff > 0) || (currentIndex === displayPhotos.length - 1 && diff < 0)) {
-      setSwipeOffset(diff * 0.3); // dampened at edges
-    } else {
-      setSwipeOffset(diff);
-    }
+    touchEndX.current = e.touches[0].clientX;
   };
   const handleTouchEnd = () => {
-    setIsSwiping(false);
-    const diff = touchStartX.current - touchCurrentX.current;
-    const threshold = 50;
-    if (Math.abs(diff) > threshold) {
+    const diff = touchStartX.current - touchEndX.current;
+    if (Math.abs(diff) > 50) {
       if (diff > 0 && currentIndex < displayPhotos.length - 1) {
-        setCurrentIndex((prev) => prev + 1);
+        setCurrentIndex(prev => prev + 1);
       } else if (diff < 0 && currentIndex > 0) {
-        setCurrentIndex((prev) => prev - 1);
+        setCurrentIndex(prev => prev - 1);
       }
     }
-    setSwipeOffset(0);
   };
 
   // Lightbox swipe handlers
@@ -146,35 +131,21 @@ export function PropertyPhotoGallery({ photos, title }: PropertyPhotoGalleryProp
         ))}
       </div>
 
-      {/* Mobile Carousel - smooth drag swipe */}
-      <div 
-        className="md:hidden relative aspect-[4/3] rounded-xl overflow-hidden"
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-      >
-        <div
-          className="flex h-full"
-          style={{
-            transform: `translateX(calc(-${currentIndex * 100}% + ${swipeOffset}px))`,
-            transition: isSwiping ? 'none' : 'transform 0.3s ease-out',
-            width: `${displayPhotos.length * 100}%`,
-          }}
-        >
-          {displayPhotos.map((photo, idx) => (
-            <img
-              key={idx}
-              src={getPhotoSrc(idx)}
-              alt={`${title} - zdjęcie ${idx + 1}`}
-              className="h-full object-cover object-center flex-shrink-0"
-              style={{ width: `${100 / displayPhotos.length}%` }}
-              onError={() => handleImageError(idx)}
-              onClick={() => openLightbox(idx)}
-              draggable={false}
-            />
-          ))}
-        </div>
-        
+      {/* Mobile: single image view with arrows — no multi-image strip */}
+      <div className="md:hidden relative aspect-[4/3] rounded-xl overflow-hidden bg-muted">
+        <img
+          key={currentIndex}
+          src={getPhotoSrc(currentIndex)}
+          alt={`${title} - zdjęcie ${currentIndex + 1}`}
+          className="w-full h-full object-cover animate-fade-in"
+          onError={() => handleImageError(currentIndex)}
+          onClick={() => openLightbox(currentIndex)}
+          draggable={false}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        />
+
         {displayPhotos.length > 1 && (
           <>
             <button
@@ -195,8 +166,8 @@ export function PropertyPhotoGallery({ photos, title }: PropertyPhotoGalleryProp
             >
               <ChevronRight className="h-5 w-5" />
             </button>
-            
-            {/* Photo Indicators */}
+
+            {/* Dot indicators */}
             <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
               {displayPhotos.slice(0, 7).map((_, idx) => (
                 <button

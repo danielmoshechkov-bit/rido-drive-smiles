@@ -17515,6 +17515,63 @@ export type Database = {
           },
         ]
       }
+      translation_queue: {
+        Row: {
+          attempts: number | null
+          completed_at: string | null
+          created_at: string | null
+          description: string | null
+          error_msg: string | null
+          id: string
+          listing_id: string
+          listing_type: string
+          max_attempts: number | null
+          priority: number | null
+          source: string | null
+          source_lang: string | null
+          started_at: string | null
+          status: string | null
+          target_langs: string[] | null
+          title: string
+        }
+        Insert: {
+          attempts?: number | null
+          completed_at?: string | null
+          created_at?: string | null
+          description?: string | null
+          error_msg?: string | null
+          id?: string
+          listing_id: string
+          listing_type?: string
+          max_attempts?: number | null
+          priority?: number | null
+          source?: string | null
+          source_lang?: string | null
+          started_at?: string | null
+          status?: string | null
+          target_langs?: string[] | null
+          title: string
+        }
+        Update: {
+          attempts?: number | null
+          completed_at?: string | null
+          created_at?: string | null
+          description?: string | null
+          error_msg?: string | null
+          id?: string
+          listing_id?: string
+          listing_type?: string
+          max_attempts?: number | null
+          priority?: number | null
+          source?: string | null
+          source_lang?: string | null
+          started_at?: string | null
+          status?: string | null
+          target_langs?: string[] | null
+          title?: string
+        }
+        Relationships: []
+      }
       translations_cache: {
         Row: {
           access_count: number | null

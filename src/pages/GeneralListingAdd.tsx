@@ -329,16 +329,18 @@ export default function GeneralListingAdd() {
         setUploadingPhotos(false);
       }
 
-      // Auto-translate in background (don't block UX)
-      supabase.functions.invoke('auto-translate-listing', {
+      // Add to translation queue (don't block UX)
+      supabase.functions.invoke('translation-queue-add', {
         body: {
           listing_id: listingId,
           listing_type: 'general',
           title,
           description,
-          source_lang: 'pl'
+          source_lang: 'pl',
+          source: 'manual',
+          priority: 10
         }
-      }).catch(err => console.warn('Auto-translate failed:', err));
+      }).catch(err => console.warn('Translation queue add failed:', err));
 
       toast.success("Ogłoszenie opublikowane! 🎉");
       navigate("/marketplace");
