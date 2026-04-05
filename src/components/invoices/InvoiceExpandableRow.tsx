@@ -409,8 +409,17 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
                   {invoice.invoice_type === 'proforma' && (
                     <Badge className="text-[10px] px-1.5 py-0 bg-violet-500/10 text-violet-600 border-violet-200">Pro forma</Badge>
                   )}
-                  {invoice.invoice_type === 'correction' && (
+                  {(invoice.invoice_type === 'correction' || invoice.invoice_type === 'KOR' || invoice.invoice_type === 'KOR_ZAL' || invoice.invoice_type === 'KOR_ROZ') && (
                     <Badge className="text-[10px] px-1.5 py-0 bg-amber-500/10 text-amber-600 border-amber-200">Korekta</Badge>
+                  )}
+                  {(invoice.invoice_type === 'ZAL' || invoice.invoice_type === 'advance') && (
+                    <Badge className="text-[10px] px-1.5 py-0 bg-blue-500/10 text-blue-600 border-blue-200">Zaliczkowa</Badge>
+                  )}
+                  {(invoice.invoice_type === 'ROZ' || invoice.invoice_type === 'final') && (
+                    <Badge className="text-[10px] px-1.5 py-0 bg-green-500/10 text-green-600 border-green-200">Rozliczająca</Badge>
+                  )}
+                  {(invoice.invoice_type === 'UPR' || invoice.invoice_type === 'simplified') && (
+                    <Badge className="text-[10px] px-1.5 py-0 bg-orange-500/10 text-orange-600 border-orange-200">Uproszczona</Badge>
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground">
