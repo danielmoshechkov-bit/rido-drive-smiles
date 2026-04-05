@@ -51,6 +51,8 @@ import PropertyCompare from "./pages/PropertyCompare";
 import RealEstateAgentRegister from "./pages/RealEstateAgentRegister";
 import RealEstateAgentDashboard from "./pages/RealEstateAgentDashboard";
 import GeneralListingAdd from "./pages/GeneralListingAdd";
+import GeneralListingEdit from "./pages/GeneralListingEdit";
+import MarketplaceSellerProfile from "./pages/MarketplaceSellerProfile";
 import FleetLanding from "./pages/FleetLanding";
 import FleetRegister from "./pages/FleetRegister";
 import FleetRegisterSuccess from "./pages/FleetRegisterSuccess";
