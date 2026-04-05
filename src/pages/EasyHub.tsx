@@ -117,7 +117,7 @@ const mainTiles: MarketplaceTile[] = [
     description: 'Sprzedawaj i kupuj wszystko z AI',
     icon: ShoppingCart,
     image: tileAutoMarketplace,
-    link: '/marketplace/dodaj',
+    link: '/marketplace',
     available: true
   },
   {
