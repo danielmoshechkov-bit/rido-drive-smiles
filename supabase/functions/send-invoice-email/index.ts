@@ -266,7 +266,7 @@ serve(async (req) => {
 
     const senderName = emailSettings.sender_name || "RIDO";
     const senderEmail = emailSettings.sender_email || emailSettings.smtp_user || "noreply@getrido.pl";
-    const fromAddress = `${companyName} via GetRido <${senderEmail}>`;
+    const fromAddress = `${senderName} <${senderEmail}>`;
 
     console.log(`Sending email to ${toEmail}, from: ${fromAddress}, subject: ${subject}`);
 
