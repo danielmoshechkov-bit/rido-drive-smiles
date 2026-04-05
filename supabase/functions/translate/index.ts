@@ -65,7 +65,7 @@ serve(async (req) => {
       existingValid.clear()
     }
 
-    // Determine which langs to translate — batch all if cache empty
+    // Determine which langs to translate
     const toLang = existingValid.size === 0
       ? ALL_LANGS.filter(l => l !== source_lang)
       : [target_lang].filter(l => !existingValid.has(l))
@@ -82,44 +82,121 @@ serve(async (req) => {
       return json({ text: r?.translated_text || source_text, cached: true })
     }
 
-    // Get Kimi API key
-    const { data: provider } = await sb
-      .from('ai_providers')
-      .select('api_key_encrypted')
-      .eq('provider_key', 'kimi')
+    // Read model config from ai_agents_config (same table as admin panel)
+    let selectedModel = 'moonshot-v1-8k'
+    let provider = 'kimi'
+    
+    const { data: agentConfig } = await sb
+      .from('ai_agents_config')
+      .select('model')
+      .eq('agent_id', 'listing_translation')
       .single()
-
-    if (!provider?.api_key_encrypted) {
-      return json({ text: source_text, cached: false, error: 'no_translation_key' })
+    
+    if (agentConfig?.model) {
+      selectedModel = agentConfig.model
+      // Determine provider from model name
+      if (selectedModel.includes('moonshot') || selectedModel.includes('kimi')) {
+        provider = 'kimi'
+      } else if (selectedModel.includes('claude') || selectedModel.includes('haiku') || selectedModel.includes('sonnet')) {
+        provider = 'anthropic'
+      } else {
+        provider = 'kimi' // default fallback
+      }
     }
 
-    // Batch prompt
+    // Get API key based on provider
+    let apiKey: string | undefined
+    let apiUrl: string
+    let requestBody: any
+
     const langList = toLang.map(l => `"${l}": "${LANG_NAMES[l] || l}"`).join(', ')
     const prompt = `Translate the following text into these languages: {${langList}}.
 Return ONLY a valid JSON object. Keys = language codes, values = translations.
+Keep brand names, model numbers, prices unchanged.
 No markdown, no explanations, no extra text.
 Text: """${source_text}"""`
 
-    const res = await fetch('https://api.moonshot.cn/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${provider.api_key_encrypted}`
-      },
-      body: JSON.stringify({
-        model: 'moonshot-v1-8k',
+    if (provider === 'kimi') {
+      // Try KIMI_API_KEY env first, then fall back to ai_providers table
+      apiKey = Deno.env.get('KIMI_API_KEY')
+      if (!apiKey) {
+        const { data: kimiProvider } = await sb
+          .from('ai_providers')
+          .select('api_key_encrypted')
+          .eq('provider_key', 'kimi')
+          .single()
+        apiKey = kimiProvider?.api_key_encrypted
+      }
+      
+      if (!apiKey) {
+        return json({ text: source_text, cached: false, error: 'KIMI_API_KEY not configured' })
+      }
+
+      apiUrl = 'https://api.moonshot.cn/v1/chat/completions'
+      requestBody = {
+        model: selectedModel,
         max_tokens: 4000,
+        temperature: 0.1,
         messages: [
           { role: 'system', content: 'You are a professional translator. Always respond with valid JSON only. No markdown.' },
           { role: 'user', content: prompt }
         ]
-      })
+      }
+    } else if (provider === 'anthropic') {
+      apiKey = Deno.env.get('ANTHROPIC_API_KEY')
+      if (!apiKey) {
+        return json({ text: source_text, cached: false, error: 'ANTHROPIC_API_KEY not configured' })
+      }
+
+      apiUrl = 'https://api.anthropic.com/v1/messages'
+      requestBody = {
+        model: selectedModel,
+        max_tokens: 4000,
+        messages: [
+          { role: 'user', content: `You are a professional translator. Always respond with valid JSON only. No markdown.\n\n${prompt}` }
+        ]
+      }
+    } else {
+      // Default to Kimi
+      apiKey = Deno.env.get('KIMI_API_KEY')
+      if (!apiKey) {
+        return json({ text: source_text, cached: false, error: 'KIMI_API_KEY not configured' })
+      }
+      apiUrl = 'https://api.moonshot.cn/v1/chat/completions'
+      requestBody = {
+        model: 'moonshot-v1-8k',
+        max_tokens: 4000,
+        temperature: 0.1,
+        messages: [
+          { role: 'system', content: 'You are a professional translator. Always respond with valid JSON only. No markdown.' },
+          { role: 'user', content: prompt }
+        ]
+      }
+    }
+
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (provider === 'anthropic') {
+      headers['x-api-key'] = apiKey!
+      headers['anthropic-version'] = '2023-06-01'
+    } else {
+      headers['Authorization'] = `Bearer ${apiKey}`
+    }
+
+    const res = await fetch(apiUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(requestBody)
     })
 
     const data = await res.json()
     let translations: Record<string, string> = {}
     try {
-      const raw = data.choices?.[0]?.message?.content?.trim() || '{}'
+      let raw: string
+      if (provider === 'anthropic') {
+        raw = data.content?.[0]?.text?.trim() || '{}'
+      } else {
+        raw = data.choices?.[0]?.message?.content?.trim() || '{}'
+      }
       translations = JSON.parse(raw.replace(/```json|```/g, '').trim())
     } catch {
       translations[target_lang] = source_text
@@ -136,7 +213,7 @@ Text: """${source_text}"""`
         target_lang: l,
         source_hash: hash,
         translated_text: String(t),
-        translated_by: 'kimi',
+        translated_by: provider,
       }))
 
     if (rows.length > 0) {
