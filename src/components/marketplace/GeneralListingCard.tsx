@@ -230,7 +230,7 @@ export function GeneralListingCard({ listing, variant = "grid", onToggleCompare,
       {/* Info */}
       <div className="p-3 space-y-1.5">
         <h3 className="font-medium text-sm leading-tight line-clamp-2 min-h-[2.5rem]">
-          {listing.title}
+          {title}
         </h3>
 
         {/* Price */}
