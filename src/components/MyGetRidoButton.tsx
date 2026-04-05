@@ -200,7 +200,7 @@ export function MyGetRidoButton({ user, variant = "outline", size = "sm", classN
         {accountTypes.isServiceProvider && (
           <DropdownMenuItem onClick={() => navigate('/uslugi/panel')}>
             <Wrench className="h-4 w-4 mr-2" />
-            Panel Usługodawcy
+            {t('myAccount.servicePanel')}
           </DropdownMenuItem>
         )}
         
