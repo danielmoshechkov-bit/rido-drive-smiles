@@ -358,6 +358,8 @@ async function callLovableWithRetry(
   if (!apiKey) throw new Error('LOVABLE_API_KEY not configured')
 
   try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 10000)
     const res = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -372,8 +374,10 @@ async function callLovableWithRetry(
         ],
         temperature: 0.1,
         max_tokens: 800
-      })
+      }),
+      signal: controller.signal
     })
+    clearTimeout(timeout)
 
     console.log(`Lovable status: ${res.status} lang=${targetLangName} attempt=${attempt}`)
 
