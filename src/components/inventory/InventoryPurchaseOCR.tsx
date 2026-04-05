@@ -540,6 +540,7 @@ export function InventoryPurchaseOCR({ entityId, showKsefOption }: Props) {
       setUploadedFileUrl(null);
       setOcrDone(false);
       setAutoMatchedCount(0);
+      setUploadedFiles([]);
       await fetchProducts();
       await fetchInvoices();
       await fetchSupplierMappings();
