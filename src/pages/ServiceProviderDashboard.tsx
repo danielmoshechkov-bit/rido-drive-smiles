@@ -42,7 +42,7 @@ import {
   LayoutDashboard, Wrench, Calendar, ClipboardList, Settings, Phone,
   Users, Clock, Star, Globe, Bot, Hammer, Plus, Trash2, Edit, Save, Image,
   Upload, X, ImageIcon, Briefcase, MoreHorizontal, Calculator, ChevronDown,
-  Megaphone, Target
+  Megaphone, Target, ShieldCheck, AlertCircle, CheckCircle2
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { UniversalSubTabBar } from '@/components/UniversalSubTabBar';
