@@ -686,7 +686,7 @@ export function InventoryPurchaseOCR({ entityId, showKsefOption }: Props) {
             key={tab.id}
             variant={activeTab === tab.id ? 'default' : 'outline'}
             size="sm"
-            onClick={() => setActiveTab(tab.id as any)}
+            onClick={() => { setActiveTab(tab.id as any); if (tab.id === 'zakupy') setViewMode('upload'); }}
             className="rounded-full"
           >
             <tab.icon className="h-4 w-4 mr-2" />
