@@ -963,6 +963,21 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
       return;
     }
 
+    if (invoiceType === 'correction' && correctionData) {
+      if (!correctionData.originalInvoiceId) {
+        toast.error('Brak ID faktury pierwotnej — wybierz dokument do korekty');
+        return;
+      }
+      if (!correctionData.originalInvoiceNumber) {
+        toast.error('Brak numeru faktury pierwotnej');
+        return;
+      }
+      if (!correctionData.originalIssueDate) {
+        toast.error('Brak daty wystawienia faktury pierwotnej');
+        return;
+      }
+    }
+
     if (items.every(item => !item.name || item.quantity === 0)) {
       toast.error('Dodaj co najmniej jedną pozycję na fakturze');
       return;

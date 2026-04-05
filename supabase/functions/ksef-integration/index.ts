@@ -1758,6 +1758,56 @@ serve(async (req) => {
       return jsonRes({ success: true, xml });
     }
 
+    // ========== debug_correction ==========
+    if (action === 'debug_correction') {
+      if (!body.invoice_id) return jsonRes({ success: false, error: 'Brak invoice_id' }, 400);
+      const { data: invoice, error: invErr } = await supabase.from('user_invoices').select('*').eq('id', body.invoice_id).single();
+      if (invErr || !invoice) return jsonRes({ success: false, error: 'Faktura nie znaleziona' }, 404);
+      
+      // Fetch original invoice data if linked
+      let origData: any = null;
+      if (invoice.corrected_invoice_id) {
+        const { data: orig } = await supabase.from('user_invoices').select('invoice_number, issue_date, ksef_reference').eq('id', invoice.corrected_invoice_id).maybeSingle();
+        if (orig) {
+          origData = orig;
+          invoice.corrected_invoice_number = invoice.corrected_invoice_number || orig.invoice_number;
+          invoice.corrected_invoice_date = invoice.corrected_invoice_date || orig.issue_date;
+          invoice.corrected_ksef_reference = invoice.corrected_ksef_reference || orig.ksef_reference;
+        }
+      }
+
+      const warnings: string[] = [];
+      if (!invoice.is_correction) warnings.push('is_correction is not true');
+      if (!invoice.corrected_invoice_id) warnings.push('corrected_invoice_id is empty');
+      if (!invoice.corrected_invoice_number) warnings.push('corrected_invoice_number is empty');
+      if (!invoice.corrected_invoice_date) warnings.push('corrected_invoice_date is empty');
+      if (invoice.invoice_type !== 'KOR') warnings.push(`invoice_type is "${invoice.invoice_type}" instead of "KOR"`);
+
+      let xml = '';
+      try {
+        const sellerEntity = await resolveSellerEntityForInvoice(req, supabase, invoice);
+        const { data: items } = await supabase.from('user_invoice_items').select('*').eq('invoice_id', body.invoice_id).order('sort_order');
+        const artifacts = buildKsefInvoiceArtifacts(invoice, sellerEntity, items || []);
+        xml = artifacts.xml;
+      } catch (e: any) {
+        warnings.push(`XML generation error: ${e.message}`);
+      }
+
+      return jsonRes({
+        success: true,
+        invoice_id: invoice.id,
+        is_correction: invoice.is_correction,
+        invoice_type: invoice.invoice_type,
+        corrected_invoice_id: invoice.corrected_invoice_id,
+        corrected_invoice_number: invoice.corrected_invoice_number,
+        corrected_invoice_date: invoice.corrected_invoice_date,
+        corrected_ksef_reference: invoice.corrected_ksef_reference,
+        original_invoice_from_db: origData,
+        warnings,
+        xml,
+      });
+    }
+
     return jsonRes({ success: false, error: 'Unknown action' }, 400);
   } catch (error: any) {
     console.error('[KSeF] error:', error);
