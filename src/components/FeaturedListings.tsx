@@ -575,7 +575,7 @@ export function FeaturedListings({ className, categoryContext, hideViewMore }: F
       {!hideViewMore && (
         <div className="mt-6 text-center md:hidden">
           <Button onClick={handleSeeMore} className="w-full max-w-xs">
-            Zobacz wszystkie ogłoszenia
+            {t('featured.seeAll')}
             <ArrowRight className="h-4 w-4 ml-2" />
           </Button>
         </div>
