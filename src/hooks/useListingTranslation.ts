@@ -70,7 +70,7 @@ export function useListingTranslation(
     fetchTranslation();
 
     return () => { cancelled = true; };
-  }, [listingId, lang, originalTitle]);
+  }, [listingId, lang, originalTitle, originalDescription, listingType]);
 
   return translation;
 }
