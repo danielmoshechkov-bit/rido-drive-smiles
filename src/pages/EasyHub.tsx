@@ -114,7 +114,7 @@ function buildNieruchomosciSubTiles(t: (key: string) => string): MarketplaceTile
 }
 
 function MarketplaceTileCard({ tile, onClick }: { tile: MarketplaceTile; onClick: () => void }) {
-  const Icon = tile.icon;
+  const { t } = useTranslation();
   
   return (
     <Card 
