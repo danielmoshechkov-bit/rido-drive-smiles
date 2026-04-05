@@ -407,6 +407,13 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
   const isMargin = invoice.is_margin === true || ['margin', 'vat_margin'].includes(invoice.type);
   const isSimplified = ['simplified', 'UPR'].includes(invoice.type);
   const isFinal = ['final', 'ROZ'].includes(invoice.type);
+  const isReceipt = invoice.type === 'receipt';
+  const isNota = invoice.type === 'nota';
+  const isVatRR = invoice.type === 'vat_rr';
+  const isProforma = invoice.type === 'proforma';
+  
+  // Documents without VAT columns
+  const noVatDocument = isReceipt || isNota || isMargin;
 
   const displayItems = isCorrection ? invoice.correction_data!.after_items : items;
   
