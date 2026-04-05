@@ -171,7 +171,7 @@ export function AddListingModal({ user, trigger }: AddListingModalProps) {
   const handleOpenModal = () => {
     // Check if user is owner for non-owners show toast
     if (user && !isOwnerEmail(user.email)) {
-      toast.info('Ta funkcja będzie dostępna wkrótce');
+      toast.info(t('addListing.featureComingSoon'));
       return;
     }
     // Always open category selection first, even for non-logged users
