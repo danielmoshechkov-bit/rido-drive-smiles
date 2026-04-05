@@ -1,0 +1,1 @@
+UPDATE translation_queue SET target_langs = ARRAY['en','ru']::text[], status = 'pending', attempts = 0, error_msg = NULL WHERE status IN ('pending','failed','processing');
