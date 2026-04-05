@@ -342,7 +342,7 @@ export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataC
             </CardHeader>
             <CardContent className="px-0 py-0">
               <div className="overflow-x-auto">
-                <Table>
+                <Table className="table-fixed w-full">
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-8">Lp.</TableHead>
