@@ -57,6 +57,10 @@ const FUEL_TYPE_LABELS: Record<string, string> = {
 };
 
 export function MarketplaceVehicleCard({ listing, onReserve, isLoggedIn }: MarketplaceVehicleCardProps) {
+  const vehicleTitle = `${listing.vehicle.brand} ${listing.vehicle.model}`;
+  const { title: translatedTitle, description: translatedDesc } = useListingTranslation(
+    listing.id, vehicleTitle, listing.description || '', 'vehicle'
+  );
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [showDetails, setShowDetails] = useState(false);
   const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
