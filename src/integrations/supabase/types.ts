@@ -8937,6 +8937,150 @@ export type Database = {
         }
         Relationships: []
       }
+      general_listing_categories: {
+        Row: {
+          auto_created: boolean | null
+          created_at: string | null
+          id: string
+          listings_count: number | null
+          name: string
+          parent_id: string | null
+          slug: string
+        }
+        Insert: {
+          auto_created?: boolean | null
+          created_at?: string | null
+          id?: string
+          listings_count?: number | null
+          name: string
+          parent_id?: string | null
+          slug: string
+        }
+        Update: {
+          auto_created?: boolean | null
+          created_at?: string | null
+          id?: string
+          listings_count?: number | null
+          name?: string
+          parent_id?: string | null
+          slug?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "general_listing_categories_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "general_listing_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      general_listing_photos: {
+        Row: {
+          created_at: string | null
+          display_order: number | null
+          id: string
+          is_ai_enhanced: boolean | null
+          is_protected: boolean | null
+          listing_id: string
+          url: string
+        }
+        Insert: {
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          is_ai_enhanced?: boolean | null
+          is_protected?: boolean | null
+          listing_id: string
+          url: string
+        }
+        Update: {
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          is_ai_enhanced?: boolean | null
+          is_protected?: boolean | null
+          listing_id?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "general_listing_photos_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "general_listings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      general_listings: {
+        Row: {
+          ai_price_max: number | null
+          ai_price_min: number | null
+          ai_score: number | null
+          ai_tips: Json | null
+          category_id: string | null
+          condition: string | null
+          created_at: string | null
+          description: string
+          id: string
+          location: string | null
+          price: number | null
+          price_negotiable: boolean | null
+          status: string | null
+          title: string
+          updated_at: string | null
+          user_id: string
+          views_count: number | null
+        }
+        Insert: {
+          ai_price_max?: number | null
+          ai_price_min?: number | null
+          ai_score?: number | null
+          ai_tips?: Json | null
+          category_id?: string | null
+          condition?: string | null
+          created_at?: string | null
+          description: string
+          id?: string
+          location?: string | null
+          price?: number | null
+          price_negotiable?: boolean | null
+          status?: string | null
+          title: string
+          updated_at?: string | null
+          user_id: string
+          views_count?: number | null
+        }
+        Update: {
+          ai_price_max?: number | null
+          ai_price_min?: number | null
+          ai_score?: number | null
+          ai_tips?: Json | null
+          category_id?: string | null
+          condition?: string | null
+          created_at?: string | null
+          description?: string
+          id?: string
+          location?: string | null
+          price?: number | null
+          price_negotiable?: boolean | null
+          status?: string | null
+          title?: string
+          updated_at?: string | null
+          user_id?: string
+          views_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "general_listings_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "general_listing_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       gtfs_data_sources: {
         Row: {
           api_endpoint: string | null
