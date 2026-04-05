@@ -233,10 +233,10 @@ function parseTranslation(text: string, fallbackTitle: string, fallbackDesc: str
 
 // ── Kimi / Moonshot ──
 async function callKimiWithRetry(
-  title: string, description: string, targetLangName: string, model: string, attempt = 1
+  title: string, description: string, targetLangName: string, model: string, externalApiKey?: string, attempt = 1
 ): Promise<{ title: string; description: string } | null> {
-  const apiKey = Deno.env.get('KIMI_API_KEY')
-  if (!apiKey) throw new Error('KIMI_API_KEY not configured')
+  const apiKey = externalApiKey || Deno.env.get('KIMI_API_KEY')
+  if (!apiKey) throw new Error('Brak klucza Kimi — wpisz go w /admin/ai → Dostawcy AI → Kimi')
 
   try {
     const res = await fetch('https://api.moonshot.ai/v1/chat/completions', {
