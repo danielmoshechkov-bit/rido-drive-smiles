@@ -901,25 +901,16 @@ function buildKsefInvoiceArtifacts(invoice: any, entity: any, items: any[]) {
   }
 
   // Build ZaliczkaCzesciowa for ZAL and KOR_ZAL
+  // XSD FA(3) defines: P_6Z (date received) and P_15Z (gross amount)
+  // NrZaliczki, WartoscZal, ProcZal do NOT exist in FA(3) schema
   let zaliczkaXml = '';
   if (invoiceType === 'ZAL' || invoiceType === 'KOR_ZAL') {
-    // Group by VAT rate for advance payments
-    const zaliczkaByVat: Record<string, number> = {};
-    items.forEach((item) => {
-      const rate = String(item.vat_rate || '23');
-      const gross = Number(item.gross_amount) || 0;
-      zaliczkaByVat[rate] = (zaliczkaByVat[rate] || 0) + gross;
-    });
-    let zalNr = 1;
-    for (const [rate, grossVal] of Object.entries(zaliczkaByVat)) {
-      const numRate = parseInt(rate) || 0;
-      zaliczkaXml += `
+    const zaliczkaDate = invoice.sale_date || issueDate;
+    zaliczkaXml = `
       <ZaliczkaCzesciowa>
-        <NrZaliczki>${zalNr++}</NrZaliczki>
-        <WartoscZal>${grossVal.toFixed(2)}</WartoscZal>
-        <ProcZal>${numRate}</ProcZal>
+        <P_6Z>${zaliczkaDate}</P_6Z>
+        <P_15Z>${grossTotal.toFixed(2)}</P_15Z>
       </ZaliczkaCzesciowa>`;
-    }
   }
 
   // Build FakturaZaliczkowa for ROZ and KOR_ROZ
