@@ -58,6 +58,7 @@ function useTimeAgo(dateStr: string): string {
 
 export function GeneralListingCard({ listing, variant = "grid", onToggleCompare, isSelectedForCompare }: GeneralListingCardProps) {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [currentPhotoIdx, setCurrentPhotoIdx] = useState(0);
   const [isFav, setIsFav] = useState(() => {
     try {
@@ -66,10 +67,17 @@ export function GeneralListingCard({ listing, variant = "grid", onToggleCompare,
     } catch { return false; }
   });
 
+  const { title, description: _desc } = useListingTranslation(
+    listing.id, listing.title, listing.description || '', 'general'
+  );
+  const timeAgoText = useTimeAgo(listing.created_at);
+
   const photos = listing.photos || [];
   const photo = photos[currentPhotoIdx];
   const hasAiPhoto = photos.some(p => p.is_ai_enhanced);
-  const cond = listing.condition ? CONDITION_STYLES[listing.condition] : null;
+  const condKey = listing.condition ? CONDITION_KEYS[listing.condition] : null;
+  const condClass = listing.condition ? CONDITION_CLASSES[listing.condition] : null;
+  const condLabel = condKey ? t(`marketplace.${condKey}`) : null;
 
   const toggleFav = (e: React.MouseEvent) => {
     e.stopPropagation();
