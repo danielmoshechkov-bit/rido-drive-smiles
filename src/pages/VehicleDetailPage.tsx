@@ -238,7 +238,14 @@ export default function VehicleDetailPage() {
           <div className="lg:col-span-2 space-y-6">
             <div>
               <div className="flex items-start justify-between gap-4 mb-2">
-                <h1 className="text-2xl md:text-3xl font-bold">{listing.title}</h1>
+                <h1 className="text-2xl md:text-3xl font-bold">
+                  {translatedTitle}
+                  {isTranslated && (
+                    <span className="text-xs font-normal text-muted-foreground ml-2">
+                      {i18n.language === 'en' ? '(Translated)' : i18n.language === 'ru' ? '(Переведено)' : ''}
+                    </span>
+                  )}
+                </h1>
                 {listing.transactionType && (
                   <Badge style={{ backgroundColor: listing.transactionColor }} className="text-white shrink-0">
                     {listing.transactionType}
