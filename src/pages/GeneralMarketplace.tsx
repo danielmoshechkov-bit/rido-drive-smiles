@@ -30,13 +30,7 @@ interface Category {
 
 const PER_PAGE = 20;
 
-const CONDITIONS = [
-  { value: "", label: "Wszystkie stany" },
-  { value: "nowy", label: "Nowy" },
-  { value: "jak_nowy", label: "Jak nowy" },
-  { value: "dobry", label: "Dobry" },
-  { value: "dostateczny", label: "Dostateczny" },
-];
+const CONDITION_VALUES = ["", "nowy", "jak_nowy", "dobry", "dostateczny"];
 
 export default function GeneralMarketplace() {
   const navigate = useNavigate();
