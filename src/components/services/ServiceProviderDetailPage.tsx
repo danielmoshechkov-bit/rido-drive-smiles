@@ -107,15 +107,37 @@ export function ServiceProviderDetailPage() {
       if (providerError) throw providerError;
       setProvider(providerData);
 
-      // Load services
-      const { data: servicesData } = await supabase
+      // Load services from provider_services (where providers save their services)
+      const { data: servicesData } = await (supabase as any)
+        .from('provider_services')
+        .select('*')
+        .eq('provider_id', providerId)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false });
+      
+      // Also check legacy services table
+      const { data: legacyServices } = await supabase
         .from('services')
         .select('*')
         .eq('provider_id', providerId)
         .eq('is_active', true)
         .order('sort_order');
       
-      if (servicesData) setServices(servicesData);
+      const allServices = [
+        ...(servicesData || []).map((s: any) => ({
+          id: s.id,
+          name: s.name,
+          description: s.description,
+          price: s.price_from,
+          price_to: s.price_to,
+          category: s.category,
+          photos: s.photos || [],
+          is_active: true,
+        })),
+        ...(legacyServices || []),
+      ];
+      
+      if (allServices.length > 0) setServices(allServices);
 
       // Load reviews
       const { data: reviewsData } = await supabase
