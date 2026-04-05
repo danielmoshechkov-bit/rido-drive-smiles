@@ -260,7 +260,7 @@ export function FeaturedListings({ className, categoryContext, hideViewMore }: F
           
           servicesData.push({
             id: s.id,
-            title: s.company_name || 'Usługa',
+            title: s.company_name || t('listing.service'),
             price: 0,
             photos: servicePhotos,
             city: s.company_city,
