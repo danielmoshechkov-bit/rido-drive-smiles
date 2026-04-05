@@ -775,7 +775,7 @@ export default function RealEstateMarketplace() {
               className="rounded-full px-2 sm:px-3"
             >
               <Plus className="h-4 w-4 sm:mr-1" />
-              <span className="hidden sm:inline">Dodaj ogłoszenie</span>
+              <span className="hidden sm:inline">{t('nav.addListing', 'Dodaj ogłoszenie')}</span>
             </Button>
           </div>
         </div>
