@@ -12,6 +12,7 @@ function fixPolishCase(text: string | undefined | null): string {
   });
 }
 import { useEffect, useRef, useState } from "react";
+import { useListingTranslation } from "@/hooks/useListingTranslation";
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
