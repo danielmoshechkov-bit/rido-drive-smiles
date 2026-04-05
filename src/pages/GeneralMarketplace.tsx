@@ -287,7 +287,7 @@ export default function GeneralMarketplace() {
 
       {hasActiveFilters && (
         <Button variant="outline" size="sm" onClick={clearAllFilters} className="w-full">
-          <X className="h-3.5 w-3.5 mr-1" /> Wyczyść filtry
+          <X className="h-3.5 w-3.5 mr-1" /> {t('marketplace.clearFilters')}
         </Button>
       )}
     </div>
