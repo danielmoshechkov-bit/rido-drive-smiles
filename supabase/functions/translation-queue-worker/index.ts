@@ -6,8 +6,8 @@ const CORS = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const BATCH_SIZE = 20
-const MAX_PARALLEL = 3
+const BATCH_SIZE = 5
+const MAX_PARALLEL = 2
 
 const LANG_NAMES: Record<string, string> = {
   en: 'English', ru: 'Russian', ua: 'Ukrainian',
