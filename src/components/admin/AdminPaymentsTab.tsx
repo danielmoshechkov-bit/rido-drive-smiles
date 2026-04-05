@@ -84,8 +84,8 @@ function PaymentGatewayConfig() {
       const cfg = data[0];
       setProvider(cfg.provider || 'przelewy24');
       setMerchantId(cfg.merchant_id || '');
-      setPosId(cfg.pos_id || '');
-      setIsSandbox(cfg.is_sandbox !== false);
+      setPosId((cfg as any).pos_id || '');
+      setIsSandbox(cfg.is_test_mode !== false);
       setIsActive(cfg.is_enabled || false);
     }
     setLoading(false);
