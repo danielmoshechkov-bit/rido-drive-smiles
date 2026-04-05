@@ -1,5 +1,7 @@
 import { Toaster } from "@/components/ui/toaster";
 import AddVehicleListing from "./pages/AddVehicleListing";
+import GeneralMarketplace from "./pages/GeneralMarketplace";
+import GeneralListingDetail from "./pages/GeneralListingDetail";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -113,6 +115,8 @@ const App = () => (
                 <Route path="/gielda/panel" element={<Navigate to="/klient" replace />} />
                 <Route path="/gielda/dodaj-pojazd" element={<AddVehicleListing />} />
                 <Route path="/easy" element={<EasyHub />} />
+                <Route path="/marketplace" element={<GeneralMarketplace />} />
+                <Route path="/marketplace/listing/:id" element={<GeneralListingDetail />} />
                 <Route path="/easy/login" element={<Navigate to="/easy" replace />} />
                 <Route path="/easy/register" element={<Navigate to="/easy" replace />} />
                 <Route path="/nieruchomosci" element={<RealEstateMarketplace />} />
