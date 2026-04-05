@@ -113,6 +113,9 @@ export function InventoryPurchaseOCR({ entityId, showKsefOption }: Props) {
   const [ocrDone, setOcrDone] = useState(false);
   const [dragOver, setDragOver] = useState(false);
 
+  // Uploaded file thumbnails
+  const [uploadedFiles, setUploadedFiles] = useState<Array<{ name: string; preview: string; file: File }>>([]);
+
   // Purchase invoice preview modal
   const [previewInvoice, setPreviewInvoice] = useState<PurchaseInvoice | null>(null);
 
@@ -216,6 +219,12 @@ export function InventoryPurchaseOCR({ entityId, showKsefOption }: Props) {
       const b64 = await fileToBase64(file);
       setFileBase64(b64);
       setFileMimeType(file.type || 'application/octet-stream');
+
+      // Create thumbnail preview
+      const previewUrl = file.type.startsWith('image/') 
+        ? URL.createObjectURL(file) 
+        : '';
+      setUploadedFiles(prev => [...prev, { name: file.name, preview: previewUrl, file }]);
 
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { toast.error('Musisz być zalogowany'); setUploading(false); return; }
@@ -531,6 +540,7 @@ export function InventoryPurchaseOCR({ entityId, showKsefOption }: Props) {
       setUploadedFileUrl(null);
       setOcrDone(false);
       setAutoMatchedCount(0);
+      setUploadedFiles([]);
       await fetchProducts();
       await fetchInvoices();
       await fetchSupplierMappings();
@@ -699,38 +709,67 @@ export function InventoryPurchaseOCR({ entityId, showKsefOption }: Props) {
         <>
           {viewMode === 'upload' && (
             <>
-              {/* Dropzone */}
+              {/* Upload area with compact dropzone + thumbnails */}
               <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2"><Upload className="h-5 w-5" />Dodaj fakturę zakupową</CardTitle>
-                  <CardDescription>Przeciągnij plik lub kliknij — AI odczyta pozycje automatycznie</CardDescription>
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-base"><Upload className="h-5 w-5" />Dodaj fakturę zakupową</CardTitle>
+                  <CardDescription className="text-xs">Przeciągnij plik lub kliknij — AI odczyta pozycje automatycznie</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div
-                    className={`flex flex-col items-center gap-4 p-8 border-2 border-dashed rounded-lg transition-colors cursor-pointer ${
-                      dragOver ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-primary/50'
-                    }`}
-                    onClick={() => fileInputRef.current?.click()}
-                    onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-                    onDragLeave={() => setDragOver(false)}
-                    onDrop={handleDrop}
-                  >
-                    <input ref={fileInputRef} type="file" accept="image/*,.pdf" onChange={handleFileSelect} className="hidden" />
-                    {uploading ? (
-                      <><Loader2 className="h-10 w-10 animate-spin text-primary" /><p className="text-sm text-muted-foreground">Przesyłanie...</p></>
-                    ) : dragOver ? (
-                      <><Upload className="h-10 w-10 text-primary" /><p className="text-sm font-medium text-primary">Upuść plik tutaj</p></>
-                    ) : (
-                      <>
-                        <Upload className="h-10 w-10 text-muted-foreground/50" />
-                        <p className="text-sm text-muted-foreground">Przeciągnij fakturę lub <span className="text-primary font-medium">kliknij aby wybrać</span></p>
-                        <p className="text-xs text-muted-foreground/70">JPG, PNG, HEIC, PDF — max 20 MB</p>
-                      </>
-                    )}
+                  <div className="flex items-start gap-3 flex-wrap">
+                    {/* Compact drop zone */}
+                    <div
+                      className={`flex flex-col items-center justify-center gap-1 w-32 h-32 border-2 border-dashed rounded-lg transition-colors cursor-pointer shrink-0 ${
+                        dragOver ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-primary/50'
+                      }`}
+                      onClick={() => fileInputRef.current?.click()}
+                      onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                      onDragLeave={() => setDragOver(false)}
+                      onDrop={handleDrop}
+                    >
+                      <input ref={fileInputRef} type="file" accept="image/*,.pdf" onChange={handleFileSelect} className="hidden" />
+                      {uploading ? (
+                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                      ) : (
+                        <>
+                          <Upload className="h-6 w-6 text-muted-foreground/50" />
+                          <p className="text-[10px] text-muted-foreground text-center px-1">Przeciągnij lub kliknij</p>
+                        </>
+                      )}
+                    </div>
+
+                    {/* File thumbnails */}
+                    {uploadedFiles.map((uf, idx) => (
+                      <div key={idx} className="relative w-32 h-32 border rounded-lg overflow-hidden bg-muted/30 shrink-0 group">
+                        {uf.preview ? (
+                          <img src={uf.preview} alt={uf.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="flex flex-col items-center justify-center h-full gap-1">
+                            <FileText className="h-8 w-8 text-muted-foreground/50" />
+                            <p className="text-[9px] text-muted-foreground truncate max-w-[90%] px-1">{uf.name}</p>
+                          </div>
+                        )}
+                        <button
+                          onClick={() => {
+                            setUploadedFiles(prev => prev.filter((_, i) => i !== idx));
+                            if (uploadedFiles.length <= 1) {
+                              setFileBase64(null);
+                              setUploadedFileUrl(null);
+                              setOcrDone(false);
+                              setInvoiceHeader(null);
+                              setOcrItems([]);
+                            }
+                          }}
+                          className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
                   </div>
 
                   {fileBase64 && !ocrDone && (
-                    <Button onClick={handleOCR} disabled={processing} className="w-full mt-4" size="lg">
+                    <Button onClick={handleOCR} disabled={processing} className="w-full mt-3" size="lg">
                       {processing ? (
                         <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Rozpoznawanie przez AI...</>
                       ) : (
@@ -741,7 +780,7 @@ export function InventoryPurchaseOCR({ entityId, showKsefOption }: Props) {
                 </CardContent>
               </Card>
 
-              {/* OCR Results */}
+              {/* OCR Results - inline editable */}
               {invoiceHeader && (
                 <Card>
                   <CardHeader>
@@ -796,25 +835,99 @@ export function InventoryPurchaseOCR({ entityId, showKsefOption }: Props) {
                       </div>
                     )}
 
-                    {/* Header info */}
-                    <div className="p-4 rounded-lg bg-muted/50 space-y-2">
-                      <div className="flex items-center justify-between">
+                    {/* Editable header info */}
+                    <div className="p-4 rounded-lg border bg-muted/30 space-y-3">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-3">
+                          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Sprzedawca</h4>
+                          <div className="space-y-2">
+                            <div>
+                              <Label className="text-xs">Nazwa firmy</Label>
+                              <Input 
+                                value={invoiceHeader.supplier_name || ''} 
+                                onChange={e => setInvoiceHeader(prev => prev ? {...prev, supplier_name: e.target.value} : prev)}
+                                className="h-8 text-sm"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">NIP</Label>
+                              <Input 
+                                value={invoiceHeader.supplier_nip || ''} 
+                                onChange={e => setInvoiceHeader(prev => prev ? {...prev, supplier_nip: e.target.value} : prev)}
+                                className="h-8 text-sm font-mono"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                        <div className="space-y-3">
+                          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Dane faktury</h4>
+                          <div className="space-y-2">
+                            <div>
+                              <Label className="text-xs">Numer faktury</Label>
+                              <Input 
+                                value={invoiceHeader.document_number || ''} 
+                                onChange={e => setInvoiceHeader(prev => prev ? {...prev, document_number: e.target.value} : prev)}
+                                className="h-8 text-sm font-mono"
+                              />
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <Label className="text-xs">Data</Label>
+                                <Input 
+                                  type="date" 
+                                  value={invoiceHeader.purchase_date || ''} 
+                                  onChange={e => setInvoiceHeader(prev => prev ? {...prev, purchase_date: e.target.value} : prev)}
+                                  className="h-8 text-sm"
+                                />
+                              </div>
+                              <div>
+                                <Label className="text-xs">Płatność</Label>
+                                <Select 
+                                  value={invoiceHeader.payment_method || 'przelew'} 
+                                  onValueChange={v => setInvoiceHeader(prev => prev ? {...prev, payment_method: v} : prev)}
+                                >
+                                  <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="przelew">Przelew</SelectItem>
+                                    <SelectItem value="gotówka">Gotówka</SelectItem>
+                                    <SelectItem value="karta">Karta</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 pt-2 border-t">
                         <div>
-                          <p className="font-semibold text-sm">{invoiceHeader.supplier_name || 'Brak nazwy'}</p>
-                          {invoiceHeader.supplier_nip && <p className="text-xs text-muted-foreground">NIP: {invoiceHeader.supplier_nip}</p>}
+                          <Label className="text-xs">Netto</Label>
+                          <Input 
+                            type="number" step="0.01"
+                            value={invoiceHeader.net_total ?? ''} 
+                            onChange={e => setInvoiceHeader(prev => prev ? {...prev, net_total: parseFloat(e.target.value) || 0} : prev)}
+                            className="h-8 text-sm font-mono"
+                          />
                         </div>
-                        <div className="text-right">
-                          <p className="text-sm font-mono">{invoiceHeader.document_number}</p>
-                          {invoiceHeader.purchase_date && <p className="text-xs text-muted-foreground">Data: {invoiceHeader.purchase_date}</p>}
-                          {invoiceHeader.payment_method && <p className="text-xs text-muted-foreground">Płatność: {invoiceHeader.payment_method}</p>}
+                        <div>
+                          <Label className="text-xs">VAT</Label>
+                          <Input 
+                            type="number" step="0.01"
+                            value={invoiceHeader.vat_total ?? ''} 
+                            onChange={e => setInvoiceHeader(prev => prev ? {...prev, vat_total: parseFloat(e.target.value) || 0} : prev)}
+                            className="h-8 text-sm font-mono"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Brutto</Label>
+                          <Input 
+                            type="number" step="0.01"
+                            value={invoiceHeader.gross_total ?? ''} 
+                            onChange={e => setInvoiceHeader(prev => prev ? {...prev, gross_total: parseFloat(e.target.value) || 0} : prev)}
+                            className="h-8 text-sm font-mono font-semibold"
+                          />
                         </div>
                       </div>
-                      <div className="flex gap-4 text-xs pt-2 border-t">
-                        <span>Netto: <strong>{invoiceHeader.net_total?.toFixed(2)} zł</strong></span>
-                        <span>VAT: <strong>{invoiceHeader.vat_total?.toFixed(2)} zł</strong></span>
-                        <span>Brutto: <strong>{invoiceHeader.gross_total?.toFixed(2)} zł</strong></span>
-                      </div>
-                      </div>
+                    </div>
 
                     {/* Buyer NIP mismatch warning */}
                     {buyerNip && companyNip && buyerNip !== companyNip && (
@@ -832,7 +945,7 @@ export function InventoryPurchaseOCR({ entityId, showKsefOption }: Props) {
                       </div>
                     )}
 
-                    {/* Items table */}
+                    {/* Items table with editable fields */}
                     {ocrItems.length > 0 && (
                       <div className="space-y-4">
                         <h3 className="font-medium flex items-center gap-2"><Package className="h-4 w-4" />Pozycje ({ocrItems.length})</h3>
@@ -853,12 +966,35 @@ export function InventoryPurchaseOCR({ entityId, showKsefOption }: Props) {
                               {ocrItems.map((item, index) => (
                                 <TableRow key={index}>
                                   <TableCell>
-                                    <p className="font-medium text-sm">{item.name}</p>
-                                    {item.supplier_symbol && <p className="text-xs text-muted-foreground">Indeks: {item.supplier_symbol}</p>}
-                                    {item.gtu_code && <Badge variant="outline" className="text-[10px] mt-1">{item.gtu_code}</Badge>}
+                                    <Input 
+                                      value={item.name} 
+                                      onChange={e => setOcrItems(prev => prev.map((it, i) => i === index ? {...it, name: e.target.value} : it))}
+                                      className="h-7 text-sm border-transparent hover:border-border focus:border-primary"
+                                    />
+                                    {item.supplier_symbol && <p className="text-xs text-muted-foreground mt-0.5">Indeks: {item.supplier_symbol}</p>}
                                   </TableCell>
-                                  <TableCell className="text-right text-sm">{item.quantity} {item.unit}</TableCell>
-                                  <TableCell className="text-right text-sm font-mono">{item.unit_price_net.toFixed(2)}</TableCell>
+                                  <TableCell className="text-right">
+                                    <Input 
+                                      type="number" step="1"
+                                      value={item.quantity} 
+                                      onChange={e => {
+                                        const qty = parseFloat(e.target.value) || 0;
+                                        setOcrItems(prev => prev.map((it, i) => i === index ? {...it, quantity: qty, total_net: qty * it.unit_price_net, total_gross: qty * it.unit_price_net * (1 + it.vat_rate / 100)} : it));
+                                      }}
+                                      className="h-7 text-sm w-16 text-right border-transparent hover:border-border focus:border-primary"
+                                    />
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <Input 
+                                      type="number" step="0.01"
+                                      value={item.unit_price_net} 
+                                      onChange={e => {
+                                        const price = parseFloat(e.target.value) || 0;
+                                        setOcrItems(prev => prev.map((it, i) => i === index ? {...it, unit_price_net: price, total_net: it.quantity * price, total_gross: it.quantity * price * (1 + it.vat_rate / 100)} : it));
+                                      }}
+                                      className="h-7 text-sm w-20 text-right font-mono border-transparent hover:border-border focus:border-primary"
+                                    />
+                                  </TableCell>
                                   <TableCell className="text-right text-sm">{item.vat_rate}%</TableCell>
                                   <TableCell className="text-right text-sm font-mono font-semibold">{item.total_gross.toFixed(2)}</TableCell>
                                   {invoiceMode === 'magazyn' && (
