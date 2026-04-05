@@ -18,6 +18,7 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useCart } from "@/hooks/useCart";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 interface Category {
   id: string;
@@ -309,6 +310,7 @@ export default function GeneralMarketplace() {
             </span>
           </div>
           <div className="flex items-center gap-1 sm:gap-2">
+            <LanguageSwitcher />
             {/* Cart icon */}
             <Button
               variant="ghost"
