@@ -155,7 +155,7 @@ export function VehiclePhotoGallery({ photos, title }: VehiclePhotoGalleryProps)
       </div>
 
       {/* Mobile: Single photo carousel with smooth swipe */}
-      <div className="md:hidden relative overflow-hidden rounded-xl">
+      <div className="md:hidden relative overflow-hidden rounded-xl" style={{ maxHeight: '50vh' }}>
         <div
           className="flex aspect-[4/3]"
           style={{
