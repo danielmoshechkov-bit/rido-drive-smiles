@@ -333,7 +333,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="bg-transparent w-full justify-start gap-1.5 h-auto p-0 flex-wrap mb-4">
+        <TabsList className="bg-transparent w-full justify-start gap-1.5 h-auto p-0 overflow-x-auto scrollbar-hide flex-nowrap mb-4">
           {[
             { value: 'tasks', label: 'Wycena zlecenia' },
             { value: 'basic', label: 'Podstawowe' },
