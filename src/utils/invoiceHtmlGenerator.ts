@@ -89,6 +89,13 @@ export interface InvoiceData {
   is_margin?: boolean;
   margin_purchase_price?: number;
   margin_procedure_type?: 'used_goods' | 'tourism' | 'art' | 'antiques';
+  // VAT RR (farmer invoice) data
+  vat_rr_data?: {
+    farmer_pesel?: string;
+    farmer_id_number?: string;
+    flat_rate_percent: number; // typically 7%
+    declaration_text?: string;
+  };
 }
 
 export type Currency = 'PLN' | 'EUR' | 'USD' | 'GBP' | 'CHF' | 'CZK';
