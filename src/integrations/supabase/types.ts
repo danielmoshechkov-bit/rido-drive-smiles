@@ -17475,8 +17475,10 @@ export type Database = {
           buyer_name: string | null
           buyer_nip: string | null
           company_id: string | null
+          corrected_invoice_date: string | null
           corrected_invoice_id: string | null
           corrected_invoice_number: string | null
+          corrected_ksef_reference: string | null
           correction_reason: string | null
           created_at: string | null
           currency: string | null
@@ -17515,8 +17517,10 @@ export type Database = {
           buyer_name?: string | null
           buyer_nip?: string | null
           company_id?: string | null
+          corrected_invoice_date?: string | null
           corrected_invoice_id?: string | null
           corrected_invoice_number?: string | null
+          corrected_ksef_reference?: string | null
           correction_reason?: string | null
           created_at?: string | null
           currency?: string | null
@@ -17555,8 +17559,10 @@ export type Database = {
           buyer_name?: string | null
           buyer_nip?: string | null
           company_id?: string | null
+          corrected_invoice_date?: string | null
           corrected_invoice_id?: string | null
           corrected_invoice_number?: string | null
+          corrected_ksef_reference?: string | null
           correction_reason?: string | null
           created_at?: string | null
           currency?: string | null
