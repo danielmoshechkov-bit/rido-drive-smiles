@@ -262,7 +262,7 @@ async function callKimiWithRetry(
       if (attempt >= 3) return null
       const retryAfter = parseInt(res.headers.get('retry-after') || '60')
       await sleep(Math.min(retryAfter * 1000, 60000))
-      return callKimiWithRetry(title, description, targetLangName, model, attempt + 1)
+      return callKimiWithRetry(title, description, targetLangName, model, externalApiKey, attempt + 1)
     }
 
     if (!res.ok) {
