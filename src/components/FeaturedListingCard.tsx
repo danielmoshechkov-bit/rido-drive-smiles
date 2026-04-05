@@ -500,7 +500,7 @@ export function FeaturedListingCard({ listing, viewMode, onClick, showTransactio
             {/* Price */}
             <div className="flex items-center justify-between pt-3 border-t">
               <div>
-                <span className="text-xs text-muted-foreground">Cena</span>
+                <span className="text-xs text-muted-foreground">{t('listing.price')}</span>
                 <p className="text-xl font-bold text-primary">{formatPrice()}</p>
               </div>
               
