@@ -42,7 +42,6 @@ export default function MarketplaceCart() {
       amount: total,
       description: `Zakup: ${firstItem.title}`,
       metadata: {
-        seller_id: firstItem.user_id,
         listing_id: firstItem.listing_id,
         items_count: items.length,
       },
