@@ -620,10 +620,10 @@ export default function EasyHub() {
             <div className="relative bg-gradient-to-br from-primary/5 to-primary/10 rounded-2xl p-5 md:p-6 border border-primary/10 shadow-lg flex-1">
               <MessageCircle className="absolute -top-2 -left-2 h-6 w-6 text-primary" />
               <p className="text-sm md:text-base leading-relaxed">
-                <span className="font-bold text-primary">Cześć!</span> Jestem{" "}
+                <span className="font-bold text-primary">{t('home.mascotHi')}</span> {t('home.mascotIntro')}{" "}
                 <strong>Rido AI</strong>.<br /><br />
-                GetRido to inteligentny portal ogłoszeń, ofert i usług.<br /><br />
-                Pomagam znaleźć, porównać i wybrać to, czego potrzebujesz.
+                {t('home.mascotDesc1')}<br /><br />
+                {t('home.mascotDesc2')}
               </p>
             </div>
             <div className="shrink-0">
