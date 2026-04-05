@@ -17491,6 +17491,7 @@ export type Database = {
           invoice_number: string
           invoice_type: string | null
           is_correction: boolean | null
+          is_margin: boolean | null
           is_paid: boolean | null
           issue_date: string
           issue_place: string | null
@@ -17500,6 +17501,8 @@ export type Database = {
           ksef_reference: string | null
           ksef_session_ref: string | null
           ksef_status: string | null
+          margin_procedure_type: string | null
+          margin_purchase_price: number | null
           net_total: number | null
           notes: string | null
           paid_amount: number | null
@@ -17536,6 +17539,7 @@ export type Database = {
           invoice_number: string
           invoice_type?: string | null
           is_correction?: boolean | null
+          is_margin?: boolean | null
           is_paid?: boolean | null
           issue_date: string
           issue_place?: string | null
@@ -17545,6 +17549,8 @@ export type Database = {
           ksef_reference?: string | null
           ksef_session_ref?: string | null
           ksef_status?: string | null
+          margin_procedure_type?: string | null
+          margin_purchase_price?: number | null
           net_total?: number | null
           notes?: string | null
           paid_amount?: number | null
@@ -17581,6 +17587,7 @@ export type Database = {
           invoice_number?: string
           invoice_type?: string | null
           is_correction?: boolean | null
+          is_margin?: boolean | null
           is_paid?: boolean | null
           issue_date?: string
           issue_place?: string | null
@@ -17590,6 +17597,8 @@ export type Database = {
           ksef_reference?: string | null
           ksef_session_ref?: string | null
           ksef_status?: string | null
+          margin_procedure_type?: string | null
+          margin_purchase_price?: number | null
           net_total?: number | null
           notes?: string | null
           paid_amount?: number | null

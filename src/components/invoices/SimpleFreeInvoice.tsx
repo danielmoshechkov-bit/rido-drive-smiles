@@ -167,6 +167,10 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
   const [autoSendKsef, setAutoSendKsef] = useState(false);
   const [hasKsefToken, setHasKsefToken] = useState(false);
   
+  // Margin invoice fields
+  const [marginPurchasePrice, setMarginPurchasePrice] = useState<number>(0);
+  const [marginProcedureType, setMarginProcedureType] = useState<string>('used_goods');
+  
   // Collapsible sections
   const [sellerExpanded, setSellerExpanded] = useState(true);
   const [discountConfig, setDiscountConfig] = useState<DiscountConfig>({
@@ -660,6 +664,10 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
       issued_by: issuedBy,
       // PDF options
       compact_pdf: compactPdf,
+      // Margin data
+      is_margin: invoiceType === 'vat_margin' || invoiceType === 'margin',
+      margin_purchase_price: marginPurchasePrice || undefined,
+      margin_procedure_type: marginProcedureType as any,
     };
   };
 
