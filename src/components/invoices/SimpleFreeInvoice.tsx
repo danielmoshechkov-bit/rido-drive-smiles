@@ -203,7 +203,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
   });
   
   // Buyer
-  const [buyer, setBuyer] = useState<ExtendedBuyer & { country?: string }>({
+  const [buyer, setBuyer] = useState<ExtendedBuyer & { country?: string; email?: string }>({
     name: '',
     nip: '',
     address_street: '',
@@ -211,7 +211,8 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
     address_apartment_number: '',
     address_city: '',
     address_postal_code: '',
-    country: 'Polska'
+    country: 'Polska',
+    email: ''
   });
   
   // Country list for buyer
