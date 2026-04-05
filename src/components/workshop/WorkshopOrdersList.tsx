@@ -139,8 +139,58 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
         </div>
       </div>
 
-      {/* Table */}
-      <Card>
+      {/* Mobile card view */}
+      <div className="md:hidden space-y-2">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : filteredOrders.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">Brak zleceń</div>
+        ) : (
+          <>
+            {filteredOrders.map((order: any) => (
+              <Card key={order.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => onSelectOrder?.(order)}>
+                <CardContent className="p-3">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center gap-2">
+                      <Wrench className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="font-semibold text-sm">{order.order_number}</span>
+                    </div>
+                    <Badge className={`${statusColors[order.status_name] || 'bg-gray-200 text-black'} text-[10px] px-1.5 py-0.5`}>
+                      {order.status_name || 'Brak'}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      {getVehicleName(order) && (
+                        <span className="flex items-center gap-1 truncate">
+                          <Car className="h-3 w-3 shrink-0" /> {getVehicleName(order)}
+                        </span>
+                      )}
+                    </div>
+                    <span className="font-medium text-foreground text-sm ml-2 shrink-0">
+                      {(order.total_gross || 0).toLocaleString('pl-PL', { minimumFractionDigits: 2 })} zł
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-muted-foreground mt-1">
+                    <span>{getClientName(order)}</span>
+                    <span>{format(new Date(order.created_at), 'dd.MM.yyyy')}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+            {filteredOrders.length > 0 && (
+              <div className="text-right text-sm font-semibold px-2 pt-2 border-t">
+                Suma: {totalSum.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} zł
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Desktop table view */}
+      <Card className="hidden md:block">
         <CardContent className="p-0">
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
