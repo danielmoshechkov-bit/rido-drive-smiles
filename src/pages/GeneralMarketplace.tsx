@@ -266,12 +266,14 @@ export default function GeneralMarketplace() {
 
       {/* Condition */}
       <div>
-        <label className="text-sm font-medium mb-1.5 block">Stan</label>
+        <label className="text-sm font-medium mb-1.5 block">{t('marketplace.condition')}</label>
         <Select value={conditionFilter} onValueChange={setConditionFilter}>
-          <SelectTrigger><SelectValue placeholder="Wszystkie stany" /></SelectTrigger>
+          <SelectTrigger><SelectValue placeholder={t('marketplace.allConditions')} /></SelectTrigger>
           <SelectContent>
-            {CONDITIONS.map(c => (
-              <SelectItem key={c.value} value={c.value || "all"}>{c.label}</SelectItem>
+            {CONDITION_VALUES.map(v => (
+              <SelectItem key={v || "all"} value={v || "all"}>
+                {v ? t(`marketplace.condition${v === 'nowy' ? 'New' : v === 'jak_nowy' ? 'LikeNew' : v === 'dobry' ? 'Good' : 'Fair'}`) : t('marketplace.allConditions')}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
