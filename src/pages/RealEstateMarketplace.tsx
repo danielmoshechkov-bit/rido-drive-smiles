@@ -373,6 +373,7 @@ function mapDbToListing(db: DbListing) {
 }
 
 export default function RealEstateMarketplace() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [user, setUser] = useState<any>(null);

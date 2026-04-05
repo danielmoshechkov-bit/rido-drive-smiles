@@ -89,6 +89,7 @@ interface VehicleListing {
 const OWNER_EMAILS = ['daniel.moshechkov@gmail.com', 'anastasiia.shapovalova1991@gmail.com'];
 
 export default function VehicleMarketplace() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [listings, setListings] = useState<VehicleListing[]>([]);
   const [filteredListings, setFilteredListings] = useState<VehicleListing[]>([]);
