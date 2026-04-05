@@ -608,8 +608,8 @@ export function FeaturedListings({ className, categoryContext, hideViewMore }: F
                 <div className="mb-2 p-2 rounded-lg w-fit bg-white/20 backdrop-blur-sm">
                   <Car className="h-5 w-5 text-white" />
                 </div>
-                <h3 className="font-bold text-base text-white leading-tight">Giełda Aut</h3>
-                <p className="text-xs text-white/80 mt-1">Samochody, motocykle, pojazdy</p>
+                <h3 className="font-bold text-base text-white leading-tight">{t('featured.carsTitle')}</h3>
+                <p className="text-xs text-white/80 mt-1">{t('featured.carsDesc')}</p>
                 <div className="absolute top-2 right-2 p-1.5 rounded-full bg-white/20 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity">
                   <ArrowRight className="h-3 w-3 text-white" />
                 </div>
