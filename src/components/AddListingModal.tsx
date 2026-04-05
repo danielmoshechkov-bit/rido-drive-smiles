@@ -89,6 +89,14 @@ function CategoryTileCard({
   const isAccessible = tile.available && (!tile.ownerOnly || isOwner);
   const showComingSoon = !tile.available || (tile.ownerOnly && !isOwner);
   
+  // Translate tile title/description based on id
+  const tileTitle = tile.id === 'vehicles' ? t('addListing.carsTitle') 
+    : tile.id === 'realestate' ? t('addListing.propsTitle')
+    : t('addListing.servicesTitle');
+  const tileDesc = tile.id === 'vehicles' ? t('addListing.carsDesc')
+    : tile.id === 'realestate' ? t('addListing.propsDesc')
+    : t('addListing.servicesDesc');
+  
   return (
     <Card 
       className={cn(
