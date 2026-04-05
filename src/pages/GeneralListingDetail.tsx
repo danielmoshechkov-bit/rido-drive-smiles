@@ -434,7 +434,9 @@ export default function GeneralListingDetail() {
             <div>
               <h2 className="text-xl font-semibold mb-4">Opis</h2>
               <div className="prose prose-sm max-w-none text-muted-foreground whitespace-pre-wrap leading-relaxed">
-                {listing.description || "Brak opisu."}
+                {translatedDesc || "Brak opisu."}
+              </div>
+            </div>
               </div>
             </div>
           </div>
