@@ -251,6 +251,7 @@ export function AddListingModal({ user, trigger }: AddListingModalProps) {
                 tile={tile}
                 onClick={() => handleCategoryClick(tile)}
                 isOwner={isOwner}
+                t={t}
               />
             ))}
           </div>
