@@ -520,7 +520,7 @@ export default function EasyHub() {
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <Input
               type="text"
-              placeholder={hasServicesAccess ? "AI, które znajdzie to za Ciebie…" : "Wyszukiwarka AI - wkrótce dostępna"}
+              placeholder={hasServicesAccess ? t('home.searchPlaceholder') : t('home.searchPlaceholderDisabled')}
               value={searchQuery}
               onChange={(e) => hasServicesAccess && setSearchQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && hasServicesAccess && handleSearch()}
