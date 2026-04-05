@@ -225,7 +225,7 @@ export default function GeneralMarketplace() {
 
       {/* Categories */}
       <div>
-        <label className="text-sm font-medium mb-1.5 block">Kategorie</label>
+        <label className="text-sm font-medium mb-1.5 block">{t('marketplace.categories')}</label>
         <div className="space-y-0.5 max-h-56 overflow-y-auto">
           <button
             onClick={() => setSelectedCategory(null)}
@@ -234,7 +234,7 @@ export default function GeneralMarketplace() {
               !selectedCategory && "bg-primary/10 text-primary font-medium"
             )}
           >
-            <span>Wszystkie</span>
+            <span>{t('marketplace.allCategories')}</span>
             <span className="text-muted-foreground text-xs">{listings.length}</span>
           </button>
           {categories.map(cat => (
