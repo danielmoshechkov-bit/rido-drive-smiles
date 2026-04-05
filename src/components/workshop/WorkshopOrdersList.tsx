@@ -94,12 +94,12 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
     <div className="space-y-4">
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2">
-        <Button onClick={() => setShowNewOrder(true)} className="gap-2">
-          <Plus className="h-4 w-4" /> Nowe zlecenie
+        <Button onClick={() => setShowNewOrder(true)} className="gap-2" size="sm">
+          <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Nowe</span> zlecenie
         </Button>
         {selectedIds.size > 0 && (
           <Button variant="destructive" size="sm" className="gap-1">
-            <Trash2 className="h-4 w-4" /> Usuń zaznaczone
+            <Trash2 className="h-4 w-4" /> Usuń
           </Button>
         )}
 
@@ -110,13 +110,14 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
           size="icon"
           title="Tylko zakończone"
           onClick={() => setCompletedOnly(!completedOnly)}
+          className="h-8 w-8"
         >
           <CheckCircle className="h-4 w-4" />
         </Button>
 
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[180px]">
-            <Filter className="h-4 w-4 mr-1" />
+          <SelectTrigger className="w-[130px] sm:w-[180px] h-8 text-xs sm:text-sm">
+            <Filter className="h-3.5 w-3.5 mr-1" />
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
@@ -127,13 +128,13 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
           </SelectContent>
         </Select>
 
-        <div className="relative">
+        <div className="relative w-full sm:w-auto">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Szukaj"
-            className="pl-9 w-[200px]"
+            className="pl-9 w-full sm:w-[200px] h-8"
           />
         </div>
       </div>
