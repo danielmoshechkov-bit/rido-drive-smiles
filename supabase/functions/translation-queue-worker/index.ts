@@ -108,36 +108,86 @@ async function translateOne(sb: any, item: any) {
   const kimiKey = Deno.env.get('KIMI_API_KEY')
   if (!kimiKey) throw new Error('KIMI_API_KEY not configured')
 
+  console.log('translateOne START:', item.listing_id, 'type:', item.listing_type, 'title:', (item.title || '').substring(0, 40))
+
   const langs = item.target_langs || ['en', 'ru', 'ua', 'de', 'vi', 'kz']
+  let savedCount = 0
+  let skippedCount = 0
+  let failedCount = 0
 
   for (const lang of langs) {
     const { data: existing } = await sb
       .from('listing_translations')
       .select('id')
       .eq('listing_id', item.listing_id)
+      .eq('listing_type', item.listing_type || 'general')
       .eq('target_lang', lang)
-      .single()
+      .maybeSingle()
 
-    if (existing) continue
+    if (existing) {
+      console.log(`Already exists: ${item.listing_id}/${lang}`)
+      skippedCount++
+      continue
+    }
 
     const langName = LANG_NAMES[lang] || lang
+    console.log(`Calling Kimi for ${item.listing_id} -> ${langName}`)
     const result = await callKimiWithRetry(kimiKey, item.title, item.description || '', langName)
 
-    if (result) {
-      await sb.from('listing_translations').upsert({
-        listing_id: item.listing_id,
-        listing_type: item.listing_type || 'general',
-        target_lang: lang,
-        title_translated: result.title,
-        description_translated: result.description,
-        source_lang: item.source_lang || 'pl',
-        translated_by: 'kimi',
-        translated_at: new Date().toISOString()
-      }, { onConflict: 'listing_id,listing_type,target_lang' })
+    if (!result) {
+      console.error(`Kimi returned null for ${item.listing_id}/${lang}`)
+      failedCount++
+      continue
+    }
+
+    console.log(`Kimi OK for ${item.listing_id}/${lang}: "${(result.title || '').substring(0, 30)}"`)
+
+    const row = {
+      listing_id: item.listing_id,
+      listing_type: item.listing_type || 'general',
+      target_lang: lang,
+      title_translated: result.title,
+      description_translated: result.description,
+      source_lang: item.source_lang || 'pl',
+      translated_by: 'kimi',
+      translated_at: new Date().toISOString()
+    }
+
+    // Try upsert first
+    const { error: upsertError } = await sb
+      .from('listing_translations')
+      .upsert(row, {
+        onConflict: 'listing_id,listing_type,target_lang',
+        ignoreDuplicates: false
+      })
+
+    if (upsertError) {
+      console.error(`Upsert FAILED ${item.listing_id}/${lang}:`, JSON.stringify(upsertError))
+      // Fallback: plain insert
+      const { error: insertError } = await sb
+        .from('listing_translations')
+        .insert(row)
+
+      if (insertError) {
+        console.error(`Insert ALSO FAILED ${item.listing_id}/${lang}:`, JSON.stringify(insertError))
+        failedCount++
+      } else {
+        console.log(`Insert fallback OK: ${item.listing_id}/${lang}`)
+        savedCount++
+      }
+    } else {
+      console.log(`Upsert OK: ${item.listing_id}/${lang}`)
+      savedCount++
     }
   }
 
-  return { success: true, listing_id: item.listing_id }
+  console.log(`translateOne DONE: ${item.listing_id} saved=${savedCount} skipped=${skippedCount} failed=${failedCount}`)
+
+  if (savedCount === 0 && skippedCount === 0) {
+    throw new Error(`No translations saved for ${item.listing_id} (failed=${failedCount})`)
+  }
+
+  return { success: true, listing_id: item.listing_id, saved: savedCount }
 }
 
 async function callKimiWithRetry(
@@ -164,17 +214,30 @@ async function callKimiWithRetry(
       })
     })
 
+    console.log(`Kimi response status: ${res.status} for ${targetLangName} (attempt ${attempt})`)
+
     if (res.status === 429) {
+      console.log('Kimi rate limited (429)')
       if (attempt >= 3) return null
       const retryAfter = parseInt(res.headers.get('retry-after') || '60')
       await sleep(Math.min(retryAfter * 1000, 60000))
       return callKimiWithRetry(apiKey, title, description, targetLangName, attempt + 1)
     }
 
-    if (!res.ok) throw new Error(`Kimi API error: ${res.status}`)
+    if (!res.ok) {
+      const errBody = await res.text()
+      console.error(`Kimi API error ${res.status}:`, errBody.substring(0, 300))
+      throw new Error(`Kimi API error: ${res.status}`)
+    }
 
     const data = await res.json()
     const text = data.choices?.[0]?.message?.content?.trim() || ''
+    
+    if (!text) {
+      console.error('Kimi returned empty content:', JSON.stringify(data).substring(0, 200))
+      return null
+    }
+
     const titleMatch = text.match(/TITLE:\s*(.+?)(?:\nDESC:|$)/s)
     const descMatch = text.match(/DESC:\s*(.+?)$/s)
 
@@ -182,7 +245,8 @@ async function callKimiWithRetry(
       title: titleMatch?.[1]?.trim() || title,
       description: descMatch?.[1]?.trim() || description
     }
-  } catch (e) {
+  } catch (e: any) {
+    console.error(`Kimi call error (attempt ${attempt}):`, e.message)
     if (attempt >= 3) return null
     await sleep(5000)
     return callKimiWithRetry(apiKey, title, description, targetLangName, attempt + 1)

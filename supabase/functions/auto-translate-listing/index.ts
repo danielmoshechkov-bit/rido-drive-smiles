@@ -105,7 +105,7 @@ Keep brand names, model numbers, prices unchanged.`
         const translatedTitle = titleMatch?.[1]?.trim() || title
         const translatedDesc = descMatch?.[1]?.trim() || description || ''
 
-        await sb.from('listing_translations').upsert({
+        const { error: upsertErr } = await sb.from('listing_translations').upsert({
           listing_id,
           listing_type: listing_type || 'general',
           target_lang: langCode,
@@ -114,7 +114,13 @@ Keep brand names, model numbers, prices unchanged.`
           source_lang: detectedLang,
           translated_by: 'kimi',
           translated_at: new Date().toISOString()
-        }, { onConflict: 'listing_id,listing_type,target_lang' })
+        }, {
+          onConflict: 'listing_id,listing_type,target_lang',
+          ignoreDuplicates: false
+        })
+        if (upsertErr) {
+          console.error(`Upsert error ${langCode}:`, upsertErr.message, upsertErr.details)
+        }
 
         translated[langCode] = { title: translatedTitle, description: translatedDesc }
 
