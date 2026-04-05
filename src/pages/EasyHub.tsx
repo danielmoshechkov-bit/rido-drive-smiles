@@ -641,7 +641,7 @@ export default function EasyHub() {
       {activeCategory === 'main' && (
         <section className="container mx-auto px-4 py-6 md:py-8 text-center">
           <p className="text-muted-foreground text-sm md:text-base">
-            Tworzymy jedno miejsce, które upraszcza życie.
+            {t('home.footerTagline')}
           </p>
         </section>
       )}
