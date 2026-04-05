@@ -535,45 +535,52 @@ export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataC
           </Card>
 
           {/* SEKCJA D — PODSUMOWANIE RÓŻNICY */}
-          <Card className="border-2 border-dashed">
+          <Card>
             <CardContent className="pt-4">
               <h4 className="text-sm font-semibold mb-3">Podsumowanie korekty</h4>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Netto wg pierwotnej:</span>
-                  <span>{fmt(totalsBefore.net)} zł</span>
+              <div className="grid grid-cols-2 gap-4">
+                {/* Left: breakdown */}
+                <div className="space-y-1.5 text-sm">
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Netto przed:</span>
+                    <span>{fmt(totalsBefore.net)} zł</span>
+                  </div>
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Netto po:</span>
+                    <span>{fmt(totalsAfter.net)} zł</span>
+                  </div>
+                  <div className="flex justify-between font-medium">
+                    <span>Różnica netto:</span>
+                    <span className={diffNet < 0 ? 'text-destructive' : diffNet > 0 ? 'text-primary' : ''}>
+                      {diffNet > 0 ? '+' : ''}{fmt(diffNet)} zł
+                    </span>
+                  </div>
+                  <Separator className="my-1" />
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>VAT przed:</span>
+                    <span>{fmt(totalsBefore.vat)} zł</span>
+                  </div>
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>VAT po:</span>
+                    <span>{fmt(totalsAfter.vat)} zł</span>
+                  </div>
+                  <div className="flex justify-between font-medium">
+                    <span>Różnica VAT:</span>
+                    <span className={diffVat < 0 ? 'text-destructive' : diffVat > 0 ? 'text-primary' : ''}>
+                      {diffVat > 0 ? '+' : ''}{fmt(diffVat)} zł
+                    </span>
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Netto wg korekty:</span>
-                  <span>{fmt(totalsAfter.net)} zł</span>
-                </div>
-                <div className="flex justify-between font-medium">
-                  <span>Różnica netto:</span>
-                  <span className={diffNet < 0 ? 'text-destructive' : diffNet > 0 ? 'text-primary' : ''}>
-                    {diffNet > 0 ? '+' : ''}{fmt(diffNet)} zł
-                  </span>
-                </div>
-                <Separator />
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">VAT wg pierwotnej:</span>
-                  <span>{fmt(totalsBefore.vat)} zł</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">VAT wg korekty:</span>
-                  <span>{fmt(totalsAfter.vat)} zł</span>
-                </div>
-                <div className="flex justify-between font-medium">
-                  <span>Różnica VAT:</span>
-                  <span className={diffVat < 0 ? 'text-destructive' : diffVat > 0 ? 'text-primary' : ''}>
-                    {diffVat > 0 ? '+' : ''}{fmt(diffVat)} zł
-                  </span>
-                </div>
-                <Separator />
-                <div className="flex justify-between text-base font-bold">
-                  <span>RAZEM KOREKTA BRUTTO:</span>
-                  <span className={diffGross < 0 ? 'text-destructive' : diffGross > 0 ? 'text-primary' : 'text-primary'}>
-                    {diffGross > 0 ? '+' : ''}{fmt(diffGross)} zł
-                  </span>
+                {/* Right: total */}
+                <div className="flex items-center justify-center">
+                  <div className={`rounded-lg p-4 text-center ${diffGross < 0 ? 'bg-destructive/10 border border-destructive/20' : 'bg-primary/10 border border-primary/20'}`}>
+                    <p className="text-xs text-muted-foreground mb-1">
+                      {diffGross < 0 ? 'Do zwrotu nabywcy' : diffGross > 0 ? 'Dopłata nabywcy' : 'Bez zmian'}
+                    </p>
+                    <p className={`text-2xl font-bold ${diffGross < 0 ? 'text-destructive' : 'text-primary'}`}>
+                      {diffGross > 0 ? '+' : ''}{fmt(diffGross)} zł
+                    </p>
+                  </div>
                 </div>
               </div>
             </CardContent>
