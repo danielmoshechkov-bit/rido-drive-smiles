@@ -215,7 +215,7 @@ export function MyGetRidoButton({ user, variant = "outline", size = "sm", classN
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleLogout} className="text-destructive">
           <LogOut className="h-4 w-4 mr-2" />
-          Wyloguj
+          {t('myAccount.logout')}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
