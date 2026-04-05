@@ -80,6 +80,7 @@ interface FeaturedListingsProps {
 
 export function FeaturedListings({ className, categoryContext, hideViewMore }: FeaturedListingsProps) {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   
   // Determine initial category based on context
   const getInitialCategory = (): ListingCategory => {
