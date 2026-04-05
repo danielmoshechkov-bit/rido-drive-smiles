@@ -480,6 +480,7 @@ export default function EasyHub() {
             )}
           </div>
           <div className="flex gap-2 items-center">
+            <LanguageSwitcher />
             {!user ? (
               <Button
                 variant="outline"
