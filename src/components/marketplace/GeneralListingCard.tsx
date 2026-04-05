@@ -260,7 +260,7 @@ export function GeneralListingCard({ listing, variant = "grid", onToggleCompare,
               </>
             )}
           </div>
-          <span className="shrink-0">{timeAgo(listing.created_at)}</span>
+          <span className="shrink-0">{timeAgoText}</span>
         </div>
 
         {/* AI score */}
