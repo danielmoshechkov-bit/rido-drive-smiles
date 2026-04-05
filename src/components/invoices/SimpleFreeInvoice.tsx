@@ -856,9 +856,19 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
         };
         if (isCorrection) {
           insertData.is_correction = true;
+          insertData.invoice_type = 'KOR';
           insertData.corrected_invoice_id = correctionData!.originalInvoiceId;
           insertData.corrected_invoice_number = correctionData!.originalInvoiceNumber;
+          insertData.corrected_invoice_date = correctionData!.originalIssueDate;
+          insertData.corrected_ksef_reference = correctionData!.originalKsefReference || null;
           insertData.correction_reason = correctionReasonLabel;
+          console.log('[Korekta] Zapisuję dane korekty:', {
+            corrected_invoice_id: insertData.corrected_invoice_id,
+            corrected_invoice_number: insertData.corrected_invoice_number,
+            corrected_invoice_date: insertData.corrected_invoice_date,
+            corrected_ksef_reference: insertData.corrected_ksef_reference,
+            invoice_type: insertData.invoice_type,
+          });
         }
 
         const { data: savedInvoice, error } = await supabase
@@ -951,6 +961,21 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
     if (invoiceType === 'correction' && !correctionData) {
       toast.error('Wybierz fakturę pierwotną i zakres korekty');
       return;
+    }
+
+    if (invoiceType === 'correction' && correctionData) {
+      if (!correctionData.originalInvoiceId) {
+        toast.error('Brak ID faktury pierwotnej — wybierz dokument do korekty');
+        return;
+      }
+      if (!correctionData.originalInvoiceNumber) {
+        toast.error('Brak numeru faktury pierwotnej');
+        return;
+      }
+      if (!correctionData.originalIssueDate) {
+        toast.error('Brak daty wystawienia faktury pierwotnej');
+        return;
+      }
     }
 
     if (items.every(item => !item.name || item.quantity === 0)) {
