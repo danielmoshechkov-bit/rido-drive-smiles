@@ -294,10 +294,12 @@ async function callKimiWithRetry(
 async function callAnthropicWithRetry(
   title: string, description: string, targetLangName: string, model: string, attempt = 1
 ): Promise<{ title: string; description: string } | null> {
-  const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
+  const apiKey = (Deno.env.get('ANTHROPIC_API_KEY') || '').trim()
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured')
 
   try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 10000)
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -306,14 +308,16 @@ async function callAnthropicWithRetry(
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: model || 'claude-sonnet-4-20250514',
+        model: model || 'claude-haiku-4-5-20251001',
         max_tokens: 800,
         messages: [{
           role: 'user',
           content: `${TRANSLATE_PROMPT(targetLangName)}\n\nTITLE: ${title}\nDESC: ${description}`
         }]
-      })
+      }),
+      signal: controller.signal
     })
+    clearTimeout(timeout)
 
     console.log(`Anthropic status: ${res.status} lang=${targetLangName} attempt=${attempt}`)
 
