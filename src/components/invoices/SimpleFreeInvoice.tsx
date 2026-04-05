@@ -856,9 +856,19 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
         };
         if (isCorrection) {
           insertData.is_correction = true;
+          insertData.invoice_type = 'KOR';
           insertData.corrected_invoice_id = correctionData!.originalInvoiceId;
           insertData.corrected_invoice_number = correctionData!.originalInvoiceNumber;
+          insertData.corrected_invoice_date = correctionData!.originalIssueDate;
+          insertData.corrected_ksef_reference = correctionData!.originalKsefReference || null;
           insertData.correction_reason = correctionReasonLabel;
+          console.log('[Korekta] Zapisuję dane korekty:', {
+            corrected_invoice_id: insertData.corrected_invoice_id,
+            corrected_invoice_number: insertData.corrected_invoice_number,
+            corrected_invoice_date: insertData.corrected_invoice_date,
+            corrected_ksef_reference: insertData.corrected_ksef_reference,
+            invoice_type: insertData.invoice_type,
+          });
         }
 
         const { data: savedInvoice, error } = await supabase
