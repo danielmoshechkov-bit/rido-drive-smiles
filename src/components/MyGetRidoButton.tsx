@@ -137,8 +137,8 @@ export function MyGetRidoButton({ user, variant = "outline", size = "sm", classN
           className={cn("text-xs sm:text-sm px-2 sm:px-3", className)}
         >
           <User className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-          <span className="hidden sm:inline">Moje GetRido</span>
-          <span className="sm:hidden">Moje</span>
+          <span className="hidden sm:inline">{t('myAccount.title')}</span>
+          <span className="sm:hidden">{t('myAccount.titleShort')}</span>
         </Button>
         
         <AuthModal 
