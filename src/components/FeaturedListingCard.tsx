@@ -376,7 +376,7 @@ export function FeaturedListingCard({ listing, viewMode, onClick, showTransactio
             {photos[currentPhotoIndex] ? (
               <img 
                 src={photos[currentPhotoIndex]}
-                alt={listing.title}
+                alt={title}
                 className="w-full h-full object-cover object-center"
               />
             ) : (
