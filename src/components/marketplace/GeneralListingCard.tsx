@@ -111,7 +111,7 @@ export function GeneralListingCard({ listing, variant = "grid", onToggleCompare,
       >
         <div className="relative w-[200px] sm:w-[240px] shrink-0 bg-muted overflow-hidden">
           {photo ? (
-            <img src={photo.url} alt={listing.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" />
+            <img src={photo.url} alt={title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" />
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground min-h-[140px]">
               <ImageIcon className="h-8 w-8 mb-1" />
