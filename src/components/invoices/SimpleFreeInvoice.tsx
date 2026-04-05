@@ -1443,6 +1443,14 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
                 onChange={(e) => setBuyer(prev => ({ ...prev, address_city: e.target.value }))}
               />
             </div>
+            <div className="col-span-2">
+              <FloatingInput
+                label="Email nabywcy (do wysyłki faktur)"
+                type="email"
+                value={buyer.email || ''}
+                onChange={(e) => setBuyer(prev => ({ ...prev, email: e.target.value }))}
+              />
+            </div>
           </div>
         </CardContent>
       </Card>
