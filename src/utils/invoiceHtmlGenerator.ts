@@ -67,6 +67,24 @@ export interface InvoiceData {
   ksef_status?: string;
   ksef_reference?: string;
   ksef_acceptance_date?: string;
+  // Correction data
+  correction_data?: {
+    original_invoice_number: string;
+    original_invoice_date: string;
+    correction_reason: string;
+    before_items: InvoiceItem[];
+    after_items: InvoiceItem[];
+    before_totals: { net: number; vat: number; gross: number };
+    after_totals: { net: number; vat: number; gross: number };
+    diff_totals: { net: number; vat: number; gross: number };
+  };
+  // Advance invoice data
+  advance_data?: {
+    advance_invoice_number?: string;
+    advance_invoice_date?: string;
+    advance_amount?: number;
+    advance_vat?: number;
+  };
 }
 
 export type Currency = 'PLN' | 'EUR' | 'USD' | 'GBP' | 'CHF' | 'CZK';
