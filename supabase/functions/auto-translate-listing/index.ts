@@ -72,7 +72,7 @@ serve(async (req) => {
       const textToTranslate = `TITLE: ${title}\nDESCRIPTION: ${description || ''}`
       
       try {
-        const res = await fetch('https://api.moonshot.cn/v1/chat/completions', {
+        const res = await fetch('https://api.moonshot.ai/v1/chat/completions', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
