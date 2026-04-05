@@ -881,7 +881,7 @@ export default function RealEstateMarketplace() {
           {/* Left side - view toggle + sort */}
           <div className="flex items-center gap-2 sm:gap-3">
             {/* View Mode Toggle */}
-            <div className="hidden sm:flex gap-0.5 bg-muted rounded-lg p-0.5">
+            <div className="flex gap-0.5 bg-muted rounded-lg p-0.5">
               <Button 
                 variant={viewMode === 'grid' ? 'default' : 'ghost'} 
                 size="sm"

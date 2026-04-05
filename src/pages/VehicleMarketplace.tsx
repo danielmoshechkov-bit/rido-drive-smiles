@@ -557,7 +557,7 @@ export default function VehicleMarketplace() {
       {/* Results Count & View Toggle */}
       <section className="container mx-auto px-4 py-2">
         <div className="flex items-center justify-between max-w-7xl mx-auto">
-          <div className="hidden sm:flex gap-0.5 bg-muted rounded-lg p-0.5">
+          <div className="flex gap-0.5 bg-muted rounded-lg p-0.5">
             <Button 
               variant={viewMode === 'grid' ? 'default' : 'ghost'} 
               size="sm"

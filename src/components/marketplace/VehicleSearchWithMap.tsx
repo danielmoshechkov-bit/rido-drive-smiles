@@ -363,7 +363,7 @@ export function VehicleSearchWithMap({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-2 mt-3">
+        <div className="flex flex-wrap items-center gap-2 mt-3">
           <Collapsible open={showAdvanced} onOpenChange={setShowAdvanced} className="flex-shrink-0">
             <CollapsibleTrigger asChild>
               <Button variant="outline" size="sm" className="gap-2">

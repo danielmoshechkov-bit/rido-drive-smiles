@@ -363,7 +363,7 @@ export default function GeneralMarketplace() {
                 </Sheet>
 
                 {/* View Mode Toggle — identical to Nieruchomości */}
-                <div className="hidden sm:flex gap-0.5 bg-muted rounded-lg p-0.5">
+                <div className="flex gap-0.5 bg-muted rounded-lg p-0.5">
                   <Button
                     variant={viewMode === 'grid' ? 'default' : 'ghost'}
                     size="sm"
