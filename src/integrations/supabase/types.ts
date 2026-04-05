@@ -3065,6 +3065,47 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_photo_orders: {
+        Row: {
+          amount: number
+          created_at: string | null
+          id: string
+          listing_id: string | null
+          photos_count: number
+          processed_photos: Json | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string | null
+          id?: string
+          listing_id?: string | null
+          photos_count: number
+          processed_photos?: Json | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          id?: string
+          listing_id?: string | null
+          photos_count?: number
+          processed_photos?: Json | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_photo_orders_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "general_listings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_pricing: {
         Row: {
           created_at: string | null

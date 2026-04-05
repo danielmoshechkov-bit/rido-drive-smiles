@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { UniversalHomeButton } from "@/components/UniversalHomeButton";
+import { AIPhotoSection } from "@/components/marketplace/AIPhotoSection";
 import { ArrowLeft, Upload, X, Loader2, Save } from "lucide-react";
 
 interface Category {
@@ -42,7 +43,7 @@ export default function GeneralListingEdit() {
   const [priceNegotiable, setPriceNegotiable] = useState(false);
   const [location, setLocation] = useState("");
 
-  const [existingPhotos, setExistingPhotos] = useState<{ id: string; url: string }[]>([]);
+  const [existingPhotos, setExistingPhotos] = useState<{ id: string; url: string; is_ai_enhanced?: boolean }[]>([]);
   const [newPhotos, setNewPhotos] = useState<File[]>([]);
   const [newPhotoUrls, setNewPhotoUrls] = useState<string[]>([]);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
@@ -56,7 +57,7 @@ export default function GeneralListingEdit() {
       const [catRes, listRes, photoRes] = await Promise.all([
         supabase.from("general_listing_categories").select("id, name, slug").order("name"),
         supabase.from("general_listings").select("*").eq("id", id).eq("user_id", u.id).single(),
-        supabase.from("general_listing_photos").select("id, url").eq("listing_id", id!).order("display_order"),
+        supabase.from("general_listing_photos").select("id, url, is_ai_enhanced").eq("listing_id", id!).order("display_order"),
       ]);
 
       if (catRes.data) setCategories(catRes.data);
@@ -296,6 +297,23 @@ export default function GeneralListingEdit() {
             )}
           </CardContent>
         </Card>
+
+        {/* AI Photo Section */}
+        {user && id && (
+          <AIPhotoSection
+            listingId={id}
+            userId={user.id}
+            photos={existingPhotos}
+            onPhotosUpdated={async () => {
+              const { data } = await supabase
+                .from("general_listing_photos")
+                .select("id, url, is_ai_enhanced")
+                .eq("listing_id", id)
+                .order("display_order");
+              if (data) setExistingPhotos(data);
+            }}
+          />
+        )}
 
         <div className="flex gap-3">
           <Button onClick={handleSave} disabled={saving || uploadingPhotos} size="lg" className="gap-2">
