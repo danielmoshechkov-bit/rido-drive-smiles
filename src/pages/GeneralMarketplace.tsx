@@ -281,8 +281,8 @@ export default function GeneralMarketplace() {
 
       {/* Location */}
       <div>
-        <label className="text-sm font-medium mb-1.5 block">Lokalizacja</label>
-        <Input placeholder="Miasto..." value={locationFilter} onChange={e => setLocationFilter(e.target.value)} />
+        <label className="text-sm font-medium mb-1.5 block">{t('marketplace.location')}</label>
+        <Input placeholder={t('marketplace.city')} value={locationFilter} onChange={e => setLocationFilter(e.target.value)} />
       </div>
 
       {hasActiveFilters && (
