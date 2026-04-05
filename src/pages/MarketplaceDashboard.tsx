@@ -27,6 +27,7 @@ import { DriverOnboardingWizard } from "@/components/driver/DriverOnboardingWiza
 import { AccountSwitcherPanel } from "@/components/AccountSwitcherPanel";
 import { AddListingModal } from "@/components/AddListingModal";
 import { UniversalHomeButton } from "@/components/UniversalHomeButton";
+import { GeneralListingsTab } from "@/components/marketplace/GeneralListingsTab";
 
 interface MarketplaceProfile {
   id: string;
