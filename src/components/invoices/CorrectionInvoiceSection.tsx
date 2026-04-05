@@ -340,7 +340,7 @@ export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataC
                 <span className="text-muted-foreground text-xs">(dane z faktury pierwotnej — tylko do odczytu)</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-0">
+            <CardContent className="px-0 py-0">
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
