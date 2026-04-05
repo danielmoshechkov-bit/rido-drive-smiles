@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { useCart } from "@/hooks/useCart";
+import { useListingTranslation } from "@/hooks/useListingTranslation";
 import { PendingReviewBanner } from "@/components/marketplace/PendingReviewBanner";
 import { MarketCompareBar } from "@/components/marketplace/MarketCompareBar";
 import { GeneralListingCard } from "@/components/marketplace/GeneralListingCard";
