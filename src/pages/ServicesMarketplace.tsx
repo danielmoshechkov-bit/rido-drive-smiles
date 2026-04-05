@@ -214,9 +214,15 @@ export default function ServicesMarketplace() {
     if (selectedCategorySlug) {
       const categoryMatch = provider.category?.slug === selectedCategorySlug;
       const hasServicesInCategory = (provider as any).provider_services?.some(
-        (ps: any) => ps.status === 'active'
+        (ps: any) => ps.is_active && (
+          ps.category?.toLowerCase() === selectedCategorySlug.toLowerCase()
+        )
       );
-      if (!categoryMatch && !hasServicesInCategory) {
+      // Also match if provider name contains category slug (e.g. "Warsztat Testowy" for slug "warsztat")
+      const nameMatchesCategory = provider.company_name?.toLowerCase().includes(
+        selectedCategorySlug.replace(/-/g, ' ').toLowerCase()
+      );
+      if (!categoryMatch && !hasServicesInCategory && !nameMatchesCategory) {
         return false;
       }
     }
@@ -461,7 +467,7 @@ export default function ServicesMarketplace() {
       {/* Categories Filter */}
       <section className="py-4 border-b">
         <div className="container mx-auto px-4">
-          <div className="flex flex-wrap gap-2 justify-center">
+          <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2 md:flex-wrap md:justify-center">
             <Badge
               variant={!selectedCategorySlug ? "default" : "outline"}
               className="cursor-pointer px-4 py-2 text-sm"
