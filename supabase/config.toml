@@ -222,3 +222,6 @@ verify_jwt = false
 
 [functions.generate-document-ai]
 verify_jwt = false
+
+[functions.parse-general-listing]
+verify_jwt = false
