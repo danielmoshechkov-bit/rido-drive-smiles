@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { GeneralListingCard } from "@/components/marketplace/GeneralListingCard";
 import { UniversalHomeButton } from "@/components/UniversalHomeButton";
 import { MyGetRidoButton } from "@/components/MyGetRidoButton";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import Footer from "@/components/Footer";
 import {
   Search, Sparkles, Plus, SlidersHorizontal, PackageOpen, Loader2,
