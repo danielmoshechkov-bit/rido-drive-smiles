@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Star, Fuel, Calendar, MapPin, ChevronLeft, ChevronRight, Phone, Mail, Car, User } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useListingTranslation } from "@/hooks/useListingTranslation";
 
 interface VehicleListing {
   id: string;
