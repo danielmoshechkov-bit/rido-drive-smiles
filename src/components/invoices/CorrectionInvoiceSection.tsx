@@ -401,20 +401,20 @@ export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataC
             </CardHeader>
             <CardContent className="px-0 py-0">
               <div className="overflow-x-auto">
-                <Table className="table-fixed w-full">
+                <Table className="w-full">
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[30px] px-1">Lp.</TableHead>
-                      <TableHead className="px-1">Nazwa</TableHead>
-                      <TableHead className="text-right w-[50px] px-1">Ilość</TableHead>
-                      <TableHead className="w-[36px] px-1">J.m.</TableHead>
-                      <TableHead className="text-right w-[70px] px-1">Cena netto</TableHead>
-                      <TableHead className="text-right w-[70px] px-1">Cena brutto</TableHead>
-                      <TableHead className="text-right w-[50px] px-1">Rabat%</TableHead>
-                      <TableHead className="text-right w-[70px] px-1">Wart. netto</TableHead>
-                      <TableHead className="text-right w-[45px] px-1">VAT%</TableHead>
-                      <TableHead className="text-right w-[60px] px-1">VAT</TableHead>
-                      <TableHead className="text-right w-[70px] px-1">Brutto</TableHead>
+                      <TableHead className="w-8 px-2">Lp.</TableHead>
+                      <TableHead className="px-2 min-w-[120px]">Nazwa</TableHead>
+                      <TableHead className="text-right w-14 px-2">Ilość</TableHead>
+                      <TableHead className="w-10 px-2">J.m.</TableHead>
+                      <TableHead className="text-right w-24 px-2">Cena netto</TableHead>
+                      <TableHead className="text-right w-24 px-2">Cena brutto</TableHead>
+                      <TableHead className="text-right w-16 px-2">Rabat%</TableHead>
+                      <TableHead className="text-right w-24 px-2">Wart. netto</TableHead>
+                      <TableHead className="text-right w-16 px-2">VAT%</TableHead>
+                      <TableHead className="text-right w-20 px-2">VAT</TableHead>
+                      <TableHead className="text-right w-24 px-2">Brutto</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -432,7 +432,7 @@ export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataC
                       const discountChanged = discount > 0;
                       return (
                         <TableRow key={idx}>
-                          <TableCell className="text-xs">{idx + 1}</TableCell>
+                          <TableCell className="text-xs px-2">{idx + 1}</TableCell>
                           <TableCell className="p-1">
                             <input
                               type="text"
@@ -457,7 +457,7 @@ export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataC
                               }}
                             />
                           </TableCell>
-                          <TableCell className="text-xs">{item.unit}</TableCell>
+                          <TableCell className="text-xs px-2">{item.unit}</TableCell>
                           <TableCell className="p-1">
                             <input
                               type="number"
@@ -500,13 +500,13 @@ export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataC
                               }}
                             />
                           </TableCell>
-                          <TableCell className="text-xs text-right">{fmt(t.net)}</TableCell>
+                          <TableCell className="text-xs text-right px-2">{fmt(t.net)}</TableCell>
                           <TableCell className="p-1">
                             <Select value={item.vat_rate_after} onValueChange={(value) => {
                               toggleCorrectionMode(idx, 'edit_vat', true);
                               updateCorrectionItem(idx, 'vat_rate_after', value);
                             }}>
-                              <SelectTrigger className={`h-8 text-xs ${vatChanged ? 'border-primary bg-primary/5' : ''}`}>
+                              <SelectTrigger className={`h-8 text-xs min-w-[60px] ${vatChanged ? 'border-primary bg-primary/5' : ''}`}>
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -516,17 +516,17 @@ export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataC
                               </SelectContent>
                             </Select>
                           </TableCell>
-                          <TableCell className="text-xs text-right">{fmt(t.vat)}</TableCell>
-                          <TableCell className="text-xs text-right font-medium">{fmt(t.gross)}</TableCell>
+                          <TableCell className="text-xs text-right px-2">{fmt(t.vat)}</TableCell>
+                          <TableCell className="text-xs text-right font-medium px-2">{fmt(t.gross)}</TableCell>
                         </TableRow>
                       );
                     })}
                     <TableRow className="font-medium">
-                      <TableCell colSpan={7} className="text-xs text-right">Razem PO KOREKCIE:</TableCell>
-                      <TableCell className="text-xs text-right">{fmt(totalsAfter.net)}</TableCell>
-                      <TableCell />
-                      <TableCell className="text-xs text-right">{fmt(totalsAfter.vat)}</TableCell>
-                      <TableCell className="text-xs text-right">{fmt(totalsAfter.gross)}</TableCell>
+                      <TableCell colSpan={7} className="text-xs text-right px-2">Razem PO KOREKCIE:</TableCell>
+                      <TableCell className="text-xs text-right px-2">{fmt(totalsAfter.net)}</TableCell>
+                      <TableCell className="px-2" />
+                      <TableCell className="text-xs text-right px-2">{fmt(totalsAfter.vat)}</TableCell>
+                      <TableCell className="text-xs text-right px-2">{fmt(totalsAfter.gross)}</TableCell>
                     </TableRow>
                   </TableBody>
                 </Table>
