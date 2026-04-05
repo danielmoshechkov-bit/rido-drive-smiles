@@ -23,6 +23,7 @@ import { useCompare, PropertyCompareItem } from "@/contexts/CompareContext";
 import { toast } from "sonner";
 import { UniversalHomeButton } from "@/components/UniversalHomeButton";
 import { MyGetRidoButton } from "@/components/MyGetRidoButton";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { PortalCategoryGrid } from "@/components/portal/PortalCategoryGrid";
 import { SEOHead, seoConfigs } from "@/components/SEOHead";
 

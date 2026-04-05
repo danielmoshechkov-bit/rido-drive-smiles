@@ -17,6 +17,7 @@ import { CompareBar } from "@/components/marketplace/CompareBar";
 import { useCompare } from "@/contexts/CompareContext";
 import { UniversalHomeButton } from "@/components/UniversalHomeButton";
 import { MyGetRidoButton } from "@/components/MyGetRidoButton";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { AddListingModal } from "@/components/AddListingModal";
 import { PortalCategoryGrid } from "@/components/portal/PortalCategoryGrid";
 import { SEOHead, seoConfigs } from "@/components/SEOHead";
