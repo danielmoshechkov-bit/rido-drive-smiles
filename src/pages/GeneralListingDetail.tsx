@@ -71,6 +71,18 @@ export default function GeneralListingDetail() {
         body: { listingId: id, interactionType: "view" }
       }).catch(() => {});
 
+      // Fetch seller rating
+      if (listRes.data.user_id) {
+        const { data: reviews } = await supabase
+          .from("listing_reviews")
+          .select("score_avg")
+          .eq("seller_id", listRes.data.user_id);
+        if (reviews && reviews.length > 0) {
+          const avg = reviews.reduce((s, r) => s + Number(r.score_avg), 0) / reviews.length;
+          setSellerRating({ avg, count: reviews.length });
+        }
+      }
+
       // Fav
       const favs = JSON.parse(localStorage.getItem("rido_market_favs") || "[]");
       setIsFav(favs.includes(id));
