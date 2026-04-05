@@ -85,6 +85,10 @@ export interface InvoiceData {
     advance_amount?: number;
     advance_vat?: number;
   };
+  // Margin invoice data
+  is_margin?: boolean;
+  margin_purchase_price?: number;
+  margin_procedure_type?: 'used_goods' | 'tourism' | 'art' | 'antiques';
 }
 
 export type Currency = 'PLN' | 'EUR' | 'USD' | 'GBP' | 'CHF' | 'CZK';
