@@ -129,7 +129,7 @@ export function FeaturedListingCard({ listing, viewMode, onClick, showTransactio
       if (listing.price_from && listing.price_from > 0) {
         return `od ${listing.price_from.toLocaleString('pl-PL')} zł`;
       }
-      return 'Zapytaj o cenę';
+      return t('listing.askPrice');
     }
     
     const priceStr = listing.price?.toLocaleString('pl-PL') || '0';
