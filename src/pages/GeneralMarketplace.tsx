@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { GeneralListingCard } from "@/components/marketplace/GeneralListingCard";
 import { UniversalHomeButton } from "@/components/UniversalHomeButton";
 import { MyGetRidoButton } from "@/components/MyGetRidoButton";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import Footer from "@/components/Footer";
 import {
   Search, Sparkles, Plus, SlidersHorizontal, PackageOpen, Loader2,
@@ -28,16 +30,11 @@ interface Category {
 
 const PER_PAGE = 20;
 
-const CONDITIONS = [
-  { value: "", label: "Wszystkie stany" },
-  { value: "nowy", label: "Nowy" },
-  { value: "jak_nowy", label: "Jak nowy" },
-  { value: "dobry", label: "Dobry" },
-  { value: "dostateczny", label: "Dostateczny" },
-];
+const CONDITION_VALUES = ["", "nowy", "jak_nowy", "dobry", "dostateczny"];
 
 export default function GeneralMarketplace() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [user, setUser] = useState<any>(null);
   const [listings, setListings] = useState<any[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -198,12 +195,12 @@ export default function GeneralMarketplace() {
     <div className="space-y-5">
       {/* AI Search */}
       <div>
-        <label className="text-sm font-medium mb-1.5 block">Wyszukiwarka AI</label>
+        <label className="text-sm font-medium mb-1.5 block">{t('marketplace.aiSearch')}</label>
         <div className="flex gap-2">
           <div className="relative flex-1">
             <Sparkles className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary" />
             <Input
-              placeholder='Opisz czego szukasz...'
+              placeholder={t('marketplace.searchPlaceholder')}
               value={aiQuery}
               onChange={e => setAiQuery(e.target.value)}
               onKeyDown={e => e.key === "Enter" && handleAISearch()}
@@ -219,7 +216,7 @@ export default function GeneralMarketplace() {
             onClick={() => { setAiResults(null); setAiQuery(""); }}
             className="text-xs text-primary mt-1 hover:underline flex items-center gap-1"
           >
-            <X className="h-3 w-3" /> Wyczyść wyniki AI
+            <X className="h-3 w-3" /> {t('marketplace.clearAi')}
           </button>
         )}
       </div>
@@ -228,7 +225,7 @@ export default function GeneralMarketplace() {
 
       {/* Categories */}
       <div>
-        <label className="text-sm font-medium mb-1.5 block">Kategorie</label>
+        <label className="text-sm font-medium mb-1.5 block">{t('marketplace.categories')}</label>
         <div className="space-y-0.5 max-h-56 overflow-y-auto">
           <button
             onClick={() => setSelectedCategory(null)}
@@ -237,7 +234,7 @@ export default function GeneralMarketplace() {
               !selectedCategory && "bg-primary/10 text-primary font-medium"
             )}
           >
-            <span>Wszystkie</span>
+            <span>{t('marketplace.allCategories')}</span>
             <span className="text-muted-foreground text-xs">{listings.length}</span>
           </button>
           {categories.map(cat => (
@@ -260,21 +257,23 @@ export default function GeneralMarketplace() {
 
       {/* Price */}
       <div>
-        <label className="text-sm font-medium mb-1.5 block">Cena (zł)</label>
+        <label className="text-sm font-medium mb-1.5 block">{t('marketplace.price')}</label>
         <div className="flex gap-2">
-          <Input type="number" placeholder="Od" value={priceMin} onChange={e => setPriceMin(e.target.value)} />
-          <Input type="number" placeholder="Do" value={priceMax} onChange={e => setPriceMax(e.target.value)} />
+          <Input type="number" placeholder={t('marketplace.from')} value={priceMin} onChange={e => setPriceMin(e.target.value)} />
+          <Input type="number" placeholder={t('marketplace.to')} value={priceMax} onChange={e => setPriceMax(e.target.value)} />
         </div>
       </div>
 
       {/* Condition */}
       <div>
-        <label className="text-sm font-medium mb-1.5 block">Stan</label>
+        <label className="text-sm font-medium mb-1.5 block">{t('marketplace.condition')}</label>
         <Select value={conditionFilter} onValueChange={setConditionFilter}>
-          <SelectTrigger><SelectValue placeholder="Wszystkie stany" /></SelectTrigger>
+          <SelectTrigger><SelectValue placeholder={t('marketplace.allConditions')} /></SelectTrigger>
           <SelectContent>
-            {CONDITIONS.map(c => (
-              <SelectItem key={c.value} value={c.value || "all"}>{c.label}</SelectItem>
+            {CONDITION_VALUES.map(v => (
+              <SelectItem key={v || "all"} value={v || "all"}>
+                {v ? t(`marketplace.condition${v === 'nowy' ? 'New' : v === 'jak_nowy' ? 'LikeNew' : v === 'dobry' ? 'Good' : 'Fair'}`) : t('marketplace.allConditions')}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -282,13 +281,13 @@ export default function GeneralMarketplace() {
 
       {/* Location */}
       <div>
-        <label className="text-sm font-medium mb-1.5 block">Lokalizacja</label>
-        <Input placeholder="Miasto..." value={locationFilter} onChange={e => setLocationFilter(e.target.value)} />
+        <label className="text-sm font-medium mb-1.5 block">{t('marketplace.location')}</label>
+        <Input placeholder={t('marketplace.city')} value={locationFilter} onChange={e => setLocationFilter(e.target.value)} />
       </div>
 
       {hasActiveFilters && (
         <Button variant="outline" size="sm" onClick={clearAllFilters} className="w-full">
-          <X className="h-3.5 w-3.5 mr-1" /> Wyczyść filtry
+          <X className="h-3.5 w-3.5 mr-1" /> {t('marketplace.clearFilters')}
         </Button>
       )}
     </div>
@@ -323,10 +322,11 @@ export default function GeneralMarketplace() {
                 </span>
               )}
             </Button>
+            <LanguageSwitcher />
             <MyGetRidoButton user={user} />
             <Button onClick={() => navigate("/marketplace/dodaj")} size="sm" className="gap-1 rounded-full px-2 sm:px-3">
               <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">Dodaj ogłoszenie</span>
+              <span className="hidden sm:inline">{t('marketplace.addListing')}</span>
             </Button>
           </div>
         </div>
@@ -351,7 +351,7 @@ export default function GeneralMarketplace() {
                   <SheetTrigger asChild>
                     <Button variant="outline" size="sm" className="lg:hidden gap-1.5">
                       <SlidersHorizontal className="h-4 w-4" />
-                      Filtry
+                      {t('marketplace.filters')}
                       {hasActiveFilters && <Badge className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-xs">!</Badge>}
                     </Button>
                   </SheetTrigger>
@@ -369,7 +369,7 @@ export default function GeneralMarketplace() {
                     size="sm"
                     className="h-7 w-7 p-0"
                     onClick={() => setViewMode('grid')}
-                    title="Siatka"
+                    title={t('marketplace.grid')}
                   >
                     <LayoutGrid className="h-4 w-4" />
                   </Button>
@@ -378,7 +378,7 @@ export default function GeneralMarketplace() {
                     size="sm"
                     className="h-7 w-7 p-0"
                     onClick={() => setViewMode('compact')}
-                    title="Kompaktowy"
+                    title={t('marketplace.compact')}
                   >
                     <Rows3 className="h-4 w-4" />
                   </Button>
@@ -387,7 +387,7 @@ export default function GeneralMarketplace() {
                     size="sm"
                     className="h-7 w-7 p-0"
                     onClick={() => setViewMode('list')}
-                    title="Lista"
+                    title={t('marketplace.list')}
                   >
                     <ListIcon className="h-4 w-4" />
                   </Button>
@@ -399,17 +399,17 @@ export default function GeneralMarketplace() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="newest">Najnowsze</SelectItem>
-                    <SelectItem value="price_asc">Cena: od najniższej</SelectItem>
-                    <SelectItem value="price_desc">Cena: od najwyższej</SelectItem>
-                    <SelectItem value="ai_score">Ocena AI</SelectItem>
+                    <SelectItem value="newest">{t('marketplace.sortNewest')}</SelectItem>
+                    <SelectItem value="price_asc">{t('marketplace.sortPriceAsc')}</SelectItem>
+                    <SelectItem value="price_desc">{t('marketplace.sortPriceDesc')}</SelectItem>
+                    <SelectItem value="ai_score">{t('marketplace.sortAiScore')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               {/* Count — RIGHT side (like Nieruchomości) */}
               <p className="text-sm text-muted-foreground">
-                Znaleziono: <span className="font-medium text-foreground">{filtered.length}</span> ogłoszeń
+                {t('marketplace.found')} <span className="font-medium text-foreground">{filtered.length}</span> {t('marketplace.listings')}
               </p>
             </div>
 
@@ -436,12 +436,12 @@ export default function GeneralMarketplace() {
             ) : paginated.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-center">
                 <PackageOpen className="h-16 w-16 text-muted-foreground/50 mb-4" />
-                <h2 className="text-xl font-semibold mb-2">Brak ogłoszeń</h2>
+                <h2 className="text-xl font-semibold mb-2">{t('marketplace.noListings')}</h2>
                 <p className="text-muted-foreground mb-4">
-                  {hasActiveFilters ? "Zmień filtry lub" : "Bądź pierwszy —"} dodaj ogłoszenie!
+                  {hasActiveFilters ? t('marketplace.changeFilters') : t('marketplace.beFirst')} {t('marketplace.noListingsHint')}
                 </p>
                 <Button onClick={() => navigate("/marketplace/dodaj")}>
-                  <Plus className="h-4 w-4 mr-2" /> Dodaj ogłoszenie
+                  <Plus className="h-4 w-4 mr-2" /> {t('marketplace.addListing')}
                 </Button>
               </div>
             ) : (

@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
+import { useListingTranslation } from "@/hooks/useListingTranslation";
 
 import { Heart, MapPin, Sparkles, ImageIcon, ChevronLeft, ChevronRight, GitCompareArrows } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -9,6 +11,7 @@ interface GeneralListingCardProps {
   listing: {
     id: string;
     title: string;
+    description?: string;
     price: number | null;
     price_negotiable?: boolean;
     condition?: string;
@@ -23,29 +26,39 @@ interface GeneralListingCardProps {
   isSelectedForCompare?: boolean;
 }
 
-const CONDITION_STYLES: Record<string, { label: string; className: string }> = {
-  nowy: { label: "Nowy", className: "bg-green-500/10 text-green-700 border-green-200" },
-  jak_nowy: { label: "Jak nowy", className: "bg-teal-500/10 text-teal-700 border-teal-200" },
-  dobry: { label: "Dobry", className: "bg-blue-500/10 text-blue-700 border-blue-200" },
-  dostateczny: { label: "Dostateczny", className: "bg-yellow-500/10 text-yellow-700 border-yellow-200" },
-  do_naprawy: { label: "Do naprawy", className: "bg-red-500/10 text-red-700 border-red-200" },
+const CONDITION_KEYS: Record<string, string> = {
+  nowy: "conditionNew",
+  jak_nowy: "conditionLikeNew",
+  dobry: "conditionGood",
+  dostateczny: "conditionFair",
+  do_naprawy: "conditionFair",
 };
 
-function timeAgo(dateStr: string): string {
+const CONDITION_CLASSES: Record<string, string> = {
+  nowy: "bg-green-500/10 text-green-700 border-green-200",
+  jak_nowy: "bg-teal-500/10 text-teal-700 border-teal-200",
+  dobry: "bg-blue-500/10 text-blue-700 border-blue-200",
+  dostateczny: "bg-yellow-500/10 text-yellow-700 border-yellow-200",
+  do_naprawy: "bg-red-500/10 text-red-700 border-red-200",
+};
+
+function useTimeAgo(dateStr: string): string {
+  const { t } = useTranslation();
   const now = Date.now();
   const then = new Date(dateStr).getTime();
   const diffMs = now - then;
   const mins = Math.floor(diffMs / 60000);
-  if (mins < 60) return `${mins} min temu`;
+  if (mins < 60) return `${mins} ${t('marketplace.minAgo')}`;
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours} godz. temu`;
+  if (hours < 24) return `${hours} ${t('marketplace.hoursAgo')}`;
   const days = Math.floor(hours / 24);
-  if (days < 30) return `${days} dni temu`;
-  return `${Math.floor(days / 30)} mies. temu`;
+  if (days < 30) return `${days} ${t('marketplace.daysAgo')}`;
+  return `${Math.floor(days / 30)} ${t('marketplace.monthsAgo')}`;
 }
 
 export function GeneralListingCard({ listing, variant = "grid", onToggleCompare, isSelectedForCompare }: GeneralListingCardProps) {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [currentPhotoIdx, setCurrentPhotoIdx] = useState(0);
   const [isFav, setIsFav] = useState(() => {
     try {
@@ -54,10 +67,17 @@ export function GeneralListingCard({ listing, variant = "grid", onToggleCompare,
     } catch { return false; }
   });
 
+  const { title, description: _desc } = useListingTranslation(
+    listing.id, listing.title, listing.description || '', 'general'
+  );
+  const timeAgoText = useTimeAgo(listing.created_at);
+
   const photos = listing.photos || [];
   const photo = photos[currentPhotoIdx];
   const hasAiPhoto = photos.some(p => p.is_ai_enhanced);
-  const cond = listing.condition ? CONDITION_STYLES[listing.condition] : null;
+  const condKey = listing.condition ? CONDITION_KEYS[listing.condition] : null;
+  const condClass = listing.condition ? CONDITION_CLASSES[listing.condition] : null;
+  const condLabel = condKey ? t(`marketplace.${condKey}`) : null;
 
   const toggleFav = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -91,11 +111,11 @@ export function GeneralListingCard({ listing, variant = "grid", onToggleCompare,
       >
         <div className="relative w-[200px] sm:w-[240px] shrink-0 bg-muted overflow-hidden">
           {photo ? (
-            <img src={photo.url} alt={listing.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" />
+            <img src={photo.url} alt={title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" />
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground min-h-[140px]">
               <ImageIcon className="h-8 w-8 mb-1" />
-              <span className="text-xs">Brak zdjęcia</span>
+              <span className="text-xs">{t('marketplace.noPhoto')}</span>
             </div>
           )}
           {hasAiPhoto && (
@@ -109,9 +129,9 @@ export function GeneralListingCard({ listing, variant = "grid", onToggleCompare,
         </div>
         <div className="flex-1 p-4 flex flex-col justify-between min-w-0">
           <div>
-            <h3 className="font-medium text-sm leading-tight line-clamp-2 mb-1">{listing.title}</h3>
+            <h3 className="font-medium text-sm leading-tight line-clamp-2 mb-1">{title}</h3>
             <div className="flex items-center gap-2 flex-wrap mb-2">
-              {cond && <Badge variant="outline" className={cn("text-xs", cond.className)}>{cond.label}</Badge>}
+              {condLabel && <Badge variant="outline" className={cn("text-xs", condClass)}>{condLabel}</Badge>}
               {listing.location && (
                 <span className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" />{listing.location}</span>
               )}
@@ -119,9 +139,9 @@ export function GeneralListingCard({ listing, variant = "grid", onToggleCompare,
           </div>
           <div className="flex items-center justify-between">
             <span className="text-base font-bold text-primary">
-              {listing.price ? `${listing.price.toLocaleString("pl-PL")}\u00A0zł` : "Zapytaj o cenę"}
+              {listing.price ? `${listing.price.toLocaleString("pl-PL")}\u00A0zł` : t('marketplace.askPrice')}
             </span>
-            <span className="text-xs text-muted-foreground">{timeAgo(listing.created_at)}</span>
+            <span className="text-xs text-muted-foreground">{timeAgoText}</span>
           </div>
         </div>
       </article>
@@ -210,23 +230,23 @@ export function GeneralListingCard({ listing, variant = "grid", onToggleCompare,
       {/* Info */}
       <div className="p-3 space-y-1.5">
         <h3 className="font-medium text-sm leading-tight line-clamp-2 min-h-[2.5rem]">
-          {listing.title}
+          {title}
         </h3>
 
         {/* Price */}
         <div className="flex items-baseline gap-1.5">
           <span className="text-base font-bold text-primary">
-            {listing.price ? `${listing.price.toLocaleString("pl-PL")}\u00A0zł` : "Zapytaj o cenę"}
+            {listing.price ? `${listing.price.toLocaleString("pl-PL")}\u00A0zł` : t('marketplace.askPrice')}
           </span>
           {listing.price_negotiable && (
-            <span className="text-xs text-muted-foreground">(do negocjacji)</span>
+            <span className="text-xs text-muted-foreground">({t('marketplace.negotiable')})</span>
           )}
         </div>
 
         {/* Condition badge */}
-        {cond && (
-          <Badge variant="outline" className={cn("text-xs", cond.className)}>
-            {cond.label}
+        {condLabel && (
+          <Badge variant="outline" className={cn("text-xs", condClass)}>
+            {condLabel}
           </Badge>
         )}
 
@@ -240,7 +260,7 @@ export function GeneralListingCard({ listing, variant = "grid", onToggleCompare,
               </>
             )}
           </div>
-          <span className="shrink-0">{timeAgo(listing.created_at)}</span>
+          <span className="shrink-0">{timeAgoText}</span>
         </div>
 
         {/* AI score */}
