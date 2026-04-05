@@ -185,7 +185,7 @@ export function MyGetRidoButton({ user, variant = "outline", size = "sm", classN
         {(accountTypes.isAccounting || accountTypes.isAdmin) && (
           <DropdownMenuItem onClick={() => navigate('/ksiegowosc')}>
             <Calculator className="h-4 w-4 mr-2" />
-            Panel Księgowy
+            {t('myAccount.accountingPanel')}
           </DropdownMenuItem>
         )}
         
