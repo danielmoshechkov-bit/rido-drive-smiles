@@ -397,8 +397,9 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
   
   const isCorrection = ['correction', 'KOR', 'KOR_ZAL', 'KOR_ROZ'].includes(invoice.type) && !!invoice.correction_data;
   const isAdvance = ['advance', 'ZAL'].includes(invoice.type);
+  const isMargin = invoice.is_margin === true || ['margin', 'vat_margin'].includes(invoice.type);
+  const isSimplified = ['simplified', 'UPR'].includes(invoice.type);
   const isFinal = ['final', 'ROZ'].includes(invoice.type);
-  const _isSimplified = ['simplified', 'UPR'].includes(invoice.type);
 
   const displayItems = isCorrection ? invoice.correction_data!.after_items : items;
   
@@ -417,6 +418,44 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     vatSummary[rate].vat += item.vat_amount;
     vatSummary[rate].gross += item.gross_amount;
   });
+
+  // Determine theme colors based on invoice type
+  let themeColor = '#7c3aed'; // default purple
+  let themeColorLight = '#f8f5ff';
+  let themeColorBorder = '#ede9fe';
+  let invoiceTitle = 'Faktura VAT';
+  let footerNote = '';
+
+  if (isAdvance) {
+    themeColor = '#1D9E75';
+    themeColorLight = '#E1F5EE';
+    themeColorBorder = '#9FE1CB';
+    invoiceTitle = 'FAKTURA ZALICZKOWA';
+    footerNote = 'Faktura zaliczkowa wystawiona zgodnie z art. 106b ust. 1 pkt 4 ustawy z dnia 11 marca 2004 r. o podatku od towarów i usług.';
+  } else if (isMargin) {
+    themeColor = '#BA7517';
+    themeColorLight = '#FAEEDA';
+    themeColorBorder = '#FAC775';
+    invoiceTitle = 'FAKTURA VAT MARŻA';
+    const procedureLabels: Record<string, string> = {
+      'used_goods': 'towarów używanych — art. 120 ust. 4',
+      'tourism': 'usług turystycznych — art. 119',
+      'art': 'dzieł sztuki — art. 120 ust. 4',
+      'antiques': 'przedmiotów kolekcjonerskich i antyków — art. 120 ust. 4',
+    };
+    const procLabel = procedureLabels[invoice.margin_procedure_type || 'used_goods'] || 'towarów używanych — art. 120 ust. 4';
+    footerNote = `Procedura marży dla ${procLabel} ustawy z dnia 11 marca 2004 r. o podatku od towarów i usług. Podatek VAT nie jest wykazywany na fakturze.`;
+  } else if (isSimplified) {
+    themeColor = '#444441';
+    themeColorLight = '#f5f5f4';
+    themeColorBorder = '#d4d4d4';
+    invoiceTitle = 'FAKTURA UPROSZCZONA';
+    footerNote = 'Faktura uproszczona wystawiona zgodnie z art. 106e ust. 5 pkt 3 ustawy z dnia 11 marca 2004 r. o podatku od towarów i usług.';
+  } else if (isCorrection) {
+    invoiceTitle = 'FAKTURA KORYGUJĄCA';
+  } else if (isFinal) {
+    invoiceTitle = 'FAKTURA VAT (ROZLICZENIE ZALICZKI)';
+  }
   
   const cellPadding = compact_pdf ? '2px 4px' : '4px 6px';
   const cellFontSize = compact_pdf ? '8px' : '9px';
