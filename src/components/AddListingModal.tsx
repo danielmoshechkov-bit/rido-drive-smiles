@@ -139,6 +139,7 @@ function CategoryTileCard({
 
 export function AddListingModal({ user, trigger }: AddListingModalProps) {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [pendingCategory, setPendingCategory] = useState<CategoryTile | null>(null);
