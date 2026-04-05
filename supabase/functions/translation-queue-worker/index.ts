@@ -54,7 +54,19 @@ serve(async (req) => {
       }
     }
 
-    console.log(`Using provider=${selectedProvider} model=${selectedModel}`)
+    // Fetch API keys from ai_providers table (admin panel) with fallback to Secrets
+    const { data: kimiProvider } = await sb
+      .from('ai_providers')
+      .select('api_key_encrypted, default_model, is_enabled')
+      .eq('provider_key', 'kimi')
+      .maybeSingle()
+
+    const kimiApiKey = kimiProvider?.api_key_encrypted || Deno.env.get('KIMI_API_KEY')
+    if (kimiProvider?.default_model && selectedProvider === 'kimi') {
+      selectedModel = kimiProvider.default_model
+    }
+
+    console.log(`Using provider=${selectedProvider} model=${selectedModel} kimiKeySource=${kimiProvider?.api_key_encrypted ? 'db' : 'env'}`)
 
     const { data: batch, error } = await sb
       .from('translation_queue')
