@@ -1030,7 +1030,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
 
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <div className="max-w-5xl mx-auto px-2 sm:px-4">
       {/* Form */}
       <div className="space-y-4">
         {/* Compact Header */}
