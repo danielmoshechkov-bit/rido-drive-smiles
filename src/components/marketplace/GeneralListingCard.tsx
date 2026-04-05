@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
+import { useListingTranslation } from "@/hooks/useListingTranslation";
 
 import { Heart, MapPin, Sparkles, ImageIcon, ChevronLeft, ChevronRight, GitCompareArrows } from "lucide-react";
 import { cn } from "@/lib/utils";
