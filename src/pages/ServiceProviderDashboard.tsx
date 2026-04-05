@@ -128,6 +128,48 @@ export default function ServiceProviderDashboard() {
     if (!user) { navigate('/auth'); return; }
     setUser(user);
 
+  const handleActivateProfile = async () => {
+    if (!providerId) return;
+    const { company_name, description, company_phone, company_city, category_id } = activationForm;
+    if (!company_name.trim() || !description.trim() || !company_phone.trim() || !company_city.trim() || !category_id) {
+      toast.error('Uzupełnij wszystkie wymagane pola: nazwa firmy, opis, telefon, miasto i kategoria');
+      return;
+    }
+    setActivationSaving(true);
+    try {
+      let coverUrl: string | null = null;
+      if (coverImageFile) {
+        const ext = coverImageFile.name.split('.').pop();
+        const path = `providers/${providerId}/cover-${Date.now()}.${ext}`;
+        await supabase.storage.from('documents').upload(path, coverImageFile);
+        const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path);
+        coverUrl = urlData.publicUrl;
+      }
+      const updateData: any = {
+        company_name: activationForm.company_name,
+        description: activationForm.description,
+        company_phone: activationForm.company_phone,
+        company_email: activationForm.company_email,
+        company_city: activationForm.company_city,
+        company_address: activationForm.company_address,
+        company_postal_code: activationForm.company_postal_code,
+        company_nip: activationForm.company_nip,
+        category_id: activationForm.category_id,
+        status: 'active',
+      };
+      if (coverUrl) updateData.cover_image_url = coverUrl;
+      const { error } = await supabase.from('service_providers').update(updateData).eq('id', providerId);
+      if (error) throw error;
+      setProviderStatus('active');
+      setActivationDialog(false);
+      toast.success('Profil aktywowany! Twoje usługi są teraz widoczne w portalu.');
+    } catch (err: any) {
+      toast.error('Błąd aktywacji: ' + (err?.message || ''));
+    } finally {
+      setActivationSaving(false);
+    }
+  };
+
 
     const { data: config } = await supabase
       .from('ai_agent_configs')
