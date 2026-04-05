@@ -110,11 +110,73 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
 
   if (!providerId) {
     return (
-      <div className="text-center py-20 text-muted-foreground">
-        <Wrench className="h-12 w-12 mx-auto mb-4 opacity-50" />
-        <p className="text-lg font-medium">Brak konta usługodawcy</p>
-        <p className="text-sm mt-2">Skontaktuj się z administratorem portalu.</p>
-        {error && <p className="text-xs text-destructive mt-2">Błąd: {(error as Error).message}</p>}
+      <div className="max-w-5xl mx-auto py-12 px-4 space-y-10">
+        {/* Hero */}
+        <div className="text-center space-y-4">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium">
+            🚀 14 dni za darmo — bez zobowiązań
+          </div>
+          <h1 className="text-3xl md:text-4xl font-bold text-foreground">
+            Warsztat & Auto — wszystko w jednym miejscu
+          </h1>
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+            Zarządzaj zleceniami, klientami, pojazdami, magazynem i fakturami. 
+            Oszczędzaj czas i zwiększ zyski dzięki automatyzacji i AI.
+          </p>
+        </div>
+
+        {/* Features */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {[
+            { icon: '🔧', title: 'Zlecenia i harmonogram', desc: 'Twórz zlecenia, przypisuj mechaników, śledź postęp napraw w czasie rzeczywistym.' },
+            { icon: '📦', title: 'Magazyn i zakupy', desc: 'Kontroluj stany magazynowe, zamawiaj części, automatycznie aktualizuj ilości z faktur.' },
+            { icon: '📄', title: 'Faktury i KSeF', desc: 'Wystawiaj faktury VAT, wysyłaj do KSeF, automatyczny odczyt faktur zakupowych AI.' },
+            { icon: '👥', title: 'Klienci i pojazdy', desc: 'Baza klientów z historią napraw i powiązanymi pojazdami. Szybkie wyszukiwanie.' },
+            { icon: '📊', title: 'Raporty i marża', desc: 'Analiza przychodów, kosztów i marży na żywo. Wykresy i eksport do PDF.' },
+            { icon: '🤖', title: 'AI doradca', desc: 'Sztuczna inteligencja pomaga w wycenach, odczytuje faktury i sugeruje optymalizacje.' },
+          ].map((f, i) => (
+            <div key={i} className="p-5 rounded-xl border bg-card hover:shadow-md transition-shadow">
+              <div className="text-2xl mb-3">{f.icon}</div>
+              <h3 className="font-semibold text-foreground mb-1">{f.title}</h3>
+              <p className="text-sm text-muted-foreground">{f.desc}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Pricing */}
+        <div>
+          <h2 className="text-2xl font-bold text-center text-foreground mb-6">Wybierz plan dla siebie</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              { name: 'Start', price: '0 zł', period: '/mies.', badge: 'Darmowy', badgeColor: 'bg-muted text-muted-foreground', border: '', features: ['20 zleceń/mc', 'Klienci + pojazdy', 'Terminarz', 'Zdjęcia przy przyjęciu', '10 sprawdzeń VIN', '3 pytania AI/mc'] },
+              { name: 'Warsztat', price: '99 zł', period: 'netto/mies.', badge: 'Najpopularniejszy', badgeColor: 'bg-primary text-primary-foreground', border: 'ring-2 ring-primary', features: ['Zlecenia bez limitu', 'Magazyn + przechowalnia', 'Sprzedaż + faktury', 'Raporty + marża live', 'KSeF basic', '20 pytań AI/mc'] },
+              { name: 'Warsztat Pro', price: '175 zł', period: 'netto/mies.', badge: 'Pro', badgeColor: 'bg-orange-100 text-orange-700', border: '', features: ['Dane naprawcze (TecRMI)', 'Czas pracy mechanika', '50 pytań AI/mc', 'KSeF pełny + wysyłka', 'Zaawansowane raporty', 'Priorytetowy support'] },
+              { name: 'GetRido AI', price: '249 zł', period: 'netto/mies.', badge: 'AI Business', badgeColor: 'bg-green-100 text-green-700', border: 'ring-2 ring-green-500', features: ['Księgowość AI', '30 faktur/mc auto-odczyt', 'Doradca podatkowy AI', 'Nieograniczone AI', 'KSeF monitor + alerty', 'Dedykowany opiekun'] },
+            ].map((plan, i) => (
+              <div key={i} className={`rounded-xl border bg-card p-5 flex flex-col ${plan.border}`}>
+                <span className={`text-xs font-medium px-2 py-0.5 rounded-full w-fit mb-3 ${plan.badgeColor}`}>{plan.badge}</span>
+                <h3 className="font-bold text-lg text-foreground">{plan.name}</h3>
+                <div className="mt-1 mb-4">
+                  <span className="text-2xl font-bold text-foreground">{plan.price}</span>
+                  <span className="text-sm text-muted-foreground ml-1">{plan.period}</span>
+                </div>
+                <ul className="space-y-1.5 text-sm flex-1">
+                  {plan.features.map((f, j) => (
+                    <li key={j} className="flex items-start gap-1.5">
+                      <span className="text-green-500 mt-0.5">✓</span>
+                      <span className="text-muted-foreground">{f}</span>
+                    </li>
+                  ))}
+                </ul>
+                <Button className="mt-4 w-full" variant={i === 1 ? 'default' : 'outline'} onClick={() => window.location.href = '/auth'}>
+                  {i === 0 ? 'Zacznij za darmo' : 'Wybierz plan'}
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {error && <p className="text-xs text-destructive text-center">Błąd: {(error as Error).message}</p>}
       </div>
     );
   }

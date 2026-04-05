@@ -63,10 +63,12 @@ interface PurchaseInvoice {
   supplier_name?: string;
   supplier_nip?: string;
   purchase_date?: string;
+  due_date?: string;
   total_net?: number;
   total_vat?: number;
   total_gross?: number;
   status?: string;
+  is_paid?: boolean;
   pdf_url?: string;
   created_at: string;
 }
