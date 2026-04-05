@@ -452,7 +452,6 @@
     "settlements": "Settlements",
     "bolt": "Bolt",
     "freenow": "FreeNow",
-    "settlements": "Settlements",
     "transfers": "Transfers",
     "roles": "Roles",
     "assignRole": "Assign Role",
@@ -889,5 +888,28 @@
     "currentActive": "active",
     "driverPanel": "Driver panel",
     "fleetPanel": "Fleet panel"
+  },
+  "mainPage": {
+    "title": "GetRido",
+    "subtitle": "Everything you need – easy and in one place.",
+    "searchPlaceholder": "AI Search - coming soon",
+    "login": "Log in / Register",
+    "addListing": "Add listing",
+    "found": "Found",
+    "listings": "listings",
+    "details": "Details",
+    "showContact": "Show contact",
+    "specification": "Specification",
+    "photos": "photos",
+    "search": "Search",
+    "moreFilters": "More filters",
+    "showOnMap": "Show on map",
+    "forSale": "For sale",
+    "forRent": "For rent",
+    "price": "Price",
+    "location": "Location",
+    "year": "Year",
+    "from": "From",
+    "to": "To"
   }
 }
