@@ -18,6 +18,7 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useCart } from "@/hooks/useCart";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 interface Category {
   id: string;

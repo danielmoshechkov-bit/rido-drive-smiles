@@ -20,6 +20,7 @@ import { MyGetRidoButton } from "@/components/MyGetRidoButton";
 import { AddListingModal } from "@/components/AddListingModal";
 import { PortalCategoryGrid } from "@/components/portal/PortalCategoryGrid";
 import { SEOHead, seoConfigs } from "@/components/SEOHead";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 // Import hero image (same style as real estate)
 import heroImage from "@/assets/tile-cars.jpg";

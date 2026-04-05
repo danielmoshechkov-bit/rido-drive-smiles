@@ -48,6 +48,7 @@ import { SearchCategoryModal } from "@/components/SearchCategoryModal";
 import { AccountingCategoryModal } from "@/components/AccountingCategoryModal";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { SEOHead, seoConfigs } from "@/components/SEOHead";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { RidoAIChatPanel } from "@/components/ai/RidoAIChatPanel";
 
 // Import tile images
