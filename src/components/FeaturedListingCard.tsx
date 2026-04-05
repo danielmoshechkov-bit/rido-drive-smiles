@@ -299,7 +299,7 @@ export function FeaturedListingCard({ listing, viewMode, onClick, showTransactio
           )}>
             {/* Title - max 2 lines */}
             <h3 className="font-semibold text-sm line-clamp-1 group-hover:text-primary transition-colors leading-tight">
-              {listing.title}
+              {title}
             </h3>
 
             {/* City - directly under title with minimal gap for services */}
