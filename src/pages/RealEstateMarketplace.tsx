@@ -757,7 +757,7 @@ export default function RealEstateMarketplace() {
               Nieruchomości
             </span>
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             <MyGetRidoButton user={user} />
             <Button 
               size="sm"
@@ -768,11 +768,10 @@ export default function RealEstateMarketplace() {
                   navigate('/auth?redirect=/nieruchomosci/agent/panel?tab=add');
                 }
               }}
-              className="rounded-full"
+              className="rounded-full px-2 sm:px-3"
             >
-              <Plus className="h-4 w-4 mr-1" />
+              <Plus className="h-4 w-4 sm:mr-1" />
               <span className="hidden sm:inline">Dodaj ogłoszenie</span>
-              <span className="sm:hidden">Dodaj</span>
             </Button>
           </div>
         </div>
