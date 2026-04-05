@@ -66,6 +66,7 @@ interface FeaturedListingCardProps {
 }
 
 export function FeaturedListingCard({ listing, viewMode, onClick, showTransactionBadge = false }: FeaturedListingCardProps) {
+  const { t } = useTranslation();
   const listingType = listing.category === 'vehicle' ? 'vehicle' : listing.category === 'property' ? 'real_estate' : 'general';
   const { title, description } = useListingTranslation(
     listing.id, listing.title, listing.description || '', listingType
