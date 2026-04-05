@@ -428,8 +428,25 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
       </div>
       <div class="invoice-title">
         <h1 style="color: #333;">${typeLabels[invoice.type] || 'Faktura VAT'}<br><span style="color: #7c3aed;">${invoice.invoice_number}</span></h1>
+        ${isCorrection && invoice.correction_data ? `
+        <div style="font-size: 9px; color: #555; margin-top: 4px;">
+          <div>do faktury nr: <strong>${invoice.correction_data.original_invoice_number}</strong></div>
+          <div>z dnia: ${formatDate(invoice.correction_data.original_invoice_date)}</div>
+          <div>Powód korekty: ${invoice.correction_data.correction_reason}</div>
+        </div>
+        ` : ''}
+        ${isAdvance ? `
+        <div style="font-size: 9px; color: #555; margin-top: 4px;">
+          <div>Data otrzymania zaliczki: ${formatDate(invoice.sale_date)}</div>
+        </div>
+        ` : ''}
+        ${isFinal && invoice.advance_data?.advance_invoice_number ? `
+        <div style="font-size: 9px; color: #555; margin-top: 4px;">
+          <div>Faktura rozliczająca zaliczkę</div>
+        </div>
+        ` : ''}
         <div class="invoice-dates">
-          <div class="invoice-dates-row"><span class="invoice-dates-label">Data sprzedaży:</span> ${formatDate(invoice.sale_date)}</div>
+          ${!isAdvance ? `<div class="invoice-dates-row"><span class="invoice-dates-label">Data sprzedaży:</span> ${formatDate(invoice.sale_date)}</div>` : ''}
           <div class="invoice-dates-row"><span class="invoice-dates-label">Termin płatności:</span> ${formatDate(invoice.due_date)}</div>
         </div>
       </div>
@@ -454,6 +471,7 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
       </div>
     </div>
 
+    ${isCorrection && invoice.correction_data ? generateCorrectionTablesHtml(invoice.correction_data, currency, cellPadding, cellFontSize) : `
     <table>
       <thead>
         <tr>
@@ -472,6 +490,7 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
         ${itemsHtml}
       </tbody>
     </table>
+    `}
 
     <div class="vat-summary" style="margin-top: 8px; font-size: 8px;">
       <div style="font-size: 9px; font-weight: 600; margin-bottom: 4px; color: #666;">Podsumowanie faktury</div>
