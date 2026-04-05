@@ -345,15 +345,15 @@ export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataC
                 <Table className="table-fixed w-full">
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-8">Lp.</TableHead>
-                      <TableHead>Nazwa</TableHead>
-                      <TableHead className="text-right w-16">Ilość</TableHead>
-                      <TableHead className="w-12">J.m.</TableHead>
-                      <TableHead className="text-right w-24">Cena netto</TableHead>
-                      <TableHead className="text-right w-24">Wart. netto</TableHead>
-                      <TableHead className="text-right w-14">VAT%</TableHead>
-                      <TableHead className="text-right w-20">VAT</TableHead>
-                      <TableHead className="text-right w-24">Brutto</TableHead>
+                      <TableHead className="w-[30px] px-1">Lp.</TableHead>
+                      <TableHead className="px-1">Nazwa</TableHead>
+                      <TableHead className="text-right w-[50px] px-1">Ilość</TableHead>
+                      <TableHead className="w-[36px] px-1">J.m.</TableHead>
+                      <TableHead className="text-right w-[80px] px-1">Cena netto</TableHead>
+                      <TableHead className="text-right w-[80px] px-1">Wart. netto</TableHead>
+                      <TableHead className="text-right w-[45px] px-1">VAT%</TableHead>
+                      <TableHead className="text-right w-[65px] px-1">VAT</TableHead>
+                      <TableHead className="text-right w-[80px] px-1">Brutto</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
