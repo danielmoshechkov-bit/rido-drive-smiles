@@ -175,7 +175,7 @@ export function FeaturedListings({ className, categoryContext, hideViewMore }: F
         vehicles.forEach((v: any) => {
           vehiclesData.push({
             id: v.id,
-            title: v.title || 'Pojazd',
+            title: v.title || t('listing.vehicle'),
             price: v.price || 0,
             photos: v.photos || [],
             city: v.city,
