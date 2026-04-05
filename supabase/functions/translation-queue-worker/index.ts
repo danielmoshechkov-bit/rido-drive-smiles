@@ -280,7 +280,7 @@ async function callKimiWithRetry(
     console.error(`Kimi error attempt=${attempt}:`, e.message)
     if (attempt >= 3) return null
     await sleep(5000)
-    return callKimiWithRetry(title, description, targetLangName, model, attempt + 1)
+    return callKimiWithRetry(title, description, targetLangName, model, externalApiKey, attempt + 1)
   }
 }
 
