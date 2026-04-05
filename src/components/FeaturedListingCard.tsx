@@ -367,7 +367,7 @@ export function FeaturedListingCard({ listing, viewMode, onClick, showTransactio
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {getCategoryIcon(listing.category)}
-              {listing.title}
+              {title}
             </DialogTitle>
           </DialogHeader>
           
