@@ -67,6 +67,24 @@ export interface InvoiceData {
   ksef_status?: string;
   ksef_reference?: string;
   ksef_acceptance_date?: string;
+  // Correction data
+  correction_data?: {
+    original_invoice_number: string;
+    original_invoice_date: string;
+    correction_reason: string;
+    before_items: InvoiceItem[];
+    after_items: InvoiceItem[];
+    before_totals: { net: number; vat: number; gross: number };
+    after_totals: { net: number; vat: number; gross: number };
+    diff_totals: { net: number; vat: number; gross: number };
+  };
+  // Advance invoice data
+  advance_data?: {
+    advance_invoice_number?: string;
+    advance_invoice_date?: string;
+    advance_amount?: number;
+    advance_vat?: number;
+  };
 }
 
 export type Currency = 'PLN' | 'EUR' | 'USD' | 'GBP' | 'CHF' | 'CZK';
@@ -218,6 +236,115 @@ const formatAddress = (entity: InvoiceSeller | InvoiceBuyer): string => {
   return parts.join('<br>');
 };
 
+// Helper to generate correction-specific tables (BYŁO / JEST / RÓŻNICA)
+const generateCorrectionTablesHtml = (
+  cd: NonNullable<InvoiceData['correction_data']>,
+  currency: string,
+  cellPadding: string,
+  cellFontSize: string
+): string => {
+  const thStyle = 'background-color: #7c3aed !important; color: #ffffff !important; padding: 4px 3px; font-size: 8px; font-weight: 600; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;';
+  const tdStyle = (extra = '') => `border: 1px solid #ddd; padding: ${cellPadding}; font-size: ${cellFontSize}; ${extra}`;
+
+  const makeRow = (item: InvoiceItem, idx: number) => `
+    <tr>
+      <td style="${tdStyle('text-align: center;')}">${idx + 1}</td>
+      <td style="${tdStyle()}">${item.name}</td>
+      <td style="${tdStyle('text-align: center;')}">${item.unit}</td>
+      <td style="${tdStyle('text-align: right;')}">${item.quantity}</td>
+      <td style="${tdStyle('text-align: right;')}">${formatCurrency(item.unit_net_price, currency)}</td>
+      <td style="${tdStyle('text-align: right;')}">${formatCurrency(item.net_amount, currency)}</td>
+      <td style="${tdStyle('text-align: center;')}">${item.vat_rate}%</td>
+      <td style="${tdStyle('text-align: right;')}">${formatCurrency(item.vat_amount, currency)}</td>
+      <td style="${tdStyle('text-align: right; font-weight: bold;')}">${formatCurrency(item.gross_amount, currency)}</td>
+    </tr>`;
+
+  const tableHead = `<thead><tr>
+    <th style="width: 22px; ${thStyle}">Lp.</th>
+    <th style="${thStyle}">Nazwa towaru / usługi</th>
+    <th style="width: 32px; ${thStyle}">Jm.</th>
+    <th style="width: 35px; ${thStyle}">Ilość</th>
+    <th style="width: 60px; ${thStyle}">Cena netto</th>
+    <th style="width: 65px; ${thStyle}">Wart. netto</th>
+    <th style="width: 35px; ${thStyle}">VAT</th>
+    <th style="width: 55px; ${thStyle}">Kwota VAT</th>
+    <th style="width: 70px; ${thStyle}">Wart. brutto</th>
+  </tr></thead>`;
+
+  const totalsRow = (label: string, t: { net: number; vat: number; gross: number }, bg: string) => `
+    <tr style="background: ${bg}; font-weight: 600;">
+      <td colspan="5" style="${tdStyle('text-align: right;')}">${label}</td>
+      <td style="${tdStyle('text-align: right;')}">${formatCurrency(t.net, currency)}</td>
+      <td style="${tdStyle()}"></td>
+      <td style="${tdStyle('text-align: right;')}">${formatCurrency(t.vat, currency)}</td>
+      <td style="${tdStyle('text-align: right;')}">${formatCurrency(t.gross, currency)}</td>
+    </tr>`;
+
+  const byloHtml = `
+    <div style="margin-bottom: 12px;">
+      <div style="font-size: 10px; font-weight: 700; margin-bottom: 4px; color: #666; text-transform: uppercase; padding: 4px 8px; background: #f3f4f6; border-radius: 4px;">Przed korektą (BYŁO)</div>
+      <table style="width: 100%; border-collapse: collapse;">${tableHead}<tbody>
+        ${cd.before_items.map((item, i) => makeRow(item, i)).join('')}
+        ${totalsRow('Razem BYŁO:', cd.before_totals, '#f3f4f6')}
+      </tbody></table>
+    </div>`;
+
+  const jestHtml = `
+    <div style="margin-bottom: 12px;">
+      <div style="font-size: 10px; font-weight: 700; margin-bottom: 4px; color: #7c3aed; text-transform: uppercase; padding: 4px 8px; background: #ede9fe; border-radius: 4px;">Po korekcie (JEST)</div>
+      <table style="width: 100%; border-collapse: collapse;">${tableHead}<tbody>
+        ${cd.after_items.map((item, i) => makeRow(item, i)).join('')}
+        ${totalsRow('Razem PO KOREKCIE:', cd.after_totals, '#ede9fe')}
+      </tbody></table>
+    </div>`;
+
+  const diffItems = cd.after_items.map((after, i) => {
+    const before = cd.before_items[i] || { net_amount: 0, vat_amount: 0, gross_amount: 0, name: after.name };
+    return {
+      name: after.name,
+      net: after.net_amount - before.net_amount,
+      vat: after.vat_amount - before.vat_amount,
+      gross: after.gross_amount - before.gross_amount,
+    };
+  });
+
+  const fmtDiff = (v: number) => {
+    const sign = v > 0 ? '+' : '';
+    const color = v < 0 ? '#dc2626' : v > 0 ? '#16a34a' : '#333';
+    return `<span style="color: ${color}; font-weight: 600;">${sign}${formatCurrency(v, currency)}</span>`;
+  };
+
+  const roznicaHtml = `
+    <div style="margin-bottom: 12px; border: 2px solid #7c3aed; border-radius: 6px; padding: 8px;">
+      <div style="font-size: 10px; font-weight: 700; margin-bottom: 6px; color: #7c3aed; text-transform: uppercase;">Kwota korekty (RÓŻNICA)</div>
+      <table style="width: 100%; border-collapse: collapse; font-size: 9px;">
+        <thead><tr>
+          <th style="text-align: left; padding: 3px 6px; border-bottom: 1px solid #ddd;">Nazwa</th>
+          <th style="text-align: right; padding: 3px 6px; border-bottom: 1px solid #ddd;">Wart. netto</th>
+          <th style="text-align: right; padding: 3px 6px; border-bottom: 1px solid #ddd;">Kwota VAT</th>
+          <th style="text-align: right; padding: 3px 6px; border-bottom: 1px solid #ddd;">Wart. brutto</th>
+        </tr></thead>
+        <tbody>
+          ${diffItems.map(d => `
+            <tr>
+              <td style="padding: 3px 6px;">${d.name}</td>
+              <td style="padding: 3px 6px; text-align: right;">${fmtDiff(d.net)}</td>
+              <td style="padding: 3px 6px; text-align: right;">${fmtDiff(d.vat)}</td>
+              <td style="padding: 3px 6px; text-align: right;">${fmtDiff(d.gross)}</td>
+            </tr>`).join('')}
+          <tr style="border-top: 2px solid #7c3aed; font-weight: 700; font-size: 11px;">
+            <td style="padding: 6px; color: #7c3aed;">RAZEM KOREKTA:</td>
+            <td style="padding: 6px; text-align: right;">${fmtDiff(cd.diff_totals.net)}</td>
+            <td style="padding: 6px; text-align: right;">${fmtDiff(cd.diff_totals.vat)}</td>
+            <td style="padding: 6px; text-align: right;">${fmtDiff(cd.diff_totals.gross)}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>`;
+
+  return byloHtml + jestHtml + roznicaHtml;
+};
+
 export const generateInvoiceHtml = (invoice: InvoiceData): string => {
   const { seller, buyer, items, currency = 'PLN', compact_pdf = false } = invoice;
   const hasAcceptedKsef = isOfficialKsefReference(invoice.ksef_reference);
@@ -225,13 +352,20 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     ? `https://efaktura.mf.gov.pl/web/verify?id=${encodeURIComponent(invoice.ksef_reference!)}`
     : '';
   
-  const netTotal = items.reduce((sum, item) => sum + item.net_amount, 0);
-  const vatTotal = items.reduce((sum, item) => sum + item.vat_amount, 0);
-  const grossTotal = items.reduce((sum, item) => sum + item.gross_amount, 0);
+  const isCorrection = invoice.type === 'correction' && !!invoice.correction_data;
+  const isAdvance = invoice.type === 'advance';
+  const isFinal = invoice.type === 'final';
+  const _isSimplified = invoice.type === 'simplified';
+
+  const displayItems = isCorrection ? invoice.correction_data!.after_items : items;
+  
+  const netTotal = displayItems.reduce((sum, item) => sum + item.net_amount, 0);
+  const vatTotal = displayItems.reduce((sum, item) => sum + item.vat_amount, 0);
+  const grossTotal = displayItems.reduce((sum, item) => sum + item.gross_amount, 0);
   
   // Group items by VAT rate for summary
   const vatSummary: Record<string, { net: number; vat: number; gross: number }> = {};
-  items.forEach(item => {
+  displayItems.forEach(item => {
     const rate = item.vat_rate;
     if (!vatSummary[rate]) {
       vatSummary[rate] = { net: 0, vat: 0, gross: 0 };
@@ -244,7 +378,7 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
   const cellPadding = compact_pdf ? '2px 4px' : '4px 6px';
   const cellFontSize = compact_pdf ? '8px' : '9px';
   
-  const itemsHtml = items.map((item, index) => `
+  const itemsHtml = displayItems.map((item, index) => `
     <tr>
       <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: center; font-size: ${cellFontSize};">${index + 1}</td>
       <td style="border: 1px solid #ddd; padding: ${cellPadding}; font-size: ${cellFontSize};">${item.name}${item.pkwiu ? ` <small>(${item.pkwiu})</small>` : ''}</td>
@@ -282,7 +416,8 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     vat_rr: 'Faktura VAT RR',
     correction: 'Faktura korygująca',
     advance: 'Faktura zaliczkowa',
-    final: 'Faktura końcowa',
+    final: 'Faktura VAT (Rozliczenie)',
+    simplified: 'Faktura uproszczona',
     kp: 'KP - Kasa Przyjmie',
     kw: 'KW - Kasa Wyda',
     wz: 'WZ - Wydanie Zewnętrzne',
@@ -402,8 +537,25 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
       </div>
       <div class="invoice-title">
         <h1 style="color: #333;">${typeLabels[invoice.type] || 'Faktura VAT'}<br><span style="color: #7c3aed;">${invoice.invoice_number}</span></h1>
+        ${isCorrection && invoice.correction_data ? `
+        <div style="font-size: 9px; color: #555; margin-top: 4px;">
+          <div>do faktury nr: <strong>${invoice.correction_data.original_invoice_number}</strong></div>
+          <div>z dnia: ${formatDate(invoice.correction_data.original_invoice_date)}</div>
+          <div>Powód korekty: ${invoice.correction_data.correction_reason}</div>
+        </div>
+        ` : ''}
+        ${isAdvance ? `
+        <div style="font-size: 9px; color: #555; margin-top: 4px;">
+          <div>Data otrzymania zaliczki: ${formatDate(invoice.sale_date)}</div>
+        </div>
+        ` : ''}
+        ${isFinal && invoice.advance_data?.advance_invoice_number ? `
+        <div style="font-size: 9px; color: #555; margin-top: 4px;">
+          <div>Faktura rozliczająca zaliczkę</div>
+        </div>
+        ` : ''}
         <div class="invoice-dates">
-          <div class="invoice-dates-row"><span class="invoice-dates-label">Data sprzedaży:</span> ${formatDate(invoice.sale_date)}</div>
+          ${!isAdvance ? `<div class="invoice-dates-row"><span class="invoice-dates-label">Data sprzedaży:</span> ${formatDate(invoice.sale_date)}</div>` : ''}
           <div class="invoice-dates-row"><span class="invoice-dates-label">Termin płatności:</span> ${formatDate(invoice.due_date)}</div>
         </div>
       </div>
@@ -428,6 +580,7 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
       </div>
     </div>
 
+    ${isCorrection && invoice.correction_data ? generateCorrectionTablesHtml(invoice.correction_data, currency, cellPadding, cellFontSize) : `
     <table>
       <thead>
         <tr>
@@ -446,6 +599,7 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
         ${itemsHtml}
       </tbody>
     </table>
+    `}
 
     <div class="vat-summary" style="margin-top: 8px; font-size: 8px;">
       <div style="font-size: 9px; font-weight: 600; margin-bottom: 4px; color: #666;">Podsumowanie faktury</div>

@@ -340,20 +340,20 @@ export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataC
                 <span className="text-muted-foreground text-xs">(dane z faktury pierwotnej — tylko do odczytu)</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-0">
+            <CardContent className="px-0 py-0">
               <div className="overflow-x-auto">
-                <Table>
+                <Table className="table-fixed w-full">
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-8">Lp.</TableHead>
-                      <TableHead>Nazwa</TableHead>
-                      <TableHead className="text-right w-16">Ilość</TableHead>
-                      <TableHead className="w-12">J.m.</TableHead>
-                      <TableHead className="text-right w-24">Cena netto</TableHead>
-                      <TableHead className="text-right w-24">Wart. netto</TableHead>
-                      <TableHead className="text-right w-14">VAT%</TableHead>
-                      <TableHead className="text-right w-20">VAT</TableHead>
-                      <TableHead className="text-right w-24">Brutto</TableHead>
+                      <TableHead className="w-[30px] px-1">Lp.</TableHead>
+                      <TableHead className="px-1">Nazwa</TableHead>
+                      <TableHead className="text-right w-[50px] px-1">Ilość</TableHead>
+                      <TableHead className="w-[36px] px-1">J.m.</TableHead>
+                      <TableHead className="text-right w-[80px] px-1">Cena netto</TableHead>
+                      <TableHead className="text-right w-[80px] px-1">Wart. netto</TableHead>
+                      <TableHead className="text-right w-[45px] px-1">VAT%</TableHead>
+                      <TableHead className="text-right w-[65px] px-1">VAT</TableHead>
+                      <TableHead className="text-right w-[80px] px-1">Brutto</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -399,22 +399,22 @@ export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataC
                 <span className="text-muted-foreground text-xs">(kliknij w pole, aby je zmienić)</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-0">
+            <CardContent className="px-0 py-0">
               <div className="overflow-x-auto">
-                <Table>
+                <Table className="table-fixed w-full">
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-8">Lp.</TableHead>
-                      <TableHead>Nazwa</TableHead>
-                      <TableHead className="text-right w-20">Ilość</TableHead>
-                      <TableHead className="w-12">J.m.</TableHead>
-                      <TableHead className="text-right w-24">Cena netto</TableHead>
-                      <TableHead className="text-right w-24">Cena brutto</TableHead>
-                      <TableHead className="text-right w-20">Rabat%</TableHead>
-                      <TableHead className="text-right w-24">Wart. netto</TableHead>
-                      <TableHead className="text-right w-14">VAT%</TableHead>
-                      <TableHead className="text-right w-20">VAT</TableHead>
-                      <TableHead className="text-right w-24">Brutto</TableHead>
+                      <TableHead className="w-[30px] px-1">Lp.</TableHead>
+                      <TableHead className="px-1">Nazwa</TableHead>
+                      <TableHead className="text-right w-[50px] px-1">Ilość</TableHead>
+                      <TableHead className="w-[36px] px-1">J.m.</TableHead>
+                      <TableHead className="text-right w-[70px] px-1">Cena netto</TableHead>
+                      <TableHead className="text-right w-[70px] px-1">Cena brutto</TableHead>
+                      <TableHead className="text-right w-[50px] px-1">Rabat%</TableHead>
+                      <TableHead className="text-right w-[70px] px-1">Wart. netto</TableHead>
+                      <TableHead className="text-right w-[45px] px-1">VAT%</TableHead>
+                      <TableHead className="text-right w-[60px] px-1">VAT</TableHead>
+                      <TableHead className="text-right w-[70px] px-1">Brutto</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>

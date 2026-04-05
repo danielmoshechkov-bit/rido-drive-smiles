@@ -17471,6 +17471,9 @@ export type Database = {
       }
       user_invoices: {
         Row: {
+          advance_invoice_id: string | null
+          advance_invoice_number: string | null
+          advance_ksef_reference: string | null
           buyer_address: string | null
           buyer_name: string | null
           buyer_nip: string | null
@@ -17513,6 +17516,9 @@ export type Database = {
           vat_total: number | null
         }
         Insert: {
+          advance_invoice_id?: string | null
+          advance_invoice_number?: string | null
+          advance_ksef_reference?: string | null
           buyer_address?: string | null
           buyer_name?: string | null
           buyer_nip?: string | null
@@ -17555,6 +17561,9 @@ export type Database = {
           vat_total?: number | null
         }
         Update: {
+          advance_invoice_id?: string | null
+          advance_invoice_number?: string | null
+          advance_ksef_reference?: string | null
           buyer_address?: string | null
           buyer_name?: string | null
           buyer_nip?: string | null
@@ -17597,6 +17606,13 @@ export type Database = {
           vat_total?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "user_invoices_advance_invoice_id_fkey"
+            columns: ["advance_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "user_invoices"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "user_invoices_company_id_fkey"
             columns: ["company_id"]

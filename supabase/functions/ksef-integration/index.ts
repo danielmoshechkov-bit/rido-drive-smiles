@@ -769,8 +769,18 @@ function buildKsefInvoiceArtifacts(invoice: any, entity: any, items: any[]) {
   const formCode = 'FA (3) / 1-0E';
   
   // Determine invoice type for KSeF — support all types
-  const isCorrection = invoice.is_correction === true || invoice.invoice_type === 'KOR' || invoice.invoice_type === 'correction' || invoice.invoice_type === 'KOR_ZAL' || invoice.invoice_type === 'KOR_ROZ';
-  const invoiceType = isCorrection ? 'KOR' : (invoice.invoice_type || 'VAT');
+  const rawType = invoice.invoice_type || 'VAT';
+  const isCorrection = invoice.is_correction === true || ['KOR', 'correction', 'KOR_ZAL', 'KOR_ROZ'].includes(rawType);
+  
+  // Map invoice_type to KSeF RodzajFaktury
+  let invoiceType: string;
+  if (rawType === 'KOR_ZAL') invoiceType = 'KOR_ZAL';
+  else if (rawType === 'KOR_ROZ') invoiceType = 'KOR_ROZ';
+  else if (isCorrection) invoiceType = 'KOR';
+  else if (rawType === 'ZAL' || rawType === 'advance') invoiceType = 'ZAL';
+  else if (rawType === 'ROZ' || rawType === 'final') invoiceType = 'ROZ';
+  else if (rawType === 'UPR') invoiceType = 'UPR';
+  else invoiceType = 'VAT';
 
   const vatByRate: Record<string, { net: number; vat: number }> = {};
   items.forEach((item) => {
@@ -874,6 +884,49 @@ function buildKsefInvoiceArtifacts(invoice: any, entity: any, items: any[]) {
     <TypKorekty>2</TypKorekty>`;
   }
 
+  // Build ZaliczkaCzesciowa for ZAL and KOR_ZAL
+  let zaliczkaXml = '';
+  if (invoiceType === 'ZAL' || invoiceType === 'KOR_ZAL') {
+    // Group by VAT rate for advance payments
+    const zaliczkaByVat: Record<string, number> = {};
+    items.forEach((item) => {
+      const rate = String(item.vat_rate || '23');
+      const gross = Number(item.gross_amount) || 0;
+      zaliczkaByVat[rate] = (zaliczkaByVat[rate] || 0) + gross;
+    });
+    let zalNr = 1;
+    for (const [rate, grossVal] of Object.entries(zaliczkaByVat)) {
+      const numRate = parseInt(rate) || 0;
+      zaliczkaXml += `
+      <ZaliczkaCzesciowa>
+        <NrZaliczki>${zalNr++}</NrZaliczki>
+        <WartoscZal>${grossVal.toFixed(2)}</WartoscZal>
+        <ProcZal>${numRate}</ProcZal>
+      </ZaliczkaCzesciowa>`;
+    }
+  }
+
+  // Build FakturaZaliczkowa for ROZ and KOR_ROZ
+  let fakZalXml = '';
+  if (invoiceType === 'ROZ' || invoiceType === 'KOR_ROZ') {
+    if (invoice.advance_ksef_reference) {
+      fakZalXml = `
+      <FakturaZaliczkowa>
+        <NrKSeFFaZaliczkowej>${escapeXml(invoice.advance_ksef_reference)}</NrKSeFFaZaliczkowej>
+      </FakturaZaliczkowa>`;
+    } else if (invoice.advance_invoice_number) {
+      fakZalXml = `
+      <FakturaZaliczkowa>
+        <NrKSeFZN>1</NrKSeFZN>
+        <NrFaZaliczkowej>${escapeXml(invoice.advance_invoice_number)}</NrFaZaliczkowej>
+      </FakturaZaliczkowa>`;
+    }
+  }
+
+  // Determine items content: ZAL/KOR_ZAL use ZaliczkaCzesciowa, others use FaWiersz
+  const isZaliczkaType = invoiceType === 'ZAL' || invoiceType === 'KOR_ZAL';
+  const itemsContent = isZaliczkaType ? zaliczkaXml : itemsXML;
+
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <Faktura xmlns="http://crd.gov.pl/wzor/2025/06/25/13775/">
   <Naglowek>
@@ -900,7 +953,7 @@ function buildKsefInvoiceArtifacts(invoice: any, entity: any, items: any[]) {
       <P_23>2</P_23>
       <PMarzy><P_PMarzyN>1</P_PMarzyN></PMarzy>
     </Adnotacje>
-    <RodzajFaktury>${invoiceType}</RodzajFaktury>${correctionBlockXml}${itemsXML}
+    <RodzajFaktury>${invoiceType}</RodzajFaktury>${correctionBlockXml}${itemsContent}${fakZalXml}
     <Platnosc>
       <TerminPlatnosci><Termin>${invoice.due_date || issueDate}</Termin></TerminPlatnosci>
       <FormaPlatnosci>${formaPlatnosci}</FormaPlatnosci>
