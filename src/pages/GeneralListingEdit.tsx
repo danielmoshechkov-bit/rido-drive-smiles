@@ -57,7 +57,7 @@ export default function GeneralListingEdit() {
       const [catRes, listRes, photoRes] = await Promise.all([
         supabase.from("general_listing_categories").select("id, name, slug").order("name"),
         supabase.from("general_listings").select("*").eq("id", id).eq("user_id", u.id).single(),
-        supabase.from("general_listing_photos").select("id, url").eq("listing_id", id!).order("display_order"),
+        supabase.from("general_listing_photos").select("id, url, is_ai_enhanced").eq("listing_id", id!).order("display_order"),
       ]);
 
       if (catRes.data) setCategories(catRes.data);
