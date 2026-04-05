@@ -437,8 +437,6 @@ export default function GeneralListingDetail() {
                 {translatedDesc || "Brak opisu."}
               </div>
             </div>
-              </div>
-            </div>
           </div>
 
           {/* RIGHT — sticky contact + AI card (like VehicleDetailPage) */}
