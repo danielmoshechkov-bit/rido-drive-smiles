@@ -422,7 +422,8 @@
       "driverLicense": "Driver License",
       "medicalExam": "Medical Examination",
       "otherDocument": "Other document"
-    }
+    },
+    "personalInfo": "Driver information"
   },
   "commonExtra": {
     "driverPanel": "Driver Panel",

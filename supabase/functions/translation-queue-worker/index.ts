@@ -144,9 +144,10 @@ async function translateOne(
   console.log('translateOne START:', item.listing_id, 'type:', item.listing_type, 'provider:', provider)
 
   const SUPPORTED_LANGS = ['en', 'ru', 'de', 'ua']
-  const rawLangs = item.target_langs || ['en', 'ru']
-  const langs = (Array.isArray(rawLangs) ? rawLangs : ['en', 'ru']).filter((l: string) => SUPPORTED_LANGS.includes(l))
-  if (langs.length === 0) langs.push('en', 'ru')
+  const rawLangs = item.target_langs || ['en', 'ru', 'de', 'ua']
+  const langs = (Array.isArray(rawLangs) ? rawLangs : ['en', 'ru', 'de', 'ua'])
+    .filter((l: string) => SUPPORTED_LANGS.includes(l))
+  if (langs.length === 0) langs.push('en', 'ru', 'de', 'ua')
   let savedCount = 0
   let skippedCount = 0
   let failedCount = 0
