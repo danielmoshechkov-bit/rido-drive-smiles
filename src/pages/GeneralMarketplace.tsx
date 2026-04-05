@@ -399,10 +399,10 @@ export default function GeneralMarketplace() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="newest">Najnowsze</SelectItem>
-                    <SelectItem value="price_asc">Cena: od najniższej</SelectItem>
-                    <SelectItem value="price_desc">Cena: od najwyższej</SelectItem>
-                    <SelectItem value="ai_score">Ocena AI</SelectItem>
+                    <SelectItem value="newest">{t('marketplace.sortNewest')}</SelectItem>
+                    <SelectItem value="price_asc">{t('marketplace.sortPriceAsc')}</SelectItem>
+                    <SelectItem value="price_desc">{t('marketplace.sortPriceDesc')}</SelectItem>
+                    <SelectItem value="ai_score">{t('marketplace.sortAiScore')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
