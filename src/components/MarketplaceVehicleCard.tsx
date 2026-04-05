@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Star, Fuel, Calendar, MapPin, ChevronLeft, ChevronRight, Phone, Mail, Car, User } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useListingTranslation } from "@/hooks/useListingTranslation";
 
 interface VehicleListing {
   id: string;
@@ -56,6 +57,10 @@ const FUEL_TYPE_LABELS: Record<string, string> = {
 };
 
 export function MarketplaceVehicleCard({ listing, onReserve, isLoggedIn }: MarketplaceVehicleCardProps) {
+  const vehicleTitle = `${listing.vehicle.brand} ${listing.vehicle.model}`;
+  const { title: translatedTitle, description: translatedDesc } = useListingTranslation(
+    listing.id, vehicleTitle, listing.description || '', 'vehicle'
+  );
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [showDetails, setShowDetails] = useState(false);
   const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
@@ -177,7 +182,7 @@ export function MarketplaceVehicleCard({ listing, onReserve, isLoggedIn }: Marke
       <CardContent className="p-4">
         {/* Brand & Model */}
         <h3 className="font-bold text-lg leading-tight mb-2">
-          {listing.vehicle.brand} {listing.vehicle.model}
+          {translatedTitle}
         </h3>
 
         {/* Details Row - Year, Location, Fuel on same line */}
@@ -225,8 +230,8 @@ export function MarketplaceVehicleCard({ listing, onReserve, isLoggedIn }: Marke
         {/* Expandable Details */}
         {showDetails && (
           <div className="mt-4 pt-4 border-t space-y-2">
-            {listing.description && (
-              <p className="text-sm text-muted-foreground mb-3">{listing.description}</p>
+            {(translatedDesc || listing.description) && (
+              <p className="text-sm text-muted-foreground mb-3">{translatedDesc || listing.description}</p>
             )}
             
             <div className="flex items-center gap-2 text-sm">

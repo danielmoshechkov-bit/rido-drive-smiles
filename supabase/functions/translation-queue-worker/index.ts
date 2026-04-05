@@ -6,7 +6,7 @@ const CORS = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const BATCH_SIZE = 10
+const BATCH_SIZE = 20
 const MAX_PARALLEL = 3
 
 const LANG_NAMES: Record<string, string> = {
