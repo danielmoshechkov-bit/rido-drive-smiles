@@ -143,7 +143,10 @@ async function translateOne(
 ) {
   console.log('translateOne START:', item.listing_id, 'type:', item.listing_type, 'provider:', provider)
 
-  const langs = item.target_langs || ['en', 'ru', 'ua', 'de', 'vi', 'kz']
+  const SUPPORTED_LANGS = ['en', 'ru', 'de', 'ua']
+  const rawLangs = item.target_langs || ['en', 'ru']
+  const langs = (Array.isArray(rawLangs) ? rawLangs : ['en', 'ru']).filter((l: string) => SUPPORTED_LANGS.includes(l))
+  if (langs.length === 0) langs.push('en', 'ru')
   let savedCount = 0
   let skippedCount = 0
   let failedCount = 0
