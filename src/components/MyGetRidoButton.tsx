@@ -179,7 +179,7 @@ export function MyGetRidoButton({ user, variant = "outline", size = "sm", classN
         {accountTypes.isRealEstate && (
           <DropdownMenuItem onClick={() => navigate('/nieruchomosci/agent/panel')}>
           <HomeIcon className="h-4 w-4 mr-2" />
-            Panel Nieruchomości
+            {t('myAccount.realEstatePanel')}
           </DropdownMenuItem>
         )}
         {(accountTypes.isAccounting || accountTypes.isAdmin) && (
