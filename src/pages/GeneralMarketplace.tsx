@@ -409,7 +409,7 @@ export default function GeneralMarketplace() {
 
               {/* Count — RIGHT side (like Nieruchomości) */}
               <p className="text-sm text-muted-foreground">
-                Znaleziono: <span className="font-medium text-foreground">{filtered.length}</span> ogłoszeń
+                {t('marketplace.found')} <span className="font-medium text-foreground">{filtered.length}</span> {t('marketplace.listings')}
               </p>
             </div>
 
