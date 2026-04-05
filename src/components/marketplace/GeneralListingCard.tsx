@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
-import { Heart, MapPin, Sparkles, ImageIcon } from "lucide-react";
+
+import { Heart, MapPin, Sparkles, ImageIcon, ChevronLeft, ChevronRight, GitCompareArrows } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface GeneralListingCardProps {
@@ -17,6 +18,9 @@ interface GeneralListingCardProps {
     photos?: { url: string; is_ai_enhanced?: boolean }[];
     category?: { name: string } | null;
   };
+  variant?: "grid" | "compact" | "list";
+  onToggleCompare?: () => void;
+  isSelectedForCompare?: boolean;
 }
 
 const CONDITION_STYLES: Record<string, { label: string; className: string }> = {
@@ -40,8 +44,9 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(days / 30)} mies. temu`;
 }
 
-export function GeneralListingCard({ listing }: GeneralListingCardProps) {
+export function GeneralListingCard({ listing, variant = "grid", onToggleCompare, isSelectedForCompare }: GeneralListingCardProps) {
   const navigate = useNavigate();
+  const [currentPhotoIdx, setCurrentPhotoIdx] = useState(0);
   const [isFav, setIsFav] = useState(() => {
     try {
       const favs = JSON.parse(localStorage.getItem("rido_market_favs") || "[]");
@@ -49,8 +54,9 @@ export function GeneralListingCard({ listing }: GeneralListingCardProps) {
     } catch { return false; }
   });
 
-  const photo = listing.photos?.[0];
-  const hasAiPhoto = listing.photos?.some(p => p.is_ai_enhanced);
+  const photos = listing.photos || [];
+  const photo = photos[currentPhotoIdx];
+  const hasAiPhoto = photos.some(p => p.is_ai_enhanced);
   const cond = listing.condition ? CONDITION_STYLES[listing.condition] : null;
 
   const toggleFav = (e: React.MouseEvent) => {
@@ -62,14 +68,73 @@ export function GeneralListingCard({ listing }: GeneralListingCardProps) {
     setIsFav(!isFav);
   };
 
+  const handlePrevPhoto = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setCurrentPhotoIdx(i => (i > 0 ? i - 1 : photos.length - 1));
+  };
+
+  const handleNextPhoto = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setCurrentPhotoIdx(i => (i < photos.length - 1 ? i + 1 : 0));
+  };
+
   const aiStars = listing.ai_score ? Math.round(listing.ai_score / 2) : 0;
 
+  // LIST variant - horizontal card
+  if (variant === "list") {
+    return (
+      <article
+        onClick={() => navigate(`/marketplace/listing/${listing.id}`)}
+        className="group cursor-pointer rounded-xl border bg-card shadow-sm hover:shadow-md transition-all overflow-hidden flex"
+      >
+        <div className="relative w-[200px] sm:w-[240px] shrink-0 bg-muted overflow-hidden">
+          {photo ? (
+            <img src={photo.url} alt={listing.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" />
+          ) : (
+            <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground min-h-[140px]">
+              <ImageIcon className="h-8 w-8 mb-1" />
+              <span className="text-xs">Brak zdjęcia</span>
+            </div>
+          )}
+          {hasAiPhoto && (
+            <Badge className="absolute top-2 left-2 bg-primary text-primary-foreground text-xs gap-1">
+              <Sparkles className="h-3 w-3" /> AI foto
+            </Badge>
+          )}
+          <button onClick={toggleFav} className="absolute top-2 right-2 z-10 h-8 w-8 rounded-full bg-background/80 backdrop-blur flex items-center justify-center hover:bg-background transition">
+            <Heart className={cn("h-4 w-4", isFav ? "fill-red-500 text-red-500" : "text-foreground")} />
+          </button>
+        </div>
+        <div className="flex-1 p-4 flex flex-col justify-between min-w-0">
+          <div>
+            <h3 className="font-medium text-sm leading-tight line-clamp-2 mb-1">{listing.title}</h3>
+            <div className="flex items-center gap-2 flex-wrap mb-2">
+              {cond && <Badge variant="outline" className={cn("text-xs", cond.className)}>{cond.label}</Badge>}
+              {listing.location && (
+                <span className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" />{listing.location}</span>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-base font-bold text-primary">
+              {listing.price ? `${listing.price.toLocaleString("pl-PL")}\u00A0zł` : "Zapytaj o cenę"}
+            </span>
+            <span className="text-xs text-muted-foreground">{timeAgo(listing.created_at)}</span>
+          </div>
+        </div>
+      </article>
+    );
+  }
+
+  // GRID / COMPACT variant
   return (
     <article
       onClick={() => navigate(`/marketplace/listing/${listing.id}`)}
       className="group cursor-pointer rounded-xl border bg-card shadow-sm hover:shadow-md transition-all overflow-hidden"
     >
-      {/* Image */}
+      {/* Image with gallery arrows */}
       <div className="relative aspect-[4/3] bg-muted overflow-hidden">
         {photo ? (
           <img
@@ -85,7 +150,48 @@ export function GeneralListingCard({ listing }: GeneralListingCardProps) {
           </div>
         )}
 
-        {/* Fav heart */}
+        {/* Photo navigation arrows */}
+        {photos.length > 1 && (
+          <>
+            <button
+              onClick={handlePrevPhoto}
+              className="absolute left-1.5 top-1/2 -translate-y-1/2 z-10 h-7 w-7 rounded-full bg-background/80 backdrop-blur flex items-center justify-center opacity-0 group-hover:opacity-100 transition hover:bg-background"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <button
+              onClick={handleNextPhoto}
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 z-10 h-7 w-7 rounded-full bg-background/80 backdrop-blur flex items-center justify-center opacity-0 group-hover:opacity-100 transition hover:bg-background"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+            {/* Dots */}
+            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 flex gap-1">
+              {photos.slice(0, 5).map((_, i) => (
+                <span key={i} className={cn("h-1.5 w-1.5 rounded-full transition", i === currentPhotoIdx ? "bg-white" : "bg-white/50")} />
+              ))}
+              {photos.length > 5 && <span className="text-white text-[10px] ml-0.5">+{photos.length - 5}</span>}
+            </div>
+          </>
+        )}
+
+        {/* Compare button - top left */}
+        {onToggleCompare && (
+          <button
+            onClick={(e) => { e.stopPropagation(); e.preventDefault(); onToggleCompare(); }}
+            className={cn(
+              "absolute top-2 left-2 z-10 h-8 px-2 rounded-full backdrop-blur flex items-center justify-center gap-1 text-xs font-medium transition",
+              isSelectedForCompare
+                ? "bg-primary text-primary-foreground"
+                : "bg-background/80 text-foreground hover:bg-background"
+            )}
+          >
+            <GitCompareArrows className="h-3.5 w-3.5" />
+            {!isSelectedForCompare && <span className="hidden sm:inline">Porównaj</span>}
+          </button>
+        )}
+
+        {/* Fav heart - top right */}
         <button
           onClick={toggleFav}
           className="absolute top-2 right-2 z-10 h-8 w-8 rounded-full bg-background/80 backdrop-blur flex items-center justify-center hover:bg-background transition"
@@ -95,7 +201,7 @@ export function GeneralListingCard({ listing }: GeneralListingCardProps) {
 
         {/* AI photo badge */}
         {hasAiPhoto && (
-          <Badge className="absolute top-2 left-2 bg-primary text-primary-foreground text-xs gap-1">
+          <Badge className="absolute bottom-2 left-2 bg-primary text-primary-foreground text-xs gap-1">
             <Sparkles className="h-3 w-3" /> AI foto
           </Badge>
         )}
@@ -143,7 +249,7 @@ export function GeneralListingCard({ listing }: GeneralListingCardProps) {
             {Array.from({ length: 5 }).map((_, i) => (
               <span key={i} className={cn("text-xs", i < aiStars ? "text-yellow-500" : "text-muted-foreground/30")}>★</span>
             ))}
-            <span className="text-xs text-muted-foreground ml-1">{listing.ai_score?.toFixed(1)}</span>
+            <span className="text-xs text-muted-foreground ml-1">{(listing.ai_score! / 2).toFixed(1)}</span>
           </div>
         )}
       </div>
