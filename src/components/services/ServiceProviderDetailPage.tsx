@@ -123,6 +123,8 @@ export function ServiceProviderDetailPage() {
         .eq('is_active', true)
         .order('sort_order');
       
+      const providerCategory = providerData?.category?.slug || '';
+      
       const allServices = [
         ...(servicesData || []).map((s: any) => ({
           id: s.id,
@@ -133,9 +135,20 @@ export function ServiceProviderDetailPage() {
           category: s.category,
           photos: s.photos || [],
           is_active: true,
+          _isProviderCategory: s.category === providerCategory || s.category === 'ogolne',
         })),
-        ...(legacyServices || []),
+        ...(legacyServices || []).map((s: any) => ({
+          ...s,
+          _isProviderCategory: true,
+        })),
       ];
+      
+      // Sort: services matching provider's main category first
+      allServices.sort((a: any, b: any) => {
+        if (a._isProviderCategory && !b._isProviderCategory) return -1;
+        if (!a._isProviderCategory && b._isProviderCategory) return 1;
+        return 0;
+      });
       
       if (allServices.length > 0) setServices(allServices);
 

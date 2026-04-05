@@ -177,18 +177,29 @@ export default function ServicesMarketplace() {
       
       if (cats) setCategories(cats);
 
-      // Load providers with their services
+      // Load providers with their services (legacy + provider_services)
       const { data: provs } = await supabase
         .from('service_providers')
         .select(`
           *,
           category:service_categories(*),
-          services(id, name, price, price_type)
+          services(id, name, price, price_type),
+          provider_services(id, name, price_from, price_to, status, category)
         `)
         .eq('status', 'active')
         .order('rating_avg', { ascending: false, nullsFirst: false });
       
-      if (provs) setProviders(provs as ServiceProvider[]);
+      if (provs) {
+        // Merge provider_services into services for each provider
+        const merged = provs.map((p: any) => {
+          const legacyServices = p.services || [];
+          const provServices = (p.provider_services || [])
+            .filter((ps: any) => ps.status === 'active')
+            .map((ps: any) => ({ id: ps.id, name: ps.name, price: ps.price_from, price_type: 'fixed' }));
+          return { ...p, services: [...provServices, ...legacyServices] };
+        });
+        setProviders(merged as ServiceProvider[]);
+      }
     } catch (error) {
       console.error('Error loading services data:', error);
     } finally {
@@ -199,9 +210,15 @@ export default function ServicesMarketplace() {
   const selectedCategory = categories.find(c => c.slug === selectedCategorySlug);
 
   const filteredProviders = providers.filter(provider => {
-    // Category filter
-    if (selectedCategorySlug && provider.category?.slug !== selectedCategorySlug) {
-      return false;
+    // Category filter - show provider if they have matching category OR have services in that category
+    if (selectedCategorySlug) {
+      const categoryMatch = provider.category?.slug === selectedCategorySlug;
+      const hasServicesInCategory = (provider as any).provider_services?.some(
+        (ps: any) => ps.status === 'active'
+      );
+      if (!categoryMatch && !hasServicesInCategory) {
+        return false;
+      }
     }
 
     // Group filter - match any slug in the group
@@ -229,6 +246,15 @@ export default function ServicesMarketplace() {
     }
     
     return true;
+  }).sort((a, b) => {
+    // Sort: providers with matching category first
+    if (selectedCategorySlug) {
+      const aMatch = a.category?.slug === selectedCategorySlug ? 0 : 1;
+      const bMatch = b.category?.slug === selectedCategorySlug ? 0 : 1;
+      if (aMatch !== bMatch) return aMatch - bMatch;
+    }
+    // Then by rating
+    return (b.rating_avg || 0) - (a.rating_avg || 0);
   });
 
   const handleCategoryClick = (slug: string) => {
