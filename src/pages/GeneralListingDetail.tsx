@@ -351,12 +351,19 @@ export default function GeneralListingDetail() {
                 </>
               )}
               <span>›</span>
-              <span className="truncate max-w-[200px]">{listing.title}</span>
+              <span className="truncate max-w-[200px]">{translatedTitle}</span>
             </div>
 
             {/* Title + price */}
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold leading-tight mb-2">{listing.title}</h1>
+              <h1 className="text-2xl md:text-3xl font-bold leading-tight mb-2">
+                {translatedTitle}
+                {isTranslated && (
+                  <span className="text-xs font-normal text-muted-foreground ml-2">
+                    {i18n.language === 'en' ? '(Translated)' : i18n.language === 'ru' ? '(Переведено)' : i18n.language === 'ua' ? '(Перекладено)' : ''}
+                  </span>
+                )}
+              </h1>
               <div className="flex items-baseline gap-2">
                 <span className="text-3xl md:text-4xl font-bold text-primary">
                   {listing.price ? `${Number(listing.price).toLocaleString("pl-PL")}\u00A0zł` : "Zapytaj o cenę"}
