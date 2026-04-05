@@ -45,6 +45,7 @@ import OfertaPage from "./pages/OfertaPage";
 import PropertyCompare from "./pages/PropertyCompare";
 import RealEstateAgentRegister from "./pages/RealEstateAgentRegister";
 import RealEstateAgentDashboard from "./pages/RealEstateAgentDashboard";
+import GeneralListingAdd from "./pages/GeneralListingAdd";
 import FleetLanding from "./pages/FleetLanding";
 import FleetRegister from "./pages/FleetRegister";
 import FleetRegisterSuccess from "./pages/FleetRegisterSuccess";
