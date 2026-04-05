@@ -118,8 +118,8 @@ export function FeaturedListingCard({ listing, viewMode, onClick, showTransactio
 
   const getTransactionLabel = (type?: string) => {
     if (!type) return null;
-    if (type === 'sprzedaz' || type === 'sale') return 'Na sprzedaż';
-    if (type.includes('wynajem') || type === 'rent') return 'Na wynajem';
+    if (type === 'sprzedaz' || type === 'sale') return t('listing.forSale');
+    if (type.includes('wynajem') || type === 'rent') return t('listing.forRent');
     return null;
   };
 
