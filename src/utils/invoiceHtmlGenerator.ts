@@ -499,6 +499,7 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
   const cellPadding = compact_pdf ? '2px 4px' : '4px 6px';
   const cellFontSize = compact_pdf ? '8px' : '9px';
   
+  // Standard items HTML (VAT columns)
   const itemsHtml = displayItems.map((item, index) => `
     <tr>
       <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: center; font-size: ${cellFontSize};">${index + 1}</td>
@@ -512,6 +513,37 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
       <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: right; font-weight: bold; font-size: ${cellFontSize};">${formatCurrency(item.gross_amount, currency)}</td>
     </tr>
   `).join('');
+
+  // Simple items HTML (no VAT columns) — for rachunek, nota
+  const simpleItemsHtml = displayItems.map((item, index) => `
+    <tr>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: center; font-size: ${cellFontSize};">${index + 1}</td>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; font-size: ${cellFontSize};">${item.name}</td>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: center; font-size: ${cellFontSize};">${item.unit}</td>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: right; font-size: ${cellFontSize};">${item.quantity}</td>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: right; font-size: ${cellFontSize};">${formatCurrency(item.unit_net_price, currency)}</td>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: right; font-weight: bold; font-size: ${cellFontSize};">${formatCurrency(item.net_amount, currency)}</td>
+    </tr>
+  `).join('');
+
+  // VAT RR items HTML — with flat-rate VAT
+  const rrRate = invoice.vat_rr_data?.flat_rate_percent || 7;
+  const vatRRItemsHtml = displayItems.map((item, index) => {
+    const rrVat = Math.round(item.net_amount * (rrRate / 100) * 100) / 100;
+    const rrGross = Math.round((item.net_amount + rrVat) * 100) / 100;
+    return `
+    <tr>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: center; font-size: ${cellFontSize};">${index + 1}</td>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; font-size: ${cellFontSize};">${item.name}</td>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: center; font-size: ${cellFontSize};">${item.unit}</td>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: right; font-size: ${cellFontSize};">${item.quantity}</td>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: right; font-size: ${cellFontSize};">${formatCurrency(item.unit_net_price, currency)}</td>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: right; font-size: ${cellFontSize};">${formatCurrency(item.net_amount, currency)}</td>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: center; font-size: ${cellFontSize};">${rrRate}%</td>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: right; font-size: ${cellFontSize};">${formatCurrency(rrVat, currency)}</td>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: right; font-weight: bold; font-size: ${cellFontSize};">${formatCurrency(rrGross, currency)}</td>
+    </tr>`;
+  }).join('');
 
   // VAT summary rows - table format with fixed column widths
   const vatSummaryHtml = Object.entries(vatSummary).map(([rate, amounts]) => `
