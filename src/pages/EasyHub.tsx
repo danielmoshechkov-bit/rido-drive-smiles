@@ -487,7 +487,7 @@ export default function EasyHub() {
                 className="h-9 px-4 text-sm font-medium"
                 onClick={() => setShowAuthModal(true)}
               >
-                {t('mainPage.login')}
+                {t('nav.login')}
               </Button>
             ) : (
               <MyGetRidoButton user={user} size="sm" className="text-xs sm:text-sm px-2 sm:px-3" />
