@@ -49,6 +49,7 @@ import { AccountingCategoryModal } from "@/components/AccountingCategoryModal";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { SEOHead, seoConfigs } from "@/components/SEOHead";
 import { RidoAIChatPanel } from "@/components/ai/RidoAIChatPanel";
+import { useTranslation } from 'react-i18next';
 
 // Import tile images
 import tileCars from "@/assets/tile-cars.jpg";
