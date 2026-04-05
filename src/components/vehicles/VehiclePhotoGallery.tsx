@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { ChevronLeft, ChevronRight, X, Image as ImageIcon, Heart } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Image as ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 
@@ -9,13 +9,12 @@ interface VehiclePhotoGalleryProps {
 }
 
 export function VehiclePhotoGallery({ photos, title }: VehiclePhotoGalleryProps) {
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
 
-  // Mobile carousel state
-  const [currentPage, setCurrentPage] = useState(0);
-  const containerRef = useRef<HTMLDivElement>(null);
+  // Mobile smooth drag
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
   const touchCurrentX = useRef(0);
@@ -29,31 +28,6 @@ export function VehiclePhotoGallery({ photos, title }: VehiclePhotoGalleryProps)
   const lbTouchEndX = useRef(0);
 
   const displayPhotos = photos.length > 0 ? photos : ["/placeholder.svg"];
-
-  // Build pages for mobile: each page = 1 large (left ~60%) + 2 small (right stacked ~40%)
-  // If only 1-2 photos, show simpler layout
-  const mobilePages: number[][] = [];
-  if (displayPhotos.length <= 2) {
-    // One photo per page
-    displayPhotos.forEach((_, i) => mobilePages.push([i]));
-  } else {
-    let i = 0;
-    while (i < displayPhotos.length) {
-      const remaining = displayPhotos.length - i;
-      if (remaining >= 3) {
-        mobilePages.push([i, i + 1, i + 2]);
-        i += 3;
-      } else if (remaining === 2) {
-        mobilePages.push([i, i + 1]);
-        i += 2;
-      } else {
-        mobilePages.push([i]);
-        i += 1;
-      }
-    }
-  }
-
-  const totalPages = mobilePages.length;
 
   const handleImageError = (index: number) => {
     setImageErrors(prev => new Set(prev).add(index));
@@ -69,14 +43,9 @@ export function VehiclePhotoGallery({ photos, title }: VehiclePhotoGalleryProps)
     setLightboxOpen(true);
   };
 
-  const nextLightbox = () => {
-    setLightboxIndex((prev) => (prev + 1) % displayPhotos.length);
-  };
-  const prevLightbox = () => {
-    setLightboxIndex((prev) => (prev - 1 + displayPhotos.length) % displayPhotos.length);
-  };
+  const nextLightbox = () => setLightboxIndex((prev) => (prev + 1) % displayPhotos.length);
+  const prevLightbox = () => setLightboxIndex((prev) => (prev - 1 + displayPhotos.length) % displayPhotos.length);
 
-  // Keyboard nav for lightbox
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!lightboxOpen) return;
@@ -88,7 +57,7 @@ export function VehiclePhotoGallery({ photos, title }: VehiclePhotoGalleryProps)
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [lightboxOpen]);
 
-  // Mobile touch handlers - smooth single-page swipe
+  // Mobile touch - single photo swipe
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
     touchStartY.current = e.touches[0].clientY;
@@ -103,51 +72,37 @@ export function VehiclePhotoGallery({ photos, title }: VehiclePhotoGalleryProps)
     touchCurrentX.current = e.touches[0].clientX;
     const dx = touchCurrentX.current - touchStartX.current;
     const dy = e.touches[0].clientY - touchStartY.current;
-
-    // Determine direction on first significant move
     if (isHorizontal.current === null && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) {
       isHorizontal.current = Math.abs(dx) > Math.abs(dy);
     }
-
     if (!isHorizontal.current) return;
-
     e.preventDefault();
-
-    // Apply rubber-band at edges
-    if ((currentPage === 0 && dx > 0) || (currentPage === totalPages - 1 && dx < 0)) {
+    if ((currentIndex === 0 && dx > 0) || (currentIndex === displayPhotos.length - 1 && dx < 0)) {
       setDragOffset(dx * 0.25);
     } else {
       setDragOffset(dx);
     }
-  }, [currentPage, totalPages]);
+  }, [currentIndex, displayPhotos.length]);
 
   const handleTouchEnd = useCallback(() => {
     isDragging.current = false;
     setIsDraggingState(false);
     const dx = touchStartX.current - touchCurrentX.current;
-
     if (isHorizontal.current && Math.abs(dx) > 40) {
-      if (dx > 0 && currentPage < totalPages - 1) {
-        setCurrentPage(p => p + 1);
-      } else if (dx < 0 && currentPage > 0) {
-        setCurrentPage(p => p - 1);
+      if (dx > 0 && currentIndex < displayPhotos.length - 1) {
+        setCurrentIndex(p => p + 1);
+      } else if (dx < 0 && currentIndex > 0) {
+        setCurrentIndex(p => p - 1);
       }
     }
     setDragOffset(0);
-  }, [currentPage, totalPages]);
+  }, [currentIndex, displayPhotos.length]);
 
-  // Lightbox touch
   const handleLbTouchStart = (e: React.TouchEvent) => { lbTouchStartX.current = e.touches[0].clientX; };
   const handleLbTouchMove = (e: React.TouchEvent) => { lbTouchEndX.current = e.touches[0].clientX; };
   const handleLbTouchEnd = () => {
     const diff = lbTouchStartX.current - lbTouchEndX.current;
     if (Math.abs(diff) > 50) { diff > 0 ? nextLightbox() : prevLightbox(); }
-  };
-
-  // Count remaining photos not visible on current page
-  const getExtraCount = (pageIndices: number[]) => {
-    const lastIdxOnPage = pageIndices[pageIndices.length - 1];
-    return displayPhotos.length - lastIdxOnPage - 1;
   };
 
   if (displayPhotos.length === 0) {
@@ -172,7 +127,6 @@ export function VehiclePhotoGallery({ photos, title }: VehiclePhotoGalleryProps)
             className="w-full h-full object-cover object-center aspect-[4/3] group-hover:brightness-90 transition-all"
             onError={() => handleImageError(0)}
           />
-          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
         </div>
         {displayPhotos.slice(1, 5).map((_, idx) => (
           <div
@@ -188,9 +142,7 @@ export function VehiclePhotoGallery({ photos, title }: VehiclePhotoGalleryProps)
             />
             {idx === 3 && displayPhotos.length > 5 && (
               <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                <span className="text-white text-lg font-semibold">
-                  +{displayPhotos.length - 5} zdjęć
-                </span>
+                <span className="text-white text-lg font-semibold">+{displayPhotos.length - 5} zdjęć</span>
               </div>
             )}
           </div>
@@ -202,142 +154,66 @@ export function VehiclePhotoGallery({ photos, title }: VehiclePhotoGalleryProps)
         }
       </div>
 
-      {/* Mobile: OTOMOTO-style photo grid with swipe */}
-      <div className="md:hidden relative overflow-hidden" ref={containerRef}>
+      {/* Mobile: Single photo carousel with smooth swipe */}
+      <div className="md:hidden relative overflow-hidden rounded-xl">
         <div
-          className="flex"
+          className="flex aspect-[4/3]"
           style={{
-            transform: `translateX(calc(-${currentPage * 100}% + ${dragOffset}px))`,
+            transform: `translateX(calc(-${currentIndex * 100}% + ${dragOffset}px))`,
             transition: isDraggingState ? 'none' : 'transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
-            width: `${totalPages * 100}%`,
+            width: `${displayPhotos.length * 100}%`,
           }}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         >
-          {mobilePages.map((pageIndices, pageIdx) => (
-            <div
-              key={pageIdx}
-              className="flex-shrink-0"
-              style={{ width: `${100 / totalPages}%` }}
-            >
-              {pageIndices.length === 1 ? (
-                /* Single photo page */
-                <div
-                  className="aspect-[4/3] relative cursor-pointer"
-                  onClick={() => openLightbox(pageIndices[0])}
-                >
-                  <img
-                    src={getPhotoSrc(pageIndices[0])}
-                    alt={`${title} ${pageIndices[0] + 1}`}
-                    className="w-full h-full object-cover"
-                    onError={() => handleImageError(pageIndices[0])}
-                    draggable={false}
-                  />
-                </div>
-              ) : pageIndices.length === 2 ? (
-                /* Two photos: side by side */
-                <div className="aspect-[4/3] grid grid-cols-2 gap-[2px]">
-                  {pageIndices.map((photoIdx, i) => (
-                    <div
-                      key={photoIdx}
-                      className="relative cursor-pointer overflow-hidden"
-                      onClick={() => openLightbox(photoIdx)}
-                    >
-                      <img
-                        src={getPhotoSrc(photoIdx)}
-                        alt={`${title} ${photoIdx + 1}`}
-                        className="w-full h-full object-cover"
-                        onError={() => handleImageError(photoIdx)}
-                        draggable={false}
-                      />
-                      {/* Show +N on last photo of last page */}
-                      {pageIdx === totalPages - 1 && i === pageIndices.length - 1 && getExtraCount(pageIndices) > 0 && (
-                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                          <span className="text-white text-2xl font-bold">+{getExtraCount(pageIndices)}</span>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                /* Three photos: 1 large left (60%) + 2 stacked right (40%) — OTOMOTO style */
-                <div className="aspect-[4/3] grid grid-cols-[1.4fr_1fr] gap-[2px]">
-                  {/* Large left photo */}
-                  <div
-                    className="row-span-2 relative cursor-pointer overflow-hidden"
-                    onClick={() => openLightbox(pageIndices[0])}
-                  >
-                    <img
-                      src={getPhotoSrc(pageIndices[0])}
-                      alt={`${title} ${pageIndices[0] + 1}`}
-                      className="w-full h-full object-cover"
-                      onError={() => handleImageError(pageIndices[0])}
-                      draggable={false}
-                    />
-                    {/* "Wyróżnione" badge on first page's main photo */}
-                    {pageIdx === 0 && (
-                      <div className="absolute top-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
-                        {displayPhotos.length} zdjęć
-                      </div>
-                    )}
-                  </div>
-                  {/* Two stacked right photos */}
-                  <div className="grid grid-rows-2 gap-[2px]">
-                    <div
-                      className="relative cursor-pointer overflow-hidden"
-                      onClick={() => openLightbox(pageIndices[1])}
-                    >
-                      <img
-                        src={getPhotoSrc(pageIndices[1])}
-                        alt={`${title} ${pageIndices[1] + 1}`}
-                        className="w-full h-full object-cover"
-                        onError={() => handleImageError(pageIndices[1])}
-                        draggable={false}
-                      />
-                    </div>
-                    <div
-                      className="relative cursor-pointer overflow-hidden"
-                      onClick={() => openLightbox(pageIndices[2])}
-                    >
-                      <img
-                        src={getPhotoSrc(pageIndices[2])}
-                        alt={`${title} ${pageIndices[2] + 1}`}
-                        className="w-full h-full object-cover"
-                        onError={() => handleImageError(pageIndices[2])}
-                        draggable={false}
-                      />
-                      {/* +N overlay on last thumbnail of a page if more pages follow */}
-                      {pageIdx < totalPages - 1 && (
-                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                          <span className="text-white text-2xl font-bold">
-                            +{displayPhotos.length - pageIndices[2] - 1}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+          {displayPhotos.map((_, idx) => (
+            <img
+              key={idx}
+              src={getPhotoSrc(idx)}
+              alt={`${title} ${idx + 1}`}
+              className="h-full object-cover object-center flex-shrink-0"
+              style={{ width: `${100 / displayPhotos.length}%` }}
+              onError={() => handleImageError(idx)}
+              onClick={() => openLightbox(idx)}
+              draggable={false}
+            />
           ))}
         </div>
 
-        {/* Favorite button */}
-        <button className="absolute bottom-3 right-3 bg-white/90 rounded-full p-2.5 shadow-lg">
-          <Heart className="h-5 w-5 text-muted-foreground" />
-        </button>
+        {/* Navigation Arrows */}
+        {displayPhotos.length > 1 && (
+          <>
+            <button
+              onClick={() => setCurrentIndex(p => Math.max(0, p - 1))}
+              className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <button
+              onClick={() => setCurrentIndex(p => Math.min(displayPhotos.length - 1, p + 1))}
+              className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          </>
+        )}
 
-        {/* Page dots */}
-        {totalPages > 1 && (
+        {/* Photo Counter */}
+        <div className="absolute bottom-3 right-3 bg-black/60 text-white text-sm px-2 py-1 rounded-lg">
+          {currentIndex + 1} / {displayPhotos.length}
+        </div>
+
+        {/* Dots */}
+        {displayPhotos.length > 1 && (
           <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
-            {mobilePages.map((_, idx) => (
+            {displayPhotos.slice(0, 5).map((_, idx) => (
               <button
                 key={idx}
-                onClick={() => setCurrentPage(idx)}
+                onClick={() => setCurrentIndex(idx)}
                 className={cn(
-                  "w-1.5 h-1.5 rounded-full transition-all",
-                  idx === currentPage ? "bg-white w-3" : "bg-white/50"
+                  "w-2 h-2 rounded-full transition-all",
+                  idx === currentIndex ? "bg-white w-4" : "bg-white/50"
                 )}
               />
             ))}
@@ -368,16 +244,10 @@ export function VehiclePhotoGallery({ photos, title }: VehiclePhotoGalleryProps)
             />
             {displayPhotos.length > 1 && (
               <>
-                <button
-                  onClick={prevLightbox}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white p-3 rounded-full"
-                >
+                <button onClick={prevLightbox} className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white p-3 rounded-full">
                   <ChevronLeft className="h-8 w-8" />
                 </button>
-                <button
-                  onClick={nextLightbox}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white p-3 rounded-full"
-                >
+                <button onClick={nextLightbox} className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white p-3 rounded-full">
                   <ChevronRight className="h-8 w-8" />
                 </button>
               </>
@@ -385,9 +255,7 @@ export function VehiclePhotoGallery({ photos, title }: VehiclePhotoGalleryProps)
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/60 text-white px-4 py-2 rounded-lg">
               {lightboxIndex + 1} / {displayPhotos.length}
             </div>
-            <div
-              className="absolute bottom-16 left-1/2 -translate-x-1/2 flex gap-2 max-w-full overflow-x-auto px-4 scrollbar-hide"
-            >
+            <div className="absolute bottom-16 left-1/2 -translate-x-1/2 flex gap-2 max-w-full overflow-x-auto px-4 scrollbar-hide">
               {displayPhotos.map((_, idx) => (
                 <button
                   key={idx}
@@ -397,12 +265,7 @@ export function VehiclePhotoGallery({ photos, title }: VehiclePhotoGalleryProps)
                     idx === lightboxIndex ? "border-white" : "border-transparent opacity-50 hover:opacity-100"
                   )}
                 >
-                  <img
-                    src={getPhotoSrc(idx)}
-                    alt={`Miniatura ${idx + 1}`}
-                    className="w-full h-full object-cover"
-                    onError={() => handleImageError(idx)}
-                  />
+                  <img src={getPhotoSrc(idx)} alt={`Miniatura ${idx + 1}`} className="w-full h-full object-cover" onError={() => handleImageError(idx)} />
                 </button>
               ))}
             </div>
