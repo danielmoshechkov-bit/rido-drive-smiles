@@ -12,7 +12,7 @@ import { MarketCompareBar } from "@/components/marketplace/MarketCompareBar";
 import { GeneralListingCard } from "@/components/marketplace/GeneralListingCard";
 import {
   ArrowLeft, Heart, Share2, MapPin, Eye, ShoppingCart, Star,
-  Sparkles, User, Calendar, CheckCircle, Loader2, ImageIcon, AlertTriangle,
+  Sparkles, User, Calendar, CheckCircle, Loader2, ImageIcon,
   Phone, MessageCircle, Tag, Handshake, Package, RefreshCw, X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
