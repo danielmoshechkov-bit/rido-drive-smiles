@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { Resend } from "https://esm.sh/resend@2.0.0";
+import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -50,7 +50,6 @@ function generateEmailTemplate(
     `
     : "";
 
-  // Company signature block - always shown
   const companySignature = `
     <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #f0f0f0;">
       <table style="width: 100%; border-collapse: collapse;">
@@ -89,9 +88,7 @@ function generateEmailTemplate(
           </div>
           <div style="padding: 28px;">
             <p style="font-size: 15px; color: #333; margin: 0 0 8px 0;">Dzień dobry,</p>
-            <p style="color: #555; font-size: 14px; line-height: 1.5;">
-              przesyłam przypomnienie o zbliżającym się terminie płatności faktury <strong>${invoiceNumber}</strong> na kwotę <strong>${grossAmount} ${cur}</strong>.
-            </p>
+            <p style="color: #555; font-size: 14px; line-height: 1.5;">przesyłam przypomnienie o zbliżającym się terminie płatności faktury <strong>${invoiceNumber}</strong> na kwotę <strong>${grossAmount} ${cur}</strong>.</p>
             <div style="background: #fef9e7; padding: 18px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #F39C12;">
               <table style="width: 100%; border-collapse: collapse;">
                 <tr><td style="padding: 6px 0; color: #666; font-size: 13px;">Numer faktury:</td><td style="padding: 6px 0; font-weight: bold; font-size: 13px;">${invoiceNumber}</td></tr>
@@ -101,9 +98,7 @@ function generateEmailTemplate(
             </div>
             ${customMessage ? `<div style="background: #f8f8f8; padding: 14px; border-radius: 8px; margin: 20px 0; font-style: italic; font-size: 13px; color: #555;">${customMessage}</div>` : ""}
             ${bankSection}
-            <p style="background: #fef3e2; padding: 12px; border-radius: 6px; color: #8a6d3b; font-size: 12px; margin: 15px 0;">
-              💡 Jeżeli płatność została już dokonana, prosimy o zignorowanie tej wiadomości.
-            </p>
+            <p style="background: #fef3e2; padding: 12px; border-radius: 6px; color: #8a6d3b; font-size: 12px; margin: 15px 0;">💡 Jeżeli płatność została już dokonana, prosimy o zignorowanie tej wiadomości.</p>
             ${companySignature}
           </div>
         </div>
@@ -121,9 +116,7 @@ function generateEmailTemplate(
           </div>
           <div style="padding: 28px;">
             <p style="font-size: 15px; color: #333; margin: 0 0 8px 0;">Dzień dobry,</p>
-            <p style="color: #555; font-size: 14px; line-height: 1.5;">
-              informujemy, że termin płatności faktury <strong>${invoiceNumber}</strong> już minął. Prosimy o pilne uregulowanie należności.
-            </p>
+            <p style="color: #555; font-size: 14px; line-height: 1.5;">informujemy, że termin płatności faktury <strong>${invoiceNumber}</strong> już minął. Prosimy o pilne uregulowanie należności.</p>
             <div style="background: #fdedec; padding: 18px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #E74C3C;">
               <table style="width: 100%; border-collapse: collapse;">
                 <tr><td style="padding: 6px 0; color: #666; font-size: 13px;">Numer faktury:</td><td style="padding: 6px 0; font-weight: bold; font-size: 13px;">${invoiceNumber}</td></tr>
@@ -133,9 +126,7 @@ function generateEmailTemplate(
             </div>
             ${bankSection}
             <div style="background: #f8d7da; padding: 14px; border-radius: 8px; margin: 20px 0; border: 1px solid #f5c6cb;">
-              <p style="margin: 0; color: #721c24; font-weight: 500; font-size: 13px;">
-                🔴 Prosimy o pilne uregulowanie należności w celu uniknięcia dodatkowych konsekwencji.
-              </p>
+              <p style="margin: 0; color: #721c24; font-weight: 500; font-size: 13px;">🔴 Prosimy o pilne uregulowanie należności w celu uniknięcia dodatkowych konsekwencji.</p>
             </div>
             ${companySignature}
           </div>
@@ -144,7 +135,7 @@ function generateEmailTemplate(
     };
   }
 
-  // Default: new_invoice — styled like inFakt but in GetRido purple
+  // Default: new_invoice
   return {
     subject: `Faktura ${invoiceNumber} od ${companyName}`,
     html: `
@@ -154,13 +145,8 @@ function generateEmailTemplate(
         </div>
         <div style="padding: 28px;">
           <p style="font-size: 15px; color: #333; margin: 0 0 8px 0;">Dzień dobry,</p>
-          <p style="color: #555; font-size: 14px; line-height: 1.5;">
-            przesyłam fakturę o numerze <strong>${invoiceNumber}</strong> na kwotę <strong>${grossAmount} ${cur}</strong>.
-          </p>
-          <p style="color: #555; font-size: 14px; line-height: 1.5; margin: 0 0 5px 0;">
-            Z góry dziękuję za terminowy przelew.
-          </p>
-          
+          <p style="color: #555; font-size: 14px; line-height: 1.5;">przesyłam fakturę o numerze <strong>${invoiceNumber}</strong> na kwotę <strong>${grossAmount} ${cur}</strong>.</p>
+          <p style="color: #555; font-size: 14px; line-height: 1.5; margin: 0 0 5px 0;">Z góry dziękuję za terminowy przelew.</p>
           <div style="background: #f8f9fa; padding: 18px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #6C5CE7;">
             <table style="width: 100%; border-collapse: collapse;">
               <tr><td style="padding: 6px 0; color: #666; font-size: 13px; width: 140px;">Numer faktury:</td><td style="padding: 6px 0; font-weight: bold; font-size: 13px;">${invoiceNumber}</td></tr>
@@ -171,11 +157,7 @@ function generateEmailTemplate(
             </table>
           </div>
           ${bankSection}
-          
-          <p style="color: #555; font-size: 13px; margin: 15px 0 0 0;">
-            Faktura w formacie PDF jest w załączniku tej wiadomości.
-          </p>
-          
+          <p style="color: #555; font-size: 13px; margin: 15px 0 0 0;">Faktura w formacie PDF jest w załączniku tej wiadomości.</p>
           ${companySignature}
         </div>
       </div>
@@ -198,9 +180,25 @@ serve(async (req) => {
 
     console.log(`Processing ${type} email for invoice: ${invoice_id}`);
 
+    const smtpPassword = Deno.env.get("SMTP_PASSWORD");
+    if (!smtpPassword) {
+      throw new Error("SMTP_PASSWORD nie jest skonfigurowany. Dodaj hasło do Supabase secrets.");
+    }
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Fetch email settings (SMTP config)
+    const { data: emailSettings, error: settingsError } = await supabase
+      .from("email_settings")
+      .select("*")
+      .eq("id", "00000000-0000-0000-0000-000000000001")
+      .single();
+
+    if (settingsError || !emailSettings) {
+      throw new Error("Nie udało się pobrać ustawień email");
+    }
 
     // Fetch invoice
     const { data: invoice, error: invoiceError } = await supabase
@@ -210,11 +208,10 @@ serve(async (req) => {
       .single();
 
     if (invoiceError || !invoice) {
-      console.error("Invoice not found:", invoiceError);
       throw new Error(`Faktura nie znaleziona: ${invoiceError?.message || 'brak danych'}`);
     }
 
-    // Try to get company from user_invoice_companies first (what the app actually uses)
+    // Get company info
     let company: any = null;
     if (invoice.company_id) {
       const { data: companyData } = await supabase
@@ -224,7 +221,6 @@ serve(async (req) => {
         .maybeSingle();
       company = companyData;
     }
-    // Fallback to company_settings
     if (!company) {
       const { data: companyData } = await supabase
         .from("company_settings")
@@ -234,26 +230,15 @@ serve(async (req) => {
       company = companyData;
     }
 
-    // Determine recipient email
+    // Determine recipient
     let toEmail = recipient_email;
-    if (!toEmail) {
-      toEmail = invoice.buyer_email;
-    }
-    if (!toEmail) {
-      throw new Error("Brak adresu email odbiorcy. Dodaj email do danych nabywcy.");
-    }
+    if (!toEmail) toEmail = invoice.buyer_email;
+    if (!toEmail) throw new Error("Brak adresu email odbiorcy.");
 
-    const resendKey = Deno.env.get("RESEND_API_KEY");
-    if (!resendKey) {
-      throw new Error("RESEND_API_KEY not configured");
-    }
-
-    const resend = new Resend(resendKey);
-
-    // Build company info - handle both table schemas
+    // Build template data
     const companyName = company?.company_name || company?.name || "GetRido";
     const companyNip = company?.nip || "";
-    const companyAddress = company?.address_street 
+    const companyAddress = company?.address_street
       ? [
           company.address_street + (company.address_building_number ? ' ' + company.address_building_number : '') + (company.address_apartment_number ? '/' + company.address_apartment_number : ''),
           (company.address_postal_code || company.address_zip || '') + ' ' + (company.address_city || '')
@@ -269,12 +254,8 @@ serve(async (req) => {
     const currency = invoice.currency || "PLN";
     const grossAmount = (invoice.total_gross || invoice.gross_total || 0).toLocaleString("pl-PL", { minimumFractionDigits: 2 });
     const netAmount = (invoice.total_net || invoice.net_total || 0).toLocaleString("pl-PL", { minimumFractionDigits: 2 });
-    const dueDate = invoice.due_date
-      ? new Date(invoice.due_date).toLocaleDateString("pl-PL")
-      : "brak";
-    const issueDate = invoice.issue_date
-      ? new Date(invoice.issue_date).toLocaleDateString("pl-PL")
-      : new Date().toLocaleDateString("pl-PL");
+    const dueDate = invoice.due_date ? new Date(invoice.due_date).toLocaleDateString("pl-PL") : "brak";
+    const issueDate = invoice.issue_date ? new Date(invoice.issue_date).toLocaleDateString("pl-PL") : new Date().toLocaleDateString("pl-PL");
 
     const { subject, html } = generateEmailTemplate(type, {
       companyName, companyNip, companyAddress, companyBankAccount, companyBankName,
@@ -283,59 +264,78 @@ serve(async (req) => {
       customMessage: custom_message,
     });
 
-    const fromAddress = `${companyName} via GetRido <noreply@getrido.pl>`;
-    const replyTo = companyEmail || undefined;
+    const senderName = emailSettings.sender_name || "RIDO";
+    const senderEmail = emailSettings.sender_email || emailSettings.smtp_user || "noreply@getrido.pl";
+    const fromAddress = `${companyName} via GetRido <${senderEmail}>`;
 
     console.log(`Sending email to ${toEmail}, from: ${fromAddress}, subject: ${subject}`);
 
-    // Build email options
-    const emailOptions: any = {
+    // Configure SMTP (same as send-registration-email)
+    const port = emailSettings.smtp_port || 587;
+    const useTls = port === 465;
+
+    const client = new SMTPClient({
+      connection: {
+        hostname: emailSettings.smtp_host || "getrido.pl",
+        port: port,
+        tls: useTls,
+        auth: {
+          username: emailSettings.smtp_user || "kontakt@getrido.pl",
+          password: smtpPassword,
+        },
+      },
+    });
+
+    // Minify HTML
+    const minifiedHtml = html
+      .replace(/\r\n/g, '\n')
+      .replace(/\n\s+/g, ' ')
+      .replace(/>\s+</g, '><')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+
+    // Build email with optional PDF attachment
+    const emailMsg: any = {
       from: fromAddress,
       to: [toEmail],
       subject,
-      html,
-      reply_to: replyTo,
+      content: "Twoja przeglądarka nie obsługuje HTML.",
+      html: minifiedHtml,
     };
 
-    // Add PDF attachment if provided
+    if (companyEmail) {
+      emailMsg.replyTo = companyEmail;
+    }
+
     if (pdf_base64 && pdf_base64.length > 100) {
       const pdfFilename = `${invoiceNumber || 'Faktura'}.pdf`.replace(/\//g, '-');
-      // Resend expects content as a base64 string for attachments
-      emailOptions.attachments = [
-        {
-          filename: pdfFilename,
-          content: pdf_base64,
-          type: 'application/pdf',
-        }
-      ];
+      // denomailer expects attachments with content as Uint8Array
+      const binaryStr = atob(pdf_base64);
+      const bytes = new Uint8Array(binaryStr.length);
+      for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+
+      emailMsg.attachments = [{
+        filename: pdfFilename,
+        content: bytes,
+        contentType: 'application/pdf',
+        encoding: 'binary',
+      }];
       console.log(`Attaching PDF: ${pdfFilename} (${Math.round(pdf_base64.length / 1024)}KB base64)`);
-    } else {
-      console.log('No PDF attachment - pdf_base64 is', pdf_base64 ? `too short (${pdf_base64.length})` : 'null/undefined');
     }
 
-    const emailResponse = await resend.emails.send(emailOptions);
+    await client.send(emailMsg);
+    await client.close();
 
-    console.log("Resend API response:", JSON.stringify(emailResponse));
-
-    if (emailResponse.error) {
-      throw new Error(`Resend error: ${emailResponse.error.message || JSON.stringify(emailResponse.error)}`);
-    }
+    console.log("Email sent successfully to:", toEmail);
 
     return new Response(
-      JSON.stringify({
-        success: true,
-        message: `Email wysłany do ${toEmail}`,
-        email_id: emailResponse.data?.id,
-      }),
+      JSON.stringify({ success: true, message: `Email wysłany do ${toEmail}` }),
       { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
   } catch (error: any) {
     console.error("Error in send-invoice-email:", error);
     return new Response(
-      JSON.stringify({
-        success: false,
-        error: error.message,
-      }),
+      JSON.stringify({ success: false, error: error.message }),
       { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
   }
