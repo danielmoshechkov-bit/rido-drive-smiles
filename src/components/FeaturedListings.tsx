@@ -397,19 +397,19 @@ export function FeaturedListings({ className, categoryContext, hideViewMore }: F
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
           <TabsPill value={activeCategory} onValueChange={(v) => setActiveCategory(v as ListingCategory)}>
             <TabsTrigger value="all" className="gap-2">
-              Wszystko
+              {t('featured.all')}
             </TabsTrigger>
             <TabsTrigger value="vehicles" className="gap-2">
               <Car className="h-4 w-4" />
-              Pojazdy
+              {t('featured.vehicles')}
             </TabsTrigger>
             <TabsTrigger value="properties" className="gap-2">
               <Home className="h-4 w-4" />
-              Nieruchomości
+              {t('featured.properties')}
             </TabsTrigger>
             <TabsTrigger value="services" className="gap-2">
               <Wrench className="h-4 w-4" />
-              Usługi
+              {t('featured.services')}
             </TabsTrigger>
           </TabsPill>
 
