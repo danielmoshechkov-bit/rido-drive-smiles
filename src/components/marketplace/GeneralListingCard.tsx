@@ -26,25 +26,34 @@ interface GeneralListingCardProps {
   isSelectedForCompare?: boolean;
 }
 
-const CONDITION_STYLES: Record<string, { label: string; className: string }> = {
-  nowy: { label: "Nowy", className: "bg-green-500/10 text-green-700 border-green-200" },
-  jak_nowy: { label: "Jak nowy", className: "bg-teal-500/10 text-teal-700 border-teal-200" },
-  dobry: { label: "Dobry", className: "bg-blue-500/10 text-blue-700 border-blue-200" },
-  dostateczny: { label: "Dostateczny", className: "bg-yellow-500/10 text-yellow-700 border-yellow-200" },
-  do_naprawy: { label: "Do naprawy", className: "bg-red-500/10 text-red-700 border-red-200" },
+const CONDITION_KEYS: Record<string, string> = {
+  nowy: "conditionNew",
+  jak_nowy: "conditionLikeNew",
+  dobry: "conditionGood",
+  dostateczny: "conditionFair",
+  do_naprawy: "conditionFair",
 };
 
-function timeAgo(dateStr: string): string {
+const CONDITION_CLASSES: Record<string, string> = {
+  nowy: "bg-green-500/10 text-green-700 border-green-200",
+  jak_nowy: "bg-teal-500/10 text-teal-700 border-teal-200",
+  dobry: "bg-blue-500/10 text-blue-700 border-blue-200",
+  dostateczny: "bg-yellow-500/10 text-yellow-700 border-yellow-200",
+  do_naprawy: "bg-red-500/10 text-red-700 border-red-200",
+};
+
+function useTimeAgo(dateStr: string): string {
+  const { t } = useTranslation();
   const now = Date.now();
   const then = new Date(dateStr).getTime();
   const diffMs = now - then;
   const mins = Math.floor(diffMs / 60000);
-  if (mins < 60) return `${mins} min temu`;
+  if (mins < 60) return `${mins} ${t('marketplace.minAgo')}`;
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours} godz. temu`;
+  if (hours < 24) return `${hours} ${t('marketplace.hoursAgo')}`;
   const days = Math.floor(hours / 24);
-  if (days < 30) return `${days} dni temu`;
-  return `${Math.floor(days / 30)} mies. temu`;
+  if (days < 30) return `${days} ${t('marketplace.daysAgo')}`;
+  return `${Math.floor(days / 30)} ${t('marketplace.monthsAgo')}`;
 }
 
 export function GeneralListingCard({ listing, variant = "grid", onToggleCompare, isSelectedForCompare }: GeneralListingCardProps) {
