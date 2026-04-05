@@ -322,10 +322,11 @@ export default function GeneralMarketplace() {
                 </span>
               )}
             </Button>
+            <LanguageSwitcher />
             <MyGetRidoButton user={user} />
             <Button onClick={() => navigate("/marketplace/dodaj")} size="sm" className="gap-1 rounded-full px-2 sm:px-3">
               <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">Dodaj ogłoszenie</span>
+              <span className="hidden sm:inline">{t('marketplace.addListing')}</span>
             </Button>
           </div>
         </div>
