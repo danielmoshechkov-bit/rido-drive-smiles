@@ -108,9 +108,12 @@ async function translateOne(sb: any, item: any) {
   const kimiKey = Deno.env.get('KIMI_API_KEY')
   if (!kimiKey) throw new Error('KIMI_API_KEY not configured')
 
-  console.log('Translating listing:', item.listing_id, 'type:', item.listing_type)
+  console.log('translateOne START:', item.listing_id, 'type:', item.listing_type, 'title:', (item.title || '').substring(0, 40))
 
   const langs = item.target_langs || ['en', 'ru', 'ua', 'de', 'vi', 'kz']
+  let savedCount = 0
+  let skippedCount = 0
+  let failedCount = 0
 
   for (const lang of langs) {
     const { data: existing } = await sb
@@ -119,54 +122,72 @@ async function translateOne(sb: any, item: any) {
       .eq('listing_id', item.listing_id)
       .eq('listing_type', item.listing_type || 'general')
       .eq('target_lang', lang)
-      .single()
+      .maybeSingle()
 
     if (existing) {
-      console.log(`Translation exists for ${item.listing_id}/${lang}, skipping`)
+      console.log(`Already exists: ${item.listing_id}/${lang}`)
+      skippedCount++
       continue
     }
 
     const langName = LANG_NAMES[lang] || lang
+    console.log(`Calling Kimi for ${item.listing_id} -> ${langName}`)
     const result = await callKimiWithRetry(kimiKey, item.title, item.description || '', langName)
 
-    if (result) {
-      const row = {
-        listing_id: item.listing_id,
-        listing_type: item.listing_type || 'general',
-        target_lang: lang,
-        title_translated: result.title,
-        description_translated: result.description,
-        source_lang: item.source_lang || 'pl',
-        translated_by: 'kimi',
-        translated_at: new Date().toISOString()
-      }
+    if (!result) {
+      console.error(`Kimi returned null for ${item.listing_id}/${lang}`)
+      failedCount++
+      continue
+    }
 
-      const { error: upsertError } = await sb
+    console.log(`Kimi OK for ${item.listing_id}/${lang}: "${(result.title || '').substring(0, 30)}"`)
+
+    const row = {
+      listing_id: item.listing_id,
+      listing_type: item.listing_type || 'general',
+      target_lang: lang,
+      title_translated: result.title,
+      description_translated: result.description,
+      source_lang: item.source_lang || 'pl',
+      translated_by: 'kimi',
+      translated_at: new Date().toISOString()
+    }
+
+    // Try upsert first
+    const { error: upsertError } = await sb
+      .from('listing_translations')
+      .upsert(row, {
+        onConflict: 'listing_id,listing_type,target_lang',
+        ignoreDuplicates: false
+      })
+
+    if (upsertError) {
+      console.error(`Upsert FAILED ${item.listing_id}/${lang}:`, JSON.stringify(upsertError))
+      // Fallback: plain insert
+      const { error: insertError } = await sb
         .from('listing_translations')
-        .upsert(row, {
-          onConflict: 'listing_id,listing_type,target_lang',
-          ignoreDuplicates: false
-        })
+        .insert(row)
 
-      if (upsertError) {
-        console.error(`Upsert failed for ${item.listing_id}/${lang}:`, upsertError.message, upsertError.details)
-        // Fallback: try plain insert
-        const { error: insertError } = await sb
-          .from('listing_translations')
-          .insert(row)
-
-        if (insertError) {
-          console.error(`Insert fallback also failed:`, insertError.message)
-        } else {
-          console.log(`Insert fallback succeeded for ${item.listing_id}/${lang}`)
-        }
+      if (insertError) {
+        console.error(`Insert ALSO FAILED ${item.listing_id}/${lang}:`, JSON.stringify(insertError))
+        failedCount++
       } else {
-        console.log(`Saved translation ${item.listing_id}/${lang}`)
+        console.log(`Insert fallback OK: ${item.listing_id}/${lang}`)
+        savedCount++
       }
+    } else {
+      console.log(`Upsert OK: ${item.listing_id}/${lang}`)
+      savedCount++
     }
   }
 
-  return { success: true, listing_id: item.listing_id }
+  console.log(`translateOne DONE: ${item.listing_id} saved=${savedCount} skipped=${skippedCount} failed=${failedCount}`)
+
+  if (savedCount === 0 && skippedCount === 0) {
+    throw new Error(`No translations saved for ${item.listing_id} (failed=${failedCount})`)
+  }
+
+  return { success: true, listing_id: item.listing_id, saved: savedCount }
 }
 
 async function callKimiWithRetry(
