@@ -94,19 +94,56 @@ function SimilarVehicleCard({
   onClick: () => void;
 }) {
   const [currentPhoto, setCurrentPhoto] = useState(0);
+  const photos = vehicle.photos.length > 0 ? vehicle.photos : ["/placeholder.svg"];
+
+  const prevPhoto = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCurrentPhoto((prev) => (prev - 1 + photos.length) % photos.length);
+  };
+  const nextPhoto = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCurrentPhoto((prev) => (prev + 1) % photos.length);
+  };
 
   return (
     <div 
-      className="flex-shrink-0 w-64 bg-card rounded-xl shadow-md overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
+      className="flex-shrink-0 w-64 bg-card rounded-xl shadow-md overflow-hidden cursor-pointer group hover:shadow-lg transition-shadow"
       onClick={onClick}
     >
       {/* Photo */}
       <div className="relative aspect-[4/3]">
         <img 
-          src={vehicle.photos[currentPhoto]} 
+          src={photos[currentPhoto]} 
           alt={vehicle.title}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
         />
+        {photos.length > 1 && (
+          <>
+            <button
+              onClick={prevPhoto}
+              className="absolute left-1.5 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={nextPhoto}
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10"
+            >
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-1 z-10">
+              {photos.slice(0, 5).map((_, idx) => (
+                <div
+                  key={idx}
+                  className={cn(
+                    "w-1.5 h-1.5 rounded-full transition-all",
+                    idx === currentPhoto ? "bg-white w-3" : "bg-white/50"
+                  )}
+                />
+              ))}
+            </div>
+          </>
+        )}
         {/* Transaction Badge */}
         <div 
           className="absolute bottom-2 right-2 px-2 py-0.5 rounded text-xs text-white font-medium"
