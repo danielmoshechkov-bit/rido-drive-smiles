@@ -138,12 +138,34 @@ export default function ServiceProviderDashboard() {
 
     const { data: provider } = await supabase
       .from('service_providers')
-      .select('id, rating_avg, rating_count, company_name, description, company_phone, company_address, company_city, company_postal_code, company_nip, company_website, owner_first_name, owner_last_name, owner_email')
+      .select('id, rating_avg, rating_count, company_name, description, company_phone, company_address, company_city, company_postal_code, company_nip, company_website, owner_first_name, owner_last_name, owner_email, status, category_id, cover_image_url, logo_url')
       .eq('user_id', user.id)
       .maybeSingle();
 
+    // Load service categories for activation form
+    const { data: cats } = await supabase
+      .from('service_categories')
+      .select('id, name, slug')
+      .eq('is_active', true)
+      .order('sort_order');
+    if (cats) setServiceCategories(cats);
+
     if (provider) {
       setProviderId(provider.id);
+      setProviderStatus(provider.status);
+
+      // Pre-fill activation form
+      setActivationForm({
+        company_name: provider.company_name || '',
+        description: provider.description || '',
+        company_phone: provider.company_phone || '',
+        company_email: provider.owner_email || user.email || '',
+        company_city: provider.company_city || '',
+        company_address: provider.company_address || '',
+        company_postal_code: provider.company_postal_code || '',
+        company_nip: provider.company_nip || '',
+        category_id: provider.category_id || '',
+      });
 
       const { data: navPreferences } = await (supabase as any)
         .from('service_provider_nav_preferences')
