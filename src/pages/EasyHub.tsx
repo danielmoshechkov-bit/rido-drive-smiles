@@ -557,7 +557,7 @@ export default function EasyHub() {
             )}
           </div>
           <p className="text-center text-xs text-muted-foreground mt-2">
-            Powered by <span className="text-primary font-medium">Rido AI</span>
+            {t('home.poweredBy')} <span className="text-primary font-medium">Rido AI</span>
           </p>
         </div>
       </section>
