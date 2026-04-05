@@ -210,9 +210,15 @@ export default function ServicesMarketplace() {
   const selectedCategory = categories.find(c => c.slug === selectedCategorySlug);
 
   const filteredProviders = providers.filter(provider => {
-    // Category filter
-    if (selectedCategorySlug && provider.category?.slug !== selectedCategorySlug) {
-      return false;
+    // Category filter - show provider if they have matching category OR have services in that category
+    if (selectedCategorySlug) {
+      const categoryMatch = provider.category?.slug === selectedCategorySlug;
+      const hasServicesInCategory = (provider as any).provider_services?.some(
+        (ps: any) => ps.status === 'active'
+      );
+      if (!categoryMatch && !hasServicesInCategory) {
+        return false;
+      }
     }
 
     // Group filter - match any slug in the group
@@ -240,6 +246,15 @@ export default function ServicesMarketplace() {
     }
     
     return true;
+  }).sort((a, b) => {
+    // Sort: providers with matching category first
+    if (selectedCategorySlug) {
+      const aMatch = a.category?.slug === selectedCategorySlug ? 0 : 1;
+      const bMatch = b.category?.slug === selectedCategorySlug ? 0 : 1;
+      if (aMatch !== bMatch) return aMatch - bMatch;
+    }
+    // Then by rating
+    return (b.rating_avg || 0) - (a.rating_avg || 0);
   });
 
   const handleCategoryClick = (slug: string) => {
