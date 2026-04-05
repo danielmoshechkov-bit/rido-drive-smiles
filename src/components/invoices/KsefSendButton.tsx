@@ -181,7 +181,8 @@ export function KsefSendButton({ invoiceId, size = 'sm', onStatusChange }: KsefS
       clearPolling();
       void supabase.removeChannel(channel);
     };
-  }, [invoiceId, onStatusChange]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [invoiceId]);
 
   const handleSendToKsef = async () => {
     setSending(true);

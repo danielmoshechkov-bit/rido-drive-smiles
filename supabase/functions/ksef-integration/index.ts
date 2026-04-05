@@ -887,7 +887,7 @@ function buildKsefInvoiceArtifacts(invoice: any, entity: any, items: any[]) {
   <Fa>
     <KodWaluty>${invoice.currency || 'PLN'}</KodWaluty>
     <P_1>${issueDate}</P_1>
-    <P_2>${escapeXml(invoice.invoice_number || '')}</P_2>${correctionElements}
+    <P_2>${escapeXml(invoice.invoice_number || '')}</P_2>
     <P_6>${saleDate}</P_6>${vatBreakdownXML}
     <P_15>${grossTotal.toFixed(2)}</P_15>
     <Adnotacje>
