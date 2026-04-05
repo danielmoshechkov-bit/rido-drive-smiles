@@ -34,6 +34,7 @@ const CONDITION_VALUES = ["", "nowy", "jak_nowy", "dobry", "dostateczny"];
 
 export default function GeneralMarketplace() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [user, setUser] = useState<any>(null);
   const [listings, setListings] = useState<any[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
