@@ -298,6 +298,23 @@ export default function GeneralListingEdit() {
           </CardContent>
         </Card>
 
+        {/* AI Photo Section */}
+        {user && id && (
+          <AIPhotoSection
+            listingId={id}
+            userId={user.id}
+            photos={existingPhotos}
+            onPhotosUpdated={async () => {
+              const { data } = await supabase
+                .from("general_listing_photos")
+                .select("id, url, is_ai_enhanced")
+                .eq("listing_id", id)
+                .order("display_order");
+              if (data) setExistingPhotos(data);
+            }}
+          />
+        )
+
         <div className="flex gap-3">
           <Button onClick={handleSave} disabled={saving || uploadingPhotos} size="lg" className="gap-2">
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
