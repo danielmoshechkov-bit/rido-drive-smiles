@@ -214,17 +214,30 @@ async function callKimiWithRetry(
       })
     })
 
+    console.log(`Kimi response status: ${res.status} for ${targetLangName} (attempt ${attempt})`)
+
     if (res.status === 429) {
+      console.log('Kimi rate limited (429)')
       if (attempt >= 3) return null
       const retryAfter = parseInt(res.headers.get('retry-after') || '60')
       await sleep(Math.min(retryAfter * 1000, 60000))
       return callKimiWithRetry(apiKey, title, description, targetLangName, attempt + 1)
     }
 
-    if (!res.ok) throw new Error(`Kimi API error: ${res.status}`)
+    if (!res.ok) {
+      const errBody = await res.text()
+      console.error(`Kimi API error ${res.status}:`, errBody.substring(0, 300))
+      throw new Error(`Kimi API error: ${res.status}`)
+    }
 
     const data = await res.json()
     const text = data.choices?.[0]?.message?.content?.trim() || ''
+    
+    if (!text) {
+      console.error('Kimi returned empty content:', JSON.stringify(data).substring(0, 200))
+      return null
+    }
+
     const titleMatch = text.match(/TITLE:\s*(.+?)(?:\nDESC:|$)/s)
     const descMatch = text.match(/DESC:\s*(.+?)$/s)
 
@@ -232,7 +245,8 @@ async function callKimiWithRetry(
       title: titleMatch?.[1]?.trim() || title,
       description: descMatch?.[1]?.trim() || description
     }
-  } catch (e) {
+  } catch (e: any) {
+    console.error(`Kimi call error (attempt ${attempt}):`, e.message)
     if (attempt >= 3) return null
     await sleep(5000)
     return callKimiWithRetry(apiKey, title, description, targetLangName, attempt + 1)
