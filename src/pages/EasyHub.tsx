@@ -352,6 +352,10 @@ export default function EasyHub() {
     }
   };
 
+  const mainTiles = useMemo(() => buildMainTiles(t), [t]);
+  const motoryzacjaSubTiles = useMemo(() => buildMotoryzacjaSubTiles(t), [t]);
+  const nieruchomosciSubTiles = useMemo(() => buildNieruchomosciSubTiles(t), [t]);
+
   // Build dynamic tiles list with conditional visibility
   const dynamicTiles = useMemo(() => {
     let tiles: MarketplaceTile[] = [];
@@ -360,8 +364,8 @@ export default function EasyHub() {
     if (isAdmin) {
       tiles.push({
         id: 'rido-ai',
-        title: 'RidoAI',
-        description: 'Asystent AI – pytaj o wszystko',
+        title: t('home.ridoai'),
+        description: t('home.ridoaiDesc'),
         icon: MessageCircle,
         image: null,
         link: '/rido-ai',
@@ -371,20 +375,15 @@ export default function EasyHub() {
     
     // Add main tiles but filter services for non-authorized users
     mainTiles.forEach(tile => {
-      if (tile.id === 'services') {
-        // Always show services tile, but with different behavior in handleTileClick
-        tiles.push(tile);
-      } else {
-        tiles.push(tile);
-      }
+      tiles.push(tile);
     });
     
     // Insert Maps at position 2 only for owner emails (hasServicesAccess)
     if (mapsVisible && user && hasServicesAccess) {
       tiles.splice(2, 0, {
         id: 'maps',
-        title: 'Mapy',
-        description: 'Nawigacja GetRido Maps',
+        title: t('home.mapy'),
+        description: t('home.mapyDesc'),
         icon: Map,
         image: tileMaps,
         link: '/mapy',
@@ -396,8 +395,8 @@ export default function EasyHub() {
     if (user) {
       tiles.push({
         id: 'moje-konto',
-        title: 'Moje konto',
-        description: 'Ogłoszenia, zakupy, ustawienia',
+        title: t('home.mojeKonto'),
+        description: t('home.mojeKontoDesc'),
         icon: User,
         image: tileClientPortal,
         link: '/klient',
@@ -406,13 +405,13 @@ export default function EasyHub() {
     }
     
     return tiles;
-  }, [mapsVisible, user, hasServicesAccess, isAdmin]);
+  }, [mapsVisible, user, hasServicesAccess, isAdmin, mainTiles, t]);
 
   // Get category title
   const getCategoryTitle = () => {
     switch (activeCategory) {
-      case 'motoryzacja': return 'Motoryzacja';
-      case 'nieruchomosci': return 'Nieruchomości';
+      case 'motoryzacja': return t('home.motoryzacja');
+      case 'nieruchomosci': return t('home.nieruchomosci');
       default: return null;
     }
   };
@@ -424,7 +423,7 @@ export default function EasyHub() {
       case 'nieruchomosci': return nieruchomosciSubTiles;
       default: return dynamicTiles;
     }
-  }, [activeCategory, dynamicTiles]);
+  }, [activeCategory, dynamicTiles, motoryzacjaSubTiles, nieruchomosciSubTiles]);
 
   // Get current SEO config based on category
   const currentSEO = useMemo(() => {
