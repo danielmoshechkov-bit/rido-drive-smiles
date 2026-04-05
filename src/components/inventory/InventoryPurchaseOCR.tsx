@@ -716,56 +716,64 @@ export function InventoryPurchaseOCR({ entityId, showKsefOption }: Props) {
                   <CardDescription className="text-xs">Przeciągnij plik lub kliknij — AI odczyta pozycje automatycznie</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex items-start gap-3 flex-wrap">
-                    {/* Compact drop zone */}
+                  <div className="flex items-start gap-4">
+                    {/* Large drop zone */}
                     <div
-                      className={`flex flex-col items-center justify-center gap-1 w-32 h-32 border-2 border-dashed rounded-lg transition-colors cursor-pointer shrink-0 ${
-                        dragOver ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-primary/50'
+                      className={`flex flex-col items-center justify-center gap-2 min-w-[200px] h-48 border-2 border-dashed rounded-xl transition-all cursor-pointer shrink-0 ${
+                        dragOver ? 'border-primary bg-primary/10 scale-[1.02]' : 'border-primary/30 hover:border-primary/60 hover:bg-primary/5'
                       }`}
                       onClick={() => fileInputRef.current?.click()}
                       onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
                       onDragLeave={() => setDragOver(false)}
                       onDrop={handleDrop}
                     >
-                      <input ref={fileInputRef} type="file" accept="image/*,.pdf" onChange={handleFileSelect} className="hidden" />
+                      <input ref={fileInputRef} type="file" accept="image/*,.pdf" multiple onChange={handleFileSelect} className="hidden" />
                       {uploading ? (
-                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
                       ) : (
                         <>
-                          <Upload className="h-6 w-6 text-muted-foreground/50" />
-                          <p className="text-[10px] text-muted-foreground text-center px-1">Przeciągnij lub kliknij</p>
+                          <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
+                            <Upload className="h-7 w-7 text-primary" />
+                          </div>
+                          <p className="text-sm font-medium text-primary">Przeciągnij tutaj</p>
+                          <p className="text-[10px] text-muted-foreground">PDF lub zdjęcia (maks. 10)</p>
                         </>
                       )}
                     </div>
 
-                    {/* File thumbnails */}
-                    {uploadedFiles.map((uf, idx) => (
-                      <div key={idx} className="relative w-32 h-32 border rounded-lg overflow-hidden bg-muted/30 shrink-0 group">
-                        {uf.preview ? (
-                          <img src={uf.preview} alt={uf.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="flex flex-col items-center justify-center h-full gap-1">
-                            <FileText className="h-8 w-8 text-muted-foreground/50" />
-                            <p className="text-[9px] text-muted-foreground truncate max-w-[90%] px-1">{uf.name}</p>
+                    {/* File thumbnails grid */}
+                    {uploadedFiles.length > 0 && (
+                      <div className="flex flex-wrap gap-2 flex-1">
+                        {uploadedFiles.map((uf, idx) => (
+                          <div key={idx} className="relative w-28 h-28 border rounded-lg overflow-hidden bg-muted/30 shrink-0 group">
+                            {uf.preview ? (
+                              <img src={uf.preview} alt={uf.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="flex flex-col items-center justify-center h-full gap-1 p-2">
+                                <FileText className="h-8 w-8 text-muted-foreground/50" />
+                                <p className="text-[9px] text-muted-foreground truncate max-w-full text-center leading-tight">{uf.name}</p>
+                              </div>
+                            )}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setUploadedFiles(prev => prev.filter((_, i) => i !== idx));
+                                if (uploadedFiles.length <= 1) {
+                                  setFileBase64(null);
+                                  setUploadedFileUrl(null);
+                                  setOcrDone(false);
+                                  setInvoiceHeader(null);
+                                  setOcrItems([]);
+                                }
+                              }}
+                              className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              ✕
+                            </button>
                           </div>
-                        )}
-                        <button
-                          onClick={() => {
-                            setUploadedFiles(prev => prev.filter((_, i) => i !== idx));
-                            if (uploadedFiles.length <= 1) {
-                              setFileBase64(null);
-                              setUploadedFileUrl(null);
-                              setOcrDone(false);
-                              setInvoiceHeader(null);
-                              setOcrItems([]);
-                            }
-                          }}
-                          className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          ✕
-                        </button>
+                        ))}
                       </div>
-                    ))}
+                    )}
                   </div>
 
                   {fileBase64 && !ocrDone && (
