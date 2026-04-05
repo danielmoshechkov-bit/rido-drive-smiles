@@ -160,6 +160,11 @@ export default function GeneralListingDetail() {
     }
   };
 
+  // Translation hook — must be before any early returns
+  const { title: translatedTitle, description: translatedDesc, isTranslated } = useListingTranslation(
+    listing?.id || '', listing?.title || '', listing?.description || '', 'general'
+  );
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
