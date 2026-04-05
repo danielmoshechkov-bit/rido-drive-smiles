@@ -88,8 +88,8 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
 
   return (
     <div className="space-y-4">
-      {/* Header breadcrumb */}
-      <div className="flex items-center justify-between flex-wrap gap-2">
+      {/* Header breadcrumb - desktop */}
+      <div className="hidden md:flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2 text-sm">
           <button onClick={onBack} className="text-primary hover:underline flex items-center gap-1">
             <ArrowLeft className="h-4 w-4" /> Zlecenia
@@ -119,7 +119,6 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Status selector */}
           <Select value={order.status_name} onValueChange={changeStatus}>
             <SelectTrigger className="w-[180px]">
               <SelectValue />
@@ -274,9 +273,67 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
         </div>
       </div>
 
+      {/* Header - mobile */}
+      <div className="md:hidden space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="font-bold text-lg">{order.order_number}</span>
+          <Select value={order.status_name} onValueChange={changeStatus}>
+            <SelectTrigger className="w-auto h-8 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {statuses.map((s: any) => (
+                <SelectItem key={s.id} value={s.name}>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: s.color }} />
+                    {s.name}
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+          {order.created_at && <span>{format(new Date(order.created_at), 'dd.MM.yyyy')}</span>}
+          {clientName && <span className="flex items-center gap-1"><Users className="h-3 w-3" /> {clientName}</span>}
+          {vehicleName && <span className="flex items-center gap-1"><Car className="h-3 w-3" /> {vehicleName}</span>}
+        </div>
+        <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
+          <Button variant="outline" size="sm" className="h-7 text-xs gap-1 shrink-0" onClick={() => {
+            if (order.client_code) window.open(`/warsztat/klient/${order.client_code}`, '_blank');
+          }}>
+            <FileText className="h-3.5 w-3.5" /> Karta
+          </Button>
+          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 shrink-0" onClick={() => openSms('reception')}>
+            <MessageSquare className="h-3.5 w-3.5" />
+          </Button>
+          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 shrink-0" onClick={copyClientLink}>
+            <Link2 className="h-3.5 w-3.5" />
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 shrink-0"><MoreVertical className="h-3.5 w-3.5" /></Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => toast.info('Podgląd protokołu przyjęcia')}>
+                <Eye className="h-4 w-4 mr-2" /> Protokół przyjęcia
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => toast.info('Podgląd kosztorysu')}>
+                <ClipboardList className="h-4 w-4 mr-2" /> Wycena
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => openSms('ready')}>
+                <Send className="h-4 w-4 mr-2" /> Powiadomienie
+              </DropdownMenuItem>
+              <DropdownMenuItem><Printer className="h-4 w-4 mr-2" /> Drukuj</DropdownMenuItem>
+              <DropdownMenuItem><Download className="h-4 w-4 mr-2" /> Pobierz</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="bg-transparent w-full justify-start gap-1.5 h-auto p-0 flex-wrap mb-4">
+        <TabsList className="bg-transparent w-full justify-start gap-1.5 h-auto p-0 overflow-x-auto scrollbar-hide flex-nowrap mb-4">
           {[
             { value: 'tasks', label: 'Wycena zlecenia' },
             { value: 'basic', label: 'Podstawowe' },
@@ -288,7 +345,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
             <TabsTrigger
               key={tab.value}
               value={tab.value}
-              className="px-5 py-2 rounded-full text-sm font-medium transition-all duration-200 data-[state=active]:text-white data-[state=active]:shadow-sm data-[state=inactive]:text-foreground/70 data-[state=inactive]:bg-transparent data-[state=inactive]:hover:bg-[#F5C842] data-[state=inactive]:hover:text-[#1a1a1a]"
+              className="px-4 md:px-5 py-2 rounded-full text-xs md:text-sm font-medium shrink-0 transition-all duration-200 data-[state=active]:text-white data-[state=active]:shadow-sm data-[state=inactive]:text-foreground/70 data-[state=inactive]:bg-transparent data-[state=inactive]:hover:bg-[#F5C842] data-[state=inactive]:hover:text-[#1a1a1a]"
               style={activeTab === tab.value ? { backgroundColor: 'var(--nav-bar-color, #6C3CF0)' } : undefined}
             >
               {tab.label}

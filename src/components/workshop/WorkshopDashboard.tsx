@@ -13,7 +13,7 @@ import { WorkshopWarehouse } from './WorkshopWarehouse';
 import { WorkshopTireStorage } from './WorkshopTireStorage';
 import { WorkshopRepairData } from './WorkshopRepairData';
 import { WorkshopSettings } from './WorkshopSettings';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 import tileZlecenia from '@/assets/workshop/tile-zlecenia.jpg';
@@ -52,7 +52,7 @@ interface WorkshopDashboardProps {
 
 function WorkshopSidebar({ activeModule, onNavigate }: { activeModule: string; onNavigate: (key: string | null) => void }) {
   return (
-    <div className="w-[200px] flex-shrink-0 space-y-2 pr-3 border-r border-border">
+    <div className="hidden md:block w-[200px] flex-shrink-0 space-y-2 pr-3 border-r border-border">
       <button
         onClick={() => onNavigate(null)}
         className="w-full text-left px-3 py-2 rounded-lg text-sm font-semibold text-primary hover:bg-primary/10 transition-colors"
@@ -79,6 +79,17 @@ function WorkshopSidebar({ activeModule, onNavigate }: { activeModule: string; o
         ))}
       </div>
     </div>
+  );
+}
+
+function MobileBackButton({ onBack, label = 'Pulpit' }: { onBack: () => void; label?: string }) {
+  return (
+    <button
+      onClick={onBack}
+      className="md:hidden flex items-center gap-1.5 text-sm text-primary font-medium mb-3 hover:underline"
+    >
+      <ArrowLeft className="h-4 w-4" /> {label}
+    </button>
   );
 }
 
@@ -186,7 +197,8 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
     return (
       <div className="flex gap-0 min-h-[calc(100vh-200px)]">
         <WorkshopSidebar activeModule="zlecenia" onNavigate={(key) => { setSelectedOrder(null); setActiveModule(key); }} />
-        <div className="flex-1 pl-3 min-w-0">
+        <div className="flex-1 md:pl-3 min-w-0">
+          <MobileBackButton onBack={() => setSelectedOrder(null)} label="Zlecenia" />
           <WorkshopOrderDetail
             order={currentSelectedOrder}
             providerId={providerId}
@@ -201,7 +213,8 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
     return (
       <div className="flex gap-0 min-h-[calc(100vh-200px)]">
         <WorkshopSidebar activeModule="pojazdy" onNavigate={(key) => { setSelectedVehicle(null); goTo(key); }} />
-        <div className="flex-1 pl-3 min-w-0">
+        <div className="flex-1 md:pl-3 min-w-0">
+          <MobileBackButton onBack={() => setSelectedVehicle(null)} label="Pojazdy" />
           <WorkshopVehicleDetail
             vehicle={selectedVehicle}
             providerId={providerId}
@@ -277,7 +290,8 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
   return (
     <div className="flex gap-0 min-h-[calc(100vh-200px)]">
       <WorkshopSidebar activeModule={activeModule} onNavigate={goTo} />
-      <div className="flex-1 pl-3 min-w-0">
+      <div className="flex-1 md:pl-3 min-w-0">
+        <MobileBackButton onBack={() => goTo(null)} />
         {renderModuleContent()}
       </div>
     </div>

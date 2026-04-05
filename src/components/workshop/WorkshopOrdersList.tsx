@@ -94,12 +94,12 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
     <div className="space-y-4">
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2">
-        <Button onClick={() => setShowNewOrder(true)} className="gap-2">
-          <Plus className="h-4 w-4" /> Nowe zlecenie
+        <Button onClick={() => setShowNewOrder(true)} className="gap-2" size="sm">
+          <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Nowe</span> zlecenie
         </Button>
         {selectedIds.size > 0 && (
           <Button variant="destructive" size="sm" className="gap-1">
-            <Trash2 className="h-4 w-4" /> Usuń zaznaczone
+            <Trash2 className="h-4 w-4" /> Usuń
           </Button>
         )}
 
@@ -110,13 +110,14 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
           size="icon"
           title="Tylko zakończone"
           onClick={() => setCompletedOnly(!completedOnly)}
+          className="h-8 w-8"
         >
           <CheckCircle className="h-4 w-4" />
         </Button>
 
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[180px]">
-            <Filter className="h-4 w-4 mr-1" />
+          <SelectTrigger className="w-[130px] sm:w-[180px] h-8 text-xs sm:text-sm">
+            <Filter className="h-3.5 w-3.5 mr-1" />
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
@@ -127,19 +128,69 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
           </SelectContent>
         </Select>
 
-        <div className="relative">
+        <div className="relative w-full sm:w-auto">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Szukaj"
-            className="pl-9 w-[200px]"
+            className="pl-9 w-full sm:w-[200px] h-8"
           />
         </div>
       </div>
 
-      {/* Table */}
-      <Card>
+      {/* Mobile card view */}
+      <div className="md:hidden space-y-2">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : filteredOrders.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">Brak zleceń</div>
+        ) : (
+          <>
+            {filteredOrders.map((order: any) => (
+              <Card key={order.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => onSelectOrder?.(order)}>
+                <CardContent className="p-3">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center gap-2">
+                      <Wrench className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="font-semibold text-sm">{order.order_number}</span>
+                    </div>
+                    <Badge className={`${statusColors[order.status_name] || 'bg-gray-200 text-black'} text-[10px] px-1.5 py-0.5`}>
+                      {order.status_name || 'Brak'}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      {getVehicleName(order) && (
+                        <span className="flex items-center gap-1 truncate">
+                          <Car className="h-3 w-3 shrink-0" /> {getVehicleName(order)}
+                        </span>
+                      )}
+                    </div>
+                    <span className="font-medium text-foreground text-sm ml-2 shrink-0">
+                      {(order.total_gross || 0).toLocaleString('pl-PL', { minimumFractionDigits: 2 })} zł
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-muted-foreground mt-1">
+                    <span>{getClientName(order)}</span>
+                    <span>{format(new Date(order.created_at), 'dd.MM.yyyy')}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+            {filteredOrders.length > 0 && (
+              <div className="text-right text-sm font-semibold px-2 pt-2 border-t">
+                Suma: {totalSum.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} zł
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Desktop table view */}
+      <Card className="hidden md:block">
         <CardContent className="p-0">
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
