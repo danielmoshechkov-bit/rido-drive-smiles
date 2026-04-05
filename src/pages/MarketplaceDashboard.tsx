@@ -412,6 +412,20 @@ export default function MarketplaceDashboard() {
               Ulubione
             </TabsTrigger>
             <TabsTrigger 
+              value="my-listings"
+              className="px-5 py-2.5 rounded-full text-sm whitespace-nowrap transition-all duration-150 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:font-semibold hover:bg-white/90 hover:text-primary"
+            >
+              <Store className="h-4 w-4 mr-1" />
+              Moje ogłoszenia
+            </TabsTrigger>
+            <TabsTrigger 
+              value="my-purchases"
+              className="px-5 py-2.5 rounded-full text-sm whitespace-nowrap transition-all duration-150 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:font-semibold hover:bg-white/90 hover:text-primary"
+            >
+              <ShoppingBag className="h-4 w-4 mr-1" />
+              Moje zakupy
+            </TabsTrigger>
+            <TabsTrigger 
               value="settings"
               className="px-5 py-2.5 rounded-full text-sm whitespace-nowrap transition-all duration-150 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:font-semibold hover:bg-white/90 hover:text-primary"
             >
