@@ -400,6 +400,9 @@ function ListingActions({ listing, onRefresh, onSold, onArchive, onDelete }: {
         </DropdownMenuItem>
         {listing.status === "active" && (
           <>
+            <DropdownMenuItem onClick={() => navigate(`/marketplace/edit-listing/${listing.id}#ai-photos`)}>
+              <Wand2 className="h-4 w-4 mr-2" /> Dodaj AI zdjęcia
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => onRefresh(listing.id)}>
               <RefreshCw className="h-4 w-4 mr-2" /> Odśwież
             </DropdownMenuItem>
