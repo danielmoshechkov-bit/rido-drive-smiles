@@ -48,6 +48,7 @@ const MODULES = [
   { value: 'faktury', label: 'Faktury / Księgowość', icon: Calculator },
   { value: 'sprzedaz', label: 'Sprzedaż / CRM', icon: BarChart3 },
   { value: 'komunikacja', label: 'Komunikacja', icon: MessageSquare },
+  { value: 'translation', label: 'Tłumaczenia', icon: Globe },
   { value: 'ogolne', label: 'Ogólne / System', icon: Bot },
 ];
 
