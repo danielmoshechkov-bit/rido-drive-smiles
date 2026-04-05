@@ -518,7 +518,7 @@ export function FeaturedListings({ className, categoryContext, hideViewMore }: F
                 : "bg-background border-emerald-500 hover:opacity-80"
             )}
           >
-            Na sprzedaż
+            {t('featured.forSale')}
           </button>
           <button
             onClick={() => setTransactionType('wynajem')}
