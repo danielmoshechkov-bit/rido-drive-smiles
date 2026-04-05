@@ -613,7 +613,7 @@ export default function EasyHub() {
 
       {/* Hero Section */}
       <section className="container mx-auto px-4 pt-6 pb-3 md:pt-12 md:pb-6 text-center">
-        <h1 className="text-xl sm:text-2xl md:text-5xl font-bold mb-1 md:mb-3 text-primary">
+        <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold mb-1 md:mb-3" style={{ color: '#4A3AFF' }}>
           GetRido
         </h1>
         <p className="text-xs sm:text-sm md:text-lg text-muted-foreground max-w-xl mx-auto">

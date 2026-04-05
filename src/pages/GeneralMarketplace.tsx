@@ -302,7 +302,7 @@ export default function GeneralMarketplace() {
           <div className="flex items-center gap-4">
             <UniversalHomeButton />
             <span
-              className="font-bold text-lg md:text-xl text-primary cursor-pointer hover:opacity-80 transition-opacity"
+              className="font-bold text-sm sm:text-lg md:text-xl text-primary cursor-pointer hover:opacity-80 transition-opacity truncate max-w-[90px] sm:max-w-none"
               onClick={() => { navigate('/marketplace'); window.scrollTo(0, 0); }}
             >
               RidoMarket
