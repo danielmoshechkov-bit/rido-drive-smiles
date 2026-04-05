@@ -43,7 +43,7 @@ export default function GeneralListingEdit() {
   const [priceNegotiable, setPriceNegotiable] = useState(false);
   const [location, setLocation] = useState("");
 
-  const [existingPhotos, setExistingPhotos] = useState<{ id: string; url: string }[]>([]);
+  const [existingPhotos, setExistingPhotos] = useState<{ id: string; url: string; is_ai_enhanced?: boolean }[]>([]);
   const [newPhotos, setNewPhotos] = useState<File[]>([]);
   const [newPhotoUrls, setNewPhotoUrls] = useState<string[]>([]);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
