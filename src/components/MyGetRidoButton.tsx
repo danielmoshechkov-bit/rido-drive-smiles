@@ -17,6 +17,7 @@ interface MyGetRidoButtonProps {
 
 export function MyGetRidoButton({ user, variant = "outline", size = "sm", className }: MyGetRidoButtonProps) {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [accountTypes, setAccountTypes] = useState<{
