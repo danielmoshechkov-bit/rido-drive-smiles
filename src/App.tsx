@@ -156,6 +156,7 @@ const App = () => (
                 <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
                 <Route path="/admin/dashboard" element={<AdminDashboard />} />
                 <Route path="/admin/marketplace" element={<AdminMarketplace />} />
+                <Route path="/admin/ridomarket" element={<AdminRidoMarket />} />
                 <Route path="/admin/nieruchomosci" element={<AdminRealEstate />} />
                 <Route path="/admin/mapy" element={<AdminMaps />} />
                 <Route path="/admin/portal" element={<AdminPortal />} />
