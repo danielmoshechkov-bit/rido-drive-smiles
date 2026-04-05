@@ -757,7 +757,7 @@ export default function RealEstateMarketplace() {
               className="font-bold text-sm sm:text-lg md:text-xl text-primary cursor-pointer hover:opacity-80 transition-opacity truncate max-w-[100px] sm:max-w-none"
               onClick={() => { navigate('/nieruchomosci'); window.scrollTo(0, 0); }}
             >
-              Nieruchomości
+              {t('home.nieruchomosci', 'Nieruchomości')}
             </span>
           </div>
           <div className="flex items-center gap-1 sm:gap-2">

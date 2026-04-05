@@ -445,7 +445,7 @@ export default function VehicleMarketplace() {
             
             {/* Portal name only - no duplicate logo */}
             <span className="font-bold text-sm sm:text-lg md:text-xl text-primary truncate max-w-[80px] sm:max-w-none">
-              Giełda Aut
+              {t('home.motoryzacja', 'Giełda Aut')}
             </span>
           </div>
           <div className="flex items-center gap-1 sm:gap-2">
