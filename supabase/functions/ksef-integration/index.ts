@@ -958,7 +958,13 @@ function buildKsefInvoiceArtifacts(invoice: any, entity: any, items: any[]) {
       <Zwolnienie><P_19N>1</P_19N></Zwolnienie>
       <NoweSrodkiTransportu><P_22N>1</P_22N></NoweSrodkiTransportu>
       <P_23>2</P_23>
-      <PMarzy><P_PMarzyN>1</P_PMarzyN></PMarzy>
+      <PMarzy>${invoice.is_margin ? (() => {
+        const mpt = invoice.margin_procedure_type || 'used_goods';
+        if (mpt === 'tourism') return '<P_PMarzy_2>1</P_PMarzy_2>';
+        if (mpt === 'art') return '<P_PMarzy_3_2>1</P_PMarzy_3_2>';
+        if (mpt === 'antiques') return '<P_PMarzy_3_3>1</P_PMarzy_3_3>';
+        return '<P_PMarzy_3_1>1</P_PMarzy_3_1>';
+      })() : '<P_PMarzyN>1</P_PMarzyN>'}</PMarzy>
     </Adnotacje>
     <RodzajFaktury>${invoiceType}</RodzajFaktury>${correctionBlockXml}${itemsContent}${fakZalXml}
     <Platnosc>
