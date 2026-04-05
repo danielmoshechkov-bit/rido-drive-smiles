@@ -58,6 +58,13 @@ const portals: Portal[] = [
     description: 'Zarządzanie giełdą pojazdów',
   },
   {
+    id: 'ridomarket',
+    name: 'RidoMarket',
+    icon: ShoppingCart,
+    path: '/admin/ridomarket',
+    description: 'Ogłoszenia ogólne — marketplace z AI',
+  },
+  {
     id: 'maps',
     name: 'Mapy',
     icon: Map,
