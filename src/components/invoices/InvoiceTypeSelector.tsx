@@ -10,6 +10,7 @@ import {
   Receipt
 } from 'lucide-react';
 
+// UI-facing type values used in the selector
 export type InvoiceType = 'invoice' | 'proforma' | 'margin' | 'correction' | 'advance' | 'final' | 'simplified';
 
 interface InvoiceTypeOption {
@@ -17,17 +18,46 @@ interface InvoiceTypeOption {
   label: string;
   description: string;
   icon: React.ElementType;
+  /** KSeF-compliant value stored in DB */
+  ksefType: string;
 }
 
 const INVOICE_TYPES: InvoiceTypeOption[] = [
-  { value: 'invoice', label: 'Faktura VAT', description: 'Standardowa faktura', icon: FileText },
-  { value: 'proforma', label: 'Proforma', description: 'Przed płatnością', icon: FileCheck },
-  { value: 'margin', label: 'VAT marża', description: 'Sprzedaż używanych', icon: Percent },
-  { value: 'correction', label: 'Korygująca', description: 'Korekta faktury', icon: FileEdit },
-  { value: 'advance', label: 'Zaliczkowa', description: 'Zaliczka', icon: Coins },
-  { value: 'final', label: 'Końcowa', description: 'Po zaliczkach', icon: FilePlus },
-  { value: 'simplified', label: 'Uproszczona', description: 'Do 450 PLN', icon: Receipt },
+  { value: 'invoice', label: 'Faktura VAT', description: 'Standardowa faktura', icon: FileText, ksefType: 'VAT' },
+  { value: 'proforma', label: 'Proforma', description: 'Przed płatnością', icon: FileCheck, ksefType: 'proforma' },
+  { value: 'margin', label: 'VAT marża', description: 'Sprzedaż używanych', icon: Percent, ksefType: 'VAT' },
+  { value: 'correction', label: 'Korygująca', description: 'Korekta faktury', icon: FileEdit, ksefType: 'KOR' },
+  { value: 'advance', label: 'Zaliczkowa', description: 'Zaliczka', icon: Coins, ksefType: 'ZAL' },
+  { value: 'final', label: 'Końcowa', description: 'Po zaliczkach', icon: FilePlus, ksefType: 'ROZ' },
+  { value: 'simplified', label: 'Uproszczona', description: 'Do 450 PLN', icon: Receipt, ksefType: 'UPR' },
 ];
+
+/** Map UI selector value to KSeF-compliant DB value */
+export function uiTypeToKsef(uiType: InvoiceType | string): string {
+  const found = INVOICE_TYPES.find(t => t.value === uiType);
+  return found?.ksefType || 'VAT';
+}
+
+/** Map DB value back to UI selector value (for editing) */
+export function ksefTypeToUi(dbType: string | null | undefined): InvoiceType {
+  if (!dbType) return 'invoice';
+  const map: Record<string, InvoiceType> = {
+    'VAT': 'invoice',
+    'KOR': 'correction',
+    'ZAL': 'advance',
+    'ROZ': 'final',
+    'UPR': 'simplified',
+    // pass-through for already UI values
+    'invoice': 'invoice',
+    'proforma': 'proforma',
+    'margin': 'margin',
+    'correction': 'correction',
+    'advance': 'advance',
+    'final': 'final',
+    'simplified': 'simplified',
+  };
+  return map[dbType] || 'invoice';
+}
 
 interface InvoiceTypeSelectorProps {
   value: InvoiceType;

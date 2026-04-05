@@ -424,7 +424,7 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {invoice.buyer_name || 'Brak nabywcy'}
-                  {invoice.invoice_type === 'correction' && (invoice as any).corrected_invoice_number && (
+                  {(invoice.invoice_type === 'correction' || invoice.invoice_type === 'KOR' || invoice.invoice_type === 'KOR_ZAL' || invoice.invoice_type === 'KOR_ROZ') && (invoice as any).corrected_invoice_number && (
                     <span className="ml-1">→ {(invoice as any).corrected_invoice_number}</span>
                   )}
                 </p>
