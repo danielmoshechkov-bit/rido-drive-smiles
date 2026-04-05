@@ -236,10 +236,10 @@ export function GeneralListingCard({ listing, variant = "grid", onToggleCompare,
         {/* Price */}
         <div className="flex items-baseline gap-1.5">
           <span className="text-base font-bold text-primary">
-            {listing.price ? `${listing.price.toLocaleString("pl-PL")}\u00A0zł` : "Zapytaj o cenę"}
+            {listing.price ? `${listing.price.toLocaleString("pl-PL")}\u00A0zł` : t('marketplace.askPrice')}
           </span>
           {listing.price_negotiable && (
-            <span className="text-xs text-muted-foreground">(do negocjacji)</span>
+            <span className="text-xs text-muted-foreground">({t('marketplace.negotiable')})</span>
           )}
         </div>
 
