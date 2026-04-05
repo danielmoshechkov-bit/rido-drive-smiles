@@ -285,8 +285,17 @@ export default function GeneralListingDetail() {
 
             {/* Action buttons */}
             <div className="grid grid-cols-2 gap-2">
-              <Button disabled className="gap-1.5" title="Płatności wkrótce">
-                <ShoppingCart className="h-4 w-4" /> Kup teraz
+              <Button
+                className="gap-1.5"
+                disabled={isInCart(listing.id)}
+                onClick={() => {
+                  const photoUrl = photos[0]?.url || null;
+                  addToCart(listing.id, listing.title, listing.price, photoUrl);
+                  toast.success("Dodano do koszyka");
+                }}
+              >
+                <ShoppingCart className="h-4 w-4" />
+                {isInCart(listing.id) ? "W koszyku" : "Do koszyka"}
               </Button>
               <Button variant="outline" onClick={toggleFav} className="gap-1.5">
                 <Heart className={cn("h-4 w-4", isFav && "fill-red-500 text-red-500")} />
@@ -304,7 +313,15 @@ export default function GeneralListingDetail() {
                 </div>
                 <div>
                   <p className="font-medium text-sm">Sprzedawca</p>
-                  <p className="text-xs text-muted-foreground">Użytkownik GetRido</p>
+                  {sellerRating ? (
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                      <span>{sellerRating.avg.toFixed(1)}</span>
+                      <span>({sellerRating.count} ocen)</span>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Użytkownik GetRido</p>
+                  )}
                 </div>
               </div>
               <Button variant="outline" size="sm" disabled className="w-full mt-2" title="Wiadomości wkrótce">
