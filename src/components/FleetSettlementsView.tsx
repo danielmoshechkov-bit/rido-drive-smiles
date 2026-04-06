@@ -3046,8 +3046,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
               case 'payout':
                 return dir * (getEffectiveSettlement(a).final_payout - getEffectiveSettlement(b).final_payout);
               case 'debt': {
-                const debtA = Math.max(0, a.debt_current ?? a.debt_previous ?? 0);
-                const debtB = Math.max(0, b.debt_current ?? b.debt_previous ?? 0);
+                const debtA = Math.max(0, (a.debt_previous ?? 0)) + Math.max(0, (a.rental_debt_previous ?? 0));
+                const debtB = Math.max(0, (b.debt_previous ?? 0)) + Math.max(0, (b.rental_debt_previous ?? 0));
                 return dir * (debtA - debtB);
               }
               case 'brutto':
@@ -3174,12 +3174,15 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                             <span>Wypłata:</span>
                             <span className={getAmountColor(settlement.final_payout)}>{formatCurrency(settlement.final_payout)}</span>
                           </div>
-                          {(settlement.debt_previous || 0) > 0 && (
-                            <div className="flex justify-between text-xs text-muted-foreground">
-                              <span>Dług:</span>
-                              <span>{formatCurrency(settlement.debt_previous || 0)}</span>
-                            </div>
-                          )}
+                          {(() => {
+                            const totalDebtMobile = round2(Math.max(0, settlement.debt_previous ?? 0) + Math.max(0, settlement.rental_debt_previous ?? 0));
+                            return totalDebtMobile > 0 ? (
+                              <div className="flex justify-between text-xs text-muted-foreground">
+                                <span>Dług:</span>
+                                <span>{formatCurrency(totalDebtMobile)}</span>
+                              </div>
+                            ) : null;
+                          })()}
                           <div className={`flex justify-between text-sm font-bold ${getDoWyplaty(settlement) > 0 ? 'text-green-700' : getDoWyplaty(settlement) < 0 ? 'text-red-600' : 'text-muted-foreground'}`}>
                             <span>Do wypłaty:</span>
                             <span>{formatCurrency(getDoWyplaty(settlement))}</span>
@@ -3476,17 +3479,19 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                             </TableCell>
                           );
                         })()}
-                        {/* Dług - only settlement debt (NOT rental debt) */}
+                        {/* Dług - TOTAL debt (settlement + rental) entering this week */}
                         {isColVisible('debt') && <TableCell className="text-center px-2 py-1.5 text-xs whitespace-nowrap">
                           {(() => {
-                            // Show debt ENTERING this week (previous), not after settlement
-                            const debt = round2(Math.max(0, settlement.debt_previous ?? 0));
+                            // Show TOTAL debt entering this week (settlement + rental combined)
+                            const settlementDebtVal = round2(Math.max(0, settlement.debt_previous ?? 0));
+                            const rentalDebtVal = round2(Math.max(0, settlement.rental_debt_previous ?? 0));
+                            const debt = round2(settlementDebtVal + rentalDebtVal);
                             const badgeClick = (e: React.MouseEvent) => {
                               e.stopPropagation();
                               e.preventDefault();
-                              const settlementDebtBefore = round2(Math.max(0, settlement.debt_previous ?? 0));
-                              const rentalDebtBefore = round2(Math.max(0, settlement.rental_debt_previous ?? 0));
-                              const totalDebtBefore = round2(settlementDebtBefore + rentalDebtBefore);
+                              const settlementDebtBefore = settlementDebtVal;
+                              const rentalDebtBefore = rentalDebtVal;
+                              const totalDebtBefore = debt;
                               const debtAfter = round2(Math.max(0, settlement.debt_current ?? 0));
                               setSelectedDriverForDebt({
                                 id: settlement.driver_id,
