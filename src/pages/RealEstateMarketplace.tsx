@@ -1036,7 +1036,7 @@ export default function RealEstateMarketplace() {
                 </nav>
 
                 <span className="text-sm text-muted-foreground">
-                  Strona {currentPage} z {totalPages}
+                  {t('ui.page', 'Strona')} {currentPage} {t('ui.of', 'z')} {totalPages}
                 </span>
               </div>
             )}
