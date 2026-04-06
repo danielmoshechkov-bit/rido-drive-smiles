@@ -3116,6 +3116,48 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           </AlertDialogContent>
         </AlertDialog>
 
+        {/* Reset All Settlements Confirmation Dialog */}
+        <AlertDialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>⚠️ Wyzeruj bazę rozliczeń</AlertDialogTitle>
+              <AlertDialogDescription className="space-y-3">
+                <p>
+                  Czy na pewno chcesz usunąć <strong>WSZYSTKIE</strong> rozliczenia, długi i historię transakcji?
+                </p>
+                <p className="text-destructive font-bold">
+                  Tej operacji nie można cofnąć.
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Rozliczenia pozostaną w systemie do wglądu, ale cała historia długów zostanie wyzerowana.
+                  Następne wgrane rozliczenie będzie traktowane jako pierwsze w systemie.
+                </p>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isResetting}>Anuluj</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={handleResetAllSettlements} 
+                disabled={isResetting}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {isResetting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Zerowanie...
+                  </>
+                ) : (
+                  <>
+                    <AlertTriangle className="h-4 w-4 mr-2" />
+                    Wyzeruj wszystko
+                  </>
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+
       <CardContent>
         {(() => {
           // Filter settlements based on search only (zero filtering is done in fetchSettlements)
