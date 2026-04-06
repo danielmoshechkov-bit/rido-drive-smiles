@@ -312,7 +312,7 @@ export default function ServicesMarketplace() {
               <span className="font-semibold text-foreground">{t('services.title', 'Usługi')}</span>
             </div>
             <div className="flex items-center gap-2">
-              <LanguageSelector />
+               <LanguageSwitcher />
               <MyGetRidoButton user={user} />
             </div>
           </div>
