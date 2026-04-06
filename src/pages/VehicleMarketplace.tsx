@@ -473,7 +473,7 @@ export default function VehicleMarketplace() {
               <Sparkles className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-primary" />
               <Input
                 type="text"
-                placeholder={hasAIAccess ? "Zapytaj AI: 'SUV diesel do 800 zł/tydz w Warszawie'" : "Wyszukiwarka AI - wkrótce dostępna"}
+                placeholder={hasAIAccess ? t('vehicles.aiPlaceholder', "Zapytaj AI: 'SUV diesel do 800 zł/tydz w Warszawie'") : t('vehicles.aiDisabled', "Wyszukiwarka AI - wkrótce dostępna")}
                 value={aiQuery}
                 onChange={(e) => hasAIAccess && setAiQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && hasAIAccess && handleAISearch()}
@@ -485,22 +485,22 @@ export default function VehicleMarketplace() {
                 disabled={isSearchingAI || !aiQuery.trim() || !hasAIAccess}
                 className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full h-10 px-6"
               >
-                {isSearchingAI ? "..." : "Szukaj AI"}
+                {isSearchingAI ? "..." : t('ui.searchAI', 'Szukaj AI')}
               </Button>
             </div>
             <p className="text-center text-xs text-muted-foreground mt-2">
               Powered by <span className="text-primary font-medium">Rido AI</span> •
-              Szukaj naturalnym językiem
+              {t('ui.poweredByAI', 'Szukaj naturalnym językiem')}
             </p>
           </div>
 
           {/* Title */}
           <div className="text-center mb-6">
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">
-              Znajdź idealne <span className="text-primary">auto</span> dla siebie
+              {t('vehicles.findCar', 'Znajdź idealne auto dla siebie')}
             </h1>
             <p className="text-muted-foreground">
-              Tysiące sprawdzonych ofert od flot i prywatnych właścicieli
+              {t('vehicles.subtitle', 'Tysiące sprawdzonych ofert od flot i prywatnych właścicieli')}
             </p>
           </div>
         </div>
