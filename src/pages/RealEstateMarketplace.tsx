@@ -1063,7 +1063,7 @@ export default function RealEstateMarketplace() {
                 <div className="mt-6 space-y-3">
                   <div className="flex items-center gap-2">
                     <Sparkles className="h-4 w-4 text-primary" />
-                    <h2 className="text-base font-semibold">Polecane inwestycje</h2>
+                    <h2 className="text-base font-semibold">{t('ui.featured', 'Polecane inwestycje')}</h2>
                   </div>
                   <div className="space-y-3">
                     {featuredListings.map((listing) => (
