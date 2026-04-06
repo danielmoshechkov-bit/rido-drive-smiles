@@ -1136,7 +1136,7 @@ export default function RealEstateMarketplace() {
                 href="/easy" 
                 className="text-sm text-primary hover:underline"
               >
-                ← Wróć do GetRido Easy
+                {t('ui.backToGetRido', '← Wróć do GetRido Easy')}
               </a>
             </div>
             <p className="text-muted-foreground text-sm">
