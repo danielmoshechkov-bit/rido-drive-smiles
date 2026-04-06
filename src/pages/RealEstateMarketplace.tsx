@@ -1097,8 +1097,8 @@ export default function RealEstateMarketplace() {
           <div className="max-w-7xl mx-auto">
             <div className="flex items-center gap-3 mb-4">
               <Sparkles className="h-5 w-5 text-primary" />
-              <h2 className="text-xl font-bold">Wyróżnione inwestycje</h2>
-              <Badge variant="secondary" className="text-xs">Promowane</Badge>
+              <h2 className="text-xl font-bold">{t('ui.featured', 'Wyróżnione inwestycje')}</h2>
+              <Badge variant="secondary" className="text-xs">{t('ui.promoted', 'Promowane')}</Badge>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {featuredListings.map((listing) => (
