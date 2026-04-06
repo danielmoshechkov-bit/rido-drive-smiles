@@ -8718,6 +8718,7 @@ export type Database = {
           sender_bank_account: string | null
           settlement_frequency_enabled: boolean | null
           settlement_mode: string
+          settlements_reset_at: string | null
           street: string | null
           transfer_enabled: boolean | null
           transfer_title_template: string | null
@@ -8764,6 +8765,7 @@ export type Database = {
           sender_bank_account?: string | null
           settlement_frequency_enabled?: boolean | null
           settlement_mode?: string
+          settlements_reset_at?: string | null
           street?: string | null
           transfer_enabled?: boolean | null
           transfer_title_template?: string | null
@@ -8810,6 +8812,7 @@ export type Database = {
           sender_bank_account?: string | null
           settlement_frequency_enabled?: boolean | null
           settlement_mode?: string
+          settlements_reset_at?: string | null
           street?: string | null
           transfer_enabled?: boolean | null
           transfer_title_template?: string | null
