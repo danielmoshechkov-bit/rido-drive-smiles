@@ -482,7 +482,7 @@ export default function ServicesMarketplace() {
               }}
             >
               <Filter className="h-4 w-4 mr-1" />
-              Wszystkie
+              {t('ui.all', 'Wszystkie')}
             </Badge>
             {(activeGroup
               ? categories.filter(c => activeGroup.slugs.includes(c.slug))
