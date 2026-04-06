@@ -126,6 +126,7 @@ const categoryIcons: Record<string, any> = {
 };
 
 export default function ServicesMarketplace() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   
