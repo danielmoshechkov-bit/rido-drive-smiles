@@ -569,6 +569,31 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     }
   };
 
+  // Recalculate week - recalculates all settlements for the selected week
+  const handleRecalculateWeek = async () => {
+    if (!currentWeek) {
+      toast.error('Nie wybrano tygodnia');
+      return;
+    }
+    setIsRecalculating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('recalculate-week', {
+        body: {
+          fleet_id: fleetId,
+          period_from: currentWeek.start,
+          period_to: currentWeek.end,
+        }
+      });
+      if (error) throw error;
+      toast.success(`Przeliczono ${data?.count || 0} kierowców`);
+      fetchSettlements();
+    } catch (err: any) {
+      toast.error('Błąd przeliczania: ' + (err?.message || 'Unknown error'));
+    } finally {
+      setIsRecalculating(false);
+    }
+  };
+
   // Generate transfer list
   const handleGenerateTransfers = async (cityId: string) => {
     try {
