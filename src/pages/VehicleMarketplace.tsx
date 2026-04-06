@@ -517,7 +517,7 @@ export default function VehicleMarketplace() {
       {/* Transaction Type Chips */}
       {selectedVehicleType && (
         <section className="container mx-auto px-4 py-2">
-          <p className="text-sm font-medium text-muted-foreground mb-2 text-center">Typ transakcji:</p>
+          <p className="text-sm font-medium text-muted-foreground mb-2 text-center">{t('vehicles.transactionType', 'Typ transakcji:')}</p>
           <TransactionTypeChips 
             selectedTypes={selectedTransactionTypes}
             onToggle={handleTransactionTypeToggle}
