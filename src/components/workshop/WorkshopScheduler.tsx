@@ -625,25 +625,71 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
   unplannedOrders: any[]; stationName: string;
   onSchedule: (orderId: string, day: Date, hour: number, stationId: string) => Promise<void>;
 }) {
+  const queryClient = useQueryClient();
   const [selectedOrderId, setSelectedOrderId] = useState('');
-  const [activeTab, setActiveTab] = useState<'event' | 'order'>('event');
+  const [activeTab, setActiveTab] = useState<'client' | 'event' | 'order'>('client');
   const [eventForm, setEventForm] = useState({
     service: '', type: 'Wydarzenie', color: 'Niebieski', allDay: false,
     duration: '1 godz.', worker: '', description: '',
   });
+  const [clientForm, setClientForm] = useState({
+    phone: '', firstName: '', lastName: '', plate: '',
+    brand: '', model: '', serviceDesc: '', duration: '60',
+    reminder: true,
+  });
+  const [saving, setSaving] = useState(false);
+
   if (!slotData) return null;
 
   const endHour = slotData.hour + 1;
 
+  const handleSaveClient = async () => {
+    if (!clientForm.phone) {
+      toast.error('Numer telefonu jest wymagany');
+      return;
+    }
+    setSaving(true);
+    try {
+      const { error } = await supabase.from('workshop_client_bookings' as any).insert({
+        provider_id: providerId,
+        phone: clientForm.phone,
+        first_name: clientForm.firstName || null,
+        last_name: clientForm.lastName || null,
+        plate: clientForm.plate || null,
+        brand: clientForm.brand || null,
+        model: clientForm.model || null,
+        service_description: clientForm.serviceDesc || null,
+        appointment_date: format(slotData.day, 'yyyy-MM-dd'),
+        appointment_time: `${slotData.hour.toString().padStart(2, '0')}:00:00`,
+        duration_minutes: parseInt(clientForm.duration) || 60,
+        station_id: slotData.stationId,
+        reminder_enabled: clientForm.reminder,
+        status: 'scheduled',
+      });
+      if (error) throw error;
+      toast.success('Klient umówiony');
+      queryClient.invalidateQueries({ queryKey: ['workshop-bookings'] });
+      onOpenChange(false);
+      setClientForm({ phone: '', firstName: '', lastName: '', plate: '', brand: '', model: '', serviceDesc: '', duration: '60', reminder: true });
+    } catch (err: any) {
+      toast.error(err.message || 'Błąd zapisu');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) { setSelectedOrderId(''); setActiveTab('event'); } onOpenChange(v); }}>
-      <DialogContent className="sm:max-w-lg">
+    <Dialog open={open} onOpenChange={(v) => { if (!v) { setSelectedOrderId(''); setActiveTab('client'); } onOpenChange(v); }}>
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Nowe wydarzenie / zlecenie</DialogTitle>
+          <DialogTitle>Nowy termin</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           {/* Tabs */}
           <div className="flex gap-1 border rounded-lg p-0.5 bg-muted/30">
+            <Button variant={activeTab === 'client' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveTab('client')} className="flex-1 text-xs">
+              Umów klienta
+            </Button>
             <Button variant={activeTab === 'event' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveTab('event')} className="flex-1 text-xs">
               Nowe wydarzenie
             </Button>
@@ -659,7 +705,74 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
             <div><label className="font-medium">Stanowisko</label><div className="text-muted-foreground mt-1">{stationName}</div></div>
           </div>
 
-          {activeTab === 'event' ? (
+          {activeTab === 'client' ? (
+            <div className="space-y-3">
+              <div>
+                <Label className="text-sm">Nr telefonu *</Label>
+                <Input value={clientForm.phone} onChange={e => setClientForm(f => ({...f, phone: e.target.value}))} placeholder="+48 600 000 000" type="tel" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-sm">Imię</Label>
+                  <Input value={clientForm.firstName} onChange={e => setClientForm(f => ({...f, firstName: e.target.value}))} placeholder="Jan" />
+                </div>
+                <div>
+                  <Label className="text-sm">Nazwisko</Label>
+                  <Input value={clientForm.lastName} onChange={e => setClientForm(f => ({...f, lastName: e.target.value}))} placeholder="Kowalski" />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <Label className="text-sm">Nr rejestracyjny</Label>
+                  <div className="relative">
+                    <Input value={clientForm.plate} onChange={e => setClientForm(f => ({...f, plate: e.target.value.toUpperCase()}))} placeholder="KRA 12345" />
+                    <Search className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground cursor-pointer" />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-sm">Marka</Label>
+                  <Input value={clientForm.brand} onChange={e => setClientForm(f => ({...f, brand: e.target.value}))} placeholder="np. Toyota" />
+                </div>
+                <div>
+                  <Label className="text-sm">Model</Label>
+                  <Input value={clientForm.model} onChange={e => setClientForm(f => ({...f, model: e.target.value}))} placeholder="np. Corolla" />
+                </div>
+              </div>
+              <div>
+                <Label className="text-sm">Opis usługi</Label>
+                <Input value={clientForm.serviceDesc} onChange={e => setClientForm(f => ({...f, serviceDesc: e.target.value}))} placeholder="np. Wymiana oleju + filtrów" />
+              </div>
+              <div>
+                <Label className="text-sm">Czas na usługę</Label>
+                <Select value={clientForm.duration} onValueChange={v => setClientForm(f => ({...f, duration: v}))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="30">30 min</SelectItem>
+                    <SelectItem value="60">1 godz.</SelectItem>
+                    <SelectItem value="120">2 godz.</SelectItem>
+                    <SelectItem value="180">3 godz.</SelectItem>
+                    <SelectItem value="240">4 godz.</SelectItem>
+                    <SelectItem value="480">Cały dzień</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer p-2 rounded-lg border bg-muted/30">
+                <input
+                  type="checkbox"
+                  checked={clientForm.reminder}
+                  onChange={e => setClientForm(f => ({...f, reminder: e.target.checked}))}
+                  className="rounded"
+                />
+                <span className="text-sm">📱 Przypomnij SMS (24h i 2h przed wizytą)</span>
+              </label>
+              <div className="flex justify-end gap-2 pt-1">
+                <Button variant="outline" onClick={() => onOpenChange(false)}>Anuluj</Button>
+                <Button onClick={handleSaveClient} disabled={saving}>
+                  {saving ? 'Zapisywanie...' : 'Umów klienta'}
+                </Button>
+              </div>
+            </div>
+          ) : activeTab === 'event' ? (
             <div className="space-y-3">
               <div>
                 <Label>Usługa / czynność</Label>

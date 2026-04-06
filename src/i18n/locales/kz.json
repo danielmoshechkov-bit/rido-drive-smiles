@@ -1040,5 +1040,39 @@
     "servicesDesc": "Мамандар, жөндеу жұмыстары, қызмет көрсету",
     "comingSoon": "Жақында",
     "featureComingSoon": "Бұл мүмкіндік жақында қолжетімді болады"
+  },
+  "listingDetail": {
+    "backToList": "Тізімге оралу",
+    "allListings": "← Барлық хабарландырулар",
+    "share": "Бөлісу", "save": "Сақтау", "saved": "Сақталды",
+    "condition": "Жағдайы", "location": "Орналасуы", "added": "Қосылды",
+    "priceNeg": "Бағаны келісу", "category": "Санат", "views": "Қаралымдар",
+    "likeNew": "Жаңадай", "good": "Жақсы", "used": "Қолданылған",
+    "new": "Жаңа", "fair": "Қанағаттанарлық", "toRepair": "Жөндеу қажет",
+    "yes": "Иә", "no": "Жоқ",
+    "description": "Сипаттама", "noDescription": "Сипаттама жоқ.",
+    "noPhotos": "Фото жоқ",
+    "contact": "Байланыс", "showContact": "Байланысты көрсету",
+    "sendMessage": "Хабарлама жазу", "addToCart": "Себетке",
+    "inCart": "Себетте", "addedToCart": "Себетке қосылды",
+    "seller": "Сатушы", "getridoUser": "GetRido қолданушысы",
+    "offerNo": "Хабарландыру №", "aiRating": "Rido AI бағасы", "recalc": "Қайта есептеу",
+    "aiUpdated": "AI бағасы жаңартылды", "aiError": "AI бағалау қатесі",
+    "aiNote": "AI жасаған баға • Дәл болмауы мүмкін",
+    "similar": "Ұқсас хабарландырулар", "translated": "Аударылды",
+    "notFound": "Хабарландыру табылмады", "linkCopied": "Сілтеме көшірілді",
+    "askPrice": "Бағаны сұрау", "negotiable": "келісімді", "reviews": "пікірлер"
+  },
+  "categories": {
+    "elektronika": "Электроника", "dom-i-ogrod": "Үй және бақ",
+    "motoryzacja": "Көлік", "sport": "Спорт",
+    "moda-i-odziez": "Сән", "dziecko-i-mama": "Балалар",
+    "ksiazki-i-edukacja": "Кітаптар", "inne": "Басқа",
+    "zwierzeta": "Жануарлар", "nieruchomosci": "Жылжымайтын мүлік"
+  },
+  "footer": {
+    "copyright": "© 2025 get RIDO. Барлық құқықтар қорғалған.",
+    "allListings": "← Барлық хабарландырулар",
+    "privacy": "Құпиялылық саясаты", "terms": "Пайдалану шарттары", "contact": "Байланыс"
   }
 }

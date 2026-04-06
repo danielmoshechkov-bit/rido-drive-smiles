@@ -12,6 +12,7 @@ import { useListingTranslation } from "@/hooks/useListingTranslation";
 import { PendingReviewBanner } from "@/components/marketplace/PendingReviewBanner";
 import { MarketCompareBar } from "@/components/marketplace/MarketCompareBar";
 import { GeneralListingCard } from "@/components/marketplace/GeneralListingCard";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import {
   ArrowLeft, Heart, Share2, MapPin, Eye, ShoppingCart, Star,
   Sparkles, User, Calendar, CheckCircle, Loader2, ImageIcon,
@@ -19,17 +20,18 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const CONDITION_MAP: Record<string, { label: string; color: string }> = {
-  nowy: { label: "Nowy", color: "bg-green-500/10 text-green-700" },
-  jak_nowy: { label: "Jak nowy", color: "bg-teal-500/10 text-teal-700" },
-  dobry: { label: "Dobry", color: "bg-blue-500/10 text-blue-700" },
-  dostateczny: { label: "Dostateczny", color: "bg-yellow-500/10 text-yellow-700" },
-  do_naprawy: { label: "Do naprawy", color: "bg-red-500/10 text-red-700" },
+const CONDITION_KEYS: Record<string, { key: string; color: string }> = {
+  nowy: { key: "new", color: "bg-green-500/10 text-green-700" },
+  jak_nowy: { key: "likeNew", color: "bg-teal-500/10 text-teal-700" },
+  dobry: { key: "good", color: "bg-blue-500/10 text-blue-700" },
+  dostateczny: { key: "fair", color: "bg-yellow-500/10 text-yellow-700" },
+  do_naprawy: { key: "toRepair", color: "bg-red-500/10 text-red-700" },
 };
 
 export default function GeneralListingDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
   const [listing, setListing] = useState<any>(null);
   const [photos, setPhotos] = useState<any[]>([]);
   const [category, setCategory] = useState<any>(null);
@@ -42,7 +44,6 @@ export default function GeneralListingDetail() {
   const [similarListings, setSimilarListings] = useState<any[]>([]);
   const [similarPhotos, setSimilarPhotos] = useState<Record<string, any[]>>({});
   const { addToCart, isInCart } = useCart();
-  const { i18n } = useTranslation();
 
   useEffect(() => { window.scrollTo(0, 0); }, [id]);
 
@@ -71,7 +72,6 @@ export default function GeneralListingDetail() {
           .single();
         if (cat) setCategory(cat);
 
-        // Fetch similar listings
         const { data: similar } = await supabase
           .from("general_listings")
           .select("id, title, price, price_negotiable, condition, location, ai_score, created_at, category_id, views_count, status")
@@ -137,7 +137,7 @@ export default function GeneralListingDetail() {
       await navigator.share({ title: listing?.title, url: window.location.href });
     } else {
       await navigator.clipboard.writeText(window.location.href);
-      toast.success("Link skopiowany");
+      toast.success(t('listingDetail.linkCopied'));
     }
   };
 
@@ -151,19 +151,22 @@ export default function GeneralListingDetail() {
       if (error) throw error;
       if (data?.score !== undefined) {
         setListing((prev: any) => ({ ...prev, ai_score: data.score, ai_tips: data.tips || prev.ai_tips }));
-        toast.success("Ocena AI zaktualizowana");
+        toast.success(t('listingDetail.aiUpdated'));
       }
     } catch {
-      toast.error("Błąd oceny AI");
+      toast.error(t('listingDetail.aiError'));
     } finally {
       setAiAssessing(false);
     }
   };
 
-  // Translation hook — must be before any early returns
   const { title: translatedTitle, description: translatedDesc, isTranslated } = useListingTranslation(
     listing?.id || '', listing?.title || '', listing?.description || '', 'general'
   );
+
+  const categoryLabel = category?.slug
+    ? (t(`categories.${category.slug}`, { defaultValue: '' }) || category.name)
+    : category?.name || '';
 
   if (loading) {
     return (
@@ -176,16 +179,17 @@ export default function GeneralListingDetail() {
   if (!listing) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
-        <h1 className="text-2xl font-bold">Nie znaleziono ogłoszenia</h1>
+        <h1 className="text-2xl font-bold">{t('listingDetail.notFound')}</h1>
         <Button onClick={() => navigate("/marketplace")}>
-          <ArrowLeft className="h-4 w-4 mr-2" /> Wróć do listy
+          <ArrowLeft className="h-4 w-4 mr-2" /> {t('listingDetail.backToList')}
         </Button>
       </div>
     );
   }
 
-  const cond = listing.condition ? CONDITION_MAP[listing.condition] : null;
-  
+  const cond = listing.condition ? CONDITION_KEYS[listing.condition] : null;
+  const condLabel = cond ? t(`listingDetail.${cond.key}`) : null;
+
   const aiScoreRaw = listing.ai_score;
   const aiScore5 = aiScoreRaw ? Number(aiScoreRaw) / 2 : null;
   const aiStars = aiScore5 ? Math.round(aiScore5) : 0;
@@ -195,48 +199,46 @@ export default function GeneralListingDetail() {
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/30">
       <PendingReviewBanner />
 
-      {/* Header — like VehicleDetailPage */}
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="sm" onClick={() => navigate("/marketplace")} className="gap-2">
               <ArrowLeft className="h-4 w-4" />
-              <span className="hidden sm:inline">Wróć do listy</span>
+              <span className="hidden sm:inline">{t('listingDetail.backToList')}</span>
             </Button>
             <div className="hidden md:flex items-center gap-2 cursor-pointer" onClick={() => navigate("/easy")}>
               <img src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" alt="RIDO" className="h-8 w-8" />
               <span className="font-bold text-lg"><span className="text-primary">RIDO</span> Marketplace</span>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
+            <LanguageSwitcher />
             <Button variant="outline" size="sm" onClick={handleShare} className="gap-2">
               <Share2 className="h-4 w-4" />
-              <span className="hidden sm:inline">Udostępnij</span>
+              <span className="hidden sm:inline">{t('listingDetail.share')}</span>
             </Button>
             <Button
               variant={isFav ? "default" : "outline"} size="sm" onClick={toggleFav}
               className={cn("gap-2", isFav && "bg-red-500 hover:bg-red-600 border-red-500")}
             >
               <Heart className={cn("h-4 w-4", isFav && "fill-white")} />
-              <span className="hidden sm:inline">{isFav ? "Zapisano" : "Zapisz"}</span>
+              <span className="hidden sm:inline">{isFav ? t('listingDetail.saved') : t('listingDetail.save')}</span>
             </Button>
           </div>
         </div>
       </header>
 
       <main className="container mx-auto px-4 py-6 max-w-7xl">
-        {/* Photo Gallery — like Nieruchomości: 1 big + 4 thumbnails grid */}
+        {/* Photo Gallery */}
         <div className="mb-6">
           {photos.length === 0 ? (
             <div className="aspect-[16/9] rounded-xl bg-muted flex flex-col items-center justify-center text-muted-foreground">
               <ImageIcon className="h-16 w-16 mb-2" />
-              <span>Brak zdjęć</span>
+              <span>{t('listingDetail.noPhotos')}</span>
             </div>
           ) : (
             <>
-              {/* Desktop gallery: big + grid */}
               <div className="hidden md:grid grid-cols-3 gap-2 rounded-xl overflow-hidden" style={{ maxHeight: '460px' }}>
-                {/* Main photo */}
                 <div
                   className="col-span-2 relative cursor-pointer group"
                   onClick={() => { setSelectedPhoto(0); setFullscreenGallery(true); }}
@@ -254,7 +256,6 @@ export default function GeneralListingDetail() {
                     </Badge>
                   )}
                 </div>
-                {/* Side thumbnails */}
                 <div className="grid grid-rows-2 gap-2">
                   {photos.slice(1, 3).map((p, i) => (
                     <div
@@ -285,7 +286,6 @@ export default function GeneralListingDetail() {
                 </div>
               </div>
 
-              {/* Mobile: single photo with dots */}
               <div className="md:hidden relative aspect-[4/3] rounded-xl overflow-hidden bg-muted">
                 <img
                   src={photos[selectedPhoto]?.url}
@@ -339,7 +339,6 @@ export default function GeneralListingDetail() {
 
         {/* Content: 2/3 left + 1/3 right */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* LEFT — details */}
           <div className="lg:col-span-2 space-y-6">
             {/* Breadcrumb */}
             <div className="text-sm text-muted-foreground flex items-center gap-1 flex-wrap">
@@ -347,7 +346,7 @@ export default function GeneralListingDetail() {
               {category && (
                 <>
                   <span>›</span>
-                  <button onClick={() => navigate(`/marketplace?cat=${category.slug}`)} className="hover:text-primary transition">{category.name}</button>
+                  <button onClick={() => navigate(`/marketplace?cat=${category.slug}`)} className="hover:text-primary transition">{categoryLabel}</button>
                 </>
               )}
               <span>›</span>
@@ -360,28 +359,28 @@ export default function GeneralListingDetail() {
                 {translatedTitle}
                 {isTranslated && (
                   <span className="text-xs font-normal text-muted-foreground ml-2">
-                    {i18n.language === 'en' ? '(Translated)' : i18n.language === 'ru' ? '(Переведено)' : i18n.language === 'ua' ? '(Перекладено)' : ''}
+                    ({t('listingDetail.translated')})
                   </span>
                 )}
               </h1>
               <div className="flex items-baseline gap-2">
                 <span className="text-3xl md:text-4xl font-bold text-primary">
-                  {listing.price ? `${Number(listing.price).toLocaleString("pl-PL")}\u00A0zł` : "Zapytaj o cenę"}
+                  {listing.price ? `${Number(listing.price).toLocaleString("pl-PL")}\u00A0zł` : t('listingDetail.askPrice')}
                 </span>
                 {listing.price_negotiable && (
-                  <span className="text-sm text-muted-foreground">(do negocjacji)</span>
+                  <span className="text-sm text-muted-foreground">({t('listingDetail.negotiable')})</span>
                 )}
               </div>
             </div>
 
-            {/* Spec tiles — like VehicleDetailPage */}
+            {/* Spec tiles */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {cond && (
                 <div className="p-3 rounded-xl bg-card border flex items-start gap-3">
                   <Package className="h-5 w-5 text-primary shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-xs text-muted-foreground">Stan</p>
-                    <p className="font-medium text-sm">{cond.label}</p>
+                    <p className="text-xs text-muted-foreground">{t('listingDetail.condition')}</p>
+                    <p className="font-medium text-sm">{condLabel}</p>
                   </div>
                 </div>
               )}
@@ -389,7 +388,7 @@ export default function GeneralListingDetail() {
                 <div className="p-3 rounded-xl bg-card border flex items-start gap-3">
                   <MapPin className="h-5 w-5 text-primary shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-xs text-muted-foreground">Lokalizacja</p>
+                    <p className="text-xs text-muted-foreground">{t('listingDetail.location')}</p>
                     <p className="font-medium text-sm">{listing.location}</p>
                   </div>
                 </div>
@@ -397,23 +396,23 @@ export default function GeneralListingDetail() {
               <div className="p-3 rounded-xl bg-card border flex items-start gap-3">
                 <Calendar className="h-5 w-5 text-primary shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-xs text-muted-foreground">Dodano</p>
-                  <p className="font-medium text-sm">{new Date(listing.created_at).toLocaleDateString("pl-PL")}</p>
+                  <p className="text-xs text-muted-foreground">{t('listingDetail.added')}</p>
+                  <p className="font-medium text-sm">{new Date(listing.created_at).toLocaleDateString(i18n.language === 'en' ? 'en-GB' : 'pl-PL')}</p>
                 </div>
               </div>
               <div className="p-3 rounded-xl bg-card border flex items-start gap-3">
                 <Handshake className="h-5 w-5 text-primary shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-xs text-muted-foreground">Negocjacja ceny</p>
-                  <p className="font-medium text-sm">{listing.price_negotiable ? "Tak" : "Nie"}</p>
+                  <p className="text-xs text-muted-foreground">{t('listingDetail.priceNeg')}</p>
+                  <p className="font-medium text-sm">{listing.price_negotiable ? t('listingDetail.yes') : t('listingDetail.no')}</p>
                 </div>
               </div>
               {category && (
                 <div className="p-3 rounded-xl bg-card border flex items-start gap-3">
                   <Tag className="h-5 w-5 text-primary shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-xs text-muted-foreground">Kategoria</p>
-                    <p className="font-medium text-sm">{category.name}</p>
+                    <p className="text-xs text-muted-foreground">{t('listingDetail.category')}</p>
+                    <p className="font-medium text-sm">{categoryLabel}</p>
                   </div>
                 </div>
               )}
@@ -421,7 +420,7 @@ export default function GeneralListingDetail() {
                 <div className="p-3 rounded-xl bg-card border flex items-start gap-3">
                   <Eye className="h-5 w-5 text-primary shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-xs text-muted-foreground">Wyświetlenia</p>
+                    <p className="text-xs text-muted-foreground">{t('listingDetail.views')}</p>
                     <p className="font-medium text-sm">{listing.views_count}</p>
                   </div>
                 </div>
@@ -432,34 +431,32 @@ export default function GeneralListingDetail() {
 
             {/* Description */}
             <div>
-              <h2 className="text-xl font-semibold mb-4">Opis</h2>
+              <h2 className="text-xl font-semibold mb-4">{t('listingDetail.description')}</h2>
               <div className="prose prose-sm max-w-none text-muted-foreground whitespace-pre-wrap leading-relaxed">
-                {translatedDesc || "Brak opisu."}
+                {translatedDesc || t('listingDetail.noDescription')}
               </div>
             </div>
           </div>
 
-          {/* RIGHT — sticky contact + AI card (like VehicleDetailPage) */}
+          {/* RIGHT — sticky contact + AI card */}
           <div className="space-y-6">
             <div className="lg:sticky lg:top-24 space-y-6">
-              {/* Contact card */}
               <Card className="p-6 shadow-lg border-primary/20">
                 <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
                   <Phone className="h-5 w-5 text-primary" />
-                  Kontakt
+                  {t('listingDetail.contact')}
                 </h3>
 
                 <Button className="w-full mb-3" size="lg">
                   <Phone className="h-4 w-4 mr-2" />
-                  Pokaż kontakt
+                  {t('listingDetail.showContact')}
                 </Button>
 
                 <Button variant="outline" className="w-full" size="lg">
                   <MessageCircle className="h-4 w-4 mr-2" />
-                  Napisz wiadomość
+                  {t('listingDetail.sendMessage')}
                 </Button>
 
-                {/* Add to cart */}
                 <Button
                   variant="outline"
                   className="w-full mt-3 gap-1.5"
@@ -468,14 +465,13 @@ export default function GeneralListingDetail() {
                   onClick={() => {
                     const photoUrl = photos[0]?.url || null;
                     addToCart(listing.id, listing.title, listing.price, photoUrl);
-                    toast.success("Dodano do koszyka");
+                    toast.success(t('listingDetail.addedToCart'));
                   }}
                 >
                   <ShoppingCart className="h-4 w-4" />
-                  {isInCart(listing.id) ? "W koszyku" : "Do koszyka"}
+                  {isInCart(listing.id) ? t('listingDetail.inCart') : t('listingDetail.addToCart')}
                 </Button>
 
-                {/* Seller info */}
                 <div
                   className="flex items-center gap-3 mt-4 pt-4 border-t cursor-pointer hover:opacity-80 transition"
                   onClick={() => listing.user_id && navigate(`/marketplace/seller/${listing.user_id}`)}
@@ -484,39 +480,37 @@ export default function GeneralListingDetail() {
                     <User className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <p className="font-medium text-sm hover:text-primary transition">Sprzedawca</p>
+                    <p className="font-medium text-sm hover:text-primary transition">{t('listingDetail.seller')}</p>
                     {sellerRating ? (
                       <div className="flex items-center gap-1 text-xs text-muted-foreground">
                         <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
                         <span>{sellerRating.avg.toFixed(1)}</span>
-                        <span>({sellerRating.count} ocen)</span>
+                        <span>({sellerRating.count} {t('listingDetail.reviews')})</span>
                       </div>
                     ) : (
-                      <p className="text-xs text-muted-foreground">Użytkownik GetRido</p>
+                      <p className="text-xs text-muted-foreground">{t('listingDetail.getridoUser')}</p>
                     )}
                   </div>
                 </div>
 
                 <p className="text-xs text-muted-foreground mt-3 text-center">
-                  Nr oferty: <span className="font-mono">{listing.id.slice(0, 8).toUpperCase()}</span>
+                  {t('listingDetail.offerNo')}: <span className="font-mono">{listing.id.slice(0, 8).toUpperCase()}</span>
                 </p>
               </Card>
 
-              {/* AI Assessment card — like VehicleDetailPage */}
               {aiScoreRaw !== null && aiScoreRaw !== undefined && (
                 <Card className="p-5 border-primary/20">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="font-semibold flex items-center gap-2">
                       <Sparkles className="h-4 w-4 text-primary" />
-                      Ocena Rido AI
+                      {t('listingDetail.aiRating')}
                     </h3>
                     <Button variant="ghost" size="sm" onClick={handleRefreshAI} disabled={aiAssessing} className="gap-1.5">
                       {aiAssessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                      Przelicz
+                      {t('listingDetail.recalc')}
                     </Button>
                   </div>
 
-                  {/* Stars (1-5 scale) */}
                   <div className="flex items-center gap-1 mb-2">
                     {Array.from({ length: 5 }).map((_, i) => (
                       <Star
@@ -530,7 +524,6 @@ export default function GeneralListingDetail() {
                     <span className="ml-2 text-lg font-bold">{aiScore5!.toFixed(1)} / 5</span>
                   </div>
 
-                  {/* Tips */}
                   {aiTips.length > 0 && (
                     <ul className="space-y-1.5 mt-3">
                       {aiTips.map((tip, i) => (
@@ -543,7 +536,7 @@ export default function GeneralListingDetail() {
                   )}
 
                   <p className="text-xs text-muted-foreground mt-3 italic">
-                    Ocena wygenerowana przez AI • Może nie być dokładna
+                    {t('listingDetail.aiNote')}
                   </p>
                 </Card>
               )}
@@ -551,10 +544,10 @@ export default function GeneralListingDetail() {
           </div>
         </div>
 
-        {/* Similar listings — like "Podobne pojazdy" */}
+        {/* Similar listings */}
         {similarListings.length > 0 && (
           <div className="mt-12">
-            <h2 className="text-xl font-bold mb-6">Podobne ogłoszenia</h2>
+            <h2 className="text-xl font-bold mb-6">{t('listingDetail.similar')}</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {similarListings.map(sl => (
                 <GeneralListingCard
@@ -570,7 +563,6 @@ export default function GeneralListingDetail() {
         )}
       </main>
 
-      {/* Footer */}
       <footer className="border-t py-12 bg-card mt-12">
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
@@ -586,9 +578,9 @@ export default function GeneralListingDetail() {
               <span className="font-semibold">RIDO Marketplace</span>
             </div>
             <button onClick={() => navigate("/marketplace")} className="text-sm text-primary hover:underline">
-              ← Wszystkie ogłoszenia
+              {t('footer.allListings')}
             </button>
-            <p className="text-muted-foreground text-sm">© 2025 get RIDO. Wszystkie prawa zastrzeżone.</p>
+            <p className="text-muted-foreground text-sm">{t('footer.copyright')}</p>
           </div>
         </div>
       </footer>
