@@ -1004,7 +1004,7 @@ export default function RealEstateMarketplace() {
                     onClick={() => { setCurrentPage(p => p - 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
                   >
                     <ChevronLeft className="h-4 w-4" />
-                    <span className="hidden sm:inline">Poprzednia</span>
+                    <span className="hidden sm:inline">{t('ui.previous', 'Poprzednia')}</span>
                   </Button>
 
                   {getPageNumbers().map((page, i) =>
