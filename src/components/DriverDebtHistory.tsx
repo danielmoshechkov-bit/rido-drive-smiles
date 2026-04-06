@@ -322,11 +322,69 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
   const handleZeroOutDebts = async () => {
     setSaving(true);
     try {
-      // 1. Delete ALL historical debt transactions — clean slate
+      const totalDebtToZero = currentDebt > 0 
+        ? currentDebt 
+        : (weekDebtContext?.totalDebtBefore || 0);
+
+      if (totalDebtToZero <= 0) {
+        toast.info('Brak długu do wyzerowania');
+        return;
+      }
+
+      const dateVal = new Date().toISOString().split('T')[0];
+      const paymentRows: Array<Record<string, any>> = [];
+
+      // Create settlement zeroing payment if settlement debt exists
+      const settDebt = settlementDebt > 0 ? settlementDebt : (weekDebtContext?.settlementDebtBefore || 0);
+      if (settDebt > 0) {
+        paymentRows.push({
+          driver_id: driverId,
+          type: 'payment',
+          amount: -settDebt,
+          balance_before: settDebt,
+          balance_after: 0,
+          period_from: dateVal,
+          period_to: dateVal,
+          description: 'Wyzerowanie długu przez administratora',
+          debt_category: 'settlement',
+        });
+      }
+
+      // Create rental zeroing payment if rental debt exists
+      const rentDebt = rentalDebt > 0 ? rentalDebt : (weekDebtContext?.rentalDebtBefore || 0);
+      if (rentDebt > 0) {
+        paymentRows.push({
+          driver_id: driverId,
+          type: 'payment',
+          amount: -rentDebt,
+          balance_before: rentDebt,
+          balance_after: 0,
+          period_from: dateVal,
+          period_to: dateVal,
+          description: 'Wyzerowanie długu przez administratora',
+          debt_category: 'rental',
+        });
+      }
+
+      // If no specific categories found, create a single zeroing entry
+      if (paymentRows.length === 0) {
+        paymentRows.push({
+          driver_id: driverId,
+          type: 'payment',
+          amount: -totalDebtToZero,
+          balance_before: totalDebtToZero,
+          balance_after: 0,
+          period_from: dateVal,
+          period_to: dateVal,
+          description: 'Wyzerowanie długu przez administratora',
+          debt_category: 'settlement',
+        });
+      }
+
+      // 1. Insert zeroing transactions (history preserved)
       await supabase
         .from('driver_debt_transactions')
-        .delete()
-        .eq('driver_id', driverId);
+        .insert(paymentRows as any);
 
       // 2. Set balance to 0
       const { data: existing } = await supabase
@@ -342,13 +400,13 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
           .eq('driver_id', driverId);
       }
 
-      // 3. Also zero out debt snapshots in settlements table
+      // 3. Zero out debt snapshots in settlements so future calculations start from 0
       await supabase
         .from('settlements')
         .update({ debt_before: 0, debt_after: 0, debt_payment: 0 })
         .eq('driver_id', driverId);
 
-      toast.success('Wszystkie długi i historia zostały wyzerowane — czysta karta');
+      toast.success('Dług wyzerowany — historia zachowana, nowe rozliczenia startują od zera');
       await fetchDebtData();
       await onDebtChanged?.();
     } catch (err) {
