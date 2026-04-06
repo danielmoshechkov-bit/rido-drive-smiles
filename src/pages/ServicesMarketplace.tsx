@@ -510,12 +510,12 @@ export default function ServicesMarketplace() {
         {filteredProviders.length === 0 ? (
           <div className="text-center py-16">
             <Wrench className="h-16 w-16 mx-auto mb-4 text-muted-foreground/30" />
-            <h2 className="text-xl font-semibold mb-2">Brak usługodawców</h2>
-            <p className="text-muted-foreground">
-              {providers.length === 0 
-                ? 'Moduł usług jest w trakcie uruchamiania. Wkrótce pojawią się tutaj usługodawcy!'
-                : 'Nie znaleziono usługodawców pasujących do kryteriów wyszukiwania.'}
-            </p>
+             <h2 className="text-xl font-semibold mb-2">{t('ui.noProviders', 'Brak usługodawców')}</h2>
+             <p className="text-muted-foreground">
+               {providers.length === 0 
+                 ? t('ui.providersLoading', 'Moduł usług jest w trakcie uruchamiania.')
+                 : t('ui.noProvidersMatch', 'Nie znaleziono usługodawców pasujących do kryteriów.')}
+             </p>
           </div>
         ) : (
           <>
