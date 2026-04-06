@@ -88,7 +88,7 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
     setLoading(true);
 
     try {
-      const [{ data: debtData }, { data: txData }] = await Promise.all([
+      const [{ data: debtData }, { data: txData }, { data: latestSettlement }] = await Promise.all([
         supabase
           .from('driver_debts')
           .select('current_balance')
@@ -99,14 +99,27 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
           .select('*')
           .eq('driver_id', driverId)
           .order('created_at', { ascending: false }),
+        supabase
+          .from('settlements')
+          .select('debt_after')
+          .eq('driver_id', driverId)
+          .order('period_to', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
       ]);
 
       const nextTransactions = (txData || []) as DebtTransaction[];
       setTransactions(nextTransactions);
 
-      const ledgerBalance = nextTransactions.length > 0
-        ? calculateDebtBalance(nextTransactions)
-        : round2(Number(debtData?.current_balance || 0));
+      let ledgerBalance: number;
+      if (nextTransactions.length > 0) {
+        ledgerBalance = calculateDebtBalance(nextTransactions);
+      } else if (latestSettlement && Number(latestSettlement.debt_after) > 0) {
+        // No transactions but settlement shows debt - use settlement as truth
+        ledgerBalance = round2(Number(latestSettlement.debt_after));
+      } else {
+        ledgerBalance = round2(Number(debtData?.current_balance || 0));
+      }
 
       setCurrentDebt(ledgerBalance);
     } finally {
