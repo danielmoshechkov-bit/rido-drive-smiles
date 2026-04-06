@@ -849,7 +849,7 @@ export default function RealEstateMarketplace() {
             <div className="max-w-7xl mx-auto">
               <Button variant="ghost" size="sm" onClick={() => setShowFullMap(false)} className="gap-1.5 -ml-2">
                 <ChevronLeft className="h-4 w-4" />
-                Wróć do listy
+                {t('realestate.backToList', 'Wróć do listy')}
               </Button>
             </div>
           </div>
