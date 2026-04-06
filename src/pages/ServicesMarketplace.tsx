@@ -430,7 +430,7 @@ export default function ServicesMarketplace() {
             </div>
             
             <div className="flex items-center gap-2">
-              <LanguageSelector />
+              <LanguageSwitcher />
               <MyGetRidoButton user={user} />
             </div>
           </div>
