@@ -191,38 +191,8 @@ export default function GeneralMarketplace() {
 
   const hasActiveFilters = !!(selectedCategory || conditionFilter || priceMin || priceMax || locationFilter || aiResults);
 
-  const FiltersContent = () => (
+  const filtersContent = (
     <div className="space-y-5">
-      {/* AI Search */}
-      <div>
-        <label className="text-sm font-medium mb-1.5 block">{t('marketplace.aiSearch')}</label>
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <Sparkles className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary" />
-            <Input
-              placeholder={t('marketplace.searchPlaceholder')}
-              value={aiQuery}
-              onChange={e => setAiQuery(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && handleAISearch()}
-              className="pl-9"
-            />
-          </div>
-          <Button onClick={handleAISearch} disabled={aiSearching} size="icon" className="shrink-0">
-            {aiSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-          </Button>
-        </div>
-        {aiResults && (
-          <button
-            onClick={() => { setAiResults(null); setAiQuery(""); }}
-            className="text-xs text-primary mt-1 hover:underline flex items-center gap-1"
-          >
-            <X className="h-3 w-3" /> {t('marketplace.clearAi')}
-          </button>
-        )}
-      </div>
-
-      <Separator />
-
       {/* Categories */}
       <div>
         <label className="text-sm font-medium mb-1.5 block">{t('marketplace.categories')}</label>
