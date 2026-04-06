@@ -1140,7 +1140,7 @@ export default function RealEstateMarketplace() {
               </a>
             </div>
             <p className="text-muted-foreground text-sm">
-              © 2025 get RIDO. Wszystkie prawa zastrzeżone.
+              {t('footer.copyright', '© 2025 get RIDO. Wszystkie prawa zastrzeżone.')}
             </p>
           </div>
         </div>
