@@ -3476,17 +3476,19 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                             </TableCell>
                           );
                         })()}
-                        {/* Dług - only settlement debt (NOT rental debt) */}
+                        {/* Dług - TOTAL debt (settlement + rental) entering this week */}
                         {isColVisible('debt') && <TableCell className="text-center px-2 py-1.5 text-xs whitespace-nowrap">
                           {(() => {
-                            // Show debt ENTERING this week (previous), not after settlement
-                            const debt = round2(Math.max(0, settlement.debt_previous ?? 0));
+                            // Show TOTAL debt entering this week (settlement + rental combined)
+                            const settlementDebtVal = round2(Math.max(0, settlement.debt_previous ?? 0));
+                            const rentalDebtVal = round2(Math.max(0, settlement.rental_debt_previous ?? 0));
+                            const debt = round2(settlementDebtVal + rentalDebtVal);
                             const badgeClick = (e: React.MouseEvent) => {
                               e.stopPropagation();
                               e.preventDefault();
-                              const settlementDebtBefore = round2(Math.max(0, settlement.debt_previous ?? 0));
-                              const rentalDebtBefore = round2(Math.max(0, settlement.rental_debt_previous ?? 0));
-                              const totalDebtBefore = round2(settlementDebtBefore + rentalDebtBefore);
+                              const settlementDebtBefore = settlementDebtVal;
+                              const rentalDebtBefore = rentalDebtVal;
+                              const totalDebtBefore = debt;
                               const debtAfter = round2(Math.max(0, settlement.debt_current ?? 0));
                               setSelectedDriverForDebt({
                                 id: settlement.driver_id,
