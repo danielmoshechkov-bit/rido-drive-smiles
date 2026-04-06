@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -10,7 +11,7 @@ import { ServiceListingCard } from '@/components/services/ServiceListingCard';
 import { ServiceProviderDetailModal } from '@/components/services/ServiceProviderDetailModal';
 import { MyGetRidoButton } from '@/components/MyGetRidoButton';
 import { UniversalHomeButton } from '@/components/UniversalHomeButton';
-import LanguageSelector from '@/components/LanguageSelector';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { Card, CardContent } from '@/components/ui/card';
 import { User } from '@supabase/supabase-js';
 import { SEOHead, seoConfigs } from '@/components/SEOHead';
@@ -125,6 +126,7 @@ const categoryIcons: Record<string, any> = {
 };
 
 export default function ServicesMarketplace() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   
@@ -307,10 +309,10 @@ export default function ServicesMarketplace() {
             <div className="flex items-center gap-2">
               <UniversalHomeButton />
               <span className="text-muted-foreground">/</span>
-              <span className="font-semibold text-foreground">Usługi</span>
+              <span className="font-semibold text-foreground">{t('services.title', 'Usługi')}</span>
             </div>
             <div className="flex items-center gap-2">
-              <LanguageSelector />
+               <LanguageSwitcher />
               <MyGetRidoButton user={user} />
             </div>
           </div>
@@ -318,11 +320,11 @@ export default function ServicesMarketplace() {
 
         <section className="py-8 md:py-12">
           <div className="container mx-auto px-4 text-center">
-            <h1 className="text-3xl md:text-5xl font-bold mb-2">
-              Znajdź <span className="text-primary">usługę</span>
+             <h1 className="text-3xl md:text-5xl font-bold mb-2">
+              {t('services.find', 'Znajdź usługę')}
             </h1>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto mb-8">
-              Wybierz kategorię usługi, której szukasz
+              {t('services.chooseCategory', 'Wybierz kategorię usługi, której szukasz')}
             </p>
 
             <div className="max-w-2xl mx-auto mb-8">
@@ -330,7 +332,7 @@ export default function ServicesMarketplace() {
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <input
                   type="text"
-                  placeholder="Szukaj usługi, np. mechanik, fryzjer, prawnik..."
+                  placeholder={t('ui.searchPlaceholder', 'Szukaj usługi, np. mechanik, fryzjer, prawnik...')}
                   className="w-full pl-12 pr-24 h-12 md:h-14 text-base md:text-lg rounded-full border-2 border-primary/20 focus:border-primary shadow-lg bg-background focus:outline-none"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && (e.target as HTMLInputElement).value.trim()) {
@@ -347,8 +349,8 @@ export default function ServicesMarketplace() {
                   }}
                   className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full h-8 md:h-10 px-4 md:px-6"
                 >
-                  <Sparkles className="h-4 w-4 mr-1" />
-                  Szukaj
+                   <Sparkles className="h-4 w-4 mr-1" />
+                   {t('ui.search', 'Szukaj')}
                 </Button>
               </div>
             </div>
@@ -361,7 +363,7 @@ export default function ServicesMarketplace() {
             className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
-            Wróć do głównej
+            {t('ui.backToMain', 'Wróć do głównej')}
           </button>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -428,7 +430,7 @@ export default function ServicesMarketplace() {
             </div>
             
             <div className="flex items-center gap-2">
-              <LanguageSelector />
+              <LanguageSwitcher />
               <MyGetRidoButton user={user} />
             </div>
           </div>
@@ -441,7 +443,7 @@ export default function ServicesMarketplace() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Szukaj usługi, np. wymiana opon, sprzątanie..."
+                placeholder={t('services.searchPlaceholder', 'Szukaj usługi, np. wymiana opon, sprzątanie...')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
@@ -450,15 +452,15 @@ export default function ServicesMarketplace() {
             <div className="relative flex-1 md:max-w-xs">
               <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Miasto"
+                placeholder={t('ui.city', 'Miasto')}
                 value={cityFilter}
                 onChange={(e) => setCityFilter(e.target.value)}
                 className="pl-10"
               />
             </div>
             <Button className="bg-primary hover:bg-primary/90">
-              <Search className="h-4 w-4 mr-2" />
-              Szukaj
+               <Search className="h-4 w-4 mr-2" />
+               {t('ui.search', 'Szukaj')}
             </Button>
           </div>
         </div>
@@ -480,7 +482,7 @@ export default function ServicesMarketplace() {
               }}
             >
               <Filter className="h-4 w-4 mr-1" />
-              Wszystkie
+              {t('ui.all', 'Wszystkie')}
             </Badge>
             {(activeGroup
               ? categories.filter(c => activeGroup.slugs.includes(c.slug))
@@ -508,23 +510,23 @@ export default function ServicesMarketplace() {
         {filteredProviders.length === 0 ? (
           <div className="text-center py-16">
             <Wrench className="h-16 w-16 mx-auto mb-4 text-muted-foreground/30" />
-            <h2 className="text-xl font-semibold mb-2">Brak usługodawców</h2>
-            <p className="text-muted-foreground">
-              {providers.length === 0 
-                ? 'Moduł usług jest w trakcie uruchamiania. Wkrótce pojawią się tutaj usługodawcy!'
-                : 'Nie znaleziono usługodawców pasujących do kryteriów wyszukiwania.'}
-            </p>
+             <h2 className="text-xl font-semibold mb-2">{t('ui.noProviders', 'Brak usługodawców')}</h2>
+             <p className="text-muted-foreground">
+               {providers.length === 0 
+                 ? t('ui.providersLoading', 'Moduł usług jest w trakcie uruchamiania.')
+                 : t('ui.noProvidersMatch', 'Nie znaleziono usługodawców pasujących do kryteriów.')}
+             </p>
           </div>
         ) : (
           <>
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
               <p className="text-muted-foreground">
-                Znaleziono <strong>{filteredProviders.length}</strong> usługodawców
+                {t('ui.found', 'Znaleziono')} <strong>{filteredProviders.length}</strong> {t('ui.foundProviders', 'usługodawców')}
               </p>
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                  Sortowane wg oceny
+                  {t('ui.sortByRating', 'Sortowane wg oceny')}
                 </div>
                 {/* View mode toggle */}
                 <div className="flex items-center gap-1 bg-muted rounded-lg p-1">

@@ -473,7 +473,7 @@ export default function VehicleMarketplace() {
               <Sparkles className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-primary" />
               <Input
                 type="text"
-                placeholder={hasAIAccess ? "Zapytaj AI: 'SUV diesel do 800 zł/tydz w Warszawie'" : "Wyszukiwarka AI - wkrótce dostępna"}
+                placeholder={hasAIAccess ? t('vehicles.aiPlaceholder', "Zapytaj AI: 'SUV diesel do 800 zł/tydz w Warszawie'") : t('vehicles.aiDisabled', "Wyszukiwarka AI - wkrótce dostępna")}
                 value={aiQuery}
                 onChange={(e) => hasAIAccess && setAiQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && hasAIAccess && handleAISearch()}
@@ -485,22 +485,22 @@ export default function VehicleMarketplace() {
                 disabled={isSearchingAI || !aiQuery.trim() || !hasAIAccess}
                 className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full h-10 px-6"
               >
-                {isSearchingAI ? "..." : "Szukaj AI"}
+                {isSearchingAI ? "..." : t('ui.searchAI', 'Szukaj AI')}
               </Button>
             </div>
             <p className="text-center text-xs text-muted-foreground mt-2">
               Powered by <span className="text-primary font-medium">Rido AI</span> •
-              Szukaj naturalnym językiem
+              {t('ui.poweredByAI', 'Szukaj naturalnym językiem')}
             </p>
           </div>
 
           {/* Title */}
           <div className="text-center mb-6">
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">
-              Znajdź idealne <span className="text-primary">auto</span> dla siebie
+              {t('vehicles.findCar', 'Znajdź idealne auto dla siebie')}
             </h1>
             <p className="text-muted-foreground">
-              Tysiące sprawdzonych ofert od flot i prywatnych właścicieli
+              {t('vehicles.subtitle', 'Tysiące sprawdzonych ofert od flot i prywatnych właścicieli')}
             </p>
           </div>
         </div>
@@ -517,7 +517,7 @@ export default function VehicleMarketplace() {
       {/* Transaction Type Chips */}
       {selectedVehicleType && (
         <section className="container mx-auto px-4 py-2">
-          <p className="text-sm font-medium text-muted-foreground mb-2 text-center">Typ transakcji:</p>
+          <p className="text-sm font-medium text-muted-foreground mb-2 text-center">{t('vehicles.transactionType', 'Typ transakcji:')}</p>
           <TransactionTypeChips 
             selectedTypes={selectedTransactionTypes}
             onToggle={handleTransactionTypeToggle}
@@ -567,7 +567,7 @@ export default function VehicleMarketplace() {
               size="sm"
               className="h-7 w-7 p-0"
               onClick={() => setViewMode('grid')}
-              title="Siatka"
+              title={t('ui.grid', 'Siatka')}
             >
               <LayoutGrid className="h-4 w-4" />
             </Button>
@@ -576,7 +576,7 @@ export default function VehicleMarketplace() {
               size="sm"
               className="h-7 w-7 p-0"
               onClick={() => setViewMode('compact')}
-              title="Kompaktowy"
+              title={t('ui.compact', 'Kompaktowy')}
             >
               <Rows3 className="h-4 w-4" />
             </Button>
@@ -585,13 +585,13 @@ export default function VehicleMarketplace() {
               size="sm"
               className="h-7 w-7 p-0"
               onClick={() => setViewMode('list')}
-              title="Lista"
+              title={t('ui.list', 'Lista')}
             >
               <List className="h-4 w-4" />
             </Button>
           </div>
           <p className="text-sm text-muted-foreground">
-            Znaleziono: <span className="font-medium text-foreground">{filteredListings.length.toLocaleString()}</span> ogłoszeń
+            {t('ui.found', 'Znaleziono:')} <span className="font-medium text-foreground">{filteredListings.length.toLocaleString()}</span> {t('ui.listings', 'ogłoszeń')}
           </p>
         </div>
       </section>
@@ -621,9 +621,9 @@ export default function VehicleMarketplace() {
         ) : filteredListings.length === 0 ? (
           <div className="text-center py-12">
             <Car className="h-16 w-16 mx-auto text-muted-foreground/30 mb-4" />
-            <h3 className="text-lg font-medium mb-2">Brak wyników</h3>
+            <h3 className="text-lg font-medium mb-2">{t('ui.noResults', 'Brak wyników')}</h3>
             <p className="text-muted-foreground mb-4">
-              Spróbuj zmienić kryteria wyszukiwania
+              {t('ui.tryDifferent', 'Spróbuj zmienić kryteria wyszukiwania')}
             </p>
           </div>
         ) : (
@@ -656,17 +656,16 @@ export default function VehicleMarketplace() {
       <section className="container mx-auto px-4 py-12">
         <div className="max-w-3xl mx-auto bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl p-8 text-center border border-primary/20">
           <Car className="h-12 w-12 mx-auto text-primary mb-4" />
-          <h2 className="text-2xl font-bold mb-2">Masz flotę pojazdów?</h2>
+          <h2 className="text-2xl font-bold mb-2">{t('vehicles.fleetPromo', 'Masz flotę pojazdów?')}</h2>
           <p className="text-muted-foreground mb-6">
-            Dołącz do GetRido i docieraj do tysięcy kierowców. 
-            Dodawaj ogłoszenia, zarządzaj wynajmem i rozliczeniami.
+            {t('vehicles.fleetDesc', 'Dołącz do GetRido i docieraj do tysięcy kierowców.')}
           </p>
           <Button 
             size="lg" 
             onClick={() => navigate('/fleet')}
             className="rounded-full"
           >
-            Zarejestruj flotę
+            {t('vehicles.registerFleet', 'Zarejestruj flotę')}
             <ArrowRight className="h-4 w-4 ml-2" />
           </Button>
         </div>
@@ -692,11 +691,11 @@ export default function VehicleMarketplace() {
                 href="/easy" 
                 className="text-sm text-primary hover:underline"
               >
-                ← Wróć do GetRido Easy
+                {t('ui.backToGetRido', '← Wróć do GetRido Easy')}
               </a>
             </div>
             <p className="text-muted-foreground text-sm">
-              © 2025 get RIDO. Wszystkie prawa zastrzeżone.
+              {t('footer.copyright', '© 2025 get RIDO. Wszystkie prawa zastrzeżone.')}
             </p>
           </div>
         </div>

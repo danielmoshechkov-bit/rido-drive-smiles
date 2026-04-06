@@ -160,7 +160,7 @@ export default function GeneralListingDetail() {
     }
   };
 
-  const { title: translatedTitle, description: translatedDesc, isTranslated } = useListingTranslation(
+  const { title: translatedTitle, description: translatedDesc } = useListingTranslation(
     listing?.id || '', listing?.title || '', listing?.description || '', 'general'
   );
 
@@ -357,11 +357,6 @@ export default function GeneralListingDetail() {
             <div>
               <h1 className="text-2xl md:text-3xl font-bold leading-tight mb-2">
                 {translatedTitle}
-                {isTranslated && (
-                  <span className="text-xs font-normal text-muted-foreground ml-2">
-                    ({t('listingDetail.translated')})
-                  </span>
-                )}
               </h1>
               <div className="flex items-baseline gap-2">
                 <span className="text-3xl md:text-4xl font-bold text-primary">

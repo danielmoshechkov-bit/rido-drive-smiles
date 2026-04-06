@@ -804,10 +804,10 @@ export default function RealEstateMarketplace() {
           {/* Title */}
           <div className="text-center mb-1">
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-1">
-              Znajdź wymarzoną <span className="text-primary">nieruchomość</span>
+              {t('realestate.title', 'Znajdź wymarzoną nieruchomość')}
             </h1>
             <p className="text-muted-foreground">
-              Mieszkania, domy, działki i lokale od zweryfikowanych agencji
+              {t('realestate.subtitle', 'Mieszkania, domy, działki i lokale od zweryfikowanych agencji')}
             </p>
           </div>
 
@@ -849,7 +849,7 @@ export default function RealEstateMarketplace() {
             <div className="max-w-7xl mx-auto">
               <Button variant="ghost" size="sm" onClick={() => setShowFullMap(false)} className="gap-1.5 -ml-2">
                 <ChevronLeft className="h-4 w-4" />
-                Wróć do listy
+                {t('realestate.backToList', 'Wróć do listy')}
               </Button>
             </div>
           </div>
@@ -891,7 +891,7 @@ export default function RealEstateMarketplace() {
                 size="sm"
                 className="h-7 w-7 p-0"
                 onClick={() => setViewMode('grid')}
-                title="Siatka"
+                title={t('ui.grid', 'Siatka')}
               >
                 <LayoutGrid className="h-4 w-4" />
               </Button>
@@ -900,7 +900,7 @@ export default function RealEstateMarketplace() {
                 size="sm"
                 className="h-7 w-7 p-0"
                 onClick={() => setViewMode('compact')}
-                title="Kompaktowy"
+                title={t('ui.compact', 'Kompaktowy')}
               >
                 <Rows3 className="h-4 w-4" />
               </Button>
@@ -909,7 +909,7 @@ export default function RealEstateMarketplace() {
                 size="sm"
                 className="h-7 w-7 p-0"
                 onClick={() => setViewMode('list')}
-                title="Lista"
+                title={t('ui.list', 'Lista')}
               >
                 <List className="h-4 w-4" />
               </Button>
@@ -920,19 +920,19 @@ export default function RealEstateMarketplace() {
                 <SelectValue placeholder="Sortuj" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="newest">Najnowsze</SelectItem>
-                <SelectItem value="price_asc">Cena: od najniższej</SelectItem>
-                <SelectItem value="price_desc">Cena: od najwyższej</SelectItem>
-                <SelectItem value="area_desc">Powierzchnia: największe</SelectItem>
+                <SelectItem value="newest">{t('ui.newest', 'Najnowsze')}</SelectItem>
+                <SelectItem value="price_asc">{t('ui.priceAsc', 'Cena: od najniższej')}</SelectItem>
+                <SelectItem value="price_desc">{t('ui.priceDesc', 'Cena: od najwyższej')}</SelectItem>
+                <SelectItem value="area_desc">{t('ui.areaDesc', 'Powierzchnia: największe')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
           {/* Right side - count */}
           <p className="text-sm text-muted-foreground">
             {loading ? (
-              <span className="text-muted-foreground">Ładowanie...</span>
+              <span className="text-muted-foreground">{t('ui.loading', 'Ładowanie...')}</span>
             ) : (
-              <>Znaleziono: <span className="font-medium text-foreground">{listings.length}</span> ogłoszeń</>
+              <>{t('ui.found', 'Znaleziono:')} <span className="font-medium text-foreground">{listings.length}</span> {t('ui.listings', 'ogłoszeń')}</>
             )}
           </p>
         </div>
@@ -971,9 +971,9 @@ export default function RealEstateMarketplace() {
             {listings.length === 0 && !loading && (
               <div className="text-center py-12">
                 <Building className="h-16 w-16 mx-auto text-muted-foreground/30 mb-4" />
-                <h3 className="text-lg font-medium mb-2">Brak wyników</h3>
+                <h3 className="text-lg font-medium mb-2">{t('ui.noResults', 'Brak wyników')}</h3>
                 <p className="text-muted-foreground mb-4">
-                  Spróbuj zmienić kryteria wyszukiwania
+                  {t('ui.tryDifferent', 'Spróbuj zmienić kryteria wyszukiwania')}
                 </p>
               </div>
             )}
@@ -982,7 +982,7 @@ export default function RealEstateMarketplace() {
             {totalPages > 1 && (
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-8 pb-4">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <span>Na stronie:</span>
+                  <span>{t('ui.perPage', 'Na stronie:')}</span>
                   <Select value={String(perPage)} onValueChange={(v) => { setPerPage(Number(v)); setCurrentPage(1); }}>
                     <SelectTrigger className="w-[72px] h-9">
                       <SelectValue />
@@ -1004,7 +1004,7 @@ export default function RealEstateMarketplace() {
                     onClick={() => { setCurrentPage(p => p - 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
                   >
                     <ChevronLeft className="h-4 w-4" />
-                    <span className="hidden sm:inline">Poprzednia</span>
+                    <span className="hidden sm:inline">{t('ui.previous', 'Poprzednia')}</span>
                   </Button>
 
                   {getPageNumbers().map((page, i) =>
@@ -1030,13 +1030,13 @@ export default function RealEstateMarketplace() {
                     disabled={currentPage === totalPages}
                     onClick={() => { setCurrentPage(p => p + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
                   >
-                    <span className="hidden sm:inline">Następna</span>
+                    <span className="hidden sm:inline">{t('ui.next', 'Następna')}</span>
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 </nav>
 
                 <span className="text-sm text-muted-foreground">
-                  Strona {currentPage} z {totalPages}
+                  {t('ui.page', 'Strona')} {currentPage} {t('ui.of', 'z')} {totalPages}
                 </span>
               </div>
             )}
@@ -1056,14 +1056,14 @@ export default function RealEstateMarketplace() {
                 className="h-[400px] bg-card"
               />
               <p className="text-xs text-muted-foreground text-center mt-2">
-                {listings.filter(l => l.lat && l.lng).length} ogłoszeń na mapie
+                {listings.filter(l => l.lat && l.lng).length} {t('ui.onMap', 'ogłoszeń na mapie')}
               </p>
 
               {featuredListings.length > 0 && (
                 <div className="mt-6 space-y-3">
                   <div className="flex items-center gap-2">
                     <Sparkles className="h-4 w-4 text-primary" />
-                    <h2 className="text-base font-semibold">Polecane inwestycje</h2>
+                    <h2 className="text-base font-semibold">{t('ui.featured', 'Polecane inwestycje')}</h2>
                   </div>
                   <div className="space-y-3">
                     {featuredListings.map((listing) => (
@@ -1087,7 +1087,7 @@ export default function RealEstateMarketplace() {
 
       {loading && (
         <section className="container mx-auto px-4 py-12 text-center">
-          <div className="animate-pulse text-muted-foreground">Ładowanie ogłoszeń...</div>
+          <div className="animate-pulse text-muted-foreground">{t('ui.loadingListings', 'Ładowanie ogłoszeń...')}</div>
         </section>
       )}
 
@@ -1097,8 +1097,8 @@ export default function RealEstateMarketplace() {
           <div className="max-w-7xl mx-auto">
             <div className="flex items-center gap-3 mb-4">
               <Sparkles className="h-5 w-5 text-primary" />
-              <h2 className="text-xl font-bold">Wyróżnione inwestycje</h2>
-              <Badge variant="secondary" className="text-xs">Promowane</Badge>
+              <h2 className="text-xl font-bold">{t('ui.featured', 'Wyróżnione inwestycje')}</h2>
+              <Badge variant="secondary" className="text-xs">{t('ui.promoted', 'Promowane')}</Badge>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {featuredListings.map((listing) => (
@@ -1136,11 +1136,11 @@ export default function RealEstateMarketplace() {
                 href="/easy" 
                 className="text-sm text-primary hover:underline"
               >
-                ← Wróć do GetRido Easy
+                {t('ui.backToGetRido', '← Wróć do GetRido Easy')}
               </a>
             </div>
             <p className="text-muted-foreground text-sm">
-              © 2025 get RIDO. Wszystkie prawa zastrzeżone.
+              {t('footer.copyright', '© 2025 get RIDO. Wszystkie prawa zastrzeżone.')}
             </p>
           </div>
         </div>
