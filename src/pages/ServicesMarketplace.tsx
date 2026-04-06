@@ -349,8 +349,8 @@ export default function ServicesMarketplace() {
                   }}
                   className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full h-8 md:h-10 px-4 md:px-6"
                 >
-                  <Sparkles className="h-4 w-4 mr-1" />
-                  Szukaj
+                   <Sparkles className="h-4 w-4 mr-1" />
+                   {t('ui.search', 'Szukaj')}
                 </Button>
               </div>
             </div>
