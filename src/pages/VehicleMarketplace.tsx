@@ -591,7 +591,7 @@ export default function VehicleMarketplace() {
             </Button>
           </div>
           <p className="text-sm text-muted-foreground">
-            Znaleziono: <span className="font-medium text-foreground">{filteredListings.length.toLocaleString()}</span> ogłoszeń
+            {t('ui.found', 'Znaleziono:')} <span className="font-medium text-foreground">{filteredListings.length.toLocaleString()}</span> {t('ui.listings', 'ogłoszeń')}
           </p>
         </div>
       </section>
