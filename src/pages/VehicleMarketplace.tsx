@@ -621,9 +621,9 @@ export default function VehicleMarketplace() {
         ) : filteredListings.length === 0 ? (
           <div className="text-center py-12">
             <Car className="h-16 w-16 mx-auto text-muted-foreground/30 mb-4" />
-            <h3 className="text-lg font-medium mb-2">Brak wyników</h3>
+            <h3 className="text-lg font-medium mb-2">{t('ui.noResults', 'Brak wyników')}</h3>
             <p className="text-muted-foreground mb-4">
-              Spróbuj zmienić kryteria wyszukiwania
+              {t('ui.tryDifferent', 'Spróbuj zmienić kryteria wyszukiwania')}
             </p>
           </div>
         ) : (
