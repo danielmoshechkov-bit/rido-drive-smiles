@@ -567,7 +567,7 @@ export default function VehicleMarketplace() {
               size="sm"
               className="h-7 w-7 p-0"
               onClick={() => setViewMode('grid')}
-              title="Siatka"
+              title={t('ui.grid', 'Siatka')}
             >
               <LayoutGrid className="h-4 w-4" />
             </Button>
