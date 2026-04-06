@@ -3468,8 +3468,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                         {/* Dług - only settlement debt (NOT rental debt) */}
                         {isColVisible('debt') && <TableCell className="text-center px-2 py-1.5 text-xs whitespace-nowrap">
                           {(() => {
-                            // Show only settlement debt (debt_previous), NOT rental debt
-                            const debt = round2(Math.max(0, settlement.debt_previous ?? 0));
+                            // Show settlement debt: prefer debt_current (actual total), fall back to debt_previous
+                            const debt = round2(Math.max(0, settlement.debt_current ?? settlement.debt_previous ?? 0));
                             const badgeClick = (e: React.MouseEvent) => {
                               e.stopPropagation();
                               e.preventDefault();
