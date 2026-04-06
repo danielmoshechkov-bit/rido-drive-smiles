@@ -320,11 +320,11 @@ export default function ServicesMarketplace() {
 
         <section className="py-8 md:py-12">
           <div className="container mx-auto px-4 text-center">
-            <h1 className="text-3xl md:text-5xl font-bold mb-2">
-              Znajdź <span className="text-primary">usługę</span>
+             <h1 className="text-3xl md:text-5xl font-bold mb-2">
+              {t('services.find', 'Znajdź usługę')}
             </h1>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto mb-8">
-              Wybierz kategorię usługi, której szukasz
+              {t('services.chooseCategory', 'Wybierz kategorię usługi, której szukasz')}
             </p>
 
             <div className="max-w-2xl mx-auto mb-8">
