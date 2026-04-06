@@ -363,7 +363,7 @@ export default function ServicesMarketplace() {
             className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
-            Wróć do głównej
+            {t('ui.backToMain', 'Wróć do głównej')}
           </button>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
