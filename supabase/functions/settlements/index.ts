@@ -1760,11 +1760,12 @@ async function findOrCreateDriver(
   if (rowData.getRidoId) existingDriversMap.set(`getrido:${rowData.getRidoId}`, newDriver);
   if (rowData.uberId) {
     existingDriversMap.set(`uber:${rowData.uberId}`, newDriver);
-    await supabase.from('driver_platform_ids').insert({
+    const { error: uberPidErr } = await supabase.from('driver_platform_ids').insert({
       driver_id: newDriver.id,
       platform: 'uber',
       platform_id: rowData.uberId
-    }).catch(() => {});
+    });
+    if (uberPidErr) console.log('⚠️ uber platform_ids insert error:', uberPidErr.message);
   }
 
   return { driverId: newDriver.id, isNew: true };
