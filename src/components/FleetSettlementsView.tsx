@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { format, startOfWeek, endOfWeek } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { toast } from 'sonner';
-import { Check, X, AlertCircle, Search, ChevronDown, ChevronUp, Banknote, CreditCard, Download, Trash2, Loader2, Users, AlertTriangle, Plus, SlidersHorizontal, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Check, X, AlertCircle, Search, ChevronDown, ChevronUp, Banknote, CreditCard, Download, Trash2, Loader2, Users, AlertTriangle, Plus, SlidersHorizontal, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   AlertDialog,
@@ -158,6 +158,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const [checkingUnmapped, setCheckingUnmapped] = useState(false);
   const [newRecordsAlert, setNewRecordsAlert] = useState<number>(0);
   const [bankTransferDialogOpen, setBankTransferDialogOpen] = useState(false);
+  const [isRecalculating, setIsRecalculating] = useState(false);
   // Manual overrides for editable columns (składka ZUS, Opłata, Wynajem, Dług)
   const [manualOverrides, setManualOverrides] = useState<Record<string, {
     additional_fees?: Record<number, number>;
@@ -565,6 +566,31 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     } catch (error) {
       console.error('Error generating cash payouts:', error);
       toast.error('Błąd podczas generowania listy');
+    }
+  };
+
+  // Recalculate week - recalculates all settlements for the selected week
+  const handleRecalculateWeek = async () => {
+    if (!currentWeek) {
+      toast.error('Nie wybrano tygodnia');
+      return;
+    }
+    setIsRecalculating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('recalculate-week', {
+        body: {
+          fleet_id: fleetId,
+          period_from: currentWeek.start,
+          period_to: currentWeek.end,
+        }
+      });
+      if (error) throw error;
+      toast.success(`Przeliczono ${data?.count || 0} kierowców`);
+      fetchSettlements();
+    } catch (err: any) {
+      toast.error('Błąd przeliczania: ' + (err?.message || 'Unknown error'));
+    } finally {
+      setIsRecalculating(false);
     }
   };
 
@@ -2859,6 +2885,20 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                   <span className="hidden sm:inline">Sprawdź</span> nowych
                 </Button>
                 <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={handleRecalculateWeek}
+                  disabled={isRecalculating}
+                  className="gap-1.5 text-xs"
+                >
+                  {isRecalculating ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" />
+                  )}
+                  <span className="hidden sm:inline">Przelicz</span> tydzień
+                </Button>
+                <Button 
                   variant="destructive" 
                   size="sm"
                   onClick={() => setDeleteDialogOpen(true)}
@@ -2903,6 +2943,20 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                   <Users className="h-4 w-4" />
                 )}
                 Nowi
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleRecalculateWeek}
+                disabled={isRecalculating}
+                className="gap-1.5 text-xs h-9"
+              >
+                {isRecalculating ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+                Przelicz
               </Button>
               <Button 
                 variant="destructive" 
