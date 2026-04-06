@@ -866,12 +866,23 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     };
   };
 
-  // Wypłata finalna: rozliczenie minus wynajem (długi są śledzone osobno w systemie debt)
+  // Wypłata finalna: rozliczenie minus wynajem minus istniejący dług
+  // Jeśli kierowca ma dług 175.77 i rozliczenie 41.39, do wypłaty = 41.39 - 175.77 = -134.38
   const getDoWyplaty = (settlement: DriverSettlement): number => {
     const effective = getEffectiveSettlement(settlement);
     const payoutNoRental = calculatePayoutWithoutRental(effective);
     const rental = effective.rental || 0;
-    return round2(payoutNoRental - rental);
+    const rawPayout = round2(payoutNoRental - rental);
+    
+    // Odejmij istniejący dług (settlement + rental)
+    const settlementDebt = round2(Math.max(0, settlement.debt_previous ?? 0));
+    const rentalDebt = round2(Math.max(0, settlement.rental_debt_previous ?? 0));
+    const totalDebt = settlementDebt + rentalDebt;
+    
+    if (totalDebt <= 0) return rawPayout;
+    
+    // Dług pomniejsza wypłatę — jeśli wypłata nie pokryje długu, wynik jest ujemny (= nowy dług)
+    return round2(rawPayout - totalDebt);
   };
 
   // Calculate payout WITHOUT rental (Part 1 of settlement)
