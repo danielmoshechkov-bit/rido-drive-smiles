@@ -2945,6 +2945,20 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                 Nowi
               </Button>
               <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleRecalculateWeek}
+                disabled={isRecalculating}
+                className="gap-1.5 text-xs h-9"
+              >
+                {isRecalculating ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+                Przelicz
+              </Button>
+              <Button 
                 variant="destructive" 
                 size="sm"
                 onClick={() => setDeleteDialogOpen(true)}
