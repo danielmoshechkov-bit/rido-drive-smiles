@@ -459,8 +459,8 @@ export default function ServicesMarketplace() {
               />
             </div>
             <Button className="bg-primary hover:bg-primary/90">
-              <Search className="h-4 w-4 mr-2" />
-              Szukaj
+               <Search className="h-4 w-4 mr-2" />
+               {t('ui.search', 'Szukaj')}
             </Button>
           </div>
         </div>
