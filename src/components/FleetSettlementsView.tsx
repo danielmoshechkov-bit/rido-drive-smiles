@@ -2885,6 +2885,20 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                   <span className="hidden sm:inline">Sprawdź</span> nowych
                 </Button>
                 <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={handleRecalculateWeek}
+                  disabled={isRecalculating}
+                  className="gap-1.5 text-xs"
+                >
+                  {isRecalculating ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" />
+                  )}
+                  <span className="hidden sm:inline">Przelicz</span> tydzień
+                </Button>
+                <Button 
                   variant="destructive" 
                   size="sm"
                   onClick={() => setDeleteDialogOpen(true)}
