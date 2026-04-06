@@ -3761,7 +3761,13 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       </CardContent>
 
       {/* Debt History Dialog */}
-      <Dialog open={debtDialogOpen} onOpenChange={setDebtDialogOpen}>
+      <Dialog open={debtDialogOpen} onOpenChange={(open) => {
+        setDebtDialogOpen(open);
+        if (!open && debtChangedRef.current) {
+          debtChangedRef.current = false;
+          fetchSettlements({ skipDebtSync: true, silent: true });
+        }
+      }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Historia zadłużenia: {selectedDriverForDebt?.name}</DialogTitle>
@@ -3782,7 +3788,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                 periodTo: selectedDriverForDebt.periodTo,
               }}
               onDebtChanged={async () => {
-                await fetchSettlements({ skipDebtSync: true, silent: true });
+                debtChangedRef.current = true;
               }}
             />
           )}
