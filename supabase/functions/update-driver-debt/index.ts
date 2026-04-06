@@ -144,7 +144,7 @@ serve(async (req) => {
 
       const { data: chainSettlements, error: chainSettlementsError } = await supabase
         .from("settlements")
-        .select("id, period_from, period_to, debt_before, debt_payment, debt_after, actual_payout")
+        .select("id, period_from, period_to, debt_before, debt_payment, debt_after, actual_payout, net_amount, amounts, rental_fee")
         .eq("driver_id", driver_id)
         .gte("period_from", period_from)
         .order("period_from", { ascending: true })
@@ -163,9 +163,23 @@ serve(async (req) => {
       let targetSnapshot: { debtBefore: number; debtPayment: number; remainingDebt: number; actualPayout: number } | null = null;
 
       for (const settlement of chainSettlements) {
-        const rawPayout = settlement.id === settlement_id
-          ? round2(calculated_payout)
-          : deriveRawPayoutFromSnapshot(settlement);
+        // Detect empty settlement (no CSV data) — carry debt forward without accrual
+        const amountsObj = settlement.amounts as any;
+        const isEmptySettlement = (
+          (amountsObj === null || amountsObj === undefined || (typeof amountsObj === 'object' && Object.keys(amountsObj).length === 0))
+          && (Number(settlement.net_amount) === 0 || settlement.net_amount === null)
+          && (Number(settlement.rental_fee) === 0 || settlement.rental_fee === null)
+        );
+
+        let rawPayout: number;
+        if (isEmptySettlement && settlement.id !== settlement_id) {
+          // Empty settlement: payout = 0, just carry debt forward
+          rawPayout = 0;
+        } else if (settlement.id === settlement_id) {
+          rawPayout = round2(calculated_payout);
+        } else {
+          rawPayout = deriveRawPayoutFromSnapshot(settlement);
+        }
 
         const computed = computeDebtValues(runningDebt, rawPayout);
 

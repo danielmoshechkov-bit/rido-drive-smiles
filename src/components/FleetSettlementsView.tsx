@@ -2206,13 +2206,18 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       });
 
       // 🧹 FILTROWANIE KIEROWCÓW BEZ DANYCH - usuwamy "śmieciowe" wiersze i null
-      // Pokazuj TYLKO kierowców którzy mają zarobki (total_base > 0)
-      // UKRYJ: kierowców z zerowym saldem, bez zarobków, właścicieli
+      // Pokazuj kierowców z zarobkami LUB jakimkolwiek długiem (bieżącym lub historycznym)
       const filteredAggregated = aggregated
         .filter((row): row is NonNullable<typeof row> => row !== null) // Remove null rows (fleet owners)
         .filter(row => {
           // Pokazuj kierowców z zarobkami (dodatnimi LUB ujemnymi) LUB z ujemnym saldem LUB z długiem
-          return row.total_base !== 0 || row.has_negative_balance === true || (row.debt_current || 0) > 0;
+          const hasDebt = (row.debt_current || 0) > 0 
+            || (row.debt_previous || 0) > 0 
+            || (row.rental_debt_previous || 0) > 0
+            || (row.snapshot_debt_after || 0) > 0
+            || (row.snapshot_settlement_debt_after || 0) > 0
+            || (row.snapshot_rental_debt_after || 0) > 0;
+          return row.total_base !== 0 || row.has_negative_balance === true || hasDebt;
         });
 
       console.log('📈 Aggregated settlements:', aggregated.length);
