@@ -1056,7 +1056,7 @@ export default function RealEstateMarketplace() {
                 className="h-[400px] bg-card"
               />
               <p className="text-xs text-muted-foreground text-center mt-2">
-                {listings.filter(l => l.lat && l.lng).length} ogłoszeń na mapie
+                {listings.filter(l => l.lat && l.lng).length} {t('ui.onMap', 'ogłoszeń na mapie')}
               </p>
 
               {featuredListings.length > 0 && (
