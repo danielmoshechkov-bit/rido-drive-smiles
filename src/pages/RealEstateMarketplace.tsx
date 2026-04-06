@@ -1087,7 +1087,7 @@ export default function RealEstateMarketplace() {
 
       {loading && (
         <section className="container mx-auto px-4 py-12 text-center">
-          <div className="animate-pulse text-muted-foreground">Ładowanie ogłoszeń...</div>
+          <div className="animate-pulse text-muted-foreground">{t('ui.loadingListings', 'Ładowanie ogłoszeń...')}</div>
         </section>
       )}
 
