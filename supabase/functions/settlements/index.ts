@@ -1140,11 +1140,12 @@ async function parseBoltCsv(
         
         // Also save bolt platform ID for future fast lookups
         const boltPid = platformId || boltPhone;
-        await supabase.from('driver_platform_ids').upsert({
+        const { error: pidErr1 } = await supabase.from('driver_platform_ids').upsert({
           driver_id: driverId,
           platform: 'bolt',
           platform_id: boltPid
-        }, { onConflict: 'driver_id,platform' }).catch(() => {});
+        }, { onConflict: 'driver_id,platform' });
+        if (pidErr1) console.log('⚠️ bolt platform_ids upsert error:', pidErr1.message);
         existingDriversMap.set(`bolt:${boltPid}`, matched);
       }
       
