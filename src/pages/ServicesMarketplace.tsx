@@ -521,7 +521,7 @@ export default function ServicesMarketplace() {
           <>
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
               <p className="text-muted-foreground">
-                Znaleziono <strong>{filteredProviders.length}</strong> usługodawców
+                {t('ui.found', 'Znaleziono')} <strong>{filteredProviders.length}</strong> {t('ui.foundProviders', 'usługodawców')}
               </p>
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
