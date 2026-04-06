@@ -232,7 +232,7 @@ serve(async (req) => {
             }, { onConflict: 'driver_id,period_from,period_to,debt_category,type', ignoreDuplicates: true });
           }
         } else if (computed.debtPayment > 0.01) {
-          const { error: txError } = await supabase.from("driver_debt_transactions").insert({
+          const { error: txError } = await supabase.from("driver_debt_transactions").upsert({
             driver_id,
             settlement_id: settlement.id,
             type: "debt_payment",
@@ -243,7 +243,7 @@ serve(async (req) => {
             period_to: settlement.period_to,
             description: `Spłata długu z okresu ${settlement.period_from} - ${settlement.period_to}`,
             debt_category: "settlement",
-          });
+          }, { onConflict: 'driver_id,period_from,period_to,debt_category,type', ignoreDuplicates: true });
 
           if (txError) {
             console.error("Error creating debt payment transaction during chain recalculation:", txError);
