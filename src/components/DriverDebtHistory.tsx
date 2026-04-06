@@ -326,10 +326,8 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
         ? currentDebt 
         : (weekDebtContext?.totalDebtBefore || 0);
 
-      if (totalDebtToZero <= 0) {
-        toast.info('Brak długu do wyzerowania');
-        return;
-      }
+      // Even if totalDebtToZero is 0, proceed - this ensures ALL old debts 
+      // in settlements are zeroed so they don't carry over to next week
 
       const dateVal = new Date().toISOString().split('T')[0];
       const paymentRows: Array<Record<string, any>> = [];
@@ -551,18 +549,16 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
                   Zarejestruj wpłatę
                 </Button>
               )}
-              {(currentDebt > 0 || (weekDebtContext && weekDebtContext.totalDebtBefore > 0)) && (
-                <Button 
-                  variant="destructive" 
-                  size="sm" 
-                  onClick={handleZeroOutDebts}
-                  disabled={saving}
-                  className="gap-2 flex-1"
-                >
-                  <X className="h-4 w-4" />
-                  {saving ? 'Zerowanie...' : 'Wyzeruj długi'}
-                </Button>
-              )}
+              <Button 
+                variant="destructive" 
+                size="sm" 
+                onClick={handleZeroOutDebts}
+                disabled={saving}
+                className="gap-2 flex-1"
+              >
+                <X className="h-4 w-4" />
+                {saving ? 'Zerowanie...' : 'Wyzeruj długi'}
+              </Button>
             </>
           )}
         </div>
