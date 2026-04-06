@@ -551,18 +551,16 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
                   Zarejestruj wpłatę
                 </Button>
               )}
-              {(currentDebt > 0 || (weekDebtContext && weekDebtContext.totalDebtBefore > 0)) && (
-                <Button 
-                  variant="destructive" 
-                  size="sm" 
-                  onClick={handleZeroOutDebts}
-                  disabled={saving}
-                  className="gap-2 flex-1"
-                >
-                  <X className="h-4 w-4" />
-                  {saving ? 'Zerowanie...' : 'Wyzeruj długi'}
-                </Button>
-              )}
+              <Button 
+                variant="destructive" 
+                size="sm" 
+                onClick={handleZeroOutDebts}
+                disabled={saving}
+                className="gap-2 flex-1"
+              >
+                <X className="h-4 w-4" />
+                {saving ? 'Zerowanie...' : 'Wyzeruj długi'}
+              </Button>
             </>
           )}
         </div>
