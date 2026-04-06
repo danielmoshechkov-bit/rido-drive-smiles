@@ -982,7 +982,7 @@ export default function RealEstateMarketplace() {
             {totalPages > 1 && (
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-8 pb-4">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <span>Na stronie:</span>
+                  <span>{t('ui.perPage', 'Na stronie:')}</span>
                   <Select value={String(perPage)} onValueChange={(v) => { setPerPage(Number(v)); setCurrentPage(1); }}>
                     <SelectTrigger className="w-[72px] h-9">
                       <SelectValue />
