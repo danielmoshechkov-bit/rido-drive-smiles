@@ -804,10 +804,10 @@ export default function RealEstateMarketplace() {
           {/* Title */}
           <div className="text-center mb-1">
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-1">
-              Znajdź wymarzoną <span className="text-primary">nieruchomość</span>
+              {t('realestate.title', 'Znajdź wymarzoną nieruchomość')}
             </h1>
             <p className="text-muted-foreground">
-              Mieszkania, domy, działki i lokale od zweryfikowanych agencji
+              {t('realestate.subtitle', 'Mieszkania, domy, działki i lokale od zweryfikowanych agencji')}
             </p>
           </div>
 
