@@ -1140,11 +1140,12 @@ async function parseBoltCsv(
         
         // Also save bolt platform ID for future fast lookups
         const boltPid = platformId || boltPhone;
-        await supabase.from('driver_platform_ids').upsert({
+        const { error: pidErr1 } = await supabase.from('driver_platform_ids').upsert({
           driver_id: driverId,
           platform: 'bolt',
           platform_id: boltPid
-        }, { onConflict: 'driver_id,platform' }).catch(() => {});
+        }, { onConflict: 'driver_id,platform' });
+        if (pidErr1) console.log('⚠️ bolt platform_ids upsert error:', pidErr1.message);
         existingDriversMap.set(`bolt:${boltPid}`, matched);
       }
       
@@ -1168,11 +1169,12 @@ async function parseBoltCsv(
           
           existingDriversMap.set(`phone:${boltPhone}`, phoneMatch);
           const boltPid = platformId || boltPhone;
-          await supabase.from('driver_platform_ids').upsert({
+          const { error: pidErr2 } = await supabase.from('driver_platform_ids').upsert({
             driver_id: driverId,
             platform: 'bolt',
             platform_id: boltPid
-          }, { onConflict: 'driver_id,platform' }).catch(() => {});
+          }, { onConflict: 'driver_id,platform' });
+          if (pidErr2) console.log('⚠️ bolt platform_ids upsert error:', pidErr2.message);
           existingDriversMap.set(`bolt:${boltPid}`, phoneMatch);
         }
       }
@@ -1198,11 +1200,12 @@ async function parseBoltCsv(
         
         if (boltPhone) existingDriversMap.set(`phone:${boltPhone}`, emailMatch);
         const boltPid = platformId || boltPhone || boltEmail;
-        await supabase.from('driver_platform_ids').upsert({
+        const { error: pidErr3 } = await supabase.from('driver_platform_ids').upsert({
           driver_id: driverId,
           platform: 'bolt',
           platform_id: boltPid
-        }, { onConflict: 'driver_id,platform' }).catch(() => {});
+        }, { onConflict: 'driver_id,platform' });
+        if (pidErr3) console.log('⚠️ bolt platform_ids upsert error:', pidErr3.message);
         existingDriversMap.set(`bolt:${boltPid}`, emailMatch);
       }
     }
@@ -1693,11 +1696,12 @@ async function findOrCreateDriver(
       
       // Link platform ID if available
       if (rowData.uberId) {
-        await supabase.from('driver_platform_ids').upsert({
+        const { error: pidFuzzyErr } = await supabase.from('driver_platform_ids').upsert({
           driver_id: fuzzyResult.driver.id,
           platform: 'uber',
           platform_id: rowData.uberId
-        }, { onConflict: 'driver_id,platform' }).catch(() => {});
+        }, { onConflict: 'driver_id,platform' });
+        if (pidFuzzyErr) console.log('⚠️ fuzzy platform_ids upsert error:', pidFuzzyErr.message);
         existingDriversMap.set(`uber:${rowData.uberId}`, fuzzyResult.driver);
       }
       
@@ -1740,7 +1744,7 @@ async function findOrCreateDriver(
     .maybeSingle();
   
   if (!existingUnmappedRido || existingUnmappedRido.status !== 'resolved') {
-    await supabase.from('unmapped_settlement_drivers').upsert({
+    const { error: unmappedErr } = await supabase.from('unmapped_settlement_drivers').upsert({
       fleet_id: fleet_id || null,
       driver_id: newDriver.id,
       full_name: fullName,
@@ -1748,9 +1752,8 @@ async function findOrCreateDriver(
       bolt_id: null,
       freenow_id: null,
       status: 'pending'
-    }, { onConflict: 'driver_id' }).catch((e: any) => {
-      console.log('⚠️ unmapped_settlement_drivers upsert error:', e.message);
-    });
+    }, { onConflict: 'driver_id' });
+    if (unmappedErr) console.log('⚠️ unmapped_settlement_drivers upsert error:', unmappedErr.message);
   }
 
   // Add to map for future lookups
@@ -1758,11 +1761,12 @@ async function findOrCreateDriver(
   if (rowData.getRidoId) existingDriversMap.set(`getrido:${rowData.getRidoId}`, newDriver);
   if (rowData.uberId) {
     existingDriversMap.set(`uber:${rowData.uberId}`, newDriver);
-    await supabase.from('driver_platform_ids').insert({
+    const { error: uberPidErr } = await supabase.from('driver_platform_ids').insert({
       driver_id: newDriver.id,
       platform: 'uber',
       platform_id: rowData.uberId
-    }).catch(() => {});
+    });
+    if (uberPidErr) console.log('⚠️ uber platform_ids insert error:', uberPidErr.message);
   }
 
   return { driverId: newDriver.id, isNew: true };
