@@ -920,10 +920,10 @@ export default function RealEstateMarketplace() {
                 <SelectValue placeholder="Sortuj" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="newest">Najnowsze</SelectItem>
-                <SelectItem value="price_asc">Cena: od najniższej</SelectItem>
-                <SelectItem value="price_desc">Cena: od najwyższej</SelectItem>
-                <SelectItem value="area_desc">Powierzchnia: największe</SelectItem>
+                <SelectItem value="newest">{t('ui.newest', 'Najnowsze')}</SelectItem>
+                <SelectItem value="price_asc">{t('ui.priceAsc', 'Cena: od najniższej')}</SelectItem>
+                <SelectItem value="price_desc">{t('ui.priceDesc', 'Cena: od najwyższej')}</SelectItem>
+                <SelectItem value="area_desc">{t('ui.areaDesc', 'Powierzchnia: największe')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
