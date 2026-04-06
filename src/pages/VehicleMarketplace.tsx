@@ -585,7 +585,7 @@ export default function VehicleMarketplace() {
               size="sm"
               className="h-7 w-7 p-0"
               onClick={() => setViewMode('list')}
-              title="Lista"
+              title={t('ui.list', 'Lista')}
             >
               <List className="h-4 w-4" />
             </Button>
