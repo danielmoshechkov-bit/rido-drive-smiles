@@ -159,6 +159,9 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const [newRecordsAlert, setNewRecordsAlert] = useState<number>(0);
   const [bankTransferDialogOpen, setBankTransferDialogOpen] = useState(false);
   const [isRecalculating, setIsRecalculating] = useState(false);
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+  const [settlementsResetDone, setSettlementsResetDone] = useState(false);
   // Manual overrides for editable columns (składka ZUS, Opłata, Wynajem, Dług)
   const [manualOverrides, setManualOverrides] = useState<Record<string, {
     additional_fees?: Record<number, number>;
