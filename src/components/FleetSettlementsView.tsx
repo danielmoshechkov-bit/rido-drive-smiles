@@ -2933,6 +2933,17 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                   <Trash2 className="h-4 w-4" />
                   <span className="hidden sm:inline">Usuń rozliczenie</span>
                 </Button>
+                {!settlementsResetDone && (
+                  <Button 
+                    variant="destructive" 
+                    size="sm"
+                    onClick={() => setResetDialogOpen(true)}
+                    className="gap-1.5 text-xs"
+                  >
+                    <AlertTriangle className="h-4 w-4" />
+                    <span className="hidden sm:inline">Wyzeruj bazę</span>
+                  </Button>
+                )}
               </div>
             </div>
             
