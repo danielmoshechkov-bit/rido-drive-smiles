@@ -1743,7 +1743,7 @@ async function findOrCreateDriver(
     .maybeSingle();
   
   if (!existingUnmappedRido || existingUnmappedRido.status !== 'resolved') {
-    await supabase.from('unmapped_settlement_drivers').upsert({
+    const { error: unmappedErr } = await supabase.from('unmapped_settlement_drivers').upsert({
       fleet_id: fleet_id || null,
       driver_id: newDriver.id,
       full_name: fullName,
@@ -1751,9 +1751,8 @@ async function findOrCreateDriver(
       bolt_id: null,
       freenow_id: null,
       status: 'pending'
-    }, { onConflict: 'driver_id' }).catch((e: any) => {
-      console.log('⚠️ unmapped_settlement_drivers upsert error:', e.message);
-    });
+    }, { onConflict: 'driver_id' });
+    if (unmappedErr) console.log('⚠️ unmapped_settlement_drivers upsert error:', unmappedErr.message);
   }
 
   // Add to map for future lookups
