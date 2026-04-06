@@ -134,7 +134,8 @@ serve(async (req) => {
         .delete()
         .eq("driver_id", driver_id)
         .gte("period_from", period_from)
-        .in("type", ["debt_increase", "debt_payment"]);
+        .in("type", ["debt_increase", "debt_payment"])
+        .not("settlement_id", "is", null);
 
       if (deleteAutoTxError) {
         console.error("Error deleting auto debt transactions for recalculation:", deleteAutoTxError);
@@ -202,7 +203,7 @@ serve(async (req) => {
           const rentalDeficit = round2(Math.max(0, totalDeficit - settlementDeficit));
 
           if (settlementDeficit > 0.01) {
-            await supabase.from("driver_debt_transactions").insert({
+            await supabase.from("driver_debt_transactions").upsert({
               driver_id,
               settlement_id: settlement.id,
               type: "debt_increase",
@@ -213,11 +214,11 @@ serve(async (req) => {
               period_to: settlement.period_to,
               description: `Dług rozliczenia z okresu ${settlement.period_from} - ${settlement.period_to}`,
               debt_category: "settlement",
-            });
+            }, { onConflict: 'driver_id,period_from,period_to,debt_category,type', ignoreDuplicates: true });
           }
 
           if (rentalDeficit > 0.01) {
-            await supabase.from("driver_debt_transactions").insert({
+            await supabase.from("driver_debt_transactions").upsert({
               driver_id,
               settlement_id: settlement.id,
               type: "debt_increase",
@@ -228,10 +229,10 @@ serve(async (req) => {
               period_to: settlement.period_to,
               description: `Dług wynajmu z okresu ${settlement.period_from} - ${settlement.period_to}`,
               debt_category: "rental",
-            });
+            }, { onConflict: 'driver_id,period_from,period_to,debt_category,type', ignoreDuplicates: true });
           }
         } else if (computed.debtPayment > 0.01) {
-          const { error: txError } = await supabase.from("driver_debt_transactions").insert({
+          const { error: txError } = await supabase.from("driver_debt_transactions").upsert({
             driver_id,
             settlement_id: settlement.id,
             type: "debt_payment",
@@ -242,7 +243,7 @@ serve(async (req) => {
             period_to: settlement.period_to,
             description: `Spłata długu z okresu ${settlement.period_from} - ${settlement.period_to}`,
             debt_category: "settlement",
-          });
+          }, { onConflict: 'driver_id,period_from,period_to,debt_category,type', ignoreDuplicates: true });
 
           if (txError) {
             console.error("Error creating debt payment transaction during chain recalculation:", txError);
@@ -563,7 +564,7 @@ serve(async (req) => {
       console.log(`Debt split: total=${totalDeficit}, settlement=${settlementDeficit}, rental=${rentalDeficit}`);
 
       if (settlementDeficit > 0.01) {
-        const { error: txError } = await supabase.from("driver_debt_transactions").insert({
+        const { error: txError } = await supabase.from("driver_debt_transactions").upsert({
           driver_id,
           settlement_id,
           type: "debt_increase",
@@ -574,13 +575,13 @@ serve(async (req) => {
           period_to,
           description: `Dług rozliczenia z okresu ${period_from} - ${period_to}`,
           debt_category: "settlement",
-        });
+        }, { onConflict: 'driver_id,period_from,period_to,debt_category,type', ignoreDuplicates: true });
         if (txError) { console.error("Error creating settlement debt tx:", txError); throw txError; }
       }
 
       if (rentalDeficit > 0.01) {
         const balBefore = round2(currentDebt + settlementDeficit);
-        const { error: txError } = await supabase.from("driver_debt_transactions").insert({
+        const { error: txError } = await supabase.from("driver_debt_transactions").upsert({
           driver_id,
           settlement_id,
           type: "debt_increase",
@@ -591,12 +592,12 @@ serve(async (req) => {
           period_to,
           description: `Dług wynajmu z okresu ${period_from} - ${period_to}`,
           debt_category: "rental",
-        });
+        }, { onConflict: 'driver_id,period_from,period_to,debt_category,type', ignoreDuplicates: true });
         if (txError) { console.error("Error creating rental debt tx:", txError); throw txError; }
       }
     } else if (debtPayment > 0) {
       // Spłata długu
-      const { error: txError } = await supabase.from("driver_debt_transactions").insert({
+      const { error: txError } = await supabase.from("driver_debt_transactions").upsert({
         driver_id,
         settlement_id,
         type: "debt_payment",
@@ -607,7 +608,7 @@ serve(async (req) => {
         period_to,
         description: `Spłata długu z okresu ${period_from} - ${period_to}`,
         debt_category: "settlement",
-      });
+      }, { onConflict: 'driver_id,period_from,period_to,debt_category,type', ignoreDuplicates: true });
 
       if (txError) {
         console.error("Error creating payment transaction:", txError);
