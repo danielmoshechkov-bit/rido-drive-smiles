@@ -134,7 +134,8 @@ serve(async (req) => {
         .delete()
         .eq("driver_id", driver_id)
         .gte("period_from", period_from)
-        .in("type", ["debt_increase", "debt_payment"]);
+        .in("type", ["debt_increase", "debt_payment"])
+        .not("settlement_id", "is", null);
 
       if (deleteAutoTxError) {
         console.error("Error deleting auto debt transactions for recalculation:", deleteAutoTxError);
