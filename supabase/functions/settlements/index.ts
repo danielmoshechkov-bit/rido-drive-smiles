@@ -1696,11 +1696,12 @@ async function findOrCreateDriver(
       
       // Link platform ID if available
       if (rowData.uberId) {
-        await supabase.from('driver_platform_ids').upsert({
+        const { error: pidFuzzyErr } = await supabase.from('driver_platform_ids').upsert({
           driver_id: fuzzyResult.driver.id,
           platform: 'uber',
           platform_id: rowData.uberId
-        }, { onConflict: 'driver_id,platform' }).catch(() => {});
+        }, { onConflict: 'driver_id,platform' });
+        if (pidFuzzyErr) console.log('⚠️ fuzzy platform_ids upsert error:', pidFuzzyErr.message);
         existingDriversMap.set(`uber:${rowData.uberId}`, fuzzyResult.driver);
       }
       
