@@ -1,0 +1,1 @@
+ALTER TABLE public.fleets ADD COLUMN IF NOT EXISTS settlements_reset_at TIMESTAMPTZ DEFAULT NULL;

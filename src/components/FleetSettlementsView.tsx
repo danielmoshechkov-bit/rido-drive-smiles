@@ -159,6 +159,9 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const [newRecordsAlert, setNewRecordsAlert] = useState<number>(0);
   const [bankTransferDialogOpen, setBankTransferDialogOpen] = useState(false);
   const [isRecalculating, setIsRecalculating] = useState(false);
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+  const [settlementsResetDone, setSettlementsResetDone] = useState(false);
   // Manual overrides for editable columns (składka ZUS, Opłata, Wynajem, Dług)
   const [manualOverrides, setManualOverrides] = useState<Record<string, {
     additional_fees?: Record<number, number>;
@@ -591,6 +594,25 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       toast.error('Błąd przeliczania: ' + (err?.message || 'Unknown error'));
     } finally {
       setIsRecalculating(false);
+    }
+  };
+
+  // Full reset - zero out all debts, debt transactions and settlement snapshots
+  const handleResetAllSettlements = async () => {
+    setIsResetting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('reset-fleet-settlements', {
+        body: { fleet_id: fleetId }
+      });
+      if (error) throw error;
+      toast.success('Baza rozliczeń wyzerowana. Możesz wgrać pierwsze rozliczenie.');
+      setSettlementsResetDone(true);
+      setResetDialogOpen(false);
+      window.location.reload();
+    } catch (err: any) {
+      toast.error('Błąd zerowania: ' + (err?.message || 'Unknown error'));
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -1395,9 +1417,13 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       // Fetch fleet settings (VAT rate and base fee)
       const { data: fleetData } = await supabase
         .from('fleets')
-        .select('vat_rate, base_fee, settlement_mode, secondary_vat_rate, additional_percent_rate')
+        .select('vat_rate, base_fee, settlement_mode, secondary_vat_rate, additional_percent_rate, settlements_reset_at')
         .eq('id', fleetId)
         .maybeSingle();
+      
+      if ((fleetData as any)?.settlements_reset_at) {
+        setSettlementsResetDone(true);
+      }
       
       const fleetVatRate = (fleetData as any)?.vat_rate ?? 8;
       const fleetBaseFee = (fleetData as any)?.base_fee ?? 0;
@@ -2907,6 +2933,17 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                   <Trash2 className="h-4 w-4" />
                   <span className="hidden sm:inline">Usuń rozliczenie</span>
                 </Button>
+                {!settlementsResetDone && (
+                  <Button 
+                    variant="destructive" 
+                    size="sm"
+                    onClick={() => setResetDialogOpen(true)}
+                    className="gap-1.5 text-xs"
+                  >
+                    <AlertTriangle className="h-4 w-4" />
+                    <span className="hidden sm:inline">Wyzeruj bazę</span>
+                  </Button>
+                )}
               </div>
             </div>
             
@@ -3078,6 +3115,48 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Reset All Settlements Confirmation Dialog */}
+        <AlertDialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>⚠️ Wyzeruj bazę rozliczeń</AlertDialogTitle>
+              <AlertDialogDescription className="space-y-3">
+                <p>
+                  Czy na pewno chcesz usunąć <strong>WSZYSTKIE</strong> rozliczenia, długi i historię transakcji?
+                </p>
+                <p className="text-destructive font-bold">
+                  Tej operacji nie można cofnąć.
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Rozliczenia pozostaną w systemie do wglądu, ale cała historia długów zostanie wyzerowana.
+                  Następne wgrane rozliczenie będzie traktowane jako pierwsze w systemie.
+                </p>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isResetting}>Anuluj</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={handleResetAllSettlements} 
+                disabled={isResetting}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {isResetting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Zerowanie...
+                  </>
+                ) : (
+                  <>
+                    <AlertTriangle className="h-4 w-4 mr-2" />
+                    Wyzeruj wszystko
+                  </>
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
 
       <CardContent>
         {(() => {
