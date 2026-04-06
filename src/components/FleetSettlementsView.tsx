@@ -140,7 +140,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteCityId, setDeleteCityId] = useState<string>('all');
   const [debtDialogOpen, setDebtDialogOpen] = useState(false);
-  const debtChangedRef = React.useRef(false);
+  const debtChangedRef = useRef(false);
   const [selectedDriverForDebt, setSelectedDriverForDebt] = useState<{
     id: string;
     name: string;
