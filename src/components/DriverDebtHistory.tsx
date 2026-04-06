@@ -88,7 +88,7 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
     setLoading(true);
 
     try {
-      const [{ data: debtData }, { data: txData }] = await Promise.all([
+      const [{ data: debtData }, { data: txData }, { data: latestSettlement }] = await Promise.all([
         supabase
           .from('driver_debts')
           .select('current_balance')
@@ -99,14 +99,27 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
           .select('*')
           .eq('driver_id', driverId)
           .order('created_at', { ascending: false }),
+        supabase
+          .from('settlements')
+          .select('debt_after')
+          .eq('driver_id', driverId)
+          .order('period_to', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
       ]);
 
       const nextTransactions = (txData || []) as DebtTransaction[];
       setTransactions(nextTransactions);
 
-      const ledgerBalance = nextTransactions.length > 0
-        ? calculateDebtBalance(nextTransactions)
-        : round2(Number(debtData?.current_balance || 0));
+      let ledgerBalance: number;
+      if (nextTransactions.length > 0) {
+        ledgerBalance = calculateDebtBalance(nextTransactions);
+      } else if (latestSettlement && Number(latestSettlement.debt_after) > 0) {
+        // No transactions but settlement shows debt - use settlement as truth
+        ledgerBalance = round2(Number(latestSettlement.debt_after));
+      } else {
+        ledgerBalance = round2(Number(debtData?.current_balance || 0));
+      }
 
       setCurrentDebt(ledgerBalance);
     } finally {
@@ -309,11 +322,69 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
   const handleZeroOutDebts = async () => {
     setSaving(true);
     try {
-      // 1. Delete ALL historical debt transactions — clean slate
+      const totalDebtToZero = currentDebt > 0 
+        ? currentDebt 
+        : (weekDebtContext?.totalDebtBefore || 0);
+
+      if (totalDebtToZero <= 0) {
+        toast.info('Brak długu do wyzerowania');
+        return;
+      }
+
+      const dateVal = new Date().toISOString().split('T')[0];
+      const paymentRows: Array<Record<string, any>> = [];
+
+      // Create settlement zeroing payment if settlement debt exists
+      const settDebt = settlementDebt > 0 ? settlementDebt : (weekDebtContext?.settlementDebtBefore || 0);
+      if (settDebt > 0) {
+        paymentRows.push({
+          driver_id: driverId,
+          type: 'payment',
+          amount: -settDebt,
+          balance_before: settDebt,
+          balance_after: 0,
+          period_from: dateVal,
+          period_to: dateVal,
+          description: 'Wyzerowanie długu przez administratora',
+          debt_category: 'settlement',
+        });
+      }
+
+      // Create rental zeroing payment if rental debt exists
+      const rentDebt = rentalDebt > 0 ? rentalDebt : (weekDebtContext?.rentalDebtBefore || 0);
+      if (rentDebt > 0) {
+        paymentRows.push({
+          driver_id: driverId,
+          type: 'payment',
+          amount: -rentDebt,
+          balance_before: rentDebt,
+          balance_after: 0,
+          period_from: dateVal,
+          period_to: dateVal,
+          description: 'Wyzerowanie długu przez administratora',
+          debt_category: 'rental',
+        });
+      }
+
+      // If no specific categories found, create a single zeroing entry
+      if (paymentRows.length === 0) {
+        paymentRows.push({
+          driver_id: driverId,
+          type: 'payment',
+          amount: -totalDebtToZero,
+          balance_before: totalDebtToZero,
+          balance_after: 0,
+          period_from: dateVal,
+          period_to: dateVal,
+          description: 'Wyzerowanie długu przez administratora',
+          debt_category: 'settlement',
+        });
+      }
+
+      // 1. Insert zeroing transactions (history preserved)
       await supabase
         .from('driver_debt_transactions')
-        .delete()
-        .eq('driver_id', driverId);
+        .insert(paymentRows as any);
 
       // 2. Set balance to 0
       const { data: existing } = await supabase
@@ -329,13 +400,13 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
           .eq('driver_id', driverId);
       }
 
-      // 3. Also zero out debt snapshots in settlements table
+      // 3. Zero out debt snapshots in settlements so future calculations start from 0
       await supabase
         .from('settlements')
         .update({ debt_before: 0, debt_after: 0, debt_payment: 0 })
         .eq('driver_id', driverId);
 
-      toast.success('Wszystkie długi i historia zostały wyzerowane — czysta karta');
+      toast.success('Dług wyzerowany — historia zachowana, nowe rozliczenia startują od zera');
       await fetchDebtData();
       await onDebtChanged?.();
     } catch (err) {
@@ -444,12 +515,11 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <span>💳 Historia zadłużenia</span>
-          {currentDebt > 0 && (
+          {(currentDebt > 0 || (weekDebtContext && weekDebtContext.totalDebtBefore > 0)) ? (
             <span className="text-red-600 font-bold">
-              Obecny dług (na dziś): {currentDebt.toFixed(2)} zł
+              Obecny dług (na dziś): {Math.max(currentDebt, 0).toFixed(2)} zł
             </span>
-          )}
-          {currentDebt === 0 && (
+          ) : (
             <span className="text-green-600 font-bold">
               ✓ Brak bieżącego zadłużenia
             </span>
@@ -470,7 +540,7 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
                 <TrendingDown className="h-4 w-4 text-destructive" />
                 Dodaj dług
               </Button>
-              {currentDebt > 0 && (
+              {(currentDebt > 0 || (weekDebtContext && weekDebtContext.totalDebtBefore > 0)) && (
                 <Button 
                   variant="outline" 
                   size="sm" 
@@ -481,7 +551,7 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
                   Zarejestruj wpłatę
                 </Button>
               )}
-              {currentDebt > 0 && (
+              {(currentDebt > 0 || (weekDebtContext && weekDebtContext.totalDebtBefore > 0)) && (
                 <Button 
                   variant="destructive" 
                   size="sm" 
