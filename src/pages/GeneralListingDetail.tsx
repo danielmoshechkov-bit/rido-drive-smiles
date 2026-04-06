@@ -160,7 +160,7 @@ export default function GeneralListingDetail() {
     }
   };
 
-  const { title: translatedTitle, description: translatedDesc, isTranslated } = useListingTranslation(
+  const { title: translatedTitle, description: translatedDesc } = useListingTranslation(
     listing?.id || '', listing?.title || '', listing?.description || '', 'general'
   );
 
