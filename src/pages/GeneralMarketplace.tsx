@@ -369,7 +369,7 @@ export default function GeneralMarketplace() {
                   </SheetTrigger>
                   <SheetContent side="left" className="w-[300px] overflow-y-auto">
                     <div className="pt-6">
-                      <FiltersContent />
+                      {filtersContent}
                     </div>
                   </SheetContent>
                 </Sheet>
