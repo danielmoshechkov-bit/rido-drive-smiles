@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -10,7 +11,7 @@ import { ServiceListingCard } from '@/components/services/ServiceListingCard';
 import { ServiceProviderDetailModal } from '@/components/services/ServiceProviderDetailModal';
 import { MyGetRidoButton } from '@/components/MyGetRidoButton';
 import { UniversalHomeButton } from '@/components/UniversalHomeButton';
-import LanguageSelector from '@/components/LanguageSelector';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { Card, CardContent } from '@/components/ui/card';
 import { User } from '@supabase/supabase-js';
 import { SEOHead, seoConfigs } from '@/components/SEOHead';
