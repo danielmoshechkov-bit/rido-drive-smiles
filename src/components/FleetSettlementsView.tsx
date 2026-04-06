@@ -597,6 +597,25 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     }
   };
 
+  // Full reset - zero out all debts, debt transactions and settlement snapshots
+  const handleResetAllSettlements = async () => {
+    setIsResetting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('reset-fleet-settlements', {
+        body: { fleet_id: fleetId }
+      });
+      if (error) throw error;
+      toast.success('Baza rozliczeń wyzerowana. Możesz wgrać pierwsze rozliczenie.');
+      setSettlementsResetDone(true);
+      setResetDialogOpen(false);
+      window.location.reload();
+    } catch (err: any) {
+      toast.error('Błąd zerowania: ' + (err?.message || 'Unknown error'));
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
   // Generate transfer list
   const handleGenerateTransfers = async (cityId: string) => {
     try {
