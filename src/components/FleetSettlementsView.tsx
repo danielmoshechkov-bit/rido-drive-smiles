@@ -1398,9 +1398,13 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       // Fetch fleet settings (VAT rate and base fee)
       const { data: fleetData } = await supabase
         .from('fleets')
-        .select('vat_rate, base_fee, settlement_mode, secondary_vat_rate, additional_percent_rate')
+        .select('vat_rate, base_fee, settlement_mode, secondary_vat_rate, additional_percent_rate, settlements_reset_at')
         .eq('id', fleetId)
         .maybeSingle();
+      
+      if ((fleetData as any)?.settlements_reset_at) {
+        setSettlementsResetDone(true);
+      }
       
       const fleetVatRate = (fleetData as any)?.vat_rate ?? 8;
       const fleetBaseFee = (fleetData as any)?.base_fee ?? 0;
