@@ -930,9 +930,9 @@ export default function RealEstateMarketplace() {
           {/* Right side - count */}
           <p className="text-sm text-muted-foreground">
             {loading ? (
-              <span className="text-muted-foreground">Ładowanie...</span>
+              <span className="text-muted-foreground">{t('ui.loading', 'Ładowanie...')}</span>
             ) : (
-              <>Znaleziono: <span className="font-medium text-foreground">{listings.length}</span> ogłoszeń</>
+              <>{t('ui.found', 'Znaleziono:')} <span className="font-medium text-foreground">{listings.length}</span> {t('ui.listings', 'ogłoszeń')}</>
             )}
           </p>
         </div>
