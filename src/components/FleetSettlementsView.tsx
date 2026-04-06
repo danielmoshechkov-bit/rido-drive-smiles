@@ -3174,12 +3174,15 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                             <span>Wypłata:</span>
                             <span className={getAmountColor(settlement.final_payout)}>{formatCurrency(settlement.final_payout)}</span>
                           </div>
-                          {(settlement.debt_previous || 0) > 0 && (
-                            <div className="flex justify-between text-xs text-muted-foreground">
-                              <span>Dług:</span>
-                              <span>{formatCurrency(settlement.debt_previous || 0)}</span>
-                            </div>
-                          )}
+                          {(() => {
+                            const totalDebtMobile = round2(Math.max(0, settlement.debt_previous ?? 0) + Math.max(0, settlement.rental_debt_previous ?? 0));
+                            return totalDebtMobile > 0 ? (
+                              <div className="flex justify-between text-xs text-muted-foreground">
+                                <span>Dług:</span>
+                                <span>{formatCurrency(totalDebtMobile)}</span>
+                              </div>
+                            ) : null;
+                          })()}
                           <div className={`flex justify-between text-sm font-bold ${getDoWyplaty(settlement) > 0 ? 'text-green-700' : getDoWyplaty(settlement) < 0 ? 'text-red-600' : 'text-muted-foreground'}`}>
                             <span>Do wypłaty:</span>
                             <span>{formatCurrency(getDoWyplaty(settlement))}</span>
