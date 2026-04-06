@@ -332,7 +332,7 @@ export default function ServicesMarketplace() {
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <input
                   type="text"
-                  placeholder="Szukaj usługi, np. mechanik, fryzjer, prawnik..."
+                  placeholder={t('ui.searchPlaceholder', 'Szukaj usługi, np. mechanik, fryzjer, prawnik...')}
                   className="w-full pl-12 pr-24 h-12 md:h-14 text-base md:text-lg rounded-full border-2 border-primary/20 focus:border-primary shadow-lg bg-background focus:outline-none"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && (e.target as HTMLInputElement).value.trim()) {
