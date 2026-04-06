@@ -19862,6 +19862,83 @@ export type Database = {
         }
         Relationships: []
       }
+      workshop_client_bookings: {
+        Row: {
+          appointment_date: string
+          appointment_time: string
+          brand: string | null
+          created_at: string
+          duration_minutes: number
+          first_name: string | null
+          id: string
+          last_name: string | null
+          model: string | null
+          notes: string | null
+          phone: string
+          plate: string | null
+          provider_id: string
+          reminder_24h_sent: boolean
+          reminder_2h_sent: boolean
+          reminder_enabled: boolean
+          service_description: string | null
+          station_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          appointment_date: string
+          appointment_time: string
+          brand?: string | null
+          created_at?: string
+          duration_minutes?: number
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          model?: string | null
+          notes?: string | null
+          phone: string
+          plate?: string | null
+          provider_id: string
+          reminder_24h_sent?: boolean
+          reminder_2h_sent?: boolean
+          reminder_enabled?: boolean
+          service_description?: string | null
+          station_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          appointment_date?: string
+          appointment_time?: string
+          brand?: string | null
+          created_at?: string
+          duration_minutes?: number
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          model?: string | null
+          notes?: string | null
+          phone?: string
+          plate?: string | null
+          provider_id?: string
+          reminder_24h_sent?: boolean
+          reminder_2h_sent?: boolean
+          reminder_enabled?: boolean
+          service_description?: string | null
+          station_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workshop_client_bookings_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workshop_clients: {
         Row: {
           city: string | null
