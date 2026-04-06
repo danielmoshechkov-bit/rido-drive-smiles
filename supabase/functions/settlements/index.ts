@@ -241,7 +241,7 @@ Deno.serve(async (req) => {
       const { data: insertedSettlements, error } = await supabase
         .from('settlements')
         .upsert(settlementsToInsert, { 
-          onConflict: 'raw_row_id',
+          onConflict: 'driver_id,period_from,period_to',
           ignoreDuplicates: false
         })
         .select('id, driver_id, period_from, period_to');
