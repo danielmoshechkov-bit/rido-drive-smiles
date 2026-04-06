@@ -900,7 +900,7 @@ export default function RealEstateMarketplace() {
                 size="sm"
                 className="h-7 w-7 p-0"
                 onClick={() => setViewMode('compact')}
-                title="Kompaktowy"
+                title={t('ui.compact', 'Kompaktowy')}
               >
                 <Rows3 className="h-4 w-4" />
               </Button>
