@@ -302,12 +302,54 @@ export default function GeneralMarketplace() {
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-6">
+      {/* Hero AI Search — centered, prominent */}
+      <div className="container mx-auto px-4 pt-8 pb-4">
+        <div className="max-w-2xl mx-auto text-center space-y-3">
+          <h1 className="text-2xl md:text-3xl font-bold">
+            {t('marketplace.heroTitle', 'Znajdź to, czego szukasz')}
+          </h1>
+          <p className="text-muted-foreground text-sm">
+            {t('marketplace.heroSubtitle', 'Wpisz czego szukasz — AI przeszuka opisy, tytuły i całą bazę')}
+          </p>
+          <div className="flex gap-2 max-w-xl mx-auto">
+            <div className="relative flex-1">
+              <Sparkles className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary" />
+              <Input
+                placeholder={t('marketplace.searchPlaceholder', 'np. „krem z aloesem", „PlayStation 5", „rower górski"')}
+                value={aiQuery}
+                onChange={e => setAiQuery(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && handleAISearch()}
+                className="pl-10 pr-4 h-12 text-base rounded-full border-2 border-primary/20 focus:border-primary"
+                disabled={aiSearching}
+              />
+            </div>
+            <Button
+              onClick={handleAISearch}
+              disabled={aiSearching || !aiQuery.trim()}
+              size="lg"
+              className="rounded-full px-6 gap-2"
+            >
+              {aiSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+              <span className="hidden sm:inline">{t('marketplace.searchAi', 'Szukaj AI')}</span>
+            </Button>
+          </div>
+          {aiResults && (
+            <button
+              onClick={() => { setAiResults(null); setAiQuery(""); }}
+              className="text-xs text-primary hover:underline inline-flex items-center gap-1"
+            >
+              <X className="h-3 w-3" /> {t('marketplace.clearAi', 'Wyczyść wyniki AI')}
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="container mx-auto px-4 pb-6">
         <div className="flex gap-6">
           {/* Desktop sidebar */}
           <aside className="hidden lg:block w-[280px] shrink-0">
             <div className="sticky top-24 space-y-0">
-              <FiltersContent />
+              {filtersContent}
             </div>
           </aside>
 
