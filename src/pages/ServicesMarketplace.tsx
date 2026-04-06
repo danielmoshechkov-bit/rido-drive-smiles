@@ -452,7 +452,7 @@ export default function ServicesMarketplace() {
             <div className="relative flex-1 md:max-w-xs">
               <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Miasto"
+                placeholder={t('ui.city', 'Miasto')}
                 value={cityFilter}
                 onChange={(e) => setCityFilter(e.target.value)}
                 className="pl-10"
