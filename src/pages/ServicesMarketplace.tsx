@@ -309,7 +309,7 @@ export default function ServicesMarketplace() {
             <div className="flex items-center gap-2">
               <UniversalHomeButton />
               <span className="text-muted-foreground">/</span>
-              <span className="font-semibold text-foreground">Usługi</span>
+              <span className="font-semibold text-foreground">{t('services.title', 'Usługi')}</span>
             </div>
             <div className="flex items-center gap-2">
               <LanguageSelector />
