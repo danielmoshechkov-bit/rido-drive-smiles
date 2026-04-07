@@ -1094,9 +1094,8 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                     </>
                   );
                 })()}
-                </tr>
                 <tr className="bg-primary/5">
-                  <td colSpan={7} className="p-1.5">
+                  <td colSpan={8} className="p-1.5">
                     <div className="flex items-center gap-2">
                       <Button onClick={saveTaskDraftRows} variant="ghost" size="sm" className="gap-1 text-xs text-primary">
                         <Plus className="h-3.5 w-3.5" /> Dodaj usługę
