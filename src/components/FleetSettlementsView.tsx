@@ -2941,22 +2941,13 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             {/* Mobile action buttons - 2 rows */}
             <div className="md:hidden grid grid-cols-2 gap-2">
               <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => { setPayoutType('cash'); setPayoutDialogOpen(true); }}
-                className="gap-1.5 text-xs h-9"
-              >
-                <Banknote className="h-4 w-4" />
-                KW gotówka
-              </Button>
-              <Button 
-                variant="outline" 
+                variant="default" 
                 size="sm"
                 onClick={() => setBankTransferDialogOpen(true)}
-                className="gap-1.5 text-xs h-9"
+                className="gap-1.5 text-xs h-9 col-span-2"
               >
                 <CreditCard className="h-4 w-4" />
-                Przelew
+                Przelewy/gotówka
               </Button>
               <Button 
                 variant="outline" 
