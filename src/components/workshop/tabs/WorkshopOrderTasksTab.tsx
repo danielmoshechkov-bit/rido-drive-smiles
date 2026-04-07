@@ -1100,6 +1100,16 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                       <Button onClick={saveTaskDraftRows} variant="ghost" size="sm" className="gap-1 text-xs text-primary">
                         <Plus className="h-3.5 w-3.5" /> Dodaj usługę
                       </Button>
+                      {taskTemplates.length > 0 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5 h-7 text-xs"
+                          onClick={() => setTemplateModalOpen(true)}
+                        >
+                          <ClipboardList className="h-3.5 w-3.5" /> Dodaj z szablonu
+                        </Button>
+                      )}
                       {(tasks.length > 0 || taskRows.some(r => r.name.trim())) && ridoPriceSettings?.ai_suggestions_enabled !== false && (
                         <Button
                           variant="outline"
