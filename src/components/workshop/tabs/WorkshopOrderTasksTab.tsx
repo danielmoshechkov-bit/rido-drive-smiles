@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useCreateWorkshopOrderItem, useUpdateWorkshopOrderItem, useDeleteWorkshopOrderItem, useUpdateWorkshopOrder } from '@/hooks/useWorkshop';
 import { usePartsIntegrations } from '@/hooks/useWorkshopParts';
-import { Plus, Trash2, Package, Wrench, Search, EyeOff, Sparkles, AlertTriangle, GripVertical } from 'lucide-react';
+import { Plus, Trash2, Package, Wrench, Search, EyeOff, Sparkles, AlertTriangle, GripVertical, Clock, ClipboardList } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -117,6 +117,56 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   const queryClient = useQueryClient();
   const { data: partsIntegrations = [] } = usePartsIntegrations(providerId);
   const configuredPartsIntegrations = getConfiguredPartsIntegrations(partsIntegrations as any[]);
+
+  // Employees for labor tracking
+  const { data: workshopEmployees = [] } = useQuery({
+    queryKey: ['workshop-employees-for-labor', providerId],
+    enabled: !!providerId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('workshop_employees')
+        .select('id, name, salary')
+        .eq('provider_id', providerId)
+        .eq('is_active', true)
+        .order('name');
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Task templates
+  const { data: taskTemplates = [] } = useQuery({
+    queryKey: ['task-templates-for-order'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return [];
+      const { data, error } = await (supabase as any)
+        .from('task_templates')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .order('name');
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Workshop settings for default hourly rate
+  const { data: workshopSettings } = useQuery({
+    queryKey: ['workshop-settings-hourly'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+      const { data } = await (supabase as any)
+        .from('workshop_settings')
+        .select('hourly_rate')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      return data;
+    },
+  });
+
+  const [templateModalOpen, setTemplateModalOpen] = useState(false);
 
   // Separate price modes for services and parts
   const [taskPriceMode, setTaskPriceMode] = useState<'net' | 'gross'>(order.price_mode || 'gross');
