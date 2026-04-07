@@ -2879,22 +2879,13 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
               <div className="h-6 w-px bg-border hidden md:block" />
               <div className="flex flex-wrap items-center gap-2">
                 <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => { setPayoutType('cash'); setPayoutDialogOpen(true); }}
-                  className="gap-1.5 text-xs"
-                >
-                  <Banknote className="h-4 w-4" />
-                  <span className="hidden sm:inline">Generuj</span> KW gotówka
-                </Button>
-                <Button 
                   variant="default" 
                   size="sm"
                   onClick={() => setBankTransferDialogOpen(true)}
                   className="gap-1.5 text-xs"
                 >
                   <CreditCard className="h-4 w-4" />
-                  <span className="hidden sm:inline">Generuj</span> przelew
+                  <span className="hidden sm:inline">Generuj</span> przelewy/gotówka
                 </Button>
                 <Button 
                   variant="outline" 
