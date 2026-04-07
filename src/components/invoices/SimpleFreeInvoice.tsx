@@ -691,6 +691,13 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
         farmer_id_number: farmerIdNumber || undefined,
         flat_rate_percent: flatRatePercent,
       } : undefined,
+      // Advance/Final data
+      advance_data: invoiceType === 'final' && advanceAmount > 0 ? {
+        advance_invoice_number: advanceInvoiceNumber || undefined,
+        advance_invoice_date: advanceInvoiceDate || undefined,
+        advance_amount: advanceAmount,
+        advance_vat: advanceVat || undefined,
+      } : undefined,
     };
   };
 
