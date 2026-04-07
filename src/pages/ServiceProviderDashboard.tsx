@@ -370,8 +370,9 @@ export default function ServiceProviderDashboard() {
       let coverUrl: string | null = null;
       if (coverImageFile) {
         const ext = coverImageFile.name.split('.').pop();
-        const path = `providers/${providerId}/cover-${Date.now()}.${ext}`;
-        await supabase.storage.from('documents').upload(path, coverImageFile);
+        const path = `providers/${providerId}/logo-${Date.now()}.${ext}`;
+        const { error: uploadError } = await supabase.storage.from('documents').upload(path, coverImageFile, { upsert: true });
+        if (uploadError) throw new Error('Błąd wgrywania logo: ' + uploadError.message);
         const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path);
         coverUrl = urlData.publicUrl;
       }
