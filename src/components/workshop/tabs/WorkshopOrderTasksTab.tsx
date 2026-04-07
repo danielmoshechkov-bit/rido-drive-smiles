@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useCreateWorkshopOrderItem, useUpdateWorkshopOrderItem, useDeleteWorkshopOrderItem, useUpdateWorkshopOrder } from '@/hooks/useWorkshop';
 import { usePartsIntegrations } from '@/hooks/useWorkshopParts';
-import { Plus, Trash2, Package, Wrench, Search, EyeOff, Sparkles, AlertTriangle, GripVertical, Clock, ClipboardList } from 'lucide-react';
+import { Plus, Trash2, Package, Wrench, Search, EyeOff, Sparkles, AlertTriangle, GripVertical, ClipboardList } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -1069,11 +1069,31 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                   );
                 })}
                 {/* Sum row */}
-                <tr className="bg-muted/30 font-semibold text-sm border-b">
-                  <td className="p-2"></td>
-                  <td className="p-2" colSpan={4}>Razem usługi</td>
-                  <td className="p-2 text-right tabular-nums">{fmt(displayTasksTotal)}</td>
-                  <td className="p-2"></td>
+                {(() => {
+                  const totalLaborHours = tasks.reduce((s: number, t: any) => s + safeNumber(t.labor_hours), 0) + taskRows.reduce((s, r) => s + r.labor_hours, 0);
+                  const totalLaborCost = tasks.reduce((s: number, t: any) => s + safeNumber(t.labor_cost), 0);
+                  return (
+                    <>
+                      {totalLaborHours > 0 && (
+                        <tr className="bg-muted/20 text-sm border-b">
+                          <td className="p-2"></td>
+                          <td className="p-2" colSpan={5}>
+                            <span className="text-muted-foreground">Razem czas: <strong>{totalLaborHours.toFixed(2)} h</strong></span>
+                            {totalLaborCost > 0 && <span className="ml-4 text-muted-foreground">Koszt robocizny: <strong>{fmt(totalLaborCost)} zł</strong></span>}
+                          </td>
+                          <td className="p-2"></td>
+                          <td className="p-2"></td>
+                        </tr>
+                      )}
+                      <tr className="bg-muted/30 font-semibold text-sm border-b">
+                        <td className="p-2"></td>
+                        <td className="p-2" colSpan={5}>Razem usługi</td>
+                        <td className="p-2 text-right tabular-nums">{fmt(displayTasksTotal)}</td>
+                        <td className="p-2"></td>
+                      </tr>
+                    </>
+                  );
+                })()}
                 </tr>
                 <tr className="bg-primary/5">
                   <td colSpan={7} className="p-1.5">
