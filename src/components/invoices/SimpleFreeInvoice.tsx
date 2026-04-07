@@ -176,6 +176,12 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
   const [farmerIdNumber, setFarmerIdNumber] = useState('');
   const [flatRatePercent, setFlatRatePercent] = useState<number>(7);
   
+  // Advance/Final invoice fields
+  const [advanceInvoiceNumber, setAdvanceInvoiceNumber] = useState('');
+  const [advanceInvoiceDate, setAdvanceInvoiceDate] = useState('');
+  const [advanceAmount, setAdvanceAmount] = useState<number>(0);
+  const [advanceVat, setAdvanceVat] = useState<number>(0);
+
   // Computed: which type-specific features are active
   const isNoVatType = ['receipt', 'nota'].includes(invoiceType);
   const isMarginType = invoiceType === 'vat_margin' || invoiceType === 'margin';
