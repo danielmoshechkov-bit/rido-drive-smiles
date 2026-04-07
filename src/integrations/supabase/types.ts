@@ -6477,6 +6477,42 @@ export type Database = {
           },
         ]
       }
+      document_numbering: {
+        Row: {
+          created_at: string | null
+          document_type: string
+          format: string | null
+          id: string
+          next_number: number | null
+          prefix: string | null
+          reset_period: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          document_type: string
+          format?: string | null
+          id?: string
+          next_number?: number | null
+          prefix?: string | null
+          reset_period?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          document_type?: string
+          format?: string | null
+          id?: string
+          next_number?: number | null
+          prefix?: string | null
+          reset_period?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       document_types: {
         Row: {
           created_at: string
@@ -20039,36 +20075,48 @@ export type Database = {
         Row: {
           created_at: string | null
           email: string | null
+          first_name: string | null
           hourly_rate: number | null
           id: string
           is_active: boolean | null
+          last_name: string | null
           name: string
           phone: string | null
+          pin_code: string | null
           provider_id: string
+          role: string | null
           salary: number | null
           updated_at: string | null
         }
         Insert: {
           created_at?: string | null
           email?: string | null
+          first_name?: string | null
           hourly_rate?: number | null
           id?: string
           is_active?: boolean | null
+          last_name?: string | null
           name: string
           phone?: string | null
+          pin_code?: string | null
           provider_id: string
+          role?: string | null
           salary?: number | null
           updated_at?: string | null
         }
         Update: {
           created_at?: string | null
           email?: string | null
+          first_name?: string | null
           hourly_rate?: number | null
           id?: string
           is_active?: boolean | null
+          last_name?: string | null
           name?: string
           phone?: string | null
+          pin_code?: string | null
           provider_id?: string
+          role?: string | null
           salary?: number | null
           updated_at?: string | null
         }
@@ -20739,6 +20787,75 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      workshop_settings: {
+        Row: {
+          address: string | null
+          city: string | null
+          created_at: string | null
+          currency: string | null
+          discounts_enabled: boolean | null
+          email: string | null
+          firm_name: string | null
+          hourly_rate: number | null
+          id: string
+          logo_url: string | null
+          nip: string | null
+          payment_days: number | null
+          payment_method: string | null
+          phone: string | null
+          postal_code: string | null
+          show_prices_as: string | null
+          updated_at: string | null
+          user_id: string
+          work_stations: Json | null
+          working_hours: Json | null
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          created_at?: string | null
+          currency?: string | null
+          discounts_enabled?: boolean | null
+          email?: string | null
+          firm_name?: string | null
+          hourly_rate?: number | null
+          id?: string
+          logo_url?: string | null
+          nip?: string | null
+          payment_days?: number | null
+          payment_method?: string | null
+          phone?: string | null
+          postal_code?: string | null
+          show_prices_as?: string | null
+          updated_at?: string | null
+          user_id: string
+          work_stations?: Json | null
+          working_hours?: Json | null
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          created_at?: string | null
+          currency?: string | null
+          discounts_enabled?: boolean | null
+          email?: string | null
+          firm_name?: string | null
+          hourly_rate?: number | null
+          id?: string
+          logo_url?: string | null
+          nip?: string | null
+          payment_days?: number | null
+          payment_method?: string | null
+          phone?: string | null
+          postal_code?: string | null
+          show_prices_as?: string | null
+          updated_at?: string | null
+          user_id?: string
+          work_stations?: Json | null
+          working_hours?: Json | null
+        }
+        Relationships: []
       }
       workshop_tire_storage: {
         Row: {

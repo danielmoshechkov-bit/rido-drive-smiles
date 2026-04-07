@@ -6,9 +6,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const JUSTSEND_API_URL = "https://justsend.io/api/sender/bulk/send";
-const DEFAULT_SENDER = "GetRido.pl";
-
 function normalizePhone(raw: string): string {
   let phone = raw.replace(/[\s\-\(\)\+]/g, "");
   if (phone.startsWith("48") && phone.length >= 11) return phone;
@@ -32,98 +29,107 @@ serve(async (req) => {
       });
     }
 
-    // Pobierz klucz API z bazy (admin panel) lub env
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
+
     const { data: smsSettings } = await supabaseAdmin
       .from("sms_settings")
-      .select("api_key, sender_name")
+      .select("api_key, sender_name, provider, api_url, is_active")
       .limit(1)
       .single();
 
     const appKey = smsSettings?.api_key || Deno.env.get("SMSAPI_TOKEN");
     if (!appKey) {
-      console.error("[JustSend] Brak klucza API — ani w sms_settings, ani w env SMSAPI_TOKEN");
-      return new Response(JSON.stringify({ error: "Brak klucza API JustSend. Wprowadź go w Admin → Bramki SMS." }), {
+      console.error("[Workshop SMS] Brak klucza API");
+      return new Response(JSON.stringify({ error: "Brak klucza API SMS. Wprowadź go w Admin → Bramki SMS." }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    const smsProvider = smsSettings?.provider || "justsend";
     const msisdn = normalizePhone(phone);
-    const senderName = (sender || DEFAULT_SENDER).replace(/[^a-zA-Z0-9.\-]/g, "").slice(0, 11);
-    const campaignName = `Workshop-${sms_type || "sms"}-${Date.now()}`;
-    const sendDate = new Date(Date.now() + 5000).toISOString().replace(/\.\d+Z$/, "+00:00");
+    const senderName = (sender || smsSettings?.sender_name || "GetRido.pl").replace(/[^a-zA-Z0-9.\-]/g, "").slice(0, 11);
 
-    const body = {
-      name: campaignName,
-      bulkType: "STANDARD",
-      bulkVariant: "PRO",
-      sender: senderName,
-      message: message,
-      sendDate: sendDate,
-      recipients: [{ msisdn }],
-    };
+    console.log(`[Workshop SMS] Sending via ${smsProvider} to ${msisdn}, sender=${senderName}`);
 
-    console.log(`[JustSend/Workshop] Sending to ${msisdn}, sender=${senderName}`);
-    console.log(`[JustSend/Workshop] Body:`, JSON.stringify(body));
+    let response: Response;
+    let responseText: string;
 
-    const smsResponse = await fetch(JUSTSEND_API_URL, {
-      method: "POST",
-      headers: {
-        "App-Key": appKey,
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-      },
-      body: JSON.stringify(body),
-    });
+    if (smsProvider === "smsapi") {
+      const params = new URLSearchParams({
+        to: msisdn,
+        message,
+        format: "json",
+        from: senderName || "INFO",
+        encoding: "utf-8",
+      });
 
-    const responseStatus = smsResponse.status;
-    let responseBody: string;
-    try {
-      responseBody = await smsResponse.text();
-    } catch {
-      responseBody = "(empty response)";
+      response = await fetch("https://api.smsapi.pl/sms.do", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${appKey}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: params.toString(),
+      });
+      responseText = await response.text();
+    } else {
+      // justsend (default)
+      const apiUrl = smsSettings?.api_url || "https://justsend.io/api/sender/bulk/send";
+      const campaignName = `Workshop-${sms_type || "sms"}-${Date.now()}`;
+      const sendDate = new Date(Date.now() + 5000).toISOString().replace(/\.\d+Z$/, "+00:00");
+
+      const body = {
+        name: campaignName,
+        bulkType: "STANDARD",
+        bulkVariant: "PRO",
+        sender: senderName,
+        message,
+        sendDate,
+        recipients: [{ msisdn }],
+      };
+
+      response = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          "App-Key": appKey,
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
+      responseText = await response.text();
     }
 
-    console.log(`[JustSend/Workshop] Response: HTTP ${responseStatus} — ${responseBody}`);
+    console.log(`[Workshop SMS] Response: HTTP ${response.status} — ${responseText}`);
 
-    // JustSend returns 201 Created on success
-    if (responseStatus !== 201 && responseStatus !== 200) {
-      console.error(`[JustSend/Workshop] ERROR: HTTP ${responseStatus} — ${responseBody}`);
+    const isSuccess = response.status === 200 || response.status === 201;
+    if (!isSuccess) {
       return new Response(
-        JSON.stringify({ error: `JustSend API error (HTTP ${responseStatus}): ${responseBody}` }),
+        JSON.stringify({ error: `SMS API error (HTTP ${response.status}): ${responseText}` }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Deduct SMS credit from provider
+    // Deduct SMS credit
     if (provider_id) {
       try {
-        const supabase = createClient(
-          Deno.env.get("SUPABASE_URL") ?? "",
-          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-        );
-        await supabase
-          .from("service_providers")
-          .update({ sms_balance: supabase.rpc ? undefined : undefined })
-          .eq("id", provider_id);
-        // Decrement sms_balance by 1
-        const { error: decrError } = await supabase.rpc("deduct_sms_credit", { p_provider_id: provider_id });
-        if (decrError) console.warn("[JustSend/Workshop] Could not deduct SMS credit:", decrError.message);
+        const { error: decrError } = await supabaseAdmin.rpc("deduct_sms_credit", { p_provider_id: provider_id });
+        if (decrError) console.warn("[Workshop SMS] Could not deduct SMS credit:", decrError.message);
       } catch (e) {
-        console.warn("[JustSend/Workshop] Credit deduction failed:", e);
+        console.warn("[Workshop SMS] Credit deduction failed:", e);
       }
     }
 
     return new Response(
-      JSON.stringify({ success: true, phone: msisdn, sender: senderName, status: responseStatus }),
+      JSON.stringify({ success: true, phone: msisdn, sender: senderName, status: response.status }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    console.error("[JustSend/Workshop] Unexpected error:", error);
+    console.error("[Workshop SMS] Unexpected error:", error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

@@ -13,6 +13,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Save, Plus, Trash2, Users, Building2, Monitor, UserPlus, Sparkles } from 'lucide-react';
 import { WorkshopPartsIntegrationsSettings } from './parts/WorkshopPartsIntegrationsSettings';
 import { RidoPriceSettingsTab } from './pricing/RidoPriceSettingsTab';
+import { WorkshopSettingsPage } from './WorkshopSettingsPage';
+import { WorkshopEmployeesPage } from './WorkshopEmployeesPage';
+import { DocumentNumberingPage } from './DocumentNumberingPage';
 import { DEFAULT_SERVICE_PROVIDER_PRIMARY_TABS, SERVICE_PROVIDER_TAB_LABELS, SERVICE_PROVIDER_TAB_ORDER, type ServiceProviderNavTabKey } from '@/components/service-provider/navConfig';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -228,8 +231,10 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
 
   const settingsSubTabs = [
     { value: 'konto', label: 'Konto i firma', visible: true },
+    { value: 'warsztat', label: 'Warsztat', visible: true },
     { value: 'pracownicy', label: 'Pracownicy', visible: true },
     { value: 'stanowiska', label: 'Stanowiska', visible: true },
+    { value: 'numeracja', label: 'Numeracja', visible: true },
     { value: 'integracje', label: 'Integracje', visible: true },
     { value: 'rido-price', label: 'Rido Price', visible: true },
   ];
@@ -438,6 +443,18 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
               </DialogContent>
             </Dialog>
           </div>
+        )}
+
+        {settingsTab === 'warsztat' && (
+          <WorkshopSettingsPage />
+        )}
+
+        {settingsTab === 'pracownicy' && (
+          <WorkshopEmployeesPage providerId={providerId} />
+        )}
+
+        {settingsTab === 'numeracja' && (
+          <DocumentNumberingPage />
         )}
 
         {settingsTab === 'integracje' && (
