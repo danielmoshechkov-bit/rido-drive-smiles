@@ -591,7 +591,7 @@ export function BankTransferExportDialog({
           <span className="block text-[9px] text-muted-foreground truncate">{row.name}</span>
         )}
       </div>
-      <span className="w-[70px] text-right font-semibold text-primary">
+      <span className={`w-[70px] text-right font-semibold ${row.payout < 0 ? 'text-destructive' : 'text-primary'}`}>
         {row.payout.toFixed(2)} zł
       </span>
 
