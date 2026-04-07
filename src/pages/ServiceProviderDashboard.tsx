@@ -370,8 +370,9 @@ export default function ServiceProviderDashboard() {
       let coverUrl: string | null = null;
       if (coverImageFile) {
         const ext = coverImageFile.name.split('.').pop();
-        const path = `providers/${providerId}/cover-${Date.now()}.${ext}`;
-        await supabase.storage.from('documents').upload(path, coverImageFile);
+        const path = `providers/${providerId}/logo-${Date.now()}.${ext}`;
+        const { error: uploadError } = await supabase.storage.from('documents').upload(path, coverImageFile, { upsert: true });
+        if (uploadError) throw new Error('Błąd wgrywania logo: ' + uploadError.message);
         const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path);
         coverUrl = urlData.publicUrl;
       }
@@ -766,7 +767,7 @@ export default function ServiceProviderDashboard() {
                     Aktywuj profil usługodawcy
                   </DialogTitle>
                 </DialogHeader>
-                <div className="space-y-4 max-h-[60vh] overflow-y-auto">
+                <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
                   <p className="text-sm text-muted-foreground">Uzupełnij dane — po aktywacji Twoja firma i usługi będą widoczne publicznie w portalu.</p>
                   <div className="space-y-2">
                     <Label>Nazwa firmy *</Label>
@@ -816,8 +817,57 @@ export default function ServiceProviderDashboard() {
                     <Input value={activationForm.company_nip} onChange={e => setActivationForm(p => ({ ...p, company_nip: e.target.value }))} placeholder="1234567890" />
                   </div>
                   <div className="space-y-2">
-                    <Label>Zdjęcie okładkowe</Label>
-                    <Input type="file" accept="image/*" onChange={e => setCoverImageFile(e.target.files?.[0] || null)} />
+                    <Label>Logo firmy</Label>
+                    <div
+                      className={`relative border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${
+                        coverImageFile ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50 hover:bg-muted/50'
+                      }`}
+                      onDragOver={e => { e.preventDefault(); e.stopPropagation(); }}
+                      onDrop={e => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const file = e.dataTransfer.files?.[0];
+                        if (file && file.type.startsWith('image/')) setCoverImageFile(file);
+                      }}
+                      onClick={() => {
+                        const input = document.createElement('input');
+                        input.type = 'file';
+                        input.accept = 'image/*';
+                        input.onchange = (ev: any) => {
+                          const file = ev.target.files?.[0];
+                          if (file) setCoverImageFile(file);
+                        };
+                        input.click();
+                      }}
+                    >
+                      {coverImageFile ? (
+                        <div className="flex items-center gap-3">
+                          <img
+                            src={URL.createObjectURL(coverImageFile)}
+                            alt="Logo preview"
+                            className="h-12 w-12 object-contain rounded border"
+                          />
+                          <div className="text-left flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{coverImageFile.name}</p>
+                            <p className="text-xs text-muted-foreground">{(coverImageFile.size / 1024).toFixed(0)} KB</p>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0"
+                            onClick={e => { e.stopPropagation(); setCoverImageFile(null); }}
+                          >
+                            ✕
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="py-2">
+                          <p className="text-sm text-muted-foreground">Przeciągnij i upuść lub kliknij aby wybrać</p>
+                          <p className="text-xs text-muted-foreground mt-1">PNG, JPG do 5 MB</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <DialogFooter>
