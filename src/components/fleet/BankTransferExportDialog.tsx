@@ -276,7 +276,7 @@ export function BankTransferExportDialog({
       const driverMap = new Map((driversData || []).map(d => [d.id, d]));
 
       const rows: DriverRow[] = settlements
-        .filter(s => s.final_payout > 0)
+        .filter(s => s.final_payout !== 0)
         .map(s => {
           const driver = driverMap.get(s.driver_id) as any;
           const existingIban = getCleanIban(driver);
@@ -443,7 +443,11 @@ export function BankTransferExportDialog({
 
     const executionDate = getSettlementExecutionDate(periodEnd);
     const settlementDateLabel = format(executionDate, 'dd.MM.yyyy');
-    const totalAmount = selectedCash.reduce((s, r) => s + r.payout, 0);
+    
+    const cashPayouts = selectedCash.filter(r => r.payout > 0);
+    const cashDebts = selectedCash.filter(r => r.payout < 0);
+    const totalPayout = cashPayouts.reduce((s, r) => s + r.payout, 0);
+    const totalDebt = Math.abs(cashDebts.reduce((s, r) => s + r.payout, 0));
 
     const htmlContent = `
       <!DOCTYPE html>
@@ -458,6 +462,8 @@ export function BankTransferExportDialog({
           th, td { border: 1px solid #000; padding: 10px; text-align: left; }
           th { background-color: #f0f0f0; font-weight: bold; }
           .amount { text-align: right; }
+          .payout { color: #16a34a; }
+          .debt { color: #dc2626; }
           .signature { width: 150px; }
           .totals { margin-top: 30px; font-size: 16px; }
           .totals p { margin: 10px 0; }
@@ -481,18 +487,19 @@ export function BankTransferExportDialog({
             </tr>
           </thead>
           <tbody>
-            ${selectedCash.map((r, idx) => `
+            ${[...cashPayouts, ...cashDebts].map((r, idx) => `
               <tr>
                 <td>${idx + 1}</td>
                 <td>${r.name}</td>
-                <td class="amount">${r.payout.toFixed(2).replace('.', ',')} zł</td>
+                <td class="amount ${r.payout >= 0 ? 'payout' : 'debt'}">${r.payout.toFixed(2).replace('.', ',')} zł</td>
                 <td class="signature"></td>
               </tr>
             `).join('')}
           </tbody>
         </table>
         <div class="totals">
-          <p><strong>WYPŁATA:</strong> ${totalAmount.toFixed(2).replace('.', ',')} zł</p>
+          <p class="payout"><strong>WYPŁATA:</strong> ${totalPayout.toFixed(2).replace('.', ',')} zł</p>
+          <p class="debt"><strong>DŁUG:</strong> ${totalDebt.toFixed(2).replace('.', ',')} zł</p>
         </div>
       </body>
       </html>
@@ -591,7 +598,7 @@ export function BankTransferExportDialog({
           <span className="block text-[9px] text-muted-foreground truncate">{row.name}</span>
         )}
       </div>
-      <span className="w-[70px] text-right font-semibold text-primary">
+      <span className={`w-[70px] text-right font-semibold ${row.payout < 0 ? 'text-destructive' : 'text-primary'}`}>
         {row.payout.toFixed(2)} zł
       </span>
 
@@ -608,11 +615,14 @@ export function BankTransferExportDialog({
       {showModeSelector && (
         <Select
           value={row.paymentMode}
-          onValueChange={(v: DriverRow['paymentMode']) => {
+          onValueChange={async (v: DriverRow['paymentMode']) => {
             updateDriverRow(row.id, {
               paymentMode: v,
               selected: false,
             });
+            // Persist payment method permanently
+            const dbMethod = v === 'cash' ? 'cash' : v === 'fleet' ? 'fleet' : 'transfer';
+            await supabase.from('drivers').update({ payment_method: dbMethod } as any).eq('id', row.id);
           }}
         >
           <SelectTrigger className="h-7 w-[100px] text-xs">
