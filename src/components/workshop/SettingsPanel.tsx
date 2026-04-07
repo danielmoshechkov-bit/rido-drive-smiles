@@ -16,6 +16,10 @@ import { RidoPriceSettingsTab } from './pricing/RidoPriceSettingsTab';
 import { WorkshopSettingsPage } from './WorkshopSettingsPage';
 import { WorkshopEmployeesPage } from './WorkshopEmployeesPage';
 import { DocumentNumberingPage } from './DocumentNumberingPage';
+import { OrderStatusesPage } from './settings/OrderStatusesPage';
+import { OrderTypesPage } from './settings/OrderTypesPage';
+import { TaskTemplatesPage } from './settings/TaskTemplatesPage';
+import { ChecklistItemsPage } from './settings/ChecklistItemsPage';
 import { DEFAULT_SERVICE_PROVIDER_PRIMARY_TABS, SERVICE_PROVIDER_TAB_LABELS, SERVICE_PROVIDER_TAB_ORDER, type ServiceProviderNavTabKey } from '@/components/service-provider/navConfig';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -234,6 +238,10 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
     { value: 'warsztat', label: 'Warsztat', visible: true },
     { value: 'pracownicy', label: 'Pracownicy', visible: true },
     { value: 'stanowiska', label: 'Stanowiska', visible: true },
+    { value: 'statusy', label: 'Statusy zleceń', visible: true },
+    { value: 'rodzaje', label: 'Rodzaje zleceń', visible: true },
+    { value: 'szablony', label: 'Szablony zadań', visible: true },
+    { value: 'listy-kontrolne', label: 'Listy kontrolne', visible: true },
     { value: 'numeracja', label: 'Numeracja', visible: true },
     { value: 'integracje', label: 'Integracje', visible: true },
     { value: 'rido-price', label: 'Rido Price', visible: true },
