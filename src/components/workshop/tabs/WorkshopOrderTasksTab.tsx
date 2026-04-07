@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useCreateWorkshopOrderItem, useUpdateWorkshopOrderItem, useDeleteWorkshopOrderItem, useUpdateWorkshopOrder } from '@/hooks/useWorkshop';
 import { usePartsIntegrations } from '@/hooks/useWorkshopParts';
-import { Plus, Trash2, Package, Wrench, Search, EyeOff, Sparkles, AlertTriangle, GripVertical } from 'lucide-react';
+import { Plus, Trash2, Package, Wrench, Search, EyeOff, Sparkles, AlertTriangle, GripVertical, ClipboardList } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -39,6 +39,8 @@ interface TaskRow {
   cost_gross: number;
   discount: number;
   discountType: DiscountType;
+  employee_id: string;
+  labor_hours: number;
 }
 
 interface GoodsRow {
@@ -116,6 +118,56 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   const { data: partsIntegrations = [] } = usePartsIntegrations(providerId);
   const configuredPartsIntegrations = getConfiguredPartsIntegrations(partsIntegrations as any[]);
 
+  // Employees for labor tracking
+  const { data: workshopEmployees = [] } = useQuery({
+    queryKey: ['workshop-employees-for-labor', providerId],
+    enabled: !!providerId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('workshop_employees')
+        .select('id, name, salary')
+        .eq('provider_id', providerId)
+        .eq('is_active', true)
+        .order('name');
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Task templates
+  const { data: taskTemplates = [] } = useQuery({
+    queryKey: ['task-templates-for-order'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return [];
+      const { data, error } = await (supabase as any)
+        .from('task_templates')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .order('name');
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Workshop settings for default hourly rate
+  const { data: workshopSettings } = useQuery({
+    queryKey: ['workshop-settings-hourly'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+      const { data } = await (supabase as any)
+        .from('workshop_settings')
+        .select('hourly_rate')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      return data;
+    },
+  });
+
+  const [templateModalOpen, setTemplateModalOpen] = useState(false);
+
   // Separate price modes for services and parts
   const [taskPriceMode, setTaskPriceMode] = useState<'net' | 'gross'>(order.price_mode || 'gross');
   const [goodsPriceMode, setGoodsPriceMode] = useState<'net' | 'gross'>(order.price_mode || 'gross');
@@ -164,7 +216,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   const isTaskGross = taskPriceMode === 'gross';
   const isGoodsGross = goodsPriceMode === 'gross';
 
-  const createEmptyTask = (): TaskRow => ({ draftKey: crypto.randomUUID(), name: '', mechanic: '', quantity: 1, price_net: 0, price_gross: 0, cost_net: 0, cost_gross: 0, discount: 0, discountType: 'percent' });
+  const createEmptyTask = (): TaskRow => ({ draftKey: crypto.randomUUID(), name: '', mechanic: '', quantity: 1, price_net: 0, price_gross: 0, cost_net: 0, cost_gross: 0, discount: 0, discountType: 'percent', employee_id: '', labor_hours: 0 });
   const emptyTask: TaskRow = createEmptyTask();
   const [taskRows, setTaskRows] = useState<TaskRow[]>([{ ...emptyTask }]);
   const [taskSearch, setTaskSearch] = useState('');
@@ -512,6 +564,13 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       updates.unit_cost_gross = synced.gross;
     } else if (editingField === 'mechanic') {
       updates.mechanic = editingValue || null;
+    } else if (editingField === 'labor_hours') {
+      const hours = parseFloat(editingValue.replace(',', '.')) || 0;
+      updates.labor_hours = hours;
+      // Calculate labor cost: hours × employee rate or default rate
+      const emp = workshopEmployees.find((e: any) => e.id === item.employee_id);
+      const hourlyRate = emp?.salary ? emp.salary / 160 : (workshopSettings?.hourly_rate || 150);
+      updates.labor_cost = Math.round(hours * hourlyRate * 100) / 100;
     }
 
     await updateItem.mutateAsync({ id: editingItemId, ...updates });
@@ -795,14 +854,15 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[980px] text-xs" style={{ tableLayout: 'fixed' }}>
+            <table className="w-full min-w-[1100px] text-xs" style={{ tableLayout: 'fixed' }}>
               <colgroup>
                 <col style={{ width: '40px' }} />
-                <col style={{ width: '34%' }} />
-                <col style={{ width: '180px' }} />
-                <col style={{ width: '116px' }} />
-                <col style={{ width: '132px' }} />
-                <col style={{ width: '116px' }} />
+                <col style={{ width: '28%' }} />
+                <col style={{ width: '150px' }} />
+                <col style={{ width: '80px' }} />
+                <col style={{ width: '100px' }} />
+                <col style={{ width: '110px' }} />
+                <col style={{ width: '100px' }} />
                 <col style={{ width: '56px' }} />
               </colgroup>
               <thead>
@@ -810,6 +870,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                   <th className="p-2 text-center font-medium text-muted-foreground">LP</th>
                   <th className="p-2 text-left text-[11px] font-medium text-muted-foreground">USŁUGA</th>
                   <th className="p-2 text-left text-[11px] font-medium text-muted-foreground">PRACOWNIK</th>
+                  <th className="p-2 text-center text-[11px] font-medium text-muted-foreground">CZAS [h]</th>
                   <th className="p-2 text-right text-[11px] font-medium text-muted-foreground">CENA</th>
                   <th className="p-2 text-right text-[11px] font-medium text-muted-foreground">RABAT</th>
                   <th className="p-2 text-right text-[11px] font-medium text-muted-foreground">PO RABACIE</th>
@@ -859,7 +920,25 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           <div className="min-w-0 flex-1">{renderEditableCell(t, 'name', t.name)}</div>
                         </div>
                       </td>
-                      <td className="p-1 text-muted-foreground">{renderEditableCell(t, 'mechanic', t.mechanic || '—')}</td>
+                      <td className="p-1 text-muted-foreground">
+                        {workshopEmployees.length > 0 ? (
+                          <select
+                            className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                            value={t.employee_id || ''}
+                            onChange={async (e) => {
+                              await updateItem.mutateAsync({ id: t.id, employee_id: e.target.value || null });
+                            }}
+                          >
+                            <option value="">—</option>
+                            {workshopEmployees.map((emp: any) => (
+                              <option key={emp.id} value={emp.id}>{emp.name}</option>
+                            ))}
+                          </select>
+                        ) : renderEditableCell(t, 'mechanic', t.mechanic || '—')}
+                      </td>
+                      <td className="p-1 tabular-nums">
+                        {renderEditableCell(t, 'labor_hours', String(safeNumber(t.labor_hours) || '—'), 'tabular-nums', 'center')}
+                      </td>
                       <td className="p-1 tabular-nums">{renderEditableCell(t, 'price', fmt(price), 'tabular-nums', 'right')}</td>
                       <td className="p-2 text-right">{hasDiscount ? `${Math.round(getDiscountPercent(t))}%` : '—'}</td>
                       <td className="p-2 text-right font-semibold tabular-nums">{fmt(total)}</td>
@@ -902,11 +981,35 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                         />
                       </td>
                       <td className="p-1.5">
+                        {workshopEmployees.length > 0 ? (
+                          <select
+                            className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                            value={row.employee_id}
+                            onChange={e => updateTaskRow(idx, { employee_id: e.target.value })}
+                          >
+                            <option value="">—</option>
+                            {workshopEmployees.map((emp: any) => (
+                              <option key={emp.id} value={emp.id}>{emp.name}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <Input
+                            placeholder="Pracownik"
+                            value={row.mechanic}
+                            onChange={e => updateTaskRow(idx, { mechanic: e.target.value })}
+                            className="h-9 w-full text-sm min-w-0"
+                          />
+                        )}
+                      </td>
+                      <td className="p-1.5">
                         <Input
-                          placeholder="Pracownik"
-                          value={row.mechanic}
-                          onChange={e => updateTaskRow(idx, { mechanic: e.target.value })}
-                          className="h-9 w-full text-sm min-w-0"
+                          type="number"
+                          step="0.25"
+                          min="0"
+                          placeholder="0"
+                          value={row.labor_hours || ''}
+                          onChange={e => updateTaskRow(idx, { labor_hours: parseFloat(e.target.value) || 0 })}
+                          className="h-9 w-full text-sm text-center min-w-0"
                           onKeyDown={e => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
@@ -966,18 +1069,47 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                   );
                 })}
                 {/* Sum row */}
-                <tr className="bg-muted/30 font-semibold text-sm border-b">
-                  <td className="p-2"></td>
-                  <td className="p-2" colSpan={4}>Razem usługi</td>
-                  <td className="p-2 text-right tabular-nums">{fmt(displayTasksTotal)}</td>
-                  <td className="p-2"></td>
-                </tr>
+                {(() => {
+                  const totalLaborHours = tasks.reduce((s: number, t: any) => s + safeNumber(t.labor_hours), 0) + taskRows.reduce((s, r) => s + r.labor_hours, 0);
+                  const totalLaborCost = tasks.reduce((s: number, t: any) => s + safeNumber(t.labor_cost), 0);
+                  return (
+                    <>
+                      {totalLaborHours > 0 && (
+                        <tr className="bg-muted/20 text-sm border-b">
+                          <td className="p-2"></td>
+                          <td className="p-2" colSpan={5}>
+                            <span className="text-muted-foreground">Razem czas: <strong>{totalLaborHours.toFixed(2)} h</strong></span>
+                            {totalLaborCost > 0 && <span className="ml-4 text-muted-foreground">Koszt robocizny: <strong>{fmt(totalLaborCost)} zł</strong></span>}
+                          </td>
+                          <td className="p-2"></td>
+                          <td className="p-2"></td>
+                        </tr>
+                      )}
+                      <tr className="bg-muted/30 font-semibold text-sm border-b">
+                        <td className="p-2"></td>
+                        <td className="p-2" colSpan={5}>Razem usługi</td>
+                        <td className="p-2 text-right tabular-nums">{fmt(displayTasksTotal)}</td>
+                        <td className="p-2"></td>
+                      </tr>
+                    </>
+                  );
+                })()}
                 <tr className="bg-primary/5">
-                  <td colSpan={7} className="p-1.5">
+                  <td colSpan={8} className="p-1.5">
                     <div className="flex items-center gap-2">
                       <Button onClick={saveTaskDraftRows} variant="ghost" size="sm" className="gap-1 text-xs text-primary">
                         <Plus className="h-3.5 w-3.5" /> Dodaj usługę
                       </Button>
+                      {taskTemplates.length > 0 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5 h-7 text-xs"
+                          onClick={() => setTemplateModalOpen(true)}
+                        >
+                          <ClipboardList className="h-3.5 w-3.5" /> Dodaj z szablonu
+                        </Button>
+                      )}
                       {(tasks.length > 0 || taskRows.some(r => r.name.trim())) && ridoPriceSettings?.ai_suggestions_enabled !== false && (
                         <Button
                           variant="outline"

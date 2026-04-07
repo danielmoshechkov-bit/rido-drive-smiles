@@ -5560,6 +5560,36 @@ export type Database = {
           },
         ]
       }
+      checklist_items: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_required: boolean | null
+          item_type: string | null
+          label: string
+          sort_order: number | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_required?: boolean | null
+          item_type?: string | null
+          label: string
+          sort_order?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_required?: boolean | null
+          item_type?: string | null
+          label?: string
+          sort_order?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       cities: {
         Row: {
           created_at: string
@@ -12691,6 +12721,60 @@ export type Database = {
         }
         Relationships: []
       }
+      order_statuses: {
+        Row: {
+          color: string | null
+          created_at: string | null
+          id: string
+          is_default: boolean | null
+          name: string
+          sort_order: number | null
+          user_id: string | null
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string | null
+          id?: string
+          is_default?: boolean | null
+          name: string
+          sort_order?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          color?: string | null
+          created_at?: string | null
+          id?: string
+          is_default?: boolean | null
+          name?: string
+          sort_order?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      order_types: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       paid_service_subscriptions: {
         Row: {
           amount_paid: number | null
@@ -17343,6 +17427,39 @@ export type Database = {
         }
         Relationships: []
       }
+      task_templates: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          hours: number | null
+          id: string
+          is_active: boolean | null
+          name: string
+          price: number | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          hours?: number | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          price?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          hours?: number | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          price?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       tax_categories: {
         Row: {
           code: string
@@ -20210,8 +20327,11 @@ export type Database = {
         Row: {
           created_at: string | null
           discount_percent: number | null
+          employee_id: string | null
           id: string
           item_type: string | null
+          labor_cost: number | null
+          labor_hours: number | null
           mechanic: string | null
           name: string
           order_id: string
@@ -20228,8 +20348,11 @@ export type Database = {
         Insert: {
           created_at?: string | null
           discount_percent?: number | null
+          employee_id?: string | null
           id?: string
           item_type?: string | null
+          labor_cost?: number | null
+          labor_hours?: number | null
           mechanic?: string | null
           name: string
           order_id: string
@@ -20246,8 +20369,11 @@ export type Database = {
         Update: {
           created_at?: string | null
           discount_percent?: number | null
+          employee_id?: string | null
           id?: string
           item_type?: string | null
+          labor_cost?: number | null
+          labor_hours?: number | null
           mechanic?: string | null
           name?: string
           order_id?: string
@@ -20262,6 +20388,13 @@ export type Database = {
           unit_price_net?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "workshop_order_items_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "workshop_employees"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "workshop_order_items_order_id_fkey"
             columns: ["order_id"]
