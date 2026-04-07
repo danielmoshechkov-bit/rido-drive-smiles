@@ -981,11 +981,35 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                         />
                       </td>
                       <td className="p-1.5">
+                        {workshopEmployees.length > 0 ? (
+                          <select
+                            className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                            value={row.employee_id}
+                            onChange={e => updateTaskRow(idx, { employee_id: e.target.value })}
+                          >
+                            <option value="">—</option>
+                            {workshopEmployees.map((emp: any) => (
+                              <option key={emp.id} value={emp.id}>{emp.name}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <Input
+                            placeholder="Pracownik"
+                            value={row.mechanic}
+                            onChange={e => updateTaskRow(idx, { mechanic: e.target.value })}
+                            className="h-9 w-full text-sm min-w-0"
+                          />
+                        )}
+                      </td>
+                      <td className="p-1.5">
                         <Input
-                          placeholder="Pracownik"
-                          value={row.mechanic}
-                          onChange={e => updateTaskRow(idx, { mechanic: e.target.value })}
-                          className="h-9 w-full text-sm min-w-0"
+                          type="number"
+                          step="0.25"
+                          min="0"
+                          placeholder="0"
+                          value={row.labor_hours || ''}
+                          onChange={e => updateTaskRow(idx, { labor_hours: parseFloat(e.target.value) || 0 })}
+                          className="h-9 w-full text-sm text-center min-w-0"
                           onKeyDown={e => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
