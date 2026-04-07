@@ -445,6 +445,18 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
           </div>
         )}
 
+        {settingsTab === 'warsztat' && (
+          <WorkshopSettingsPage />
+        )}
+
+        {settingsTab === 'pracownicy' && (
+          <WorkshopEmployeesPage providerId={providerId} />
+        )}
+
+        {settingsTab === 'numeracja' && (
+          <DocumentNumberingPage />
+        )}
+
         {settingsTab === 'integracje' && (
           <div className="space-y-6">
             {providerId ? (
