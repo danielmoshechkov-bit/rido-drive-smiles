@@ -166,7 +166,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   const isTaskGross = taskPriceMode === 'gross';
   const isGoodsGross = goodsPriceMode === 'gross';
 
-  const createEmptyTask = (): TaskRow => ({ draftKey: crypto.randomUUID(), name: '', mechanic: '', quantity: 1, price_net: 0, price_gross: 0, cost_net: 0, cost_gross: 0, discount: 0, discountType: 'percent' });
+  const createEmptyTask = (): TaskRow => ({ draftKey: crypto.randomUUID(), name: '', mechanic: '', quantity: 1, price_net: 0, price_gross: 0, cost_net: 0, cost_gross: 0, discount: 0, discountType: 'percent', employee_id: '', labor_hours: 0 });
   const emptyTask: TaskRow = createEmptyTask();
   const [taskRows, setTaskRows] = useState<TaskRow[]>([{ ...emptyTask }]);
   const [taskSearch, setTaskSearch] = useState('');
