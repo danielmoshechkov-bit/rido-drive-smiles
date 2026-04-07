@@ -461,6 +461,14 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
           <WorkshopEmployeesPage providerId={providerId} />
         )}
 
+        {settingsTab === 'statusy' && <OrderStatusesPage />}
+
+        {settingsTab === 'rodzaje' && <OrderTypesPage />}
+
+        {settingsTab === 'szablony' && <TaskTemplatesPage />}
+
+        {settingsTab === 'listy-kontrolne' && <ChecklistItemsPage />}
+
         {settingsTab === 'numeracja' && (
           <DocumentNumberingPage />
         )}
