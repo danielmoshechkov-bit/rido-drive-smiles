@@ -913,7 +913,25 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           <div className="min-w-0 flex-1">{renderEditableCell(t, 'name', t.name)}</div>
                         </div>
                       </td>
-                      <td className="p-1 text-muted-foreground">{renderEditableCell(t, 'mechanic', t.mechanic || '—')}</td>
+                      <td className="p-1 text-muted-foreground">
+                        {workshopEmployees.length > 0 ? (
+                          <select
+                            className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                            value={t.employee_id || ''}
+                            onChange={async (e) => {
+                              await updateItem.mutateAsync({ id: t.id, employee_id: e.target.value || null });
+                            }}
+                          >
+                            <option value="">—</option>
+                            {workshopEmployees.map((emp: any) => (
+                              <option key={emp.id} value={emp.id}>{emp.name}</option>
+                            ))}
+                          </select>
+                        ) : renderEditableCell(t, 'mechanic', t.mechanic || '—')}
+                      </td>
+                      <td className="p-1 tabular-nums">
+                        {renderEditableCell(t, 'labor_hours', String(safeNumber(t.labor_hours) || '—'), 'tabular-nums', 'center')}
+                      </td>
                       <td className="p-1 tabular-nums">{renderEditableCell(t, 'price', fmt(price), 'tabular-nums', 'right')}</td>
                       <td className="p-2 text-right">{hasDiscount ? `${Math.round(getDiscountPercent(t))}%` : '—'}</td>
                       <td className="p-2 text-right font-semibold tabular-nums">{fmt(total)}</td>
