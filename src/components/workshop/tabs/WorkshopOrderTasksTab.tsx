@@ -564,6 +564,13 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       updates.unit_cost_gross = synced.gross;
     } else if (editingField === 'mechanic') {
       updates.mechanic = editingValue || null;
+    } else if (editingField === 'labor_hours') {
+      const hours = parseFloat(editingValue.replace(',', '.')) || 0;
+      updates.labor_hours = hours;
+      // Calculate labor cost: hours × employee rate or default rate
+      const emp = workshopEmployees.find((e: any) => e.id === item.employee_id);
+      const hourlyRate = emp?.salary ? emp.salary / 160 : (workshopSettings?.hourly_rate || 150);
+      updates.labor_cost = Math.round(hours * hourlyRate * 100) / 100;
     }
 
     await updateItem.mutateAsync({ id: editingItemId, ...updates });
