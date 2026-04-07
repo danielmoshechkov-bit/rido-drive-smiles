@@ -1158,8 +1158,8 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="p-3 rounded-lg border border-amber-200 bg-amber-50 text-sm text-amber-800">
-              ⚠ Faktura VAT marża — VAT nie jest wykazywany na dokumencie dla klienta. VAT liczony od marży (sprzedaż - zakup).
+            <div className="p-3 rounded-lg border border-primary/20 bg-primary/5 text-sm text-primary">
+              ⚠ Faktura VAT marża — VAT nie jest wykazywany na dokumencie dla klienta. VAT liczony od marży (sprzedaż - zakup) wg art. 120 ust. 4 ustawy o VAT.
             </div>
             <div className="grid grid-cols-2 gap-3">
               <FloatingInput
@@ -1201,7 +1201,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="p-3 rounded-lg border border-green-200 bg-green-50 text-sm text-green-800">
+            <div className="p-3 rounded-lg border border-primary/20 bg-primary/5 text-sm text-primary">
               Faktura VAT RR — wystawiana przez nabywcę produktów rolnych od rolnika ryczałtowego (art. 116 ustawy o VAT).
             </div>
             <div className="grid grid-cols-3 gap-3">
