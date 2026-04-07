@@ -909,9 +909,24 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
         </div>`}
         ` : ''}
         <div class="totals-row grand" style="background-color: ${themeColor} !important; color: #ffffff !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;">
-          <span style="color: #ffffff !important; font-weight: bold;">${isAdvance ? 'OTRZYMANO ZALICZKĘ:' : isVatRR ? 'DO WYPŁATY ROLNIKOWI:' : (isReceipt || isNota) ? 'RAZEM:' : 'DO ZAPŁATY:'}</span>
+          <span style="color: #ffffff !important; font-weight: bold;">${isAdvance ? 'OTRZYMANO ZALICZKĘ:' : isVatRR ? 'DO WYPŁATY ROLNIKOWI:' : isMargin ? 'KWOTA BRUTTO:' : (isReceipt || isNota) ? 'RAZEM:' : 'DO ZAPŁATY:'}</span>
           <span style="font-weight: bold; font-size: 13px; color: #ffffff !important;">${formatCurrency(isVatRR ? Math.round((netTotal + netTotal * (rrRate / 100)) * 100) / 100 : (isReceipt || isNota) ? netTotal : grossTotal, currency)}</span>
         </div>
+        ${isFinal && invoice.advance_data?.advance_amount ? `
+        <div class="totals-row" style="margin-top: 6px; border-top: 1px solid #ddd; padding-top: 6px;">
+          <span>Wpłacona zaliczka${invoice.advance_data.advance_invoice_number ? ` (FZ: ${invoice.advance_data.advance_invoice_number})` : ''}:</span>
+          <span style="font-weight: bold; color: #16a34a;">-${formatCurrency(invoice.advance_data.advance_amount, currency)}</span>
+        </div>
+        ${invoice.advance_data.advance_vat ? `
+        <div class="totals-row">
+          <span>w tym VAT z zaliczki:</span>
+          <span style="font-weight: bold; color: #16a34a;">-${formatCurrency(invoice.advance_data.advance_vat, currency)}</span>
+        </div>` : ''}
+        <div class="totals-row" style="background: #f0fdf4; padding: 4px 6px; border-radius: 3px;">
+          <span style="font-weight: bold;">Pozostało do zapłaty:</span>
+          <span style="font-weight: bold; color: ${themeColor};">${formatCurrency(grossTotal - (invoice.advance_data.advance_amount || 0), currency)}</span>
+        </div>
+        ` : ''}
         ${(invoice.paid_amount && invoice.paid_amount > 0) ? `
         <div class="totals-row" style="margin-top: 6px; border-top: 1px solid #ddd; padding-top: 6px;">
           <span>Zapłacono:</span>
