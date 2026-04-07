@@ -276,7 +276,7 @@ export function BankTransferExportDialog({
       const driverMap = new Map((driversData || []).map(d => [d.id, d]));
 
       const rows: DriverRow[] = settlements
-        .filter(s => s.final_payout > 0)
+        .filter(s => s.final_payout !== 0)
         .map(s => {
           const driver = driverMap.get(s.driver_id) as any;
           const existingIban = getCleanIban(driver);
