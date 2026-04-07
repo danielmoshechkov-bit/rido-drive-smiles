@@ -69,10 +69,12 @@ export const SMSIntegrationsPanel = () => {
     setSaving(true);
     try {
       const cleanSender = sanitizeSenderName(senderName || 'GetRido.pl') || 'GetRido.pl';
+      const selectedProvider = SMS_PROVIDERS.find(p => p.value === provider);
       
       const payload: Record<string, any> = {
         id: SINGLETON_ID,
         provider,
+        api_url: selectedProvider?.apiUrl || '',
         sender_name: cleanSender,
         is_active: isActive,
         updated_at: new Date().toISOString(),
@@ -82,6 +84,7 @@ export const SMSIntegrationsPanel = () => {
         payload.api_key = apiKey.trim();
       }
 
+      // Try upsert first, fallback to check-then-insert/update
       const { error } = await (supabase.from('sms_settings') as any).upsert(payload, {
         onConflict: 'id',
       });
