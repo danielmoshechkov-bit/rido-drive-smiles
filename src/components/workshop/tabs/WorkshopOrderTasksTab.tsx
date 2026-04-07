@@ -39,6 +39,8 @@ interface TaskRow {
   cost_gross: number;
   discount: number;
   discountType: DiscountType;
+  employee_id: string;
+  labor_hours: number;
 }
 
 interface GoodsRow {
