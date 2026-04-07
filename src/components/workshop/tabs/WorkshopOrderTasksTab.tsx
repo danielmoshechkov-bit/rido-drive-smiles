@@ -847,14 +847,15 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[980px] text-xs" style={{ tableLayout: 'fixed' }}>
+            <table className="w-full min-w-[1100px] text-xs" style={{ tableLayout: 'fixed' }}>
               <colgroup>
                 <col style={{ width: '40px' }} />
-                <col style={{ width: '34%' }} />
-                <col style={{ width: '180px' }} />
-                <col style={{ width: '116px' }} />
-                <col style={{ width: '132px' }} />
-                <col style={{ width: '116px' }} />
+                <col style={{ width: '28%' }} />
+                <col style={{ width: '150px' }} />
+                <col style={{ width: '80px' }} />
+                <col style={{ width: '100px' }} />
+                <col style={{ width: '110px' }} />
+                <col style={{ width: '100px' }} />
                 <col style={{ width: '56px' }} />
               </colgroup>
               <thead>
@@ -862,6 +863,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                   <th className="p-2 text-center font-medium text-muted-foreground">LP</th>
                   <th className="p-2 text-left text-[11px] font-medium text-muted-foreground">USŁUGA</th>
                   <th className="p-2 text-left text-[11px] font-medium text-muted-foreground">PRACOWNIK</th>
+                  <th className="p-2 text-center text-[11px] font-medium text-muted-foreground">CZAS [h]</th>
                   <th className="p-2 text-right text-[11px] font-medium text-muted-foreground">CENA</th>
                   <th className="p-2 text-right text-[11px] font-medium text-muted-foreground">RABAT</th>
                   <th className="p-2 text-right text-[11px] font-medium text-muted-foreground">PO RABACIE</th>
