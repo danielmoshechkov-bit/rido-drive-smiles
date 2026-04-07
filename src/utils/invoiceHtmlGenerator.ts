@@ -433,49 +433,28 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     vatSummary[rate].gross += item.gross_amount;
   });
 
-  // Determine theme colors based on invoice type
-  let themeColor = '#7c3aed'; // default purple
-  let themeColorLight = '#f8f5ff';
-  let themeColorBorder = '#ede9fe';
+  // Unified theme colors — all invoice types use the same purple brand color
+  const themeColor = '#7c3aed';
+  const themeColorLight = '#f8f5ff';
+  const themeColorBorder = '#ede9fe';
   let invoiceTitle = 'Faktura VAT';
   let footerNote = '';
 
   if (isReceipt) {
-    themeColor = '#2563eb';
-    themeColorLight = '#eff6ff';
-    themeColorBorder = '#bfdbfe';
     invoiceTitle = 'RACHUNEK';
-    footerNote = '';
   } else if (isNota) {
-    themeColor = '#64748b';
-    themeColorLight = '#f1f5f9';
-    themeColorBorder = '#cbd5e1';
     invoiceTitle = 'NOTA KSIĘGOWA';
-    footerNote = '';
   } else if (isVatRR) {
-    themeColor = '#15803d';
-    themeColorLight = '#f0fdf4';
-    themeColorBorder = '#bbf7d0';
     invoiceTitle = 'FAKTURA VAT RR';
     const rrRate = invoice.vat_rr_data?.flat_rate_percent || 7;
     footerNote = `Faktura VAT RR wystawiona na podstawie art. 116 ustawy z dnia 11 marca 2004 r. o podatku od towarów i usług. Zryczałtowany zwrot VAT: ${rrRate}%.`;
   } else if (isProforma) {
-    themeColor = '#7c3aed';
-    themeColorLight = '#f8f5ff';
-    themeColorBorder = '#ede9fe';
     invoiceTitle = 'FAKTURA PROFORMA';
     footerNote = 'Dokument nie jest fakturą VAT w rozumieniu ustawy o podatku od towarów i usług. Nie stanowi podstawy do odliczenia VAT.';
   } else if (isAdvance) {
-    themeColor = '#1D9E75';
-    themeColorLight = '#E1F5EE';
-    themeColorBorder = '#9FE1CB';
     invoiceTitle = 'FAKTURA ZALICZKOWA';
-    footerNote = 'Faktura zaliczkowa wystawiona zgodnie z art. 106b ust. 1 pkt 4 ustawy z dnia 11 marca 2004 r. o podatku od towarów i usług.';
+    footerNote = 'Faktura zaliczkowa wystawiona zgodnie z art. 106f ust. 1 ustawy z dnia 11 marca 2004 r. o podatku od towarów i usług. Kwota brutto obejmuje otrzymaną zaliczkę.';
   } else if (isMargin) {
-    themeColor = '#BA7517';
-    themeColorLight = '#FAEEDA';
-    themeColorBorder = '#FAC775';
-    invoiceTitle = 'FAKTURA VAT MARŻA';
     const procedureLabels: Record<string, string> = {
       'used_goods': 'towarów używanych — art. 120 ust. 4',
       'tourism': 'usług turystycznych — art. 119',
@@ -483,17 +462,16 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
       'antiques': 'przedmiotów kolekcjonerskich i antyków — art. 120 ust. 4',
     };
     const procLabel = procedureLabels[invoice.margin_procedure_type || 'used_goods'] || 'towarów używanych — art. 120 ust. 4';
+    invoiceTitle = 'FAKTURA VAT MARŻA';
     footerNote = `Procedura marży dla ${procLabel} ustawy z dnia 11 marca 2004 r. o podatku od towarów i usług. Podatek VAT nie jest wykazywany na fakturze.`;
   } else if (isSimplified) {
-    themeColor = '#444441';
-    themeColorLight = '#f5f5f4';
-    themeColorBorder = '#d4d4d4';
     invoiceTitle = 'FAKTURA UPROSZCZONA';
-    footerNote = 'Faktura uproszczona wystawiona zgodnie z art. 106e ust. 5 pkt 3 ustawy z dnia 11 marca 2004 r. o podatku od towarów i usług.';
+    footerNote = 'Faktura uproszczona wystawiona zgodnie z art. 106e ust. 5 pkt 3 ustawy z dnia 11 marca 2004 r. o podatku od towarów i usług. Kwota należności ogółem zawiera kwotę podatku.';
   } else if (isCorrection) {
     invoiceTitle = 'FAKTURA KORYGUJĄCA';
   } else if (isFinal) {
     invoiceTitle = 'FAKTURA VAT (ROZLICZENIE ZALICZKI)';
+    footerNote = 'Faktura rozliczająca zaliczkę wystawiona zgodnie z art. 106f ust. 3 ustawy z dnia 11 marca 2004 r. o podatku od towarów i usług.';
   }
   
   const cellPadding = compact_pdf ? '2px 4px' : '4px 6px';
@@ -931,9 +909,24 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
         </div>`}
         ` : ''}
         <div class="totals-row grand" style="background-color: ${themeColor} !important; color: #ffffff !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;">
-          <span style="color: #ffffff !important; font-weight: bold;">${isAdvance ? 'OTRZYMANO ZALICZKĘ:' : isVatRR ? 'DO WYPŁATY ROLNIKOWI:' : (isReceipt || isNota) ? 'RAZEM:' : 'DO ZAPŁATY:'}</span>
+          <span style="color: #ffffff !important; font-weight: bold;">${isAdvance ? 'OTRZYMANO ZALICZKĘ:' : isVatRR ? 'DO WYPŁATY ROLNIKOWI:' : isMargin ? 'KWOTA BRUTTO:' : (isReceipt || isNota) ? 'RAZEM:' : 'DO ZAPŁATY:'}</span>
           <span style="font-weight: bold; font-size: 13px; color: #ffffff !important;">${formatCurrency(isVatRR ? Math.round((netTotal + netTotal * (rrRate / 100)) * 100) / 100 : (isReceipt || isNota) ? netTotal : grossTotal, currency)}</span>
         </div>
+        ${isFinal && invoice.advance_data?.advance_amount ? `
+        <div class="totals-row" style="margin-top: 6px; border-top: 1px solid #ddd; padding-top: 6px;">
+          <span>Wpłacona zaliczka${invoice.advance_data.advance_invoice_number ? ` (FZ: ${invoice.advance_data.advance_invoice_number})` : ''}:</span>
+          <span style="font-weight: bold; color: #16a34a;">-${formatCurrency(invoice.advance_data.advance_amount, currency)}</span>
+        </div>
+        ${invoice.advance_data.advance_vat ? `
+        <div class="totals-row">
+          <span>w tym VAT z zaliczki:</span>
+          <span style="font-weight: bold; color: #16a34a;">-${formatCurrency(invoice.advance_data.advance_vat, currency)}</span>
+        </div>` : ''}
+        <div class="totals-row" style="background: #f0fdf4; padding: 4px 6px; border-radius: 3px;">
+          <span style="font-weight: bold;">Pozostało do zapłaty:</span>
+          <span style="font-weight: bold; color: ${themeColor};">${formatCurrency(grossTotal - (invoice.advance_data.advance_amount || 0), currency)}</span>
+        </div>
+        ` : ''}
         ${(invoice.paid_amount && invoice.paid_amount > 0) ? `
         <div class="totals-row" style="margin-top: 6px; border-top: 1px solid #ddd; padding-top: 6px;">
           <span>Zapłacono:</span>

@@ -176,6 +176,12 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
   const [farmerIdNumber, setFarmerIdNumber] = useState('');
   const [flatRatePercent, setFlatRatePercent] = useState<number>(7);
   
+  // Advance/Final invoice fields
+  const [advanceInvoiceNumber, setAdvanceInvoiceNumber] = useState('');
+  const [advanceInvoiceDate, setAdvanceInvoiceDate] = useState('');
+  const [advanceAmount, setAdvanceAmount] = useState<number>(0);
+  const [advanceVat, setAdvanceVat] = useState<number>(0);
+
   // Computed: which type-specific features are active
   const isNoVatType = ['receipt', 'nota'].includes(invoiceType);
   const isMarginType = invoiceType === 'vat_margin' || invoiceType === 'margin';
@@ -685,6 +691,13 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
         farmer_id_number: farmerIdNumber || undefined,
         flat_rate_percent: flatRatePercent,
       } : undefined,
+      // Advance/Final data
+      advance_data: invoiceType === 'final' && advanceAmount > 0 ? {
+        advance_invoice_number: advanceInvoiceNumber || undefined,
+        advance_invoice_date: advanceInvoiceDate || undefined,
+        advance_amount: advanceAmount,
+        advance_vat: advanceVat || undefined,
+      } : undefined,
     };
   };
 
@@ -1158,8 +1171,8 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="p-3 rounded-lg border border-amber-200 bg-amber-50 text-sm text-amber-800">
-              ⚠ Faktura VAT marża — VAT nie jest wykazywany na dokumencie dla klienta. VAT liczony od marży (sprzedaż - zakup).
+            <div className="p-3 rounded-lg border border-primary/20 bg-primary/5 text-sm text-primary">
+              ⚠ Faktura VAT marża — VAT nie jest wykazywany na dokumencie dla klienta. VAT liczony od marży (sprzedaż - zakup) wg art. 120 ust. 4 ustawy o VAT.
             </div>
             <div className="grid grid-cols-2 gap-3">
               <FloatingInput
@@ -1201,7 +1214,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="p-3 rounded-lg border border-green-200 bg-green-50 text-sm text-green-800">
+            <div className="p-3 rounded-lg border border-primary/20 bg-primary/5 text-sm text-primary">
               Faktura VAT RR — wystawiana przez nabywcę produktów rolnych od rolnika ryczałtowego (art. 116 ustawy o VAT).
             </div>
             <div className="grid grid-cols-3 gap-3">
@@ -1229,6 +1242,78 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
           </CardContent>
         </Card>
       )}
+
+      {/* Advance invoice info */}
+      {invoiceType === 'advance' && (
+        <Card>
+          <CardContent className="pt-4">
+            <div className="p-3 rounded-lg border border-primary/20 bg-primary/5 text-sm text-primary">
+              📋 Faktura zaliczkowa (art. 106f ustawy o VAT) — dokumentuje otrzymaną zaliczkę na poczet przyszłej dostawy towarów lub usług. 
+              W pozycji wpisz opis zamówienia/usługi, na którą przyjmujesz zaliczkę. Kwota brutto = otrzymana zaliczka.
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Final (settlement) invoice - advance deduction fields */}
+      {invoiceType === 'final' && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Calculator className="h-4 w-4" />
+              Rozliczenie zaliczki (art. 106f ust. 3)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="p-3 rounded-lg border border-primary/20 bg-primary/5 text-sm text-primary">
+              Faktura rozliczająca pomniejsza kwotę brutto o wcześniej wpłacone zaliczki. Wpisz dane faktury zaliczkowej i kwotę wpłaconej zaliczki.
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <FloatingInput
+                label="Nr faktury zaliczkowej"
+                value={advanceInvoiceNumber}
+                onChange={(e) => setAdvanceInvoiceNumber(e.target.value)}
+                placeholder="FZ/2026/04/001"
+              />
+              <FloatingInput
+                label="Data faktury zaliczkowej"
+                type="date"
+                value={advanceInvoiceDate}
+                onChange={(e) => setAdvanceInvoiceDate(e.target.value)}
+              />
+              <FloatingInput
+                label="Kwota zaliczki brutto"
+                type="number"
+                min={0}
+                step={0.01}
+                value={advanceAmount || ''}
+                onChange={(e) => setAdvanceAmount(parseFloat(e.target.value) || 0)}
+              />
+              <FloatingInput
+                label="VAT z zaliczki"
+                type="number"
+                min={0}
+                step={0.01}
+                value={advanceVat || ''}
+                onChange={(e) => setAdvanceVat(parseFloat(e.target.value) || 0)}
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Simplified invoice warning */}
+      {invoiceType === 'simplified' && (
+        <Card>
+          <CardContent className="pt-4">
+            <div className="p-3 rounded-lg border border-primary/20 bg-primary/5 text-sm text-primary">
+              📋 Faktura uproszczona (art. 106e ust. 5 pkt 3) — dozwolona gdy kwota należności nie przekracza 450 PLN (lub 100 EUR). 
+              Wystarczy NIP nabywcy — pełna nazwa i adres są opcjonalne. Kwota brutto zawiera podatek VAT.
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Seller Section - Collapsible */}
       <Card>
         <CardHeader 
