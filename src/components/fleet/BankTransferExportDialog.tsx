@@ -608,11 +608,14 @@ export function BankTransferExportDialog({
       {showModeSelector && (
         <Select
           value={row.paymentMode}
-          onValueChange={(v: DriverRow['paymentMode']) => {
+          onValueChange={async (v: DriverRow['paymentMode']) => {
             updateDriverRow(row.id, {
               paymentMode: v,
               selected: false,
             });
+            // Persist payment method permanently
+            const dbMethod = v === 'cash' ? 'cash' : v === 'fleet' ? 'fleet' : 'transfer';
+            await supabase.from('drivers').update({ payment_method: dbMethod } as any).eq('id', row.id);
           }}
         >
           <SelectTrigger className="h-7 w-[100px] text-xs">
