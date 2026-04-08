@@ -229,9 +229,19 @@ Deno.serve(async (req) => {
         })
         .filter(Boolean);
 
+      // CRITICAL: Insert carry-over settlements SEPARATELY with ignoreDuplicates: true
+      // to NEVER overwrite existing settlements that have real CSV data
       if (carryOverSettlements.length > 0) {
-        console.log(`↪️ Added ${carryOverSettlements.length} debt carry-over settlements for inactive drivers`);
-        settlementsToInsert = [...settlementsToInsert, ...carryOverSettlements];
+        console.log(`↪️ Inserting ${carryOverSettlements.length} debt carry-over settlements (ignoreDuplicates=true)`);
+        const { error: carryErr } = await supabase
+          .from('settlements')
+          .upsert(carryOverSettlements, { 
+            onConflict: 'driver_id,period_from,period_to',
+            ignoreDuplicates: true 
+          });
+        if (carryErr) {
+          console.error('⚠️ Carry-over upsert error (non-fatal):', carryErr);
+        }
       }
     }
   }
