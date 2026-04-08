@@ -1780,19 +1780,16 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         // Parsuj amounts JSONB - obsługuj NOWE klucze snake_case z bazy oraz STARE camelCase z CSV importu
         const uber_base = driverSettlements.reduce((sum, s) => {
           const amounts = s.amounts as any || {};
-          // Nowy format: uber_base, stary: uber, uberBase, uberCashless
           const uber = parseFloat(amounts.uber_base || amounts.uber || amounts.uberBase || amounts.uberCashless || '0');
           return sum + uber;
         }, 0);
 
         const bolt_base = driverSettlements.reduce((sum, s) => {
           const amounts = s.amounts as any || {};
-          // Nowy format: bolt_projected_d, stary: boltGross
-          // Jeśli bolt_projected_d = 0 ale bolt_payout_s != 0, użyj bolt_payout_s jako base
-          // (np. kierowca ma tylko opłaty Bolt bez kursów = -6.77)
-          let bolt = parseFloat(amounts.bolt_projected_d || amounts.boltGross || '0');
+          // Support restored Bolt rows that were temporarily saved with legacy recovery keys
+          let bolt = parseFloat(amounts.bolt_projected_d || amounts.boltGross || amounts.bolt_total_gross || '0');
           if (bolt === 0) {
-            const boltPayout = parseFloat(amounts.bolt_payout_s || '0');
+            const boltPayout = parseFloat(amounts.bolt_payout_s || amounts.bolt_payout || '0');
             if (boltPayout !== 0) {
               bolt = boltPayout;
             }
@@ -1802,12 +1799,10 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
         const freenow_base = driverSettlements.reduce((sum, s) => {
           const amounts = s.amounts as any || {};
-          // Nowy format: freenow_base_s, stary: freenowGross
           const freenow = parseFloat(amounts.freenow_base_s || amounts.freenowGross || '0');
           return sum + freenow;
         }, 0);
 
-        // Aggregate commission per platform
         const uber_commission = driverSettlements.reduce((sum, s) => {
           const amounts = s.amounts as any || {};
           return sum + parseFloat(amounts.uber_commission || amounts.uberCommission || '0');
@@ -1825,7 +1820,6 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
         const total_commission = uber_commission + bolt_commission + freenow_commission;
 
-        // Aggregate cash per platform
         const uber_cash = driverSettlements.reduce((sum, s) => {
           const amounts = s.amounts as any || {};
           return sum + parseFloat(amounts.uber_cash_f || amounts.uberCash || '0');
@@ -1833,7 +1827,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
         const bolt_cash = driverSettlements.reduce((sum, s) => {
           const amounts = s.amounts as any || {};
-          return sum + parseFloat(amounts.bolt_cash || amounts.boltCash || '0');
+          return sum + parseFloat(amounts.bolt_cash || amounts.boltCash || amounts.bolt_cash_collected || '0');
         }, 0);
 
         const freenow_cash = driverSettlements.reduce((sum, s) => {
