@@ -29,9 +29,11 @@ const smsTemplates = {
     return removePl(`Zlecenie serwisowe ${v} zostalo przyjete. Szczegoly i akceptacja: ${link}`);
   },
   quote: (order: any, link: string) =>
-    `Witaj,\n\nKosztorys dla zlecenia ${order.order_number} jest gotowy do akceptacji.\n\n${link}\n\nProsimy o zatwierdzenie kosztorysu.`,
-  ready: (order: any, link: string) =>
-    `Witaj,\n\nTwój pojazd ${order.vehicle?.brand || ''} ${order.vehicle?.model || ''} ${order.vehicle?.plate || ''} jest gotowy do odbioru.\n\nZapraszamy!\n\n${link}`,
+    removePl(`Kosztorys dla zlecenia ${order.order_number} jest gotowy. Prosimy o akceptacje: ${link}`),
+  ready: (order: any, link: string) => {
+    const v = `${order.vehicle?.brand || ''} ${order.vehicle?.model || ''} ${order.vehicle?.plate || ''}`.trim();
+    return removePl(`${v} - naprawa zakonczona, pojazd gotowy do odbioru. Szczegoly: ${link}`);
+  },
 };
 
 export function WorkshopSmsDialog({ open, onOpenChange, order, type }: Props) {
