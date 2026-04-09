@@ -3538,7 +3538,14 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                               className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors border border-transparent hover:border-border"
                               title="Dodaj opłatę lub wpłatę dla tego kierowcy"
                               onClick={() => {
-                                setChargeDriver({ id: settlement.driver_id, name: settlement.driver_name });
+                                setChargeDriver({
+                                  id: settlement.driver_id,
+                                  name: settlement.driver_name,
+                                  settlementId: settlement.settlement_id,
+                                  rawPayout: settlement.final_payout,
+                                  payoutWithoutRental: settlement.final_payout + (settlement.rental || 0),
+                                  rental: settlement.rental || 0,
+                                });
                                 setChargeModalOpen(true);
                               }}
                             >
@@ -3969,6 +3976,10 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           driverName={chargeDriver.name}
           periodFrom={currentWeek?.start}
           periodTo={currentWeek?.end}
+          settlementId={chargeDriver.settlementId}
+          currentRawPayout={chargeDriver.rawPayout}
+          currentPayoutWithoutRental={chargeDriver.payoutWithoutRental}
+          currentRental={chargeDriver.rental}
           onComplete={() => {
             fetchSettlements();
           }}
