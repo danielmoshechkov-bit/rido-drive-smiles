@@ -20595,9 +20595,14 @@ export type Database = {
           reception_protocol: boolean | null
           registration_document: boolean | null
           return_parts_to_client: boolean | null
+          scheduled_date: string | null
           scheduled_end: string | null
           scheduled_start: string | null
+          scheduled_station: string | null
           scheduled_station_id: string | null
+          sms_confirmed: boolean | null
+          sms_reminder_24h: boolean | null
+          sms_reminder_2h: boolean | null
           sms_sent_count: number | null
           start_date: string | null
           status_id: string | null
@@ -20638,9 +20643,14 @@ export type Database = {
           reception_protocol?: boolean | null
           registration_document?: boolean | null
           return_parts_to_client?: boolean | null
+          scheduled_date?: string | null
           scheduled_end?: string | null
           scheduled_start?: string | null
+          scheduled_station?: string | null
           scheduled_station_id?: string | null
+          sms_confirmed?: boolean | null
+          sms_reminder_24h?: boolean | null
+          sms_reminder_2h?: boolean | null
           sms_sent_count?: number | null
           start_date?: string | null
           status_id?: string | null
@@ -20681,9 +20691,14 @@ export type Database = {
           reception_protocol?: boolean | null
           registration_document?: boolean | null
           return_parts_to_client?: boolean | null
+          scheduled_date?: string | null
           scheduled_end?: string | null
           scheduled_start?: string | null
+          scheduled_station?: string | null
           scheduled_station_id?: string | null
+          sms_confirmed?: boolean | null
+          sms_reminder_24h?: boolean | null
+          sms_reminder_2h?: boolean | null
           sms_sent_count?: number | null
           start_date?: string | null
           status_id?: string | null
