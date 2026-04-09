@@ -55,7 +55,9 @@ Deno.serve(async (req) => {
         }, { onConflict: 'driver_id' });
     }
 
-    // 4. Reset debt snapshots on all settlements (keep settlements but clear debt history)
+    // 4. Reset ALL debt snapshots AND actual_payout on settlements
+    // CRITICAL: actual_payout must also be zeroed, otherwise splitDebtByWeek
+    // reconstructs phantom debts from deriveRawPayoutFromSnapshot()
     for (const driverId of driverIds) {
       await supabase
         .from('settlements')
@@ -63,6 +65,7 @@ Deno.serve(async (req) => {
           debt_before: 0,
           debt_after: 0,
           debt_payment: 0,
+          actual_payout: 0,
         })
         .eq('driver_id', driverId);
     }
