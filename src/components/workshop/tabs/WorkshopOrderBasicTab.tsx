@@ -7,7 +7,9 @@ import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useUpdateWorkshopOrder } from '@/hooks/useWorkshop';
-import { Car, Users, Save, Camera } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { Car, Users, Save, Camera, Calendar, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Props {
@@ -19,6 +21,21 @@ const fuelLevels = ['Rezerwa', '1/4', '1/2', '3/4', 'Pełny'];
 
 export function WorkshopOrderBasicTab({ order, providerId }: Props) {
   const updateOrder = useUpdateWorkshopOrder();
+
+  // Load workshop stations
+  const { data: stations = [] } = useQuery({
+    queryKey: ['workshop-stations', providerId],
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from('workshop_stations')
+        .select('*')
+        .eq('provider_id', providerId)
+        .eq('is_active', true)
+        .order('sort_order');
+      return data || [];
+    },
+    enabled: !!providerId,
+  });
 
   const [form, setForm] = useState({
     mileage: order.mileage || '',
@@ -36,6 +53,10 @@ export function WorkshopOrderBasicTab({ order, providerId }: Props) {
     test_drive_consent: order.test_drive_consent ?? true,
     top_up_fluids: order.top_up_fluids || false,
     top_up_lights: order.top_up_lights || false,
+    scheduled_date: order.scheduled_date ? order.scheduled_date.slice(0, 16) : '',
+    scheduled_station: order.scheduled_station || '',
+    sms_reminder_24h: order.sms_reminder_24h ?? true,
+    sms_reminder_2h: order.sms_reminder_2h ?? true,
   });
 
   const set = (key: string, val: any) => setForm(p => ({ ...p, [key]: val }));
@@ -58,6 +79,10 @@ export function WorkshopOrderBasicTab({ order, providerId }: Props) {
       test_drive_consent: form.test_drive_consent,
       top_up_fluids: form.top_up_fluids,
       top_up_lights: form.top_up_lights,
+      scheduled_date: form.scheduled_date ? new Date(form.scheduled_date).toISOString() : null,
+      scheduled_station: form.scheduled_station || null,
+      sms_reminder_24h: form.sms_reminder_24h,
+      sms_reminder_2h: form.sms_reminder_2h,
     });
     toast.success('Zlecenie zaktualizowane');
   };
