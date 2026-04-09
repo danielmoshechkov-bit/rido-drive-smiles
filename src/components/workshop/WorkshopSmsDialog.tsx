@@ -15,13 +15,25 @@ interface Props {
   type: 'reception' | 'quote' | 'ready';
 }
 
+function removePl(s: string): string {
+  const m: Record<string, string> = {
+    'ą':'a','ć':'c','ę':'e','ł':'l','ń':'n','ó':'o','ś':'s','ź':'z','ż':'z',
+    'Ą':'A','Ć':'C','Ę':'E','Ł':'L','Ń':'N','Ó':'O','Ś':'S','Ź':'Z','Ż':'Z',
+  };
+  return s.replace(/[ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/g, c => m[c] || c);
+}
+
 const smsTemplates = {
-  reception: (order: any, link: string) =>
-    `Witaj,\n\nPoniżej karta zlecenia dla ${order.vehicle?.brand || ''} ${order.vehicle?.model || ''} ${order.vehicle?.plate || ''}.\n\n${link}\n\nCzekamy na potwierdzenie`,
+  reception: (order: any, link: string) => {
+    const v = `${order.vehicle?.brand || ''} ${order.vehicle?.model || ''} ${order.vehicle?.plate || ''}`.trim();
+    return removePl(`Zlecenie serwisowe ${v} zostalo przyjete. Szczegoly i akceptacja: ${link}`);
+  },
   quote: (order: any, link: string) =>
-    `Witaj,\n\nKosztorys dla zlecenia ${order.order_number} jest gotowy do akceptacji.\n\n${link}\n\nProsimy o zatwierdzenie kosztorysu.`,
-  ready: (order: any, link: string) =>
-    `Witaj,\n\nTwój pojazd ${order.vehicle?.brand || ''} ${order.vehicle?.model || ''} ${order.vehicle?.plate || ''} jest gotowy do odbioru.\n\nZapraszamy!\n\n${link}`,
+    removePl(`Kosztorys dla zlecenia ${order.order_number} jest gotowy. Prosimy o akceptacje: ${link}`),
+  ready: (order: any, link: string) => {
+    const v = `${order.vehicle?.brand || ''} ${order.vehicle?.model || ''} ${order.vehicle?.plate || ''}`.trim();
+    return removePl(`${v} - naprawa zakonczona, pojazd gotowy do odbioru. Szczegoly: ${link}`);
+  },
 };
 
 export function WorkshopSmsDialog({ open, onOpenChange, order, type }: Props) {
