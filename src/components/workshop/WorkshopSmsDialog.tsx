@@ -50,6 +50,14 @@ export function WorkshopSmsDialog({ open, onOpenChange, order, type }: Props) {
   const [message, setMessage] = useState(smsTemplates[type](order, clientLink));
   const [sending, setSending] = useState(false);
 
+  // Reset message when dialog opens or type changes
+  useEffect(() => {
+    if (open) {
+      setMessage(smsTemplates[type](order, clientLink));
+      setPhone(order.client?.phone || '');
+    }
+  }, [open, type]);
+
   const smsCount = Math.ceil(message.length / 160);
   const charsLeft = (smsCount * 160) - message.length;
 
