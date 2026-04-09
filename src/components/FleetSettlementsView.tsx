@@ -171,7 +171,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const [editingCell, setEditingCell] = useState<{ driverId: string; field: string; index?: number } | null>(null);
   const [editValue, setEditValue] = useState('');
   const [chargeModalOpen, setChargeModalOpen] = useState(false);
-  const [chargeDriver, setChargeDriver] = useState<{id: string, name: string} | null>(null);
+  const [chargeDriver, setChargeDriver] = useState<{id: string, name: string, settlementId?: string, rawPayout?: number, payoutWithoutRental?: number, rental?: number} | null>(null);
   // Info popover is now inline - no separate state needed
   // Payment status tracking (green check = paid, red X = unpaid)
   const [paidDrivers, setPaidDrivers] = useState<Set<string>>(new Set());
