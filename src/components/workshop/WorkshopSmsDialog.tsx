@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Send, MessageSquare } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface Props {
   open: boolean;
@@ -23,6 +24,22 @@ function removePl(s: string): string {
   return s.replace(/[ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/g, c => m[c] || c);
 }
 
+function toLocalPhone(raw: string): string {
+  let digits = raw.replace(/\D/g, '');
+  if (digits.startsWith('0048')) digits = digits.substring(2);
+  while (digits.startsWith('4848')) digits = digits.substring(2);
+  if (digits.startsWith('48') && digits.length >= 11) return digits.slice(-9);
+  if (digits.startsWith('0') && digits.length >= 10) return digits.slice(-9);
+  return digits;
+}
+
+function toSmsPhone(raw: string): string {
+  const local = toLocalPhone(raw);
+  if (local.length === 9) return `+48${local}`;
+  const digits = raw.replace(/\D/g, '');
+  return digits.startsWith('48') ? `+${digits}` : raw;
+}
+
 const smsTemplates = {
   reception: (order: any, link: string) => {
     const v = `${order.vehicle?.brand || ''} ${order.vehicle?.model || ''} ${order.vehicle?.plate || ''}`.trim();
@@ -37,6 +54,7 @@ const smsTemplates = {
 };
 
 export function WorkshopSmsDialog({ open, onOpenChange, order, type }: Props) {
+  const qc = useQueryClient();
   const clientName = order.client
     ? order.client.client_type === 'company'
       ? order.client.company_name
@@ -46,7 +64,7 @@ export function WorkshopSmsDialog({ open, onOpenChange, order, type }: Props) {
   const clientPhone = order.client?.phone || '';
   const clientLink = `${window.location.origin}/warsztat/klient/${order.client_code}`;
   
-  const [phone, setPhone] = useState(clientPhone);
+  const [phone, setPhone] = useState(toLocalPhone(clientPhone));
   const [message, setMessage] = useState(smsTemplates[type](order, clientLink));
   const [sending, setSending] = useState(false);
 
@@ -54,7 +72,7 @@ export function WorkshopSmsDialog({ open, onOpenChange, order, type }: Props) {
   useEffect(() => {
     if (open) {
       setMessage(smsTemplates[type](order, clientLink));
-      setPhone(order.client?.phone || '');
+      setPhone(toLocalPhone(order.client?.phone || ''));
     }
   }, [open, type]);
 
@@ -68,12 +86,18 @@ export function WorkshopSmsDialog({ open, onOpenChange, order, type }: Props) {
     }
     setSending(true);
     try {
+      const smsPhone = toSmsPhone(phone);
+      if (!smsPhone || smsPhone === phone) {
+        throw new Error('Nieprawidłowy numer telefonu');
+      }
+
       const { error } = await supabase.functions.invoke('workshop-send-sms', {
         body: {
-          phone: phone.startsWith('+48') ? phone : `+48${phone}`,
+          phone: smsPhone,
           message,
           order_id: order.id,
           sms_type: type,
+          provider_id: order.provider_id,
         },
       });
       if (error) throw error;
@@ -87,6 +111,7 @@ export function WorkshopSmsDialog({ open, onOpenChange, order, type }: Props) {
       }
       
       await (supabase as any).from('workshop_orders').update(updates).eq('id', order.id);
+      await qc.invalidateQueries({ queryKey: ['sms-credits'] });
       
       toast.success('SMS wysłany do klienta');
       onOpenChange(false);
