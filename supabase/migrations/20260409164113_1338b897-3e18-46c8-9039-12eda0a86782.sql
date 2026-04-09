@@ -1,0 +1,1 @@
+DELETE FROM public.settlements WHERE period_from = '2026-03-23' AND period_to = '2026-03-29';
