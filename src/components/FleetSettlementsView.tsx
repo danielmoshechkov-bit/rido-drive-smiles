@@ -1437,6 +1437,41 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       setFleetSecondaryVatRateState(fleetSecondaryVatRate);
       setFleetAdditionalPercentRateState(fleetAdditionalPercentRate);
 
+      // Fetch city-specific overrides for this fleet
+      const { data: citySettingsData } = await supabase
+        .from('fleet_city_settings' as any)
+        .select('*')
+        .eq('fleet_id', fleetId)
+        .eq('is_active', true);
+
+      // Build city settings map: city_name -> merged settings (take most specific per platform)
+      const citySettingsMap = new Map<string, {
+        vat_rate: number;
+        settlement_mode: string;
+        secondary_vat_rate: number;
+        additional_percent_rate: number;
+        base_fee: number;
+      }>();
+      if (citySettingsData) {
+        const byCityName = new Map<string, any[]>();
+        (citySettingsData as any[]).forEach((cs: any) => {
+          const existing = byCityName.get(cs.city_name) || [];
+          existing.push(cs);
+          byCityName.set(cs.city_name, existing);
+        });
+        byCityName.forEach((entries, cityName) => {
+          // Merge: prefer bolt settings for settlement_mode (dual_tax), otherwise first entry
+          const boltEntry = entries.find((e: any) => e.platform === 'bolt') || entries[0];
+          citySettingsMap.set(cityName, {
+            vat_rate: boltEntry.vat_rate ?? fleetVatRate,
+            settlement_mode: boltEntry.settlement_mode ?? fleetSettlementMode,
+            secondary_vat_rate: boltEntry.secondary_vat_rate ?? fleetSecondaryVatRate,
+            additional_percent_rate: boltEntry.additional_percent_rate ?? fleetAdditionalPercentRate,
+            base_fee: boltEntry.base_fee ?? fleetBaseFee,
+          });
+        });
+      }
+
       // Fetch active fleet settlement fees
       const { data: fleetFeesData } = await supabase
         .from('fleet_settlement_fees' as any)
@@ -2014,7 +2049,16 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                          || driverInfo.billing_method === 'b2b' 
                          || driverInfo.b2b_enabled === true;
         const isB2BVatPayer = isB2BDriver && (driverInfo.b2b_vat_payer === true || b2bProfile?.vat_payer === true);
-        const effectiveVatRate = isB2BVatPayer ? 0 : fleetVatRate;
+        // Look up city-specific settings for this driver
+        const driverCityId = (driver as any).city_id;
+        const driverCityName = cities.find(c => c.id === driverCityId)?.name || '';
+        const driverCitySettings = citySettingsMap.get(driverCityName);
+        const driverVatRate = driverCitySettings?.vat_rate ?? fleetVatRate;
+        const driverSettlementMode = driverCitySettings?.settlement_mode ?? fleetSettlementMode;
+        const driverSecondaryVatRate = driverCitySettings?.secondary_vat_rate ?? fleetSecondaryVatRate;
+        const driverAdditionalPercentRate = driverCitySettings?.additional_percent_rate ?? fleetAdditionalPercentRate;
+        const driverBaseFee = driverCitySettings?.base_fee ?? fleetBaseFee;
+        const effectiveVatRate = isB2BVatPayer ? 0 : driverVatRate;
 
 
         // Nie naliczamy opłat serwisowych ani dodatkowych, ale VAT liczymy normalnie wg ustawień
@@ -2072,7 +2116,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         let additional_percent_amount = 0;
         let secondary_vat_amount = 0;
 
-        if (fleetSettlementMode === 'dual_tax') {
+        if (driverSettlementMode === 'dual_tax') {
           // Aggregate Bolt columns E, F, G, I, J, K from amounts JSON
           bolt_ef_base = driverSettlements.reduce((sum, s) => {
             const amounts = s.amounts as any || {};
@@ -2103,12 +2147,12 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           
           // Tax 1: Combined VAT% + Additional% from Bolt D (brutto)
           // e.g. 8% VAT + 1% additional = 9% total
-          const combinedVatRate = effectiveVatRate + fleetAdditionalPercentRate;
+          const combinedVatRate = effectiveVatRate + driverAdditionalPercentRate;
           // Use bolt_base (Column D) for primary VAT calculation
           const bolt_vat_ef = isB2BVatPayer ? 0 : Math.max(0, bolt_base) * (combinedVatRate / 100);
           additional_percent_amount = 0;
           // Tax 2: 23% VAT on campaigns(I) + returns(J) + cancellations(K)
-          secondary_vat_amount = isB2BVatPayer ? 0 : (Math.abs(bolt_i_base) + Math.abs(bolt_j_base) + Math.abs(bolt_k_base)) * (fleetSecondaryVatRate / 100);
+          secondary_vat_amount = isB2BVatPayer ? 0 : (Math.abs(bolt_i_base) + Math.abs(bolt_j_base) + Math.abs(bolt_k_base)) * (driverSecondaryVatRate / 100);
           
           // For Uber and FreeNow, still use standard VAT from positive base only
           const uber_freenow_base = Math.max(0, uber_base) + Math.max(0, freenow_base);
@@ -2158,7 +2202,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
         // Calculate payout based on mode
         let payout: number;
-        if (fleetSettlementMode === 'dual_tax') {
+        if (driverSettlementMode === 'dual_tax') {
           // Correct formula: Netto(R) - Cash(G) - 9%(D) - 23%(I+J+K) - fees
           // netto_calc = total_base - total_commission (= bolt_net + uber_net + freenow_net)
           const netto_calc = total_base - total_commission;
