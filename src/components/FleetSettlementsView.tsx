@@ -2010,6 +2010,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         // Jeśli kierowca nie jeździł (suma zarobków = 0) I nie ma ujemnego salda
         // NIE naliczamy opłat, ale jeśli ma dług to nadal pokazujemy go na liście
         if (total_base === 0 && platform_net >= 0) {
+          const zeroBaseManualPayout = round2(-manualWeekAdjustment);
           return {
             driver_id: driver.id,
             driver_name: `${driver.first_name} ${driver.last_name}`,
@@ -2020,10 +2021,11 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             tax_8_percent: 0, vat_amount: 0,
             service_fee: 0,
             additional_fees: [],
+            manual_week_adjustment: manualWeekAdjustment,
             rental: 0,
             fuel: 0, fuel_vat_refund: 0,
             net_without_commission: 0,
-            final_payout: 0,
+            final_payout: zeroBaseManualPayout,
             has_negative_balance: false,
             debt_current: currentDebtForDisplay,
             debt_previous: settlementDebtBeforeForDisplay,
@@ -2072,7 +2074,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         if (platform_net < 0) {
           // VAT z ujemnej kwoty wg stawki floty (np. -6.77 * 8% = -0.54)
           const negVatAmount = platform_net * (effectiveVatRate / 100);
-          const negFinalPayout = platform_net - negVatAmount; // np. -6.77 - (-0.54) = -6.23
+          const negFinalPayout = platform_net - negVatAmount - manualWeekAdjustment; // np. -6.77 - (-0.54) = -6.23
           return {
             driver_id: driver.id,
             driver_name: `${driver.first_name} ${driver.last_name}`,
@@ -2092,6 +2094,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             vat_amount: negVatAmount,
             service_fee: 0,
             additional_fees: [],
+            manual_week_adjustment: manualWeekAdjustment,
             rental: 0,
             fuel: 0,
             fuel_vat_refund: 0,
@@ -2218,11 +2221,11 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                    - total_cash                   // Cash (G) from all platforms
                    - vat_amount                   // Combined VAT% of Brutto (D)
                    - secondary_vat_amount         // 23% of (I+J+K)
-                   - service_fee - total_additional_fees - rental 
+                   - service_fee - total_additional_fees - manualWeekAdjustment - rental 
                    - total_fuel + total_fuel_vat_refund;
         } else {
           // Single tax (current formula)
-          payout = total_base - total_commission - vat_amount - service_fee - total_additional_fees - rental - total_cash - total_fuel + total_fuel_vat_refund;
+          payout = total_base - total_commission - vat_amount - service_fee - total_additional_fees - manualWeekAdjustment - rental - total_cash - total_fuel + total_fuel_vat_refund;
         }
 
         // debtBeforeForDisplay/currentDebtForDisplay wyliczone wyżej (także dla tygodni bez jazdy)
@@ -2269,6 +2272,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           vat_amount,
           service_fee,
           additional_fees,
+          manual_week_adjustment: manualWeekAdjustment,
           rental,
           fuel: total_fuel,
           fuel_vat_refund: total_fuel_vat_refund,
