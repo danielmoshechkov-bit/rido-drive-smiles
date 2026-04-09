@@ -1437,6 +1437,41 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       setFleetSecondaryVatRateState(fleetSecondaryVatRate);
       setFleetAdditionalPercentRateState(fleetAdditionalPercentRate);
 
+      // Fetch city-specific overrides for this fleet
+      const { data: citySettingsData } = await supabase
+        .from('fleet_city_settings' as any)
+        .select('*')
+        .eq('fleet_id', fleetId)
+        .eq('is_active', true);
+
+      // Build city settings map: city_name -> merged settings (take most specific per platform)
+      const citySettingsMap = new Map<string, {
+        vat_rate: number;
+        settlement_mode: string;
+        secondary_vat_rate: number;
+        additional_percent_rate: number;
+        base_fee: number;
+      }>();
+      if (citySettingsData) {
+        const byCityName = new Map<string, any[]>();
+        (citySettingsData as any[]).forEach((cs: any) => {
+          const existing = byCityName.get(cs.city_name) || [];
+          existing.push(cs);
+          byCityName.set(cs.city_name, existing);
+        });
+        byCityName.forEach((entries, cityName) => {
+          // Merge: prefer bolt settings for settlement_mode (dual_tax), otherwise first entry
+          const boltEntry = entries.find((e: any) => e.platform === 'bolt') || entries[0];
+          citySettingsMap.set(cityName, {
+            vat_rate: boltEntry.vat_rate ?? fleetVatRate,
+            settlement_mode: boltEntry.settlement_mode ?? fleetSettlementMode,
+            secondary_vat_rate: boltEntry.secondary_vat_rate ?? fleetSecondaryVatRate,
+            additional_percent_rate: boltEntry.additional_percent_rate ?? fleetAdditionalPercentRate,
+            base_fee: boltEntry.base_fee ?? fleetBaseFee,
+          });
+        });
+      }
+
       // Fetch active fleet settlement fees
       const { data: fleetFeesData } = await supabase
         .from('fleet_settlement_fees' as any)
