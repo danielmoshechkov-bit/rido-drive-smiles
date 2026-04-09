@@ -238,6 +238,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     { key: 'vat', label: 'VAT' },
     { key: 'vat_refund', label: 'VAT zwrot' },
     { key: 'service_fee', label: 'Opłata' },
+    { key: 'manual_charges', label: 'Doliczone' },
     { key: 'payout', label: 'Rozliczenie' },
     { key: 'debt', label: 'Dług' },
     { key: 'wyplata_1', label: 'Wypłata' },
@@ -3496,6 +3497,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                         <TableHead key={fee.id} className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">{fee.name}</TableHead>
                       ))}
                       {isColVisible('service_fee') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">Opłata</TableHead>}
+                      {isColVisible('manual_charges') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap">Doliczone</TableHead>}
                       {isColVisible('payout') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap cursor-pointer select-none hover:bg-muted/50" onClick={() => handleSort('payout')}>
                         <span className="inline-flex items-center justify-end w-full">Rozliczenie{getSortIcon('payout')}</span>
                       </TableHead>}
@@ -3658,6 +3660,17 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                         {isColVisible('service_fee') && <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
                           {renderEditableCell(settlement.driver_id, 'service_fee', settlement.service_fee, hasAnyActivity)}
                         </TableCell>}
+                        {/* Doliczone – manual_week_adjustment */}
+                        {isColVisible('manual_charges') && (() => {
+                          const adj = settlement.manual_week_adjustment || 0;
+                          if (adj === 0) return <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap text-muted-foreground">—</TableCell>;
+                          const isNegative = adj > 0; // positive adjustment = deduction from payout
+                          return (
+                            <TableCell className={`text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap font-medium ${isNegative ? 'text-red-600' : 'text-green-600'}`}>
+                              {isNegative ? '-' : '+'}{formatCurrency(Math.abs(adj))}
+                            </TableCell>
+                          );
+                        })()}
                         {/* Rozliczenie (WITHOUT rental) */}
                         {isColVisible('payout') && (() => {
                           const payoutNoRental = calculatePayoutWithoutRental(settlement);
@@ -3880,6 +3893,16 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                       {isColVisible('service_fee') && <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
                         -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + getEffectiveSettlement(s).service_fee, 0))}
                       </TableCell>}
+                      {isColVisible('manual_charges') && (() => {
+                        const totalAdj = filteredSettlements.reduce((sum, s) => sum + (getEffectiveSettlement(s).manual_week_adjustment || 0), 0);
+                        if (totalAdj === 0) return <TableCell className="text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap text-muted-foreground">—</TableCell>;
+                        const isNeg = totalAdj > 0;
+                        return (
+                          <TableCell className={`text-right px-2 py-1.5 text-xs tabular-nums whitespace-nowrap font-medium ${isNeg ? 'text-red-600' : 'text-green-600'}`}>
+                            {isNeg ? '-' : '+'}{formatCurrency(Math.abs(totalAdj))}
+                          </TableCell>
+                        );
+                      })()}
                       {isColVisible('payout') && (() => {
                         const totalPayout = filteredSettlements.reduce((sum, s) => sum + calculatePayoutWithoutRental(getEffectiveSettlement(s)), 0);
                         return (
