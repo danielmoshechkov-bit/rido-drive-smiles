@@ -195,6 +195,9 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-52">
+                <DropdownMenuItem onClick={() => openSms('quote')}>
+                  <Send className="h-4 w-4 mr-2" /> Wyślij kosztorys SMS
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => toast.info('Podgląd kosztorysu')}>
                   <Eye className="h-4 w-4 mr-2" /> Podgląd
                 </DropdownMenuItem>
@@ -208,8 +211,9 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
                   <CheckCircle className="h-4 w-4 mr-2" /> Podpisany dokument
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => {
-                  updateOrder.mutateAsync({ id: order.id, quote_accepted: !order.quote_accepted });
-                  toast.success(order.quote_accepted ? 'Oznaczono jako niepodpisany' : 'Oznaczono jako podpisany');
+                  const newVal = !order.quote_accepted;
+                  updateOrder.mutateAsync({ id: order.id, quote_accepted: newVal, ...(newVal ? { status_name: 'Akceptacja klienta' } : {}) });
+                  toast.success(newVal ? 'Zaakceptowano — status: Akceptacja klienta' : 'Oznaczono jako niepodpisany');
                 }}>
                   <XCircle className="h-4 w-4 mr-2" /> {order.quote_accepted ? 'Oznacz jako niepodpisany' : 'Oznacz jako podpisany'}
                 </DropdownMenuItem>
