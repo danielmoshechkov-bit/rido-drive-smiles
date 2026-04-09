@@ -476,6 +476,16 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
           onClose={() => setEditVehicle(null)}
         />
       )}
+
+      {/* SMS dialog on status change */}
+      {smsDialogOrder && (
+        <WorkshopSmsDialog
+          open={!!smsDialogOrder}
+          onOpenChange={(v) => { if (!v) setSmsDialogOrder(null); }}
+          order={smsDialogOrder}
+          type={smsDialogType}
+        />
+      )}
     </div>
   );
 }
