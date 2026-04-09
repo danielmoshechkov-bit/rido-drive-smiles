@@ -119,6 +119,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
               }
               setSelectedIds(new Set());
               toast.success(`Usunięto ${selectedIds.size} zleceń`);
+              queryClient.invalidateQueries({ queryKey: ['workshop-orders'] });
             } catch (e: any) {
               toast.error(e.message || 'Błąd usuwania');
             }
