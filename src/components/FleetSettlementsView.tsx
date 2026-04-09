@@ -2199,10 +2199,10 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           secondary_vat_amount = isB2BVatPayer ? 0 : (Math.abs(bolt_i_base) + Math.abs(bolt_j_base) + Math.abs(bolt_k_base)) * (driverSecondaryVatRate / 100);
           
           // For Uber in DUAL TAX mode:
-          // 'netto' (Od netto): kolumna E + 25%
-          // 'brutto' (Od brutto): prawdziwa kolumna G z CSV Uber
+          // 'netto' (Od netto): kolumna E + 25% → VAT od tego
+          // 'brutto' (Od brutto): kolumna G z CSV Uber → VAT od tego
           const uber_vat_base = driverUberCalcMode === 'brutto' 
-            ? Math.max(0, uber_gross_total || (Math.max(0, uber_base) * 1.25))
+            ? Math.max(0, (uber_gross_total != null && uber_gross_total > 0) ? uber_gross_total : Math.max(0, uber_base) * 1.25)
             : Math.max(0, uber_base) * 1.25;
           const uber_freenow_base = uber_vat_base + Math.max(0, freenow_base);
           const uber_freenow_vat = isB2BVatPayer ? 0 : uber_freenow_base * (effectiveVatRate / 100);
