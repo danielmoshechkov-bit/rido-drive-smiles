@@ -80,16 +80,11 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
     await updateOrder.mutateAsync({ id: orderId, status_name: newStatus });
     setStatusDropdownId(null);
     toast.success(`Status zmieniony na: ${newStatus}`);
-    // Show SMS dialog for relevant statuses
+    // Show SMS dialog for completion statuses only
     const order = orders.find((o: any) => o.id === orderId);
-    if (order) {
-      if (newStatus === 'Gotowy do odbioru' || newStatus === 'Zakończone') {
-        setSmsDialogType('ready');
-        setSmsDialogOrder(order);
-      } else if (newStatus === 'Akceptacja klienta') {
-        setSmsDialogType('quote');
-        setSmsDialogOrder(order);
-      }
+    if (order && (newStatus === 'Gotowy do odbioru' || newStatus === 'Zakończone')) {
+      setSmsDialogType('ready');
+      setSmsDialogOrder(order);
     }
   };
 

@@ -64,11 +64,8 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
   const changeStatus = async (newStatus: string) => {
     await updateOrder.mutateAsync({ id: order.id, status_name: newStatus });
     toast.success(`Status zmieniony na: ${newStatus}`);
-    // Auto-open SMS dialog for certain statuses
-    if (newStatus === 'Akceptacja klienta') {
-      setSmsType('quote');
-      setSmsOpen(true);
-    } else if (newStatus === 'Gotowy do odbioru') {
+    // Auto-open SMS dialog for notification statuses
+    if (newStatus === 'Gotowy do odbioru' || newStatus === 'Zakończone') {
       setSmsType('ready');
       setSmsOpen(true);
     }
@@ -198,6 +195,9 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-52">
+                <DropdownMenuItem onClick={() => openSms('quote')}>
+                  <Send className="h-4 w-4 mr-2" /> Wyślij kosztorys SMS
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => toast.info('Podgląd kosztorysu')}>
                   <Eye className="h-4 w-4 mr-2" /> Podgląd
                 </DropdownMenuItem>
@@ -211,8 +211,9 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
                   <CheckCircle className="h-4 w-4 mr-2" /> Podpisany dokument
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => {
-                  updateOrder.mutateAsync({ id: order.id, quote_accepted: !order.quote_accepted });
-                  toast.success(order.quote_accepted ? 'Oznaczono jako niepodpisany' : 'Oznaczono jako podpisany');
+                  const newVal = !order.quote_accepted;
+                  updateOrder.mutateAsync({ id: order.id, quote_accepted: newVal, ...(newVal ? { status_name: 'Akceptacja klienta' } : {}) });
+                  toast.success(newVal ? 'Zaakceptowano — status: Akceptacja klienta' : 'Oznaczono jako niepodpisany');
                 }}>
                   <XCircle className="h-4 w-4 mr-2" /> {order.quote_accepted ? 'Oznacz jako niepodpisany' : 'Oznacz jako podpisany'}
                 </DropdownMenuItem>
@@ -251,7 +252,20 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <Button variant="ghost" size="icon" title="Wyślij SMS" onClick={() => openSms('reception')}>
+            <Button variant="ghost" size="icon" title="Wyślij SMS" onClick={() => {
+              // Auto-detect SMS type based on order state
+              const hasQuoteItems = (order.total_gross || 0) > 0;
+              const protocolSigned = order.client_acceptance_confirmed;
+              if (protocolSigned && hasQuoteItems && !order.quote_accepted) {
+                openSms('quote');
+              } else if (order.quote_accepted || order.status_name === 'Gotowy do odbioru' || order.status_name === 'Zakończone') {
+                openSms('ready');
+              } else if (protocolSigned) {
+                openSms('quote');
+              } else {
+                openSms('reception');
+              }
+            }}>
               <MessageSquare className="h-4 w-4" />
             </Button>
             <Button variant="ghost" size="icon" title="Link do zlecenia" onClick={copyClientLink}>
