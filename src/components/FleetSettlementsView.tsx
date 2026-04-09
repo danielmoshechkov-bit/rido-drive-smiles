@@ -1819,6 +1819,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         const driverSettlements = settlementsData?.filter(s => s.driver_id === driver.id) || [];
         const settlementSnapshot = [...driverSettlements]
           .sort((a, b) => new Date((b as any).updated_at || 0).getTime() - new Date((a as any).updated_at || 0).getTime())[0];
+        const snapshotAmounts = ((settlementSnapshot as any)?.amounts as Record<string, any> | undefined) || {};
         // Parsuj amounts JSONB - obsługuj NOWE klucze snake_case z bazy oraz STARE camelCase z CSV importu
         const uber_base = driverSettlements.reduce((sum, s) => {
           const amounts = s.amounts as any || {};
@@ -1901,10 +1902,9 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         const plan = plansData?.find(p => p.id === driverAppUser?.settlement_plan_id);
         
         // Check if there's a persisted override in settlement record (amounts JSON)
-        const firstSettlement = driverSettlements[0];
-        const firstAmounts = (firstSettlement?.amounts as any) || {};
-        const persistedServiceFee = firstAmounts.manual_service_fee;
-        const persistedRentalFee = firstSettlement?.rental_fee;
+        const persistedServiceFee = snapshotAmounts.manual_service_fee;
+        const persistedRentalFee = (settlementSnapshot as any)?.rental_fee;
+        const manualWeekAdjustment = Number(snapshotAmounts.manual_week_adjustment || 0);
         
         // fleetBaseFee może być 0 (darmowa flota) - to jest dozwolone!
         // Priority: 1) persisted manual override, 2) per-driver custom_weekly_fee, 3) fleet base fee, 4) plan fee
@@ -1920,7 +1920,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         // Pobierz wynajem z przypisanego pojazdu lub z zapisanego override
         // Sprawdź manual_rental_fee w amounts JSON - to jest marker ręcznego nadpisania
         // Dzięki temu wartość 0 ustawiona ręcznie nie będzie nadpisana wartością z pojazdu
-        const manualRentalFee = firstAmounts.manual_rental_fee;
+        const manualRentalFee = snapshotAmounts.manual_rental_fee;
         const assignment = assignmentsData?.find(a => a.driver_id === driver.id);
         const vehicleWeeklyRate = (assignment?.vehicles as any)?.weekly_rental_fee || 0;
         // Calculate proportional rental based on assignment date (same as FleetVehicleRevenue)
@@ -2197,7 +2197,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           })
           .map((fee, idx) => {
             const manualKey = `manual_fee_${idx}`;
-            const manualVal = firstAmounts[manualKey];
+            const manualVal = snapshotAmounts[manualKey];
             const baseAmount = fee.type === 'fixed' ? fee.amount : total_base * (fee.amount / 100);
             return {
               name: fee.name,
