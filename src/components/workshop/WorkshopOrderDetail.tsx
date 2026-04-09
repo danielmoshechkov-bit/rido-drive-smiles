@@ -16,7 +16,7 @@ import { WorkshopClientHoverCard } from './WorkshopClientHoverCard';
 import { RidoPartsCartButton } from './parts/RidoPartsCartButton';
 import {
   ArrowLeft, FileText, Send, Eye, Link2, MessageSquare, MoreVertical,
-  Printer, Download, ClipboardList, Car, Users, CheckCircle, XCircle, Ban
+  Printer, Download, ClipboardList, Car, Users, CheckCircle, XCircle, Ban, AlertTriangle
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -188,13 +188,21 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
-                  variant="ghost" size="icon" title="Wycena zaakceptowana"
-                  className={order.quote_accepted ? 'text-green-500' : 'text-amber-500'}
+                  variant="ghost" size="icon" title="Wycena"
+                  className={`relative ${order.quote_accepted ? 'text-green-500' : 'text-amber-500'}`}
                 >
                   <ClipboardList className="h-4 w-4" />
+                  {order.estimate_changed_after_send && (
+                    <AlertTriangle className="h-3 w-3 text-destructive absolute -top-0.5 -right-0.5" />
+                  )}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-52">
+                {order.estimate_changed_after_send && (
+                  <div className="px-3 py-2 text-xs text-destructive bg-destructive/10 border-b">
+                    ⚠️ Kosztorys zmieniony po wysłaniu — wyślij ponownie do klienta
+                  </div>
+                )}
                 <DropdownMenuItem onClick={() => openSms('quote')}>
                   <Send className="h-4 w-4 mr-2" /> Wyślij kosztorys SMS
                 </DropdownMenuItem>
