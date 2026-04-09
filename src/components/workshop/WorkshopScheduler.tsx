@@ -628,6 +628,8 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
   const queryClient = useQueryClient();
   const [selectedOrderId, setSelectedOrderId] = useState('');
   const [activeTab, setActiveTab] = useState<'client' | 'event' | 'order'>('client');
+  const [editDate, setEditDate] = useState('');
+  const [editHour, setEditHour] = useState(0);
   const [eventForm, setEventForm] = useState({
     service: '', type: 'Wydarzenie', color: 'Niebieski', allDay: false,
     duration: '1 godz.', worker: '', description: '',
@@ -639,9 +641,15 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
   });
   const [saving, setSaving] = useState(false);
 
-  if (!slotData) return null;
+  // Sync editDate/editHour when slotData changes
+  const prevSlotRef = useRef(slotData);
+  if (slotData && slotData !== prevSlotRef.current) {
+    prevSlotRef.current = slotData;
+    setEditDate(format(slotData.day, 'yyyy-MM-dd'));
+    setEditHour(slotData.hour);
+  }
 
-  const endHour = slotData.hour + 1;
+  if (!slotData) return null;
 
   const handleSaveClient = async () => {
     if (!clientForm.phone) {
@@ -650,6 +658,8 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
     }
     setSaving(true);
     try {
+      const appointmentDay = editDate || format(slotData.day, 'yyyy-MM-dd');
+      const appointmentHour = editHour;
       const { error } = await supabase.from('workshop_client_bookings' as any).insert({
         provider_id: providerId,
         phone: clientForm.phone,
@@ -659,8 +669,8 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
         brand: clientForm.brand || null,
         model: clientForm.model || null,
         service_description: clientForm.serviceDesc || null,
-        appointment_date: format(slotData.day, 'yyyy-MM-dd'),
-        appointment_time: `${slotData.hour.toString().padStart(2, '0')}:00:00`,
+        appointment_date: appointmentDay,
+        appointment_time: `${appointmentHour.toString().padStart(2, '0')}:00:00`,
         duration_minutes: parseInt(clientForm.duration) || 60,
         station_id: slotData.stationId,
         reminder_enabled: clientForm.reminder,
@@ -677,6 +687,9 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
       setSaving(false);
     }
   };
+
+  const endHour = editHour + 1;
+  const ALL_HOURS = Array.from({ length: 15 }, (_, i) => i + 6); // 6:00 - 20:00
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) { setSelectedOrderId(''); setActiveTab('client'); } onOpenChange(v); }}>
@@ -698,11 +711,32 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
             </Button>
           </div>
 
-          {/* Date/time info */}
+          {/* Editable date/time info */}
           <div className="grid grid-cols-3 gap-4 text-sm">
-            <div><label className="font-medium">Data</label><div className="text-muted-foreground mt-1">{format(slotData.day, 'EEEE, d MMM', { locale: pl })}</div></div>
-            <div><label className="font-medium">Godzina</label><div className="text-muted-foreground mt-1">{slotData.hour}:00 – {endHour}:00</div></div>
-            <div><label className="font-medium">Stanowisko</label><div className="text-muted-foreground mt-1">{stationName}</div></div>
+            <div>
+              <Label className="font-medium text-xs">Data</Label>
+              <Input
+                type="date"
+                value={editDate}
+                onChange={e => setEditDate(e.target.value)}
+                className="mt-1 h-9"
+              />
+            </div>
+            <div>
+              <Label className="font-medium text-xs">Godzina</Label>
+              <Select value={String(editHour)} onValueChange={v => setEditHour(parseInt(v))}>
+                <SelectTrigger className="mt-1 h-9"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {ALL_HOURS.map(h => (
+                    <SelectItem key={h} value={String(h)}>{h}:00 – {h + 1}:00</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="font-medium text-xs">Stanowisko</Label>
+              <div className="text-muted-foreground mt-2 text-sm">{stationName}</div>
+            </div>
           </div>
 
           {activeTab === 'client' ? (
