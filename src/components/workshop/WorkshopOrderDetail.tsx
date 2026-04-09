@@ -64,11 +64,8 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
   const changeStatus = async (newStatus: string) => {
     await updateOrder.mutateAsync({ id: order.id, status_name: newStatus });
     toast.success(`Status zmieniony na: ${newStatus}`);
-    // Auto-open SMS dialog for certain statuses
-    if (newStatus === 'Akceptacja klienta') {
-      setSmsType('quote');
-      setSmsOpen(true);
-    } else if (newStatus === 'Gotowy do odbioru') {
+    // Auto-open SMS dialog for notification statuses
+    if (newStatus === 'Gotowy do odbioru' || newStatus === 'Zakończone') {
       setSmsType('ready');
       setSmsOpen(true);
     }
@@ -251,7 +248,20 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <Button variant="ghost" size="icon" title="Wyślij SMS" onClick={() => openSms('reception')}>
+            <Button variant="ghost" size="icon" title="Wyślij SMS" onClick={() => {
+              // Auto-detect SMS type based on order state
+              const hasQuoteItems = (order.total_gross || 0) > 0;
+              const protocolSigned = order.client_acceptance_confirmed;
+              if (protocolSigned && hasQuoteItems && !order.quote_accepted) {
+                openSms('quote');
+              } else if (order.quote_accepted || order.status_name === 'Gotowy do odbioru' || order.status_name === 'Zakończone') {
+                openSms('ready');
+              } else if (protocolSigned) {
+                openSms('quote');
+              } else {
+                openSms('reception');
+              }
+            }}>
               <MessageSquare className="h-4 w-4" />
             </Button>
             <Button variant="ghost" size="icon" title="Link do zlecenia" onClick={copyClientLink}>
