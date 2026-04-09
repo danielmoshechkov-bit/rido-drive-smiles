@@ -2183,8 +2183,11 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           
           vat_amount = bolt_vat_ef + uber_freenow_vat;
         } else {
-          // === SINGLE TAX MODE: VAT from positive-only base (negative platform amounts don't reduce VAT) ===
-          vat_amount = vat_base * (effectiveVatRate / 100);
+          // === SINGLE TAX MODE: VAT from positive-only base ===
+          // Uber: use netto (uber_payout_d) or brutto (uber_base) depending on uber_calculation_mode
+          const uber_vat_base_single = driverUberCalcMode === 'brutto' ? Math.max(0, uber_base) : Math.max(0, uber_payout_d);
+          const adjusted_vat_base = uber_vat_base_single + Math.max(0, bolt_base) + Math.max(0, freenow_base);
+          vat_amount = adjusted_vat_base * (effectiveVatRate / 100);
         }
 
         // Helper: sprawdź czy tydzień jest pierwszym pełnym tygodniem miesiąca
