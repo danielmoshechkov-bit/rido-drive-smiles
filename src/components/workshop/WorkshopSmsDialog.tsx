@@ -70,9 +70,13 @@ export function WorkshopSmsDialog({ open, onOpenChange, order, type }: Props) {
       });
       if (error) throw error;
 
-      // Update order flags
+      // Update order flags based on SMS type
       const updates: any = { id: order.id, sms_sent_count: (order.sms_sent_count || 0) + 1, last_sms_sent_at: new Date().toISOString() };
       if (type === 'ready') updates.ready_notification_sent = true;
+      // Auto-progress status: sending quote SMS → set status to "Wycena"
+      if (type === 'quote' && order.status_name === 'Przyjęcie do serwisu') {
+        updates.status_name = 'Wycena';
+      }
       
       await (supabase as any).from('workshop_orders').update(updates).eq('id', order.id);
       
