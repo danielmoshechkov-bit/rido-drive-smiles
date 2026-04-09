@@ -62,10 +62,10 @@ export default function WorkshopClientCard() {
         .eq('order_id', data.id);
       setSignatures(sigs || []);
 
-      // Auto-open kosztorys if reception is already signed
+      // Auto-open kosztorys if reception is signed AND estimate was sent to client
       if (!initialTabSet) {
         const receptionIsSigned = (sigs || []).some((s: any) => s.document_type === 'reception_protocol');
-        if (receptionIsSigned) {
+        if (receptionIsSigned && data.estimate_sent_to_client) {
           setActiveTab('estimate');
         }
         setInitialTabSet(true);
