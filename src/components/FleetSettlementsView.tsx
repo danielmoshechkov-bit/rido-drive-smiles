@@ -2176,8 +2176,9 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           // Tax 2: 23% VAT on campaigns(I) + returns(J) + cancellations(K)
           secondary_vat_amount = isB2BVatPayer ? 0 : (Math.abs(bolt_i_base) + Math.abs(bolt_j_base) + Math.abs(bolt_k_base)) * (driverSecondaryVatRate / 100);
           
-          // For Uber and FreeNow, still use standard VAT from positive base only
-          const uber_freenow_base = Math.max(0, uber_base) + Math.max(0, freenow_base);
+          // For Uber: use uber_payout_d (netto) or uber_base (brutto) depending on uber_calculation_mode
+          const uber_vat_base = driverUberCalcMode === 'brutto' ? Math.max(0, uber_base) : Math.max(0, uber_payout_d);
+          const uber_freenow_base = uber_vat_base + Math.max(0, freenow_base);
           const uber_freenow_vat = isB2BVatPayer ? 0 : uber_freenow_base * (effectiveVatRate / 100);
           
           vat_amount = bolt_vat_ef + uber_freenow_vat;
