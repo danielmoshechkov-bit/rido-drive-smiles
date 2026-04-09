@@ -62,10 +62,10 @@ export default function WorkshopClientCard() {
         .eq('order_id', data.id);
       setSignatures(sigs || []);
 
-      // Auto-open kosztorys if reception is already signed
+      // Auto-open kosztorys if reception is signed AND estimate was sent to client
       if (!initialTabSet) {
         const receptionIsSigned = (sigs || []).some((s: any) => s.document_type === 'reception_protocol');
-        if (receptionIsSigned) {
+        if (receptionIsSigned && data.estimate_sent_to_client) {
           setActiveTab('estimate');
         }
         setInitialTabSet(true);
@@ -90,7 +90,10 @@ export default function WorkshopClientCard() {
       });
       const updates: any = {};
       if (docType === 'reception_protocol') updates.client_acceptance_confirmed = true;
-      if (docType === 'cost_estimate') updates.quote_accepted = true;
+      if (docType === 'cost_estimate') {
+        updates.quote_accepted = true;
+        updates.status_name = 'Akceptacja klienta';
+      }
       if (Object.keys(updates).length > 0) {
         await (supabase as any).from('workshop_orders').update(updates).eq('id', order.id);
       }
@@ -139,9 +142,11 @@ export default function WorkshopClientCard() {
   const estimateSigned = hasSigned('cost_estimate');
   const status = statusLabels[order.status_name] || { label: order.status_name, color: 'bg-muted' };
 
+  const estimateAvailable = receptionSigned && order.estimate_sent_to_client && !order.estimate_changed_after_send;
+
   const tabs: { key: TabKey; label: string; icon: React.ReactNode; locked?: boolean }[] = [
     { key: 'reception', label: 'Protokół przyjęcia', icon: <Wrench className="h-4 w-4" /> },
-    { key: 'estimate', label: 'Kosztorys', icon: <FileSignature className="h-4 w-4" />, locked: !receptionSigned },
+    { key: 'estimate', label: 'Kosztorys', icon: <FileSignature className="h-4 w-4" />, locked: !estimateAvailable },
     { key: 'release', label: 'Protokół wydania', icon: <Shield className="h-4 w-4" />, locked: !estimateSigned },
   ];
 
@@ -347,6 +352,12 @@ export default function WorkshopClientCard() {
                   <Lock className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
                   <p className="text-muted-foreground font-medium">Najpierw zaakceptuj protokół przyjęcia</p>
                   <p className="text-sm text-muted-foreground/60 mt-1">Kosztorys będzie dostępny po podpisaniu protokołu.</p>
+                </div>
+              ) : !order.estimate_sent_to_client ? (
+                <div className="py-12 text-center">
+                  <Lock className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
+                  <p className="text-muted-foreground font-medium">Kosztorys jest w trakcie przygotowania</p>
+                  <p className="text-sm text-muted-foreground/60 mt-1">Otrzymasz powiadomienie SMS, gdy kosztorys będzie gotowy do akceptacji.</p>
                 </div>
               ) : (
                 <div className="space-y-6">

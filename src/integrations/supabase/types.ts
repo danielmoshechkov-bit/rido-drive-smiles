@@ -20578,6 +20578,8 @@ export type Database = {
           created_at: string | null
           damage_description: string | null
           description: string | null
+          estimate_changed_after_send: boolean | null
+          estimate_sent_to_client: boolean | null
           fuel_level: string | null
           id: string
           internal_notes: string | null
@@ -20626,6 +20628,8 @@ export type Database = {
           created_at?: string | null
           damage_description?: string | null
           description?: string | null
+          estimate_changed_after_send?: boolean | null
+          estimate_sent_to_client?: boolean | null
           fuel_level?: string | null
           id?: string
           internal_notes?: string | null
@@ -20674,6 +20678,8 @@ export type Database = {
           created_at?: string | null
           damage_description?: string | null
           description?: string | null
+          estimate_changed_after_send?: boolean | null
+          estimate_sent_to_client?: boolean | null
           fuel_level?: string | null
           id?: string
           internal_notes?: string | null

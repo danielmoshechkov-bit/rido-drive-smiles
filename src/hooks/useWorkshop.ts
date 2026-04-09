@@ -235,6 +235,13 @@ export function useCreateWorkshopOrderItem() {
         .select()
         .single();
       if (error) throw error;
+      // Mark estimate as changed if it was already sent to client
+      if (item.order_id) {
+        await (supabase as any).from('workshop_orders')
+          .update({ estimate_changed_after_send: true })
+          .eq('id', item.order_id)
+          .eq('estimate_sent_to_client', true);
+      }
       return data;
     },
     onSuccess: () => {
@@ -255,6 +262,13 @@ export function useUpdateWorkshopOrderItem() {
         .select()
         .single();
       if (error) throw error;
+      // Mark estimate as changed if it was already sent to client
+      if (data?.order_id) {
+        await (supabase as any).from('workshop_orders')
+          .update({ estimate_changed_after_send: true })
+          .eq('id', data.order_id)
+          .eq('estimate_sent_to_client', true);
+      }
       return data;
     },
     onSuccess: () => {

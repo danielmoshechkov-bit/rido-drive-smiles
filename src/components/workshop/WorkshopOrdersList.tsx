@@ -42,6 +42,7 @@ const statusColors: Record<string, string> = {
 };
 
 export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
+  const queryClient = useQueryClient();
   const [showNewOrder, setShowNewOrder] = useState(false);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -108,7 +109,21 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
           <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Nowe</span> zlecenie
         </Button>
         {selectedIds.size > 0 && (
-          <Button variant="destructive" size="sm" className="gap-1">
+          <Button variant="destructive" size="sm" className="gap-1" onClick={async () => {
+            if (!confirm(`Czy na pewno chcesz usunąć ${selectedIds.size} zleceń?`)) return;
+            try {
+              for (const id of selectedIds) {
+                await (supabase as any).from('workshop_order_items').delete().eq('order_id', id);
+                await (supabase as any).from('workshop_order_signatures').delete().eq('order_id', id);
+                await (supabase as any).from('workshop_orders').delete().eq('id', id);
+              }
+              setSelectedIds(new Set());
+              toast.success(`Usunięto ${selectedIds.size} zleceń`);
+              queryClient.invalidateQueries({ queryKey: ['workshop-orders'] });
+            } catch (e: any) {
+              toast.error(e.message || 'Błąd usuwania');
+            }
+          }}>
             <Trash2 className="h-4 w-4" /> Usuń
           </Button>
         )}
