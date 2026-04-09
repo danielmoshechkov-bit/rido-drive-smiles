@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useUpdateWorkshopOrder } from '@/hooks/useWorkshop';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Car, Users, Save, Camera, Calendar, Clock } from 'lucide-react';
+import { Car, Users, Save, Camera, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Props {
