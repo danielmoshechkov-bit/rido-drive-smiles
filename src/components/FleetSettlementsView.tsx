@@ -1425,7 +1425,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       // Fetch fleet settings (VAT rate and base fee)
       const { data: fleetData } = await supabase
         .from('fleets')
-        .select('vat_rate, base_fee, settlement_mode, secondary_vat_rate, additional_percent_rate, settlements_reset_at')
+        .select('vat_rate, base_fee, settlement_mode, secondary_vat_rate, additional_percent_rate, settlements_reset_at, uber_calculation_mode')
         .eq('id', fleetId)
         .maybeSingle();
       
@@ -1438,6 +1438,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       const fleetSettlementMode = (fleetData as any)?.settlement_mode ?? 'single_tax';
       const fleetSecondaryVatRate = (fleetData as any)?.secondary_vat_rate ?? 23;
       const fleetAdditionalPercentRate = (fleetData as any)?.additional_percent_rate ?? 0;
+      const fleetUberCalcMode = (fleetData as any)?.uber_calculation_mode ?? 'netto';
       
       // Store in state for header display
       setFleetVatRateState(fleetVatRate);
@@ -1459,6 +1460,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         secondary_vat_rate: number;
         additional_percent_rate: number;
         base_fee: number;
+        uber_calculation_mode: string;
       }>();
       if (citySettingsData) {
         const byCityName = new Map<string, any[]>();
@@ -1470,12 +1472,14 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         byCityName.forEach((entries, cityName) => {
           // Merge: prefer bolt settings for settlement_mode (dual_tax), otherwise first entry
           const boltEntry = entries.find((e: any) => e.platform === 'bolt') || entries[0];
+          const uberEntry = entries.find((e: any) => e.platform === 'uber');
           citySettingsMap.set(cityName, {
             vat_rate: boltEntry.vat_rate ?? fleetVatRate,
             settlement_mode: boltEntry.settlement_mode ?? fleetSettlementMode,
             secondary_vat_rate: boltEntry.secondary_vat_rate ?? fleetSecondaryVatRate,
             additional_percent_rate: boltEntry.additional_percent_rate ?? fleetAdditionalPercentRate,
             base_fee: boltEntry.base_fee ?? fleetBaseFee,
+            uber_calculation_mode: uberEntry?.uber_calculation_mode ?? fleetUberCalcMode,
           });
         });
       }
