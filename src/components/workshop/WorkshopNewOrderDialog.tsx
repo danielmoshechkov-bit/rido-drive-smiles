@@ -188,9 +188,41 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
         await (supabase as any).from('workshop_clients').update(updates).eq('id', clientId);
       }
     }
-    if (sendMethod === 'sms' && phone) toast.success(`SMS potwierdzenia wysłany na ${phone}`);
-    else if (sendMethod === 'email' && email) toast.success(`E-mail potwierdzenia wysłany na ${email}`);
-    else toast.info('Brak danych kontaktowych — pomijam wysyłkę');
+    if (sendMethod === 'sms' && phone) {
+      try {
+        const veh = selectedVehicle;
+        const vName = veh ? `${veh.brand || ''} ${veh.model || ''} ${veh.plate || ''}`.trim() : '';
+        const link = `${window.location.origin}/warsztat/klient/${createdOrderId ? '' : ''}`;
+        // Fetch the created order to get client_code
+        let clientCode = '';
+        if (createdOrderId) {
+          const { data: ord } = await supabase.from('workshop_orders').select('client_code').eq('id', createdOrderId).maybeSingle();
+          clientCode = ord?.client_code || '';
+        }
+        const clientLink = clientCode ? `${window.location.origin}/warsztat/klient/${clientCode}` : '';
+        const removePl = (s: string) => {
+          const m: Record<string, string> = {'ą':'a','ć':'c','ę':'e','ł':'l','ń':'n','ó':'o','ś':'s','ź':'z','ż':'z','Ą':'A','Ć':'C','Ę':'E','Ł':'L','Ń':'N','Ó':'O','Ś':'S','Ź':'Z','Ż':'Z'};
+          return s.replace(/[ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/g, c => m[c] || c);
+        };
+        const smsMessage = removePl(`Zlecenie serwisowe ${vName} zostalo przyjete. Szczegoly i akceptacja: ${clientLink}`);
+        const { error } = await supabase.functions.invoke('workshop-send-sms', {
+          body: {
+            phone: phone.startsWith('+48') ? phone : `+48${phone}`,
+            message: smsMessage,
+            order_id: createdOrderId,
+            sms_type: 'reception',
+          },
+        });
+        if (error) throw error;
+        toast.success(`SMS potwierdzenia wysłany na ${phone}`);
+      } catch (e: any) {
+        toast.error(`Błąd wysyłania SMS: ${e.message}`);
+      }
+    } else if (sendMethod === 'email' && email) {
+      toast.success(`E-mail potwierdzenia wysłany na ${email}`);
+    } else {
+      toast.info('Brak danych kontaktowych — pomijam wysyłkę');
+    }
     resetForm(); onOpenChange(false);
   };
 
@@ -310,7 +342,7 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                               <button key={v.id} className="w-full text-left px-3 py-2.5 hover:bg-accent text-sm transition-colors" onClick={() => {
                                 setVehicleId(v.id); setCreatedVehicleData(null); setShowVehicleList(false); setVehicleSearch('');
                                 setErrors(e => { const { vehicle, ...rest } = e; return rest; });
-                                if (v.owner_client_id && !clientId) setClientId(v.owner_client_id);
+                                if (v.owner_client_id) setClientId(v.owner_client_id);
                               }}>
                                 <div className="flex items-center gap-2">
                                   <Car className="h-3.5 w-3.5 text-muted-foreground" />
