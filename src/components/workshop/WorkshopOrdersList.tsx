@@ -42,6 +42,7 @@ const statusColors: Record<string, string> = {
 };
 
 export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
+  const queryClient = useQueryClient();
   const [showNewOrder, setShowNewOrder] = useState(false);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
