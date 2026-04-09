@@ -20,6 +20,7 @@ import { OrderStatusesPage } from './settings/OrderStatusesPage';
 import { OrderTypesPage } from './settings/OrderTypesPage';
 import { TaskTemplatesPage } from './settings/TaskTemplatesPage';
 import { ChecklistItemsPage } from './settings/ChecklistItemsPage';
+import { CalendarSettingsPage } from './settings/CalendarSettingsPage';
 import { DEFAULT_SERVICE_PROVIDER_PRIMARY_TABS, SERVICE_PROVIDER_TAB_LABELS, SERVICE_PROVIDER_TAB_ORDER, type ServiceProviderNavTabKey } from '@/components/service-provider/navConfig';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -460,6 +461,11 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
 
         {settingsTab === 'pracownicy' && (
           <WorkshopEmployeesPage providerId={providerId} />
+        )}
+
+
+        {settingsTab === 'kalendarz' && (
+          <CalendarSettingsPage providerId={providerId} />
         )}
 
         {settingsTab === 'statusy' && <OrderStatusesPage />}
