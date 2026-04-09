@@ -13,6 +13,7 @@ import {
   useWorkshopOrders, useWorkshopStatuses, useUpdateWorkshopOrder,
 } from '@/hooks/useWorkshop';
 import { WorkshopNewOrderDialog } from './WorkshopNewOrderDialog';
+import { WorkshopSmsDialog } from './WorkshopSmsDialog';
 import { WorkshopEditClientDialog } from './WorkshopEditClientDialog';
 import { useVehicleLookup } from '@/hooks/useVehicleLookup';
 import { supabase } from '@/integrations/supabase/client';
@@ -49,6 +50,8 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
   const [statusDropdownId, setStatusDropdownId] = useState<string | null>(null);
   const [editClient, setEditClient] = useState<any>(null);
   const [editVehicle, setEditVehicle] = useState<any>(null);
+  const [smsDialogOrder, setSmsDialogOrder] = useState<any>(null);
+  const [smsDialogType, setSmsDialogType] = useState<'reception' | 'quote' | 'ready'>('ready');
 
   const { data: statuses = [] } = useWorkshopStatuses(providerId);
   const { data: orders = [], isLoading } = useWorkshopOrders(providerId, {
@@ -77,6 +80,17 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
     await updateOrder.mutateAsync({ id: orderId, status_name: newStatus });
     setStatusDropdownId(null);
     toast.success(`Status zmieniony na: ${newStatus}`);
+    // Show SMS dialog for relevant statuses
+    const order = orders.find((o: any) => o.id === orderId);
+    if (order) {
+      if (newStatus === 'Gotowy do odbioru' || newStatus === 'Zakończone') {
+        setSmsDialogType('ready');
+        setSmsDialogOrder(order);
+      } else if (newStatus === 'Akceptacja klienta') {
+        setSmsDialogType('quote');
+        setSmsDialogOrder(order);
+      }
+    }
   };
 
   const getClientName = (o: any) => {
