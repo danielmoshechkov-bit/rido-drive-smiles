@@ -106,6 +106,7 @@ interface DriverSettlement {
   snapshot_actual_payout?: number;
   snapshot_settlement_debt_after?: number;
   snapshot_rental_debt_after?: number;
+  manual_week_adjustment?: number;
 }
 
 interface FleetFee {
@@ -882,6 +883,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
   const calculateRawPayout = (settlement: DriverSettlement): number => {
     const totalAdditional = settlement.additional_fees.reduce((sum, f) => sum + f.amount, 0);
+    const manualWeekAdjustment = settlement.manual_week_adjustment || 0;
 
     if (fleetSettlementModeState === 'dual_tax') {
       const nettoCalc = settlement.total_base - settlement.total_commission;
@@ -891,6 +893,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         - (settlement.secondary_vat_amount || 0)
         - settlement.service_fee
         - totalAdditional
+        - manualWeekAdjustment
         - (settlement.rental || 0)
         - settlement.fuel
         + settlement.fuel_vat_refund;
@@ -901,6 +904,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       - settlement.vat_amount
       - settlement.service_fee
       - totalAdditional
+      - manualWeekAdjustment
       - (settlement.rental || 0)
       - settlement.total_cash
       - settlement.fuel
@@ -937,6 +941,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   // Calculate payout WITHOUT rental (Part 1 of settlement)
   const calculatePayoutWithoutRental = (settlement: DriverSettlement): number => {
     const totalAdditional = settlement.additional_fees.reduce((sum, f) => sum + f.amount, 0);
+    const manualWeekAdjustment = settlement.manual_week_adjustment || 0;
     if (fleetSettlementModeState === 'dual_tax') {
       const nettoCalc = settlement.total_base - settlement.total_commission;
       return nettoCalc
@@ -945,6 +950,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         - (settlement.secondary_vat_amount || 0)
         - settlement.service_fee
         - totalAdditional
+        - manualWeekAdjustment
         - settlement.fuel
         + settlement.fuel_vat_refund;
     }
@@ -953,6 +959,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       - settlement.vat_amount
       - settlement.service_fee
       - totalAdditional
+      - manualWeekAdjustment
       - settlement.total_cash
       - settlement.fuel
       + settlement.fuel_vat_refund;
@@ -3527,6 +3534,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                               onComplete={() => fetchSettlements()}
                             >
                               <button
+                              type="button"
                                 className="inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold bg-primary text-primary-foreground hover:bg-primary/80 transition-colors shadow-sm"
                                 title="Informacje o kierowcy"
                                 onClick={(e) => e.stopPropagation()}
@@ -3535,9 +3543,12 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                               </button>
                             </DriverInfoPopover>
                             <button
+                              type="button"
                               className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors border border-transparent hover:border-border"
                               title="Dodaj opłatę lub wpłatę dla tego kierowcy"
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
                                 setChargeDriver({
                                   id: settlement.driver_id,
                                   name: settlement.driver_name,
@@ -3981,7 +3992,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           currentPayoutWithoutRental={chargeDriver.payoutWithoutRental}
           currentRental={chargeDriver.rental}
           onComplete={() => {
-            fetchSettlements();
+            fetchSettlements({ silent: true });
           }}
         />
       )}
