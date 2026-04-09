@@ -19,9 +19,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   Plus, Search, CheckCircle, Car, Trash2,
-  Wrench, Filter, Loader2, Copy, Phone, Mail, User, ExternalLink, Building, Save
+  Wrench, Filter, Loader2, Copy, Phone, Mail, User, ExternalLink, Building, Save, Calendar
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, isFuture, isPast } from 'date-fns';
+import { pl } from 'date-fns/locale';
 import { toast } from 'sonner';
 
 interface Props {
@@ -157,9 +158,12 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                       <Wrench className="h-3.5 w-3.5 text-muted-foreground" />
                       <span className="font-semibold text-sm">{order.order_number}</span>
                     </div>
-                    <Badge className={`${statusColors[order.status_name] || 'bg-gray-200 text-black'} text-[10px] px-1.5 py-0.5`}>
-                      {order.status_name || 'Brak'}
-                    </Badge>
+                     <Badge className={`${statusColors[order.status_name] || 'bg-gray-200 text-black'} text-[10px] px-1.5 py-0.5`}>
+                       {order.status_name || 'Brak'}
+                     </Badge>
+                     {order.scheduled_date && isFuture(new Date(order.scheduled_date)) && (
+                       <div className="text-[10px] text-primary mt-0.5">📅 {format(new Date(order.scheduled_date), 'd MMM HH:mm', { locale: pl })}</div>
+                     )}
                   </div>
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -204,9 +208,10 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                   <TableHead>Numer zlecenia</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Razem</TableHead>
-                  <TableHead>Pojazd</TableHead>
-                  <TableHead>Klient</TableHead>
-                  <TableHead>Przyjęcie</TableHead>
+                   <TableHead>Pojazd</TableHead>
+                   <TableHead>Klient</TableHead>
+                   <TableHead>Termin</TableHead>
+                   <TableHead>Przyjęcie</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -395,26 +400,40 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                           </HoverCardContent>
                         )}
                       </HoverCard>
-                    </TableCell>
-                    <TableCell>
-                      {format(new Date(order.created_at), 'yyyy-MM-dd')}
+                     </TableCell>
+                     <TableCell>
+                       {order.scheduled_date ? (
+                         <Badge variant="outline" className={`text-xs whitespace-nowrap ${
+                           isFuture(new Date(order.scheduled_date))
+                             ? 'border-primary text-primary'
+                             : 'border-destructive text-destructive'
+                         }`}>
+                           <Calendar className="h-3 w-3 mr-1" />
+                           {format(new Date(order.scheduled_date), 'd MMM HH:mm', { locale: pl })}
+                         </Badge>
+                       ) : (
+                         <span className="text-xs text-muted-foreground">—</span>
+                       )}
+                     </TableCell>
+                     <TableCell>
+                       {format(new Date(order.created_at), 'yyyy-MM-dd')}
                     </TableCell>
                   </TableRow>
                 ))}
                 {filteredOrders.length === 0 && !isLoading && (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       Brak zleceń
                     </TableCell>
                   </TableRow>
                 )}
                 {filteredOrders.length > 0 && (
                   <TableRow className="font-semibold bg-muted/50">
-                    <TableCell colSpan={3}>Suma</TableCell>
-                    <TableCell className="text-right">
-                      {totalSum.toLocaleString('pl-PL', { minimumFractionDigits: 2 })}
-                    </TableCell>
-                    <TableCell colSpan={3}></TableCell>
+                     <TableCell colSpan={3}>Suma</TableCell>
+                     <TableCell className="text-right">
+                       {totalSum.toLocaleString('pl-PL', { minimumFractionDigits: 2 })}
+                     </TableCell>
+                     <TableCell colSpan={4}></TableCell>
                   </TableRow>
                 )}
               </TableBody>
