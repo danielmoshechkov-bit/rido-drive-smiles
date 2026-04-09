@@ -1838,6 +1838,11 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           return sum + parseFloat(amounts.uber_payout_d || amounts.uberPayout || '0');
         }, 0);
 
+        const uber_gross_total = driverSettlements.reduce((sum, s) => {
+          const amounts = s.amounts as any || {};
+          return sum + parseFloat(amounts.uber_gross_total || amounts.uber_col_g || '0');
+        }, 0);
+
         const bolt_base = driverSettlements.reduce((sum, s) => {
           const amounts = s.amounts as any || {};
           // Support restored Bolt rows that were temporarily saved with legacy recovery keys
@@ -1849,6 +1854,11 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             }
           }
           return sum + bolt;
+        }, 0);
+
+        const bolt_payout_s = driverSettlements.reduce((sum, s) => {
+          const amounts = s.amounts as any || {};
+          return sum + parseFloat(amounts.bolt_payout_s || amounts.bolt_payout || '0');
         }, 0);
 
         const freenow_base = driverSettlements.reduce((sum, s) => {
@@ -2080,6 +2090,18 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         const driverBaseFee = driverCitySettings?.base_fee ?? fleetBaseFee;
         const driverUberCalcMode = driverCitySettings?.uber_calculation_mode ?? fleetUberCalcMode;
         const effectiveVatRate = isB2BVatPayer ? 0 : driverVatRate;
+        const hasPositivePlatformActivity =
+          Math.max(0, uber_base) +
+          Math.max(0, bolt_base) +
+          Math.max(0, freenow_base) +
+          Math.max(0, total_cash) > 0.01;
+        const isBoltAdjustmentOnly =
+          !hasPositivePlatformActivity &&
+          bolt_payout_s < -0.01 &&
+          Math.abs(bolt_base - bolt_payout_s) < 0.01 &&
+          Math.abs(total_cash) < 0.01 &&
+          Math.abs(total_commission) < 0.01;
+        const effectiveServiceFee = isBoltAdjustmentOnly ? 0 : service_fee;
 
 
         // Nie naliczamy opłat serwisowych ani dodatkowych, ale VAT liczymy normalnie wg ustawień
@@ -2177,11 +2199,11 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           secondary_vat_amount = isB2BVatPayer ? 0 : (Math.abs(bolt_i_base) + Math.abs(bolt_j_base) + Math.abs(bolt_k_base)) * (driverSecondaryVatRate / 100);
           
           // For Uber in DUAL TAX mode:
-          // 'netto' (Od netto): uber_base (kolumna E) * 1.25 = podstawa do VAT
-          // 'brutto' (Od brutto): uber_base (kolumna E) * 1.25 ≈ kolumna G z CSV Uber
+          // 'netto' (Od netto): kolumna E + 25%
+          // 'brutto' (Od brutto): prawdziwa kolumna G z CSV Uber
           const uber_vat_base = driverUberCalcMode === 'brutto' 
-            ? Math.max(0, uber_base) * 1.25  // Od brutto = kol. G = E * 1.25
-            : Math.max(0, uber_base) * 1.25;  // Od netto = E + 25% = E * 1.25
+            ? Math.max(0, uber_gross_total || (Math.max(0, uber_base) * 1.25))
+            : Math.max(0, uber_base) * 1.25;
           const uber_freenow_base = uber_vat_base + Math.max(0, freenow_base);
           const uber_freenow_vat = isB2BVatPayer ? 0 : uber_freenow_base * (effectiveVatRate / 100);
           
@@ -2240,11 +2262,11 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                    - total_cash                   // Cash (G) from all platforms
                    - vat_amount                   // Combined VAT% of Brutto (D)
                    - secondary_vat_amount         // 23% of (I+J+K)
-                   - service_fee - total_additional_fees - manualWeekAdjustment - rental 
+                   - effectiveServiceFee - total_additional_fees - manualWeekAdjustment - rental 
                    - total_fuel + total_fuel_vat_refund;
         } else {
           // Single tax (current formula)
-          payout = total_base - total_commission - vat_amount - service_fee - total_additional_fees - manualWeekAdjustment - rental - total_cash - total_fuel + total_fuel_vat_refund;
+          payout = total_base - total_commission - vat_amount - effectiveServiceFee - total_additional_fees - manualWeekAdjustment - rental - total_cash - total_fuel + total_fuel_vat_refund;
         }
 
         // debtBeforeForDisplay/currentDebtForDisplay wyliczone wyżej (także dla tygodni bez jazdy)
@@ -2289,7 +2311,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           total_cash,
           tax_8_percent: vat_amount,
           vat_amount,
-          service_fee,
+          service_fee: effectiveServiceFee,
           additional_fees,
           manual_week_adjustment: manualWeekAdjustment,
           rental,

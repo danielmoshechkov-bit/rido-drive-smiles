@@ -23,6 +23,7 @@ interface PlatformData {
   uber_payout_d: number;
   uber_cash_f: number;
   uber_base: number;
+  uber_gross_total: number;
   uber_tax_8: number;
   uber_net: number;
   // Bolt
@@ -527,6 +528,7 @@ async function process3PlatformCsvs(
         uber_payout_d: data.uber_payout_d || 0,
         uber_cash_f: data.uber_cash_f || 0,
         uber_base: data.uber_base || 0,
+        uber_gross_total: data.uber_gross_total || 0,
         uber_tax_8: data.uber_tax_8 || 0,
         uber_net: data.uber_net || 0,
         bolt_projected_d: data.bolt_projected_d || 0,
@@ -787,10 +789,12 @@ async function parseUberCsv(
 
   console.log('📊 UBER CSV - liczba wierszy:', rows.length);
   const headers = rows[0].map(h => h.toLowerCase().trim());
+  const headersNorm = headers.map(h => h.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ł/g, 'l'));
   console.log('📊 UBER CSV - nagłówki:', JSON.stringify(headers));
   
   const payoutIdx = headers.findIndex(h => h.includes('wypłacono') || h.includes('payout') || h.includes('wyplata') || h.includes('wypłata'));
   const cashIdx = headers.findIndex(h => h.includes('gotówka') || h.includes('gotowka') || h.includes('cash'));
+  const grossTotalIdx = headersNorm.findIndex(h => /twoj przychod\s*:\s*oplata$/.test(h));
   const driverIdIdx = headers.findIndex(h => 
     h.includes('uuid') || 
     h.includes('identyfikator kierowc') ||
@@ -812,7 +816,7 @@ async function parseUberCsv(
     h.includes('driver')
   );
 
-  console.log('📊 UBER CSV - indeksy:', { payoutIdx, cashIdx, driverIdIdx, firstNameIdx, lastNameIdx, fullNameIdx });
+  console.log('📊 UBER CSV - indeksy:', { payoutIdx, cashIdx, grossTotalIdx, driverIdIdx, firstNameIdx, lastNameIdx, fullNameIdx });
 
   let newDrivers = 0;
   let matchedDrivers = 0;
@@ -825,6 +829,7 @@ async function parseUberCsv(
     const uber_payout_d = parsePLNumber(row[payoutIdx] || '0');
     const uber_cash_f = Math.abs(parsePLNumber(row[cashIdx] || '0'));
     const uber_base = uber_payout_d + uber_cash_f;
+    const uber_gross_total = grossTotalIdx >= 0 ? parsePLNumber(row[grossTotalIdx] || '0') : 0;
     const uber_tax_8 = uber_base * 0.08;
     const uber_net = uber_base - uber_tax_8;
 
@@ -1035,6 +1040,7 @@ async function parseUberCsv(
       existing.uber_payout_d = uber_payout_d;
       existing.uber_cash_f = uber_cash_f;
       existing.uber_base = uber_base;
+      existing.uber_gross_total = uber_gross_total;
       existing.uber_tax_8 = uber_tax_8;
       existing.uber_net = uber_net;
       driverDataMap.set(driverId, existing);
@@ -1593,6 +1599,7 @@ function createEmptyPlatformData(driverId: string): PlatformData {
     uber_payout_d: 0,
     uber_cash_f: 0,
     uber_base: 0,
+    uber_gross_total: 0,
     uber_tax_8: 0,
     uber_net: 0,
     bolt_projected_d: 0,
