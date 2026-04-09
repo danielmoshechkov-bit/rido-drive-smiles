@@ -351,6 +351,12 @@ export default function WorkshopClientCard() {
                   <p className="text-muted-foreground font-medium">Najpierw zaakceptuj protokół przyjęcia</p>
                   <p className="text-sm text-muted-foreground/60 mt-1">Kosztorys będzie dostępny po podpisaniu protokołu.</p>
                 </div>
+              ) : !order.estimate_sent_to_client ? (
+                <div className="py-12 text-center">
+                  <Lock className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
+                  <p className="text-muted-foreground font-medium">Kosztorys jest w trakcie przygotowania</p>
+                  <p className="text-sm text-muted-foreground/60 mt-1">Otrzymasz powiadomienie SMS, gdy kosztorys będzie gotowy do akceptacji.</p>
+                </div>
               ) : (
                 <div className="space-y-6">
                   {order.description && (
