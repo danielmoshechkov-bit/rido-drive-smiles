@@ -2314,7 +2314,14 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       console.log('🧹 Filtered (removed ghost drivers + owners):', filteredAggregated.length);
       console.log('✅ Sample settlement:', filteredAggregated[0]);
 
-      if (!options?.skipDebtSync) {
+      // Skip auto debt sync for fleets that were reset — prevents phantom debt recreation
+      const resetAt = (fleetData as any)?.settlements_reset_at;
+      const isResetFleet = !!resetAt;
+      const resetDate = resetAt ? new Date(resetAt) : null;
+      const weekEnd = currentWeek?.end ? new Date(currentWeek.end) : null;
+      const isWeekBeforeOrAtReset = isResetFleet && weekEnd && resetDate && weekEnd <= resetDate;
+
+      if (!options?.skipDebtSync && !isWeekBeforeOrAtReset) {
         const settlementsNeedingDebtSync = filteredAggregated.filter(row => {
           if (!row.settlement_id || !row.period_from || !row.period_to) return false;
 
