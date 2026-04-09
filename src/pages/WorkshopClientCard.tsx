@@ -90,7 +90,10 @@ export default function WorkshopClientCard() {
       });
       const updates: any = {};
       if (docType === 'reception_protocol') updates.client_acceptance_confirmed = true;
-      if (docType === 'cost_estimate') updates.quote_accepted = true;
+      if (docType === 'cost_estimate') {
+        updates.quote_accepted = true;
+        updates.status_name = 'Akceptacja klienta';
+      }
       if (Object.keys(updates).length > 0) {
         await (supabase as any).from('workshop_orders').update(updates).eq('id', order.id);
       }
