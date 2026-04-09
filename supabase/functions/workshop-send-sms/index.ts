@@ -7,8 +7,10 @@ const corsHeaders = {
 };
 
 function normalizePhone(raw: string): string {
-  let phone = raw.replace(/[\s\-\(\)\+]/g, "");
-  if (phone.startsWith("48") && phone.length >= 11) return phone;
+  let phone = raw.replace(/\D/g, "");
+  if (phone.startsWith("0048")) phone = phone.substring(2);
+  while (phone.startsWith("4848")) phone = phone.substring(2);
+  if (phone.startsWith("48") && phone.length === 11) return phone;
   if (phone.startsWith("0")) phone = phone.substring(1);
   if (phone.length === 9) return "48" + phone;
   return phone;
@@ -39,6 +41,18 @@ serve(async (req) => {
       .select("api_key, sender_name, provider, api_url, is_active")
       .limit(1)
       .single();
+
+    let resolvedProviderId = provider_id ?? null;
+
+    if (!resolvedProviderId && order_id) {
+      const { data: orderData } = await supabaseAdmin
+        .from("workshop_orders")
+        .select("provider_id")
+        .eq("id", order_id)
+        .maybeSingle();
+
+      resolvedProviderId = orderData?.provider_id ?? null;
+    }
 
     const appKey = smsSettings?.api_key || Deno.env.get("SMSAPI_TOKEN");
     if (!appKey) {
@@ -115,11 +129,11 @@ serve(async (req) => {
     }
 
     // Deduct SMS credit
-    try {
-      if (provider_id) {
-        const { error: decrError } = await supabaseAdmin.rpc("deduct_sms_credit", { p_provider_id: provider_id });
+      try {
+      if (resolvedProviderId) {
+        const { error: decrError } = await supabaseAdmin.rpc("deduct_sms_credit", { p_provider_id: resolvedProviderId });
         if (decrError) console.warn("[Workshop SMS] Could not deduct SMS credit:", decrError.message);
-        else console.log(`[Workshop SMS] Deducted 1 SMS credit from provider ${provider_id}`);
+        else console.log(`[Workshop SMS] Deducted 1 SMS credit from provider ${resolvedProviderId}`);
       } else {
         // Try to find provider via auth header
         const authHeader = req.headers.get("Authorization");

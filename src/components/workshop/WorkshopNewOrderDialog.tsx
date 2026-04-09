@@ -41,6 +41,22 @@ const DEFAULT_CHECKLIST = {
   refill_lights: true,
 };
 
+function toLocalPhone(raw: string): string {
+  let digits = raw.replace(/\D/g, '');
+  if (digits.startsWith('0048')) digits = digits.substring(2);
+  while (digits.startsWith('4848')) digits = digits.substring(2);
+  if (digits.startsWith('48') && digits.length >= 11) return digits.slice(-9);
+  if (digits.startsWith('0') && digits.length >= 10) return digits.slice(-9);
+  return digits;
+}
+
+function toSmsPhone(raw: string): string {
+  const local = toLocalPhone(raw);
+  if (local.length === 9) return `+48${local}`;
+  const digits = raw.replace(/\D/g, '');
+  return digits.startsWith('48') ? `+${digits}` : raw;
+}
+
 function generateOrderNumber() {
   const now = new Date();
   const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -180,19 +196,25 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
   const handleSendConfirmation = async () => {
     const phone = clientPhone || manualPhone;
     const email = clientEmail || manualEmail;
-    if (clientId && (manualPhone || manualEmail)) {
-      const updates: any = {};
-      if (manualPhone && !clientPhone) updates.phone = manualPhone;
-      if (manualEmail && !clientEmail) updates.email = manualEmail;
-      if (Object.keys(updates).length > 0) {
-        await (supabase as any).from('workshop_clients').update(updates).eq('id', clientId);
+
+    try {
+      if (clientId && (manualPhone || manualEmail)) {
+        const updates: any = {};
+        if (manualPhone && !clientPhone) updates.phone = manualPhone;
+        if (manualEmail && !clientEmail) updates.email = manualEmail;
+        if (Object.keys(updates).length > 0) {
+          await (supabase as any).from('workshop_clients').update(updates).eq('id', clientId);
+        }
       }
-    }
-    if (sendMethod === 'sms' && phone) {
-      try {
+
+      if (sendMethod === 'sms' && phone) {
+        const smsPhone = toSmsPhone(phone);
+        if (!smsPhone || smsPhone === phone) {
+          throw new Error('Nieprawidłowy numer telefonu');
+        }
+
         const veh = selectedVehicle;
         const vName = veh ? `${veh.brand || ''} ${veh.model || ''} ${veh.plate || ''}`.trim() : '';
-        const link = `${window.location.origin}/warsztat/klient/${createdOrderId ? '' : ''}`;
         // Fetch the created order to get client_code
         let clientCode = '';
         if (createdOrderId) {
@@ -207,23 +229,26 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
         const smsMessage = removePl(`Zlecenie serwisowe ${vName} zostalo przyjete. Szczegoly i akceptacja: ${clientLink}`);
         const { error } = await supabase.functions.invoke('workshop-send-sms', {
           body: {
-            phone: phone.startsWith('+48') ? phone : `+48${phone}`,
+            phone: smsPhone,
             message: smsMessage,
             order_id: createdOrderId,
             sms_type: 'reception',
+            provider_id: providerId,
           },
         });
         if (error) throw error;
+        await qc.invalidateQueries({ queryKey: ['sms-credits'] });
         toast.success(`SMS potwierdzenia wysłany na ${phone}`);
-      } catch (e: any) {
-        toast.error(`Błąd wysyłania SMS: ${e.message}`);
+      } else if (sendMethod === 'email' && email) {
+        toast.success(`E-mail potwierdzenia wysłany na ${email}`);
+      } else {
+        toast.info('Brak danych kontaktowych — pomijam wysyłkę');
       }
-    } else if (sendMethod === 'email' && email) {
-      toast.success(`E-mail potwierdzenia wysłany na ${email}`);
-    } else {
-      toast.info('Brak danych kontaktowych — pomijam wysyłkę');
+
+      resetForm(); onOpenChange(false);
+    } catch (e: any) {
+      toast.error(`Błąd wysyłania SMS: ${e.message}`);
     }
-    resetForm(); onOpenChange(false);
   };
 
   const handleSkip = () => { resetForm(); onOpenChange(false); };
