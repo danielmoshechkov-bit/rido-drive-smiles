@@ -140,61 +140,64 @@ serve(async (req) => {
     }
 
     // Deduct SMS credit - try fleet_id first, then try to find the user's provider
-    if (fleet_id) {
-      await supabase.rpc('deduct_sms_credit', { p_provider_id: fleet_id }).catch((e: any) => {
-        console.warn('[SMS] Could not deduct credit for fleet:', e?.message);
-      });
-    } else {
-      // Try to find the user who made the request via auth header
-      const authHeader = req.headers.get('Authorization');
-      if (authHeader) {
-        const userClient = createClient(
-          Deno.env.get('SUPABASE_URL') ?? '',
-          Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-          { global: { headers: { Authorization: authHeader } } }
-        );
-        const { data: { user } } = await userClient.auth.getUser();
-        if (user) {
-          // Deduct from the user's SMS balance (service_providers table)
-          const { data: provider } = await supabase
-            .from('service_providers')
-            .select('id, sms_balance')
-            .eq('user_id', user.id)
-            .maybeSingle();
-          if (provider && (provider.sms_balance || 0) > 0) {
-            await supabase
+    try {
+      if (fleet_id) {
+        const { error: rpcErr } = await supabase.rpc('deduct_sms_credit', { p_provider_id: fleet_id });
+        if (rpcErr) console.warn('[SMS] Could not deduct credit for fleet:', rpcErr.message);
+      } else {
+        // Try to find the user who made the request via auth header
+        const authHeader = req.headers.get('Authorization');
+        if (authHeader) {
+          const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('SUPABASE_PUBLISHABLE_KEY');
+          const userClient = createClient(
+            Deno.env.get('SUPABASE_URL') ?? '',
+            anonKey ?? '',
+            { global: { headers: { Authorization: authHeader } } }
+          );
+          const { data: { user } } = await userClient.auth.getUser();
+          if (user) {
+            const { data: provider } = await supabase
               .from('service_providers')
-              .update({ sms_balance: (provider.sms_balance || 0) - 1 })
-              .eq('id', provider.id)
-              .then(({ error: decrErr }) => {
-                if (decrErr) console.warn('[SMS] Could not deduct user SMS credit:', decrErr.message);
-                else console.log(`[SMS] Deducted 1 SMS credit from provider ${provider.id}, remaining: ${(provider.sms_balance || 0) - 1}`);
-              });
-          } else {
-            console.warn('[SMS] User has no SMS balance or no provider record');
+              .select('id, sms_balance')
+              .eq('user_id', user.id)
+              .maybeSingle();
+            if (provider && (provider.sms_balance || 0) > 0) {
+              const { error: decrErr } = await supabase
+                .from('service_providers')
+                .update({ sms_balance: (provider.sms_balance || 0) - 1 })
+                .eq('id', provider.id);
+              if (decrErr) console.warn('[SMS] Could not deduct user SMS credit:', decrErr.message);
+              else console.log(`[SMS] Deducted 1 SMS credit from provider ${provider.id}, remaining: ${(provider.sms_balance || 0) - 1}`);
+            } else {
+              console.warn('[SMS] User has no SMS balance or no provider record');
+            }
           }
         }
       }
+    } catch (e: any) {
+      console.warn('[SMS] Credit deduction error:', e?.message);
     }
 
     // Log to driver_communications
-    await supabase.from('driver_communications').insert({
-      driver_id: driver_id || null,
-      type: 'sms',
-      subject: type,
-      content: message,
-      status: 'sent',
-      sent_at: new Date().toISOString(),
-      metadata: {
-        phone: msisdn,
-        sender: senderName,
-        provider,
-        fleet_id,
-        response: responseText,
-      },
-    }).catch((e: any) => {
+    try {
+      await supabase.from('driver_communications').insert({
+        driver_id: driver_id || null,
+        type: 'sms',
+        subject: type,
+        content: message,
+        status: 'sent',
+        sent_at: new Date().toISOString(),
+        metadata: {
+          phone: msisdn,
+          sender: senderName,
+          provider,
+          fleet_id,
+          response: responseText,
+        },
+      });
+    } catch (e: any) {
       console.warn('[SMS] Could not log:', e?.message);
-    });
+    }
 
     return new Response(
       JSON.stringify({ success: true, phone: msisdn, sender: senderName, details: responseText }),
