@@ -142,9 +142,11 @@ export default function WorkshopClientCard() {
   const estimateSigned = hasSigned('cost_estimate');
   const status = statusLabels[order.status_name] || { label: order.status_name, color: 'bg-muted' };
 
+  const estimateAvailable = receptionSigned && order.estimate_sent_to_client && !order.estimate_changed_after_send;
+
   const tabs: { key: TabKey; label: string; icon: React.ReactNode; locked?: boolean }[] = [
     { key: 'reception', label: 'Protokół przyjęcia', icon: <Wrench className="h-4 w-4" /> },
-    { key: 'estimate', label: 'Kosztorys', icon: <FileSignature className="h-4 w-4" />, locked: !receptionSigned },
+    { key: 'estimate', label: 'Kosztorys', icon: <FileSignature className="h-4 w-4" />, locked: !estimateAvailable },
     { key: 'release', label: 'Protokół wydania', icon: <Shield className="h-4 w-4" />, locked: !estimateSigned },
   ];
 
