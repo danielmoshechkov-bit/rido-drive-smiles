@@ -21,6 +21,10 @@ interface AddDriverChargeModalProps {
   driverName: string;
   periodFrom?: string;
   periodTo?: string;
+  settlementId?: string;
+  currentRawPayout?: number;
+  currentPayoutWithoutRental?: number;
+  currentRental?: number;
   onComplete: () => void;
 }
 
@@ -31,12 +35,17 @@ export function AddDriverChargeModal({
   driverName,
   periodFrom,
   periodTo,
+  settlementId,
+  currentRawPayout,
+  currentPayoutWithoutRental,
+  currentRental,
   onComplete,
 }: AddDriverChargeModalProps) {
   const [type, setType] = useState<'deduction' | 'bonus'>('deduction');
   const [amount, setAmount] = useState('');
   const [reason, setReason] = useState('');
   const [saving, setSaving] = useState(false);
+  const round2 = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 
   const handleSubmit = async () => {
     const parsedAmount = parseFloat(amount.replace(',', '.'));
@@ -55,74 +64,81 @@ export function AddDriverChargeModal({
       const effectivePeriodFrom = periodFrom || today;
       const effectivePeriodTo = periodTo || today;
 
-      if (type === 'deduction') {
-        // Add to driver debt
-        await supabase.rpc('increment_driver_debt', {
-          p_driver_id: driverId,
-          p_amount: parsedAmount,
-        });
+      const { data: targetSettlement, error: settlementError } = settlementId
+        ? await supabase
+            .from('settlements')
+            .select('id, amounts')
+            .eq('id', settlementId)
+            .maybeSingle()
+        : await supabase
+            .from('settlements')
+            .select('id, amounts')
+            .eq('driver_id', driverId)
+            .eq('period_from', effectivePeriodFrom)
+            .eq('period_to', effectivePeriodTo)
+            .order('updated_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
 
-        // Log transaction
-        const { data: debtData } = await supabase
-          .from('driver_debts')
-          .select('current_balance')
-          .eq('driver_id', driverId)
-          .maybeSingle();
+      if (settlementError) throw settlementError;
+      if (!targetSettlement) {
+        toast.error('Brak rekordu rozliczenia dla tego tygodnia');
+        return;
+      }
 
-        const currentBalance = debtData?.current_balance || parsedAmount;
+      const adjustmentDelta = type === 'deduction' ? parsedAmount : -parsedAmount;
+      const originalAmounts = ((targetSettlement as any).amounts || {}) as Record<string, any>;
+      const currentAdjustment = round2(Number(originalAmounts.manual_week_adjustment || 0));
+      const nextAdjustment = round2(currentAdjustment + adjustmentDelta);
+      const nextAmounts = {
+        ...originalAmounts,
+        manual_week_adjustment: nextAdjustment,
+        manual_week_adjustment_reason: reason.trim(),
+        manual_week_adjustment_updated_at: new Date().toISOString(),
+      };
 
-        await supabase.from('driver_debt_transactions').insert({
-          driver_id: driverId,
-          type: 'manual_add' as any,
-          amount: parsedAmount,
-          balance_before: currentBalance - parsedAmount,
-          balance_after: currentBalance,
-          period_from: effectivePeriodFrom,
-          period_to: effectivePeriodTo,
-          description: reason,
-          debt_category: 'settlement',
-        } as any);
+      const { error: updateError } = await supabase
+        .from('settlements')
+        .update({ amounts: nextAmounts } as any)
+        .eq('id', targetSettlement.id);
 
-        // Update the current week's settlement snapshot so debt shows in the table
-        await syncSettlementDebtSnapshot(driverId, effectivePeriodFrom, effectivePeriodTo);
+      if (updateError) throw updateError;
 
-        toast.success(`Dług ${parsedAmount.toFixed(2)} zł dodany dla ${driverName}`);
-      } else {
-        // Bonus - reduce debt or add credit
-        const { data: debtData } = await supabase
-          .from('driver_debts')
-          .select('current_balance')
-          .eq('driver_id', driverId)
-          .maybeSingle();
+      const targetSettlementId = settlementId || targetSettlement.id;
+      if (
+        targetSettlementId &&
+        currentRawPayout !== undefined &&
+        currentPayoutWithoutRental !== undefined
+      ) {
+        const nextRawPayout = round2(currentRawPayout - adjustmentDelta);
+        const nextPayoutWithoutRental = round2(currentPayoutWithoutRental - adjustmentDelta);
 
-        const currentBalance = debtData?.current_balance || 0;
-
-        if (currentBalance > 0) {
-          // Reduce debt
-          const newBalance = Math.max(0, currentBalance - parsedAmount);
-          await supabase
-            .from('driver_debts')
-            .update({ current_balance: newBalance, updated_at: new Date().toISOString() })
-            .eq('driver_id', driverId);
-
-          await supabase.from('driver_debt_transactions').insert({
+        const { data: debtSyncData, error: debtSyncError } = await supabase.functions.invoke('update-driver-debt', {
+          body: {
             driver_id: driverId,
-            type: 'payment',
-            amount: -parsedAmount,
-            balance_before: currentBalance,
-            balance_after: newBalance,
+            settlement_id: targetSettlementId,
             period_from: effectivePeriodFrom,
             period_to: effectivePeriodTo,
-            description: `Dodatek: ${reason}`,
-            debt_category: 'settlement',
-          } as any);
+            calculated_payout: nextRawPayout,
+            calculated_payout_without_rental: nextPayoutWithoutRental,
+            rental_fee: currentRental || 0,
+            force_recalculate_chain: true,
+          },
+        });
+
+        if (debtSyncError || (debtSyncData as any)?.error) {
+          await supabase
+            .from('settlements')
+            .update({ amounts: originalAmounts } as any)
+            .eq('id', targetSettlement.id);
+
+          throw debtSyncError || new Error((debtSyncData as any)?.error || 'Błąd przeliczenia rozliczenia');
         }
-
-        // Update the current week's settlement snapshot
-        await syncSettlementDebtSnapshot(driverId, effectivePeriodFrom, effectivePeriodTo);
-
-        toast.success(`Dodatek ${parsedAmount.toFixed(2)} zł dodany dla ${driverName}`);
       }
+
+      toast.success(
+        `${type === 'deduction' ? 'Opłata' : 'Dodatek'} ${parsedAmount.toFixed(2)} zł zapisany dla ${driverName}`
+      );
 
       setAmount('');
       setReason('');
@@ -133,40 +149,6 @@ export function AddDriverChargeModal({
       toast.error('Błąd dodawania');
     } finally {
       setSaving(false);
-    }
-  };
-
-  // After adding a manual charge/bonus, re-sync the settlement's debt snapshot
-  // so the UI table shows updated debt values without page reload
-  const syncSettlementDebtSnapshot = async (driverId: string, periodFrom: string, periodTo: string) => {
-    try {
-      // Get updated debt balance
-      const { data: debtData } = await supabase
-        .from('driver_debts')
-        .select('current_balance')
-        .eq('driver_id', driverId)
-        .maybeSingle();
-
-      const currentDebt = debtData?.current_balance || 0;
-
-      // Find the settlement for this period
-      const { data: settlements } = await supabase
-        .from('settlements')
-        .select('id, debt_before, debt_after')
-        .eq('driver_id', driverId)
-        .gte('period_from', periodFrom)
-        .lte('period_to', periodTo)
-        .limit(1);
-
-      if (settlements && settlements.length > 0) {
-        // Update the debt_after snapshot to reflect manual change
-        await supabase
-          .from('settlements')
-          .update({ debt_after: currentDebt })
-          .eq('id', settlements[0].id);
-      }
-    } catch (err) {
-      console.error('Error syncing settlement debt snapshot:', err);
     }
   };
 
@@ -214,10 +196,10 @@ export function AddDriverChargeModal({
         </div>
 
         <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Anuluj
           </Button>
-          <Button onClick={handleSubmit} disabled={saving}>
+          <Button type="button" onClick={handleSubmit} disabled={saving}>
             {saving ? 'Zapisywanie...' : type === 'deduction' ? 'Dodaj dług' : 'Dodaj dodatek'}
           </Button>
         </div>
