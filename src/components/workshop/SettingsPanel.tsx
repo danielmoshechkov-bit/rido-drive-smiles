@@ -238,6 +238,7 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
     { value: 'warsztat', label: 'Warsztat', visible: true },
     { value: 'pracownicy', label: 'Pracownicy', visible: true },
     { value: 'stanowiska', label: 'Stanowiska', visible: true },
+    { value: 'kalendarz', label: 'Kalendarz', visible: true },
     { value: 'statusy', label: 'Statusy zleceń', visible: true },
     { value: 'rodzaje', label: 'Rodzaje zleceń', visible: true },
     { value: 'szablony', label: 'Szablony zadań', visible: true },
