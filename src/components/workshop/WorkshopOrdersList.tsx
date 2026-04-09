@@ -118,8 +118,6 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
               }
               setSelectedIds(new Set());
               toast.success(`Usunięto ${selectedIds.size} zleceń`);
-              // Invalidate queries to refresh list
-              const { useQueryClient } = await import('@tanstack/react-query');
             } catch (e: any) {
               toast.error(e.message || 'Błąd usuwania');
             }
