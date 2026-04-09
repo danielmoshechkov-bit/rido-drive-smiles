@@ -2176,16 +2176,19 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           // Tax 2: 23% VAT on campaigns(I) + returns(J) + cancellations(K)
           secondary_vat_amount = isB2BVatPayer ? 0 : (Math.abs(bolt_i_base) + Math.abs(bolt_j_base) + Math.abs(bolt_k_base)) * (driverSecondaryVatRate / 100);
           
-          // For Uber: use uber_payout_d (netto) or uber_base (brutto) depending on uber_calculation_mode
-          const uber_vat_base = driverUberCalcMode === 'brutto' ? Math.max(0, uber_base) : Math.max(0, uber_payout_d);
+          // For Uber in DUAL TAX mode:
+          // 'netto' (Od netto): uber_base (kolumna E) * 1.25 = podstawa do VAT
+          // 'brutto' (Od brutto): uber_base (kolumna E) * 1.25 ≈ kolumna G z CSV Uber
+          const uber_vat_base = driverUberCalcMode === 'brutto' 
+            ? Math.max(0, uber_base) * 1.25  // Od brutto = kol. G = E * 1.25
+            : Math.max(0, uber_base) * 1.25;  // Od netto = E + 25% = E * 1.25
           const uber_freenow_base = uber_vat_base + Math.max(0, freenow_base);
           const uber_freenow_vat = isB2BVatPayer ? 0 : uber_freenow_base * (effectiveVatRate / 100);
           
           vat_amount = bolt_vat_ef + uber_freenow_vat;
         } else {
-          // === SINGLE TAX MODE: VAT from positive-only base ===
-          // Uber: use netto (uber_payout_d) or brutto (uber_base) depending on uber_calculation_mode
-          const uber_vat_base_single = driverUberCalcMode === 'brutto' ? Math.max(0, uber_base) : Math.max(0, uber_payout_d);
+          // === SINGLE TAX MODE: VAT from uber_base (kolumna E) directly, no +25% ===
+          const uber_vat_base_single = Math.max(0, uber_base);
           const adjusted_vat_base = uber_vat_base_single + Math.max(0, bolt_base) + Math.max(0, freenow_base);
           vat_amount = adjusted_vat_base * (effectiveVatRate / 100);
         }
