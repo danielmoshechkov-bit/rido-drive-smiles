@@ -37,6 +37,7 @@ export function CalendarSettingsPage({ providerId }: Props) {
     sms_reminder_2h: true,
     sms_confirmation_on_booking: true,
     default_duration: '60',
+    _loaded: false,
   });
 
   // Sync form with loaded settings
@@ -48,7 +49,7 @@ export function CalendarSettingsPage({ providerId }: Props) {
       sms_confirmation_on_booking: loaded.sms_confirmation_on_booking ?? true,
       default_duration: loaded.default_duration || '60',
       _loaded: true,
-    } as any);
+    });
   }
 
   const saveMutation = useMutation({
