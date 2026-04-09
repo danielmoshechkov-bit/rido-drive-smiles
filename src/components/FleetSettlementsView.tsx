@@ -1425,7 +1425,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       // Fetch fleet settings (VAT rate and base fee)
       const { data: fleetData } = await supabase
         .from('fleets')
-        .select('vat_rate, base_fee, settlement_mode, secondary_vat_rate, additional_percent_rate, settlements_reset_at')
+        .select('vat_rate, base_fee, settlement_mode, secondary_vat_rate, additional_percent_rate, settlements_reset_at, uber_calculation_mode')
         .eq('id', fleetId)
         .maybeSingle();
       
@@ -1438,6 +1438,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       const fleetSettlementMode = (fleetData as any)?.settlement_mode ?? 'single_tax';
       const fleetSecondaryVatRate = (fleetData as any)?.secondary_vat_rate ?? 23;
       const fleetAdditionalPercentRate = (fleetData as any)?.additional_percent_rate ?? 0;
+      const fleetUberCalcMode = (fleetData as any)?.uber_calculation_mode ?? 'netto';
       
       // Store in state for header display
       setFleetVatRateState(fleetVatRate);
@@ -1459,6 +1460,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         secondary_vat_rate: number;
         additional_percent_rate: number;
         base_fee: number;
+        uber_calculation_mode: string;
       }>();
       if (citySettingsData) {
         const byCityName = new Map<string, any[]>();
@@ -1470,12 +1472,14 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         byCityName.forEach((entries, cityName) => {
           // Merge: prefer bolt settings for settlement_mode (dual_tax), otherwise first entry
           const boltEntry = entries.find((e: any) => e.platform === 'bolt') || entries[0];
+          const uberEntry = entries.find((e: any) => e.platform === 'uber');
           citySettingsMap.set(cityName, {
             vat_rate: boltEntry.vat_rate ?? fleetVatRate,
             settlement_mode: boltEntry.settlement_mode ?? fleetSettlementMode,
             secondary_vat_rate: boltEntry.secondary_vat_rate ?? fleetSecondaryVatRate,
             additional_percent_rate: boltEntry.additional_percent_rate ?? fleetAdditionalPercentRate,
             base_fee: boltEntry.base_fee ?? fleetBaseFee,
+            uber_calculation_mode: uberEntry?.uber_calculation_mode ?? fleetUberCalcMode,
           });
         });
       }
@@ -1828,6 +1832,12 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           return sum + uber;
         }, 0);
 
+        // uber_payout_d = netto (kolumna D z CSV Uber, "Paid to you")
+        const uber_payout_d = driverSettlements.reduce((sum, s) => {
+          const amounts = s.amounts as any || {};
+          return sum + parseFloat(amounts.uber_payout_d || amounts.uberPayout || '0');
+        }, 0);
+
         const bolt_base = driverSettlements.reduce((sum, s) => {
           const amounts = s.amounts as any || {};
           // Support restored Bolt rows that were temporarily saved with legacy recovery keys
@@ -2068,6 +2078,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         const driverSecondaryVatRate = driverCitySettings?.secondary_vat_rate ?? fleetSecondaryVatRate;
         const driverAdditionalPercentRate = driverCitySettings?.additional_percent_rate ?? fleetAdditionalPercentRate;
         const driverBaseFee = driverCitySettings?.base_fee ?? fleetBaseFee;
+        const driverUberCalcMode = driverCitySettings?.uber_calculation_mode ?? fleetUberCalcMode;
         const effectiveVatRate = isB2BVatPayer ? 0 : driverVatRate;
 
 
@@ -2165,14 +2176,18 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           // Tax 2: 23% VAT on campaigns(I) + returns(J) + cancellations(K)
           secondary_vat_amount = isB2BVatPayer ? 0 : (Math.abs(bolt_i_base) + Math.abs(bolt_j_base) + Math.abs(bolt_k_base)) * (driverSecondaryVatRate / 100);
           
-          // For Uber and FreeNow, still use standard VAT from positive base only
-          const uber_freenow_base = Math.max(0, uber_base) + Math.max(0, freenow_base);
+          // For Uber: use uber_payout_d (netto) or uber_base (brutto) depending on uber_calculation_mode
+          const uber_vat_base = driverUberCalcMode === 'brutto' ? Math.max(0, uber_base) : Math.max(0, uber_payout_d);
+          const uber_freenow_base = uber_vat_base + Math.max(0, freenow_base);
           const uber_freenow_vat = isB2BVatPayer ? 0 : uber_freenow_base * (effectiveVatRate / 100);
           
           vat_amount = bolt_vat_ef + uber_freenow_vat;
         } else {
-          // === SINGLE TAX MODE: VAT from positive-only base (negative platform amounts don't reduce VAT) ===
-          vat_amount = vat_base * (effectiveVatRate / 100);
+          // === SINGLE TAX MODE: VAT from positive-only base ===
+          // Uber: use netto (uber_payout_d) or brutto (uber_base) depending on uber_calculation_mode
+          const uber_vat_base_single = driverUberCalcMode === 'brutto' ? Math.max(0, uber_base) : Math.max(0, uber_payout_d);
+          const adjusted_vat_base = uber_vat_base_single + Math.max(0, bolt_base) + Math.max(0, freenow_base);
+          vat_amount = adjusted_vat_base * (effectiveVatRate / 100);
         }
 
         // Helper: sprawdź czy tydzień jest pierwszym pełnym tygodniem miesiąca
