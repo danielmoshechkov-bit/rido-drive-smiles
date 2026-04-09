@@ -161,7 +161,46 @@ export function WorkshopOrderBasicTab({ order, providerId }: Props) {
         </Card>
       </div>
 
-      {/* Description & Details */}
+      {/* Termin wizyty */}
+      <Card className="border-primary/30">
+        <CardContent className="pt-4 space-y-3">
+          <Label className="text-sm font-semibold uppercase tracking-wider text-primary flex items-center gap-2">
+            <Calendar className="h-4 w-4" /> Termin wizyty
+          </Label>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs">Data i godzina</Label>
+              <Input
+                type="datetime-local"
+                value={form.scheduled_date}
+                onChange={e => set('scheduled_date', e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Stanowisko</Label>
+              <Select value={form.scheduled_station} onValueChange={v => set('scheduled_station', v)}>
+                <SelectTrigger><SelectValue placeholder="Wybierz stanowisko" /></SelectTrigger>
+                <SelectContent>
+                  {stations.map((s: any) => (
+                    <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-x-6 gap-y-2 pt-1">
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <Switch checked={form.sms_reminder_24h} onCheckedChange={v => set('sms_reminder_24h', v)} />
+              Przypomnij SMS 24h przed
+            </label>
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <Switch checked={form.sms_reminder_2h} onCheckedChange={v => set('sms_reminder_2h', v)} />
+              Przypomnij SMS 2h przed
+            </label>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-1.5">
           <Label className="text-xs">Data rozpoczęcia</Label>
