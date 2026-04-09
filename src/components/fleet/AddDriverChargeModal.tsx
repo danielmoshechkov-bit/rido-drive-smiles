@@ -142,6 +142,7 @@ export function AddDriverChargeModal({
 
       setAmount('');
       setReason('');
+      setType('deduction');
       onOpenChange(false);
       onComplete();
     } catch (err) {
