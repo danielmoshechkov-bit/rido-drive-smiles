@@ -1832,6 +1832,12 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           return sum + uber;
         }, 0);
 
+        // uber_payout_d = netto (kolumna D z CSV Uber, "Paid to you")
+        const uber_payout_d = driverSettlements.reduce((sum, s) => {
+          const amounts = s.amounts as any || {};
+          return sum + parseFloat(amounts.uber_payout_d || amounts.uberPayout || '0');
+        }, 0);
+
         const bolt_base = driverSettlements.reduce((sum, s) => {
           const amounts = s.amounts as any || {};
           // Support restored Bolt rows that were temporarily saved with legacy recovery keys
