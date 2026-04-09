@@ -2116,7 +2116,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         let additional_percent_amount = 0;
         let secondary_vat_amount = 0;
 
-        if (fleetSettlementMode === 'dual_tax') {
+        if (driverSettlementMode === 'dual_tax') {
           // Aggregate Bolt columns E, F, G, I, J, K from amounts JSON
           bolt_ef_base = driverSettlements.reduce((sum, s) => {
             const amounts = s.amounts as any || {};
@@ -2147,12 +2147,12 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           
           // Tax 1: Combined VAT% + Additional% from Bolt D (brutto)
           // e.g. 8% VAT + 1% additional = 9% total
-          const combinedVatRate = effectiveVatRate + fleetAdditionalPercentRate;
+          const combinedVatRate = effectiveVatRate + driverAdditionalPercentRate;
           // Use bolt_base (Column D) for primary VAT calculation
           const bolt_vat_ef = isB2BVatPayer ? 0 : Math.max(0, bolt_base) * (combinedVatRate / 100);
           additional_percent_amount = 0;
           // Tax 2: 23% VAT on campaigns(I) + returns(J) + cancellations(K)
-          secondary_vat_amount = isB2BVatPayer ? 0 : (Math.abs(bolt_i_base) + Math.abs(bolt_j_base) + Math.abs(bolt_k_base)) * (fleetSecondaryVatRate / 100);
+          secondary_vat_amount = isB2BVatPayer ? 0 : (Math.abs(bolt_i_base) + Math.abs(bolt_j_base) + Math.abs(bolt_k_base)) * (driverSecondaryVatRate / 100);
           
           // For Uber and FreeNow, still use standard VAT from positive base only
           const uber_freenow_base = Math.max(0, uber_base) + Math.max(0, freenow_base);
@@ -2202,7 +2202,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
         // Calculate payout based on mode
         let payout: number;
-        if (fleetSettlementMode === 'dual_tax') {
+        if (driverSettlementMode === 'dual_tax') {
           // Correct formula: Netto(R) - Cash(G) - 9%(D) - 23%(I+J+K) - fees
           // netto_calc = total_base - total_commission (= bolt_net + uber_net + freenow_net)
           const netto_calc = total_base - total_commission;
