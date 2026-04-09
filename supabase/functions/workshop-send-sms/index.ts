@@ -115,13 +115,41 @@ serve(async (req) => {
     }
 
     // Deduct SMS credit
-    if (provider_id) {
-      try {
+    try {
+      if (provider_id) {
         const { error: decrError } = await supabaseAdmin.rpc("deduct_sms_credit", { p_provider_id: provider_id });
         if (decrError) console.warn("[Workshop SMS] Could not deduct SMS credit:", decrError.message);
-      } catch (e) {
-        console.warn("[Workshop SMS] Credit deduction failed:", e);
+        else console.log(`[Workshop SMS] Deducted 1 SMS credit from provider ${provider_id}`);
+      } else {
+        // Try to find provider via auth header
+        const authHeader = req.headers.get("Authorization");
+        if (authHeader) {
+          const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
+          const { createClient: cc } = await import("https://esm.sh/@supabase/supabase-js@2");
+          const userClient = cc(
+            Deno.env.get("SUPABASE_URL") ?? "",
+            anonKey ?? "",
+            { global: { headers: { Authorization: authHeader } } }
+          );
+          const { data: { user } } = await userClient.auth.getUser();
+          if (user) {
+            const { data: sp } = await supabaseAdmin
+              .from("service_providers")
+              .select("id, sms_balance")
+              .eq("user_id", user.id)
+              .maybeSingle();
+            if (sp && (sp.sms_balance || 0) > 0) {
+              const { error: decrErr } = await supabaseAdmin.rpc("deduct_sms_credit", { p_provider_id: sp.id });
+              if (decrErr) console.warn("[Workshop SMS] Could not deduct user SMS credit:", decrErr.message);
+              else console.log(`[Workshop SMS] Deducted 1 SMS credit from provider ${sp.id}, remaining: ${(sp.sms_balance || 0) - 1}`);
+            } else {
+              console.warn("[Workshop SMS] User has no SMS balance or no provider record");
+            }
+          }
+        }
       }
+    } catch (e) {
+      console.warn("[Workshop SMS] Credit deduction failed:", e);
     }
 
     return new Response(
