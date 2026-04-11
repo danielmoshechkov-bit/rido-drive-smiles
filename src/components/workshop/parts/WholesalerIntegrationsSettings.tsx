@@ -430,6 +430,118 @@ export function WholesalerIntegrationsSettings({ providerId }: Props) {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* ── INTER CARS Dialog ── */}
+      <Dialog open={openDialog === 'inter_cars'} onOpenChange={(open) => { if (!open) setOpenDialog(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <span className="text-2xl">🔴</span> Inter Cars — Konfiguracja API
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              {WHOLESALERS.find(w => w.code === 'inter_cars')?.helpText}
+            </DialogDescription>
+          </DialogHeader>
+          {forms.inter_cars && (
+            <div className="space-y-4 pt-2">
+              <div className="rounded-lg border bg-muted/40 px-3 py-2.5 text-xs text-muted-foreground space-y-1">
+                <div className="flex items-start gap-1.5">
+                  <Info className="h-3.5 w-3.5 mt-0.5 shrink-0 text-primary" />
+                  <div>
+                    <p className="font-medium text-foreground">Jak uzyskać dane dostępowe?</p>
+                    <ol className="list-decimal ml-4 mt-1 space-y-0.5">
+                      <li>Skontaktuj się z przedstawicielem Inter Cars</li>
+                      <li>Poproś o <strong>Client ID</strong> i <strong>Client Secret</strong> do WebAPI</li>
+                      <li>Podaj swój <strong>numer odbiorcy (kh_kod)</strong> np. 9AE06V</li>
+                      <li>Opcjonalnie podaj <strong>oddział</strong> i <strong>hasło CSV</strong></li>
+                    </ol>
+                    <p className="mt-1.5">
+                      API: <code className="text-[10px] bg-muted px-1 rounded">webapi.intercars.eu</code>
+                    </p>
+                    <p className="mt-1">
+                      CSV: <code className="text-[10px] bg-muted px-1 rounded">data.webapi.intercars.eu</code>
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">Integracja aktywna</Label>
+                <Switch checked={forms.inter_cars.is_enabled} onCheckedChange={(v) => updateForm('inter_cars', { is_enabled: v })} />
+              </div>
+
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Client ID <span className="text-destructive">*</span></Label>
+                    <Input value={getExtraField('inter_cars', 'clientId')} onChange={(e) => setExtraField('inter_cars', 'clientId', e.target.value)} placeholder="np. isMb4_2m..." />
+                    <p className="text-[10px] text-muted-foreground">OAuth2 Client ID od Inter Cars</p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Client Secret <span className="text-destructive">*</span></Label>
+                    <Input type="password" value={getExtraField('inter_cars', 'clientSecret')} onChange={(e) => setExtraField('inter_cars', 'clientSecret', e.target.value)} placeholder="••••••••" />
+                    <p className="text-[10px] text-muted-foreground">OAuth2 Client Secret</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Nr odbiorcy (kh_kod) <span className="text-destructive">*</span></Label>
+                    <Input value={getExtraField('inter_cars', 'customerNumber')} onChange={(e) => setExtraField('inter_cars', 'customerNumber', e.target.value)} placeholder="np. 9AE06V" />
+                    <p className="text-[10px] text-muted-foreground">ID klienta w systemie IC</p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Oddział</Label>
+                    <Input value={getExtraField('inter_cars', 'branch')} onChange={(e) => setExtraField('inter_cars', 'branch', e.target.value)} placeholder="np. MAT" />
+                    <p className="text-[10px] text-muted-foreground">Kod oddziału (opcjonalnie)</p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Hasło CSV</Label>
+                    <Input type="password" value={getExtraField('inter_cars', 'csvPassword')} onChange={(e) => setExtraField('inter_cars', 'csvPassword', e.target.value)} placeholder="••••••••" />
+                    <p className="text-[10px] text-muted-foreground">Do plików cennikowych</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Środowisko</Label>
+                  <Select value={forms.inter_cars.environment} onValueChange={(v) => updateForm('inter_cars', { environment: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="production">🚀 Produkcja</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Marża sprzedaży %</Label>
+                  <Input type="number" value={forms.inter_cars.sales_margin_percent} onChange={(e) => updateForm('inter_cars', { sales_margin_percent: Number(e.target.value) })} />
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-3 border-t">
+                <Button variant="outline" size="sm" onClick={() => testConnection('inter_cars')} disabled={testingSupplier === 'inter_cars' || !getExtraField('inter_cars', 'clientId') || !getExtraField('inter_cars', 'clientSecret')} className="gap-1.5">
+                  {testingSupplier === 'inter_cars' ? <Loader2 className="h-4 w-4 animate-spin" /> : <TestTube className="h-4 w-4" />}
+                  Testuj połączenie
+                </Button>
+                <Button size="sm" onClick={async () => { await saveIntegration('inter_cars'); toast.success('Inter Cars zapisany'); setOpenDialog(null); }} disabled={!getExtraField('inter_cars', 'clientId') || !getExtraField('inter_cars', 'clientSecret')}>
+                  Zapisz
+                </Button>
+                {testResults.inter_cars === 'ok' && (
+                  <span className="flex items-center gap-1 text-xs text-green-600 ml-auto">
+                    <CheckCircle2 className="h-3.5 w-3.5" /> Połączenie aktywne
+                  </span>
+                )}
+                {testResults.inter_cars === 'error' && (
+                  <span className="flex items-center gap-1 text-xs text-destructive ml-auto">
+                    <XCircle className="h-3.5 w-3.5" /> Sprawdź dane
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
