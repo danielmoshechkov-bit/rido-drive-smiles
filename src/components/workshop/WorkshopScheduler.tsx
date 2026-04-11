@@ -892,6 +892,7 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
     phone: '', firstName: '', lastName: '', plate: '',
     brand: '', model: '', serviceDesc: '', duration: '60',
     reminderOptions: ['24h', '2h'] as string[],
+    sendConfirmationSms: true,
   });
   const [saving, setSaving] = useState(false);
 
