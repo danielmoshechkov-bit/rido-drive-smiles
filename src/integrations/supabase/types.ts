@@ -20023,6 +20023,7 @@ export type Database = {
           appointment_date: string
           appointment_time: string
           brand: string | null
+          confirmation_sms_sent: boolean | null
           created_at: string
           duration_minutes: number
           first_name: string | null
@@ -20036,6 +20037,7 @@ export type Database = {
           reminder_24h_sent: boolean
           reminder_2h_sent: boolean
           reminder_enabled: boolean
+          reminder_times: string[] | null
           service_description: string | null
           station_id: string | null
           status: string
@@ -20045,6 +20047,7 @@ export type Database = {
           appointment_date: string
           appointment_time: string
           brand?: string | null
+          confirmation_sms_sent?: boolean | null
           created_at?: string
           duration_minutes?: number
           first_name?: string | null
@@ -20058,6 +20061,7 @@ export type Database = {
           reminder_24h_sent?: boolean
           reminder_2h_sent?: boolean
           reminder_enabled?: boolean
+          reminder_times?: string[] | null
           service_description?: string | null
           station_id?: string | null
           status?: string
@@ -20067,6 +20071,7 @@ export type Database = {
           appointment_date?: string
           appointment_time?: string
           brand?: string | null
+          confirmation_sms_sent?: boolean | null
           created_at?: string
           duration_minutes?: number
           first_name?: string | null
@@ -20080,6 +20085,7 @@ export type Database = {
           reminder_24h_sent?: boolean
           reminder_2h_sent?: boolean
           reminder_enabled?: boolean
+          reminder_times?: string[] | null
           service_description?: string | null
           station_id?: string | null
           status?: string
