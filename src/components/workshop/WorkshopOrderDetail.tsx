@@ -419,6 +419,12 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
         onOpenChange={setEditClientOpen}
         client={order.client}
       />
+      {/* Estimate Preview Dialog */}
+      <WorkshopEstimatePreviewDialog
+        open={estimatePreviewOpen}
+        onOpenChange={setEstimatePreviewOpen}
+        order={order}
+      />
     </div>
   );
 }
