@@ -178,7 +178,7 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
       mileage: mileage ? parseInt(mileage) : null,
       fuel_level: fuelLevel || null,
       internal_notes: clientNotes || null,
-      status_name: 'Przyjęcie do serwisu',
+      status_name: 'Nowe zlecenie',
     });
     // Auto-persist owner to vehicle
     if (vehicleId && clientId) {
