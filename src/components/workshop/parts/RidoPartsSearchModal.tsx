@@ -390,31 +390,30 @@ export function RidoPartsSearchModal({
     setSearchHelp(null);
     setHasSearched(true);
 
-    // Step 1: Search IC catalog first (local cache or live fallback) when IC is configured anywhere
-    if (icIntegration?.is_enabled || hasInterCarsWholesaler) {
+    // Step 1: Search IC catalog first (local cache) when IC is configured
+    const shouldSearchIcCatalog = icIntegration?.is_enabled || hasInterCarsWholesaler;
+    if (shouldSearchIcCatalog) {
       try {
-        const catalogQueries = Array.from(new Set([rawQuery, effectiveQuery].filter(Boolean)));
+        const icRes = await icSync.mutateAsync({
+          action: 'search_catalog',
+          provider_id: providerId,
+          query: effectiveQuery,
+        });
 
-        for (const catalogQuery of catalogQueries) {
-          const icRes = await icSync.mutateAsync({
-            action: 'search_catalog',
-            provider_id: providerId,
-            query: catalogQuery,
-          });
-
-          if (icRes.results && icRes.results.length > 0) {
-            setIcCatalogResults(icRes.results);
-            setIcCatalogResultsBackup(icRes.results);
-            setIsSearching(false);
-            return; // Show IC results for selection, don't search wholesalers yet
-          }
+        if (icRes.results && icRes.results.length > 0) {
+          setIcCatalogResults(icRes.results);
+          setIcCatalogResultsBackup(icRes.results);
+          setIsSearching(false);
+          return; // Show IC results for selection, don't search wholesalers yet
         }
-      } catch (e) {
-        console.warn('IC catalog search failed, fallback to wholesalers:', e);
+        console.log('[RidoParts] IC catalog empty, falling through to wholesalers');
+      } catch (e: any) {
+        console.warn('[RidoParts] IC catalog search failed:', e?.message);
       }
     }
 
     // Step 2: No IC results or no IC → search wholesalers directly
+    console.log('[RidoParts] Searching wholesalers with:', effectiveQuery, 'integrations:', enabledIntegrations.map((i: any) => i.supplier_code));
     await searchInWholesalers(effectiveQuery);
   };
 
