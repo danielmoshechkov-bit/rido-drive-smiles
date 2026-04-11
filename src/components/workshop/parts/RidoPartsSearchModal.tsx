@@ -655,7 +655,26 @@ export function RidoPartsSearchModal({
           </div>
         )}
 
-        {/* Clickable suggestions (while typing, before/after search) */}
+        {/* Per-wholesaler diagnostics */}
+        {hasSearched && Object.keys(supplierDiagnostics).length > 0 && !isSearching && (
+          <div className="flex items-center gap-3 text-[11px] bg-muted/20 rounded-md px-3 py-1.5 flex-wrap">
+            <span className="text-muted-foreground font-medium">Status API:</span>
+            {Object.entries(supplierDiagnostics).map(([code, diag]) => (
+              <span key={code} className="flex items-center gap-1">
+                {diag.status === 'searching' && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                {diag.status === 'ok' && <CheckCircle2 className="h-3 w-3 text-green-500" />}
+                {diag.status === 'error' && <XCircle className="h-3 w-3 text-red-500" />}
+                <span className={diag.status === 'error' ? 'text-red-600' : diag.count > 0 ? 'text-foreground' : 'text-muted-foreground'}>
+                  {code === 'hart' ? 'Hart' : code === 'auto_partner' ? 'Auto Partner' : code === 'inter_cars' ? 'Inter Cars' : code}
+                  {diag.status === 'ok' && `: ${diag.count} wyników`}
+                  {diag.status === 'error' && ` (błąd)`}
+                </span>
+              </span>
+            ))}
+          </div>
+        )}
+
+
         {suggestions.length > 0 && !isSearching && (
           <div className="flex flex-wrap gap-1.5">
             <span className="text-xs text-muted-foreground self-center mr-1">
