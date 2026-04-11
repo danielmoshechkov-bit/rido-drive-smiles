@@ -161,6 +161,9 @@ export function RidoPartsSearchModal({
       if (initialSearch) setQuery(initialSearch);
       setSearchHelp(null);
       setAiInfo(null);
+      setIcCatalogResults([]);
+      setIcCatalogResultsBackup([]);
+      setSelectedIcPart(null);
       if (existingParts.length > 0) {
         setCurrentPartIndex(0);
         const firstPart = existingParts[0].name;
@@ -174,6 +177,9 @@ export function RidoPartsSearchModal({
       setSearchHelp(null);
       setCurrentPartIndex(0);
       setAiInfo(null);
+      setIcCatalogResults([]);
+      setIcCatalogResultsBackup([]);
+      setSelectedIcPart(null);
     }
   }, [open]);
 
