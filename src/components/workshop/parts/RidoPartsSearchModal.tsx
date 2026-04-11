@@ -643,7 +643,56 @@ export function RidoPartsSearchModal({
             </div>
           )}
 
-          {!isSearching && results.length > 0 && (
+          {/* IC Catalog results — part selection */}
+          {!isSearching && icCatalogResults.length > 0 && (
+            <div className="space-y-3 p-2">
+              <div className="flex items-center gap-2 text-sm">
+                <Sparkles className="h-4 w-4 text-primary" />
+                <span>Znaleziono <strong>{icCatalogResults.length}</strong> pasujących części w katalogu Inter Cars. Wybierz właściwą:</span>
+              </div>
+              <div className="space-y-2">
+                {icCatalogResults.map((part) => (
+                  <button
+                    key={part.ic_sku}
+                    type="button"
+                    onClick={() => handleIcPartSelect(part)}
+                    className="text-left w-full p-3 rounded-lg border hover:border-primary hover:bg-primary/5 transition-colors flex gap-3"
+                  >
+                    <div className="w-16 h-16 rounded border bg-muted/50 flex items-center justify-center shrink-0 overflow-hidden">
+                      {part.ic_tecdoc_id ? (
+                        <img
+                          src={`https://webservice.tecalliance.services/pegasus-3-0/img/A/${encodeURIComponent(part.ic_tecdoc_id)}`}
+                          alt={part.name}
+                          className="w-full h-full object-contain"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                            (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+                          }}
+                        />
+                      ) : null}
+                      <Package className={`h-6 w-6 text-muted-foreground/50 ${part.ic_tecdoc_id ? 'hidden' : ''}`} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">{part.name}</p>
+                      <div className="flex gap-2 text-xs text-muted-foreground mt-0.5">
+                        {part.manufacturer && <span>{part.manufacturer}</span>}
+                        {part.category_label && <span className="text-primary/70">· {part.category_label}</span>}
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      {part.ic_index && <p className="font-mono text-[10px] text-muted-foreground">{part.ic_index}</p>}
+                      {part.oe_number && <p className="text-[10px] text-muted-foreground">OE: {part.oe_number}</p>}
+                    </div>
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground text-center">
+                ℹ️ Kliknij część → system sprawdzi ceny i dostępność we wszystkich hurtowniach
+              </p>
+            </div>
+          )}
+
+          {!isSearching && results.length > 0 && icCatalogResults.length === 0 && (
             <TooltipProvider>
               <table className="w-full text-xs">
                 <thead className="sticky top-0 bg-background z-10">
