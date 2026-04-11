@@ -34,12 +34,15 @@ interface Props {
 }
 
 const statusColors: Record<string, string> = {
-  'Przyjęcie do serwisu': 'bg-red-500 text-white',
-  'Nowe zlecenie': 'bg-amber-400 text-black',
-  'Akceptacja klienta': 'bg-amber-400 text-black',
+  'Nowe zlecenie': 'bg-red-500 text-white',
+  'Przyjęcie do serwisu': 'bg-orange-500 text-white',
+  'Wycena gotowa': 'bg-yellow-500 text-black',
+  'Wycena wysłana': 'bg-orange-400 text-black',
+  'Zaakceptowano': 'bg-green-500 text-white',
+  'Akceptacja klienta': 'bg-green-500 text-white',
   'W trakcie naprawy': 'bg-amber-400 text-black',
   'Zadania wykonane': 'bg-green-500 text-white',
-  'Gotowy do odbioru': 'bg-green-500 text-white',
+  'Gotowy do odbioru': 'bg-gray-500 text-white',
   'Zakończone': 'bg-gray-800 text-white',
 };
 
