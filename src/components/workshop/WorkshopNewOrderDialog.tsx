@@ -146,7 +146,15 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
   const clientPhone = selectedClient?.phone || '';
   const clientEmail = selectedClient?.email || '';
 
-  const addTaskPoint = () => setTaskPoints([...taskPoints, { text: '' }]);
+  const taskInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const addTaskPoint = () => {
+    const newPoints = [...taskPoints, { text: '' }];
+    setTaskPoints(newPoints);
+    // Focus the new input after render
+    setTimeout(() => {
+      taskInputRefs.current[newPoints.length - 1]?.focus();
+    }, 50);
+  };
   const updateTaskPoint = (index: number, text: string) => {
     const updated = [...taskPoints]; updated[index] = { text }; setTaskPoints(updated);
   };
@@ -509,6 +517,7 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                       <div key={index} className="flex items-center gap-2">
                         <span className="text-sm font-bold text-primary min-w-[28px] text-center">{index + 1}.</span>
                         <Input
+                          ref={el => { taskInputRefs.current[index] = el; }}
                           value={point.text}
                           onChange={e => { updateTaskPoint(index, e.target.value); if (errors.description) setErrors(e2 => { const { description, ...rest } = e2; return rest; }); }}
                           onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addTaskPoint(); } }}

@@ -1,0 +1,1 @@
+ALTER TABLE public.workshop_settings ADD COLUMN IF NOT EXISTS short_name TEXT;

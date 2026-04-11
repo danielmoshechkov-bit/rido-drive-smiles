@@ -20968,6 +20968,7 @@ export type Database = {
           payment_method: string | null
           phone: string | null
           postal_code: string | null
+          short_name: string | null
           show_prices_as: string | null
           updated_at: string | null
           user_id: string
@@ -20990,6 +20991,7 @@ export type Database = {
           payment_method?: string | null
           phone?: string | null
           postal_code?: string | null
+          short_name?: string | null
           show_prices_as?: string | null
           updated_at?: string | null
           user_id: string
@@ -21012,6 +21014,7 @@ export type Database = {
           payment_method?: string | null
           phone?: string | null
           postal_code?: string | null
+          short_name?: string | null
           show_prices_as?: string | null
           updated_at?: string | null
           user_id?: string

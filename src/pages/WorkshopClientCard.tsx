@@ -92,7 +92,10 @@ export default function WorkshopClientCard() {
         signature_method: 'button',
       });
       const updates: any = {};
-      if (docType === 'reception_protocol') updates.client_acceptance_confirmed = true;
+      if (docType === 'reception_protocol') {
+        updates.client_acceptance_confirmed = true;
+        updates.status_name = 'Przyjęcie do serwisu';
+      }
       if (docType === 'cost_estimate') {
         updates.quote_accepted = true;
         updates.status_name = 'Zaakceptowano';
