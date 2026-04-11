@@ -21,6 +21,24 @@ interface IcCatalogItem {
   category_label: string | null;
 }
 
+function normalizePartsSearchQuery(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .replace(/\bwachzae\b/g, 'wahacz')
+    .replace(/\bwachacz\b/g, 'wahacz')
+    .replace(/\bwachacze\b/g, 'wahacz')
+    .replace(/\bwahacze\b/g, 'wahacz')
+    .replace(/\bwachlacz\b/g, 'wahacz')
+    .replace(/\brpzednie\b/g, 'przedni')
+    .replace(/\brpzedni\b/g, 'przedni')
+    .replace(/\bprzednie\b/g, 'przedni')
+    .replace(/\btylnie\b/g, 'tylny')
+    .replace(/\blewe\b/g, 'lewy')
+    .replace(/\bprawe\b/g, 'prawy');
+}
+
 // ─── Search suggestions map ───
 const SUGGESTIONS_MAP: Record<string, string[]> = {
   'wachacz': ['wahacz przedni lewy kompletny', 'wahacz przedni prawy kompletny', 'wahacz tylny lewy', 'wahacz tylny prawy'],
@@ -197,6 +215,7 @@ export function RidoPartsSearchModal({
 
   const searchInWholesalers = async (searchTerm: string) => {
     if (enabledIntegrations.length === 0) {
+      setIsSearching(false);
       toast.error('Brak skonfigurowanych hurtowni. Przejdź do Ustawienia → Integracje z hurtowniami.');
       return;
     }
@@ -332,8 +351,15 @@ export function RidoPartsSearchModal({
   };
 
   const doSearch = async (searchQuery?: string) => {
-    const q = (searchQuery || query).trim();
-    if (!q) return;
+    const rawQuery = (searchQuery || query).trim();
+    if (!rawQuery) return;
+
+    const normalizedQuery = normalizePartsSearchQuery(rawQuery);
+    const effectiveQuery = normalizedQuery || rawQuery;
+
+    if (!searchQuery && effectiveQuery !== query) {
+      setQuery(effectiveQuery);
+    }
 
     setIsSearching(true);
     setResults([]);
@@ -344,18 +370,24 @@ export function RidoPartsSearchModal({
     setHasSearched(true);
 
     // Step 1: If IC catalog is configured, search it first
-    if (icIntegration?.is_enabled && icIntegration?.last_sync_status === 'ok') {
+    const hasInterCarsWholesaler = enabledIntegrations.some((integration: any) => integration.supplier_code === 'inter_cars');
+    if (icIntegration?.is_enabled || hasInterCarsWholesaler) {
       try {
-        const icRes = await icSync.mutateAsync({
-          action: 'search_catalog',
-          provider_id: providerId,
-          query: q,
-        });
-        if (icRes.results && icRes.results.length > 0) {
-          setIcCatalogResults(icRes.results);
-          setIcCatalogResultsBackup(icRes.results);
-          setIsSearching(false);
-          return; // Show IC results for selection, don't search wholesalers yet
+        const catalogQueries = Array.from(new Set([rawQuery, effectiveQuery].filter(Boolean)));
+
+        for (const catalogQuery of catalogQueries) {
+          const icRes = await icSync.mutateAsync({
+            action: 'search_catalog',
+            provider_id: providerId,
+            query: catalogQuery,
+          });
+
+          if (icRes.results && icRes.results.length > 0) {
+            setIcCatalogResults(icRes.results);
+            setIcCatalogResultsBackup(icRes.results);
+            setIsSearching(false);
+            return; // Show IC results for selection, don't search wholesalers yet
+          }
         }
       } catch (e) {
         console.warn('IC catalog search failed, fallback to wholesalers:', e);
@@ -363,8 +395,7 @@ export function RidoPartsSearchModal({
     }
 
     // Step 2: No IC results or no IC → search wholesalers directly
-    setIsSearching(false);
-    await searchInWholesalers(q);
+    await searchInWholesalers(effectiveQuery);
   };
 
   const handleIcPartSelect = async (part: IcCatalogItem) => {
