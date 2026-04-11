@@ -231,6 +231,7 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
     }
 
     onPrimaryTabsSaved?.(nextPrimaryTabs);
+    queryClient.invalidateQueries({ queryKey: ['nav-preferences'] });
     toast.success('Układ paska zapisany');
   };
 
