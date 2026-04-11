@@ -13,6 +13,7 @@ import { WorkshopSmsDialog } from './WorkshopSmsDialog';
 import { WorkshopEditClientDialog } from './WorkshopEditClientDialog';
 import { WorkshopVehicleHoverCard } from './WorkshopVehicleHoverCard';
 import { WorkshopClientHoverCard } from './WorkshopClientHoverCard';
+import { WorkshopEstimatePreviewDialog } from './WorkshopEstimatePreviewDialog';
 import { RidoPartsCartButton } from './parts/RidoPartsCartButton';
 import {
   ArrowLeft, FileText, Send, Eye, Link2, MessageSquare, MoreVertical,
