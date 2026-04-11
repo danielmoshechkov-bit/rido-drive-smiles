@@ -889,6 +889,9 @@ async function handleInterCars(supabase: any, integration: any, action: string, 
         const icHeaders = {
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json",
+          "Accept": "application/json",
+          "Accept-Language": "pl",
+          "User-Agent": "GetRido/1.0",
         };
 
         // Step 2: Search catalog - query by index (OE numbers)
