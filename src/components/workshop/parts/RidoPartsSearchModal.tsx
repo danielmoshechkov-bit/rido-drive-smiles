@@ -149,6 +149,11 @@ export function RidoPartsSearchModal({
   const partsApi = usePartsApi();
   const createPartsOrder = useCreatePartsOrder();
   const createOrderItem = useCreateWorkshopOrderItem();
+  const icSync = useIcCatalogSync();
+  const { data: icIntegration } = useIcCatalogIntegration(providerId);
+  const [icCatalogResults, setIcCatalogResults] = useState<IcCatalogItem[]>([]);
+  const [icCatalogResultsBackup, setIcCatalogResultsBackup] = useState<IcCatalogItem[]>([]);
+  const [selectedIcPart, setSelectedIcPart] = useState<IcCatalogItem | null>(null);
   const { data: integrations = [] } = usePartsIntegrations(providerId);
 
   useEffect(() => {
