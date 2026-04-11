@@ -51,4 +51,4 @@ jobs:
           local-dir: ./dist/
           server-dir: /
           passive: true
-          dangerous-clean-slate: false
+          dangerous-clean-slate: true
