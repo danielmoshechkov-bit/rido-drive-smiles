@@ -183,6 +183,7 @@ export function RidoPartsSearchModal({
   const [hasSearched, setHasSearched] = useState(false);
   const [currentPartIndex, setCurrentPartIndex] = useState(0);
   const [aiInfo, setAiInfo] = useState<{ partDescription?: string; searchedTerms?: string[]; aiResolved?: boolean } | null>(null);
+  const [supplierDiagnostics, setSupplierDiagnostics] = useState<Record<string, { status: 'ok' | 'error' | 'searching'; count: number; message?: string }>>({});
   const partsApi = usePartsApi();
   const createPartsOrder = useCreatePartsOrder();
   const createOrderItem = useCreateWorkshopOrderItem();
@@ -245,6 +246,13 @@ export function RidoPartsSearchModal({
     setIsSearching(true);
     setResults([]);
     setHasSearched(true);
+
+    // Init diagnostics per supplier
+    const initDiag: Record<string, { status: 'ok' | 'error' | 'searching'; count: number; message?: string }> = {};
+    for (const i of enabledIntegrations) {
+      initDiag[(i as any).supplier_code] = { status: 'searching', count: 0 };
+    }
+    setSupplierDiagnostics(initDiag);
 
     try {
       const searchPromises = enabledIntegrations.map(async (integration: any) => {
@@ -309,7 +317,11 @@ export function RidoPartsSearchModal({
           };
         } catch (err: any) {
           console.warn(`Search failed for ${integration.supplier_code}:`, err.message);
-          return { items: [], clarificationQuestion: null, aiResolved: false, partDescription: null, searchedTerms: [] };
+          setSupplierDiagnostics(prev => ({
+            ...prev,
+            [integration.supplier_code]: { status: 'error', count: 0, message: err.message },
+          }));
+          return { items: [], clarificationQuestion: null, aiResolved: false, partDescription: null, searchedTerms: [], supplierCode: integration.supplier_code };
         }
       });
 
