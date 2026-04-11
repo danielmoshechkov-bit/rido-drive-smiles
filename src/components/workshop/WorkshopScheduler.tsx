@@ -4,13 +4,14 @@ import { Button } from '@/components/ui/button';
 import { useWorkshopOrders, useUpdateWorkshopOrder } from '@/hooks/useWorkshop';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { ChevronLeft, ChevronRight, Search, Car, Wrench, Plus, GripVertical, Undo2, X, ChevronsUpDown } from 'lucide-react';
-import { format, addDays, startOfWeek, addWeeks, subWeeks, isToday, subDays } from 'date-fns';
+import { ChevronLeft, ChevronRight, Search, Car, Wrench, Plus, GripVertical, Undo2, X, ChevronsUpDown, Phone, User, Eye } from 'lucide-react';
+import { format, addDays, startOfWeek, addWeeks, subWeeks, isToday, subDays, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths, isSameMonth } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { toast } from 'sonner';
 
 interface Props {
@@ -25,7 +26,8 @@ const HOURS = Array.from({ length: 11 }, (_, i) => i + 8);
 export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz', focusOrderId }: Props) {
   const queryClient = useQueryClient();
   const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
-  const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('day');
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState<string>('Warsztat');
   const [showSlotDialog, setShowSlotDialog] = useState(false);
@@ -67,6 +69,22 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz', foc
   });
 
   const { data: orders = [] } = useWorkshopOrders(providerId);
+
+  // Employees for quick preview
+  const { data: employees = [] } = useQuery({
+    queryKey: ['workshop-employees', providerId],
+    enabled: !!providerId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('workshop_employees')
+        .select('*')
+        .eq('provider_id', providerId)
+        .eq('is_active', true)
+        .order('created_at');
+      if (error) throw error;
+      return data || [];
+    },
+  });
 
   const categories = useMemo(() => {
     const cats = new Set<string>();
@@ -114,9 +132,7 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz', foc
     
     let filtered = orders.filter((o: any) => {
       if (o.status_name === 'Zakończone') return false;
-      // Not scheduled at all → unplanned
       if (!o.scheduled_start) return true;
-      // Scheduled in the past (before today) and not completed → treat as unplanned (needs rescheduling)
       const scheduledDate = new Date(o.scheduled_start);
       scheduledDate.setHours(0, 0, 0, 0);
       return scheduledDate < today;
@@ -130,7 +146,6 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz', foc
         o.vehicle?.plate?.toLowerCase().includes(q)
       );
     }
-    // If focusOrderId is set, ensure it's first and always visible
     if (focusOrderId) {
       const focusOrder = orders.find((o: any) => o.id === focusOrderId && o.status_name !== 'Zakończone');
       const rest = filtered.filter((o: any) => o.id !== focusOrderId);
@@ -141,7 +156,6 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz', foc
     return filtered.slice(0, 20);
   }, [orders, search, focusOrderId]);
 
-  // Calculate order span in hours
   const getOrderSpan = useCallback((order: any): number => {
     if (!order.scheduled_start || !order.scheduled_end) return 1;
     const start = new Date(order.scheduled_start);
@@ -150,7 +164,6 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz', foc
     return Math.min(hours, HOURS.length);
   }, []);
 
-  // Get order that starts at this cell
   const getOrderStartingAt = (stationId: string, day: Date, hour: number) => {
     const dayStr = format(day, 'yyyy-MM-dd');
     return orders.find((o: any) => {
@@ -161,7 +174,6 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz', foc
     });
   };
 
-  // Check if cell is occupied by a spanning order
   const isCellOccupied = (stationId: string, day: Date, hour: number) => {
     const dayStr = format(day, 'yyyy-MM-dd');
     return orders.some((o: any) => {
@@ -178,11 +190,16 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz', foc
     return Array.from({ length: viewMode === 'day' ? 1 : 5 }, (_, i) => addDays(currentWeekStart, i));
   }, [currentWeekStart, viewMode]);
 
-  const goToToday = () => setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const goToToday = () => {
+    setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }));
+    setCurrentMonth(new Date());
+  };
   const currentDay = weekDays[0];
   const weekEnd = addDays(currentWeekStart, 4);
   const headerLabel = viewMode === 'day'
     ? format(currentDay, 'EEEE, d MMMM yyyy', { locale: pl })
+    : viewMode === 'month'
+    ? format(currentMonth, 'LLLL yyyy', { locale: pl })
     : `${format(currentWeekStart, 'd', { locale: pl })} – ${format(weekEnd, 'd MMM yyyy', { locale: pl })}`;
 
   const handleCellClick = (day: Date, hour: number, stationId: string) => {
@@ -287,23 +304,62 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz', foc
     document.addEventListener('mouseup', onMouseUp);
   };
 
+  // Month view helpers
+  const monthDays = useMemo(() => {
+    if (viewMode !== 'month') return [];
+    const start = startOfMonth(currentMonth);
+    const end = endOfMonth(currentMonth);
+    const days = eachDayOfInterval({ start, end });
+    // Pad start to Monday
+    const firstDayOfWeek = getDay(start);
+    const padStart = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1;
+    const paddedDays: (Date | null)[] = Array(padStart).fill(null);
+    paddedDays.push(...days);
+    // Pad end to fill last row
+    while (paddedDays.length % 7 !== 0) paddedDays.push(null);
+    return paddedDays;
+  }, [currentMonth, viewMode]);
+
+  const getOrdersForDay = useCallback((day: Date) => {
+    const dayStr = format(day, 'yyyy-MM-dd');
+    return orders.filter((o: any) => {
+      if (!o.scheduled_start) return false;
+      return format(new Date(o.scheduled_start), 'yyyy-MM-dd') === dayStr;
+    });
+  }, [orders]);
+
+  // Navigation
+  const handlePrev = () => {
+    if (viewMode === 'day') setCurrentWeekStart(subDays(currentWeekStart, 1));
+    else if (viewMode === 'week') setCurrentWeekStart(subWeeks(currentWeekStart, 1));
+    else setCurrentMonth(subMonths(currentMonth, 1));
+  };
+  const handleNext = () => {
+    if (viewMode === 'day') setCurrentWeekStart(addDays(currentWeekStart, 1));
+    else if (viewMode === 'week') setCurrentWeekStart(addWeeks(currentWeekStart, 1));
+    else setCurrentMonth(addMonths(currentMonth, 1));
+  };
+
+  // Total columns for grid
+  const totalColumns = categoryStations.length * weekDays.length;
+
   return (
-    <div className="space-y-4">
-      {title && <h2 className="text-2xl font-bold tracking-tight">{title}</h2>}
+    <div className="flex flex-col" style={{ height: 'calc(100vh - 180px)' }}>
+      {title && <h2 className="text-2xl font-bold tracking-tight mb-3">{title}</h2>}
 
       {/* Unplanned orders */}
       <Card
-        className={`border-2 shadow-sm transition-all ${dragOverUnplanned && dragSource === 'scheduled' ? 'border-orange-400 bg-orange-50 dark:bg-orange-950/20' : 'border-border'}`}
+        className={`border-2 shadow-sm transition-all flex-shrink-0 ${dragOverUnplanned && dragSource === 'scheduled' ? 'border-orange-400 bg-orange-50 dark:bg-orange-950/20' : 'border-border'}`}
         onDragOver={(e) => { if (dragSource === 'scheduled') { e.preventDefault(); setDragOverUnplanned(true); } }}
         onDragLeave={() => setDragOverUnplanned(false)}
         onDrop={handleDropToUnplanned}
       >
-        <CardContent className="py-4">
-          <div className="flex items-center justify-between mb-3">
+        <CardContent className="py-3">
+          <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-lg">Zadania do rozplanowania</h3>
-              <Button size="sm" onClick={() => { setSlotData({ day: weekDays[0], hour: HOURS[0], stationId: categoryStations[0]?.id || '__default' }); setShowSlotDialog(true); }} className="gap-1.5 ml-2">
-                <Plus className="h-4 w-4" /> Dodaj zadanie
+              <h3 className="font-semibold text-base">Zadania do rozplanowania</h3>
+              <Button size="sm" onClick={() => { setSlotData({ day: weekDays[0], hour: HOURS[0], stationId: categoryStations[0]?.id || '__default' }); setShowSlotDialog(true); }} className="gap-1.5 ml-2 h-7 text-xs">
+                <Plus className="h-3.5 w-3.5" /> Dodaj
               </Button>
               {dragSource === 'scheduled' && (
                 <span className="text-xs text-orange-600 font-medium flex items-center gap-1 animate-pulse">
@@ -313,15 +369,15 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz', foc
             </div>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Szukaj" className="pl-9 w-[200px]" />
+              <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Szukaj" className="pl-9 w-[200px] h-8" />
             </div>
           </div>
-          <div className="flex gap-3 overflow-x-auto pb-2">
+          <div className="flex gap-2 overflow-x-auto pb-1">
             {unplannedOrders.length === 0 ? (
-              <div className="text-sm text-muted-foreground py-4 text-center w-full">Brak zadań do rozplanowania</div>
+              <div className="text-sm text-muted-foreground py-3 text-center w-full">Brak zadań do rozplanowania</div>
             ) : (
               unplannedOrders.map((o: any) => (
-                <OrderCard key={o.id} order={o} onDragStart={() => { setDraggedOrder(o); setDragSource('unplanned'); }} onDragEnd={resetDrag} isFocused={o.id === focusOrderId} />
+                <OrderCard key={o.id} order={o} onDragStart={() => { setDraggedOrder(o); setDragSource('unplanned'); }} onDragEnd={resetDrag} isFocused={o.id === focusOrderId} employees={employees} updateOrder={updateOrder} />
               ))
             )}
           </div>
@@ -329,199 +385,200 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz', foc
       </Card>
 
       {/* Category tabs + controls */}
-      <div className="flex items-center justify-between flex-wrap gap-2">
+      <div className="flex items-center justify-between flex-wrap gap-2 my-2 flex-shrink-0">
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1 border rounded-lg p-0.5 bg-muted/30">
             {categories.map(cat => (
-              <Button key={cat} variant={activeCategory === cat ? 'default' : 'ghost'} size="sm" onClick={() => setActiveCategory(cat)} className="text-xs">
+              <Button key={cat} variant={activeCategory === cat ? 'default' : 'ghost'} size="sm" onClick={() => setActiveCategory(cat)} className="text-xs h-7">
                 {cat}
               </Button>
             ))}
-            <Button variant="ghost" size="sm" className="text-xs gap-1" onClick={() => setShowAddCategory(true)}>
+            <Button variant="ghost" size="sm" className="text-xs gap-1 h-7" onClick={() => setShowAddCategory(true)}>
               <Plus className="h-3 w-3" />
             </Button>
           </div>
-          <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={() => { setNewStationCategory(activeCategory); setShowAddStation(true); }}>
+          <Button variant="outline" size="sm" className="gap-1 text-xs h-7" onClick={() => { setNewStationCategory(activeCategory); setShowAddStation(true); }}>
             <Plus className="h-3 w-3" /> Stanowisko
           </Button>
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => {
-            if (viewMode === 'day') setCurrentWeekStart(subDays(currentWeekStart, 1));
-            else setCurrentWeekStart(subWeeks(currentWeekStart, 1));
-          }}><ChevronLeft className="h-4 w-4" /></Button>
-          <Button variant="outline" size="sm" onClick={goToToday}>Dziś</Button>
-          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => {
-            if (viewMode === 'day') setCurrentWeekStart(addDays(currentWeekStart, 1));
-            else setCurrentWeekStart(addWeeks(currentWeekStart, 1));
-          }}><ChevronRight className="h-4 w-4" /></Button>
-          <h3 className="text-lg font-semibold capitalize">{headerLabel}</h3>
-          <div className="flex items-center gap-1 border rounded-lg p-0.5 ml-4">
-            {(['day', 'week'] as const).map(mode => (
-              <Button key={mode} variant={viewMode === mode ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode(mode)}>
-                {mode === 'day' ? 'Dzień' : 'Tydzień'}
+          <Button variant="outline" size="icon" className="h-7 w-7" onClick={handlePrev}><ChevronLeft className="h-4 w-4" /></Button>
+          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={goToToday}>Dziś</Button>
+          <Button variant="outline" size="icon" className="h-7 w-7" onClick={handleNext}><ChevronRight className="h-4 w-4" /></Button>
+          <h3 className="text-sm font-semibold capitalize">{headerLabel}</h3>
+          <div className="flex items-center gap-0.5 border rounded-lg p-0.5 ml-2">
+            {(['day', 'week', 'month'] as const).map(mode => (
+              <Button key={mode} variant={viewMode === mode ? 'default' : 'ghost'} size="sm" className="h-7 text-xs" onClick={() => setViewMode(mode)}>
+                {mode === 'day' ? 'Dzień' : mode === 'week' ? 'Tydzień' : 'Miesiąc'}
               </Button>
             ))}
           </div>
         </div>
       </div>
 
-      {/* Multi-column schedule grid */}
-      <div className="rounded-xl border-2 border-foreground/20 shadow-lg overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-xs">
-            <thead>
-              <tr>
-                <th className="w-16 bg-[hsl(220,30%,95%)] dark:bg-[hsl(220,20%,20%)] border-b-2 border-r-2 border-foreground/20 p-2 text-left text-foreground font-bold sticky left-0 z-20" rowSpan={2}>
-                  Godzina
-                </th>
-                {categoryStations.map((st: any) => (
-                  <th key={st.id} colSpan={weekDays.length} className="bg-[hsl(220,80%,50%)] text-white border-b border-r-2 border-foreground/20 p-2 text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      <Wrench className="h-3.5 w-3.5" />
-                      <span className="font-semibold text-sm">{st.name}</span>
-                      {st.id !== '__default' && (
-                        <button onClick={() => removeStationMut.mutate(st.id)} className="opacity-50 hover:opacity-100 ml-1">
-                          <X className="h-3 w-3" />
-                        </button>
-                      )}
-                    </div>
-                  </th>
-                ))}
-              </tr>
-              <tr>
-                {categoryStations.map((st: any, stIdx: number) =>
-                  weekDays.map((day, dayIdx) => {
-                    const today = isToday(day);
-                    const isLastDayOfStation = dayIdx === weekDays.length - 1 && stIdx < categoryStations.length - 1;
-                    return (
-                      <th key={`${st.id}-${day.toISOString()}`} className={`border-b-2 border-r border-foreground/20 p-1.5 text-center min-w-[120px] ${isLastDayOfStation ? 'border-r-[3px] border-r-foreground/40' : ''} ${today ? 'bg-[hsl(220,80%,50%)] text-white' : 'bg-[hsl(220,30%,95%)] dark:bg-[hsl(220,20%,20%)] text-foreground'}`}>
-                        <div className="font-bold text-xs">{format(day, 'EEE', { locale: pl })}</div>
-                        <div className={`text-sm font-black ${today ? 'text-white' : ''}`}>{format(day, 'dd.MM')}</div>
-                      </th>
-                    );
-                  })
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {HOURS.map((hour, hourIdx) => {
-                const isEvenRow = hourIdx % 2 === 0;
-                return (
-                  <tr key={hour}>
-                    <td className={`border-b border-r-2 border-foreground/20 p-2 text-right font-mono font-bold text-sm sticky left-0 z-10 ${isEvenRow ? 'bg-[hsl(220,20%,97%)] dark:bg-[hsl(220,15%,15%)] text-foreground' : 'bg-[hsl(220,25%,93%)] dark:bg-[hsl(220,15%,18%)] text-foreground'}`}>
-                      {`${hour}:00`}
-                    </td>
-                    {categoryStations.map((st: any, stIdx: number) =>
-                      weekDays.map((day, dayIdx) => {
-                        const key = cellKey(st.id, day, hour);
-                        const isDragOver = dragOverCell === key;
-                        const scheduledOrder = getOrderStartingAt(st.id, day, hour);
-                        const today = isToday(day);
-
-                        // Check if this cell is part of a multi-hour order (not the starting cell)
-                        if (!scheduledOrder) {
-                          const dayStr = format(day, 'yyyy-MM-dd');
-                          // Check if occupied by a real order's span
-                          const isPartOfOrder = orders.some((o: any) => {
-                            if (!o.scheduled_start || o.scheduled_station_id !== st.id) return false;
-                            const oDate = format(new Date(o.scheduled_start), 'yyyy-MM-dd');
-                            if (oDate !== dayStr) return false;
-                            const oHour = new Date(o.scheduled_start).getHours();
-                            const span = getOrderSpan(o);
-                            // Check if resizing changes span
-                            if (resizingOrder && resizingOrder.id === o.id) {
-                              const effStart = resizeStartHour ?? oHour;
-                              const effEnd = resizeTargetHour ?? (oHour + span);
-                              return hour > effStart && hour < effEnd;
-                            }
-                            return hour > oHour && hour < oHour + span;
-                          });
-                          
-                          if (isPartOfOrder) {
-                            // This cell is covered by a rowSpan - don't render it
-                            return null;
-                          }
-                        }
-
-                        // Calculate span for the starting cell
-                        let displaySpan = 1;
-                        if (scheduledOrder) {
-                          const origSpan = getOrderSpan(scheduledOrder);
-                          if (resizingOrder && resizingOrder.id === scheduledOrder.id) {
-                            const effStart = resizeStartHour ?? new Date(scheduledOrder.scheduled_start).getHours();
-                            const effEnd = resizeTargetHour ?? (effStart + origSpan);
-                            displaySpan = Math.max(1, effEnd - effStart);
-                          } else {
-                            displaySpan = origSpan;
-                          }
-                        }
-
-                        const isLastDayOfStation = dayIdx === weekDays.length - 1 && stIdx < categoryStations.length - 1;
-                        return (
-                          <td
-                            key={key}
-                            rowSpan={scheduledOrder ? displaySpan : 1}
-                            className={`border-b border-r border-foreground/15 p-0 cursor-pointer transition-all relative ${scheduledOrder ? '' : 'h-14'} ${isLastDayOfStation ? 'border-r-[3px] border-r-foreground/40' : ''} ${
-                              today
-                                ? (isEvenRow ? 'bg-[hsl(220,60%,97%)] dark:bg-[hsl(220,30%,15%)]' : 'bg-[hsl(220,60%,94%)] dark:bg-[hsl(220,30%,18%)]')
-                                : (isEvenRow ? 'bg-background' : 'bg-[hsl(220,15%,96%)] dark:bg-[hsl(220,10%,14%)]')
-                            } ${isDragOver && draggedOrder ? '!bg-[hsl(220,70%,85%)] dark:!bg-[hsl(220,50%,25%)] ring-2 ring-[hsl(220,70%,50%)] ring-inset' : scheduledOrder ? '' : 'hover:bg-[hsl(220,40%,92%)] dark:hover:bg-[hsl(220,20%,22%)]'}`}
-                            style={scheduledOrder ? { height: `${displaySpan * 56}px` } : undefined}
-                            onClick={() => !scheduledOrder && handleCellClick(day, hour, st.id)}
-                            onDragOver={(e) => { e.preventDefault(); setDragOverCell(key); }}
-                            onDragLeave={() => { if (dragOverCell === key) setDragOverCell(null); }}
-                            onDrop={() => handleDrop(day, hour, st.id)}
-                          >
-                            {scheduledOrder ? (
-                              <div
-                                className="bg-[hsl(220,70%,55%)] text-white rounded-md m-[2px] p-1.5 text-[10px] cursor-grab active:cursor-grabbing shadow-sm hover:shadow-md transition-shadow relative select-none"
-                                style={{ height: 'calc(100% - 4px)' }}
-                                draggable
-                                onDragStart={(e) => { e.stopPropagation(); setDraggedOrder(scheduledOrder); setDragSource('scheduled'); }}
-                                onDragEnd={resetDrag}
-                              >
-                                {/* Resize handle at top */}
-                                <div
-                                  className="absolute top-0 left-0 right-0 h-3 cursor-n-resize flex items-center justify-center bg-[hsl(220,70%,45%)] rounded-t-md opacity-0 hover:opacity-100 transition-opacity"
-                                  onMouseDown={(e) => handleResizeStart(e, scheduledOrder, 'top')}
-                                >
-                                  <ChevronsUpDown className="h-2.5 w-2.5 text-white/80" />
-                                </div>
-                                <div className="flex items-center gap-0.5 font-semibold mt-2">
-                                  <GripVertical className="h-3 w-3 opacity-60 flex-shrink-0" />
-                                  <Car className="h-3 w-3 flex-shrink-0" />
-                                  <span className="truncate">{scheduledOrder.vehicle ? `${scheduledOrder.vehicle.brand} ${scheduledOrder.vehicle.model}` : 'Zlecenie'}</span>
-                                </div>
-                                <div className="text-white/70 truncate ml-4">{scheduledOrder.order_number}</div>
-                                {displaySpan > 1 && (
-                                  <div className="text-white/60 text-[9px] ml-4 mt-0.5">{displaySpan}h</div>
-                                )}
-                                {/* Resize handle at bottom */}
-                                <div
-                                  className="absolute bottom-0 left-0 right-0 h-3 cursor-s-resize flex items-center justify-center bg-[hsl(220,70%,45%)] rounded-b-md opacity-0 hover:opacity-100 transition-opacity"
-                                  onMouseDown={(e) => handleResizeStart(e, scheduledOrder, 'bottom')}
-                                >
-                                  <ChevronsUpDown className="h-2.5 w-2.5 text-white/80" />
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-40 transition-opacity">
-                                <Plus className="h-4 w-4 text-foreground" />
-                              </div>
-                            )}
-                          </td>
-                        );
-                      })
-                    )}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+      {/* Month View */}
+      {viewMode === 'month' ? (
+        <div className="flex-1 overflow-auto rounded-xl border-2 border-foreground/20 shadow-lg">
+          <div className="grid grid-cols-7 bg-[hsl(220,30%,95%)] dark:bg-[hsl(220,20%,20%)]">
+            {['Pon', 'Wt', 'Śr', 'Czw', 'Pt', 'Sob', 'Nd'].map(d => (
+              <div key={d} className="p-2 text-center text-xs font-bold text-foreground border-b border-r border-foreground/15">{d}</div>
+            ))}
+          </div>
+          <div className="grid grid-cols-7">
+            {monthDays.map((day, idx) => {
+              if (!day) return <div key={idx} className="p-2 min-h-[80px] border-b border-r border-foreground/10 bg-muted/30" />;
+              const dayOrders = getOrdersForDay(day);
+              const today = isToday(day);
+              return (
+                <div key={idx} className={`p-1.5 min-h-[80px] border-b border-r border-foreground/10 cursor-pointer hover:bg-accent/30 transition-colors ${today ? 'bg-primary/5' : ''} ${!isSameMonth(day, currentMonth) ? 'opacity-40' : ''}`}
+                  onClick={() => { setCurrentWeekStart(startOfWeek(day, { weekStartsOn: 1 })); setViewMode('day'); }}>
+                  <div className={`text-xs font-bold mb-1 ${today ? 'text-primary' : 'text-foreground'}`}>{format(day, 'd')}</div>
+                  {dayOrders.slice(0, 3).map((o: any) => (
+                    <div key={o.id} className="text-[9px] bg-primary/20 text-primary rounded px-1 py-0.5 mb-0.5 truncate">{o.vehicle?.plate || o.order_number}</div>
+                  ))}
+                  {dayOrders.length > 3 && <div className="text-[9px] text-muted-foreground">+{dayOrders.length - 3} więcej</div>}
+                </div>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      ) : (
+        /* Day/Week grid */
+        <div className="flex-1 overflow-hidden rounded-xl border-2 border-foreground/20 shadow-lg">
+          <div className="overflow-auto h-full">
+            <table className="w-full border-collapse text-xs" style={{ tableLayout: 'fixed' }}>
+              <colgroup>
+                <col style={{ width: '60px' }} />
+                {categoryStations.map((st: any) =>
+                  weekDays.map((day, dayIdx) => (
+                    <col key={`${st.id}-${dayIdx}`} style={{ width: `${(100 - 5) / totalColumns}%` }} />
+                  ))
+                )}
+              </colgroup>
+              <thead className="sticky top-0 z-20">
+                <tr>
+                  <th className="bg-[hsl(220,30%,95%)] dark:bg-[hsl(220,20%,20%)] border-b-2 border-r-2 border-foreground/20 p-2 text-left text-foreground font-bold" rowSpan={2}>
+                    Godzina
+                  </th>
+                  {categoryStations.map((st: any, stIdx: number) => (
+                    <th key={st.id} colSpan={weekDays.length} className={`bg-[hsl(220,80%,50%)] text-white border-b border-foreground/20 p-1.5 text-center ${stIdx < categoryStations.length - 1 ? 'border-r-[3px] border-r-foreground/40' : 'border-r-2 border-r-foreground/20'}`}>
+                      <div className="flex items-center justify-center gap-1">
+                        <Wrench className="h-3 w-3" />
+                        <span className="font-semibold text-xs truncate">{st.name}</span>
+                        {st.id !== '__default' && (
+                          <button onClick={() => removeStationMut.mutate(st.id)} className="opacity-50 hover:opacity-100 ml-0.5">
+                            <X className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
+                    </th>
+                  ))}
+                </tr>
+                <tr>
+                  {categoryStations.map((st: any, stIdx: number) =>
+                    weekDays.map((day, dayIdx) => {
+                      const today = isToday(day);
+                      const isLastDayOfStation = dayIdx === weekDays.length - 1 && stIdx < categoryStations.length - 1;
+                      return (
+                        <th key={`${st.id}-${day.toISOString()}`} className={`border-b-2 border-r border-foreground/20 p-1 text-center ${isLastDayOfStation ? 'border-r-[3px] border-r-foreground/40' : ''} ${today ? 'bg-[hsl(220,80%,50%)] text-white' : 'bg-[hsl(220,30%,95%)] dark:bg-[hsl(220,20%,20%)] text-foreground'}`}>
+                          <div className="font-bold text-[10px]">{format(day, 'EEE', { locale: pl })}</div>
+                          <div className={`text-xs font-black ${today ? 'text-white' : ''}`}>{format(day, 'dd.MM')}</div>
+                        </th>
+                      );
+                    })
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {HOURS.map((hour, hourIdx) => {
+                  const isEvenRow = hourIdx % 2 === 0;
+                  return (
+                    <tr key={hour}>
+                      <td className={`border-b border-r-2 border-foreground/20 p-1.5 text-right font-mono font-bold text-xs sticky left-0 z-10 ${isEvenRow ? 'bg-[hsl(220,20%,97%)] dark:bg-[hsl(220,15%,15%)] text-foreground' : 'bg-[hsl(220,25%,93%)] dark:bg-[hsl(220,15%,18%)] text-foreground'}`}>
+                        {`${hour}:00`}
+                      </td>
+                      {categoryStations.map((st: any, stIdx: number) =>
+                        weekDays.map((day, dayIdx) => {
+                          const key = cellKey(st.id, day, hour);
+                          const isDragOver = dragOverCell === key;
+                          const scheduledOrder = getOrderStartingAt(st.id, day, hour);
+                          const today = isToday(day);
+
+                          if (!scheduledOrder) {
+                            const dayStr = format(day, 'yyyy-MM-dd');
+                            const isPartOfOrder = orders.some((o: any) => {
+                              if (!o.scheduled_start || o.scheduled_station_id !== st.id) return false;
+                              const oDate = format(new Date(o.scheduled_start), 'yyyy-MM-dd');
+                              if (oDate !== dayStr) return false;
+                              const oHour = new Date(o.scheduled_start).getHours();
+                              const span = getOrderSpan(o);
+                              if (resizingOrder && resizingOrder.id === o.id) {
+                                const effStart = resizeStartHour ?? oHour;
+                                const effEnd = resizeTargetHour ?? (oHour + span);
+                                return hour > effStart && hour < effEnd;
+                              }
+                              return hour > oHour && hour < oHour + span;
+                            });
+                            
+                            if (isPartOfOrder) return null;
+                          }
+
+                          let displaySpan = 1;
+                          if (scheduledOrder) {
+                            const origSpan = getOrderSpan(scheduledOrder);
+                            if (resizingOrder && resizingOrder.id === scheduledOrder.id) {
+                              const effStart = resizeStartHour ?? new Date(scheduledOrder.scheduled_start).getHours();
+                              const effEnd = resizeTargetHour ?? (effStart + origSpan);
+                              displaySpan = Math.max(1, effEnd - effStart);
+                            } else {
+                              displaySpan = origSpan;
+                            }
+                          }
+
+                          const isLastDayOfStation = dayIdx === weekDays.length - 1 && stIdx < categoryStations.length - 1;
+                          return (
+                            <td
+                              key={key}
+                              rowSpan={scheduledOrder ? displaySpan : 1}
+                              className={`border-b border-r border-foreground/15 p-0 cursor-pointer transition-all relative ${scheduledOrder ? '' : 'h-14'} ${isLastDayOfStation ? 'border-r-[3px] border-r-foreground/40' : ''} ${
+                                today
+                                  ? (isEvenRow ? 'bg-[hsl(220,60%,97%)] dark:bg-[hsl(220,30%,15%)]' : 'bg-[hsl(220,60%,94%)] dark:bg-[hsl(220,30%,18%)]')
+                                  : (isEvenRow ? 'bg-background' : 'bg-[hsl(220,15%,96%)] dark:bg-[hsl(220,10%,14%)]')
+                              } ${isDragOver && draggedOrder ? '!bg-[hsl(220,70%,85%)] dark:!bg-[hsl(220,50%,25%)] ring-2 ring-[hsl(220,70%,50%)] ring-inset' : scheduledOrder ? '' : 'hover:bg-[hsl(220,40%,92%)] dark:hover:bg-[hsl(220,20%,22%)]'}`}
+                              style={scheduledOrder ? { height: `${displaySpan * 56}px` } : undefined}
+                              onClick={() => !scheduledOrder && handleCellClick(day, hour, st.id)}
+                              onDragOver={(e) => { e.preventDefault(); setDragOverCell(key); }}
+                              onDragLeave={() => { if (dragOverCell === key) setDragOverCell(null); }}
+                              onDrop={() => handleDrop(day, hour, st.id)}
+                            >
+                              {scheduledOrder ? (
+                                <ScheduledOrderBlock
+                                  order={scheduledOrder}
+                                  displaySpan={displaySpan}
+                                  employees={employees}
+                                  updateOrder={updateOrder}
+                                  onDragStart={() => { setDraggedOrder(scheduledOrder); setDragSource('scheduled'); }}
+                                  onDragEnd={resetDrag}
+                                  onResizeStart={handleResizeStart}
+                                />
+                              ) : (
+                                <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-40 transition-opacity">
+                                  <Plus className="h-4 w-4 text-foreground" />
+                                </div>
+                              )}
+                            </td>
+                          );
+                        })
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Add Station Dialog */}
       <Dialog open={showAddStation} onOpenChange={setShowAddStation}>
@@ -578,6 +635,7 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz', foc
         slotData={slotData}
         providerId={providerId}
         unplannedOrders={unplannedOrders}
+        stations={categoryStations}
         stationName={categoryStations.find((s: any) => s.id === slotData?.stationId)?.name || ''}
         onSchedule={async (orderId, day, hour, stationId) => {
           const scheduledStart = new Date(day);
@@ -589,49 +647,243 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz', foc
             toast.success('Zlecenie dodane do terminarza');
           } catch { toast.error('Nie udało się zaplanować'); }
         }}
+        onStationChange={(stationId) => {
+          if (slotData) setSlotData({ ...slotData, stationId });
+        }}
       />
     </div>
   );
 }
 
-function OrderCard({ order, onDragStart, onDragEnd, isFocused }: { order: any; onDragStart: () => void; onDragEnd: () => void; isFocused?: boolean }) {
+// ---- Scheduled order block with quick preview ----
+function ScheduledOrderBlock({ order, displaySpan, employees, updateOrder, onDragStart, onDragEnd, onResizeStart }: {
+  order: any; displaySpan: number; employees: any[]; updateOrder: any;
+  onDragStart: () => void; onDragEnd: () => void;
+  onResizeStart: (e: React.MouseEvent, order: any, direction: 'top' | 'bottom') => void;
+}) {
+  const [showPreview, setShowPreview] = useState(false);
+  const [assignedEmployee, setAssignedEmployee] = useState(order.assigned_employee_id || '');
+
+  const handleAssignEmployee = async (empId: string) => {
+    setAssignedEmployee(empId);
+    try {
+      await updateOrder.mutateAsync({ id: order.id, assigned_employee_id: empId || null });
+      toast.success('Pracownik przypisany');
+    } catch { toast.error('Błąd przypisania'); }
+  };
+
   return (
-    <Card
-      className={`min-w-[240px] flex-shrink-0 border-l-4 cursor-grab active:cursor-grabbing hover:shadow-md transition-all bg-card ${isFocused ? 'border-l-amber-500 ring-2 ring-amber-400 shadow-lg' : 'border-l-[hsl(220,70%,55%)]'}`}
-      draggable onDragStart={onDragStart} onDragEnd={onDragEnd}
-    >
-      <CardContent className="p-3 space-y-1">
-        {isFocused && (
-          <div className="text-[10px] font-bold text-amber-600 uppercase tracking-wider mb-1">← Bieżące zlecenie</div>
-        )}
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <GripVertical className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-          <Car className="h-4 w-4 text-muted-foreground" />
-          {order.vehicle ? `${order.vehicle.brand} ${order.vehicle.model} ${order.vehicle.plate || ''}` : 'Brak pojazdu'}
-        </div>
-        <div className="text-xs text-muted-foreground">{order.order_number}</div>
-        {order.items?.slice(0, 2).map((item: any, idx: number) => (
-          <div key={idx} className="flex items-center text-xs">
-            <Wrench className="h-3 w-3 flex-shrink-0 mr-1" /> <span className="truncate">{item.name}</span>
+    <Popover open={showPreview} onOpenChange={setShowPreview}>
+      <PopoverTrigger asChild>
+        <div
+          className="bg-[hsl(220,70%,55%)] text-white rounded-md m-[2px] p-1.5 text-[10px] cursor-grab active:cursor-grabbing shadow-sm hover:shadow-md transition-shadow relative select-none"
+          style={{ height: 'calc(100% - 4px)' }}
+          draggable
+          onDragStart={(e) => { e.stopPropagation(); onDragStart(); }}
+          onDragEnd={onDragEnd}
+          onClick={(e) => { e.stopPropagation(); setShowPreview(true); }}
+        >
+          <div
+            className="absolute top-0 left-0 right-0 h-3 cursor-n-resize flex items-center justify-center bg-[hsl(220,70%,45%)] rounded-t-md opacity-0 hover:opacity-100 transition-opacity"
+            onMouseDown={(e) => onResizeStart(e, order, 'top')}
+          >
+            <ChevronsUpDown className="h-2.5 w-2.5 text-white/80" />
           </div>
-        ))}
-      </CardContent>
-    </Card>
+          <div className="flex items-center gap-0.5 font-semibold mt-2">
+            <GripVertical className="h-3 w-3 opacity-60 flex-shrink-0" />
+            <Car className="h-3 w-3 flex-shrink-0" />
+            <span className="truncate">{order.vehicle ? `${order.vehicle.brand} ${order.vehicle.model}` : 'Zlecenie'}</span>
+          </div>
+          <div className="text-white/70 truncate ml-4">{order.order_number}</div>
+          {displaySpan > 1 && (
+            <div className="text-white/60 text-[9px] ml-4 mt-0.5">{displaySpan}h</div>
+          )}
+          <div
+            className="absolute bottom-0 left-0 right-0 h-3 cursor-s-resize flex items-center justify-center bg-[hsl(220,70%,45%)] rounded-b-md opacity-0 hover:opacity-100 transition-opacity"
+            onMouseDown={(e) => onResizeStart(e, order, 'bottom')}
+          >
+            <ChevronsUpDown className="h-2.5 w-2.5 text-white/80" />
+          </div>
+        </div>
+      </PopoverTrigger>
+      <PopoverContent className="w-80 p-0" side="right" align="start">
+        <div className="p-3 space-y-3">
+          <div className="flex items-center justify-between">
+            <h4 className="font-bold text-sm flex items-center gap-1.5"><Eye className="h-4 w-4" /> Podgląd zlecenia</h4>
+            <span className="text-xs text-muted-foreground">{order.order_number}</span>
+          </div>
+          
+          {/* Client */}
+          {order.client && (
+            <div className="space-y-1 border-b pb-2">
+              <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Klient</div>
+              <div className="text-sm font-semibold flex items-center gap-1.5">
+                <User className="h-3.5 w-3.5" />
+                {order.client.first_name} {order.client.last_name}
+              </div>
+              {order.client.phone && (
+                <div className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Phone className="h-3 w-3" /> {order.client.phone}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Vehicle */}
+          {order.vehicle && (
+            <div className="space-y-1 border-b pb-2">
+              <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Pojazd</div>
+              <div className="text-sm font-semibold flex items-center gap-1.5">
+                <Car className="h-3.5 w-3.5" />
+                {order.vehicle.brand} {order.vehicle.model}
+              </div>
+              <div className="grid grid-cols-2 gap-1 text-xs text-muted-foreground">
+                {order.vehicle.plate && <span>Nr rej: <b className="text-foreground">{order.vehicle.plate}</b></span>}
+                {order.vehicle.vin && <span>VIN: <b className="text-foreground text-[10px]">{order.vehicle.vin}</b></span>}
+                {order.vehicle.engine && <span>Silnik: <b className="text-foreground">{order.vehicle.engine}</b></span>}
+                {order.vehicle.power && <span>Moc: <b className="text-foreground">{order.vehicle.power}</b></span>}
+              </div>
+            </div>
+          )}
+
+          {/* Tasks */}
+          {order.items?.length > 0 && (
+            <div className="space-y-1 border-b pb-2">
+              <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Zadania ({order.items.length})</div>
+              {order.items.slice(0, 5).map((item: any, idx: number) => (
+                <div key={idx} className="text-xs flex items-start gap-1">
+                  <Wrench className="h-3 w-3 flex-shrink-0 mt-0.5" />
+                  <span>{item.name}</span>
+                </div>
+              ))}
+              {order.items.length > 5 && <div className="text-[10px] text-muted-foreground">...i {order.items.length - 5} więcej</div>}
+            </div>
+          )}
+
+          {/* Assign employee */}
+          <div className="space-y-1">
+            <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Pracownik</div>
+            <Select value={assignedEmployee} onValueChange={handleAssignEmployee}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Przypisz pracownika..." /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Brak</SelectItem>
+                {employees.map((emp: any) => (
+                  <SelectItem key={emp.id} value={emp.id}>{emp.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
-function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders, stationName, onSchedule }: {
+function OrderCard({ order, onDragStart, onDragEnd, isFocused, employees, updateOrder }: { order: any; onDragStart: () => void; onDragEnd: () => void; isFocused?: boolean; employees: any[]; updateOrder: any }) {
+  const [showPreview, setShowPreview] = useState(false);
+  const [assignedEmployee, setAssignedEmployee] = useState(order.assigned_employee_id || '');
+
+  const handleAssignEmployee = async (empId: string) => {
+    setAssignedEmployee(empId);
+    try {
+      await updateOrder.mutateAsync({ id: order.id, assigned_employee_id: empId || null });
+      toast.success('Pracownik przypisany');
+    } catch { toast.error('Błąd'); }
+  };
+
+  return (
+    <Popover open={showPreview} onOpenChange={setShowPreview}>
+      <PopoverTrigger asChild>
+        <Card
+          className={`min-w-[220px] flex-shrink-0 border-l-4 cursor-grab active:cursor-grabbing hover:shadow-md transition-all bg-card ${isFocused ? 'border-l-amber-500 ring-2 ring-amber-400 shadow-lg' : 'border-l-[hsl(220,70%,55%)]'}`}
+          draggable onDragStart={onDragStart} onDragEnd={onDragEnd}
+          onClick={(e) => { e.stopPropagation(); setShowPreview(true); }}
+        >
+          <CardContent className="p-2.5 space-y-0.5">
+            {isFocused && (
+              <div className="text-[10px] font-bold text-amber-600 uppercase tracking-wider mb-1">← Bieżące zlecenie</div>
+            )}
+            <div className="flex items-center gap-1.5 text-xs font-medium">
+              <GripVertical className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+              <Car className="h-3.5 w-3.5 text-muted-foreground" />
+              {order.vehicle ? `${order.vehicle.brand} ${order.vehicle.model} ${order.vehicle.plate || ''}` : 'Brak pojazdu'}
+            </div>
+            <div className="text-[10px] text-muted-foreground">{order.order_number}</div>
+            {order.items?.slice(0, 2).map((item: any, idx: number) => (
+              <div key={idx} className="flex items-center text-[10px]">
+                <Wrench className="h-2.5 w-2.5 flex-shrink-0 mr-1" /> <span className="truncate">{item.name}</span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </PopoverTrigger>
+      <PopoverContent className="w-80 p-0" side="bottom" align="start">
+        <div className="p-3 space-y-3">
+          <div className="flex items-center justify-between">
+            <h4 className="font-bold text-sm flex items-center gap-1.5"><Eye className="h-4 w-4" /> Podgląd zlecenia</h4>
+            <span className="text-xs text-muted-foreground">{order.order_number}</span>
+          </div>
+          {order.client && (
+            <div className="space-y-1 border-b pb-2">
+              <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Klient</div>
+              <div className="text-sm font-semibold flex items-center gap-1.5"><User className="h-3.5 w-3.5" />{order.client.first_name} {order.client.last_name}</div>
+              {order.client.phone && <div className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="h-3 w-3" /> {order.client.phone}</div>}
+            </div>
+          )}
+          {order.vehicle && (
+            <div className="space-y-1 border-b pb-2">
+              <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Pojazd</div>
+              <div className="text-sm font-semibold flex items-center gap-1.5"><Car className="h-3.5 w-3.5" />{order.vehicle.brand} {order.vehicle.model}</div>
+              <div className="grid grid-cols-2 gap-1 text-xs text-muted-foreground">
+                {order.vehicle.plate && <span>Nr rej: <b className="text-foreground">{order.vehicle.plate}</b></span>}
+                {order.vehicle.vin && <span>VIN: <b className="text-foreground text-[10px]">{order.vehicle.vin}</b></span>}
+                {order.vehicle.engine && <span>Silnik: <b className="text-foreground">{order.vehicle.engine}</b></span>}
+                {order.vehicle.power && <span>Moc: <b className="text-foreground">{order.vehicle.power}</b></span>}
+              </div>
+            </div>
+          )}
+          {order.items?.length > 0 && (
+            <div className="space-y-1 border-b pb-2">
+              <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Zadania ({order.items.length})</div>
+              {order.items.slice(0, 5).map((item: any, idx: number) => (
+                <div key={idx} className="text-xs flex items-start gap-1"><Wrench className="h-3 w-3 flex-shrink-0 mt-0.5" /><span>{item.name}</span></div>
+              ))}
+              {order.items.length > 5 && <div className="text-[10px] text-muted-foreground">...i {order.items.length - 5} więcej</div>}
+            </div>
+          )}
+          <div className="space-y-1">
+            <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Pracownik</div>
+            <Select value={assignedEmployee} onValueChange={handleAssignEmployee}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Przypisz pracownika..." /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Brak</SelectItem>
+                {employees.map((emp: any) => (
+                  <SelectItem key={emp.id} value={emp.id}>{emp.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders, stations, stationName, onSchedule, onStationChange }: {
   open: boolean; onOpenChange: (v: boolean) => void;
   slotData: { day: Date; hour: number; stationId: string } | null;
   providerId: string;
-  unplannedOrders: any[]; stationName: string;
+  unplannedOrders: any[]; stations: any[]; stationName: string;
   onSchedule: (orderId: string, day: Date, hour: number, stationId: string) => Promise<void>;
+  onStationChange: (stationId: string) => void;
 }) {
   const queryClient = useQueryClient();
   const [selectedOrderId, setSelectedOrderId] = useState('');
   const [activeTab, setActiveTab] = useState<'client' | 'event' | 'order'>('client');
   const [editDate, setEditDate] = useState('');
-  const [editHour, setEditHour] = useState(0);
+  const [editHourStr, setEditHourStr] = useState('08');
+  const [editMinStr, setEditMinStr] = useState('00');
+  const [editStationId, setEditStationId] = useState('');
   const [eventForm, setEventForm] = useState({
     service: '', type: 'Wydarzenie', color: 'Niebieski', allDay: false,
     duration: '1 godz.', worker: '', description: '',
@@ -639,7 +891,7 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
   const [clientForm, setClientForm] = useState({
     phone: '', firstName: '', lastName: '', plate: '',
     brand: '', model: '', serviceDesc: '', duration: '60',
-    reminder: true,
+    reminderOptions: ['24h', '2h'] as string[],
   });
   const [saving, setSaving] = useState(false);
 
@@ -648,7 +900,9 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
   if (slotData && slotData !== prevSlotRef.current) {
     prevSlotRef.current = slotData;
     setEditDate(format(slotData.day, 'yyyy-MM-dd'));
-    setEditHour(slotData.hour);
+    setEditHourStr(String(slotData.hour).padStart(2, '0'));
+    setEditMinStr('00');
+    setEditStationId(slotData.stationId);
   }
 
   if (!slotData) return null;
@@ -661,7 +915,9 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
     setSaving(true);
     try {
       const appointmentDay = editDate || format(slotData.day, 'yyyy-MM-dd');
-      const appointmentHour = editHour;
+      const appointmentHour = parseInt(editHourStr) || 0;
+      const appointmentMin = parseInt(editMinStr) || 0;
+      const stationId = editStationId || slotData.stationId;
       const { error } = await supabase.from('workshop_client_bookings' as any).insert({
         provider_id: providerId,
         phone: clientForm.phone,
@@ -672,17 +928,18 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
         model: clientForm.model || null,
         service_description: clientForm.serviceDesc || null,
         appointment_date: appointmentDay,
-        appointment_time: `${appointmentHour.toString().padStart(2, '0')}:00:00`,
+        appointment_time: `${appointmentHour.toString().padStart(2, '0')}:${appointmentMin.toString().padStart(2, '0')}:00`,
         duration_minutes: parseInt(clientForm.duration) || 60,
-        station_id: slotData.stationId,
-        reminder_enabled: clientForm.reminder,
+        station_id: stationId,
+        reminder_enabled: clientForm.reminderOptions.length > 0,
+        reminder_times: clientForm.reminderOptions,
         status: 'scheduled',
       });
       if (error) throw error;
       toast.success('Klient umówiony');
       queryClient.invalidateQueries({ queryKey: ['workshop-bookings'] });
       onOpenChange(false);
-      setClientForm({ phone: '', firstName: '', lastName: '', plate: '', brand: '', model: '', serviceDesc: '', duration: '60', reminder: true });
+      setClientForm({ phone: '', firstName: '', lastName: '', plate: '', brand: '', model: '', serviceDesc: '', duration: '60', reminderOptions: ['24h', '2h'] });
     } catch (err: any) {
       toast.error(err.message || 'Błąd zapisu');
     } finally {
@@ -690,8 +947,26 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
     }
   };
 
-  const endHour = editHour + 1;
-  const ALL_HOURS = Array.from({ length: 15 }, (_, i) => i + 6); // 6:00 - 20:00
+  const REMINDER_OPTIONS = [
+    { value: '24h', label: '24h przed wizytą' },
+    { value: '12h', label: '12h przed wizytą' },
+    { value: '6h', label: '6h przed wizytą' },
+    { value: '4h', label: '4h przed wizytą' },
+    { value: '2h', label: '2h przed wizytą' },
+    { value: '1h', label: '1h przed wizytą' },
+  ];
+
+  const toggleReminder = (val: string) => {
+    setClientForm(f => ({
+      ...f,
+      reminderOptions: f.reminderOptions.includes(val)
+        ? f.reminderOptions.filter(v => v !== val)
+        : [...f.reminderOptions, val],
+    }));
+  };
+
+  const ALL_HOURS_LIST = Array.from({ length: 15 }, (_, i) => i + 6);
+  const MINUTES_LIST = ['00', '15', '30', '45'];
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) { setSelectedOrderId(''); setActiveTab('client'); } onOpenChange(v); }}>
@@ -713,31 +988,49 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
             </Button>
           </div>
 
-          {/* Editable date/time info */}
-          <div className="grid grid-cols-3 gap-4 text-sm">
+          {/* Editable date/time/station info */}
+          <div className="grid grid-cols-3 gap-3 text-sm">
             <div>
               <Label className="font-medium text-xs">Data</Label>
               <Input
                 type="date"
                 value={editDate}
                 onChange={e => setEditDate(e.target.value)}
-                className="mt-1 h-9"
+                className="mt-1 h-8 text-xs"
               />
             </div>
             <div>
               <Label className="font-medium text-xs">Godzina</Label>
-              <Select value={String(editHour)} onValueChange={v => setEditHour(parseInt(v))}>
-                <SelectTrigger className="mt-1 h-9"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {ALL_HOURS.map(h => (
-                    <SelectItem key={h} value={String(h)}>{h}:00 – {h + 1}:00</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex gap-1 mt-1">
+                <Select value={editHourStr} onValueChange={setEditHourStr}>
+                  <SelectTrigger className="h-8 text-xs w-16"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {ALL_HOURS_LIST.map(h => (
+                      <SelectItem key={h} value={String(h).padStart(2, '0')}>{String(h).padStart(2, '0')}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <span className="flex items-center text-xs font-bold">:</span>
+                <Select value={editMinStr} onValueChange={setEditMinStr}>
+                  <SelectTrigger className="h-8 text-xs w-16"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {MINUTES_LIST.map(m => (
+                      <SelectItem key={m} value={m}>{m}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div>
               <Label className="font-medium text-xs">Stanowisko</Label>
-              <div className="text-muted-foreground mt-2 text-sm">{stationName}</div>
+              <Select value={editStationId} onValueChange={(v) => { setEditStationId(v); onStationChange(v); }}>
+                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {stations.map((st: any) => (
+                    <SelectItem key={st.id} value={st.id}>{st.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -792,15 +1085,23 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
                   </SelectContent>
                 </Select>
               </div>
-              <label className="flex items-center gap-2 cursor-pointer p-2 rounded-lg border bg-muted/30">
-                <input
-                  type="checkbox"
-                  checked={clientForm.reminder}
-                  onChange={e => setClientForm(f => ({...f, reminder: e.target.checked}))}
-                  className="rounded"
-                />
-                <span className="text-sm">📱 Przypomnij SMS (24h i 2h przed wizytą)</span>
-              </label>
+              {/* Reminder checkboxes */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">📱 Przypomnienia SMS</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {REMINDER_OPTIONS.map(opt => (
+                    <label key={opt.value} className="flex items-center gap-2 cursor-pointer p-1.5 rounded border bg-muted/20 hover:bg-muted/40 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={clientForm.reminderOptions.includes(opt.value)}
+                        onChange={() => toggleReminder(opt.value)}
+                        className="rounded"
+                      />
+                      <span className="text-xs">{opt.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
               <div className="flex justify-end gap-2 pt-1">
                 <Button variant="outline" onClick={() => onOpenChange(false)}>Anuluj</Button>
                 <Button onClick={handleSaveClient} disabled={saving}>
@@ -890,7 +1191,14 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
               </Button>
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => onOpenChange(false)}>Anuluj</Button>
-                <Button onClick={async () => { if (selectedOrderId) { await onSchedule(selectedOrderId, slotData.day, slotData.hour, slotData.stationId); onOpenChange(false); setSelectedOrderId(''); } }} disabled={!selectedOrderId}>Zaplanuj</Button>
+                <Button onClick={async () => {
+                  if (selectedOrderId) {
+                    const stationId = editStationId || slotData.stationId;
+                    const hourNum = parseInt(editHourStr) || slotData.hour;
+                    await onSchedule(selectedOrderId, slotData.day, hourNum, stationId);
+                    onOpenChange(false); setSelectedOrderId('');
+                  }
+                }} disabled={!selectedOrderId}>Zaplanuj</Button>
               </div>
             </div>
           )}
