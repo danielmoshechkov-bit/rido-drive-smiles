@@ -269,8 +269,11 @@ async function handleAutoPartner(supabase: any, integration: any, action: string
         });
       }
 
-      // KROK 2: Szukaj w Auto Partner po numerach OE
+      // KROK 2: Szukaj w Auto Partner — najpierw po OE, potem tekst
       try {
+        let availability: any[] = [];
+
+        // Strategy A: Search by OE numbers
         const products = resolved.oeNumbers.slice(0, 10).map(code => ({
           productCode: code,
           quantity: 1,
@@ -287,32 +290,55 @@ async function handleAutoPartner(supabase: any, integration: any, action: string
           body: JSON.stringify(body),
         });
 
-        if (res.status === 404) {
-          return json({
-            results: [],
-            clarificationQuestion: resolved.clarificationQuestion || `Auto Partner nie znalazł dla numerów: ${resolved.oeNumbers.join(', ')}`,
-            searchedTerms: resolved.oeNumbers,
-            aiResolved: true,
-            partDescription: resolved.partDescription,
-          });
+        if (res.ok) {
+          const data = await res.json();
+          const result = endpoint === "ProductAvailabilityV2"
+            ? data?.RestProductAvailabilityV2Result || data?.RestProductAvailabilityTecDocResult || data
+            : data?.RestProductsAvailabilityV2Result || data;
+
+          const errorCode = String(result?.ErrorCode || "").trim();
+          if (errorCode && errorCode !== "03/38") {
+            console.warn(`[AP] Strategy A ErrorCode: ${errorCode}`);
+          }
+
+          availability = Array.isArray(result?.Availability)
+            ? result.Availability
+            : result?.Availability ? [result.Availability] : [];
+          console.log(`[AP] Strategy A (OE) found ${availability.length} items`);
+        } else {
+          const errText = await res.text();
+          console.warn(`[AP] Strategy A failed: HTTP ${res.status} ${errText.substring(0, 200)}`);
         }
-        if (!res.ok) return json({ error: `Auto Partner: HTTP ${res.status}` }, res.status);
 
-        const data = await res.json();
-        const result = endpoint === "ProductAvailabilityV2"
-          ? data?.RestProductAvailabilityV2Result || data?.RestProductAvailabilityTecDocResult || data
-          : data?.RestProductsAvailabilityV2Result || data;
-
-        const errorCode = String(result?.ErrorCode || "").trim();
-        if (errorCode && errorCode !== "03/38") {
-          console.warn(`[AP] ErrorCode: ${errorCode}`);
+        // Strategy B: Text search via SearchByPhrase if no OE results
+        if (availability.length === 0) {
+          const descriptionQuery = resolved.partDescription || query;
+          // Try SearchByPhrase endpoint
+          for (const searchEndpoint of ["SearchByPhrase", "ProductsSearchV2", "SearchProducts"]) {
+            try {
+              const searchBody = { ...creds, phrase: descriptionQuery, searchText: descriptionQuery, maxResults: 30 };
+              const searchRes = await fetch(`${baseUrl}/${searchEndpoint}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(searchBody),
+              });
+              if (searchRes.ok) {
+                const searchData = await searchRes.json();
+                const searchResult = Object.values(searchData)?.[0] as any;
+                const products2 = searchResult?.Products || searchResult?.Availability || searchResult?.Items || [];
+                if (Array.isArray(products2) && products2.length > 0) {
+                  availability = products2;
+                  console.log(`[AP] Strategy B (${searchEndpoint}) found ${availability.length} items`);
+                  break;
+                }
+              } else {
+                await searchRes.text(); // consume body
+              }
+            } catch (e: any) {
+              console.warn(`[AP] Strategy B (${searchEndpoint}) failed:`, e.message);
+            }
+          }
         }
-
-        const availability = Array.isArray(result?.Availability)
-          ? result.Availability
-          : result?.Availability
-            ? [result.Availability]
-            : [];
 
         const mapped = availability.map((item: any) => {
           const states = Array.isArray(item?.States) ? item.States : [];
@@ -342,7 +368,7 @@ async function handleAutoPartner(supabase: any, integration: any, action: string
         const deduped = dedupeResults(mapped, (item) => `${item.partNumber || item.productCode}-${item.manufacturer || item.producer}`);
 
         const clarificationQuestion = deduped.length === 0
-          ? (resolved.clarificationQuestion || `Auto Partner nie znalazł dla numerów: ${resolved.oeNumbers.join(', ')}. Sprawdź numer OE lub spróbuj innego opisu.`)
+          ? (resolved.clarificationQuestion || `Auto Partner nie znalazł części. Spróbuj bardziej precyzyjnego opisu.`)
           : null;
 
         return json({
