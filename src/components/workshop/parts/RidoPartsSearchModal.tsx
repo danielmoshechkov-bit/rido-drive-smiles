@@ -369,9 +369,8 @@ export function RidoPartsSearchModal({
     setSearchHelp(null);
     setHasSearched(true);
 
-    // Step 1: If IC catalog is configured, search it first
-    const hasInterCarsWholesaler = enabledIntegrations.some((integration: any) => integration.supplier_code === 'inter_cars');
-    if (icIntegration?.is_enabled || hasInterCarsWholesaler) {
+    // Step 1: If IC local catalog is configured AND has data, search it first
+    if (icIntegration?.is_enabled && icIntegration?.last_sync_status === 'ok' && (icIntegration?.catalog_size || 0) > 0) {
       try {
         const catalogQueries = Array.from(new Set([rawQuery, effectiveQuery].filter(Boolean)));
 
