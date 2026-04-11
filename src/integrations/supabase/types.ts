@@ -9655,6 +9655,27 @@ export type Database = {
           },
         ]
       }
+      intercars_token_cache: {
+        Row: {
+          access_token: string
+          created_at: string | null
+          expires_at: string
+          integration_id: string
+        }
+        Insert: {
+          access_token: string
+          created_at?: string | null
+          expires_at: string
+          integration_id: string
+        }
+        Update: {
+          access_token?: string
+          created_at?: string | null
+          expires_at?: string
+          integration_id?: string
+        }
+        Relationships: []
+      }
       inventory_batches: {
         Row: {
           created_at: string | null
