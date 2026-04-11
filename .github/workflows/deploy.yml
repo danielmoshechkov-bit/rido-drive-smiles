@@ -1,7 +1,4 @@
-name: Deploy to LH.pl
-
-on:
-  # Ręczne uruchamianie - kliknij "Run workflow" w GitHub Actions
+# Ręczne uruchamianie - kliknij "Run workflow" w GitHub Actions
   workflow_dispatch:
     inputs:
       confirm_deploy:
@@ -12,33 +9,26 @@ on:
         options:
           - 'tak'
           - 'nie'
-
 jobs:
   ftp-deploy:
     name: Build and Deploy
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "18"
           cache: "npm"
-
       - name: Show versions
         run: |
           node --version
           npm --version
-
       - name: Install dependencies
         run: npm install --no-fund --no-audit
-
       - name: Build project
         run: npm run build
-
       - name: Copy .htaccess to dist (if exists)
         run: |
           if [ -f "public/.htaccess" ]; then
@@ -46,7 +36,6 @@ jobs:
           else
             echo "No public/.htaccess found - skipping"
           fi
-
       - name: Copy mascot email image to dist (if exists)
         run: |
           if [ -f "public/getrido-mascot-email.png" ]; then
@@ -54,17 +43,14 @@ jobs:
           else
             echo "No public/getrido-mascot-email.png found - skipping"
           fi
-
       - name: Copy foto-proxy.php to dist
         run: cp public/foto-proxy.php dist/foto-proxy.php
-
       - name: Debug - List dist contents
         run: |
           echo "=== dist/ root ==="
           ls -la dist/ || true
           echo "=== dist/assets/ ==="
           ls -la dist/assets/ | head -50 || echo "No assets folder!"
-
       - name: Upload to LH.pl
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
