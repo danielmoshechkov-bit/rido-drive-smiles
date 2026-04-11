@@ -19,6 +19,7 @@ interface IcCatalogItem {
   manufacturer: string | null;
   oe_number: string | null;
   category_label: string | null;
+  image_url?: string | null;
 }
 
 function normalizePartsSearchQuery(value: string): string {
@@ -82,20 +83,38 @@ function generateSearchSuggestions(query: string): string[] {
 function generateClarificationButtons(query: string, clarificationQuestion: string): string[] {
   const q = query.trim();
   const cq = clarificationQuestion.toLowerCase();
-  const buttons: string[] = [];
-
   const needsSide = cq.includes('lew') || cq.includes('praw') || cq.includes('stron');
   const needsAxle = cq.includes('przód') || cq.includes('tył') || cq.includes('przedn') || cq.includes('tyln');
+  const needsHeight = cq.includes('doln') || cq.includes('górn') || cq.includes('gorn');
 
-  if (needsSide && needsAxle) {
-    buttons.push(`${q} przedni lewy`, `${q} przedni prawy`, `${q} tylny lewy`, `${q} tylny prawy`);
-  } else if (needsSide) {
-    buttons.push(`${q} lewy`, `${q} prawy`);
-  } else if (needsAxle) {
-    buttons.push(`${q} przedni`, `${q} tylny`);
+  if (!needsSide && !needsAxle && !needsHeight) return [];
+
+  const appendIfMissing = (base: string, value: string) => {
+    if (!value) return base.trim();
+    const normalizedBase = normalizePartsSearchQuery(base);
+    const normalizedValue = normalizePartsSearchQuery(value);
+    if (normalizedBase.includes(normalizedValue)) return base.trim();
+    return `${base} ${value}`.replace(/\s+/g, ' ').trim();
+  };
+
+  const sideOptions = needsSide ? ['lewy', 'prawy'] : [''];
+  const axleOptions = needsAxle ? ['przedni', 'tylny'] : [''];
+  const heightOptions = needsHeight ? ['dolny', 'górny'] : [''];
+  const buttons = new Set<string>();
+
+  for (const axle of axleOptions) {
+    for (const height of heightOptions) {
+      for (const side of sideOptions) {
+        let candidate = q;
+        candidate = appendIfMissing(candidate, axle);
+        candidate = appendIfMissing(candidate, height);
+        candidate = appendIfMissing(candidate, side);
+        buttons.add(candidate);
+      }
+    }
   }
 
-  return buttons;
+  return [...buttons].slice(0, 8);
 }
 
 interface Props {
@@ -202,6 +221,7 @@ export function RidoPartsSearchModal({
   }, [open]);
 
   const enabledIntegrations = getConfiguredPartsIntegrations(integrations as any[]);
+  const hasInterCarsWholesaler = enabledIntegrations.some((integration: any) => integration.supplier_code === 'inter_cars');
 
   const suggestions = useMemo(
     () => generateSearchSuggestions(query),
@@ -256,6 +276,7 @@ export function RidoPartsSearchModal({
           const mappedItems = items.map((item: any, idx: number) => {
             const priceNet = Number(item.price?.net ?? item.priceNet ?? item.price ?? 0);
             const avail = parseAvailability(item);
+            const tecdocId = item.tecdocId || item.tecdoc_id;
             const sellingGross = priceNet > 0
               ? Math.round(priceNet * (1 + supplierMargin / 100) * 1.23 * 100) / 100
               : 0;
@@ -273,7 +294,7 @@ export function RidoPartsSearchModal({
               isSuggested: priceNet === 0,
               availability: avail,
               deliveryTime: item.deliveryTime || item.waitingTime || (avail === 'today' ? 'Dziś' : avail === 'tomorrow' ? 'Jutro' : '2-3 dni'),
-              imageUrl: item.imageUrl || item.image || item.photoUrl || item.thumbnailUrl || null,
+              imageUrl: item.imageUrl || item.image_url || item.image || item.photoUrl || item.thumbnailUrl || (tecdocId ? `https://webservice.tecalliance.services/pegasus-3-0/img/A/${encodeURIComponent(tecdocId)}` : null),
               selected: false,
               quantity: 1,
             } as SearchResult;
@@ -369,8 +390,8 @@ export function RidoPartsSearchModal({
     setSearchHelp(null);
     setHasSearched(true);
 
-    // Step 1: If IC local catalog is configured AND has data, search it first
-    if (icIntegration?.is_enabled && icIntegration?.last_sync_status === 'ok' && (icIntegration?.catalog_size || 0) > 0) {
+    // Step 1: Search IC catalog first (local cache or live fallback) when IC is configured anywhere
+    if (icIntegration?.is_enabled || hasInterCarsWholesaler) {
       try {
         const catalogQueries = Array.from(new Set([rawQuery, effectiveQuery].filter(Boolean)));
 
@@ -689,18 +710,19 @@ export function RidoPartsSearchModal({
                     className="text-left w-full p-3 rounded-lg border hover:border-primary hover:bg-primary/5 transition-colors flex gap-3"
                   >
                     <div className="w-16 h-16 rounded border bg-muted/50 flex items-center justify-center shrink-0 overflow-hidden">
-                      {part.ic_tecdoc_id ? (
+                      {(part.image_url || part.ic_tecdoc_id) ? (
                         <img
-                          src={`https://webservice.tecalliance.services/pegasus-3-0/img/A/${encodeURIComponent(part.ic_tecdoc_id)}`}
+                          src={part.image_url || `https://webservice.tecalliance.services/pegasus-3-0/img/A/${encodeURIComponent(part.ic_tecdoc_id as string)}`}
                           alt={part.name}
                           className="w-full h-full object-contain"
+                          loading="lazy"
                           onError={(e) => {
                             (e.target as HTMLImageElement).style.display = 'none';
                             (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
                           }}
                         />
                       ) : null}
-                      <Package className={`h-6 w-6 text-muted-foreground/50 ${part.ic_tecdoc_id ? 'hidden' : ''}`} />
+                      <Package className={`h-6 w-6 text-muted-foreground/50 ${(part.image_url || part.ic_tecdoc_id) ? 'hidden' : ''}`} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm truncate">{part.name}</p>
