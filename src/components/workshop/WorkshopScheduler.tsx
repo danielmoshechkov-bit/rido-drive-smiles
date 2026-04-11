@@ -934,6 +934,7 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
         station_id: stationId,
         reminder_enabled: clientForm.reminderOptions.length > 0,
         reminder_times: clientForm.reminderOptions,
+        confirmation_sms_sent: clientForm.sendConfirmationSms,
         status: 'scheduled',
       });
       if (error) throw error;
