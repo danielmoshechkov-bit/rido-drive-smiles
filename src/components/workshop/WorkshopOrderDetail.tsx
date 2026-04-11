@@ -54,7 +54,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
   const [smsOpen, setSmsOpen] = useState(false);
   const [smsType, setSmsType] = useState<'reception' | 'quote' | 'ready'>('reception');
   const [editClientOpen, setEditClientOpen] = useState(false);
-
+  const [estimatePreviewOpen, setEstimatePreviewOpen] = useState(false);
   const clientName = order.client
     ? order.client.client_type === 'company'
       ? order.client.company_name
@@ -214,7 +214,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
                 <DropdownMenuItem onClick={() => openSms('quote')}>
                   <Send className="h-4 w-4 mr-2" /> Wyślij kosztorys SMS
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => toast.info('Podgląd kosztorysu')}>
+                <DropdownMenuItem onClick={() => setEstimatePreviewOpen(true)}>
                   <Eye className="h-4 w-4 mr-2" /> Podgląd
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => toast.info('Drukowanie kosztorysu...')}>
@@ -348,7 +348,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
               <DropdownMenuItem onClick={() => toast.info('Podgląd protokołu przyjęcia')}>
                 <Eye className="h-4 w-4 mr-2" /> Protokół przyjęcia
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => toast.info('Podgląd kosztorysu')}>
+              <DropdownMenuItem onClick={() => setEstimatePreviewOpen(true)}>
                 <ClipboardList className="h-4 w-4 mr-2" /> Wycena
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => openSms('ready')}>
