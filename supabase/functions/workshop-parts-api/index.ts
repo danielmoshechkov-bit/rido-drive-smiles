@@ -785,7 +785,7 @@ async function handleHart(supabase: any, baseUrl: string, integration: any, acti
 }
 
 // ==================== INTER CARS (OAuth2 REST) ====================
-const IC_BASE_URL = "https://webapi.intercars.eu/v1";
+const IC_BASE_URL = "https://webapi.intercars.eu";
 const IC_TOKEN_URL = "https://cp.webapi.intercars.eu/token";
 
 async function getICToken(supabase: any, integrationId: string, clientId: string, clientSecret: string): Promise<string> {
@@ -847,7 +847,24 @@ async function handleInterCars(supabase: any, integration: any, action: string, 
     case "test_connection": {
       try {
         const token = await getICToken(supabase, integration.id, clientId, clientSecret);
-        console.log(`[IC] Auth OK for customer ${customerNumber}`);
+        console.log(`[IC] Auth OK, testing /customer endpoint...`);
+
+        // Verify API access by calling /customer
+        const custRes = await fetch(`${IC_BASE_URL}/customer`, {
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Accept": "application/json",
+            "User-Agent": "GetRido/1.0",
+          },
+        });
+        const custBody = await custRes.text();
+        console.log(`[IC] /customer status: ${custRes.status}, body: ${custBody.substring(0, 300)}`);
+
+        if (!custRes.ok) {
+          await updateConnectionStatus(supabase, integration.id, "error");
+          return json({ error: `Token OK ale /customer zwrócił HTTP ${custRes.status}` }, 400);
+        }
+
         await updateConnectionStatus(supabase, integration.id, "ok");
         return json({ success: true, message: `Połączono z Inter Cars API (klient: ${customerNumber})` });
       } catch (e) {
@@ -917,14 +934,16 @@ async function handleInterCars(supabase: any, integration: any, action: string, 
         let availability: any[] = [];
         if (foundSkus.length > 0) {
           try {
-            const availRes = await fetch(`${IC_BASE_URL}/availability`, {
-              method: "POST",
-              headers: icHeaders,
-              body: JSON.stringify({ skus: foundSkus.slice(0, 30) }),
-            });
+            const availRes = await fetch(
+              `${IC_BASE_URL}/inventory/stock?sku=${foundSkus.slice(0, 100).join(",")}`,
+              { headers: icHeaders }
+            );
             if (availRes.ok) {
               const availData = await availRes.json();
               availability = Array.isArray(availData) ? availData : availData?.items || [];
+            } else {
+              const errText = await availRes.text();
+              console.warn(`[IC] Availability HTTP ${availRes.status}:`, errText.substring(0, 200));
             }
           } catch (avErr) {
             console.warn("[IC] Availability check failed:", avErr);
@@ -987,7 +1006,7 @@ async function handleInterCars(supabase: any, integration: any, action: string, 
           "Content-Type": "application/json",
         };
 
-        const orderRes = await fetch(`${IC_BASE_URL}/orders`, {
+        const orderRes = await fetch(`${IC_BASE_URL}/sales/requisition`, {
           method: "POST",
           headers: icHeaders,
           body: JSON.stringify({
@@ -1012,7 +1031,7 @@ async function handleInterCars(supabase: any, integration: any, action: string, 
         const orderData = await orderRes.json();
         return json({
           order: {
-            orderId: orderData.orderId || orderData.id || "",
+            orderId: orderData.requisitionId || orderData.orderId || orderData.id || "",
             items: orderData.lines || orderData.items || [orderData],
           },
         });
@@ -1027,19 +1046,65 @@ async function handleInterCars(supabase: any, integration: any, action: string, 
 
       try {
         const token = await getICToken(supabase, integration.id, clientId, clientSecret);
-        const availRes = await fetch(`${IC_BASE_URL}/availability`, {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ skus: codes.slice(0, 30) }),
-        });
+        const availRes = await fetch(
+          `${IC_BASE_URL}/inventory/stock?sku=${codes.slice(0, 100).join(",")}`,
+          {
+            headers: {
+              "Authorization": `Bearer ${token}`,
+              "Accept": "application/json",
+              "User-Agent": "GetRido/1.0",
+            },
+          }
+        );
         if (!availRes.ok) return json({ error: `Dostępność IC: HTTP ${availRes.status}` }, availRes.status);
         const data = await availRes.json();
         return json({ availability: Array.isArray(data) ? data : data?.items || [] });
       } catch (e) {
         return json({ error: `Błąd dostępności IC: ${e.message}` }, 500);
+      }
+    }
+
+    case "pricing": {
+      const pricingLines = params?.lines || params?.codes?.map((c: string) => ({ sku: c, quantity: 1 }));
+      if (!pricingLines?.length) return json({ error: "Brak pozycji do wyceny" }, 400);
+
+      try {
+        const token = await getICToken(supabase, integration.id, clientId, clientSecret);
+        const priceRes = await fetch(`${IC_BASE_URL}/pricing/quote`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json",
+            "User-Agent": "GetRido/1.0",
+          },
+          body: JSON.stringify({ lines: pricingLines.slice(0, 100) }),
+        });
+        if (!priceRes.ok) return json({ error: `Wycena IC: HTTP ${priceRes.status}` }, priceRes.status);
+        const data = await priceRes.json();
+        return json({ pricing: data });
+      } catch (e) {
+        return json({ error: `Błąd wyceny IC: ${e.message}` }, 500);
+      }
+    }
+
+    case "order_status": {
+      const requisitionId = params?.requisitionId || params?.orderId;
+      if (!requisitionId) return json({ error: "Brak requisitionId" }, 400);
+
+      try {
+        const token = await getICToken(supabase, integration.id, clientId, clientSecret);
+        const statusRes = await fetch(`${IC_BASE_URL}/sales/requisition/${requisitionId}`, {
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Accept": "application/json",
+            "User-Agent": "GetRido/1.0",
+          },
+        });
+        if (!statusRes.ok) return json({ error: `Status zamówienia IC: HTTP ${statusRes.status}` }, statusRes.status);
+        const data = await statusRes.json();
+        return json({ order: data });
+      } catch (e) {
+        return json({ error: `Błąd statusu IC: ${e.message}` }, 500);
       }
     }
 
