@@ -340,13 +340,38 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                       Pojazd <span className="text-destructive">*</span>
                     </Label>
                     {vehicleId && selectedVehicle ? (
-                      <div className="flex items-center gap-2 p-2.5 border-2 border-primary/30 rounded-lg bg-primary/5">
-                        <Car className="h-4 w-4 text-primary flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm font-semibold truncate">{selectedVehicle.brand} {selectedVehicle.model}</div>
-                          <div className="text-xs text-muted-foreground">{selectedVehicle.plate || 'brak nr rej.'} {selectedVehicle.vin ? `• VIN: ${selectedVehicle.vin}` : ''}</div>
+                      <div className="relative">
+                        <div className="flex items-center gap-2 p-2.5 border-2 border-primary/30 rounded-lg bg-primary/5">
+                          <Car className="h-4 w-4 text-primary flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-semibold truncate">{selectedVehicle.brand} {selectedVehicle.model}</div>
+                            <div className="text-xs text-muted-foreground">{selectedVehicle.plate || 'brak nr rej.'} {selectedVehicle.vin ? `• VIN: ${selectedVehicle.vin}` : ''}</div>
+                          </div>
+                          <Button variant="ghost" size="sm" onClick={() => { setShowVehicleList(v => !v); qc.invalidateQueries({ queryKey: ['workshop-vehicles'] }); }}>Zmień</Button>
                         </div>
-                        <Button variant="ghost" size="sm" onClick={() => { setVehicleId(''); setShowVehicleList(true); qc.invalidateQueries({ queryKey: ['workshop-vehicles'] }); }}>Zmień</Button>
+                        {showVehicleList && (
+                          <div className="absolute z-50 w-full mt-1 border-2 border-border rounded-lg bg-background shadow-xl max-h-60 overflow-y-auto">
+                            <button className="w-full text-left px-3 py-2.5 hover:bg-accent text-sm flex items-center gap-2 border-b font-medium" onClick={() => { setShowVehicleList(false); setShowAddVehicle(true); }}>
+                              <Plus className="h-4 w-4 text-primary" /> Utwórz nowy pojazd
+                            </button>
+                            {filteredVehicles.map((v: any) => (
+                              <button key={v.id} className="w-full text-left px-3 py-2.5 hover:bg-accent text-sm transition-colors" onClick={() => {
+                                setVehicleId(v.id); setCreatedVehicleData(null); setShowVehicleList(false); setVehicleSearch('');
+                                setErrors(e => { const { vehicle, ...rest } = e; return rest; });
+                                if (v.owner_client_id) setClientId(v.owner_client_id);
+                              }}>
+                                <div className="flex items-center gap-2">
+                                  <Car className="h-3.5 w-3.5 text-muted-foreground" />
+                                  <div>
+                                    <div className="font-medium">{v.brand} {v.model}</div>
+                                    <div className="text-xs text-muted-foreground">{v.plate} {v.vin || ''}</div>
+                                  </div>
+                                </div>
+                              </button>
+                            ))}
+                            {filteredVehicles.length === 0 && <div className="px-3 py-3 text-sm text-muted-foreground text-center">Brak wyników</div>}
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <div className="relative">
