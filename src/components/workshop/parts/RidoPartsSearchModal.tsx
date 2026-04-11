@@ -825,7 +825,7 @@ export function RidoPartsSearchModal({
           )}
 
           {/* Empty state after search — with clarification and suggestions */}
-          {!isSearching && hasSearched && results.length === 0 && (
+          {!isSearching && hasSearched && results.length === 0 && icCatalogResults.length === 0 && (
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
               <SearchX className="h-12 w-12 mb-4 opacity-30" />
 
