@@ -215,7 +215,7 @@ export function RidoPartsSearchModal({
             provider_id: providerId,
             supplier_code: integration.supplier_code,
             params: {
-              query: q,
+              query: searchTerm,
               vin: vehicleVin || undefined,
               vehicle: vehicle ? {
                 brand: vehicle.brand,
