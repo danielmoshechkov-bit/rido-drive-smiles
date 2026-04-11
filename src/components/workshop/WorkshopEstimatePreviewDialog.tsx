@@ -15,7 +15,7 @@ export function WorkshopEstimatePreviewDialog({ open, onOpenChange, order }: Pro
     queryKey: ['workshop-order-tasks-preview', order?.id],
     queryFn: async () => {
       if (!order?.id) return [];
-      const { data } = await supabase
+      const { data } = await (supabase as any)
         .from('workshop_order_tasks')
         .select('*')
         .eq('order_id', order.id)
@@ -29,7 +29,7 @@ export function WorkshopEstimatePreviewDialog({ open, onOpenChange, order }: Pro
     queryKey: ['workshop-order-parts-preview', order?.id],
     queryFn: async () => {
       if (!order?.id) return [];
-      const { data } = await supabase
+      const { data } = await (supabase as any)
         .from('workshop_order_parts')
         .select('*')
         .eq('order_id', order.id)
