@@ -460,44 +460,85 @@ async function handleHart(supabase: any, baseUrl: string, integration: any, acti
         });
       }
 
-      // KROK 3: Szukaj po wszystkich numerach OE w Hart
-      const queryParams = new URLSearchParams();
-      resolved.oeNumbers.forEach(code => queryParams.append('HartCodes', code));
-      queryParams.set('Availability', 'true');
-      queryParams.set('Size', '50');
-
-      const url = `${baseUrl}/v1/products?${queryParams.toString()}`;
-      console.log(`[HART] Searching with OE numbers: ${url}`);
-
-      const searchRes = await fetch(url, { headers });
-
-      if (searchRes.status === 429) return json({ error: "Limit zapytań Hart (50/min). Poczekaj chwilę." }, 429);
-
+      // KROK 3: Szukaj w Hart — spróbuj OE cross-reference, potem opis
       let data: any = {};
-      try {
-        const searchText = await searchRes.text();
-        console.log(`[HART] Search response: HTTP ${searchRes.status}, body length: ${searchText.length}`);
-        if (searchRes.status === 404) {
-          return json({
-            results: [],
-            clarificationQuestion: resolved.clarificationQuestion || `Nie znaleziono w Hart dla numerów: ${resolved.oeNumbers.join(', ')}`,
-            searchedTerms: resolved.oeNumbers,
-            aiResolved: true,
-            partDescription: resolved.partDescription,
-          });
+      let items: any[] = [];
+
+      // Strategy A: Search by OE numbers using OriginalNumbers parameter
+      const oeParams = new URLSearchParams();
+      resolved.oeNumbers.slice(0, 10).forEach(code => oeParams.append('OriginalNumbers', code));
+      oeParams.set('Availability', 'true');
+      oeParams.set('Size', '50');
+
+      const oeUrl = `${baseUrl}/v1/products?${oeParams.toString()}`;
+      console.log(`[HART] Strategy A (OE cross-ref): ${oeUrl}`);
+
+      let oeRes = await fetch(oeUrl, { headers });
+      if (oeRes.ok) {
+        const oeText = await oeRes.text();
+        try {
+          data = JSON.parse(oeText);
+          items = (data.items || [])
+            .filter((i: any) => i.isSuccess && i.value && !i.value.withdrawn);
+          console.log(`[HART] Strategy A found ${items.length} items`);
+        } catch { /* ignore parse errors */ }
+      } else {
+        const errText = await oeRes.text();
+        console.warn(`[HART] Strategy A failed: HTTP ${oeRes.status} ${errText.substring(0, 200)}`);
+      }
+
+      // Strategy B: If no results, try HartCodes (in case AI returned Hart codes)
+      if (items.length === 0) {
+        const hcParams = new URLSearchParams();
+        resolved.oeNumbers.slice(0, 10).forEach(code => hcParams.append('HartCodes', code));
+        hcParams.set('Availability', 'true');
+        hcParams.set('Size', '50');
+
+        const hcUrl = `${baseUrl}/v1/products?${hcParams.toString()}`;
+        console.log(`[HART] Strategy B (HartCodes): ${hcUrl}`);
+
+        const hcRes = await fetch(hcUrl, { headers });
+        if (hcRes.ok) {
+          const hcText = await hcRes.text();
+          try {
+            data = JSON.parse(hcText);
+            items = (data.items || [])
+              .filter((i: any) => i.isSuccess && i.value && !i.value.withdrawn);
+            console.log(`[HART] Strategy B found ${items.length} items`);
+          } catch { /* ignore */ }
+        } else {
+          await hcRes.text(); // consume body
         }
-        if (!searchRes.ok) {
-          return json({ error: `Wyszukiwanie Hart: HTTP ${searchRes.status}` }, searchRes.status);
+      }
+
+      // Strategy C: Text/description search as last resort
+      if (items.length === 0) {
+        const descriptionQuery = resolved.partDescription || query;
+        const txtParams = new URLSearchParams();
+        txtParams.set('SearchText', descriptionQuery);
+        txtParams.set('Availability', 'true');
+        txtParams.set('Size', '30');
+
+        const txtUrl = `${baseUrl}/v1/products?${txtParams.toString()}`;
+        console.log(`[HART] Strategy C (SearchText): ${txtUrl}`);
+
+        const txtRes = await fetch(txtUrl, { headers });
+        if (txtRes.ok) {
+          const txtText = await txtRes.text();
+          try {
+            data = JSON.parse(txtText);
+            items = (data.items || [])
+              .filter((i: any) => i.isSuccess && i.value && !i.value.withdrawn);
+            console.log(`[HART] Strategy C found ${items.length} items`);
+          } catch { /* ignore */ }
+        } else {
+          const errText = await txtRes.text();
+          console.warn(`[HART] Strategy C failed: HTTP ${txtRes.status} ${errText.substring(0, 200)}`);
         }
-        data = JSON.parse(searchText);
-      } catch {
-        return json({ error: "Nieprawidłowa odpowiedź z Hart API" }, 500);
       }
 
       // KROK 4: Parsuj wyniki
-      const items = (data.items || [])
-        .filter((i: any) => i.isSuccess && i.value && !i.value.withdrawn)
-        .map((i: any) => {
+      const mappedItems = items.map((i: any) => {
           const v = i.value;
           return {
             partNumber: v.hartCode || "",
@@ -519,15 +560,15 @@ async function handleHart(supabase: any, baseUrl: string, integration: any, acti
           };
         });
 
-      console.log(`[HART] Found ${items.length} products for OE numbers: [${resolved.oeNumbers.join(', ')}]`);
+      console.log(`[HART] Total ${mappedItems.length} products for query: "${query}"`);
 
       // KROK 5: Zwróć wyniki + ewentualnie clarification obok
-      const clarificationQuestion = items.length === 0
-        ? (resolved.clarificationQuestion || `Nie znaleziono w Hart dla numerów: ${resolved.oeNumbers.join(', ')}. Sprawdź numer OE lub spróbuj innego opisu.`)
+      const clarificationQuestion = mappedItems.length === 0
+        ? (resolved.clarificationQuestion || `Nie znaleziono w Hart. Sprawdź numer OE lub spróbuj innego opisu.`)
         : null;
 
       return json({
-        results: items,
+        results: mappedItems,
         clarificationQuestion,
         searchedTerms: resolved.oeNumbers,
         aiResolved: true,
