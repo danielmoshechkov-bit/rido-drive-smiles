@@ -469,7 +469,7 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
           <CalendarSettingsPage providerId={providerId} />
         )}
 
-        {settingsTab === 'statusy' && <OrderStatusesPage />}
+        {settingsTab === 'statusy' && <OrderStatusesPage providerId={providerId || undefined} />}
 
         {settingsTab === 'rodzaje' && <OrderTypesPage />}
 
