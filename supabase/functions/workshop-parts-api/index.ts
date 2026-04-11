@@ -961,30 +961,72 @@ async function handleInterCars(supabase: any, integration: any, action: string, 
           "User-Agent": "GetRido/1.0",
         };
 
-        // Step 2: Search catalog - query by index (OE numbers)
+        // Step 2: Search catalog — try multiple strategies
         const skus = resolved.oeNumbers.slice(0, 30);
+        let products: any[] = [];
+
+        // Strategy A: Search by index (OE numbers)
         const catalogRes = await fetch(
           `${IC_BASE_URL}/ic/catalog/products?index=${skus.join(",")}`,
           { headers: icHeaders }
         );
 
-        if (catalogRes.status === 404) {
-          return json({
-            results: [],
-            clarificationQuestion: resolved.clarificationQuestion || `Inter Cars nie znalazł dla numerów: ${resolved.oeNumbers.join(', ')}`,
-            searchedTerms: resolved.oeNumbers,
-            aiResolved: true,
-            partDescription: resolved.partDescription,
-          });
-        }
-        if (!catalogRes.ok) {
+        if (catalogRes.ok) {
+          const catalogData = await catalogRes.json();
+          products = Array.isArray(catalogData) ? catalogData : catalogData?.items || catalogData?.products || [];
+          console.log(`[IC] Strategy A (index) found ${products.length} products`);
+        } else {
           const errText = await catalogRes.text();
-          console.error(`[IC] Catalog error: HTTP ${catalogRes.status}`, errText.substring(0, 300));
-          return json({ error: `Inter Cars catalog: HTTP ${catalogRes.status}` }, catalogRes.status);
+          console.warn(`[IC] Strategy A failed: HTTP ${catalogRes.status} ${errText.substring(0, 200)}`);
         }
 
-        const catalogData = await catalogRes.json();
-        const products = Array.isArray(catalogData) ? catalogData : catalogData?.items || catalogData?.products || [];
+        // Strategy B: Try OE cross-reference search
+        if (products.length === 0) {
+          for (const oe of skus.slice(0, 5)) {
+            for (const param of ["oeNumber", "oe", "originalNumber", "crossReference"]) {
+              try {
+                const oeUrl = `${IC_BASE_URL}/ic/catalog/products?${param}=${encodeURIComponent(oe)}`;
+                const oeRes = await fetch(oeUrl, { headers: icHeaders });
+                if (oeRes.ok) {
+                  const oeData = await oeRes.json();
+                  const oeProducts = Array.isArray(oeData) ? oeData : oeData?.items || oeData?.products || [];
+                  if (oeProducts.length > 0) {
+                    products.push(...oeProducts);
+                    console.log(`[IC] Strategy B (${param}=${oe}) found ${oeProducts.length} products`);
+                    break;
+                  }
+                } else {
+                  await oeRes.text(); // consume
+                }
+              } catch { /* continue */ }
+            }
+            if (products.length > 0) break;
+          }
+        }
+
+        // Strategy C: Text search fallback
+        if (products.length === 0) {
+          const descQuery = resolved.partDescription || query;
+          for (const param of ["phrase", "searchText", "text", "name"]) {
+            try {
+              const txtUrl = `${IC_BASE_URL}/ic/catalog/products?${param}=${encodeURIComponent(descQuery)}&pageSize=30`;
+              const txtRes = await fetch(txtUrl, { headers: icHeaders });
+              if (txtRes.ok) {
+                const txtData = await txtRes.json();
+                const txtProducts = Array.isArray(txtData) ? txtData : txtData?.items || txtData?.products || [];
+                if (txtProducts.length > 0) {
+                  products = txtProducts;
+                  console.log(`[IC] Strategy C (${param}) found ${txtProducts.length} products`);
+                  break;
+                }
+              } else {
+                await txtRes.text();
+              }
+            } catch { /* continue */ }
+          }
+        }
+
+        console.log(`[IC] Total products found: ${products.length}`);
 
         // Step 3: Check availability
         const foundSkus = products.map((p: any) => p.sku || p.index || p.towkod).filter(Boolean);
