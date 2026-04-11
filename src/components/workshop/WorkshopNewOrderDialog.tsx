@@ -511,8 +511,10 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                         <Input
                           value={point.text}
                           onChange={e => { updateTaskPoint(index, e.target.value); if (errors.description) setErrors(e2 => { const { description, ...rest } = e2; return rest; }); }}
+                          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addTaskPoint(); } }}
                           placeholder="Opisz co klient chce zrobić..."
                           className={`flex-1 ${errors.description && index === 0 ? 'border-destructive' : ''}`}
+                        />
                         />
                         {taskPoints.length > 1 && (
                           <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0" onClick={() => removeTaskPoint(index)}>
