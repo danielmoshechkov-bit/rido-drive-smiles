@@ -34,12 +34,15 @@ interface Props {
 }
 
 const statusColors: Record<string, string> = {
-  'Przyjęcie do serwisu': 'bg-red-500 text-white',
-  'Nowe zlecenie': 'bg-amber-400 text-black',
-  'Akceptacja klienta': 'bg-amber-400 text-black',
+  'Nowe zlecenie': 'bg-red-500 text-white',
+  'Przyjęcie do serwisu': 'bg-orange-500 text-white',
+  'Wycena gotowa': 'bg-yellow-500 text-black',
+  'Wycena wysłana': 'bg-orange-400 text-black',
+  'Zaakceptowano': 'bg-green-500 text-white',
+  'Akceptacja klienta': 'bg-green-500 text-white',
   'W trakcie naprawy': 'bg-amber-400 text-black',
   'Zadania wykonane': 'bg-green-500 text-white',
-  'Gotowy do odbioru': 'bg-green-500 text-white',
+  'Gotowy do odbioru': 'bg-gray-500 text-white',
   'Zakończone': 'bg-gray-800 text-white',
 };
 
@@ -64,9 +67,13 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
   const changeStatus = async (newStatus: string) => {
     await updateOrder.mutateAsync({ id: order.id, status_name: newStatus });
     toast.success(`Status zmieniony na: ${newStatus}`);
-    // Auto-open SMS dialog for notification statuses
-    if (newStatus === 'Gotowy do odbioru' || newStatus === 'Zakończone') {
+    // Auto-open SMS dialog based on status context
+    const lower = newStatus.toLowerCase();
+    if (lower.includes('gotow') || lower.includes('zakończ') || lower.includes('odbioru')) {
       setSmsType('ready');
+      setSmsOpen(true);
+    } else if (lower.includes('wycena wysłana') || lower.includes('kosztorys')) {
+      setSmsType('quote');
       setSmsOpen(true);
     }
   };

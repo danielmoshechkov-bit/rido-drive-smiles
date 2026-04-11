@@ -104,15 +104,22 @@ export function WorkshopSmsDialog({ open, onOpenChange, order, type }: Props) {
 
       // Update order flags based on SMS type
       const updates: any = { sms_sent_count: (order.sms_sent_count || 0) + 1, last_sms_sent_at: new Date().toISOString() };
-      if (type === 'ready') updates.ready_notification_sent = true;
-      // Auto-progress status: sending quote SMS → set status to "Wycena"
-      if (type === 'quote' && order.status_name === 'Przyjęcie do serwisu') {
-        updates.status_name = 'Wycena';
+      if (type === 'ready') {
+        updates.ready_notification_sent = true;
+        // Auto-status: sending ready SMS → set status to "Gotowy do odbioru"
+        const lower = (order.status_name || '').toLowerCase();
+        if (!lower.includes('gotow') && !lower.includes('zakończ')) {
+          updates.status_name = 'Gotowy do odbioru';
+        }
       }
-      // Mark estimate as sent to client so portal can show it
+      // Auto-status: sending quote SMS → set status to "Wycena wysłana"
       if (type === 'quote') {
         updates.estimate_sent_to_client = true;
         updates.estimate_changed_after_send = false;
+        const lower = (order.status_name || '').toLowerCase();
+        if (!lower.includes('wysłana') && !lower.includes('zaakcept')) {
+          updates.status_name = 'Wycena wysłana';
+        }
       }
       
       await (supabase as any).from('workshop_orders').update(updates).eq('id', order.id);

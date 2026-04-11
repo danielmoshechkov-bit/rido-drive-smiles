@@ -231,6 +231,7 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
     }
 
     onPrimaryTabsSaved?.(nextPrimaryTabs);
+    queryClient.invalidateQueries({ queryKey: ['nav-preferences'] });
     toast.success('Układ paska zapisany');
   };
 
@@ -468,7 +469,7 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
           <CalendarSettingsPage providerId={providerId} />
         )}
 
-        {settingsTab === 'statusy' && <OrderStatusesPage />}
+        {settingsTab === 'statusy' && <OrderStatusesPage providerId={providerId || undefined} />}
 
         {settingsTab === 'rodzaje' && <OrderTypesPage />}
 

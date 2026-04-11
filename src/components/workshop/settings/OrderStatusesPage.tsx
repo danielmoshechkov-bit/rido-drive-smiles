@@ -8,14 +8,43 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Trash2, Edit2 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Plus, Trash2, Edit2, Zap, Hand } from 'lucide-react';
 import { toast } from 'sonner';
+import { useWorkshopStatusSettings, useUpdateWorkshopStatusSettings } from '@/hooks/useWorkshop';
 
-export function OrderStatusesPage() {
+interface Props {
+  providerId?: string;
+}
+
+const AUTO_TRIGGER_OPTIONS = [
+  { value: '', label: 'Brak (ręczna zmiana)' },
+  { value: 'order_created', label: 'Utworzenie zlecenia' },
+  { value: 'protocol_signed', label: 'Podpisanie protokołu przez klienta' },
+  { value: 'estimate_prepared', label: 'Przygotowanie wyceny (dodanie pozycji)' },
+  { value: 'estimate_sent', label: 'Wysłanie kosztorysu SMS do klienta' },
+  { value: 'estimate_accepted', label: 'Akceptacja kosztorysu przez klienta' },
+  { value: 'ready_sms_sent', label: 'Wysłanie SMS o gotowości do odbioru' },
+];
+
+const DEFAULT_AUTO_STATUSES = [
+  { name: 'Nowe zlecenie', color: '#EF4444', sort_order: 0, is_default: true, auto_trigger: 'order_created' },
+  { name: 'Przyjęcie do serwisu', color: '#F97316', sort_order: 1, auto_trigger: 'protocol_signed' },
+  { name: 'Wycena gotowa', color: '#EAB308', sort_order: 2, auto_trigger: 'estimate_prepared' },
+  { name: 'Wycena wysłana', color: '#F97316', sort_order: 3, auto_trigger: 'estimate_sent' },
+  { name: 'Zaakceptowano', color: '#22C55E', sort_order: 4, auto_trigger: 'estimate_accepted' },
+  { name: 'Gotowy do odbioru', color: '#6B7280', sort_order: 5, auto_trigger: 'ready_sms_sent' },
+  { name: 'Zakończone', color: '#374151', sort_order: 6, auto_trigger: '' },
+];
+
+export function OrderStatusesPage({ providerId }: Props) {
   const qc = useQueryClient();
   const [showAdd, setShowAdd] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: '', color: '#6B7280', sort_order: 0, is_default: false });
+  const [form, setForm] = useState({ name: '', color: '#6B7280', sort_order: 0, is_default: false, auto_trigger: '' });
+
+  const { data: statusSettings } = useWorkshopStatusSettings(providerId || undefined);
+  const updateStatusSettings = useUpdateWorkshopStatusSettings();
 
   const { data: statuses = [] } = useQuery({
     queryKey: ['order-statuses-settings'],
@@ -29,14 +58,7 @@ export function OrderStatusesPage() {
         .order('sort_order');
       if (error) throw error;
       if (!data || data.length === 0) {
-        // Insert defaults
-        const defaults = [
-          { name: 'Przyjęcie do serwisu', color: '#EF4444', sort_order: 0, is_default: true },
-          { name: 'W trakcie naprawy', color: '#F59E0B', sort_order: 1 },
-          { name: 'Gotowy do odbioru', color: '#10B981', sort_order: 2 },
-          { name: 'Wydany', color: '#6B7280', sort_order: 3 },
-          { name: 'Anulowany', color: '#374151', sort_order: 4 },
-        ];
+        const defaults = DEFAULT_AUTO_STATUSES;
         for (const d of defaults) {
           await (supabase as any).from('order_statuses').insert({ ...d, user_id: user.id });
         }
@@ -82,17 +104,53 @@ export function OrderStatusesPage() {
   const closeDialog = () => {
     setShowAdd(false);
     setEditId(null);
-    setForm({ name: '', color: '#6B7280', sort_order: 0, is_default: false });
+    setForm({ name: '', color: '#6B7280', sort_order: 0, is_default: false, auto_trigger: '' });
   };
 
   const openEdit = (s: any) => {
     setEditId(s.id);
-    setForm({ name: s.name, color: s.color, sort_order: s.sort_order, is_default: s.is_default });
+    setForm({ name: s.name, color: s.color, sort_order: s.sort_order, is_default: s.is_default, auto_trigger: s.auto_trigger || '' });
     setShowAdd(true);
   };
 
+  const isAutoMode = statusSettings?.status_mode === 'auto';
+
   return (
     <div className="space-y-4">
+      {/* Auto/Manual Mode Toggle */}
+      <Card className="border-2">
+        <CardContent className="py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold text-base">Tryb zarządzania statusami</h3>
+              <p className="text-sm text-muted-foreground">
+                {isAutoMode
+                  ? 'Statusy zmieniają się automatycznie na podstawie akcji (podpis protokołu, wysłanie kosztorysu, akceptacja klienta itp.)'
+                  : 'Statusy zmieniane są ręcznie przez użytkownika'}
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <Button
+                variant={!isAutoMode ? 'default' : 'outline'}
+                size="sm"
+                className="gap-1.5"
+                onClick={() => providerId && updateStatusSettings.mutate({ providerId, status_mode: 'manual' })}
+              >
+                <Hand className="h-4 w-4" /> Ręczny
+              </Button>
+              <Button
+                variant={isAutoMode ? 'default' : 'outline'}
+                size="sm"
+                className="gap-1.5"
+                onClick={() => providerId && updateStatusSettings.mutate({ providerId, status_mode: 'auto' })}
+              >
+                <Zap className="h-4 w-4" /> Automatyczny
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="flex items-center justify-between">
         <div>
           <h3 className="font-semibold">Statusy zleceń</h3>
@@ -109,6 +167,12 @@ export function OrderStatusesPage() {
                 <div className="w-5 h-5 rounded-full border" style={{ backgroundColor: s.color }} />
                 <span className="font-medium">{s.name}</span>
                 {s.is_default && <Badge variant="secondary" className="text-xs">Domyślny</Badge>}
+                {isAutoMode && s.auto_trigger && (
+                  <Badge variant="outline" className="text-xs gap-1">
+                    <Zap className="h-3 w-3" />
+                    {AUTO_TRIGGER_OPTIONS.find(o => o.value === s.auto_trigger)?.label || s.auto_trigger}
+                  </Badge>
+                )}
                 <span className="text-xs text-muted-foreground">Kolejność: {s.sort_order}</span>
               </div>
               <div className="flex items-center gap-1">
@@ -138,6 +202,20 @@ export function OrderStatusesPage() {
                 <Input type="number" value={form.sort_order} onChange={e => setForm(p => ({ ...p, sort_order: parseInt(e.target.value) || 0 }))} className="w-20" />
               </div>
             </div>
+            {isAutoMode && (
+              <div className="space-y-2">
+                <Label>Automatyczny wyzwalacz</Label>
+                <Select value={form.auto_trigger} onValueChange={v => setForm(p => ({ ...p, auto_trigger: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Wybierz akcję..." /></SelectTrigger>
+                  <SelectContent>
+                    {AUTO_TRIGGER_OPTIONS.map(opt => (
+                      <SelectItem key={opt.value} value={opt.value || '__none'}>{opt.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">Status zmieni się automatycznie po wykonaniu wybranej akcji</p>
+              </div>
+            )}
             <div className="flex items-center gap-2">
               <Switch checked={form.is_default} onCheckedChange={v => setForm(p => ({ ...p, is_default: v }))} />
               <Label>Domyślny status</Label>
@@ -145,7 +223,10 @@ export function OrderStatusesPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={closeDialog}>Anuluj</Button>
-            <Button onClick={() => saveMut.mutate(form)} disabled={!form.name.trim()}>Zapisz</Button>
+            <Button onClick={() => saveMut.mutate({
+              ...form,
+              auto_trigger: form.auto_trigger === '__none' ? null : (form.auto_trigger || null),
+            })} disabled={!form.name.trim()}>Zapisz</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

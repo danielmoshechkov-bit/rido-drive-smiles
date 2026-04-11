@@ -20023,6 +20023,7 @@ export type Database = {
           appointment_date: string
           appointment_time: string
           brand: string | null
+          confirmation_sms_sent: boolean | null
           created_at: string
           duration_minutes: number
           first_name: string | null
@@ -20036,6 +20037,7 @@ export type Database = {
           reminder_24h_sent: boolean
           reminder_2h_sent: boolean
           reminder_enabled: boolean
+          reminder_times: string[] | null
           service_description: string | null
           station_id: string | null
           status: string
@@ -20045,6 +20047,7 @@ export type Database = {
           appointment_date: string
           appointment_time: string
           brand?: string | null
+          confirmation_sms_sent?: boolean | null
           created_at?: string
           duration_minutes?: number
           first_name?: string | null
@@ -20058,6 +20061,7 @@ export type Database = {
           reminder_24h_sent?: boolean
           reminder_2h_sent?: boolean
           reminder_enabled?: boolean
+          reminder_times?: string[] | null
           service_description?: string | null
           station_id?: string | null
           status?: string
@@ -20067,6 +20071,7 @@ export type Database = {
           appointment_date?: string
           appointment_time?: string
           brand?: string | null
+          confirmation_sms_sent?: boolean | null
           created_at?: string
           duration_minutes?: number
           first_name?: string | null
@@ -20080,6 +20085,7 @@ export type Database = {
           reminder_24h_sent?: boolean
           reminder_2h_sent?: boolean
           reminder_enabled?: boolean
+          reminder_times?: string[] | null
           service_description?: string | null
           station_id?: string | null
           status?: string
@@ -20526,6 +20532,7 @@ export type Database = {
       }
       workshop_order_statuses: {
         Row: {
+          auto_trigger: string | null
           color: string | null
           created_at: string | null
           id: string
@@ -20537,6 +20544,7 @@ export type Database = {
           sort_order: number | null
         }
         Insert: {
+          auto_trigger?: string | null
           color?: string | null
           created_at?: string | null
           id?: string
@@ -20548,6 +20556,7 @@ export type Database = {
           sort_order?: number | null
         }
         Update: {
+          auto_trigger?: string | null
           color?: string | null
           created_at?: string | null
           id?: string
@@ -21008,6 +21017,30 @@ export type Database = {
           user_id?: string
           work_stations?: Json | null
           working_hours?: Json | null
+        }
+        Relationships: []
+      }
+      workshop_status_settings: {
+        Row: {
+          created_at: string | null
+          id: string
+          provider_id: string
+          status_mode: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          provider_id: string
+          status_mode?: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          provider_id?: string
+          status_mode?: string
+          updated_at?: string | null
         }
         Relationships: []
       }
