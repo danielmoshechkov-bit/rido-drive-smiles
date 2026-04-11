@@ -812,7 +812,7 @@ async function getICToken(supabase: any, integrationId: string, clientId: string
       "User-Agent": "GetRido/1.0",
       "Accept": "application/json",
     },
-    body: new URLSearchParams({ grant_type: "client_credentials" }),
+    body: new URLSearchParams({ grant_type: "client_credentials", scope: "default" }),
   });
 
   if (!tokenRes.ok) {
