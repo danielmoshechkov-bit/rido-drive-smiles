@@ -608,6 +608,17 @@ export function RidoPartsSearchModal({
           </div>
         )}
 
+        {/* Selected IC part banner */}
+        {selectedIcPart && (
+          <div className="flex items-center gap-2 text-xs rounded-md border border-primary/30 bg-primary/5 px-3 py-2">
+            <span>✅ Szukasz: <strong>{selectedIcPart.name}</strong> {selectedIcPart.manufacturer && `(${selectedIcPart.manufacturer})`}</span>
+            <span className="text-muted-foreground">— wyniki z {suppliersInResults.length} hurtowni</span>
+            <Button variant="ghost" size="sm" className="h-6 text-xs ml-auto" onClick={handleBackToIcResults}>
+              <ArrowLeft className="h-3 w-3 mr-1" /> Wróć do wyboru części
+            </Button>
+          </div>
+        )}
+
         {/* Results info */}
         {results.length > 0 && (
           <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
