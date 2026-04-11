@@ -180,6 +180,10 @@ serve(async (req) => {
       return await handleAutoPartner(supabase, integration, action, params);
     }
 
+    if (supplier_code === "inter_cars") {
+      return await handleInterCars(supabase, integration, action, params);
+    }
+
     if (supplier_code === "hart" || !supplier_code) {
       const baseUrl = integration.environment === "production" ? HART_PROD_URL : HART_SANDBOX_URL;
       return await handleHart(supabase, baseUrl, integration, action, params);
