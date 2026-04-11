@@ -799,6 +799,11 @@ function isIntegrationConfigured(integration: any) {
     return !!extra.clientCode && !!extra.wsPassword && !!extra.clientPassword;
   }
 
+  if (integration?.supplier_code === "inter_cars") {
+    const extra = integration?.api_extra_json || {};
+    return !!extra.clientId && !!extra.clientSecret && !!extra.customerNumber;
+  }
+
   return !!integration?.api_username && !!integration?.api_password;
 }
 
