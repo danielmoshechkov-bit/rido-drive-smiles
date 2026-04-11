@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
-import { Search, Package, Loader2, ShoppingCart, Image as ImageIcon, AlertTriangle, Sparkles, SearchX, Bot, ArrowLeft, CheckCircle2, XCircle, Wifi } from 'lucide-react';
+import { Search, Package, Loader2, ShoppingCart, Image as ImageIcon, AlertTriangle, Sparkles, SearchX, Bot, ArrowLeft, CheckCircle2, XCircle } from 'lucide-react';
 import { usePartsApi, useCreatePartsOrder, usePartsIntegrations, useIcCatalogSync, useIcCatalogIntegration } from '@/hooks/useWorkshopParts';
 import { useCreateWorkshopOrderItem } from '@/hooks/useWorkshop';
 import { getConfiguredPartsIntegrations } from './partsIntegrationUtils';

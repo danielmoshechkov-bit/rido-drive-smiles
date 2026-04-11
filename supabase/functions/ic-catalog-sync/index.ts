@@ -150,7 +150,29 @@ serve(async (req) => {
     .maybeSingle();
 
   if (wholesalerError) return json({ error: wholesalerError.message }, 500);
-  if (!integration && action !== "search_catalog") return json({ error: "IC integration not configured for this provider" }, 400);
+
+  // Auto-bootstrap: create ic_catalog_integrations row from workshop_parts_integrations if missing
+  if (!integration && wholesalerIntegration?.is_enabled) {
+    const extra = wholesalerIntegration.api_extra_json || {};
+    if (extra.clientId && extra.clientSecret) {
+      console.log(`[IC-catalog] Auto-bootstrapping ic_catalog_integrations for provider ${provider_id}`);
+      const { error: bootstrapErr } = await supabase
+        .from("ic_catalog_integrations")
+        .upsert({
+          provider_id,
+          ic_client_id: extra.clientId,
+          ic_client_secret: extra.clientSecret,
+          is_enabled: true,
+        }, { onConflict: "provider_id" });
+      if (bootstrapErr) {
+        console.error("[IC-catalog] Bootstrap error:", bootstrapErr.message);
+      }
+    }
+  }
+
+  if (!integration && !wholesalerIntegration && action !== "search_catalog") {
+    return json({ error: "IC integration not configured for this provider" }, 400);
+  }
 
   // Token management
   async function getToken(): Promise<string> {
