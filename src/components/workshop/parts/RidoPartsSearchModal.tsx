@@ -5,11 +5,21 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
-import { Search, Package, Loader2, ShoppingCart, Image as ImageIcon, AlertTriangle, Sparkles, SearchX, Bot } from 'lucide-react';
-import { usePartsApi, useCreatePartsOrder, usePartsIntegrations } from '@/hooks/useWorkshopParts';
+import { Search, Package, Loader2, ShoppingCart, Image as ImageIcon, AlertTriangle, Sparkles, SearchX, Bot, ArrowLeft, Info } from 'lucide-react';
+import { usePartsApi, useCreatePartsOrder, usePartsIntegrations, useIcCatalogSync, useIcCatalogIntegration } from '@/hooks/useWorkshopParts';
 import { useCreateWorkshopOrderItem } from '@/hooks/useWorkshop';
 import { getConfiguredPartsIntegrations } from './partsIntegrationUtils';
 import { toast } from 'sonner';
+
+interface IcCatalogItem {
+  ic_sku: string;
+  ic_index: string | null;
+  ic_tecdoc_id: string | null;
+  name: string;
+  manufacturer: string | null;
+  oe_number: string | null;
+  category_label: string | null;
+}
 
 // ─── Search suggestions map ───
 const SUGGESTIONS_MAP: Record<string, string[]> = {
