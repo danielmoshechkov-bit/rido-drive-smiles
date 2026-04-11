@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Settings, Clock, Wrench, Plus, Trash2, Save, Loader2, Upload } from 'lucide-react';
+import { Settings, Clock, Wrench, Plus, Trash2, Save, Loader2, Upload, Search } from 'lucide-react';
 
 const DAYS = ['Poniedziałek', 'Wtorek', 'Środa', 'Czwartek', 'Piątek', 'Sobota', 'Niedziela'];
 
@@ -29,12 +29,15 @@ export const WorkshopSettingsPage = () => {
   const [settingsId, setSettingsId] = useState<string | null>(null);
 
   const [firmName, setFirmName] = useState('');
+  const [shortName, setShortName] = useState('');
   const [nip, setNip] = useState('');
   const [address, setAddress] = useState('');
   const [city, setCity] = useState('');
   const [postalCode, setPostalCode] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+  const [website, setWebsite] = useState('');
+  const [bankAccount, setBankAccount] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
   const [hourlyRate, setHourlyRate] = useState(150);
   const [showPricesAs, setShowPricesAs] = useState('brutto');
@@ -45,6 +48,8 @@ export const WorkshopSettingsPage = () => {
   const [workStations, setWorkStations] = useState<WorkStation[]>([]);
   const [newStation, setNewStation] = useState('');
   const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [nipSearching, setNipSearching] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
 
   useEffect(() => {
     fetchSettings();
@@ -63,12 +68,15 @@ export const WorkshopSettingsPage = () => {
       if (data) {
         setSettingsId(data.id);
         setFirmName(data.firm_name || '');
+        setShortName(data.short_name || '');
         setNip(data.nip || '');
         setAddress(data.address || '');
         setCity(data.city || '');
         setPostalCode(data.postal_code || '');
         setPhone(data.phone || '');
         setEmail(data.email || '');
+        setWebsite(data.website || '');
+        setBankAccount(data.bank_account || '');
         setLogoUrl(data.logo_url || '');
         setHourlyRate(data.hourly_rate || 150);
         setShowPricesAs(data.show_prices_as || 'brutto');
@@ -82,6 +90,35 @@ export const WorkshopSettingsPage = () => {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleNipSearch = async () => {
+    const cleanNip = nip.replace(/[\s-]/g, '');
+    if (!cleanNip || cleanNip.length !== 10) {
+      toast.error('Wpisz poprawny NIP (10 cyfr)');
+      return;
+    }
+    setNipSearching(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('registry-gus', {
+        body: { nip: cleanNip },
+      });
+      if (error) throw error;
+      if (data?.name) {
+        setFirmName(data.name);
+        if (!shortName) setShortName(data.name.split(' ').slice(0, 2).join(' '));
+        if (data.street) setAddress(data.street);
+        if (data.city) setCity(data.city);
+        if (data.postalCode || data.zipCode) setPostalCode(data.postalCode || data.zipCode);
+        toast.success('Dane firmy pobrane z rejestru');
+      } else {
+        toast.info('Nie znaleziono firmy o podanym NIP');
+      }
+    } catch (e: any) {
+      toast.error('Błąd wyszukiwania: ' + (e.message || 'nieznany'));
+    } finally {
+      setNipSearching(false);
     }
   };
 
@@ -109,12 +146,15 @@ export const WorkshopSettingsPage = () => {
       const payload = {
         user_id: user.id,
         firm_name: firmName,
+        short_name: shortName,
         nip: nip.replace(/[\s-]/g, ''),
         address,
         city,
         postal_code: postalCode,
         phone,
         email,
+        website,
+        bank_account: bankAccount,
         logo_url: uploadedLogoUrl,
         hourly_rate: hourlyRate,
         show_prices_as: showPricesAs,
@@ -161,6 +201,32 @@ export const WorkshopSettingsPage = () => {
     setWorkStations(workStations.map((s, idx) => idx === i ? { ...s, active: !s.active } : s));
   };
 
+  const handleLogoDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      if (file.size <= 2 * 1024 * 1024) {
+        setLogoFile(file);
+      } else {
+        toast.error('Plik max 2MB');
+      }
+    }
+  }, []);
+
+  const handleLogoDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  }, []);
+
+  const handleLogoDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  }, []);
+
   if (loading) {
     return <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
@@ -180,24 +246,32 @@ export const WorkshopSettingsPage = () => {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Nazwa warsztatu</Label>
-                  <Input value={firmName} onChange={e => setFirmName(e.target.value)} placeholder="Mój Warsztat" />
+                  <Label>Nazwa firmy</Label>
+                  <Input value={firmName} onChange={e => setFirmName(e.target.value)} placeholder="Pełna nazwa firmy" />
                 </div>
                 <div className="space-y-2">
                   <Label>NIP</Label>
-                  <Input value={nip} onChange={e => setNip(e.target.value)} placeholder="1234567890" maxLength={13} />
+                  <div className="flex gap-2">
+                    <Input value={nip} onChange={e => setNip(e.target.value)} placeholder="1234567890" maxLength={13} className="flex-1" />
+                    <Button variant="outline" size="icon" onClick={handleNipSearch} disabled={nipSearching} title="Wyszukaj dane firmy po NIP">
+                      {nipSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Nazwa skrócona (widoczna w SMS, dokumentach)</Label>
+                  <Input value={shortName} onChange={e => setShortName(e.target.value)} placeholder="Np. AutoSerwis" />
                 </div>
                 <div className="space-y-2">
                   <Label>Adres</Label>
                   <Input value={address} onChange={e => setAddress(e.target.value)} placeholder="ul. Przykładowa 1" />
                 </div>
                 <div className="space-y-2">
-                  <Label>Miasto</Label>
-                  <Input value={city} onChange={e => setCity(e.target.value)} placeholder="Warszawa" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Kod pocztowy</Label>
-                  <Input value={postalCode} onChange={e => setPostalCode(e.target.value)} placeholder="00-000" maxLength={6} />
+                  <Label>Kod pocztowy i miasto</Label>
+                  <div className="flex gap-2">
+                    <Input value={postalCode} onChange={e => setPostalCode(e.target.value)} placeholder="00-000" maxLength={6} className="w-28" />
+                    <Input value={city} onChange={e => setCity(e.target.value)} placeholder="Warszawa" className="flex-1" />
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label>Telefon</Label>
@@ -208,21 +282,64 @@ export const WorkshopSettingsPage = () => {
                   <Input value={email} onChange={e => setEmail(e.target.value)} placeholder="warsztat@firma.pl" type="email" />
                 </div>
                 <div className="space-y-2">
-                  <Label>Logo firmy</Label>
-                  <div className="flex items-center gap-3">
-                    {(logoUrl || logoFile) && (
-                      <img src={logoFile ? URL.createObjectURL(logoFile) : logoUrl} className="h-12 w-12 rounded object-cover border" />
-                    )}
-                    <label className="cursor-pointer border-2 border-dashed rounded-lg p-3 flex items-center gap-2 text-sm text-muted-foreground hover:border-primary transition-colors">
-                      <Upload className="h-4 w-4" />
-                      {logoFile ? logoFile.name : 'Wybierz plik'}
-                      <input type="file" className="hidden" accept="image/png,image/jpeg" onChange={e => {
-                        const f = e.target.files?.[0];
-                        if (f && f.size <= 2 * 1024 * 1024) setLogoFile(f);
-                        else if (f) toast.error('Plik max 2MB');
-                      }} />
-                    </label>
-                  </div>
+                  <Label>Strona WWW</Label>
+                  <Input value={website} onChange={e => setWebsite(e.target.value)} placeholder="https://..." />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label>Nr konta bankowego</Label>
+                  <Input value={bankAccount} onChange={e => setBankAccount(e.target.value)} placeholder="PL 00 0000 0000 0000 0000 0000 0000" />
+                </div>
+              </div>
+
+              {/* Logo with drag & drop */}
+              <div className="space-y-2">
+                <Label>Logo firmy</Label>
+                <div
+                  className={`relative border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
+                    isDragOver ? 'border-primary bg-primary/10' : logoFile || logoUrl ? 'border-primary/30 bg-primary/5' : 'border-border hover:border-primary/50 hover:bg-muted/50'
+                  }`}
+                  onDragOver={handleLogoDragOver}
+                  onDragLeave={handleLogoDragLeave}
+                  onDrop={handleLogoDrop}
+                  onClick={() => {
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.accept = 'image/png,image/jpeg';
+                    input.onchange = (ev: any) => {
+                      const file = ev.target.files?.[0];
+                      if (file && file.size <= 2 * 1024 * 1024) setLogoFile(file);
+                      else if (file) toast.error('Plik max 2MB');
+                    };
+                    input.click();
+                  }}
+                >
+                  {(logoFile || logoUrl) ? (
+                    <div className="flex items-center justify-center gap-4">
+                      <img
+                        src={logoFile ? URL.createObjectURL(logoFile) : logoUrl}
+                        alt="Logo"
+                        className="h-16 w-16 object-contain rounded border"
+                      />
+                      <div className="text-left">
+                        <p className="text-sm font-medium">{logoFile ? logoFile.name : 'Aktualne logo'}</p>
+                        <p className="text-xs text-muted-foreground">Kliknij lub przeciągnij aby zmienić</p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => { e.stopPropagation(); setLogoFile(null); setLogoUrl(''); }}
+                      >
+                        ✕
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="py-2">
+                      <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                      <p className="text-sm text-muted-foreground">Przeciągnij logo lub kliknij aby wybrać plik</p>
+                      <p className="text-xs text-muted-foreground mt-1">PNG, JPG do 2 MB</p>
+                    </div>
+                  )}
                 </div>
               </div>
 
