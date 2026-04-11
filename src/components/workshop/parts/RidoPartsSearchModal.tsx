@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
-import { Search, Package, Loader2, ShoppingCart, Image as ImageIcon, AlertTriangle, Sparkles, SearchX, Bot, ArrowLeft } from 'lucide-react';
+import { Search, Package, Loader2, ShoppingCart, Image as ImageIcon, AlertTriangle, Sparkles, SearchX, Bot, ArrowLeft, CheckCircle2, XCircle } from 'lucide-react';
 import { usePartsApi, useCreatePartsOrder, usePartsIntegrations, useIcCatalogSync, useIcCatalogIntegration } from '@/hooks/useWorkshopParts';
 import { useCreateWorkshopOrderItem } from '@/hooks/useWorkshop';
 import { getConfiguredPartsIntegrations } from './partsIntegrationUtils';
@@ -183,6 +183,7 @@ export function RidoPartsSearchModal({
   const [hasSearched, setHasSearched] = useState(false);
   const [currentPartIndex, setCurrentPartIndex] = useState(0);
   const [aiInfo, setAiInfo] = useState<{ partDescription?: string; searchedTerms?: string[]; aiResolved?: boolean } | null>(null);
+  const [supplierDiagnostics, setSupplierDiagnostics] = useState<Record<string, { status: 'ok' | 'error' | 'searching'; count: number; message?: string }>>({});
   const partsApi = usePartsApi();
   const createPartsOrder = useCreatePartsOrder();
   const createOrderItem = useCreateWorkshopOrderItem();
@@ -246,6 +247,13 @@ export function RidoPartsSearchModal({
     setResults([]);
     setHasSearched(true);
 
+    // Init diagnostics per supplier
+    const initDiag: Record<string, { status: 'ok' | 'error' | 'searching'; count: number; message?: string }> = {};
+    for (const i of enabledIntegrations) {
+      initDiag[(i as any).supplier_code] = { status: 'searching', count: 0 };
+    }
+    setSupplierDiagnostics(initDiag);
+
     try {
       const searchPromises = enabledIntegrations.map(async (integration: any) => {
         try {
@@ -300,16 +308,26 @@ export function RidoPartsSearchModal({
             } as SearchResult;
           });
 
+          setSupplierDiagnostics(prev => ({
+            ...prev,
+            [integration.supplier_code]: { status: 'ok', count: mappedItems.length },
+          }));
+
           return {
             items: mappedItems,
             clarificationQuestion: typeof res.clarificationQuestion === 'string' ? res.clarificationQuestion : null,
             aiResolved: res.aiResolved || false,
             partDescription: res.partDescription || null,
             searchedTerms: res.searchedTerms || [],
+            supplierCode: integration.supplier_code,
           };
         } catch (err: any) {
           console.warn(`Search failed for ${integration.supplier_code}:`, err.message);
-          return { items: [], clarificationQuestion: null, aiResolved: false, partDescription: null, searchedTerms: [] };
+          setSupplierDiagnostics(prev => ({
+            ...prev,
+            [integration.supplier_code]: { status: 'error', count: 0, message: err.message },
+          }));
+          return { items: [], clarificationQuestion: null, aiResolved: false, partDescription: null, searchedTerms: [], supplierCode: integration.supplier_code };
         }
       });
 
@@ -637,7 +655,26 @@ export function RidoPartsSearchModal({
           </div>
         )}
 
-        {/* Clickable suggestions (while typing, before/after search) */}
+        {/* Per-wholesaler diagnostics */}
+        {hasSearched && Object.keys(supplierDiagnostics).length > 0 && !isSearching && (
+          <div className="flex items-center gap-3 text-[11px] bg-muted/20 rounded-md px-3 py-1.5 flex-wrap">
+            <span className="text-muted-foreground font-medium">Status API:</span>
+            {Object.entries(supplierDiagnostics).map(([code, diag]) => (
+              <span key={code} className="flex items-center gap-1">
+                {diag.status === 'searching' && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                {diag.status === 'ok' && <CheckCircle2 className="h-3 w-3 text-green-500" />}
+                {diag.status === 'error' && <XCircle className="h-3 w-3 text-red-500" />}
+                <span className={diag.status === 'error' ? 'text-red-600' : diag.count > 0 ? 'text-foreground' : 'text-muted-foreground'}>
+                  {code === 'hart' ? 'Hart' : code === 'auto_partner' ? 'Auto Partner' : code === 'inter_cars' ? 'Inter Cars' : code}
+                  {diag.status === 'ok' && `: ${diag.count} wyników`}
+                  {diag.status === 'error' && ` (błąd)`}
+                </span>
+              </span>
+            ))}
+          </div>
+        )}
+
+
         {suggestions.length > 0 && !isSearching && (
           <div className="flex flex-wrap gap-1.5">
             <span className="text-xs text-muted-foreground self-center mr-1">
