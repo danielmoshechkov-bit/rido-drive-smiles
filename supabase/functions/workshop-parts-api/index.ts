@@ -801,11 +801,16 @@ async function getICToken(supabase: any, integrationId: string, clientId: string
   }
 
   // Get new token — WSO2 API Manager: credentials in Basic Auth header
+  const basicAuth = btoa(clientId + ":" + clientSecret);
+  console.log(`[IC] Requesting token from ${IC_TOKEN_URL} with Basic Auth (clientId length: ${clientId.length})`);
+  
   const tokenRes = await fetch(IC_TOKEN_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
-      "Authorization": "Basic " + btoa(clientId + ":" + clientSecret),
+      "Authorization": "Basic " + basicAuth,
+      "User-Agent": "GetRido/1.0",
+      "Accept": "application/json",
     },
     body: new URLSearchParams({ grant_type: "client_credentials" }),
   });
