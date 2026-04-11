@@ -431,18 +431,15 @@ serve(async (req) => {
       }
 
       results = rankCatalogRows(results, q);
+      console.log(`[IC-catalog] search_catalog q="${q}" localResults=${results.length}`);
 
-      if (results.length === 0) {
-        for (const searchTerm of queries) {
-          const liveResults = await searchLiveCatalog(searchTerm);
-          results.push(...liveResults);
-          if (results.length >= 8) break;
-        }
-        results = rankCatalogRows(results, q);
-      }
+      // NOTE: IC API does NOT support text-based search (only index/SKU lookup).
+      // If local catalog is empty, return empty and let the frontend
+      // fall through to workshop-parts-api which uses AI → OE resolution.
 
       return json({ results });
     } catch (err: any) {
+      console.error(`[IC-catalog] search_catalog error:`, err.message);
       return json({ error: err.message || "IC catalog search failed" }, 500);
     }
   }
