@@ -308,12 +308,18 @@ export function RidoPartsSearchModal({
             } as SearchResult;
           });
 
+          setSupplierDiagnostics(prev => ({
+            ...prev,
+            [integration.supplier_code]: { status: 'ok', count: mappedItems.length },
+          }));
+
           return {
             items: mappedItems,
             clarificationQuestion: typeof res.clarificationQuestion === 'string' ? res.clarificationQuestion : null,
             aiResolved: res.aiResolved || false,
             partDescription: res.partDescription || null,
             searchedTerms: res.searchedTerms || [],
+            supplierCode: integration.supplier_code,
           };
         } catch (err: any) {
           console.warn(`Search failed for ${integration.supplier_code}:`, err.message);
