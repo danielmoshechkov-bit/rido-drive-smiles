@@ -786,7 +786,7 @@ async function handleHart(supabase: any, baseUrl: string, integration: any, acti
 
 // ==================== INTER CARS (OAuth2 REST) ====================
 const IC_BASE_URL = "https://webapi.intercars.eu/v1";
-const IC_TOKEN_URL = "https://webapi.intercars.eu/oauth2/token";
+const IC_TOKEN_URL = "https://cp.webapi.intercars.eu/token";
 
 async function getICToken(supabase: any, integrationId: string, clientId: string, clientSecret: string): Promise<string> {
   // Check cache
@@ -800,15 +800,14 @@ async function getICToken(supabase: any, integrationId: string, clientId: string
     return cached.access_token;
   }
 
-  // Get new token
+  // Get new token — WSO2 API Manager: credentials in Basic Auth header
   const tokenRes = await fetch(IC_TOKEN_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "client_credentials",
-      client_id: clientId,
-      client_secret: clientSecret,
-    }),
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      "Authorization": "Basic " + btoa(clientId + ":" + clientSecret),
+    },
+    body: new URLSearchParams({ grant_type: "client_credentials" }),
   });
 
   if (!tokenRes.ok) {
