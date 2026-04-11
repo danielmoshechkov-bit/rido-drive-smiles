@@ -453,13 +453,10 @@ export function WholesalerIntegrationsSettings({ providerId }: Props) {
                       <li>Skontaktuj się z przedstawicielem Inter Cars</li>
                       <li>Poproś o <strong>Client ID</strong> i <strong>Client Secret</strong> do WebAPI</li>
                       <li>Podaj swój <strong>numer odbiorcy (kh_kod)</strong> np. 9AE06V</li>
-                      <li>Opcjonalnie podaj <strong>oddział</strong> i <strong>hasło CSV</strong></li>
+                      <li>Opcjonalnie podaj <strong>oddział</strong></li>
                     </ol>
                     <p className="mt-1.5">
                       API: <code className="text-[10px] bg-muted px-1 rounded">webapi.intercars.eu</code>
-                    </p>
-                    <p className="mt-1">
-                      CSV: <code className="text-[10px] bg-muted px-1 rounded">data.webapi.intercars.eu</code>
                     </p>
                   </div>
                 </div>
@@ -483,7 +480,7 @@ export function WholesalerIntegrationsSettings({ providerId }: Props) {
                     <p className="text-[10px] text-muted-foreground">OAuth2 Client Secret</p>
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label className="text-xs">Nr odbiorcy (kh_kod) <span className="text-destructive">*</span></Label>
                     <Input value={getExtraField('inter_cars', 'customerNumber')} onChange={(e) => setExtraField('inter_cars', 'customerNumber', e.target.value)} placeholder="np. 9AE06V" />
@@ -493,11 +490,6 @@ export function WholesalerIntegrationsSettings({ providerId }: Props) {
                     <Label className="text-xs">Oddział</Label>
                     <Input value={getExtraField('inter_cars', 'branch')} onChange={(e) => setExtraField('inter_cars', 'branch', e.target.value)} placeholder="np. MAT" />
                     <p className="text-[10px] text-muted-foreground">Kod oddziału (opcjonalnie)</p>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Hasło CSV</Label>
-                    <Input type="password" value={getExtraField('inter_cars', 'csvPassword')} onChange={(e) => setExtraField('inter_cars', 'csvPassword', e.target.value)} placeholder="••••••••" />
-                    <p className="text-[10px] text-muted-foreground">Do plików cennikowych</p>
                   </div>
                 </div>
               </div>
