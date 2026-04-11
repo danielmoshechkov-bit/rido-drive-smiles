@@ -84,10 +84,14 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
     await updateOrder.mutateAsync({ id: orderId, status_name: newStatus });
     setStatusDropdownId(null);
     toast.success(`Status zmieniony na: ${newStatus}`);
-    // Show SMS dialog for completion statuses only
     const order = orders.find((o: any) => o.id === orderId);
-    if (order && (newStatus === 'Gotowy do odbioru' || newStatus === 'Zakończone')) {
+    if (!order) return;
+    const lower = newStatus.toLowerCase();
+    if (lower.includes('gotow') || lower.includes('zakończ') || lower.includes('odbioru')) {
       setSmsDialogType('ready');
+      setSmsDialogOrder(order);
+    } else if (lower.includes('wycena wysłana') || lower.includes('kosztorys')) {
+      setSmsDialogType('quote');
       setSmsDialogOrder(order);
     }
   };
