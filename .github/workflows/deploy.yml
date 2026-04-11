@@ -1,4 +1,5 @@
-# Ręczne uruchamianie - kliknij "Run workflow" w GitHub Actions
+name: Deploy to LH.pl
+on:
   workflow_dispatch:
     inputs:
       confirm_deploy:
@@ -21,10 +22,6 @@ jobs:
         with:
           node-version: "18"
           cache: "npm"
-      - name: Show versions
-        run: |
-          node --version
-          npm --version
       - name: Install dependencies
         run: npm install --no-fund --no-audit
       - name: Build project
@@ -45,12 +42,6 @@ jobs:
           fi
       - name: Copy foto-proxy.php to dist
         run: cp public/foto-proxy.php dist/foto-proxy.php
-      - name: Debug - List dist contents
-        run: |
-          echo "=== dist/ root ==="
-          ls -la dist/ || true
-          echo "=== dist/assets/ ==="
-          ls -la dist/assets/ | head -50 || echo "No assets folder!"
       - name: Upload to LH.pl
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
@@ -58,7 +49,6 @@ jobs:
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: ./dist/
-          # Konto FTP ma root: /public_html/getrido.pl więc używamy /
           server-dir: /
           passive: true
-          dangerous-clean-slate: false
+          dangerous-clean-slate: true
