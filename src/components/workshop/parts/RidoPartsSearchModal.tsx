@@ -331,6 +331,56 @@ export function RidoPartsSearchModal({
     }
   };
 
+  const doSearch = async (searchQuery?: string) => {
+    const q = (searchQuery || query).trim();
+    if (!q) return;
+
+    setIsSearching(true);
+    setResults([]);
+    setIcCatalogResults([]);
+    setIcCatalogResultsBackup([]);
+    setSelectedIcPart(null);
+    setSearchHelp(null);
+    setHasSearched(true);
+
+    // Step 1: If IC catalog is configured, search it first
+    if (icIntegration?.is_enabled && icIntegration?.last_sync_status === 'ok') {
+      try {
+        const icRes = await icSync.mutateAsync({
+          action: 'search_catalog',
+          provider_id: providerId,
+          query: q,
+        });
+        if (icRes.results && icRes.results.length > 0) {
+          setIcCatalogResults(icRes.results);
+          setIcCatalogResultsBackup(icRes.results);
+          setIsSearching(false);
+          return; // Show IC results for selection, don't search wholesalers yet
+        }
+      } catch (e) {
+        console.warn('IC catalog search failed, fallback to wholesalers:', e);
+      }
+    }
+
+    // Step 2: No IC results or no IC → search wholesalers directly
+    setIsSearching(false);
+    await searchInWholesalers(q);
+  };
+
+  const handleIcPartSelect = async (part: IcCatalogItem) => {
+    setSelectedIcPart(part);
+    setIcCatalogResults([]);
+    const searchTerm = part.ic_index || part.oe_number || part.ic_sku;
+    setQuery(searchTerm);
+    await searchInWholesalers(searchTerm);
+  };
+
+  const handleBackToIcResults = () => {
+    setSelectedIcPart(null);
+    setResults([]);
+    setIcCatalogResults(icCatalogResultsBackup);
+  };
+
   const handleSearch = () => doSearch();
 
   const toggleSelect = (id: string) => {
