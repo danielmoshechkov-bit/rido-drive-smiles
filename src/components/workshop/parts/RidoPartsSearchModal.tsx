@@ -195,9 +195,7 @@ export function RidoPartsSearchModal({
     setTimeout(() => doSearch(suggestion), 50);
   };
 
-  const doSearch = async (searchQuery?: string) => {
-    const q = (searchQuery || query).trim();
-    if (!q) return;
+  const searchInWholesalers = async (searchTerm: string) => {
     if (enabledIntegrations.length === 0) {
       toast.error('Brak skonfigurowanych hurtowni. Przejdź do Ustawienia → Integracje z hurtowniami.');
       return;
