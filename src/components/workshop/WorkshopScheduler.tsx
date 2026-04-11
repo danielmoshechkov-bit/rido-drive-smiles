@@ -391,11 +391,12 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz', foc
                 ))}
               </tr>
               <tr>
-                {categoryStations.map((st: any) =>
-                  weekDays.map(day => {
+                {categoryStations.map((st: any, stIdx: number) =>
+                  weekDays.map((day, dayIdx) => {
                     const today = isToday(day);
+                    const isLastDayOfStation = dayIdx === weekDays.length - 1 && stIdx < categoryStations.length - 1;
                     return (
-                      <th key={`${st.id}-${day.toISOString()}`} className={`border-b-2 border-r border-foreground/20 p-1.5 text-center min-w-[120px] ${today ? 'bg-[hsl(220,80%,50%)] text-white' : 'bg-[hsl(220,30%,95%)] dark:bg-[hsl(220,20%,20%)] text-foreground'}`}>
+                      <th key={`${st.id}-${day.toISOString()}`} className={`border-b-2 border-r border-foreground/20 p-1.5 text-center min-w-[120px] ${isLastDayOfStation ? 'border-r-[3px] border-r-foreground/40' : ''} ${today ? 'bg-[hsl(220,80%,50%)] text-white' : 'bg-[hsl(220,30%,95%)] dark:bg-[hsl(220,20%,20%)] text-foreground'}`}>
                         <div className="font-bold text-xs">{format(day, 'EEE', { locale: pl })}</div>
                         <div className={`text-sm font-black ${today ? 'text-white' : ''}`}>{format(day, 'dd.MM')}</div>
                       </th>
@@ -412,8 +413,8 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz', foc
                     <td className={`border-b border-r-2 border-foreground/20 p-2 text-right font-mono font-bold text-sm sticky left-0 z-10 ${isEvenRow ? 'bg-[hsl(220,20%,97%)] dark:bg-[hsl(220,15%,15%)] text-foreground' : 'bg-[hsl(220,25%,93%)] dark:bg-[hsl(220,15%,18%)] text-foreground'}`}>
                       {`${hour}:00`}
                     </td>
-                    {categoryStations.map((st: any) =>
-                      weekDays.map(day => {
+                    {categoryStations.map((st: any, stIdx: number) =>
+                      weekDays.map((day, dayIdx) => {
                         const key = cellKey(st.id, day, hour);
                         const isDragOver = dragOverCell === key;
                         const scheduledOrder = getOrderStartingAt(st.id, day, hour);
@@ -457,11 +458,12 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz', foc
                           }
                         }
 
+                        const isLastDayOfStation = dayIdx === weekDays.length - 1 && stIdx < categoryStations.length - 1;
                         return (
                           <td
                             key={key}
                             rowSpan={scheduledOrder ? displaySpan : 1}
-                            className={`border-b border-r border-foreground/15 p-0 cursor-pointer transition-all relative ${scheduledOrder ? '' : 'h-14'} ${
+                            className={`border-b border-r border-foreground/15 p-0 cursor-pointer transition-all relative ${scheduledOrder ? '' : 'h-14'} ${isLastDayOfStation ? 'border-r-[3px] border-r-foreground/40' : ''} ${
                               today
                                 ? (isEvenRow ? 'bg-[hsl(220,60%,97%)] dark:bg-[hsl(220,30%,15%)]' : 'bg-[hsl(220,60%,94%)] dark:bg-[hsl(220,30%,18%)]')
                                 : (isEvenRow ? 'bg-background' : 'bg-[hsl(220,15%,96%)] dark:bg-[hsl(220,10%,14%)]')
