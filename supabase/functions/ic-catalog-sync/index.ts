@@ -5,6 +5,8 @@ import { corsHeaders } from "../_shared/cors.ts";
 const IC_TOKEN_URL = "https://api.webapi.intercars.eu/oauth2/token";
 const IC_CATALOG_BASE = "https://api.webapi.intercars.eu";
 const IC_LIVE_SEARCH_PARAMS = ["phrase", "searchText", "text", "query", "name"] as const;
+const IC_SYNC_TIME_BUDGET_MS = 20000;
+const IC_SYNC_PAGE_SIZE = 100;
 
 type CatalogResult = {
   ic_sku: string;
@@ -43,6 +45,44 @@ function buildTecdocImageUrl(tecdocId: string | null | undefined) {
   return tecdocId
     ? `https://webservice.tecalliance.services/pegasus-3-0/img/A/${encodeURIComponent(tecdocId)}`
     : null;
+}
+
+function looksLikeCatalogCode(query: string) {
+  const value = String(query || "").trim();
+  if (value.length < 3) return false;
+  if (!/\d/.test(value)) return false;
+  return /^[A-Za-z0-9][A-Za-z0-9\s\-./]{2,}$/.test(value);
+}
+
+function extractProducts(payload: any) {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.items)) return payload.items;
+  if (Array.isArray(payload?.products)) return payload.products;
+  if (Array.isArray(payload?.data)) return payload.data;
+  return [];
+}
+
+function mapLiveCatalogProduct(product: any): CatalogResult | null {
+  const tecdocId = product.tecDocId || product.tecdocId || product.tecdocIdentifier || null;
+  const sku = product.sku || product.SKU || product.index || product.towkod || product.productCode || "";
+  const oeNumbers = Array.isArray(product.oeNumbers)
+    ? product.oeNumbers.filter(Boolean).join(", ")
+    : (product.oeNumber || product.oe || product.originalNumber || null);
+
+  if (!sku && !(product.name || product.description || product.shortDescription)) {
+    return null;
+  }
+
+  return {
+    ic_sku: sku,
+    ic_index: product.index || product.productIndex || product.tradeIndex || null,
+    ic_tecdoc_id: tecdocId,
+    name: product.name || product.description || product.shortDescription || product.productName || sku,
+    manufacturer: product.brandReference?.name || product.manufacturer || product.brand || product.producerName || null,
+    oe_number: oeNumbers,
+    category_label: product.category?.label || product.categoryLabel || product.groupName || null,
+    image_url: product.imageUrl || buildTecdocImageUrl(tecdocId),
+  } satisfies CatalogResult;
 }
 
 function sanitizeIlikeToken(token: string) {
@@ -351,6 +391,7 @@ serve(async (req) => {
   // ── sync_catalog ──
   if (action === "sync_catalog") {
     try {
+      const startedAt = Date.now();
       await supabase.from("ic_catalog_integrations")
         .update({ last_sync_status: "syncing", last_sync_error: null })
         .eq("provider_id", provider_id);
@@ -366,19 +407,37 @@ serve(async (req) => {
       // 1. Get categories
       const catRes = await fetch(`${IC_CATALOG_BASE}/ic/catalog/category`, { headers });
       if (!catRes.ok) throw new Error(`Categories fetch failed: HTTP ${catRes.status}`);
-      const categories: Array<{ categoryId: string; label: string }> = await catRes.json();
+      const categories: Array<{ categoryId?: string; id?: string; label?: string; name?: string }> = await catRes.json();
 
       let totalSynced = 0;
+      let processedCategories = 0;
+      let hitTimeBudget = false;
 
       // 2. For each category, paginate products
       for (const cat of categories) {
+        if (Date.now() - startedAt > IC_SYNC_TIME_BUDGET_MS) {
+          hitTimeBudget = true;
+          break;
+        }
+
+        const categoryId = cat.categoryId || cat.id;
+        const categoryLabel = cat.label || cat.name || categoryId || "Bez kategorii";
+        if (!categoryId) continue;
+
         let pageNumber = 0;
         let hasMore = true;
+        processedCategories += 1;
 
         while (hasMore) {
+          if (Date.now() - startedAt > IC_SYNC_TIME_BUDGET_MS) {
+            hitTimeBudget = true;
+            hasMore = false;
+            break;
+          }
+
           const url = new URL(`${IC_CATALOG_BASE}/ic/catalog/products`);
-          url.searchParams.set("categoryId", cat.categoryId);
-          url.searchParams.set("pageSize", "100");
+          url.searchParams.set("categoryId", categoryId);
+          url.searchParams.set("pageSize", String(IC_SYNC_PAGE_SIZE));
           url.searchParams.set("pageNumber", String(pageNumber));
 
           const prodRes = await fetch(url.toString(), { headers });
@@ -391,24 +450,27 @@ serve(async (req) => {
           if (!prodRes.ok) break;
 
           const prodData = await prodRes.json();
-          const products = prodData.products || [];
-          hasMore = prodData.hasNextPage === true;
+          const products = extractProducts(prodData);
+          const explicitHasMore = prodData?.hasNextPage ?? prodData?.hasMore ?? null;
+          hasMore = typeof explicitHasMore === "boolean"
+            ? explicitHasMore
+            : products.length >= IC_SYNC_PAGE_SIZE;
           pageNumber++;
 
           if (products.length === 0) break;
 
           const rows = products.map((p: any) => ({
             provider_id,
-            ic_sku: p.sku || p.SKU || p.index || "",
-            ic_index: p.index || null,
-            ic_tecdoc_id: p.tecDocId || p.tecdocIdentifier || null,
-            name: p.name || p.description || p.shortDescription || "",
-            description: p.shortDescription || p.description || null,
-            manufacturer: p.manufacturer || p.brand || null,
-            oe_number: p.oeNumber || p.oe || null,
+            ic_sku: p.sku || p.SKU || p.index || p.towkod || p.productCode || "",
+            ic_index: p.index || p.productIndex || p.tradeIndex || null,
+            ic_tecdoc_id: p.tecDocId || p.tecdocId || p.tecdocIdentifier || null,
+            name: p.name || p.description || p.shortDescription || p.productName || "",
+            description: p.shortDescription || p.description || p.productDescription || null,
+            manufacturer: p.brandReference?.name || p.manufacturer || p.brand || p.producerName || null,
+            oe_number: Array.isArray(p.oeNumbers) ? p.oeNumbers.filter(Boolean).join(", ") : (p.oeNumber || p.oe || p.originalNumber || null),
             ean: Array.isArray(p.eans) ? p.eans[0] : (p.ean || null),
-            category_id: cat.categoryId,
-            category_label: cat.label,
+            category_id: categoryId,
+            category_label: categoryLabel,
             synced_at: new Date().toISOString(),
           })).filter((r: any) => r.ic_sku);
 
@@ -423,12 +485,21 @@ serve(async (req) => {
 
       await supabase.from("ic_catalog_integrations").update({
         last_sync_at: new Date().toISOString(),
-        last_sync_status: "ok",
-        last_sync_error: null,
+        last_sync_status: totalSynced > 0 ? "ok" : "error",
+        last_sync_error: hitTimeBudget
+          ? `Synchronizacja zatrzymana po limicie czasu. Pobrano ${totalSynced} produktów z ${processedCategories} kategorii.`
+          : totalSynced === 0
+            ? "Nie pobrano żadnych produktów z katalogu Inter Cars."
+            : null,
         catalog_size: totalSynced,
       }).eq("provider_id", provider_id);
 
-      return json({ success: true, synced: totalSynced });
+      return json({
+        success: totalSynced > 0,
+        synced: totalSynced,
+        partial: hitTimeBudget,
+        processedCategories,
+      });
     } catch (err: any) {
       await supabase.from("ic_catalog_integrations")
         .update({ last_sync_status: "error", last_sync_error: err.message })
@@ -450,6 +521,36 @@ serve(async (req) => {
         const localResults = await searchLocalCatalog(searchTerm);
         results.push(...localResults);
         if (results.length >= 8) break;
+      }
+
+      if (results.length === 0 && looksLikeCatalogCode(q) && (integration || wholesalerIntegration)) {
+        const token = await getToken();
+        const headers = {
+          "Authorization": `Bearer ${token}`,
+          "Accept-Language": "pl",
+          "Accept": "application/json",
+          "User-Agent": "GetRido/1.0",
+        };
+
+        for (const param of ["sku", "index"]) {
+          const url = new URL(`${IC_CATALOG_BASE}/ic/catalog/products`);
+          url.searchParams.set(param, q);
+          url.searchParams.set("pageSize", "24");
+          url.searchParams.set("pageNumber", "0");
+
+          const response = await fetch(url.toString(), { headers });
+          if (!response.ok) continue;
+
+          const payload = await response.json();
+          const liveResults = extractProducts(payload)
+            .map(mapLiveCatalogProduct)
+            .filter(Boolean) as CatalogResult[];
+
+          if (liveResults.length > 0) {
+            results.push(...liveResults);
+            break;
+          }
+        }
       }
 
       results = rankCatalogRows(results, q);
