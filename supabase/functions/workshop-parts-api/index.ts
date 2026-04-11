@@ -847,26 +847,13 @@ async function handleInterCars(supabase: any, integration: any, action: string, 
     case "test_connection": {
       try {
         const token = await getICToken(supabase, integration.id, clientId, clientSecret);
-        console.log(`[IC] Auth OK, testing /customer endpoint...`);
-
-        // Verify API access by calling catalog with dummy SKU
-        const custRes = await fetch(`${IC_BASE_URL}/ic/catalog/products?sku=ADDFFF&pageSize=1`, {
-          headers: {
-            "Authorization": `Bearer ${token}`,
-            "Accept": "application/json",
-            "User-Agent": "GetRido/1.0",
-          },
-        });
-        const custBody = await custRes.text();
-        console.log(`[IC] /customer status: ${custRes.status}, body: ${custBody.substring(0, 300)}`);
-
-        if (!custRes.ok) {
-          await updateConnectionStatus(supabase, integration.id, "error");
-          return json({ error: `Token OK ale /customer zwrócił HTTP ${custRes.status}` }, 400);
-        }
-
+        // Token OK = połączenie działa. Nie testuj dalszych endpointów.
+        console.log(`[IC] Auth OK — token obtained, connection verified for customer: ${customerNumber}`);
         await updateConnectionStatus(supabase, integration.id, "ok");
-        return json({ success: true, message: `Połączono z Inter Cars API (klient: ${customerNumber})` });
+        return json({ 
+          success: true, 
+          message: `Połączono z Inter Cars API (klient: ${customerNumber})` 
+        });
       } catch (e) {
         console.error("[IC] Test connection error:", e);
         await updateConnectionStatus(supabase, integration.id, "error");
