@@ -78,6 +78,53 @@ export function usePartsOrders(providerId: string | undefined) {
   });
 }
 
+// ---- IC Catalog integration ----
+export function useIcCatalogIntegration(providerId: string | undefined) {
+  return useQuery({
+    queryKey: ['ic-catalog-integration', providerId],
+    enabled: !!providerId,
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from('ic_catalog_integrations')
+        .select('*')
+        .eq('provider_id', providerId)
+        .maybeSingle();
+      return data;
+    },
+  });
+}
+
+export function useUpsertIcCatalogIntegration() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (integration: any) => {
+      const { data, error } = await (supabase as any)
+        .from('ic_catalog_integrations')
+        .upsert(integration, { onConflict: 'provider_id' })
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['ic-catalog-integration'] });
+      toast.success('Ustawienia IC zapisane');
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+}
+
+export function useIcCatalogSync() {
+  return useMutation({
+    mutationFn: async (payload: { action: string; provider_id: string; query?: string }) => {
+      const res = await supabase.functions.invoke('ic-catalog-sync', { body: payload });
+      if (res.error) throw new Error(res.error.message);
+      if (res.data?.error) throw new Error(res.data.error);
+      return res.data;
+    },
+  });
+}
+
 export function useCreatePartsOrder() {
   const qc = useQueryClient();
   return useMutation({
