@@ -515,7 +515,6 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                           placeholder="Opisz co klient chce zrobić..."
                           className={`flex-1 ${errors.description && index === 0 ? 'border-destructive' : ''}`}
                         />
-                        />
                         {taskPoints.length > 1 && (
                           <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0" onClick={() => removeTaskPoint(index)}>
                             <X className="h-4 w-4 text-muted-foreground" />
