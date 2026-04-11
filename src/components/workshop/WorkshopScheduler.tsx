@@ -940,7 +940,7 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
       toast.success('Klient umówiony');
       queryClient.invalidateQueries({ queryKey: ['workshop-bookings'] });
       onOpenChange(false);
-      setClientForm({ phone: '', firstName: '', lastName: '', plate: '', brand: '', model: '', serviceDesc: '', duration: '60', reminderOptions: ['24h', '2h'] });
+      setClientForm({ phone: '', firstName: '', lastName: '', plate: '', brand: '', model: '', serviceDesc: '', duration: '60', reminderOptions: ['24h', '2h'], sendConfirmationSms: true });
     } catch (err: any) {
       toast.error(err.message || 'Błąd zapisu');
     } finally {
