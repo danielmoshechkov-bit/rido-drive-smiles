@@ -5,11 +5,21 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
-import { Search, Package, Loader2, ShoppingCart, Image as ImageIcon, AlertTriangle, Sparkles, SearchX, Bot } from 'lucide-react';
-import { usePartsApi, useCreatePartsOrder, usePartsIntegrations } from '@/hooks/useWorkshopParts';
+import { Search, Package, Loader2, ShoppingCart, Image as ImageIcon, AlertTriangle, Sparkles, SearchX, Bot, ArrowLeft } from 'lucide-react';
+import { usePartsApi, useCreatePartsOrder, usePartsIntegrations, useIcCatalogSync, useIcCatalogIntegration } from '@/hooks/useWorkshopParts';
 import { useCreateWorkshopOrderItem } from '@/hooks/useWorkshop';
 import { getConfiguredPartsIntegrations } from './partsIntegrationUtils';
 import { toast } from 'sonner';
+
+interface IcCatalogItem {
+  ic_sku: string;
+  ic_index: string | null;
+  ic_tecdoc_id: string | null;
+  name: string;
+  manufacturer: string | null;
+  oe_number: string | null;
+  category_label: string | null;
+}
 
 // ─── Search suggestions map ───
 const SUGGESTIONS_MAP: Record<string, string[]> = {
@@ -139,6 +149,11 @@ export function RidoPartsSearchModal({
   const partsApi = usePartsApi();
   const createPartsOrder = useCreatePartsOrder();
   const createOrderItem = useCreateWorkshopOrderItem();
+  const icSync = useIcCatalogSync();
+  const { data: icIntegration } = useIcCatalogIntegration(providerId);
+  const [icCatalogResults, setIcCatalogResults] = useState<IcCatalogItem[]>([]);
+  const [icCatalogResultsBackup, setIcCatalogResultsBackup] = useState<IcCatalogItem[]>([]);
+  const [selectedIcPart, setSelectedIcPart] = useState<IcCatalogItem | null>(null);
   const { data: integrations = [] } = usePartsIntegrations(providerId);
 
   useEffect(() => {
@@ -146,6 +161,9 @@ export function RidoPartsSearchModal({
       if (initialSearch) setQuery(initialSearch);
       setSearchHelp(null);
       setAiInfo(null);
+      setIcCatalogResults([]);
+      setIcCatalogResultsBackup([]);
+      setSelectedIcPart(null);
       if (existingParts.length > 0) {
         setCurrentPartIndex(0);
         const firstPart = existingParts[0].name;
@@ -159,6 +177,9 @@ export function RidoPartsSearchModal({
       setSearchHelp(null);
       setCurrentPartIndex(0);
       setAiInfo(null);
+      setIcCatalogResults([]);
+      setIcCatalogResultsBackup([]);
+      setSelectedIcPart(null);
     }
   }, [open]);
 
@@ -174,9 +195,7 @@ export function RidoPartsSearchModal({
     setTimeout(() => doSearch(suggestion), 50);
   };
 
-  const doSearch = async (searchQuery?: string) => {
-    const q = (searchQuery || query).trim();
-    if (!q) return;
+  const searchInWholesalers = async (searchTerm: string) => {
     if (enabledIntegrations.length === 0) {
       toast.error('Brak skonfigurowanych hurtowni. Przejdź do Ustawienia → Integracje z hurtowniami.');
       return;
@@ -196,7 +215,7 @@ export function RidoPartsSearchModal({
             provider_id: providerId,
             supplier_code: integration.supplier_code,
             params: {
-              query: q,
+              query: searchTerm,
               vin: vehicleVin || undefined,
               vehicle: vehicle ? {
                 brand: vehicle.brand,
@@ -225,7 +244,7 @@ export function RidoPartsSearchModal({
             return {
               id: `${integration.supplier_code}-${item.hartCode || item.partNumber || item.productCode || item.code || item.id || idx}`,
               code: item.hartCode || item.partNumber || item.productCode || item.code || item.catalogNumber || '',
-              name: item.name || item.description || item.productName || item.partNumber || q,
+              name: item.name || item.description || item.productName || item.partNumber || searchTerm,
               manufacturer: item.manufacturer?.name || item.manufacturer || item.brand || item.producerName || item.producer || '',
               supplier: supplierName,
               supplierCode: integration.supplier_code,
@@ -310,6 +329,56 @@ export function RidoPartsSearchModal({
     } finally {
       setIsSearching(false);
     }
+  };
+
+  const doSearch = async (searchQuery?: string) => {
+    const q = (searchQuery || query).trim();
+    if (!q) return;
+
+    setIsSearching(true);
+    setResults([]);
+    setIcCatalogResults([]);
+    setIcCatalogResultsBackup([]);
+    setSelectedIcPart(null);
+    setSearchHelp(null);
+    setHasSearched(true);
+
+    // Step 1: If IC catalog is configured, search it first
+    if (icIntegration?.is_enabled && icIntegration?.last_sync_status === 'ok') {
+      try {
+        const icRes = await icSync.mutateAsync({
+          action: 'search_catalog',
+          provider_id: providerId,
+          query: q,
+        });
+        if (icRes.results && icRes.results.length > 0) {
+          setIcCatalogResults(icRes.results);
+          setIcCatalogResultsBackup(icRes.results);
+          setIsSearching(false);
+          return; // Show IC results for selection, don't search wholesalers yet
+        }
+      } catch (e) {
+        console.warn('IC catalog search failed, fallback to wholesalers:', e);
+      }
+    }
+
+    // Step 2: No IC results or no IC → search wholesalers directly
+    setIsSearching(false);
+    await searchInWholesalers(q);
+  };
+
+  const handleIcPartSelect = async (part: IcCatalogItem) => {
+    setSelectedIcPart(part);
+    setIcCatalogResults([]);
+    const searchTerm = part.ic_index || part.oe_number || part.ic_sku;
+    setQuery(searchTerm);
+    await searchInWholesalers(searchTerm);
+  };
+
+  const handleBackToIcResults = () => {
+    setSelectedIcPart(null);
+    setResults([]);
+    setIcCatalogResults(icCatalogResultsBackup);
   };
 
   const handleSearch = () => doSearch();
@@ -539,6 +608,17 @@ export function RidoPartsSearchModal({
           </div>
         )}
 
+        {/* Selected IC part banner */}
+        {selectedIcPart && (
+          <div className="flex items-center gap-2 text-xs rounded-md border border-primary/30 bg-primary/5 px-3 py-2">
+            <span>✅ Szukasz: <strong>{selectedIcPart.name}</strong> {selectedIcPart.manufacturer && `(${selectedIcPart.manufacturer})`}</span>
+            <span className="text-muted-foreground">— wyniki z {suppliersInResults.length} hurtowni</span>
+            <Button variant="ghost" size="sm" className="h-6 text-xs ml-auto" onClick={handleBackToIcResults}>
+              <ArrowLeft className="h-3 w-3 mr-1" /> Wróć do wyboru części
+            </Button>
+          </div>
+        )}
+
         {/* Results info */}
         {results.length > 0 && (
           <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
@@ -563,7 +643,56 @@ export function RidoPartsSearchModal({
             </div>
           )}
 
-          {!isSearching && results.length > 0 && (
+          {/* IC Catalog results — part selection */}
+          {!isSearching && icCatalogResults.length > 0 && (
+            <div className="space-y-3 p-2">
+              <div className="flex items-center gap-2 text-sm">
+                <Sparkles className="h-4 w-4 text-primary" />
+                <span>Znaleziono <strong>{icCatalogResults.length}</strong> pasujących części w katalogu Inter Cars. Wybierz właściwą:</span>
+              </div>
+              <div className="space-y-2">
+                {icCatalogResults.map((part) => (
+                  <button
+                    key={part.ic_sku}
+                    type="button"
+                    onClick={() => handleIcPartSelect(part)}
+                    className="text-left w-full p-3 rounded-lg border hover:border-primary hover:bg-primary/5 transition-colors flex gap-3"
+                  >
+                    <div className="w-16 h-16 rounded border bg-muted/50 flex items-center justify-center shrink-0 overflow-hidden">
+                      {part.ic_tecdoc_id ? (
+                        <img
+                          src={`https://webservice.tecalliance.services/pegasus-3-0/img/A/${encodeURIComponent(part.ic_tecdoc_id)}`}
+                          alt={part.name}
+                          className="w-full h-full object-contain"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                            (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+                          }}
+                        />
+                      ) : null}
+                      <Package className={`h-6 w-6 text-muted-foreground/50 ${part.ic_tecdoc_id ? 'hidden' : ''}`} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">{part.name}</p>
+                      <div className="flex gap-2 text-xs text-muted-foreground mt-0.5">
+                        {part.manufacturer && <span>{part.manufacturer}</span>}
+                        {part.category_label && <span className="text-primary/70">· {part.category_label}</span>}
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      {part.ic_index && <p className="font-mono text-[10px] text-muted-foreground">{part.ic_index}</p>}
+                      {part.oe_number && <p className="text-[10px] text-muted-foreground">OE: {part.oe_number}</p>}
+                    </div>
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground text-center">
+                ℹ️ Kliknij część → system sprawdzi ceny i dostępność we wszystkich hurtowniach
+              </p>
+            </div>
+          )}
+
+          {!isSearching && results.length > 0 && icCatalogResults.length === 0 && (
             <TooltipProvider>
               <table className="w-full text-xs">
                 <thead className="sticky top-0 bg-background z-10">
@@ -696,7 +825,7 @@ export function RidoPartsSearchModal({
           )}
 
           {/* Empty state after search — with clarification and suggestions */}
-          {!isSearching && hasSearched && results.length === 0 && (
+          {!isSearching && hasSearched && results.length === 0 && icCatalogResults.length === 0 && (
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
               <SearchX className="h-12 w-12 mb-4 opacity-30" />
 

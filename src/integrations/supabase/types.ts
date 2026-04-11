@@ -9307,6 +9307,121 @@ export type Database = {
         }
         Relationships: []
       }
+      ic_catalog_integrations: {
+        Row: {
+          catalog_size: number | null
+          created_at: string | null
+          ic_access_token: string | null
+          ic_client_id: string
+          ic_client_secret: string
+          ic_token_expires_at: string | null
+          id: string
+          is_enabled: boolean | null
+          last_sync_at: string | null
+          last_sync_error: string | null
+          last_sync_status: string | null
+          provider_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          catalog_size?: number | null
+          created_at?: string | null
+          ic_access_token?: string | null
+          ic_client_id: string
+          ic_client_secret: string
+          ic_token_expires_at?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          last_sync_at?: string | null
+          last_sync_error?: string | null
+          last_sync_status?: string | null
+          provider_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          catalog_size?: number | null
+          created_at?: string | null
+          ic_access_token?: string | null
+          ic_client_id?: string
+          ic_client_secret?: string
+          ic_token_expires_at?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          last_sync_at?: string | null
+          last_sync_error?: string | null
+          last_sync_status?: string | null
+          provider_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ic_catalog_integrations_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: true
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ic_parts_catalog: {
+        Row: {
+          category_id: string | null
+          category_label: string | null
+          description: string | null
+          ean: string | null
+          ic_index: string | null
+          ic_sku: string
+          ic_tecdoc_id: string | null
+          id: string
+          manufacturer: string | null
+          name: string
+          oe_number: string | null
+          provider_id: string
+          search_vector: unknown
+          synced_at: string | null
+        }
+        Insert: {
+          category_id?: string | null
+          category_label?: string | null
+          description?: string | null
+          ean?: string | null
+          ic_index?: string | null
+          ic_sku: string
+          ic_tecdoc_id?: string | null
+          id?: string
+          manufacturer?: string | null
+          name: string
+          oe_number?: string | null
+          provider_id: string
+          search_vector?: unknown
+          synced_at?: string | null
+        }
+        Update: {
+          category_id?: string | null
+          category_label?: string | null
+          description?: string | null
+          ean?: string | null
+          ic_index?: string | null
+          ic_sku?: string
+          ic_tecdoc_id?: string | null
+          id?: string
+          manufacturer?: string | null
+          name?: string
+          oe_number?: string | null
+          provider_id?: string
+          search_vector?: unknown
+          synced_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ic_parts_catalog_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       import_errors: {
         Row: {
           code: string
