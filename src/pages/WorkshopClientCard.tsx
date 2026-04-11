@@ -14,12 +14,15 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 
 const statusLabels: Record<string, { label: string; color: string }> = {
-  'Przyjęcie do serwisu': { label: 'Przyjęcie do serwisu', color: 'bg-red-500 text-white' },
-  'Nowe zlecenie': { label: 'Nowe zlecenie', color: 'bg-amber-400 text-black' },
-  'Akceptacja klienta': { label: 'Oczekuje na akceptację', color: 'bg-amber-400 text-black' },
+  'Nowe zlecenie': { label: 'Nowe zlecenie', color: 'bg-red-500 text-white' },
+  'Przyjęcie do serwisu': { label: 'Przyjęcie do serwisu', color: 'bg-orange-500 text-white' },
+  'Wycena gotowa': { label: 'Wycena gotowa', color: 'bg-yellow-500 text-black' },
+  'Wycena wysłana': { label: 'Oczekuje na akceptację', color: 'bg-orange-400 text-black' },
+  'Zaakceptowano': { label: 'Zaakceptowano przez klienta', color: 'bg-green-500 text-white' },
+  'Akceptacja klienta': { label: 'Zaakceptowano przez klienta', color: 'bg-green-500 text-white' },
   'W trakcie naprawy': { label: 'W trakcie naprawy', color: 'bg-blue-500 text-white' },
   'Zadania wykonane': { label: 'Zadania wykonane', color: 'bg-green-500 text-white' },
-  'Gotowy do odbioru': { label: 'Gotowy do odbioru', color: 'bg-green-600 text-white' },
+  'Gotowy do odbioru': { label: 'Gotowy do odbioru', color: 'bg-gray-500 text-white' },
   'Zakończone': { label: 'Zakończone', color: 'bg-gray-700 text-white' },
 };
 
@@ -92,7 +95,7 @@ export default function WorkshopClientCard() {
       if (docType === 'reception_protocol') updates.client_acceptance_confirmed = true;
       if (docType === 'cost_estimate') {
         updates.quote_accepted = true;
-        updates.status_name = 'Akceptacja klienta';
+        updates.status_name = 'Zaakceptowano';
       }
       if (Object.keys(updates).length > 0) {
         await (supabase as any).from('workshop_orders').update(updates).eq('id', order.id);
