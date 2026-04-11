@@ -785,8 +785,8 @@ async function handleHart(supabase: any, baseUrl: string, integration: any, acti
 }
 
 // ==================== INTER CARS (OAuth2 REST) ====================
-const IC_BASE_URL = "https://webapi.intercars.eu";
-const IC_TOKEN_URL = "https://cp.webapi.intercars.eu/token";
+const IC_BASE_URL = "https://api.webapi.intercars.eu";
+const IC_TOKEN_URL = "https://api.webapi.intercars.eu/oauth2/token";
 
 async function getICToken(supabase: any, integrationId: string, clientId: string, clientSecret: string): Promise<string> {
   // Check cache
@@ -849,8 +849,8 @@ async function handleInterCars(supabase: any, integration: any, action: string, 
         const token = await getICToken(supabase, integration.id, clientId, clientSecret);
         console.log(`[IC] Auth OK, testing /customer endpoint...`);
 
-        // Verify API access by calling /customer
-        const custRes = await fetch(`${IC_BASE_URL}/customer`, {
+        // Verify API access by calling catalog with dummy SKU
+        const custRes = await fetch(`${IC_BASE_URL}/ic/catalog/products?sku=ADDFFF&pageSize=1`, {
           headers: {
             "Authorization": `Bearer ${token}`,
             "Accept": "application/json",
@@ -907,7 +907,7 @@ async function handleInterCars(supabase: any, integration: any, action: string, 
         // Step 2: Search catalog - query by index (OE numbers)
         const skus = resolved.oeNumbers.slice(0, 30);
         const catalogRes = await fetch(
-          `${IC_BASE_URL}/catalog/products?index=${skus.join(",")}`,
+          `${IC_BASE_URL}/ic/catalog/products?index=${skus.join(",")}`,
           { headers: icHeaders }
         );
 
@@ -934,10 +934,11 @@ async function handleInterCars(supabase: any, integration: any, action: string, 
         let availability: any[] = [];
         if (foundSkus.length > 0) {
           try {
-            const availRes = await fetch(
-              `${IC_BASE_URL}/inventory/stock?sku=${foundSkus.slice(0, 100).join(",")}`,
-              { headers: icHeaders }
-            );
+            const availRes = await fetch(`${IC_BASE_URL}/ic/inventory/stock`, {
+              method: "POST",
+              headers: icHeaders,
+              body: JSON.stringify({ sku: foundSkus.slice(0, 100).join(",") }),
+            });
             if (availRes.ok) {
               const availData = await availRes.json();
               availability = Array.isArray(availData) ? availData : availData?.items || [];
@@ -1006,7 +1007,7 @@ async function handleInterCars(supabase: any, integration: any, action: string, 
           "Content-Type": "application/json",
         };
 
-        const orderRes = await fetch(`${IC_BASE_URL}/sales/requisition`, {
+        const orderRes = await fetch(`${IC_BASE_URL}/ic/sales/requisition`, {
           method: "POST",
           headers: icHeaders,
           body: JSON.stringify({
@@ -1046,9 +1047,9 @@ async function handleInterCars(supabase: any, integration: any, action: string, 
 
       try {
         const token = await getICToken(supabase, integration.id, clientId, clientSecret);
-        const availRes = await fetch(
-          `${IC_BASE_URL}/inventory/stock?sku=${codes.slice(0, 100).join(",")}`,
-          {
+        const availRes = await fetch(`${IC_BASE_URL}/ic/inventory/stock`, {
+          method: "POST",
+          body: JSON.stringify({ sku: codes.slice(0, 100).join(",") }),
             headers: {
               "Authorization": `Bearer ${token}`,
               "Accept": "application/json",
@@ -1070,7 +1071,7 @@ async function handleInterCars(supabase: any, integration: any, action: string, 
 
       try {
         const token = await getICToken(supabase, integration.id, clientId, clientSecret);
-        const priceRes = await fetch(`${IC_BASE_URL}/pricing/quote`, {
+        const priceRes = await fetch(`${IC_BASE_URL}/ic/pricing/quote`, {
           method: "POST",
           headers: {
             "Authorization": `Bearer ${token}`,
@@ -1093,7 +1094,7 @@ async function handleInterCars(supabase: any, integration: any, action: string, 
 
       try {
         const token = await getICToken(supabase, integration.id, clientId, clientSecret);
-        const statusRes = await fetch(`${IC_BASE_URL}/sales/requisition/${requisitionId}`, {
+        const statusRes = await fetch(`${IC_BASE_URL}/ic/sales/requisition/${requisitionId}`, {
           headers: {
             "Authorization": `Bearer ${token}`,
             "Accept": "application/json",
