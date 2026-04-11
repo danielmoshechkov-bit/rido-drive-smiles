@@ -142,6 +142,40 @@ export function useWorkshopStatuses(providerId: string | undefined) {
   });
 }
 
+// ---- Status Settings (auto/manual mode) ----
+export function useWorkshopStatusSettings(providerId: string | undefined) {
+  return useQuery({
+    queryKey: ['workshop-status-settings', providerId],
+    enabled: !!providerId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('workshop_status_settings')
+        .select('*')
+        .eq('provider_id', providerId)
+        .maybeSingle();
+      if (error) throw error;
+      return data || { status_mode: 'auto' };
+    },
+  });
+}
+
+export function useUpdateWorkshopStatusSettings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ providerId, status_mode }: { providerId: string; status_mode: string }) => {
+      const { error } = await (supabase as any)
+        .from('workshop_status_settings')
+        .upsert({ provider_id: providerId, status_mode }, { onConflict: 'provider_id' });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['workshop-status-settings'] });
+      toast.success('Tryb statusów zapisany');
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+}
+
 // ---- Clients ----
 export function useWorkshopClients(providerId: string | undefined) {
   return useQuery({
