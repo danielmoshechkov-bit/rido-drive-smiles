@@ -892,6 +892,7 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
     phone: '', firstName: '', lastName: '', plate: '',
     brand: '', model: '', serviceDesc: '', duration: '60',
     reminderOptions: ['24h', '2h'] as string[],
+    sendConfirmationSms: true,
   });
   const [saving, setSaving] = useState(false);
 
@@ -933,13 +934,14 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
         station_id: stationId,
         reminder_enabled: clientForm.reminderOptions.length > 0,
         reminder_times: clientForm.reminderOptions,
+        confirmation_sms_sent: clientForm.sendConfirmationSms,
         status: 'scheduled',
       });
       if (error) throw error;
       toast.success('Klient umówiony');
       queryClient.invalidateQueries({ queryKey: ['workshop-bookings'] });
       onOpenChange(false);
-      setClientForm({ phone: '', firstName: '', lastName: '', plate: '', brand: '', model: '', serviceDesc: '', duration: '60', reminderOptions: ['24h', '2h'] });
+      setClientForm({ phone: '', firstName: '', lastName: '', plate: '', brand: '', model: '', serviceDesc: '', duration: '60', reminderOptions: ['24h', '2h'], sendConfirmationSms: true });
     } catch (err: any) {
       toast.error(err.message || 'Błąd zapisu');
     } finally {
@@ -1102,6 +1104,19 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
                   ))}
                 </div>
               </div>
+              {/* SMS confirmation checkbox */}
+              <label className="flex items-center gap-2 cursor-pointer p-2 rounded border bg-primary/5 hover:bg-primary/10 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={clientForm.sendConfirmationSms}
+                  onChange={() => setClientForm(f => ({ ...f, sendConfirmationSms: !f.sendConfirmationSms }))}
+                  className="rounded"
+                />
+                <div>
+                  <span className="text-xs font-medium">📩 Wyślij SMS z potwierdzeniem rezerwacji</span>
+                  <p className="text-[10px] text-muted-foreground">Klient otrzyma SMS z datą, godziną i linkiem „Dodaj do kalendarza"</p>
+                </div>
+              </label>
               <div className="flex justify-end gap-2 pt-1">
                 <Button variant="outline" onClick={() => onOpenChange(false)}>Anuluj</Button>
                 <Button onClick={handleSaveClient} disabled={saving}>

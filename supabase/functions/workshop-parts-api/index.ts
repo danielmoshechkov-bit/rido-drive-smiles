@@ -180,6 +180,10 @@ serve(async (req) => {
       return await handleAutoPartner(supabase, integration, action, params);
     }
 
+    if (supplier_code === "inter_cars") {
+      return await handleInterCars(supabase, integration, action, params);
+    }
+
     if (supplier_code === "hart" || !supplier_code) {
       const baseUrl = integration.environment === "production" ? HART_PROD_URL : HART_SANDBOX_URL;
       return await handleHart(supabase, baseUrl, integration, action, params);
@@ -780,6 +784,266 @@ async function handleHart(supabase: any, baseUrl: string, integration: any, acti
   }
 }
 
+// ==================== INTER CARS (OAuth2 REST) ====================
+const IC_BASE_URL = "https://webapi.intercars.eu/v1";
+const IC_TOKEN_URL = "https://webapi.intercars.eu/oauth2/token";
+
+async function getICToken(supabase: any, integrationId: string, clientId: string, clientSecret: string): Promise<string> {
+  // Check cache
+  const { data: cached } = await supabase
+    .from("intercars_token_cache")
+    .select("access_token, expires_at")
+    .eq("integration_id", integrationId)
+    .single();
+
+  if (cached && new Date(cached.expires_at) > new Date(Date.now() + 60000)) {
+    return cached.access_token;
+  }
+
+  // Get new token
+  const tokenRes = await fetch(IC_TOKEN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "client_credentials",
+      client_id: clientId,
+      client_secret: clientSecret,
+    }),
+  });
+
+  if (!tokenRes.ok) {
+    const errText = await tokenRes.text();
+    console.error(`[IC] Token error: HTTP ${tokenRes.status}`, errText.substring(0, 300));
+    throw new Error(`Inter Cars token error: HTTP ${tokenRes.status}`);
+  }
+
+  const tokenData = await tokenRes.json();
+  const expiresAt = new Date(Date.now() + (tokenData.expires_in - 120) * 1000);
+
+  await supabase.from("intercars_token_cache").upsert({
+    integration_id: integrationId,
+    access_token: tokenData.access_token,
+    expires_at: expiresAt.toISOString(),
+  });
+
+  return tokenData.access_token;
+}
+
+async function handleInterCars(supabase: any, integration: any, action: string, params: any) {
+  const extra = integration.api_extra_json || {};
+  const clientId = extra.clientId;
+  const clientSecret = extra.clientSecret;
+  const customerNumber = extra.customerNumber;
+
+  if (!clientId || !clientSecret || !customerNumber) {
+    return json({ error: "Brak danych Inter Cars. Uzupełnij Client ID, Client Secret i Nr odbiorcy." }, 400);
+  }
+
+  switch (action) {
+    case "test_connection": {
+      try {
+        const token = await getICToken(supabase, integration.id, clientId, clientSecret);
+        console.log(`[IC] Auth OK for customer ${customerNumber}`);
+        await updateConnectionStatus(supabase, integration.id, "ok");
+        return json({ success: true, message: `Połączono z Inter Cars API (klient: ${customerNumber})` });
+      } catch (e) {
+        console.error("[IC] Test connection error:", e);
+        await updateConnectionStatus(supabase, integration.id, "error");
+        return json({ error: `Nie można połączyć z Inter Cars: ${e.message}` }, 400);
+      }
+    }
+
+    case "search": {
+      const query = String(params?.query || "").trim();
+      if (!query) return json({ error: "Brak frazy wyszukiwania" }, 400);
+
+      // Step 1: AI resolve OE numbers
+      const resolved = await resolvePartsQuery(query, params);
+      console.log(`[IC] resolvePartsQuery:`, JSON.stringify({
+        oeNumbers: resolved.oeNumbers,
+        clarification: resolved.clarificationQuestion,
+        confidence: resolved.confidence,
+      }));
+
+      if (resolved.oeNumbers.length === 0) {
+        return json({
+          results: [],
+          clarificationQuestion: resolved.clarificationQuestion
+            || 'Podaj numer katalogowy lub OE części, albo doprecyzuj opis.',
+          searchedTerms: [],
+          aiResolved: true,
+          partDescription: resolved.partDescription,
+        });
+      }
+
+      try {
+        const token = await getICToken(supabase, integration.id, clientId, clientSecret);
+        const icHeaders = {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        };
+
+        // Step 2: Search catalog - query by index (OE numbers)
+        const skus = resolved.oeNumbers.slice(0, 30);
+        const catalogRes = await fetch(
+          `${IC_BASE_URL}/catalog/products?index=${skus.join(",")}`,
+          { headers: icHeaders }
+        );
+
+        if (catalogRes.status === 404) {
+          return json({
+            results: [],
+            clarificationQuestion: resolved.clarificationQuestion || `Inter Cars nie znalazł dla numerów: ${resolved.oeNumbers.join(', ')}`,
+            searchedTerms: resolved.oeNumbers,
+            aiResolved: true,
+            partDescription: resolved.partDescription,
+          });
+        }
+        if (!catalogRes.ok) {
+          const errText = await catalogRes.text();
+          console.error(`[IC] Catalog error: HTTP ${catalogRes.status}`, errText.substring(0, 300));
+          return json({ error: `Inter Cars catalog: HTTP ${catalogRes.status}` }, catalogRes.status);
+        }
+
+        const catalogData = await catalogRes.json();
+        const products = Array.isArray(catalogData) ? catalogData : catalogData?.items || catalogData?.products || [];
+
+        // Step 3: Check availability
+        const foundSkus = products.map((p: any) => p.sku || p.index || p.towkod).filter(Boolean);
+        let availability: any[] = [];
+        if (foundSkus.length > 0) {
+          try {
+            const availRes = await fetch(`${IC_BASE_URL}/availability`, {
+              method: "POST",
+              headers: icHeaders,
+              body: JSON.stringify({ skus: foundSkus.slice(0, 30) }),
+            });
+            if (availRes.ok) {
+              const availData = await availRes.json();
+              availability = Array.isArray(availData) ? availData : availData?.items || [];
+            }
+          } catch (avErr) {
+            console.warn("[IC] Availability check failed:", avErr);
+          }
+        }
+
+        // Step 4: Map results
+        const mapped = products.map((product: any) => {
+          const sku = product.sku || product.index || product.towkod || "";
+          const avail = availability.find((a: any) => a.sku === sku || a.index === sku);
+          const qty = avail?.quantity || product.quantity || 0;
+
+          return {
+            partNumber: sku,
+            productCode: sku,
+            name: product.name || product.description || resolved.partDescription || sku,
+            manufacturer: product.brandReference?.name || product.manufacturer || product.producerName || "",
+            price: Number(avail?.unitPriceNet || product.unitPriceNet || product.priceNet || 0),
+            retailPrice: Number(avail?.unitPriceGross || product.unitPriceGross || 0),
+            availability: qty > 10 ? 10 : qty,
+            availabilityDisplay: qty >= 10 ? "10+" : String(qty),
+            warehouse: "INTER CARS",
+            producer: product.brandReference?.name || product.manufacturer || "",
+            waitingTime: qty > 0 ? (avail?.deliveryDays ? `${avail.deliveryDays} dni` : "Dziś") : "Zapytaj",
+            imageUrl: product.imageUrl || null,
+            currency: "PLN",
+            ean: product.eans?.[0] || null,
+            tecdocId: product.tecdocId || null,
+          };
+        });
+
+        const deduped = dedupeResults(mapped, (item) => `${item.partNumber}-${item.manufacturer}`);
+
+        const clarificationQuestion = deduped.length === 0
+          ? (resolved.clarificationQuestion || `Inter Cars nie znalazł dla numerów: ${resolved.oeNumbers.join(', ')}`)
+          : null;
+
+        return json({
+          results: deduped,
+          clarificationQuestion,
+          searchedTerms: resolved.oeNumbers,
+          aiResolved: true,
+          partDescription: resolved.partDescription,
+          confidence: resolved.confidence,
+        });
+      } catch (e) {
+        return json({ error: `Błąd wyszukiwania Inter Cars: ${e.message}` }, 500);
+      }
+    }
+
+    case "add_to_basket":
+    case "place_order": {
+      const lines = params?.positions || params?.lines || [];
+      if (!lines.length) return json({ error: "Brak pozycji zamówienia" }, 400);
+
+      try {
+        const token = await getICToken(supabase, integration.id, clientId, clientSecret);
+        const icHeaders = {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        };
+
+        const orderRes = await fetch(`${IC_BASE_URL}/orders`, {
+          method: "POST",
+          headers: icHeaders,
+          body: JSON.stringify({
+            shipTo: customerNumber,
+            lines: lines.map((l: any) => ({
+              sku: l.hartCode || l.partNumber || l.productCode || l.sku,
+              quantity: Number(l.quantity || 1),
+            })),
+          }),
+        });
+
+        if (orderRes.status === 400) {
+          const errData = await orderRes.json().catch(() => ({}));
+          return json({ error: "Zamówienie odrzucone przez Inter Cars — sprawdź rozliczenia z Inter Cars lub poprawność numerów części." }, 400);
+        }
+
+        if (!orderRes.ok) {
+          const errText = await orderRes.text();
+          return json({ error: `Zamówienie Inter Cars: HTTP ${orderRes.status}` }, orderRes.status);
+        }
+
+        const orderData = await orderRes.json();
+        return json({
+          order: {
+            orderId: orderData.orderId || orderData.id || "",
+            items: orderData.lines || orderData.items || [orderData],
+          },
+        });
+      } catch (e) {
+        return json({ error: `Błąd zamówienia Inter Cars: ${e.message}` }, 500);
+      }
+    }
+
+    case "availability": {
+      const codes = params?.codes;
+      if (!codes?.length) return json({ error: "Brak kodów produktów" }, 400);
+
+      try {
+        const token = await getICToken(supabase, integration.id, clientId, clientSecret);
+        const availRes = await fetch(`${IC_BASE_URL}/availability`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ skus: codes.slice(0, 30) }),
+        });
+        if (!availRes.ok) return json({ error: `Dostępność IC: HTTP ${availRes.status}` }, availRes.status);
+        const data = await availRes.json();
+        return json({ availability: Array.isArray(data) ? data : data?.items || [] });
+      } catch (e) {
+        return json({ error: `Błąd dostępności IC: ${e.message}` }, 500);
+      }
+    }
+
+    default:
+      return json({ error: `Nieznana akcja Inter Cars: ${action}` }, 400);
+  }
+}
+
 // ==================== HELPERS ====================
 async function updateConnectionStatus(supabase: any, integrationId: string, status: string, apiUrl?: string) {
   const update: any = { last_connection_status: status, last_connection_at: new Date().toISOString() };
@@ -793,6 +1057,11 @@ function isIntegrationConfigured(integration: any) {
   if (integration?.supplier_code === "auto_partner") {
     const extra = integration?.api_extra_json || {};
     return !!extra.clientCode && !!extra.wsPassword && !!extra.clientPassword;
+  }
+
+  if (integration?.supplier_code === "inter_cars") {
+    const extra = integration?.api_extra_json || {};
+    return !!extra.clientId && !!extra.clientSecret && !!extra.customerNumber;
   }
 
   return !!integration?.api_username && !!integration?.api_password;
