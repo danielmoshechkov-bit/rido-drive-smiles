@@ -244,7 +244,7 @@ export function RidoPartsSearchModal({
             return {
               id: `${integration.supplier_code}-${item.hartCode || item.partNumber || item.productCode || item.code || item.id || idx}`,
               code: item.hartCode || item.partNumber || item.productCode || item.code || item.catalogNumber || '',
-              name: item.name || item.description || item.productName || item.partNumber || q,
+              name: item.name || item.description || item.productName || item.partNumber || searchTerm,
               manufacturer: item.manufacturer?.name || item.manufacturer || item.brand || item.producerName || item.producer || '',
               supplier: supplierName,
               supplierCode: integration.supplier_code,
