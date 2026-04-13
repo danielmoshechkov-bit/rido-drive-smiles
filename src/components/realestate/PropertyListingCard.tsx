@@ -112,16 +112,8 @@ export function PropertyListingCard({
   // Area is already corrected in the mapping layer (ai_area_total > area_total > area)
   const displayArea = listing.areaM2 || 0;
 
-  // Rewrite broken getrido.pl/crm-import photo URLs to use foto-proxy edge function
-  const rewritePhotoUrl = (url: string): string => {
-    if (!url) return '/placeholder.svg';
-    // Match getrido.pl/crm-import/.../foto/NNNNN.jpg pattern
-    const match = url.match(/getrido\.pl\/crm-import\/[^/]+\/foto\/(\d+\.\w+)/);
-    if (match) {
-      return `https://wclrrytmrscqvsyxyvnn.supabase.co/functions/v1/foto-proxy?f=${match[1]}`;
-    }
-    return url;
-  };
+  // Use shared photo URL rewriter
+  const { rewritePhotoUrl } = await import('@/utils/photoUrlRewrite');
 
   const rawPhotos = typeof listing.photos === 'string'
     ? (() => {
