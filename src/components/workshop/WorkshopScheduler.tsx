@@ -86,9 +86,8 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz', foc
   });
 
   // Convert bookings to virtual order-like objects for calendar display
-  const bookingAsOrders = useMemo(() => {
-    return clientBookings.map((b: any) => {
-      const [h, m] = (b.appointment_time || '08:00:00').split(':').map(Number);
+  const allCalendarItems = useMemo(() => {
+    const bookingItems = clientBookings.map((b: any) => {
       const startDate = new Date(`${b.appointment_date}T${b.appointment_time}`);
       const durationHours = Math.max(1, Math.ceil((b.duration_minutes || 60) / 60));
       const endDate = new Date(startDate.getTime() + durationHours * 60 * 60 * 1000);
@@ -96,7 +95,7 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz', foc
         id: `booking-${b.id}`,
         _bookingId: b.id,
         _isBooking: true,
-        order_number: `📅 ${b.first_name || ''} ${b.last_name || ''}`.trim(),
+        order_number: `${b.first_name || ''} ${b.last_name || ''}`.trim() || 'Rezerwacja',
         scheduled_start: startDate.toISOString(),
         scheduled_end: endDate.toISOString(),
         scheduled_station_id: b.station_id,
@@ -107,7 +106,8 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz', foc
         description: b.service_description,
       };
     });
-  }, [clientBookings]);
+    return [...orders, ...bookingItems];
+  }, [orders, clientBookings]);
 
   // Employees for quick preview
   const { data: employees = [] } = useQuery({
