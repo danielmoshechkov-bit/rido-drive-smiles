@@ -615,7 +615,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       toast.success('Baza rozliczeń wyzerowana. Możesz wgrać pierwsze rozliczenie.');
       setSettlementsResetDone(true);
       setResetDialogOpen(false);
-      window.location.reload();
+      await fetchSettlements({ skipDebtSync: true, silent: true });
     } catch (err: any) {
       toast.error('Błąd zerowania: ' + (err?.message || 'Unknown error'));
     } finally {
@@ -1204,7 +1204,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             }
           }
 
-          await fetchSettlements({ silent: true });
+          await fetchSettlements({ skipDebtSync: true, silent: true });
         }
       }
     } catch (err) {
@@ -2423,7 +2423,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
           const failedSyncs = syncResults.filter(r => !r.ok);
           if (failedSyncs.length === 0) {
-            await fetchSettlements({ skipDebtSync: true });
+            await fetchSettlements({ skipDebtSync: true, silent: options?.silent });
             return;
           }
 
@@ -4066,7 +4066,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           currentPayoutWithoutRental={chargeDriver.payoutWithoutRental}
           currentRental={chargeDriver.rental}
           onComplete={() => {
-            fetchSettlements({ silent: true });
+            fetchSettlements({ skipDebtSync: true, silent: true });
           }}
         />
       )}
