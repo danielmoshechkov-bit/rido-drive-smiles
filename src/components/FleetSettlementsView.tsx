@@ -2085,15 +2085,12 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                          || driverInfo.billing_method === 'b2b' 
                          || driverInfo.b2b_enabled === true;
         const isB2BVatPayer = isB2BDriver && (driverInfo.b2b_vat_payer === true || b2bProfile?.vat_payer === true);
-        // Look up city-specific settings for this driver
-        const driverCityId = (driver as any).city_id;
-        const driverCityName = cities.find(c => c.id === driverCityId)?.name || '';
-        const driverCitySettings = citySettingsMap.get(driverCityName);
+        // City-specific settings already resolved above (driverCityId, driverCityName, driverCitySettings, driverBaseFee)
         const driverVatRate = driverCitySettings?.vat_rate ?? fleetVatRate;
         const driverSettlementMode = driverCitySettings?.settlement_mode ?? fleetSettlementMode;
         const driverSecondaryVatRate = driverCitySettings?.secondary_vat_rate ?? fleetSecondaryVatRate;
         const driverAdditionalPercentRate = driverCitySettings?.additional_percent_rate ?? fleetAdditionalPercentRate;
-        const driverBaseFee = driverCitySettings?.base_fee ?? fleetBaseFee;
+        const driverUberCalcMode = driverCitySettings?.uber_calculation_mode ?? fleetUberCalcMode;
         const driverUberCalcMode = driverCitySettings?.uber_calculation_mode ?? fleetUberCalcMode;
         const effectiveVatRate = isB2BVatPayer ? 0 : driverVatRate;
         const hasPositivePlatformActivity =
