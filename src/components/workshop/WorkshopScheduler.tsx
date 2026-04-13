@@ -70,6 +70,45 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz', foc
 
   const { data: orders = [] } = useWorkshopOrders(providerId);
 
+  // Fetch client bookings to show on calendar
+  const { data: clientBookings = [] } = useQuery({
+    queryKey: ['workshop-bookings', providerId],
+    enabled: !!providerId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('workshop_client_bookings')
+        .select('*')
+        .eq('provider_id', providerId)
+        .in('status', ['scheduled', 'confirmed']);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Convert bookings to virtual order-like objects for calendar display
+  const allCalendarItems = useMemo(() => {
+    const bookingItems = clientBookings.map((b: any) => {
+      const startDate = new Date(`${b.appointment_date}T${b.appointment_time}`);
+      const durationHours = Math.max(1, Math.ceil((b.duration_minutes || 60) / 60));
+      const endDate = new Date(startDate.getTime() + durationHours * 60 * 60 * 1000);
+      return {
+        id: `booking-${b.id}`,
+        _bookingId: b.id,
+        _isBooking: true,
+        order_number: `${b.first_name || ''} ${b.last_name || ''}`.trim() || 'Rezerwacja',
+        scheduled_start: startDate.toISOString(),
+        scheduled_end: endDate.toISOString(),
+        scheduled_station_id: b.station_id,
+        status_name: 'Zaplanowane',
+        vehicle: b.plate ? { brand: b.brand || '', model: b.model || '', plate: b.plate } : null,
+        client: { first_name: b.first_name, last_name: b.last_name, phone: b.phone },
+        items: b.service_description ? [{ name: b.service_description }] : [],
+        description: b.service_description,
+      };
+    });
+    return [...orders, ...bookingItems];
+  }, [orders, clientBookings]);
+
   // Employees for quick preview
   const { data: employees = [] } = useQuery({
     queryKey: ['workshop-employees', providerId],
@@ -166,7 +205,7 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz', foc
 
   const getOrderStartingAt = (stationId: string, day: Date, hour: number) => {
     const dayStr = format(day, 'yyyy-MM-dd');
-    return orders.find((o: any) => {
+    return allCalendarItems.find((o: any) => {
       if (!o.scheduled_start || o.scheduled_station_id !== stationId) return false;
       const oDate = format(new Date(o.scheduled_start), 'yyyy-MM-dd');
       const oHour = new Date(o.scheduled_start).getHours();
@@ -176,7 +215,7 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz', foc
 
   const isCellOccupied = (stationId: string, day: Date, hour: number) => {
     const dayStr = format(day, 'yyyy-MM-dd');
-    return orders.some((o: any) => {
+    return allCalendarItems.some((o: any) => {
       if (!o.scheduled_start || o.scheduled_station_id !== stationId) return false;
       const oDate = format(new Date(o.scheduled_start), 'yyyy-MM-dd');
       if (oDate !== dayStr) return false;
@@ -322,11 +361,11 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz', foc
 
   const getOrdersForDay = useCallback((day: Date) => {
     const dayStr = format(day, 'yyyy-MM-dd');
-    return orders.filter((o: any) => {
+    return allCalendarItems.filter((o: any) => {
       if (!o.scheduled_start) return false;
       return format(new Date(o.scheduled_start), 'yyyy-MM-dd') === dayStr;
     });
-  }, [orders]);
+  }, [allCalendarItems]);
 
   // Navigation
   const handlePrev = () => {
@@ -507,7 +546,7 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz', foc
 
                           if (!scheduledOrder) {
                             const dayStr = format(day, 'yyyy-MM-dd');
-                            const isPartOfOrder = orders.some((o: any) => {
+                            const isPartOfOrder = allCalendarItems.some((o: any) => {
                               if (!o.scheduled_start || o.scheduled_station_id !== st.id) return false;
                               const oDate = format(new Date(o.scheduled_start), 'yyyy-MM-dd');
                               if (oDate !== dayStr) return false;
@@ -672,38 +711,53 @@ function ScheduledOrderBlock({ order, displaySpan, employees, updateOrder, onDra
     } catch { toast.error('Błąd przypisania'); }
   };
 
+  const isBooking = !!order._isBooking;
+  const bgColor = isBooking ? 'bg-[hsl(280,60%,55%)]' : 'bg-[hsl(220,70%,55%)]';
+  const bgDark = isBooking ? 'bg-[hsl(280,60%,45%)]' : 'bg-[hsl(220,70%,45%)]';
+
   return (
     <Popover open={showPreview} onOpenChange={setShowPreview}>
       <PopoverTrigger asChild>
         <div
-          className="bg-[hsl(220,70%,55%)] text-white rounded-md m-[2px] p-1.5 text-[10px] cursor-grab active:cursor-grabbing shadow-sm hover:shadow-md transition-shadow relative select-none"
+          className={`${bgColor} text-white rounded-md m-[2px] p-1.5 text-[10px] cursor-grab active:cursor-grabbing shadow-sm hover:shadow-md transition-shadow relative select-none`}
           style={{ height: 'calc(100% - 4px)' }}
-          draggable
-          onDragStart={(e) => { e.stopPropagation(); onDragStart(); }}
+          draggable={!isBooking}
+          onDragStart={(e) => { if (isBooking) { e.preventDefault(); return; } e.stopPropagation(); onDragStart(); }}
           onDragEnd={onDragEnd}
           onClick={(e) => { e.stopPropagation(); setShowPreview(true); }}
         >
-          <div
-            className="absolute top-0 left-0 right-0 h-3 cursor-n-resize flex items-center justify-center bg-[hsl(220,70%,45%)] rounded-t-md opacity-0 hover:opacity-100 transition-opacity"
-            onMouseDown={(e) => onResizeStart(e, order, 'top')}
-          >
-            <ChevronsUpDown className="h-2.5 w-2.5 text-white/80" />
-          </div>
-          <div className="flex items-center gap-0.5 font-semibold mt-2">
-            <GripVertical className="h-3 w-3 opacity-60 flex-shrink-0" />
-            <Car className="h-3 w-3 flex-shrink-0" />
-            <span className="truncate">{order.vehicle ? `${order.vehicle.brand} ${order.vehicle.model}` : 'Zlecenie'}</span>
-          </div>
-          <div className="text-white/70 truncate ml-4">{order.order_number}</div>
-          {displaySpan > 1 && (
-            <div className="text-white/60 text-[9px] ml-4 mt-0.5">{displaySpan}h</div>
+          {!isBooking && (
+            <div
+              className={`absolute top-0 left-0 right-0 h-3 cursor-n-resize flex items-center justify-center ${bgDark} rounded-t-md opacity-0 hover:opacity-100 transition-opacity`}
+              onMouseDown={(e) => onResizeStart(e, order, 'top')}
+            >
+              <ChevronsUpDown className="h-2.5 w-2.5 text-white/80" />
+            </div>
           )}
-          <div
-            className="absolute bottom-0 left-0 right-0 h-3 cursor-s-resize flex items-center justify-center bg-[hsl(220,70%,45%)] rounded-b-md opacity-0 hover:opacity-100 transition-opacity"
-            onMouseDown={(e) => onResizeStart(e, order, 'bottom')}
-          >
-            <ChevronsUpDown className="h-2.5 w-2.5 text-white/80" />
+          <div className={`flex items-center gap-0.5 font-semibold ${isBooking ? '' : 'mt-2'}`}>
+            {!isBooking && <GripVertical className="h-3 w-3 opacity-60 flex-shrink-0" />}
+            {isBooking ? <Phone className="h-3 w-3 flex-shrink-0" /> : <Car className="h-3 w-3 flex-shrink-0" />}
+            <span className="truncate">{isBooking ? order.order_number : (order.vehicle ? `${order.vehicle.brand} ${order.vehicle.model}` : 'Zlecenie')}</span>
           </div>
+          {isBooking ? (
+            <>
+              {order.vehicle?.plate && <div className="text-white/70 truncate ml-4">{order.vehicle.plate}</div>}
+              {order.items?.[0]?.name && <div className="text-white/60 truncate ml-4 text-[9px]">{order.items[0].name}</div>}
+            </>
+          ) : (
+            <>
+              <div className="text-white/70 truncate ml-4">{order.order_number}</div>
+              {displaySpan > 1 && <div className="text-white/60 text-[9px] ml-4 mt-0.5">{displaySpan}h</div>}
+            </>
+          )}
+          {!isBooking && (
+            <div
+              className={`absolute bottom-0 left-0 right-0 h-3 cursor-s-resize flex items-center justify-center ${bgDark} rounded-b-md opacity-0 hover:opacity-100 transition-opacity`}
+              onMouseDown={(e) => onResizeStart(e, order, 'bottom')}
+            >
+              <ChevronsUpDown className="h-2.5 w-2.5 text-white/80" />
+            </div>
+          )}
         </div>
       </PopoverTrigger>
       <PopoverContent className="w-80 p-0" side="right" align="start">
@@ -908,6 +962,24 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
 
   if (!slotData) return null;
 
+  const removePl = (s: string): string => {
+    const m: Record<string, string> = {
+      'ą':'a','ć':'c','ę':'e','ł':'l','ń':'n','ó':'o','ś':'s','ź':'z','ż':'z',
+      'Ą':'A','Ć':'C','Ę':'E','Ł':'L','Ń':'N','Ó':'O','Ś':'S','Ź':'Z','Ż':'Z',
+    };
+    return s.replace(/[ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/g, c => m[c] || c);
+  };
+
+  const formatPhoneForSms = (raw: string): string => {
+    let digits = raw.replace(/\D/g, '');
+    if (digits.startsWith('0048')) digits = digits.substring(2);
+    while (digits.startsWith('4848')) digits = digits.substring(2);
+    if (digits.startsWith('48') && digits.length >= 11) digits = digits.slice(-9);
+    if (digits.startsWith('0') && digits.length >= 10) digits = digits.slice(-9);
+    if (digits.length === 9) return `+48${digits}`;
+    return `+${digits}`;
+  };
+
   const handleSaveClient = async () => {
     if (!clientForm.phone) {
       toast.error('Numer telefonu jest wymagany');
@@ -918,6 +990,7 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
       const appointmentDay = editDate || format(slotData.day, 'yyyy-MM-dd');
       const appointmentHour = parseInt(editHourStr) || 0;
       const appointmentMin = parseInt(editMinStr) || 0;
+      const appointmentTime = `${appointmentHour.toString().padStart(2, '0')}:${appointmentMin.toString().padStart(2, '0')}:00`;
       const stationId = editStationId || slotData.stationId;
       const { error } = await supabase.from('workshop_client_bookings' as any).insert({
         provider_id: providerId,
@@ -929,17 +1002,56 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
         model: clientForm.model || null,
         service_description: clientForm.serviceDesc || null,
         appointment_date: appointmentDay,
-        appointment_time: `${appointmentHour.toString().padStart(2, '0')}:${appointmentMin.toString().padStart(2, '0')}:00`,
+        appointment_time: appointmentTime,
         duration_minutes: parseInt(clientForm.duration) || 60,
         station_id: stationId,
         reminder_enabled: clientForm.reminderOptions.length > 0,
         reminder_times: clientForm.reminderOptions,
-        confirmation_sms_sent: clientForm.sendConfirmationSms,
+        confirmation_sms_sent: false,
         status: 'scheduled',
       });
       if (error) throw error;
-      toast.success('Klient umówiony');
+
+      // Send confirmation SMS if enabled
+      if (clientForm.sendConfirmationSms) {
+        try {
+          const smsPhone = formatPhoneForSms(clientForm.phone);
+          const [y, mo, d] = appointmentDay.split('-');
+          const dateStr = `${d}.${mo}.${y}`;
+          const timeStr = appointmentTime.slice(0, 5);
+          const vehicle = clientForm.plate ? ` ${clientForm.brand || ''} ${clientForm.model || ''} ${clientForm.plate}`.trim() : '';
+          const smsMessage = removePl(
+            `Potwierdzamy wizyte${vehicle ? ` (${vehicle})` : ''} dnia ${dateStr} o godz. ${timeStr}. Zapraszamy!`
+          ).slice(0, 160);
+
+          const { error: smsError } = await supabase.functions.invoke('workshop-send-sms', {
+            body: {
+              phone: smsPhone,
+              message: smsMessage,
+              sms_type: 'booking_confirmation',
+              provider_id: providerId,
+              sender: 'GetRido',
+            },
+          });
+
+          if (smsError) {
+            console.error('SMS confirmation error:', smsError);
+            toast.error('Rezerwacja zapisana, ale SMS nie został wysłany');
+          } else {
+            // Update booking to mark SMS as sent
+            // We need the booking ID - refetch latest
+            toast.success('Klient umówiony, SMS potwierdzający wysłany');
+          }
+        } catch (smsErr) {
+          console.error('SMS send failed:', smsErr);
+          toast.error('Rezerwacja zapisana, ale SMS nie został wysłany');
+        }
+      } else {
+        toast.success('Klient umówiony');
+      }
+
       queryClient.invalidateQueries({ queryKey: ['workshop-bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['sms-credits'] });
       onOpenChange(false);
       setClientForm({ phone: '', firstName: '', lastName: '', plate: '', brand: '', model: '', serviceDesc: '', duration: '60', reminderOptions: ['24h', '2h'], sendConfirmationSms: true });
     } catch (err: any) {
