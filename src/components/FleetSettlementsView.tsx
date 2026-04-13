@@ -1204,7 +1204,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             }
           }
 
-          await fetchSettlements();
+          await fetchSettlements({ silent: true });
         }
       }
     } catch (err) {
