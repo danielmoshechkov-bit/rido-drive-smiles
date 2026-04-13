@@ -13,6 +13,9 @@ export function GlobalRidoAIButton() {
   const [showAuth, setShowAuth] = useState(false);
 
   const isWorkshopPanel = location.pathname.startsWith('/uslugi/panel');
+  const isClientPortal = location.pathname.startsWith('/warsztat/klient');
+
+  if (isClientPortal) return null;
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
