@@ -193,6 +193,8 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   const goodsCardRef = useRef<HTMLDivElement>(null);
   const autoSavingTaskDraftsRef = useRef(false);
   const autoSavingGoodsDraftsRef = useRef(false);
+  const pendingTaskFocusRef = useRef(false);
+  const pendingGoodsFocusRef = useRef(false);
 
   // Load Rido Price settings
   const { data: ridoPriceSettings } = useQuery({
