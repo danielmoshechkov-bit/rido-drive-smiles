@@ -265,6 +265,29 @@ Deno.serve(async (req) => {
       if (insertedSettlements && insertedSettlements.length > 0) {
         console.log('💳 Aktualizuję zadłużenia kierowców...');
         
+        // Fetch driver details for service fee lookup
+        const insertedDriverIds = [...new Set(insertedSettlements.map(s => s.driver_id))];
+        const { data: driverDetails } = await supabase
+          .from('drivers')
+          .select('id, city_id, custom_weekly_fee')
+          .in('id', insertedDriverIds);
+        const driverDetailMap = new Map((driverDetails || []).map((d: any) => [d.id, d]));
+
+        // Fetch city names
+        const driverCityIds = [...new Set((driverDetails || []).map((d: any) => d.city_id).filter(Boolean))];
+        const { data: citiesForFee } = await supabase
+          .from('cities')
+          .select('id, name')
+          .in('id', driverCityIds.length > 0 ? driverCityIds : ['__none__']);
+        const cityNameMapForFee = new Map((citiesForFee || []).map((c: any) => [c.id, c.name]));
+
+        // Fetch fleet_city_settings
+        const { data: fleetCitySettings } = fleet_id ? await supabase
+          .from('fleet_city_settings')
+          .select('city_name, base_fee')
+          .eq('fleet_id', fleet_id) : { data: [] };
+        const cityFeeMapForFee = new Map((fleetCitySettings || []).map((cs: any) => [cs.city_name, cs.base_fee]));
+
         const settlementsByDriver = new Map<string, any[]>();
         for (const settlement of insertedSettlements) {
           if (!settlementsByDriver.has(settlement.driver_id)) {
@@ -303,9 +326,24 @@ Deno.serve(async (req) => {
               const fuel = amounts.fuel || 0;
               const fuelVatRefund = amounts.fuel_vat_refund || 0;
               
-              // Use actual service fee from settlement, or fleet base_fee, fallback to 0
-              // The frontend saves the actual fee to the settlement record
-              const serviceFee = fullSettlement.service_fee || 0;
+              // Service fee lookup: manual override > driver custom > city setting > default 50
+              const isBoltAdjustmentOnly = Math.abs(totalBase) < 0.01 && Math.abs(totalCash) < 0.01 && Math.abs(totalCommission) < 0.01;
+              let serviceFee = 0;
+              if (!isBoltAdjustmentOnly) {
+                const manualFee = amounts.manual_service_fee;
+                if (manualFee !== null && manualFee !== undefined && manualFee !== 0) {
+                  serviceFee = Number(manualFee);
+                } else {
+                  const driverInfo = driverDetailMap.get(driverId);
+                  if (driverInfo?.custom_weekly_fee !== null && driverInfo?.custom_weekly_fee !== undefined) {
+                    serviceFee = Number(driverInfo.custom_weekly_fee);
+                  } else {
+                    const cityName = cityNameMapForFee.get(driverInfo?.city_id);
+                    const cityFee = cityName ? cityFeeMapForFee.get(cityName) : undefined;
+                    serviceFee = (cityFee !== null && cityFee !== undefined) ? Number(cityFee) : 50;
+                  }
+                }
+              }
               
               // Rental from settlement
               const rentalFee = fullSettlement.rental_fee || 0;
