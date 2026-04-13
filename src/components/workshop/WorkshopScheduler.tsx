@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { useWorkshopOrders, useUpdateWorkshopOrder } from '@/hooks/useWorkshop';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { ChevronLeft, ChevronRight, Search, Car, Wrench, Plus, GripVertical, Undo2, X, ChevronsUpDown, Phone, User, Eye } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, Car, Wrench, Plus, GripVertical, Undo2, X, ChevronsUpDown, Phone, User, Eye, CalendarClock } from 'lucide-react';
 import { format, addDays, startOfWeek, addWeeks, subWeeks, isToday, subDays, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths, isSameMonth } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { Input } from '@/components/ui/input';
@@ -69,6 +69,45 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz', foc
   });
 
   const { data: orders = [] } = useWorkshopOrders(providerId);
+
+  // Fetch client bookings to show on calendar
+  const { data: clientBookings = [] } = useQuery({
+    queryKey: ['workshop-bookings', providerId],
+    enabled: !!providerId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('workshop_client_bookings')
+        .select('*')
+        .eq('provider_id', providerId)
+        .in('status', ['scheduled', 'confirmed']);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Convert bookings to virtual order-like objects for calendar display
+  const bookingAsOrders = useMemo(() => {
+    return clientBookings.map((b: any) => {
+      const [h, m] = (b.appointment_time || '08:00:00').split(':').map(Number);
+      const startDate = new Date(`${b.appointment_date}T${b.appointment_time}`);
+      const durationHours = Math.max(1, Math.ceil((b.duration_minutes || 60) / 60));
+      const endDate = new Date(startDate.getTime() + durationHours * 60 * 60 * 1000);
+      return {
+        id: `booking-${b.id}`,
+        _bookingId: b.id,
+        _isBooking: true,
+        order_number: `📅 ${b.first_name || ''} ${b.last_name || ''}`.trim(),
+        scheduled_start: startDate.toISOString(),
+        scheduled_end: endDate.toISOString(),
+        scheduled_station_id: b.station_id,
+        status_name: 'Zaplanowane',
+        vehicle: b.plate ? { brand: b.brand || '', model: b.model || '', plate: b.plate } : null,
+        client: { first_name: b.first_name, last_name: b.last_name, phone: b.phone },
+        items: b.service_description ? [{ name: b.service_description }] : [],
+        description: b.service_description,
+      };
+    });
+  }, [clientBookings]);
 
   // Employees for quick preview
   const { data: employees = [] } = useQuery({
