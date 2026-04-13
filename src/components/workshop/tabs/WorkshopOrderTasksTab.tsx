@@ -671,10 +671,11 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       });
   }, [order.id, order.total_gross, order.total_net, savedGrandGrossTotal, savedGrandNetTotal]);
 
-  const saveTaskDraftRows = async () => {
+  const saveTaskDraftRows = async (focusNewRow = false) => {
     const rowsToSave = taskRows.filter(isTaskDraftFilled);
     if (rowsToSave.length === 0) {
-      addTaskRow();
+      // Don't add extra rows, just ensure there's at least one empty row
+      if (taskRows.length === 0) setTaskRows([createEmptyTask()]);
       return;
     }
 
@@ -686,13 +687,21 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     }
 
     setTaskRows([createEmptyTask()]);
+    if (focusNewRow) {
+      // Focus the first service input in the new row after React re-render
+      requestAnimationFrame(() => {
+        const inputs = serviceCardRef.current?.querySelectorAll<HTMLInputElement>('tr.bg-primary\\/5 input[type="text"], tr.bg-primary\\/5 input:not([type])');
+        if (inputs && inputs.length > 0) inputs[0].focus();
+      });
+    }
   };
 
 
-  const saveGoodsDraftRows = async () => {
+  const saveGoodsDraftRows = async (focusNewRow = false) => {
     const rowsToSave = goodsRows.filter(isGoodsDraftFilled);
     if (rowsToSave.length === 0) {
-      addGoodsRow();
+      // Don't add extra rows, just ensure there's at least one empty row
+      if (goodsRows.length === 0) setGoodsRows([createEmptyGoods()]);
       return;
     }
 
@@ -704,6 +713,12 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     }
 
     setGoodsRows([createEmptyGoods()]);
+    if (focusNewRow) {
+      requestAnimationFrame(() => {
+        const inputs = goodsCardRef.current?.querySelectorAll<HTMLInputElement>('tr.bg-amber-500\\/5 input[type="text"], tr.bg-amber-500\\/5 input:not([type])');
+        if (inputs && inputs.length > 0) inputs[0].focus();
+      });
+    }
   };
 
   useEffect(() => {
