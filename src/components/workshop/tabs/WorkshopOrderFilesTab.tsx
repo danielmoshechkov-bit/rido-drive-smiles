@@ -50,7 +50,7 @@ export function WorkshopOrderFilesTab({ order }: Props) {
     setUploading(true);
     try {
       for (const file of Array.from(selectedFiles)) {
-        const ext = file.name.split('.').pop() || 'bin';
+        const _ext = file.name.split('.').pop() || 'bin';
         const storagePath = `${order.id}/${Date.now()}_${file.name}`;
         const { error: uploadErr } = await supabase.storage
           .from('workshop-order-photos')

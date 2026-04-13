@@ -210,7 +210,7 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
           console.error('Photo upload error:', uploadErr);
           continue;
         }
-        const { data: publicUrl } = supabase.storage
+        supabase.storage
           .from('workshop-order-photos')
           .getPublicUrl(storagePath);
         const slotLabel = PHOTO_SLOTS.find(s => s.key === key)?.label || key;
