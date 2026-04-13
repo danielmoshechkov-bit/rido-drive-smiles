@@ -546,7 +546,7 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz', foc
 
                           if (!scheduledOrder) {
                             const dayStr = format(day, 'yyyy-MM-dd');
-                            const isPartOfOrder = orders.some((o: any) => {
+                            const isPartOfOrder = allCalendarItems.some((o: any) => {
                               if (!o.scheduled_start || o.scheduled_station_id !== st.id) return false;
                               const oDate = format(new Date(o.scheduled_start), 'yyyy-MM-dd');
                               if (oDate !== dayStr) return false;
