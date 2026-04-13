@@ -1927,15 +1927,21 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         const persistedRentalFee = (settlementSnapshot as any)?.rental_fee;
         const manualWeekAdjustment = Number(snapshotAmounts.manual_week_adjustment || 0);
         
+        // City-specific base fee lookup (before service_fee calculation)
+        const driverCityId = (driver as any).city_id;
+        const driverCityName = cities.find(c => c.id === driverCityId)?.name || '';
+        const driverCitySettings = citySettingsMap.get(driverCityName);
+        const driverBaseFee = driverCitySettings?.base_fee ?? fleetBaseFee;
+        
         // fleetBaseFee może być 0 (darmowa flota) - to jest dozwolone!
-        // Priority: 1) persisted manual override, 2) per-driver custom_weekly_fee, 3) fleet base fee, 4) plan fee
+        // Priority: 1) persisted manual override, 2) per-driver custom_weekly_fee, 3) city base fee, 4) fleet base fee, 5) plan fee
         const driverCustomFee = (driver as any).custom_weekly_fee;
         const service_fee = persistedServiceFee !== null && persistedServiceFee !== undefined
           ? persistedServiceFee
           : (driverCustomFee !== null && driverCustomFee !== undefined
             ? driverCustomFee
-            : (fleetBaseFee !== null && fleetBaseFee !== undefined 
-              ? fleetBaseFee 
+            : (driverBaseFee !== null && driverBaseFee !== undefined 
+              ? driverBaseFee 
               : (plan?.service_fee ?? 50)));
 
         // Pobierz wynajem z przypisanego pojazdu lub z zapisanego override
