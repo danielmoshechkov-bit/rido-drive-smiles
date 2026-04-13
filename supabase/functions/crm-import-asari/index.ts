@@ -320,18 +320,55 @@ serve(async (req) => {
         })
         .eq("id", integration_id);
 
-      // Fire-and-forget AI parsing for new/updated listings
+      // Fire-and-forget AI parsing for ALL new/updated listings in batches of 20
       if (newAndUpdatedIds.length > 0) {
         const parseUrl = `${SUPABASE_URL}/functions/v1/parse-listing-ai`;
-        fetch(parseUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-          },
-          body: JSON.stringify({ batch_ids: newAndUpdatedIds.slice(0, 50) }),
-        }).catch(e => console.error('AI parse trigger failed:', e));
-        console.log(`Triggered AI parse for ${Math.min(newAndUpdatedIds.length, 50)} listings`);
+        const translateUrl = `${SUPABASE_URL}/functions/v1/auto-translate-listing`;
+        const batchSize = 20;
+        for (let i = 0; i < newAndUpdatedIds.length; i += batchSize) {
+          const batch = newAndUpdatedIds.slice(i, i + batchSize);
+          // Stagger batches to avoid overwhelming the AI API
+          const delay = Math.floor(i / batchSize) * 2000;
+          setTimeout(() => {
+            fetch(parseUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+              },
+              body: JSON.stringify({ batch_ids: batch }),
+            }).then(async () => {
+              // After AI parsing, trigger translation for each listing
+              for (const lid of batch) {
+                try {
+                  const { data: listing } = await supabase
+                    .from('real_estate_listings')
+                    .select('title, description')
+                    .eq('id', lid)
+                    .single();
+                  if (listing?.title) {
+                    fetch(translateUrl, {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+                      },
+                      body: JSON.stringify({
+                        listing_id: lid,
+                        listing_type: 'real_estate',
+                        title: listing.title,
+                        description: listing.description || '',
+                      }),
+                    }).catch(e => console.error('Translation trigger failed:', lid, e));
+                  }
+                } catch (e) {
+                  console.error('Translation lookup failed:', lid, e);
+                }
+              }
+            }).catch(e => console.error('AI parse trigger failed for batch:', e));
+          }, delay);
+        }
+        console.log(`Triggered AI parse for ALL ${newAndUpdatedIds.length} listings in ${Math.ceil(newAndUpdatedIds.length / batchSize)} batches`);
       }
 
       return new Response(
