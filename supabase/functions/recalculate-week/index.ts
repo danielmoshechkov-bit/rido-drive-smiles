@@ -153,83 +153,86 @@ serve(async (req) => {
         continue;
       }
 
-      // Delete old auto-transactions for this driver+period
-      await supabase
-        .from('driver_debt_transactions')
-        .delete()
-        .eq('driver_id', settlement.driver_id)
-        .eq('period_from', period_from)
-        .eq('period_to', period_to)
-        .in('type', ['debt_increase', 'debt_payment'])
-        .not('settlement_id', 'is', null);
+      // --- LEDGER & BALANCE WRITES (skip in historical mode) ---
+      if (!skipLedger) {
+        // Delete old auto-transactions for this driver+period
+        await supabase
+          .from('driver_debt_transactions')
+          .delete()
+          .eq('driver_id', settlement.driver_id)
+          .eq('period_from', period_from)
+          .eq('period_to', period_to)
+          .in('type', ['debt_increase', 'debt_payment'])
+          .not('settlement_id', 'is', null);
 
-      // Insert new debt transactions
-      if (rawPayout < -0.01) {
-        const totalDeficit = Math.abs(rawPayout);
-        const payoutWithoutRental = round2(rawPayout + rentalFee);
-        const settlementDeficit = payoutWithoutRental < 0 ? round2(Math.abs(payoutWithoutRental)) : 0;
-        const rentalDeficit = round2(Math.max(0, totalDeficit - settlementDeficit));
+        // Insert new debt transactions
+        if (rawPayout < -0.01) {
+          const totalDeficit = Math.abs(rawPayout);
+          const payoutWithoutRental = round2(rawPayout + rentalFee);
+          const settlementDeficit = payoutWithoutRental < 0 ? round2(Math.abs(payoutWithoutRental)) : 0;
+          const rentalDeficit = round2(Math.max(0, totalDeficit - settlementDeficit));
 
-        if (settlementDeficit > 0.01) {
+          if (settlementDeficit > 0.01) {
+            await supabase.from('driver_debt_transactions').upsert({
+              driver_id: settlement.driver_id,
+              settlement_id: settlement.id,
+              type: 'debt_increase',
+              amount: settlementDeficit,
+              balance_before: computed.debtBefore,
+              balance_after: round2(computed.debtBefore + settlementDeficit),
+              period_from,
+              period_to,
+              description: `Dług rozliczenia z okresu ${period_from} - ${period_to}`,
+              debt_category: 'settlement',
+            }, { onConflict: 'driver_id,period_from,period_to,debt_category,type', ignoreDuplicates: false });
+          }
+
+          if (rentalDeficit > 0.01) {
+            await supabase.from('driver_debt_transactions').upsert({
+              driver_id: settlement.driver_id,
+              settlement_id: settlement.id,
+              type: 'debt_increase',
+              amount: rentalDeficit,
+              balance_before: round2(computed.debtBefore + settlementDeficit),
+              balance_after: computed.remainingDebt,
+              period_from,
+              period_to,
+              description: `Dług wynajmu z okresu ${period_from} - ${period_to}`,
+              debt_category: 'rental',
+            }, { onConflict: 'driver_id,period_from,period_to,debt_category,type', ignoreDuplicates: false });
+          }
+        } else if (computed.debtPayment > 0.01) {
           await supabase.from('driver_debt_transactions').upsert({
             driver_id: settlement.driver_id,
             settlement_id: settlement.id,
-            type: 'debt_increase',
-            amount: settlementDeficit,
+            type: 'debt_payment',
+            amount: -Math.abs(computed.debtPayment),
             balance_before: computed.debtBefore,
-            balance_after: round2(computed.debtBefore + settlementDeficit),
+            balance_after: computed.remainingDebt,
             period_from,
             period_to,
-            description: `Dług rozliczenia z okresu ${period_from} - ${period_to}`,
+            description: `Spłata długu z okresu ${period_from} - ${period_to}`,
             debt_category: 'settlement',
           }, { onConflict: 'driver_id,period_from,period_to,debt_category,type', ignoreDuplicates: false });
         }
 
-        if (rentalDeficit > 0.01) {
-          await supabase.from('driver_debt_transactions').upsert({
-            driver_id: settlement.driver_id,
-            settlement_id: settlement.id,
-            type: 'debt_increase',
-            amount: rentalDeficit,
-            balance_before: round2(computed.debtBefore + settlementDeficit),
-            balance_after: computed.remainingDebt,
-            period_from,
-            period_to,
-            description: `Dług wynajmu z okresu ${period_from} - ${period_to}`,
-            debt_category: 'rental',
-          }, { onConflict: 'driver_id,period_from,period_to,debt_category,type', ignoreDuplicates: false });
-        }
-      } else if (computed.debtPayment > 0.01) {
-        await supabase.from('driver_debt_transactions').upsert({
+        // Update driver_debts.current_balance from ledger
+        const { data: txData } = await supabase
+          .from('driver_debt_transactions')
+          .select('type, amount')
+          .eq('driver_id', settlement.driver_id);
+
+        const ledgerBalance = round2(Math.max(0, (txData || []).reduce((sum, tx) => {
+          const amt = Math.abs(Number(tx.amount) || 0);
+          return sum + (tx.type === 'debt_increase' || tx.type === 'manual_add' ? amt : -amt);
+        }, 0)));
+
+        await supabase.from('driver_debts').upsert({
           driver_id: settlement.driver_id,
-          settlement_id: settlement.id,
-          type: 'debt_payment',
-          amount: -Math.abs(computed.debtPayment),
-          balance_before: computed.debtBefore,
-          balance_after: computed.remainingDebt,
-          period_from,
-          period_to,
-          description: `Spłata długu z okresu ${period_from} - ${period_to}`,
-          debt_category: 'settlement',
-        }, { onConflict: 'driver_id,period_from,period_to,debt_category,type', ignoreDuplicates: false });
+          current_balance: ledgerBalance,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'driver_id' });
       }
-
-      // Update driver_debts.current_balance from ledger
-      const { data: txData } = await supabase
-        .from('driver_debt_transactions')
-        .select('type, amount')
-        .eq('driver_id', settlement.driver_id);
-
-      const ledgerBalance = round2(Math.max(0, (txData || []).reduce((sum, tx) => {
-        const amt = Math.abs(Number(tx.amount) || 0);
-        return sum + (tx.type === 'debt_increase' || tx.type === 'manual_add' ? amt : -amt);
-      }, 0)));
-
-      await supabase.from('driver_debts').upsert({
-        driver_id: settlement.driver_id,
-        current_balance: ledgerBalance,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'driver_id' });
 
       results.push({
         driver_id: settlement.driver_id,
