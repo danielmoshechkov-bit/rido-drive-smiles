@@ -2091,7 +2091,6 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         const driverSecondaryVatRate = driverCitySettings?.secondary_vat_rate ?? fleetSecondaryVatRate;
         const driverAdditionalPercentRate = driverCitySettings?.additional_percent_rate ?? fleetAdditionalPercentRate;
         const driverUberCalcMode = driverCitySettings?.uber_calculation_mode ?? fleetUberCalcMode;
-        const driverUberCalcMode = driverCitySettings?.uber_calculation_mode ?? fleetUberCalcMode;
         const effectiveVatRate = isB2BVatPayer ? 0 : driverVatRate;
         const hasPositivePlatformActivity =
           Math.max(0, uber_base) +
