@@ -155,11 +155,20 @@ serve(async (req) => {
         continue;
       }
 
-      // Calculate net_amount from amounts if we have data
-      // Use the stored net_amount as it was calculated during CSV import
+      // Calculate rawPayout including service_fee (opłata)
       const calculatedPayout = netAmount;
       const rentalFee = Number(settlement.rental_fee || 0);
-      const rawPayout = round2(calculatedPayout - rentalFee);
+      
+      // Determine if this is a "Bolt adjustment only" week (no real activity → fee = 0)
+      const totalBase = (amounts?.uber_base || 0) + (amounts?.bolt_projected_d || 0) + (amounts?.freenow_base_s || 0);
+      const totalCash = (amounts?.uber_cash_f || 0) + (amounts?.bolt_cash || 0) + (amounts?.freenow_cash_f || 0);
+      const totalCommission = (amounts?.uber_commission || 0) + (amounts?.bolt_commission || 0) + (amounts?.freenow_commission_t || 0);
+      const isBoltAdjustmentOnly = Math.abs(totalBase) < 0.01 && Math.abs(totalCash) < 0.01 && Math.abs(totalCommission) < 0.01;
+      
+      const serviceFee = isBoltAdjustmentOnly ? 0 : getDriverServiceFee(settlement.driver_id, amounts);
+      const rawPayout = round2(calculatedPayout - rentalFee - serviceFee);
+      
+      console.log(`💰 Driver ${settlement.driver_id}: net=${netAmount}, rental=${rentalFee}, serviceFee=${serviceFee}, rawPayout=${rawPayout}`);
 
       // Get debt_before from previous week
       const { data: prevSettlement } = await supabase
