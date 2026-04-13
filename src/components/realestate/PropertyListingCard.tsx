@@ -11,6 +11,7 @@ function fixPolishCase(text: string | undefined | null): string {
     return word;
   });
 }
+import { useEffect, useRef, useState } from "react";
 import { rewritePhotoUrl } from "@/utils/photoUrlRewrite";
 import { useListingTranslation } from "@/hooks/useListingTranslation";
 import { useNavigate } from "react-router-dom";
