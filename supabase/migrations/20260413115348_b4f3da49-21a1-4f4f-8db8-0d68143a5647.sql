@@ -1,0 +1,1 @@
+UPDATE fleets SET uber_calculation_mode = 'brutto' WHERE id = 'b780dbf2-586b-4034-9176-be5431604f3e';
