@@ -2216,8 +2216,15 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           
           vat_amount = bolt_vat_ef + uber_freenow_vat;
         } else {
-          // === SINGLE TAX MODE: VAT from uber_base (kolumna E) directly, no +25% ===
-          const uber_vat_base_single = Math.max(0, uber_base);
+          // === SINGLE TAX MODE: VAT base depends on uber_calculation_mode setting ===
+          // 'netto' → column D (uber_payout_d, "Paid to you")
+          // 'brutto' → column E (uber_base)
+          // 'gross_total' → column G (uber_gross_total, or E * 1.25 fallback)
+          const uber_vat_base_single = driverUberCalcMode === 'netto'
+            ? Math.max(0, uber_payout_d || uber_base)
+            : driverUberCalcMode === 'gross_total'
+              ? Math.max(0, (uber_gross_total > 0 ? uber_gross_total : uber_base * 1.25))
+              : Math.max(0, uber_base);
           const adjusted_vat_base = uber_vat_base_single + Math.max(0, bolt_base) + Math.max(0, freenow_base);
           vat_amount = adjusted_vat_base * (effectiveVatRate / 100);
         }
