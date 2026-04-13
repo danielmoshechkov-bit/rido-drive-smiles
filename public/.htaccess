@@ -2,8 +2,9 @@
   RewriteEngine On
   RewriteBase /
 
-  # PHP proxy — serve directly
+  # Przepusc PHP proxy bez React Routera
   RewriteRule ^foto-proxy\.php$ - [L]
+  RewriteRule ^crm-import/(.*)$ - [L]
 
   # Don't rewrite files or directories that exist
   RewriteCond %{REQUEST_FILENAME} -f [OR]

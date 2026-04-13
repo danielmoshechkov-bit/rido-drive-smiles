@@ -16,11 +16,36 @@ serve(async (req) => {
     return new Response("Not found", { status: 404, headers: corsHeaders });
   }
 
-  // Try multiple sources for the photo
   const sources = [
-    { url: `https://foto.asari.pl/${f}`, headers: { "Referer": "https://asari.pl/", "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36" } },
-    { url: `https://foto.asari.pl/${f}`, headers: { "Referer": "https://www.asari.pl/", "User-Agent": "Mozilla/5.0" } },
-    { url: `https://cdn.asari.pl/foto/${f}`, headers: { "Referer": "https://asari.pl/", "User-Agent": "Mozilla/5.0" } },
+    // 1. Nasz PHP proxy na LH.pl (najszybszy - lokalny plik)
+    {
+      url: `https://getrido.pl/foto-proxy.php?f=${f}`,
+      headers: {}
+    },
+    // 2. ASARI CDN bezposrednio
+    {
+      url: `https://foto.asari.pl/${f}`,
+      headers: {
+        'Referer': 'https://asari.pl/',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      }
+    },
+    // 3. ASARI CDN wariant 2
+    {
+      url: `https://foto.asari.pl/foto/${f}`,
+      headers: {
+        'Referer': 'https://asari.pl/',
+        'User-Agent': 'Mozilla/5.0',
+      }
+    },
+    // 4. CDN ASARI
+    {
+      url: `https://cdn.asari.pl/foto/${f}`,
+      headers: {
+        'Referer': 'https://asari.pl/',
+        'User-Agent': 'Mozilla/5.0',
+      }
+    },
   ];
 
   for (const source of sources) {
@@ -29,11 +54,9 @@ serve(async (req) => {
       if (!res.ok) continue;
       
       const contentType = res.headers.get("content-type") || "";
-      // Skip if response is HTML (blocked/error page)
       if (contentType.includes("text/html")) continue;
       
       const data = await res.arrayBuffer();
-      // Verify it's actually an image (JPEG starts with FF D8, PNG with 89 50)
       const firstBytes = new Uint8Array(data.slice(0, 4));
       const isJpeg = firstBytes[0] === 0xFF && firstBytes[1] === 0xD8;
       const isPng = firstBytes[0] === 0x89 && firstBytes[1] === 0x50;
@@ -52,6 +75,5 @@ serve(async (req) => {
     }
   }
 
-  // Return a 1x1 transparent pixel as fallback
   return new Response("Not found", { status: 404, headers: corsHeaders });
 });
