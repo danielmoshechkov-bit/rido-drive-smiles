@@ -361,11 +361,11 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz', foc
 
   const getOrdersForDay = useCallback((day: Date) => {
     const dayStr = format(day, 'yyyy-MM-dd');
-    return orders.filter((o: any) => {
+    return allCalendarItems.filter((o: any) => {
       if (!o.scheduled_start) return false;
       return format(new Date(o.scheduled_start), 'yyyy-MM-dd') === dayStr;
     });
-  }, [orders]);
+  }, [allCalendarItems]);
 
   // Navigation
   const handlePrev = () => {
