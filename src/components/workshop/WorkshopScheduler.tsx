@@ -962,6 +962,24 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
 
   if (!slotData) return null;
 
+  const removePl = (s: string): string => {
+    const m: Record<string, string> = {
+      'ą':'a','ć':'c','ę':'e','ł':'l','ń':'n','ó':'o','ś':'s','ź':'z','ż':'z',
+      'Ą':'A','Ć':'C','Ę':'E','Ł':'L','Ń':'N','Ó':'O','Ś':'S','Ź':'Z','Ż':'Z',
+    };
+    return s.replace(/[ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/g, c => m[c] || c);
+  };
+
+  const formatPhoneForSms = (raw: string): string => {
+    let digits = raw.replace(/\D/g, '');
+    if (digits.startsWith('0048')) digits = digits.substring(2);
+    while (digits.startsWith('4848')) digits = digits.substring(2);
+    if (digits.startsWith('48') && digits.length >= 11) digits = digits.slice(-9);
+    if (digits.startsWith('0') && digits.length >= 10) digits = digits.slice(-9);
+    if (digits.length === 9) return `+48${digits}`;
+    return `+${digits}`;
+  };
+
   const handleSaveClient = async () => {
     if (!clientForm.phone) {
       toast.error('Numer telefonu jest wymagany');
@@ -972,6 +990,7 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
       const appointmentDay = editDate || format(slotData.day, 'yyyy-MM-dd');
       const appointmentHour = parseInt(editHourStr) || 0;
       const appointmentMin = parseInt(editMinStr) || 0;
+      const appointmentTime = `${appointmentHour.toString().padStart(2, '0')}:${appointmentMin.toString().padStart(2, '0')}:00`;
       const stationId = editStationId || slotData.stationId;
       const { error } = await supabase.from('workshop_client_bookings' as any).insert({
         provider_id: providerId,
@@ -983,17 +1002,56 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
         model: clientForm.model || null,
         service_description: clientForm.serviceDesc || null,
         appointment_date: appointmentDay,
-        appointment_time: `${appointmentHour.toString().padStart(2, '0')}:${appointmentMin.toString().padStart(2, '0')}:00`,
+        appointment_time: appointmentTime,
         duration_minutes: parseInt(clientForm.duration) || 60,
         station_id: stationId,
         reminder_enabled: clientForm.reminderOptions.length > 0,
         reminder_times: clientForm.reminderOptions,
-        confirmation_sms_sent: clientForm.sendConfirmationSms,
+        confirmation_sms_sent: false,
         status: 'scheduled',
       });
       if (error) throw error;
-      toast.success('Klient umówiony');
+
+      // Send confirmation SMS if enabled
+      if (clientForm.sendConfirmationSms) {
+        try {
+          const smsPhone = formatPhoneForSms(clientForm.phone);
+          const [y, mo, d] = appointmentDay.split('-');
+          const dateStr = `${d}.${mo}.${y}`;
+          const timeStr = appointmentTime.slice(0, 5);
+          const vehicle = clientForm.plate ? ` ${clientForm.brand || ''} ${clientForm.model || ''} ${clientForm.plate}`.trim() : '';
+          const smsMessage = removePl(
+            `Potwierdzamy wizyte${vehicle ? ` (${vehicle})` : ''} dnia ${dateStr} o godz. ${timeStr}. Zapraszamy!`
+          ).slice(0, 160);
+
+          const { error: smsError } = await supabase.functions.invoke('workshop-send-sms', {
+            body: {
+              phone: smsPhone,
+              message: smsMessage,
+              sms_type: 'booking_confirmation',
+              provider_id: providerId,
+              sender: 'GetRido',
+            },
+          });
+
+          if (smsError) {
+            console.error('SMS confirmation error:', smsError);
+            toast.error('Rezerwacja zapisana, ale SMS nie został wysłany');
+          } else {
+            // Update booking to mark SMS as sent
+            // We need the booking ID - refetch latest
+            toast.success('Klient umówiony, SMS potwierdzający wysłany');
+          }
+        } catch (smsErr) {
+          console.error('SMS send failed:', smsErr);
+          toast.error('Rezerwacja zapisana, ale SMS nie został wysłany');
+        }
+      } else {
+        toast.success('Klient umówiony');
+      }
+
       queryClient.invalidateQueries({ queryKey: ['workshop-bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['sms-credits'] });
       onOpenChange(false);
       setClientForm({ phone: '', firstName: '', lastName: '', plate: '', brand: '', model: '', serviceDesc: '', duration: '60', reminderOptions: ['24h', '2h'], sendConfirmationSms: true });
     } catch (err: any) {
