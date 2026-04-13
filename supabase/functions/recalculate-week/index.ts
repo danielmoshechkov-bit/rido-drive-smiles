@@ -220,7 +220,7 @@ serve(async (req) => {
           const rentalDeficit = round2(Math.max(0, totalDeficit - settlementDeficit));
 
           if (settlementDeficit > 0.01) {
-            await supabase.from('driver_debt_transactions').upsert({
+            await supabase.from('driver_debt_transactions').insert({
               driver_id: settlement.driver_id,
               settlement_id: settlement.id,
               type: 'debt_increase',
@@ -231,11 +231,11 @@ serve(async (req) => {
               period_to,
               description: `Dług rozliczenia z okresu ${period_from} - ${period_to}`,
               debt_category: 'settlement',
-            }, { onConflict: 'driver_id,period_from,period_to,debt_category,type', ignoreDuplicates: false });
+            });
           }
 
           if (rentalDeficit > 0.01) {
-            await supabase.from('driver_debt_transactions').upsert({
+            await supabase.from('driver_debt_transactions').insert({
               driver_id: settlement.driver_id,
               settlement_id: settlement.id,
               type: 'debt_increase',
@@ -246,10 +246,10 @@ serve(async (req) => {
               period_to,
               description: `Dług wynajmu z okresu ${period_from} - ${period_to}`,
               debt_category: 'rental',
-            }, { onConflict: 'driver_id,period_from,period_to,debt_category,type', ignoreDuplicates: false });
+            });
           }
         } else if (computed.debtPayment > 0.01) {
-          await supabase.from('driver_debt_transactions').upsert({
+          await supabase.from('driver_debt_transactions').insert({
             driver_id: settlement.driver_id,
             settlement_id: settlement.id,
             type: 'debt_payment',
@@ -260,7 +260,7 @@ serve(async (req) => {
             period_to,
             description: `Spłata długu z okresu ${period_from} - ${period_to}`,
             debt_category: 'settlement',
-          }, { onConflict: 'driver_id,period_from,period_to,debt_category,type', ignoreDuplicates: false });
+          });
         }
 
         // Update driver_debts.current_balance from ledger
