@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { useWorkshopOrders, useUpdateWorkshopOrder } from '@/hooks/useWorkshop';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { ChevronLeft, ChevronRight, Search, Car, Wrench, Plus, GripVertical, Undo2, X, ChevronsUpDown, Phone, User, Eye, CalendarClock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, Car, Wrench, Plus, GripVertical, Undo2, X, ChevronsUpDown, Phone, User, Eye } from 'lucide-react';
 import { format, addDays, startOfWeek, addWeeks, subWeeks, isToday, subDays, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths, isSameMonth } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { Input } from '@/components/ui/input';
@@ -205,7 +205,7 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz', foc
 
   const getOrderStartingAt = (stationId: string, day: Date, hour: number) => {
     const dayStr = format(day, 'yyyy-MM-dd');
-    return orders.find((o: any) => {
+    return allCalendarItems.find((o: any) => {
       if (!o.scheduled_start || o.scheduled_station_id !== stationId) return false;
       const oDate = format(new Date(o.scheduled_start), 'yyyy-MM-dd');
       const oHour = new Date(o.scheduled_start).getHours();
@@ -215,7 +215,7 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz', foc
 
   const isCellOccupied = (stationId: string, day: Date, hour: number) => {
     const dayStr = format(day, 'yyyy-MM-dd');
-    return orders.some((o: any) => {
+    return allCalendarItems.some((o: any) => {
       if (!o.scheduled_start || o.scheduled_station_id !== stationId) return false;
       const oDate = format(new Date(o.scheduled_start), 'yyyy-MM-dd');
       if (oDate !== dayStr) return false;
