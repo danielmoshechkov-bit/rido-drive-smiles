@@ -582,11 +582,16 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     }
     setIsRecalculating(true);
     try {
+      // Determine if this week is before reset (historical_only mode)
+      const fleetResetAt = settlementsResetDone ? (await supabase.from('fleets').select('settlements_reset_at').eq('id', fleetId).maybeSingle()).data?.settlements_reset_at : null;
+      const isHistorical = fleetResetAt && currentWeek.end && new Date(currentWeek.end) <= new Date(fleetResetAt);
+
       const { data, error } = await supabase.functions.invoke('recalculate-week', {
         body: {
           fleet_id: fleetId,
           period_from: currentWeek.start,
           period_to: currentWeek.end,
+          historical_only: !!isHistorical,
         }
       });
       if (error) throw error;

@@ -12,6 +12,7 @@ import { WorkshopOrderSummaryTab } from './tabs/WorkshopOrderSummaryTab';
 import { WorkshopSmsDialog } from './WorkshopSmsDialog';
 import { WorkshopEditClientDialog } from './WorkshopEditClientDialog';
 import { WorkshopVehicleHoverCard } from './WorkshopVehicleHoverCard';
+import { WorkshopVehicleEditDialog } from './WorkshopVehicleEditDialog';
 import { WorkshopClientHoverCard } from './WorkshopClientHoverCard';
 import { WorkshopEstimatePreviewDialog } from './WorkshopEstimatePreviewDialog';
 import { RidoPartsCartButton } from './parts/RidoPartsCartButton';
@@ -54,6 +55,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
   const [smsOpen, setSmsOpen] = useState(false);
   const [smsType, setSmsType] = useState<'reception' | 'quote' | 'ready'>('reception');
   const [editClientOpen, setEditClientOpen] = useState(false);
+  const [editVehicleOpen, setEditVehicleOpen] = useState(false);
   const [estimatePreviewOpen, setEstimatePreviewOpen] = useState(false);
   const clientName = order.client
     ? order.client.client_type === 'company'
@@ -116,8 +118,8 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
           {vehicleName && (
             <>
               <span className="text-muted-foreground">·</span>
-              <WorkshopVehicleHoverCard vehicle={order.vehicle}>
-                <span className="flex items-center gap-1"><Car className="h-3.5 w-3.5" /> {vehicleName}</span>
+              <WorkshopVehicleHoverCard vehicle={order.vehicle} onEdit={() => setEditVehicleOpen(true)}>
+                <span className="flex items-center gap-1 cursor-pointer"><Car className="h-3.5 w-3.5" /> {vehicleName}</span>
               </WorkshopVehicleHoverCard>
             </>
           )}
@@ -418,6 +420,12 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
         open={editClientOpen}
         onOpenChange={setEditClientOpen}
         client={order.client}
+      />
+      {/* Vehicle Edit Dialog */}
+      <WorkshopVehicleEditDialog
+        vehicle={order.vehicle}
+        open={editVehicleOpen}
+        onOpenChange={setEditVehicleOpen}
       />
       {/* Estimate Preview Dialog */}
       <WorkshopEstimatePreviewDialog

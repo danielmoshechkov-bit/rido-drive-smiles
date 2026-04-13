@@ -607,6 +607,16 @@ export function RidoPartsSearchModal({
           </DialogDescription>
         </DialogHeader>
 
+        {/* Missing vehicle data warning */}
+        {(!vehicleVin && !vehicle?.brand) && (
+          <div className="rounded-md bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800 flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+            <div>
+              <strong>Brak danych pojazdu.</strong> Uzupełnij VIN, markę i model auta, aby wyszukiwarka mogła dopasować prawidłowe części.
+            </div>
+          </div>
+        )}
+
         {/* Existing order parts quick search */}
         {existingParts.length > 0 && (
           <div className="flex flex-wrap gap-1.5 items-center">
