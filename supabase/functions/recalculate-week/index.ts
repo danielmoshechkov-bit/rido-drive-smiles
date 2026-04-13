@@ -17,13 +17,15 @@ serve(async (req) => {
     if (!supabaseUrl || !supabaseKey) throw new Error("Missing Supabase env vars");
 
     const supabase = createClient(supabaseUrl, supabaseKey);
-    const { fleet_id, period_from, period_to } = await req.json();
+    const { fleet_id, period_from, period_to, historical_only } = await req.json();
 
     if (!fleet_id || !period_from || !period_to) {
       throw new Error("Missing required parameters: fleet_id, period_from, period_to");
     }
 
-    console.log(`🔄 Recalculating week ${period_from} - ${period_to} for fleet ${fleet_id}`);
+    // historical_only = true → update settlement snapshots only, skip ledger & balance writes
+    const skipLedger = !!historical_only;
+    console.log(`🔄 Recalculating week ${period_from} - ${period_to} for fleet ${fleet_id}${skipLedger ? ' [HISTORICAL - no ledger writes]' : ''}`);
 
     const round2 = (v: number): number => Math.round((v + Number.EPSILON) * 100) / 100;
 
