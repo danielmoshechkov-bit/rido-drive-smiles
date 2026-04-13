@@ -11,7 +11,7 @@ function fixPolishCase(text: string | undefined | null): string {
     return word;
   });
 }
-import { useEffect, useRef, useState } from "react";
+import { rewritePhotoUrl } from "@/utils/photoUrlRewrite";
 import { useListingTranslation } from "@/hooks/useListingTranslation";
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
@@ -112,8 +112,6 @@ export function PropertyListingCard({
   // Area is already corrected in the mapping layer (ai_area_total > area_total > area)
   const displayArea = listing.areaM2 || 0;
 
-  // Use shared photo URL rewriter
-  const { rewritePhotoUrl } = await import('@/utils/photoUrlRewrite');
 
   const rawPhotos = typeof listing.photos === 'string'
     ? (() => {
