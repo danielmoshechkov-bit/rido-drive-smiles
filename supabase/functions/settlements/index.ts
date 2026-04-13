@@ -284,9 +284,19 @@ Deno.serve(async (req) => {
         // Fetch fleet_city_settings
         const { data: fleetCitySettings } = fleet_id ? await supabase
           .from('fleet_city_settings')
-          .select('city_name, base_fee')
+          .select('city_name, base_fee, vat_rate, settlement_mode, uber_calculation_mode')
           .eq('fleet_id', fleet_id) : { data: [] };
         const cityFeeMapForFee = new Map((fleetCitySettings || []).map((cs: any) => [cs.city_name, cs.base_fee]));
+        const citySettingsFullMapForFee = new Map((fleetCitySettings || []).map((cs: any) => [cs.city_name, cs]));
+
+        // Fetch fleet global settings for VAT
+        const { data: fleetSettingsForVat } = fleet_id ? await supabase
+          .from('fleets')
+          .select('vat_rate, settlement_mode, uber_calculation_mode')
+          .eq('id', fleet_id)
+          .maybeSingle() : { data: null };
+        const fleetVatRateForSync = fleetSettingsForVat?.vat_rate ?? 8;
+        const fleetUberCalcModeForSync = fleetSettingsForVat?.uber_calculation_mode ?? 'netto';
 
         const settlementsByDriver = new Map<string, any[]>();
         for (const settlement of insertedSettlements) {
@@ -319,8 +329,23 @@ Deno.serve(async (req) => {
                 console.log(`⏭️ Driver ${driverId}: no activity, forcing debt carry-over sync`);
               }
 
-              // VAT 8% on base
-              const vat8 = totalBase * 0.08;
+              // VAT calculation using fleet settings (uber_calculation_mode)
+              const driverInfo2 = driverDetailMap.get(driverId);
+              const cityName2 = driverInfo2?.city_id ? cityNameMapForFee.get(driverInfo2.city_id) : null;
+              const cs2 = cityName2 ? citySettingsFullMapForFee.get(cityName2) : null;
+              const driverVatRate2 = cs2?.vat_rate ?? fleetVatRateForSync;
+              const driverUberCalcMode2 = cs2?.uber_calculation_mode ?? fleetUberCalcModeForSync;
+
+              const uberBaseVal = amounts.uber_base || 0;
+              const uberPayoutDVal = amounts.uber_payout_d || 0;
+              const uberGrossVal = amounts.uber_gross_total || 0;
+              const uberVatBase2 = driverUberCalcMode2 === 'netto'
+                ? Math.max(0, uberPayoutDVal || uberBaseVal)
+                : driverUberCalcMode2 === 'gross_total'
+                  ? Math.max(0, uberGrossVal > 0 ? uberGrossVal : uberBaseVal * 1.25)
+                  : Math.max(0, uberBaseVal);
+              const vatBase2 = uberVatBase2 + Math.max(0, amounts.bolt_projected_d || 0) + Math.max(0, amounts.freenow_base_s || 0);
+              const vat8 = vatBase2 * (driverVatRate2 / 100);
               
               // Fuel and refund from amounts
               const fuel = amounts.fuel || 0;
