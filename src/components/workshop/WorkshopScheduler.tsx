@@ -711,38 +711,53 @@ function ScheduledOrderBlock({ order, displaySpan, employees, updateOrder, onDra
     } catch { toast.error('Błąd przypisania'); }
   };
 
+  const isBooking = !!order._isBooking;
+  const bgColor = isBooking ? 'bg-[hsl(280,60%,55%)]' : 'bg-[hsl(220,70%,55%)]';
+  const bgDark = isBooking ? 'bg-[hsl(280,60%,45%)]' : 'bg-[hsl(220,70%,45%)]';
+
   return (
     <Popover open={showPreview} onOpenChange={setShowPreview}>
       <PopoverTrigger asChild>
         <div
-          className="bg-[hsl(220,70%,55%)] text-white rounded-md m-[2px] p-1.5 text-[10px] cursor-grab active:cursor-grabbing shadow-sm hover:shadow-md transition-shadow relative select-none"
+          className={`${bgColor} text-white rounded-md m-[2px] p-1.5 text-[10px] cursor-grab active:cursor-grabbing shadow-sm hover:shadow-md transition-shadow relative select-none`}
           style={{ height: 'calc(100% - 4px)' }}
-          draggable
-          onDragStart={(e) => { e.stopPropagation(); onDragStart(); }}
+          draggable={!isBooking}
+          onDragStart={(e) => { if (isBooking) { e.preventDefault(); return; } e.stopPropagation(); onDragStart(); }}
           onDragEnd={onDragEnd}
           onClick={(e) => { e.stopPropagation(); setShowPreview(true); }}
         >
-          <div
-            className="absolute top-0 left-0 right-0 h-3 cursor-n-resize flex items-center justify-center bg-[hsl(220,70%,45%)] rounded-t-md opacity-0 hover:opacity-100 transition-opacity"
-            onMouseDown={(e) => onResizeStart(e, order, 'top')}
-          >
-            <ChevronsUpDown className="h-2.5 w-2.5 text-white/80" />
-          </div>
-          <div className="flex items-center gap-0.5 font-semibold mt-2">
-            <GripVertical className="h-3 w-3 opacity-60 flex-shrink-0" />
-            <Car className="h-3 w-3 flex-shrink-0" />
-            <span className="truncate">{order.vehicle ? `${order.vehicle.brand} ${order.vehicle.model}` : 'Zlecenie'}</span>
-          </div>
-          <div className="text-white/70 truncate ml-4">{order.order_number}</div>
-          {displaySpan > 1 && (
-            <div className="text-white/60 text-[9px] ml-4 mt-0.5">{displaySpan}h</div>
+          {!isBooking && (
+            <div
+              className={`absolute top-0 left-0 right-0 h-3 cursor-n-resize flex items-center justify-center ${bgDark} rounded-t-md opacity-0 hover:opacity-100 transition-opacity`}
+              onMouseDown={(e) => onResizeStart(e, order, 'top')}
+            >
+              <ChevronsUpDown className="h-2.5 w-2.5 text-white/80" />
+            </div>
           )}
-          <div
-            className="absolute bottom-0 left-0 right-0 h-3 cursor-s-resize flex items-center justify-center bg-[hsl(220,70%,45%)] rounded-b-md opacity-0 hover:opacity-100 transition-opacity"
-            onMouseDown={(e) => onResizeStart(e, order, 'bottom')}
-          >
-            <ChevronsUpDown className="h-2.5 w-2.5 text-white/80" />
+          <div className={`flex items-center gap-0.5 font-semibold ${isBooking ? '' : 'mt-2'}`}>
+            {!isBooking && <GripVertical className="h-3 w-3 opacity-60 flex-shrink-0" />}
+            {isBooking ? <Phone className="h-3 w-3 flex-shrink-0" /> : <Car className="h-3 w-3 flex-shrink-0" />}
+            <span className="truncate">{isBooking ? order.order_number : (order.vehicle ? `${order.vehicle.brand} ${order.vehicle.model}` : 'Zlecenie')}</span>
           </div>
+          {isBooking ? (
+            <>
+              {order.vehicle?.plate && <div className="text-white/70 truncate ml-4">{order.vehicle.plate}</div>}
+              {order.items?.[0]?.name && <div className="text-white/60 truncate ml-4 text-[9px]">{order.items[0].name}</div>}
+            </>
+          ) : (
+            <>
+              <div className="text-white/70 truncate ml-4">{order.order_number}</div>
+              {displaySpan > 1 && <div className="text-white/60 text-[9px] ml-4 mt-0.5">{displaySpan}h</div>}
+            </>
+          )}
+          {!isBooking && (
+            <div
+              className={`absolute bottom-0 left-0 right-0 h-3 cursor-s-resize flex items-center justify-center ${bgDark} rounded-b-md opacity-0 hover:opacity-100 transition-opacity`}
+              onMouseDown={(e) => onResizeStart(e, order, 'bottom')}
+            >
+              <ChevronsUpDown className="h-2.5 w-2.5 text-white/80" />
+            </div>
+          )}
         </div>
       </PopoverTrigger>
       <PopoverContent className="w-80 p-0" side="right" align="start">
