@@ -53,10 +53,10 @@ serve(async (req) => {
       return { debtBefore: db, debtPayment: round2(debtPayment), remainingDebt: round2(remainingDebt), actualPayout: round2(actualPayout) };
     };
 
-    // 1. Get all drivers in this fleet
+    // 1. Get all drivers in this fleet (with city_id and custom_weekly_fee for fee lookup)
     const { data: drivers, error: driversErr } = await supabase
       .from('drivers')
-      .select('id')
+      .select('id, city_id, custom_weekly_fee')
       .eq('fleet_id', fleet_id);
     if (driversErr) throw driversErr;
     if (!drivers || drivers.length === 0) {
@@ -65,6 +65,44 @@ serve(async (req) => {
     }
 
     const driverIds = drivers.map(d => d.id);
+    const driverMap = new Map(drivers.map(d => [d.id, d]));
+
+    // Fetch city names for fee lookup
+    const cityIds = [...new Set(drivers.map(d => d.city_id).filter(Boolean))];
+    const { data: citiesData } = await supabase
+      .from('cities')
+      .select('id, name')
+      .in('id', cityIds.length > 0 ? cityIds : ['__none__']);
+    const cityNameMap = new Map((citiesData || []).map(c => [c.id, c.name]));
+
+    // Fetch fleet_city_settings for service fee
+    const { data: citySettings } = await supabase
+      .from('fleet_city_settings')
+      .select('city_name, base_fee')
+      .eq('fleet_id', fleet_id);
+    const cityFeeMap = new Map((citySettings || []).map(cs => [cs.city_name, cs.base_fee]));
+
+    // Helper: get service fee for a driver
+    const getDriverServiceFee = (driverId: string, amounts: any): number => {
+      // Priority: 1) manual override in amounts, 2) driver custom_weekly_fee, 3) city base_fee, 4) default 50
+      const manualFee = amounts?.manual_service_fee;
+      if (manualFee !== null && manualFee !== undefined && manualFee !== 0) return Number(manualFee);
+
+      const driver = driverMap.get(driverId);
+      if (!driver) return 50;
+
+      if (driver.custom_weekly_fee !== null && driver.custom_weekly_fee !== undefined) {
+        return Number(driver.custom_weekly_fee);
+      }
+
+      const cityName = cityNameMap.get(driver.city_id);
+      if (cityName) {
+        const cityFee = cityFeeMap.get(cityName);
+        if (cityFee !== null && cityFee !== undefined) return Number(cityFee);
+      }
+
+      return 50; // default
+    };
 
     // 2. Get settlements for this week
     const { data: settlements, error: settErr } = await supabase
