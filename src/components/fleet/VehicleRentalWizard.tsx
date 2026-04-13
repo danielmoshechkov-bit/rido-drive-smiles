@@ -273,30 +273,35 @@ export function VehicleRentalWizard({
         })
         .eq("id", selectedVehicle.id);
 
-      // Create or update vehicle assignment
-      // First check if there's an existing active assignment
-      const supabaseAny = supabase as any;
-      const { data: existingAssignment } = await supabaseAny
-        .from("vehicle_assignments")
-        .select("id")
+      // Create or update vehicle assignment in driver_vehicle_assignments
+      // First deactivate any existing active assignments for this vehicle
+      await supabase
+        .from("driver_vehicle_assignments")
+        .update({ 
+          status: "inactive", 
+          unassigned_at: new Date().toISOString() 
+        })
         .eq("vehicle_id", selectedVehicle.id)
-        .is("unassigned_at", null)
-        .single();
+        .eq("status", "active");
 
-      if (existingAssignment?.id) {
-        // Unassign current driver
-        await supabaseAny
-          .from("vehicle_assignments")
-          .update({ unassigned_at: new Date().toISOString() })
-          .eq("id", existingAssignment.id);
-      }
+      // Also deactivate any existing active assignments for this driver
+      await supabase
+        .from("driver_vehicle_assignments")
+        .update({ 
+          status: "inactive", 
+          unassigned_at: new Date().toISOString() 
+        })
+        .eq("driver_id", selectedDriver.id)
+        .eq("status", "active");
 
-      // Create new assignment
-      await supabaseAny
-        .from("vehicle_assignments")
+      // Create new active assignment
+      await supabase
+        .from("driver_vehicle_assignments")
         .insert({
           vehicle_id: selectedVehicle.id,
           driver_id: selectedDriver.id,
+          fleet_id: fleetId,
+          status: "active",
           assigned_at: format(rentalStart, "yyyy-MM-dd'T'HH:mm:ss")
         });
 
