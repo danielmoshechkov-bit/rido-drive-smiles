@@ -20433,24 +20433,30 @@ export type Database = {
       workshop_order_files: {
         Row: {
           created_at: string | null
+          expires_at: string | null
           file_name: string
           file_size: number | null
+          file_type: string | null
           file_url: string
           id: string
           order_id: string
         }
         Insert: {
           created_at?: string | null
+          expires_at?: string | null
           file_name: string
           file_size?: number | null
+          file_type?: string | null
           file_url: string
           id?: string
           order_id: string
         }
         Update: {
           created_at?: string | null
+          expires_at?: string | null
           file_name?: string
           file_size?: number | null
+          file_type?: string | null
           file_url?: string
           id?: string
           order_id?: string
@@ -22582,6 +22588,7 @@ export type Database = {
         Args: { _driver_id: string; _user_id: string }
         Returns: Json
       }
+      cleanup_expired_workshop_photos: { Args: never; Returns: undefined }
       deduct_sms_credit: { Args: { p_provider_id: string }; Returns: undefined }
       deduct_vehicle_lookup_credit: {
         Args: { p_user_id: string }
