@@ -1390,9 +1390,18 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                         variant="outline"
                         size="sm"
                         className="gap-1 h-7 text-xs border-primary text-primary hover:bg-primary/10"
-                        onClick={() => {
+                        onClick={async () => {
                           const hasEnabledIntegration = configuredPartsIntegrations.length > 0;
                           if (hasEnabledIntegration) {
+                            // Autosave draft rows before opening search
+                            await saveGoodsDraftRows();
+                            await saveTaskDraftRows();
+                            // Check vehicle data
+                            const v = order.vehicle;
+                            if (!v?.vin && !v?.brand) {
+                              toast.error('Brak danych pojazdu (VIN/marka). Uzupełnij dane auta przed wyszukiwaniem części.');
+                              return;
+                            }
                             setRidoSearchOpen(true);
                           } else {
                             setRidoConfigOpen(true);
