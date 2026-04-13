@@ -68,6 +68,16 @@ serve(async (req) => {
     const driverMap = new Map(drivers.map(d => [d.id, d]));
 
     // Fetch city names for fee lookup
+    // Fetch fleet settings for VAT calculation
+    const { data: fleetData } = await supabase
+      .from('fleets')
+      .select('vat_rate, settlement_mode, uber_calculation_mode')
+      .eq('id', fleet_id)
+      .maybeSingle();
+    const fleetVatRate = fleetData?.vat_rate ?? 8;
+    const fleetSettlementMode = fleetData?.settlement_mode ?? 'single_tax';
+    const fleetUberCalcMode = fleetData?.uber_calculation_mode ?? 'netto';
+
     const cityIds = [...new Set(drivers.map(d => d.city_id).filter(Boolean))];
     const { data: citiesData } = await supabase
       .from('cities')
@@ -78,9 +88,22 @@ serve(async (req) => {
     // Fetch fleet_city_settings for service fee
     const { data: citySettings } = await supabase
       .from('fleet_city_settings')
-      .select('city_name, base_fee')
+      .select('city_name, base_fee, vat_rate, settlement_mode, uber_calculation_mode')
       .eq('fleet_id', fleet_id);
     const cityFeeMap = new Map((citySettings || []).map(cs => [cs.city_name, cs.base_fee]));
+    const citySettingsFullMap = new Map((citySettings || []).map(cs => [cs.city_name, cs]));
+
+    // Helper: get VAT settings for a driver based on city
+    const getDriverVatSettings = (driverId: string) => {
+      const driver = driverMap.get(driverId);
+      const cityName = driver?.city_id ? cityNameMap.get(driver.city_id) : null;
+      const cs = cityName ? citySettingsFullMap.get(cityName) : null;
+      return {
+        vatRate: cs?.vat_rate ?? fleetVatRate,
+        settlementMode: cs?.settlement_mode ?? fleetSettlementMode,
+        uberCalcMode: cs?.uber_calculation_mode ?? fleetUberCalcMode,
+      };
+    };
 
     // Helper: get service fee for a driver
     const getDriverServiceFee = (driverId: string, amounts: any): number => {
@@ -125,11 +148,10 @@ serve(async (req) => {
 
     for (const settlement of settlements) {
       const amounts = settlement.amounts as any;
-      const netAmount = Number(settlement.net_amount || 0);
 
       // Skip empty settlements (no CSV data)
       const isEmptyAmounts = !amounts || (typeof amounts === 'object' && Object.keys(amounts).length === 0);
-      if (isEmptyAmounts && netAmount === 0) {
+      if (isEmptyAmounts) {
         // For empty settlements, just carry debt forward from previous week
         const { data: prev } = await supabase
           .from('settlements')
@@ -155,20 +177,41 @@ serve(async (req) => {
         continue;
       }
 
-      // Calculate rawPayout including service_fee (opłata)
-      const calculatedPayout = netAmount;
+      // Recalculate VAT from raw amounts using fleet settings
+      const { vatRate, uberCalcMode } = getDriverVatSettings(settlement.driver_id);
+      const uberBase = Number(amounts?.uber_base || 0);
+      const uberPayoutD = Number(amounts?.uber_payout_d || 0);
+      const uberGrossTotal = Number(amounts?.uber_gross_total || 0);
+      const boltBase = Number(amounts?.bolt_projected_d || 0);
+      const freenowBase = Number(amounts?.freenow_base_s || 0);
+
+      // Uber VAT base depends on uber_calculation_mode
+      const uberVatBase = uberCalcMode === 'netto'
+        ? Math.max(0, uberPayoutD || uberBase)
+        : uberCalcMode === 'gross_total'
+          ? Math.max(0, uberGrossTotal > 0 ? uberGrossTotal : uberBase * 1.25)
+          : Math.max(0, uberBase);
+      const vatBase = uberVatBase + Math.max(0, boltBase) + Math.max(0, freenowBase);
+      const vatAmount = round2(vatBase * (vatRate / 100));
+
+      // Recalculate net from raw amounts
+      const totalBase = uberBase + boltBase + freenowBase;
+      const totalCashRaw = Number(amounts?.uber_cash_f || 0) + Number(amounts?.bolt_cash || 0) + Number(amounts?.freenow_cash_f || 0);
+      const totalCommissionRaw = Number(amounts?.uber_commission || 0) + Number(amounts?.bolt_commission || 0) + Number(amounts?.freenow_commission_t || 0);
+      const fuel = Number(amounts?.fuel || 0);
+      const fuelVatRefund = Number(amounts?.fuel_vat_refund || 0);
+      const manualAdj = Number(amounts?.manual_week_adjustment || 0);
+      const calculatedPayout = round2(totalBase - vatAmount - totalCommissionRaw - totalCashRaw - fuel + fuelVatRefund - manualAdj);
+
       const rentalFee = Number(settlement.rental_fee || 0);
       
       // Determine if this is a "Bolt adjustment only" week (no real activity → fee = 0)
-      const totalBase = (amounts?.uber_base || 0) + (amounts?.bolt_projected_d || 0) + (amounts?.freenow_base_s || 0);
-      const totalCash = (amounts?.uber_cash_f || 0) + (amounts?.bolt_cash || 0) + (amounts?.freenow_cash_f || 0);
-      const totalCommission = (amounts?.uber_commission || 0) + (amounts?.bolt_commission || 0) + (amounts?.freenow_commission_t || 0);
-      const isBoltAdjustmentOnly = Math.abs(totalBase) < 0.01 && Math.abs(totalCash) < 0.01 && Math.abs(totalCommission) < 0.01;
+      const isBoltAdjustmentOnly = Math.abs(totalBase) < 0.01 && Math.abs(totalCashRaw) < 0.01 && Math.abs(totalCommissionRaw) < 0.01;
       
       const serviceFee = isBoltAdjustmentOnly ? 0 : getDriverServiceFee(settlement.driver_id, amounts);
       const rawPayout = round2(calculatedPayout - rentalFee - serviceFee);
       
-      console.log(`💰 Driver ${settlement.driver_id}: net=${netAmount}, rental=${rentalFee}, serviceFee=${serviceFee}, rawPayout=${rawPayout}`);
+      console.log(`💰 Driver ${settlement.driver_id}: base=${totalBase}, vat=${vatAmount}(${vatRate}%,mode=${uberCalcMode}), rental=${rentalFee}, serviceFee=${serviceFee}, rawPayout=${rawPayout}`);
 
       // Get debt_before from previous week
       const { data: prevSettlement } = await supabase
