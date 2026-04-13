@@ -992,7 +992,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           onKeyDown={e => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
-                              void saveTaskDraftRows();
+                              void saveTaskDraftRows(true);
                             }
                           }}
                         />
@@ -1030,7 +1030,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           onKeyDown={e => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
-                              void saveTaskDraftRows();
+                              void saveTaskDraftRows(true);
                             }
                           }}
                         />
@@ -1044,7 +1044,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           onKeyDown={e => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
-                              void saveTaskDraftRows();
+                              void saveTaskDraftRows(true);
                             }
                           }}
                           className="h-9 w-full text-sm text-right min-w-0"
@@ -1068,7 +1068,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                             onKeyDown={e => {
                               if (e.key === 'Enter') {
                                 e.preventDefault();
-                                void saveTaskDraftRows();
+                                void saveTaskDraftRows(true);
                               }
                             }}
                           />
@@ -1284,7 +1284,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           onKeyDown={e => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
-                              void saveGoodsDraftRows();
+                              void saveGoodsDraftRows(true);
                             }
                           }}
                         />
@@ -1299,7 +1299,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           onKeyDown={e => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
-                              void saveGoodsDraftRows();
+                              void saveGoodsDraftRows(true);
                             }
                           }}
                         />
@@ -1313,7 +1313,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           onKeyDown={e => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
-                              void saveGoodsDraftRows();
+                              void saveGoodsDraftRows(true);
                             }
                           }}
                         />
@@ -1329,7 +1329,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           onKeyDown={e => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
-                              void saveGoodsDraftRows();
+                              void saveGoodsDraftRows(true);
                             }
                           }}
                         />
@@ -1343,7 +1343,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           onKeyDown={e => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
-                              void saveGoodsDraftRows();
+                              void saveGoodsDraftRows(true);
                             }
                           }}
                           className="h-9 w-full text-sm text-right min-w-0 px-2"
@@ -1370,7 +1370,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                             onKeyDown={e => {
                               if (e.key === 'Enter') {
                                 e.preventDefault();
-                                void saveGoodsDraftRows();
+                                void saveGoodsDraftRows(true);
                               }
                             }}
                           />
