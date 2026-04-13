@@ -195,6 +195,35 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
         qc.invalidateQueries({ queryKey: ['workshop-vehicles'] });
       } catch (e) { console.error('Auto-persist owner error:', e); }
     }
+    // Upload intake photos to storage
+    const photoEntries = Object.entries(photos).filter(([, file]) => file !== null);
+    if (photoEntries.length > 0 && order.id) {
+      const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+      for (const [key, file] of photoEntries) {
+        if (!file) continue;
+        const ext = file.name.split('.').pop() || 'jpg';
+        const storagePath = `${order.id}/${key}.${ext}`;
+        const { error: uploadErr } = await supabase.storage
+          .from('workshop-order-photos')
+          .upload(storagePath, file, { upsert: true });
+        if (uploadErr) {
+          console.error('Photo upload error:', uploadErr);
+          continue;
+        }
+        const { data: publicUrl } = supabase.storage
+          .from('workshop-order-photos')
+          .getPublicUrl(storagePath);
+        const slotLabel = PHOTO_SLOTS.find(s => s.key === key)?.label || key;
+        await (supabase as any).from('workshop_order_files').insert({
+          order_id: order.id,
+          file_name: `${slotLabel}.${ext}`,
+          file_url: storagePath,
+          file_size: file.size,
+          file_type: 'intake_photo',
+          expires_at: expiresAt,
+        });
+      }
+    }
     setCreatedOrderId(order.id);
     setSendMethod(clientPhone ? 'sms' : clientEmail ? 'email' : 'sms');
     setManualPhone(''); setManualEmail('');
