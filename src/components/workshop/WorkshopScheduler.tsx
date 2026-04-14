@@ -1021,19 +1021,42 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
         try {
           const { data: providerInfo } = await supabase
             .from('service_providers')
-            .select('company_name, company_address, company_city, company_postal_code')
+            .select('company_name, company_address, company_city, company_postal_code, user_id')
             .eq('id', providerId)
             .maybeSingle();
+
+          // Also fetch workshop_settings for short_name and address
+          let workshopShortName = '';
+          let wsAddress = '';
+          let wsCity = '';
+          let wsPostalCode = '';
+          if (providerInfo?.user_id) {
+            const { data: wsSettings } = await (supabase as any)
+              .from('workshop_settings')
+              .select('short_name, address, city, postal_code')
+              .eq('user_id', providerInfo.user_id)
+              .maybeSingle();
+            if (wsSettings) {
+              workshopShortName = wsSettings.short_name || '';
+              wsAddress = wsSettings.address || '';
+              wsCity = wsSettings.city || '';
+              wsPostalCode = wsSettings.postal_code || '';
+            }
+          }
 
           const smsPhone = formatPhoneForSms(clientForm.phone);
           const [y, mo, d] = appointmentDay.split('-');
           const dateStr = `${d}.${mo}.${y}`;
           const timeStr = appointmentTime.slice(0, 5);
-          const workshopName = compactSpaces(removePl(providerInfo?.company_name || 'Warsztat')).slice(0, 28);
+          const nameForSms = workshopShortName || providerInfo?.company_name || 'Warsztat';
+          const workshopName = compactSpaces(removePl(nameForSms)).slice(0, 28);
           const serviceText = compactSpaces(removePl(clientForm.serviceDesc || 'umowiona usluga'));
+          const finalAddress = providerInfo?.company_address || wsAddress;
+          const finalCity = providerInfo?.company_city || wsCity;
+          const finalPostalCode = providerInfo?.company_postal_code || wsPostalCode;
           const addressText = compactSpaces(removePl([
-            providerInfo?.company_address,
-            [providerInfo?.company_postal_code, providerInfo?.company_city].filter(Boolean).join(' '),
+            finalAddress,
+            [finalPostalCode, finalCity].filter(Boolean).join(' '),
           ].filter(Boolean).join(', ')));
 
           let smsMessage = `Witam, ${workshopName}. Potwierdzamy wizyte dnia ${dateStr} o godz. ${timeStr}.`;
