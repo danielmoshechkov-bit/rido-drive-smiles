@@ -42,6 +42,10 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
   const [wsName, setWsName] = useState('');
   const [primaryTabs, setPrimaryTabs] = useState<ServiceProviderNavTabKey[]>(DEFAULT_SERVICE_PROVIDER_PRIMARY_TABS);
   const queryClient = useQueryClient();
+  const [nipSearching, setNipSearching] = useState(false);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
 
   // Employees
   const { data: employees = [] } = useQuery({
