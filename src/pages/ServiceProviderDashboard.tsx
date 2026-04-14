@@ -107,7 +107,8 @@ export default function ServiceProviderDashboard() {
   // Settings state
   const [settingsForm, setSettingsForm] = useState({
     business_type: 'firma', company_name: '', first_name: '', last_name: '',
-    email: '', phone: '', address: '', city: '', postal_code: '', nip: '', website: '', bio: ''
+    email: '', phone: '', address: '', city: '', postal_code: '', nip: '', website: '', bio: '',
+    short_name: '', bank_account: '', logo_url: ''
   });
 
   const queryClient = useQueryClient();
