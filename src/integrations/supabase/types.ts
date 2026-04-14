@@ -21096,6 +21096,7 @@ export type Database = {
       workshop_settings: {
         Row: {
           address: string | null
+          bank_account: string | null
           city: string | null
           created_at: string | null
           currency: string | null
@@ -21114,11 +21115,13 @@ export type Database = {
           show_prices_as: string | null
           updated_at: string | null
           user_id: string
+          website: string | null
           work_stations: Json | null
           working_hours: Json | null
         }
         Insert: {
           address?: string | null
+          bank_account?: string | null
           city?: string | null
           created_at?: string | null
           currency?: string | null
@@ -21137,11 +21140,13 @@ export type Database = {
           show_prices_as?: string | null
           updated_at?: string | null
           user_id: string
+          website?: string | null
           work_stations?: Json | null
           working_hours?: Json | null
         }
         Update: {
           address?: string | null
+          bank_account?: string | null
           city?: string | null
           created_at?: string | null
           currency?: string | null
@@ -21160,6 +21165,7 @@ export type Database = {
           show_prices_as?: string | null
           updated_at?: string | null
           user_id?: string
+          website?: string | null
           work_stations?: Json | null
           working_hours?: Json | null
         }
