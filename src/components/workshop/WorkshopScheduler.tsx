@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useWorkshopOrders, useUpdateWorkshopOrder } from '@/hooks/useWorkshop';
@@ -23,7 +23,7 @@ interface Props {
 
 const HOURS = Array.from({ length: 11 }, (_, i) => i + 8);
 
-export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz', focusOrderId }: Props) {
+export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Terminarz', focusOrderId }: Props) {
   const queryClient = useQueryClient();
   const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -132,11 +132,11 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz', foc
     return Array.from(cats);
   }, [workstations]);
 
-  useMemo(() => {
+  useEffect(() => {
     if (categories.length > 0 && !categories.includes(activeCategory)) {
       setActiveCategory(categories[0]);
     }
-  }, [categories]);
+  }, [activeCategory, categories]);
 
   const categoryStations = useMemo(() => {
     const filtered = workstations.filter((ws: any) => (ws.category || 'Warsztat') === activeCategory);
@@ -925,7 +925,7 @@ function OrderCard({ order, onDragStart, onDragEnd, isFocused, employees, update
   );
 }
 
-function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders, stations, stationName, onSchedule, onStationChange }: {
+function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders, stations, stationName: _stationName, onSchedule, onStationChange }: {
   open: boolean; onOpenChange: (v: boolean) => void;
   slotData: { day: Date; hour: number; stationId: string } | null;
   providerId: string;
@@ -996,7 +996,7 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
       const appointmentMin = parseInt(editMinStr) || 0;
       const appointmentTime = `${appointmentHour.toString().padStart(2, '0')}:${appointmentMin.toString().padStart(2, '0')}:00`;
       const stationId = editStationId || slotData.stationId;
-      const { data: insertedBooking, error } = await supabase.from('workshop_client_bookings' as any).insert({
+      const { data: insertedBooking, error } = await (supabase as any).from('workshop_client_bookings').insert({
         provider_id: providerId,
         phone: clientForm.phone,
         first_name: clientForm.firstName || null,
@@ -1054,7 +1054,7 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
             console.error('SMS confirmation error:', smsError);
             toast.error('Rezerwacja zapisana, ale SMS nie został wysłany');
           } else {
-            await supabase
+            await (supabase as any)
               .from('workshop_client_bookings')
               .update({ confirmation_sms_sent: true })
               .eq('id', insertedBooking.id);
