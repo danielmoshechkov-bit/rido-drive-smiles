@@ -141,28 +141,113 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
     },
   });
 
+  const handleNipSearch = async () => {
+    const cleanNip = (settingsForm.nip || '').replace(/[\s-]/g, '');
+    if (!cleanNip || cleanNip.length !== 10) {
+      toast.error('Wpisz poprawny NIP (10 cyfr)');
+      return;
+    }
+    setNipSearching(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('registry-gus', {
+        body: { nip: cleanNip },
+      });
+      if (error) throw error;
+      if (data?.name) {
+        setSettingsForm((p: any) => ({
+          ...p,
+          company_name: data.name,
+          address: data.street || p.address,
+          city: data.city || p.city,
+          postal_code: data.postalCode || data.zipCode || p.postal_code,
+        }));
+        toast.success('Dane firmy pobrane z rejestru');
+      } else {
+        toast.info('Nie znaleziono firmy o podanym NIP');
+      }
+    } catch (e: any) {
+      toast.error('Błąd wyszukiwania: ' + (e.message || 'nieznany'));
+    } finally {
+      setNipSearching(false);
+    }
+  };
+
+  const handleLogoDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      if (file.size <= 2 * 1024 * 1024) setLogoFile(file);
+      else toast.error('Plik max 2MB');
+    }
+  }, []);
+
   const handleSaveSettings = async () => {
     if (!providerId) return;
-    const { error } = await supabase
-      .from('service_providers')
-      .update({
-        company_name: settingsForm.company_name,
-        company_nip: settingsForm.nip,
-        owner_first_name: settingsForm.first_name,
-        owner_last_name: settingsForm.last_name,
-        owner_email: settingsForm.email,
-        company_phone: settingsForm.phone,
-        company_address: settingsForm.address,
-        company_city: settingsForm.city,
-        company_postal_code: settingsForm.postal_code,
-        company_website: settingsForm.website,
-        description: settingsForm.bio,
-      })
-      .eq('id', providerId);
-    if (error) {
-      toast.error('Błąd zapisu: ' + error.message);
-    } else {
+    setSavingSettings(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Brak autoryzacji');
+
+      let uploadedLogoUrl = settingsForm.logo_url || '';
+      if (logoFile) {
+        const path = `workshop-logos/${user.id}/${Date.now()}-${logoFile.name}`;
+        const { error: upErr } = await supabase.storage.from('documents').upload(path, logoFile, { upsert: true });
+        if (upErr) throw upErr;
+        const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path);
+        uploadedLogoUrl = urlData.publicUrl;
+      }
+
+      const { error } = await supabase
+        .from('service_providers')
+        .update({
+          company_name: settingsForm.company_name,
+          company_nip: settingsForm.nip,
+          owner_first_name: settingsForm.first_name,
+          owner_last_name: settingsForm.last_name,
+          owner_email: settingsForm.email,
+          company_phone: settingsForm.phone,
+          company_address: settingsForm.address,
+          company_city: settingsForm.city,
+          company_postal_code: settingsForm.postal_code,
+          company_website: settingsForm.website,
+          description: settingsForm.bio,
+          logo_url: uploadedLogoUrl || null,
+        })
+        .eq('id', providerId);
+      if (error) throw error;
+
+      // Sync to workshop_settings
+      const wsPayload: any = {
+        firm_name: settingsForm.company_name,
+        short_name: settingsForm.short_name || '',
+        nip: (settingsForm.nip || '').replace(/[\s-]/g, ''),
+        address: settingsForm.address,
+        city: settingsForm.city,
+        postal_code: settingsForm.postal_code,
+        phone: settingsForm.phone,
+        email: settingsForm.email,
+        website: settingsForm.website,
+        bank_account: settingsForm.bank_account || '',
+        logo_url: uploadedLogoUrl || '',
+        updated_at: new Date().toISOString(),
+      };
+
+      const { data: existingWs } = await (supabase as any).from('workshop_settings').select('id').eq('user_id', user.id).maybeSingle();
+      if (existingWs) {
+        await (supabase as any).from('workshop_settings').update(wsPayload).eq('id', existingWs.id);
+      } else {
+        await (supabase as any).from('workshop_settings').insert({ ...wsPayload, user_id: user.id });
+      }
+
+      setSettingsForm((p: any) => ({ ...p, logo_url: uploadedLogoUrl }));
+      setLogoFile(null);
       toast.success('Ustawienia zapisane');
+    } catch (err: any) {
+      toast.error('Błąd zapisu: ' + (err.message || 'nieznany'));
+    } finally {
+      setSavingSettings(false);
     }
   };
 
