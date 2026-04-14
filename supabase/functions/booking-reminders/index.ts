@@ -28,8 +28,9 @@ serve(async (req) => {
     // 24h reminders: bookings tomorrow, not yet sent
     const { data: reminders24h } = await sb
       .from('workshop_client_bookings')
-      .select('*, service_providers!inner(company_name, phone, address)')
+      .select('*, service_providers!inner(company_name, company_phone, company_address, company_city, company_postal_code)')
       .eq('reminder_enabled', true)
+      .contains('reminder_times', ['24h'])
       .eq('reminder_24h_sent', false)
       .eq('status', 'scheduled')
       .eq('appointment_date', tomorrow)
@@ -42,8 +43,9 @@ serve(async (req) => {
 
     const { data: reminders2h } = await sb
       .from('workshop_client_bookings')
-      .select('*, service_providers!inner(company_name, phone, address)')
+      .select('*, service_providers!inner(company_name, company_phone, company_address, company_city, company_postal_code)')
       .eq('reminder_enabled', true)
+      .contains('reminder_times', ['2h'])
       .eq('reminder_2h_sent', false)
       .eq('status', 'scheduled')
       .eq('appointment_date', today)
@@ -55,7 +57,8 @@ serve(async (req) => {
     // Send 24h reminders
     for (const b of (reminders24h || [])) {
       const provider = (b as any).service_providers
-      const msg = buildSmsText(provider?.company_name, b.appointment_date, b.appointment_time, provider?.phone, provider?.address)
+      const address = [provider?.company_address, [provider?.company_postal_code, provider?.company_city].filter(Boolean).join(' ')].filter(Boolean).join(', ')
+      const msg = buildSmsText(provider?.company_name, b.appointment_date, b.appointment_time, address, b.service_description, 24)
       
       const { error } = await sb.functions.invoke('workshop-send-sms', {
         body: {
@@ -63,7 +66,6 @@ serve(async (req) => {
           message: msg,
           sms_type: 'booking_reminder_24h',
           provider_id: b.provider_id,
-          sender: 'GetRido'
         }
       })
 
@@ -80,7 +82,8 @@ serve(async (req) => {
     // Send 2h reminders
     for (const b of (reminders2h || [])) {
       const provider = (b as any).service_providers
-      const msg = buildSmsText(provider?.company_name, b.appointment_date, b.appointment_time, provider?.phone, provider?.address)
+      const address = [provider?.company_address, [provider?.company_postal_code, provider?.company_city].filter(Boolean).join(' ')].filter(Boolean).join(', ')
+      const msg = buildSmsText(provider?.company_name, b.appointment_date, b.appointment_time, address, b.service_description, 2)
       
       const { error } = await sb.functions.invoke('workshop-send-sms', {
         body: {
@@ -88,7 +91,6 @@ serve(async (req) => {
           message: msg,
           sms_type: 'booking_reminder_2h',
           provider_id: b.provider_id,
-          sender: 'GetRido'
         }
       })
 
@@ -113,19 +115,22 @@ function buildSmsText(
   companyName: string | undefined,
   date: string,
   time: string,
-  phone: string | undefined,
-  address: string | undefined
+  address: string | undefined,
+  serviceDescription: string | undefined,
+  reminderLeadHours: number
 ): string {
   // No Polish diacritics to fit in 1 SMS (160 chars GSM-7)
   const name = removeDiacritics(companyName || 'Warsztat')
   const d = formatDate(date)
   const t = time?.slice(0, 5) || ''
-  const addr = removeDiacritics(address || '')
-  const tel = phone || ''
+  const addr = removeDiacritics((address || '').replace(/\s+/g, ' ').trim())
+  const service = removeDiacritics((serviceDescription || '').replace(/\s+/g, ' ').trim())
 
-  let msg = `Witam, tu ${name}. Przypominamy o wizycie dnia ${d} o godz. ${t}.`
+  let msg = reminderLeadHours <= 2
+    ? `Witam, tu ${name}. Przypominamy: wizyta juz za ${reminderLeadHours}h, ${d} o godz. ${t}.`
+    : `Witam, tu ${name}. Przypominamy o wizycie dnia ${d} o godz. ${t}.`
+  if (service) msg += ` Usluga: ${service}.`
   if (addr) msg += ` Adres: ${addr}.`
-  if (tel) msg += ` Tel: ${tel}.`
   msg += ' Zapraszamy!'
 
   // Trim to 160 chars
