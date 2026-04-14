@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Save, Plus, Trash2, Users, Building2, Monitor, UserPlus, Sparkles } from 'lucide-react';
+import { Save, Plus, Trash2, Users, Building2, Monitor, UserPlus, Sparkles, Search, Loader2, Upload, X } from 'lucide-react';
 import { WorkshopPartsIntegrationsSettings } from './parts/WorkshopPartsIntegrationsSettings';
 import { RidoPriceSettingsTab } from './pricing/RidoPriceSettingsTab';
 import { WorkshopSettingsPage } from './WorkshopSettingsPage';
@@ -237,7 +237,7 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
 
   const settingsSubTabs = [
     { value: 'konto', label: 'Konto i firma', visible: true },
-    { value: 'warsztat', label: 'Warsztat', visible: true },
+    { value: 'warsztat', label: 'Zakład', visible: true },
     { value: 'pracownicy', label: 'Pracownicy', visible: true },
     { value: 'stanowiska', label: 'Stanowiska', visible: true },
     { value: 'kalendarz', label: 'Kalendarz', visible: true },
