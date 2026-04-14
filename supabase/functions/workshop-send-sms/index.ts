@@ -16,6 +16,28 @@ function normalizePhone(raw: string): string {
   return phone;
 }
 
+function tryParseJson(text: string) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+function getSmsApiError(parsed: any): string | null {
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+  const errorCode = Number(parsed.error ?? 0);
+  if (!errorCode) return null;
+  return String(parsed.message || `SMSAPI error ${errorCode}`);
+}
+
+function isInvalidSmsApiSender(parsed: any): boolean {
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return false;
+  const errorCode = Number(parsed.error ?? 0);
+  const message = String(parsed.message || "").toLowerCase();
+  return errorCode === 14 || message.includes("invalid from field");
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -71,25 +93,42 @@ serve(async (req) => {
 
     let response: Response;
     let responseText: string;
+    let parsedResponse: any = null;
 
     if (smsProvider === "smsapi") {
-      const params = new URLSearchParams({
-        to: msisdn,
-        message,
-        format: "json",
-        from: senderName || "INFO",
-        encoding: "utf-8",
-      });
+      const sendViaSmsApi = async (from?: string) => {
+        const params = new URLSearchParams({
+          to: msisdn,
+          message,
+          format: "json",
+          encoding: "utf-8",
+        });
 
-      response = await fetch("https://api.smsapi.pl/sms.do", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${appKey}`,
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: params.toString(),
-      });
-      responseText = await response.text();
+        if (from) {
+          params.set("from", from);
+        }
+
+        const smsResponse = await fetch("https://api.smsapi.pl/sms.do", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${appKey}`,
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: params.toString(),
+        });
+
+        const smsResponseText = await smsResponse.text();
+        return { smsResponse, smsResponseText };
+      };
+
+      ({ smsResponse: response, smsResponseText: responseText } = await sendViaSmsApi(senderName));
+      parsedResponse = tryParseJson(responseText);
+
+      if (isInvalidSmsApiSender(parsedResponse)) {
+        console.warn("[Workshop SMS] Sender rejected by SMSAPI, retrying without custom sender");
+        ({ smsResponse: response, smsResponseText: responseText } = await sendViaSmsApi());
+        parsedResponse = tryParseJson(responseText);
+      }
     } else {
       // justsend (default)
       const apiUrl = smsSettings?.api_url || "https://justsend.io/api/sender/bulk/send";
@@ -116,14 +155,17 @@ serve(async (req) => {
         body: JSON.stringify(body),
       });
       responseText = await response.text();
+      parsedResponse = tryParseJson(responseText);
     }
 
     console.log(`[Workshop SMS] Response: HTTP ${response.status} — ${responseText}`);
 
     const isSuccess = response.status === 200 || response.status === 201;
-    if (!isSuccess) {
+    const providerError = smsProvider === "smsapi" ? getSmsApiError(parsedResponse) : null;
+
+    if (!isSuccess || providerError) {
       return new Response(
-        JSON.stringify({ error: `SMS API error (HTTP ${response.status}): ${responseText}` }),
+        JSON.stringify({ error: providerError || `SMS API error (HTTP ${response.status}): ${responseText}` }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useWorkshopOrders, useUpdateWorkshopOrder } from '@/hooks/useWorkshop';
@@ -23,7 +23,7 @@ interface Props {
 
 const HOURS = Array.from({ length: 11 }, (_, i) => i + 8);
 
-export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz', focusOrderId }: Props) {
+export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Terminarz', focusOrderId }: Props) {
   const queryClient = useQueryClient();
   const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -132,11 +132,11 @@ export function WorkshopScheduler({ providerId, onBack, title = 'Terminarz', foc
     return Array.from(cats);
   }, [workstations]);
 
-  useMemo(() => {
+  useEffect(() => {
     if (categories.length > 0 && !categories.includes(activeCategory)) {
       setActiveCategory(categories[0]);
     }
-  }, [categories]);
+  }, [activeCategory, categories]);
 
   const categoryStations = useMemo(() => {
     const filtered = workstations.filter((ws: any) => (ws.category || 'Warsztat') === activeCategory);
@@ -700,18 +700,19 @@ function ScheduledOrderBlock({ order, displaySpan, employees, updateOrder, onDra
   onDragStart: () => void; onDragEnd: () => void;
   onResizeStart: (e: React.MouseEvent, order: any, direction: 'top' | 'bottom') => void;
 }) {
+  const isBooking = !!order._isBooking;
   const [showPreview, setShowPreview] = useState(false);
-  const [assignedEmployee, setAssignedEmployee] = useState(order.assigned_employee_id || '');
+  const [assignedEmployee, setAssignedEmployee] = useState(order.assigned_employee_id || 'none');
 
   const handleAssignEmployee = async (empId: string) => {
-    setAssignedEmployee(empId);
+    setAssignedEmployee(empId || 'none');
+    if (isBooking) return;
     try {
-      await updateOrder.mutateAsync({ id: order.id, assigned_employee_id: empId || null });
+      await updateOrder.mutateAsync({ id: order.id, assigned_employee_id: empId === 'none' ? null : empId });
       toast.success('Pracownik przypisany');
     } catch { toast.error('Błąd przypisania'); }
   };
 
-  const isBooking = !!order._isBooking;
   const bgColor = isBooking ? 'bg-[hsl(280,60%,55%)]' : 'bg-[hsl(220,70%,55%)]';
   const bgDark = isBooking ? 'bg-[hsl(280,60%,45%)]' : 'bg-[hsl(220,70%,45%)]';
 
@@ -763,7 +764,7 @@ function ScheduledOrderBlock({ order, displaySpan, employees, updateOrder, onDra
       <PopoverContent className="w-80 p-0" side="right" align="start">
         <div className="p-3 space-y-3">
           <div className="flex items-center justify-between">
-            <h4 className="font-bold text-sm flex items-center gap-1.5"><Eye className="h-4 w-4" /> Podgląd zlecenia</h4>
+            <h4 className="font-bold text-sm flex items-center gap-1.5"><Eye className="h-4 w-4" /> {isBooking ? 'Podgląd rezerwacji' : 'Podgląd zlecenia'}</h4>
             <span className="text-xs text-muted-foreground">{order.order_number}</span>
           </div>
           
@@ -814,19 +815,20 @@ function ScheduledOrderBlock({ order, displaySpan, employees, updateOrder, onDra
             </div>
           )}
 
-          {/* Assign employee */}
-          <div className="space-y-1">
-            <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Pracownik</div>
-            <Select value={assignedEmployee} onValueChange={handleAssignEmployee}>
-              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Przypisz pracownika..." /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">Brak</SelectItem>
-                {employees.map((emp: any) => (
-                  <SelectItem key={emp.id} value={emp.id}>{emp.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {!isBooking && (
+            <div className="space-y-1">
+              <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Pracownik</div>
+              <Select value={assignedEmployee} onValueChange={handleAssignEmployee}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Przypisz pracownika..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Brak</SelectItem>
+                  {employees.map((emp: any) => (
+                    <SelectItem key={emp.id} value={emp.id}>{emp.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
       </PopoverContent>
     </Popover>
@@ -835,12 +837,12 @@ function ScheduledOrderBlock({ order, displaySpan, employees, updateOrder, onDra
 
 function OrderCard({ order, onDragStart, onDragEnd, isFocused, employees, updateOrder }: { order: any; onDragStart: () => void; onDragEnd: () => void; isFocused?: boolean; employees: any[]; updateOrder: any }) {
   const [showPreview, setShowPreview] = useState(false);
-  const [assignedEmployee, setAssignedEmployee] = useState(order.assigned_employee_id || '');
+  const [assignedEmployee, setAssignedEmployee] = useState(order.assigned_employee_id || 'none');
 
   const handleAssignEmployee = async (empId: string) => {
-    setAssignedEmployee(empId);
+    setAssignedEmployee(empId || 'none');
     try {
-      await updateOrder.mutateAsync({ id: order.id, assigned_employee_id: empId || null });
+      await updateOrder.mutateAsync({ id: order.id, assigned_employee_id: empId === 'none' ? null : empId });
       toast.success('Pracownik przypisany');
     } catch { toast.error('Błąd'); }
   };
@@ -910,7 +912,7 @@ function OrderCard({ order, onDragStart, onDragEnd, isFocused, employees, update
             <Select value={assignedEmployee} onValueChange={handleAssignEmployee}>
               <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Przypisz pracownika..." /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Brak</SelectItem>
+                <SelectItem value="none">Brak</SelectItem>
                 {employees.map((emp: any) => (
                   <SelectItem key={emp.id} value={emp.id}>{emp.name}</SelectItem>
                 ))}
@@ -923,7 +925,7 @@ function OrderCard({ order, onDragStart, onDragEnd, isFocused, employees, update
   );
 }
 
-function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders, stations, stationName, onSchedule, onStationChange }: {
+function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders, stations, stationName: _stationName, onSchedule, onStationChange }: {
   open: boolean; onOpenChange: (v: boolean) => void;
   slotData: { day: Date; hour: number; stationId: string } | null;
   providerId: string;
@@ -980,6 +982,8 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
     return `+${digits}`;
   };
 
+  const compactSpaces = (s: string) => s.replace(/\s+/g, ' ').trim();
+
   const handleSaveClient = async () => {
     if (!clientForm.phone) {
       toast.error('Numer telefonu jest wymagany');
@@ -992,7 +996,7 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
       const appointmentMin = parseInt(editMinStr) || 0;
       const appointmentTime = `${appointmentHour.toString().padStart(2, '0')}:${appointmentMin.toString().padStart(2, '0')}:00`;
       const stationId = editStationId || slotData.stationId;
-      const { error } = await supabase.from('workshop_client_bookings' as any).insert({
+      const { data: insertedBooking, error } = await (supabase as any).from('workshop_client_bookings').insert({
         provider_id: providerId,
         phone: clientForm.phone,
         first_name: clientForm.firstName || null,
@@ -1009,20 +1013,33 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
         reminder_times: clientForm.reminderOptions,
         confirmation_sms_sent: false,
         status: 'scheduled',
-      });
+      }).select('id').single();
       if (error) throw error;
 
       // Send confirmation SMS if enabled
       if (clientForm.sendConfirmationSms) {
         try {
+          const { data: providerInfo } = await supabase
+            .from('service_providers')
+            .select('company_name, company_address, company_city, company_postal_code')
+            .eq('id', providerId)
+            .maybeSingle();
+
           const smsPhone = formatPhoneForSms(clientForm.phone);
           const [y, mo, d] = appointmentDay.split('-');
           const dateStr = `${d}.${mo}.${y}`;
           const timeStr = appointmentTime.slice(0, 5);
-          const vehicle = clientForm.plate ? ` ${clientForm.brand || ''} ${clientForm.model || ''} ${clientForm.plate}`.trim() : '';
-          const smsMessage = removePl(
-            `Potwierdzamy wizyte${vehicle ? ` (${vehicle})` : ''} dnia ${dateStr} o godz. ${timeStr}. Zapraszamy!`
-          ).slice(0, 160);
+          const workshopName = compactSpaces(removePl(providerInfo?.company_name || 'Warsztat')).slice(0, 28);
+          const serviceText = compactSpaces(removePl(clientForm.serviceDesc || 'umowiona usluga'));
+          const addressText = compactSpaces(removePl([
+            providerInfo?.company_address,
+            [providerInfo?.company_postal_code, providerInfo?.company_city].filter(Boolean).join(' '),
+          ].filter(Boolean).join(', ')));
+
+          let smsMessage = `Witam, ${workshopName}. Potwierdzamy wizyte dnia ${dateStr} o godz. ${timeStr}.`;
+          if (serviceText) smsMessage += ` Usluga: ${serviceText}.`;
+          if (addressText) smsMessage += ` Adres: ${addressText}.`;
+          smsMessage = compactSpaces(`${smsMessage} Zapraszamy!`).slice(0, 160);
 
           const { error: smsError } = await supabase.functions.invoke('workshop-send-sms', {
             body: {
@@ -1030,7 +1047,6 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
               message: smsMessage,
               sms_type: 'booking_confirmation',
               provider_id: providerId,
-              sender: 'GetRido',
             },
           });
 
@@ -1038,8 +1054,10 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
             console.error('SMS confirmation error:', smsError);
             toast.error('Rezerwacja zapisana, ale SMS nie został wysłany');
           } else {
-            // Update booking to mark SMS as sent
-            // We need the booking ID - refetch latest
+            await (supabase as any)
+              .from('workshop_client_bookings')
+              .update({ confirmation_sms_sent: true })
+              .eq('id', insertedBooking.id);
             toast.success('Klient umówiony, SMS potwierdzający wysłany');
           }
         } catch (smsErr) {
