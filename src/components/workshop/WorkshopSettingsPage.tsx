@@ -179,7 +179,30 @@ export const WorkshopSettingsPage = () => {
 
       setLogoUrl(uploadedLogoUrl);
       setLogoFile(null);
-      toast.success('Ustawienia warsztatu zapisane');
+
+      // Sync to service_providers
+      try {
+        const { data: sp } = await supabase
+          .from('service_providers')
+          .select('id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        if (sp) {
+          await supabase.from('service_providers').update({
+            company_name: firmName,
+            company_nip: nip.replace(/[\s-]/g, ''),
+            company_address: address,
+            company_city: city,
+            company_postal_code: postalCode,
+            company_phone: phone,
+            owner_email: email,
+            company_website: website,
+            logo_url: uploadedLogoUrl || null,
+          }).eq('id', sp.id);
+        }
+      } catch (_) { /* silent sync */ }
+
+      toast.success('Ustawienia zakładu zapisane');
     } catch (err: any) {
       toast.error(err.message || 'Błąd zapisu');
     } finally {
@@ -242,7 +265,7 @@ export const WorkshopSettingsPage = () => {
 
         <TabsContent value="basic">
           <Card>
-            <CardHeader><CardTitle>Dane warsztatu</CardTitle></CardHeader>
+            <CardHeader><CardTitle>Dane zakładu</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
