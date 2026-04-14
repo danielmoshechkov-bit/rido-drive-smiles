@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Save, Plus, Trash2, Users, Building2, Monitor, UserPlus, Sparkles } from 'lucide-react';
+import { Save, Plus, Trash2, Users, Building2, Monitor, UserPlus, Sparkles, Search, Loader2, Upload, X } from 'lucide-react';
 import { WorkshopPartsIntegrationsSettings } from './parts/WorkshopPartsIntegrationsSettings';
 import { RidoPriceSettingsTab } from './pricing/RidoPriceSettingsTab';
 import { WorkshopSettingsPage } from './WorkshopSettingsPage';
@@ -42,6 +42,10 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
   const [wsName, setWsName] = useState('');
   const [primaryTabs, setPrimaryTabs] = useState<ServiceProviderNavTabKey[]>(DEFAULT_SERVICE_PROVIDER_PRIMARY_TABS);
   const queryClient = useQueryClient();
+  const [nipSearching, setNipSearching] = useState(false);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
 
   // Employees
   const { data: employees = [] } = useQuery({
@@ -137,28 +141,113 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
     },
   });
 
+  const handleNipSearch = async () => {
+    const cleanNip = (settingsForm.nip || '').replace(/[\s-]/g, '');
+    if (!cleanNip || cleanNip.length !== 10) {
+      toast.error('Wpisz poprawny NIP (10 cyfr)');
+      return;
+    }
+    setNipSearching(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('registry-gus', {
+        body: { nip: cleanNip },
+      });
+      if (error) throw error;
+      if (data?.name) {
+        setSettingsForm((p: any) => ({
+          ...p,
+          company_name: data.name,
+          address: data.street || p.address,
+          city: data.city || p.city,
+          postal_code: data.postalCode || data.zipCode || p.postal_code,
+        }));
+        toast.success('Dane firmy pobrane z rejestru');
+      } else {
+        toast.info('Nie znaleziono firmy o podanym NIP');
+      }
+    } catch (e: any) {
+      toast.error('Błąd wyszukiwania: ' + (e.message || 'nieznany'));
+    } finally {
+      setNipSearching(false);
+    }
+  };
+
+  const handleLogoDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      if (file.size <= 2 * 1024 * 1024) setLogoFile(file);
+      else toast.error('Plik max 2MB');
+    }
+  }, []);
+
   const handleSaveSettings = async () => {
     if (!providerId) return;
-    const { error } = await supabase
-      .from('service_providers')
-      .update({
-        company_name: settingsForm.company_name,
-        company_nip: settingsForm.nip,
-        owner_first_name: settingsForm.first_name,
-        owner_last_name: settingsForm.last_name,
-        owner_email: settingsForm.email,
-        company_phone: settingsForm.phone,
-        company_address: settingsForm.address,
-        company_city: settingsForm.city,
-        company_postal_code: settingsForm.postal_code,
-        company_website: settingsForm.website,
-        description: settingsForm.bio,
-      })
-      .eq('id', providerId);
-    if (error) {
-      toast.error('Błąd zapisu: ' + error.message);
-    } else {
+    setSavingSettings(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Brak autoryzacji');
+
+      let uploadedLogoUrl = settingsForm.logo_url || '';
+      if (logoFile) {
+        const path = `workshop-logos/${user.id}/${Date.now()}-${logoFile.name}`;
+        const { error: upErr } = await supabase.storage.from('documents').upload(path, logoFile, { upsert: true });
+        if (upErr) throw upErr;
+        const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path);
+        uploadedLogoUrl = urlData.publicUrl;
+      }
+
+      const { error } = await supabase
+        .from('service_providers')
+        .update({
+          company_name: settingsForm.company_name,
+          company_nip: settingsForm.nip,
+          owner_first_name: settingsForm.first_name,
+          owner_last_name: settingsForm.last_name,
+          owner_email: settingsForm.email,
+          company_phone: settingsForm.phone,
+          company_address: settingsForm.address,
+          company_city: settingsForm.city,
+          company_postal_code: settingsForm.postal_code,
+          company_website: settingsForm.website,
+          description: settingsForm.bio,
+          logo_url: uploadedLogoUrl || null,
+        })
+        .eq('id', providerId);
+      if (error) throw error;
+
+      // Sync to workshop_settings
+      const wsPayload: any = {
+        firm_name: settingsForm.company_name,
+        short_name: settingsForm.short_name || '',
+        nip: (settingsForm.nip || '').replace(/[\s-]/g, ''),
+        address: settingsForm.address,
+        city: settingsForm.city,
+        postal_code: settingsForm.postal_code,
+        phone: settingsForm.phone,
+        email: settingsForm.email,
+        website: settingsForm.website,
+        bank_account: settingsForm.bank_account || '',
+        logo_url: uploadedLogoUrl || '',
+        updated_at: new Date().toISOString(),
+      };
+
+      const { data: existingWs } = await (supabase as any).from('workshop_settings').select('id').eq('user_id', user.id).maybeSingle();
+      if (existingWs) {
+        await (supabase as any).from('workshop_settings').update(wsPayload).eq('id', existingWs.id);
+      } else {
+        await (supabase as any).from('workshop_settings').insert({ ...wsPayload, user_id: user.id });
+      }
+
+      setSettingsForm((p: any) => ({ ...p, logo_url: uploadedLogoUrl }));
+      setLogoFile(null);
       toast.success('Ustawienia zapisane');
+    } catch (err: any) {
+      toast.error('Błąd zapisu: ' + (err.message || 'nieznany'));
+    } finally {
+      setSavingSettings(false);
     }
   };
 
@@ -237,7 +326,7 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
 
   const settingsSubTabs = [
     { value: 'konto', label: 'Konto i firma', visible: true },
-    { value: 'warsztat', label: 'Warsztat', visible: true },
+    { value: 'warsztat', label: 'Zakład', visible: true },
     { value: 'pracownicy', label: 'Pracownicy', visible: true },
     { value: 'stanowiska', label: 'Stanowiska', visible: true },
     { value: 'kalendarz', label: 'Kalendarz', visible: true },
@@ -312,28 +401,102 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
               </Select>
             </div>
             {settingsForm.business_type === 'firma' && (
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>Nazwa firmy</Label><Input value={settingsForm.company_name} onChange={e => setSettingsForm((p: any) => ({ ...p, company_name: e.target.value }))} /></div>
-                <div className="space-y-2"><Label>NIP</Label><Input value={settingsForm.nip} onChange={e => setSettingsForm((p: any) => ({ ...p, nip: e.target.value }))} placeholder="0000000000" /></div>
-              </div>
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2"><Label>Nazwa firmy</Label><Input value={settingsForm.company_name} onChange={e => setSettingsForm((p: any) => ({ ...p, company_name: e.target.value }))} placeholder="Nazwa warsztatu / firmy" /></div>
+                  <div className="space-y-2">
+                    <Label>NIP</Label>
+                    <div className="flex gap-2">
+                      <Input value={settingsForm.nip} onChange={e => setSettingsForm((p: any) => ({ ...p, nip: e.target.value }))} placeholder="0000000000" className="flex-1" />
+                      <Button variant="outline" size="icon" onClick={handleNipSearch} disabled={nipSearching} title="Wyszukaj dane firmy po NIP">
+                        {nipSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2"><Label>Nazwa skrócona (widoczna w SMS, dokumentach)</Label><Input value={settingsForm.short_name || ''} onChange={e => setSettingsForm((p: any) => ({ ...p, short_name: e.target.value }))} placeholder="Np. AutoSerwis" /></div>
+                  <div className="space-y-2"><Label>Adres</Label><Input value={settingsForm.address} onChange={e => setSettingsForm((p: any) => ({ ...p, address: e.target.value }))} placeholder="ul. Przykładowa 1" /></div>
+                </div>
+              </>
             )}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Kod pocztowy i miasto</Label>
+                <div className="flex gap-2">
+                  <Input value={settingsForm.postal_code} onChange={e => setSettingsForm((p: any) => ({ ...p, postal_code: e.target.value }))} placeholder="00-000" maxLength={6} className="w-28" />
+                  <Input value={settingsForm.city} onChange={e => setSettingsForm((p: any) => ({ ...p, city: e.target.value }))} placeholder="Miasto" className="flex-1" />
+                </div>
+              </div>
+              <div className="space-y-2"><Label>Telefon</Label><Input value={settingsForm.phone} onChange={e => setSettingsForm((p: any) => ({ ...p, phone: e.target.value }))} placeholder="+48 000 000 000" /></div>
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2"><Label>Imię</Label><Input value={settingsForm.first_name} onChange={e => setSettingsForm((p: any) => ({ ...p, first_name: e.target.value }))} /></div>
               <div className="space-y-2"><Label>Nazwisko</Label><Input value={settingsForm.last_name} onChange={e => setSettingsForm((p: any) => ({ ...p, last_name: e.target.value }))} /></div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2"><Label>Email</Label><Input type="email" value={settingsForm.email} onChange={e => setSettingsForm((p: any) => ({ ...p, email: e.target.value }))} /></div>
-              <div className="space-y-2"><Label>Telefon</Label><Input value={settingsForm.phone} onChange={e => setSettingsForm((p: any) => ({ ...p, phone: e.target.value }))} placeholder="+48 000 000 000" /></div>
+              <div className="space-y-2"><Label>Strona WWW</Label><Input value={settingsForm.website} onChange={e => setSettingsForm((p: any) => ({ ...p, website: e.target.value }))} placeholder="https://warsztat.pl" /></div>
             </div>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2"><Label>Adres</Label><Input value={settingsForm.address} onChange={e => setSettingsForm((p: any) => ({ ...p, address: e.target.value }))} /></div>
-              <div className="space-y-2"><Label>Miasto</Label><Input value={settingsForm.city} onChange={e => setSettingsForm((p: any) => ({ ...p, city: e.target.value }))} /></div>
-              <div className="space-y-2"><Label>Kod pocztowy</Label><Input value={settingsForm.postal_code} onChange={e => setSettingsForm((p: any) => ({ ...p, postal_code: e.target.value }))} placeholder="00-000" /></div>
+            <div className="space-y-2"><Label>Nr konta bankowego</Label><Input value={settingsForm.bank_account || ''} onChange={e => setSettingsForm((p: any) => ({ ...p, bank_account: e.target.value }))} placeholder="PL 00 0000 0000 0000 0000 0000 0000" /></div>
+
+            {/* Logo upload */}
+            <div className="space-y-2">
+              <Label>Logo firmy</Label>
+              <div
+                className={`relative border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
+                  isDragOver ? 'border-primary bg-primary/10' : logoFile || settingsForm.logo_url ? 'border-primary/30 bg-primary/5' : 'border-border hover:border-primary/50 hover:bg-muted/50'
+                }`}
+                onDragOver={e => { e.preventDefault(); e.stopPropagation(); setIsDragOver(true); }}
+                onDragLeave={e => { e.preventDefault(); e.stopPropagation(); setIsDragOver(false); }}
+                onDrop={handleLogoDrop}
+                onClick={() => {
+                  const input = document.createElement('input');
+                  input.type = 'file';
+                  input.accept = 'image/png,image/jpeg';
+                  input.onchange = (ev: any) => {
+                    const file = ev.target.files?.[0];
+                    if (file && file.size <= 2 * 1024 * 1024) setLogoFile(file);
+                    else if (file) toast.error('Plik max 2MB');
+                  };
+                  input.click();
+                }}
+              >
+                {(logoFile || settingsForm.logo_url) ? (
+                  <div className="flex items-center justify-center gap-4">
+                    <img
+                      src={logoFile ? URL.createObjectURL(logoFile) : settingsForm.logo_url}
+                      alt="Logo"
+                      className="h-16 w-16 object-contain rounded border"
+                    />
+                    <div className="text-left">
+                      <p className="text-sm font-medium">{logoFile ? logoFile.name : 'Aktualne logo'}</p>
+                      <p className="text-xs text-muted-foreground">Kliknij lub przeciągnij aby zmienić</p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={e => { e.stopPropagation(); setLogoFile(null); setSettingsForm((p: any) => ({ ...p, logo_url: '' })); }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="py-2">
+                    <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">Przeciągnij logo lub kliknij aby wybrać plik</p>
+                    <p className="text-xs text-muted-foreground mt-1">PNG, JPG do 2 MB</p>
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="space-y-2"><Label>Strona WWW</Label><Input value={settingsForm.website} onChange={e => setSettingsForm((p: any) => ({ ...p, website: e.target.value }))} placeholder="https://" /></div>
+
             <div className="space-y-2"><Label>Opis działalności</Label><Textarea rows={3} value={settingsForm.bio} onChange={e => setSettingsForm((p: any) => ({ ...p, bio: e.target.value }))} placeholder="Krótki opis Twojej firmy..." /></div>
             <div className="flex justify-end">
-              <Button className="gap-2" onClick={handleSaveSettings}><Save className="h-4 w-4" /> Zapisz ustawienia</Button>
+              <Button className="gap-2" onClick={handleSaveSettings} disabled={savingSettings}>
+                {savingSettings ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Zapisz ustawienia
+              </Button>
             </div>
           </div>
         )}

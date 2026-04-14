@@ -107,7 +107,8 @@ export default function ServiceProviderDashboard() {
   // Settings state
   const [settingsForm, setSettingsForm] = useState({
     business_type: 'firma', company_name: '', first_name: '', last_name: '',
-    email: '', phone: '', address: '', city: '', postal_code: '', nip: '', website: '', bio: ''
+    email: '', phone: '', address: '', city: '', postal_code: '', nip: '', website: '', bio: '',
+    short_name: '', bank_account: '', logo_url: ''
   });
 
   const queryClient = useQueryClient();
@@ -195,6 +196,13 @@ export default function ServiceProviderDashboard() {
         averageRating: provider.rating_avg || 0
       });
 
+      // Fetch workshop settings for short_name, bank_account, logo
+      const { data: wsSettings } = await (supabase as any)
+        .from('workshop_settings')
+        .select('short_name, bank_account, logo_url, website')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
       setSettingsForm(prev => ({
         ...prev,
         company_name: provider.company_name || '',
@@ -206,8 +214,11 @@ export default function ServiceProviderDashboard() {
         city: provider.company_city || '',
         postal_code: provider.company_postal_code || '',
         nip: provider.company_nip || '',
-        website: provider.company_website || '',
+        website: provider.company_website || wsSettings?.website || '',
         bio: provider.description || '',
+        short_name: wsSettings?.short_name || '',
+        bank_account: wsSettings?.bank_account || '',
+        logo_url: provider.logo_url || wsSettings?.logo_url || '',
       }));
     }
 
