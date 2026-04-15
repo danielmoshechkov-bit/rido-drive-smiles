@@ -103,7 +103,52 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
     }
   };
 
-  const getClientName = (o: any) => {
+  const openInvoiceForOrder = async (order: any, docType: 'invoice' | 'receipt' = 'invoice') => {
+    try {
+      // Load order items
+      const { data: orderItems } = await (supabase as any)
+        .from('workshop_order_items')
+        .select('*')
+        .eq('order_id', order.id)
+        .order('sort_order');
+
+      const prefillItems = (orderItems || []).map((item: any) => ({
+        name: item.name || '',
+        quantity: item.quantity || 1,
+        unit: item.unit || 'usł.',
+        unit_net_price: item.unit_price_net || 0,
+        unit_gross_price: item.unit_price_gross || 0,
+        vat_rate: '23',
+        discount_percent: item.discount_percent || 0,
+      }));
+
+      const buyer: any = {};
+      if (order.client) {
+        buyer.name = order.client.client_type === 'company'
+          ? order.client.company_name
+          : `${order.client.first_name || ''} ${order.client.last_name || ''}`.trim();
+        buyer.nip = order.client.nip || '';
+        buyer.address_street = order.client.address || '';
+        buyer.address_city = order.client.city || '';
+        buyer.address_postal_code = order.client.postal_code || '';
+        buyer.email = order.client.email || '';
+      }
+
+      const vehicleDesc = order.vehicle
+        ? `Marka: ${order.vehicle.brand || ''}, Model: ${order.vehicle.model || ''}, Nr rej: ${order.vehicle.plate || ''}, VIN: ${order.vehicle.vin || ''}`
+        : '';
+      const notes = [vehicleDesc, order.order_number ? `Do zlecenia: ${order.order_number}` : ''].filter(Boolean).join('\n');
+
+      setInvoiceItems(prefillItems);
+      setInvoiceBuyer(buyer);
+      setInvoiceNotes(notes);
+      setInvoiceOrder(order);
+    } catch (e: any) {
+      toast.error('Błąd ładowania pozycji zlecenia');
+    }
+  };
+
+
     if (!o.client) return '';
     return o.client.client_type === 'company'
       ? o.client.company_name
