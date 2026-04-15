@@ -263,7 +263,7 @@ export function BankTransferExportDialog({
 
       const { data: driversData } = await supabase
         .from('drivers')
-        .select('id, first_name, last_name, iban, bank_account, payment_method, billing_method, fleet_id, b2b_enabled, b2b_company_name, b2b_vat_payer')
+        .select('id, first_name, last_name, iban, bank_account, payment_method, billing_method, fleet_id, b2b_enabled, b2b_company_name, b2b_vat_payer, payout_frequency')
         .eq('fleet_id', fleetId);
 
       const { data: contracts } = await supabase
