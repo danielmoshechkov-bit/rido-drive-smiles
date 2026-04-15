@@ -599,6 +599,11 @@ export function BankTransferExportDialog({
         {row.b2bEnabled && row.name !== row.displayName && (
           <span className="block text-[9px] text-muted-foreground truncate">{row.name}</span>
         )}
+        {row.payoutFrequency && row.payoutFrequency !== 'weekly' && (
+          <span className={`block text-[9px] font-medium ${row.payoutFrequency === 'monthly' ? 'text-amber-600' : 'text-blue-600'}`}>
+            {row.payoutFrequency === 'monthly' ? '📅 Miesięcznie' : '⏸ Na żądanie'}
+          </span>
+        )}
       </div>
       <span className={`w-[70px] text-right font-semibold ${row.payout < 0 ? 'text-destructive' : 'text-primary'}`}>
         {row.payout.toFixed(2)} zł
