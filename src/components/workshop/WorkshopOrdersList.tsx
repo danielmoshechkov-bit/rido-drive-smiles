@@ -9,6 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import {
   useWorkshopOrders, useWorkshopStatuses, useUpdateWorkshopOrder,
 } from '@/hooks/useWorkshop';
@@ -18,9 +19,11 @@ import { WorkshopEditClientDialog } from './WorkshopEditClientDialog';
 import { useVehicleLookup } from '@/hooks/useVehicleLookup';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
+import { SimpleFreeInvoice } from '@/components/invoices/SimpleFreeInvoice';
 import {
   Plus, Search, CheckCircle, Car, Trash2,
-  Wrench, Filter, Loader2, Copy, Phone, Mail, User, ExternalLink, Building, Save, Calendar
+  Wrench, Filter, Loader2, Copy, Phone, Mail, User, ExternalLink, Building, Save, Calendar,
+  FileText, Receipt, ChevronDown
 } from 'lucide-react';
 import { format, isFuture, isPast } from 'date-fns';
 import { pl } from 'date-fns/locale';
