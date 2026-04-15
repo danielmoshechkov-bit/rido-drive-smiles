@@ -555,6 +555,27 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
           type={smsDialogType}
         />
       )}
+
+      {/* Invoice dialog */}
+      {invoiceOrder && (
+        <Dialog open={!!invoiceOrder} onOpenChange={(v) => { if (!v) setInvoiceOrder(null); }}>
+          <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto p-0">
+            <DialogTitle className="sr-only">Wystaw fakturę</DialogTitle>
+            <SimpleFreeInvoice
+              onClose={() => setInvoiceOrder(null)}
+              onSaved={() => {
+                setInvoiceOrder(null);
+                toast.success('Faktura wystawiona');
+                queryClient.invalidateQueries({ queryKey: ['workshop-orders'] });
+              }}
+              prefillItems={invoiceItems}
+              prefillBuyer={invoiceBuyer}
+              prefillNotes={invoiceNotes}
+              prefillOrderNumber={invoiceOrder?.order_number}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
