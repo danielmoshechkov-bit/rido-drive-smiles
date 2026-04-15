@@ -1099,6 +1099,38 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                                 />
                               </div>
 
+                              {/* Payout frequency selector */}
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <RotateCcw size={14} />
+                                  <span className="text-xs font-medium">Częstotliwość wypłat</span>
+                                </div>
+                                <Select
+                                  value={(driver as any).payout_frequency || 'weekly'}
+                                  onValueChange={async (value) => {
+                                    const { error } = await supabase
+                                      .from('drivers')
+                                      .update({ payout_frequency: value } as any)
+                                      .eq('id', driver.id);
+                                    if (error) toast.error('Błąd zapisu');
+                                    else {
+                                      const labels: Record<string, string> = { weekly: 'Co tydzień', monthly: 'Raz w miesiącu', on_demand: 'Na żądanie' };
+                                      toast.success(`Ustawiono: ${labels[value]}`);
+                                      refetch();
+                                    }
+                                  }}
+                                >
+                                  <SelectTrigger className="h-7 w-[140px] text-xs">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="weekly">Co tydzień</SelectItem>
+                                    <SelectItem value="monthly">Raz w miesiącu</SelectItem>
+                                    <SelectItem value="on_demand">Na żądanie</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
                               {(driver as any).b2b_enabled && (
                                 <div className="space-y-2 pl-5 text-xs">
                                   <div className="flex items-center gap-2">
