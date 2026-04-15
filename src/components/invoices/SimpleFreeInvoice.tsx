@@ -126,13 +126,37 @@ interface ExtendedBuyer extends Omit<InvoiceBuyer, 'address_street'> {
   address_apartment_number?: string;
 }
 
+interface PrefillItem {
+  name: string;
+  quantity: number;
+  unit: string;
+  unit_net_price: number;
+  unit_gross_price: number;
+  vat_rate: string;
+  discount_percent?: number;
+}
+
+interface PrefillBuyer {
+  name?: string;
+  nip?: string;
+  address_street?: string;
+  address_city?: string;
+  address_postal_code?: string;
+  email?: string;
+  phone?: string;
+}
+
 interface SimpleFreeInvoiceProps {
   onClose?: () => void;
   onSaved?: () => void;
-  editInvoiceId?: string; // If provided, load this invoice for editing
+  editInvoiceId?: string;
+  prefillItems?: PrefillItem[];
+  prefillBuyer?: PrefillBuyer;
+  prefillNotes?: string;
+  prefillOrderNumber?: string;
 }
 
-export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFreeInvoiceProps = {}) {
+export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItems, prefillBuyer, prefillNotes, prefillOrderNumber }: SimpleFreeInvoiceProps = {}) {
   const today = format(new Date(), 'yyyy-MM-dd');
   const defaultDueDate = format(addDays(new Date(), 7), 'yyyy-MM-dd');
   
