@@ -300,6 +300,7 @@ export function BankTransferExportDialog({
             b2bEnabled: isB2B,
             b2bCompanyName: companyName,
             b2bVatPayer: !!(driver?.b2b_vat_payer),
+            payoutFrequency: driver?.payout_frequency || 'weekly',
             selected: false,
           };
         })
