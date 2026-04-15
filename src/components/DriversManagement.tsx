@@ -918,6 +918,14 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                               </div>
                            </PopoverContent>
                          </Popover>
+
+                         {/* Payout frequency badge */}
+                         {(mode === 'admin' || mode === 'fleet') && (
+                           <Badge variant="outline" className="gap-1 text-xs">
+                             <RotateCcw className="h-3 w-3" />
+                             {(driver as any).payout_frequency === 'monthly' ? 'Miesięcznie' : (driver as any).payout_frequency === 'on_demand' ? 'Na żądanie' : 'Co tydzień'}
+                           </Badge>
+                         )}
                        </div>
 
                        <div className="flex items-center gap-4 text-sm flex-wrap">
