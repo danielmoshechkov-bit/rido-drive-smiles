@@ -126,13 +126,37 @@ interface ExtendedBuyer extends Omit<InvoiceBuyer, 'address_street'> {
   address_apartment_number?: string;
 }
 
+interface PrefillItem {
+  name: string;
+  quantity: number;
+  unit: string;
+  unit_net_price: number;
+  unit_gross_price: number;
+  vat_rate: string;
+  discount_percent?: number;
+}
+
+interface PrefillBuyer {
+  name?: string;
+  nip?: string;
+  address_street?: string;
+  address_city?: string;
+  address_postal_code?: string;
+  email?: string;
+  phone?: string;
+}
+
 interface SimpleFreeInvoiceProps {
   onClose?: () => void;
   onSaved?: () => void;
-  editInvoiceId?: string; // If provided, load this invoice for editing
+  editInvoiceId?: string;
+  prefillItems?: PrefillItem[];
+  prefillBuyer?: PrefillBuyer;
+  prefillNotes?: string;
+  prefillOrderNumber?: string;
 }
 
-export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFreeInvoiceProps = {}) {
+export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItems, prefillBuyer, prefillNotes, prefillOrderNumber }: SimpleFreeInvoiceProps = {}) {
   const today = format(new Date(), 'yyyy-MM-dd');
   const defaultDueDate = format(addDays(new Date(), 7), 'yyyy-MM-dd');
   
@@ -276,6 +300,35 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId }: SimpleFre
       toast.success(`Znaleziono: ${nipCompany.name}`);
     }
   }, [nipCompany]);
+
+  // Prefill items and buyer from workshop order
+  useEffect(() => {
+    if (prefillItems && prefillItems.length > 0) {
+      const mapped: ExtendedInvoiceItem[] = prefillItems.map(pi => {
+        const base = calculateItemTotals({
+          name: pi.name,
+          quantity: pi.quantity,
+          unit: pi.unit || 'usł.',
+          unit_net_price: pi.unit_net_price,
+          vat_rate: pi.vat_rate || '23',
+        });
+        return { ...base, unit_gross_price: pi.unit_gross_price || 0, discount_percent: pi.discount_percent };
+      });
+      setItems(mapped);
+    }
+    if (prefillBuyer) {
+      setBuyer(prev => ({
+        ...prev,
+        name: prefillBuyer.name || prev.name,
+        nip: prefillBuyer.nip || prev.nip,
+        address_street: prefillBuyer.address_street || prev.address_street,
+        address_city: prefillBuyer.address_city || prev.address_city,
+        address_postal_code: prefillBuyer.address_postal_code || prev.address_postal_code,
+        email: prefillBuyer.email || prev.email,
+      }));
+    }
+    if (prefillNotes) setNotes(prefillNotes);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Check auth state and load saved company data
   // Helper function to load user company data from multiple sources

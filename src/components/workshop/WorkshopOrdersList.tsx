@@ -9,6 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import {
   useWorkshopOrders, useWorkshopStatuses, useUpdateWorkshopOrder,
 } from '@/hooks/useWorkshop';
@@ -18,9 +19,11 @@ import { WorkshopEditClientDialog } from './WorkshopEditClientDialog';
 import { useVehicleLookup } from '@/hooks/useVehicleLookup';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
+import { SimpleFreeInvoice } from '@/components/invoices/SimpleFreeInvoice';
 import {
   Plus, Search, CheckCircle, Car, Trash2,
-  Wrench, Filter, Loader2, Copy, Phone, Mail, User, ExternalLink, Building, Save, Calendar
+  Wrench, Filter, Loader2, Copy, Phone, Mail, User, ExternalLink, Building, Save, Calendar,
+  FileText, Receipt, ChevronDown
 } from 'lucide-react';
 import { format, isFuture, isPast } from 'date-fns';
 import { pl } from 'date-fns/locale';
@@ -56,6 +59,10 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
   const [editVehicle, setEditVehicle] = useState<any>(null);
   const [smsDialogOrder, setSmsDialogOrder] = useState<any>(null);
   const [smsDialogType, setSmsDialogType] = useState<'reception' | 'quote' | 'ready'>('ready');
+  const [invoiceOrder, setInvoiceOrder] = useState<any>(null);
+  const [invoiceItems, setInvoiceItems] = useState<any[]>([]);
+  const [invoiceBuyer, setInvoiceBuyer] = useState<any>(null);
+  const [invoiceNotes, setInvoiceNotes] = useState('');
 
   const { data: statuses = [] } = useWorkshopStatuses(providerId);
   const { data: orders = [], isLoading } = useWorkshopOrders(providerId, {
@@ -96,6 +103,51 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
     }
   };
 
+  const openInvoiceForOrder = async (order: any, docType: 'invoice' | 'receipt' = 'invoice') => {
+    try {
+      // Load order items
+      const { data: orderItems } = await (supabase as any)
+        .from('workshop_order_items')
+        .select('*')
+        .eq('order_id', order.id)
+        .order('sort_order');
+
+      const prefillItems = (orderItems || []).map((item: any) => ({
+        name: item.name || '',
+        quantity: item.quantity || 1,
+        unit: item.unit || 'usł.',
+        unit_net_price: item.unit_price_net || 0,
+        unit_gross_price: item.unit_price_gross || 0,
+        vat_rate: '23',
+        discount_percent: item.discount_percent || 0,
+      }));
+
+      const buyer: any = {};
+      if (order.client) {
+        buyer.name = order.client.client_type === 'company'
+          ? order.client.company_name
+          : `${order.client.first_name || ''} ${order.client.last_name || ''}`.trim();
+        buyer.nip = order.client.nip || '';
+        buyer.address_street = order.client.address || '';
+        buyer.address_city = order.client.city || '';
+        buyer.address_postal_code = order.client.postal_code || '';
+        buyer.email = order.client.email || '';
+      }
+
+      const vehicleDesc = order.vehicle
+        ? `Marka: ${order.vehicle.brand || ''}, Model: ${order.vehicle.model || ''}, Nr rej: ${order.vehicle.plate || ''}, VIN: ${order.vehicle.vin || ''}`
+        : '';
+      const notes = [vehicleDesc, order.order_number ? `Do zlecenia: ${order.order_number}` : ''].filter(Boolean).join('\n');
+
+      setInvoiceItems(prefillItems);
+      setInvoiceBuyer(buyer);
+      setInvoiceNotes(notes);
+      setInvoiceOrder(order);
+    } catch (e: any) {
+      toast.error('Błąd ładowania pozycji zlecenia');
+    }
+  };
+
   const getClientName = (o: any) => {
     if (!o.client) return '';
     return o.client.client_type === 'company'
@@ -133,6 +185,30 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
           }}>
             <Trash2 className="h-4 w-4" /> Usuń
           </Button>
+        )}
+
+        {selectedIds.size === 1 && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-1">
+                <FileText className="h-4 w-4" /> Wystaw <ChevronDown className="h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={() => {
+                const order = orders.find((o: any) => selectedIds.has(o.id));
+                if (order) openInvoiceForOrder(order, 'invoice');
+              }}>
+                <FileText className="h-4 w-4 mr-2" /> Faktura
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => {
+                const order = orders.find((o: any) => selectedIds.has(o.id));
+                if (order) openInvoiceForOrder(order, 'receipt');
+              }}>
+                <Receipt className="h-4 w-4 mr-2" /> Paragon fiskalny
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
 
         <div className="flex-1" />
@@ -502,6 +578,27 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
           order={smsDialogOrder}
           type={smsDialogType}
         />
+      )}
+
+      {/* Invoice dialog */}
+      {invoiceOrder && (
+        <Dialog open={!!invoiceOrder} onOpenChange={(v) => { if (!v) setInvoiceOrder(null); }}>
+          <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto p-0">
+            <DialogTitle className="sr-only">Wystaw fakturę</DialogTitle>
+            <SimpleFreeInvoice
+              onClose={() => setInvoiceOrder(null)}
+              onSaved={() => {
+                setInvoiceOrder(null);
+                toast.success('Faktura wystawiona');
+                queryClient.invalidateQueries({ queryKey: ['workshop-orders'] });
+              }}
+              prefillItems={invoiceItems}
+              prefillBuyer={invoiceBuyer}
+              prefillNotes={invoiceNotes}
+              prefillOrderNumber={invoiceOrder?.order_number}
+            />
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );
