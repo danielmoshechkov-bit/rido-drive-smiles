@@ -301,6 +301,35 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
     }
   }, [nipCompany]);
 
+  // Prefill items and buyer from workshop order
+  useEffect(() => {
+    if (prefillItems && prefillItems.length > 0) {
+      const mapped: ExtendedInvoiceItem[] = prefillItems.map(pi => {
+        const base = calculateItemTotals({
+          name: pi.name,
+          quantity: pi.quantity,
+          unit: pi.unit || 'usł.',
+          unit_net_price: pi.unit_net_price,
+          vat_rate: pi.vat_rate || '23',
+        });
+        return { ...base, unit_gross_price: pi.unit_gross_price || 0, discount_percent: pi.discount_percent };
+      });
+      setItems(mapped);
+    }
+    if (prefillBuyer) {
+      setBuyer(prev => ({
+        ...prev,
+        name: prefillBuyer.name || prev.name,
+        nip: prefillBuyer.nip || prev.nip,
+        address_street: prefillBuyer.address_street || prev.address_street,
+        address_city: prefillBuyer.address_city || prev.address_city,
+        address_postal_code: prefillBuyer.address_postal_code || prev.address_postal_code,
+        email: prefillBuyer.email || prev.email,
+      }));
+    }
+    if (prefillNotes) setNotes(prefillNotes);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Check auth state and load saved company data
   // Helper function to load user company data from multiple sources
   const loadUserCompanyData = async (userId: string) => {
