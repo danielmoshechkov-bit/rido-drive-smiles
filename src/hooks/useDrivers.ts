@@ -15,6 +15,7 @@ export interface Driver {
   fuel_card_number: string | null;
   fuel_card_pin: string | null;
   fleet_id?: string | null;
+  payout_frequency?: string;
   getrido_id?: string | null;
   payment_method?: string | null;
   iban?: string | null;
