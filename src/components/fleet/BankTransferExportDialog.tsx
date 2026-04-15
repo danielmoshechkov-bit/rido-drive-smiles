@@ -60,7 +60,7 @@ interface TransferRow {
 interface DriverRow {
   id: string;
   name: string;
-  displayName: string; // name used in transfer file (company name for B2B)
+  displayName: string;
   payout: number;
   iban: string;
   paymentMode: 'transfer' | 'cash' | 'fleet';
@@ -71,6 +71,7 @@ interface DriverRow {
   b2bEnabled?: boolean;
   b2bCompanyName?: string;
   b2bVatPayer?: boolean;
+  payoutFrequency?: string;
   selected: boolean;
 }
 
