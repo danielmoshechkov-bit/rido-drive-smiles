@@ -187,6 +187,30 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
           </Button>
         )}
 
+        {selectedIds.size === 1 && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-1">
+                <FileText className="h-4 w-4" /> Wystaw <ChevronDown className="h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={() => {
+                const order = orders.find((o: any) => selectedIds.has(o.id));
+                if (order) openInvoiceForOrder(order, 'invoice');
+              }}>
+                <FileText className="h-4 w-4 mr-2" /> Faktura
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => {
+                const order = orders.find((o: any) => selectedIds.has(o.id));
+                if (order) openInvoiceForOrder(order, 'receipt');
+              }}>
+                <Receipt className="h-4 w-4 mr-2" /> Paragon fiskalny
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+
         <div className="flex-1" />
 
         <Button
