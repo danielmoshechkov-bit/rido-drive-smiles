@@ -60,7 +60,7 @@ interface TransferRow {
 interface DriverRow {
   id: string;
   name: string;
-  displayName: string; // name used in transfer file (company name for B2B)
+  displayName: string;
   payout: number;
   iban: string;
   paymentMode: 'transfer' | 'cash' | 'fleet';
@@ -71,6 +71,7 @@ interface DriverRow {
   b2bEnabled?: boolean;
   b2bCompanyName?: string;
   b2bVatPayer?: boolean;
+  payoutFrequency?: string;
   selected: boolean;
 }
 
@@ -262,7 +263,7 @@ export function BankTransferExportDialog({
 
       const { data: driversData } = await supabase
         .from('drivers')
-        .select('id, first_name, last_name, iban, bank_account, payment_method, billing_method, fleet_id, b2b_enabled, b2b_company_name, b2b_vat_payer')
+        .select('id, first_name, last_name, iban, bank_account, payment_method, billing_method, fleet_id, b2b_enabled, b2b_company_name, b2b_vat_payer, payout_frequency')
         .eq('fleet_id', fleetId);
 
       const { data: contracts } = await supabase
@@ -299,6 +300,7 @@ export function BankTransferExportDialog({
             b2bEnabled: isB2B,
             b2bCompanyName: companyName,
             b2bVatPayer: !!(driver?.b2b_vat_payer),
+            payoutFrequency: driver?.payout_frequency || 'weekly',
             selected: false,
           };
         })
@@ -596,6 +598,11 @@ export function BankTransferExportDialog({
         )}
         {row.b2bEnabled && row.name !== row.displayName && (
           <span className="block text-[9px] text-muted-foreground truncate">{row.name}</span>
+        )}
+        {row.payoutFrequency && row.payoutFrequency !== 'weekly' && (
+          <span className={`block text-[9px] font-medium ${row.payoutFrequency === 'monthly' ? 'text-amber-600' : 'text-blue-600'}`}>
+            {row.payoutFrequency === 'monthly' ? '📅 Miesięcznie' : '⏸ Na żądanie'}
+          </span>
         )}
       </div>
       <span className={`w-[70px] text-right font-semibold ${row.payout < 0 ? 'text-destructive' : 'text-primary'}`}>
