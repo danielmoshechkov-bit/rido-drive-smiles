@@ -7612,6 +7612,7 @@ export type Database = {
           license_issue_date: string | null
           license_number: string | null
           payment_method: string | null
+          payout_frequency: string
           pesel: string | null
           phone: string | null
           preferred_language: string | null
@@ -7666,6 +7667,7 @@ export type Database = {
           license_issue_date?: string | null
           license_number?: string | null
           payment_method?: string | null
+          payout_frequency?: string
           pesel?: string | null
           phone?: string | null
           preferred_language?: string | null
@@ -7720,6 +7722,7 @@ export type Database = {
           license_issue_date?: string | null
           license_number?: string | null
           payment_method?: string | null
+          payout_frequency?: string
           pesel?: string | null
           phone?: string | null
           preferred_language?: string | null
