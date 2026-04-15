@@ -148,7 +148,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
     }
   };
 
-
+  const getClientName = (o: any) => {
     if (!o.client) return '';
     return o.client.client_type === 'company'
       ? o.client.company_name
