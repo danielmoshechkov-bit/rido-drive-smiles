@@ -59,6 +59,10 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
   const [editVehicle, setEditVehicle] = useState<any>(null);
   const [smsDialogOrder, setSmsDialogOrder] = useState<any>(null);
   const [smsDialogType, setSmsDialogType] = useState<'reception' | 'quote' | 'ready'>('ready');
+  const [invoiceOrder, setInvoiceOrder] = useState<any>(null);
+  const [invoiceItems, setInvoiceItems] = useState<any[]>([]);
+  const [invoiceBuyer, setInvoiceBuyer] = useState<any>(null);
+  const [invoiceNotes, setInvoiceNotes] = useState('');
 
   const { data: statuses = [] } = useWorkshopStatuses(providerId);
   const { data: orders = [], isLoading } = useWorkshopOrders(providerId, {
