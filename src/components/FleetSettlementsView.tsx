@@ -1980,9 +1980,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         // Prefer weekly snapshot-chain debt split (also for latest week) to avoid
         // drift from live ledger totals that can temporarily include stale values.
         const settlementDebtBeforeForDisplay = splitDebt?.settlementDebtBefore
-          ?? (isLatestWeek ? liveCategoryDebt.settlement : debtBeforeForDisplay);
-        const rentalDebtBeforeForDisplay = splitDebt?.rentalDebtBefore
-          ?? (isLatestWeek ? liveCategoryDebt.rental : 0);
+          ?? (isLatestWeek ? round2(liveCategoryDebt.settlement + liveCategoryDebt.rental) : debtBeforeForDisplay);
+        const rentalDebtBeforeForDisplay = 0;
         const snapshotSettlementDebtAfter = splitDebt?.settlementDebtAfter ?? 0;
         const snapshotRentalDebtAfter = splitDebt?.rentalDebtAfter ?? 0;
 
