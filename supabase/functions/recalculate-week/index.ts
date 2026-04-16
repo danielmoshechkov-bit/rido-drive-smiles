@@ -29,6 +29,31 @@ serve(async (req) => {
 
     const round2 = (v: number): number => Math.round((v + Number.EPSILON) * 100) / 100;
 
+    const calculateProportionalRentForSettlement = (
+      assignedAt: string | null | undefined,
+      periodFrom: string,
+      periodTo: string,
+      weeklyFee: number,
+    ): number => {
+      if (!assignedAt || weeklyFee <= 0) return 0;
+
+      const startDate = new Date(periodFrom);
+      const endDate = new Date(periodTo);
+      const assignmentDate = new Date(assignedAt);
+
+      if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime()) || Number.isNaN(assignmentDate.getTime())) {
+        return round2(weeklyFee);
+      }
+
+      if (assignmentDate > endDate) return 0;
+
+      const effectiveStart = assignmentDate > startDate ? assignmentDate : startDate;
+      const days = Math.ceil((endDate.getTime() - effectiveStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      const dailyRate = weeklyFee / 7;
+
+      return round2(dailyRate * Math.min(Math.max(days, 0), 7));
+    };
+
     const computeDebtValues = (debtBefore: number, payout: number) => {
       const db = round2(Math.max(0, debtBefore || 0));
       const p = round2(payout || 0);
@@ -66,6 +91,27 @@ serve(async (req) => {
 
     const driverIds = drivers.map(d => d.id);
     const driverMap = new Map(drivers.map(d => [d.id, d]));
+
+    const { data: assignmentsData } = await supabase
+      .from('driver_vehicle_assignments')
+      .select(`
+        driver_id,
+        assigned_at,
+        vehicles(weekly_rental_fee)
+      `)
+      .in('driver_id', driverIds)
+      .eq('status', 'active');
+
+    const assignmentMap = new Map<string, { assignedAt: string | null; weeklyRate: number }>();
+    (assignmentsData || []).forEach((assignment: any) => {
+      const weeklyRate = Number((assignment?.vehicles as any)?.weekly_rental_fee || 0);
+      if (weeklyRate > 0 && !assignmentMap.has(assignment.driver_id)) {
+        assignmentMap.set(assignment.driver_id, {
+          assignedAt: assignment.assigned_at || null,
+          weeklyRate,
+        });
+      }
+    });
 
     // Fetch city names for fee lookup
     // Fetch fleet settings for VAT calculation
@@ -213,7 +259,24 @@ serve(async (req) => {
       const manualAdj = Number(amounts?.manual_week_adjustment || 0);
       const calculatedPayout = round2(totalBase - vatAmount - totalCommissionRaw - totalCashRaw - fuel + fuelVatRefund - manualAdj);
 
-      const rentalFee = isNegativeAdjustmentOnly ? 0 : Number(settlement.rental_fee || 0);
+      const manualRentalFee = amounts?.manual_rental_fee;
+      let rentalFee = 0;
+      if (manualRentalFee !== null && manualRentalFee !== undefined) {
+        rentalFee = Number(manualRentalFee || 0);
+      } else if (Number(settlement.rental_fee || 0) > 0) {
+        rentalFee = Number(settlement.rental_fee || 0);
+      } else if (hasPositivePlatformActivity) {
+        const assignment = assignmentMap.get(settlement.driver_id);
+        if (assignment?.weeklyRate) {
+          rentalFee = assignment.assignedAt
+            ? calculateProportionalRentForSettlement(assignment.assignedAt, settlement.period_from, settlement.period_to, assignment.weeklyRate)
+            : round2(assignment.weeklyRate);
+        }
+      }
+
+      if (isNegativeAdjustmentOnly) {
+        rentalFee = 0;
+      }
       
       // Determine if this is a "Bolt adjustment only" week (no real activity → fee = 0)
       const isBoltAdjustmentOnly =
