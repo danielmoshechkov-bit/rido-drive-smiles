@@ -52,6 +52,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
   const [showNewOrder, setShowNewOrder] = useState(false);
   const [search, setSearch] = useState('');
   const [orderView, setOrderView] = useState<'active' | 'completed'>('active');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [statusDropdownId, setStatusDropdownId] = useState<string | null>(null);
   const [editClient, setEditClient] = useState<any>(null);
