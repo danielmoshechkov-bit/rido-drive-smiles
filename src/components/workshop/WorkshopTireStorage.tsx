@@ -625,5 +625,29 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
         </div>
       </DialogContent>
     </Dialog>
+
+    <WorkshopAddClientDialog
+      open={showAddClient}
+      onOpenChange={setShowAddClient}
+      providerId={providerId}
+      onCreated={(newClient: any) => {
+        if (newClient?.id) {
+          handleSelectClient(newClient.id);
+        }
+      }}
+    />
+
+    <WorkshopAddVehicleDialog
+      open={showAddVehicle}
+      onOpenChange={setShowAddVehicle}
+      providerId={providerId}
+      onCreated={(newVehicle: any) => {
+        if (newVehicle?.id) {
+          handleSelectVehicle(newVehicle.id);
+          queryClient.invalidateQueries({ queryKey: ['workshop-vehicles'] });
+        }
+      }}
+    />
+    </>
   );
 }
