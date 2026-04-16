@@ -71,11 +71,15 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
   const updateOrder = useUpdateWorkshopOrder();
 
   const filteredOrders = useMemo(() => {
-    return orders.filter((o: any) => orderView === 'completed'
+    let filtered = orders.filter((o: any) => orderView === 'completed'
       ? o.status_name === 'Zakończone'
       : o.status_name !== 'Zakończone'
     );
-  }, [orders, orderView]);
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter((o: any) => o.status_name === statusFilter);
+    }
+    return filtered;
+  }, [orders, orderView, statusFilter]);
 
   useEffect(() => {
     setSelectedIds(new Set());
