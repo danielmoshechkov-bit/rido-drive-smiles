@@ -205,13 +205,9 @@ Deno.serve(async (req) => {
 
     if (missingDriverIds.length > 0) {
       const [
-        { data: debtsData },
-        { data: previousSettlementsData }
+        { data: previousSettlementsData },
+        { data: existingCurrentPeriodSettlements }
       ] = await Promise.all([
-        supabase
-          .from('driver_debts')
-          .select('driver_id, current_balance')
-          .in('driver_id', missingDriverIds),
         supabase
           .from('settlements')
           .select('driver_id, actual_payout')
@@ -219,13 +215,14 @@ Deno.serve(async (req) => {
           .lt('period_to', period_from)
           .order('driver_id', { ascending: true })
           .order('period_to', { ascending: false })
-          .order('updated_at', { ascending: false })
+          .order('updated_at', { ascending: false }),
+        supabase
+          .from('settlements')
+          .select('id, driver_id, source')
+          .in('driver_id', missingDriverIds)
+          .eq('period_from', period_from)
+          .eq('period_to', period_to)
       ]);
-
-      const debtByDriver = new Map<string, number>();
-      (debtsData || []).forEach((row: any) => {
-        debtByDriver.set(row.driver_id, round2(Math.max(0, Number(row.current_balance || 0))));
-      });
 
       const previousNegativePayoutByDriver = new Map<string, number | null>();
       (previousSettlementsData || []).forEach((row: any) => {
@@ -238,16 +235,33 @@ Deno.serve(async (req) => {
         }
       });
 
+      const existingCurrentPeriodByDriver = new Map<string, { id: string; source: string | null }>();
+      (existingCurrentPeriodSettlements || []).forEach((row: any) => {
+        if (!existingCurrentPeriodByDriver.has(row.driver_id)) {
+          existingCurrentPeriodByDriver.set(row.driver_id, {
+            id: row.id,
+            source: row.source ?? null,
+          });
+        }
+      });
+
       const carryOverSettlements = missingDriverIds
         .map((driverId: string) => {
           const previousNegativePayout = previousNegativePayoutByDriver.get(driverId);
+          const existingSettlement = existingCurrentPeriodByDriver.get(driverId);
+
+          if (existingSettlement && existingSettlement.source !== 'debt_carryover') {
+            return null;
+          }
+
           const carryDebt = previousNegativePayout !== null && previousNegativePayout !== undefined
             ? round2(previousNegativePayout)
-            : round2(Math.max(0, Number(debtByDriver.get(driverId) || 0)));
+            : 0;
 
           if (carryDebt <= 0.01) return null;
 
           return {
+            ...(existingSettlement?.id ? { id: existingSettlement.id } : {}),
             city_id: effectiveCityId,
             driver_id: driverId,
             platform: 'main',
@@ -273,12 +287,12 @@ Deno.serve(async (req) => {
       // CRITICAL: Insert carry-over settlements SEPARATELY with ignoreDuplicates: true
       // to NEVER overwrite existing settlements that have real CSV data
       if (carryOverSettlements.length > 0) {
-        console.log(`↪️ Inserting ${carryOverSettlements.length} debt carry-over settlements (ignoreDuplicates=true)`);
+        console.log(`↪️ Upserting ${carryOverSettlements.length} debt carry-over settlements from previous negative actual_payout`);
         const { error: carryErr } = await supabase
           .from('settlements')
           .upsert(carryOverSettlements, { 
             onConflict: 'driver_id,period_from,period_to',
-            ignoreDuplicates: true 
+            ignoreDuplicates: false 
           });
         if (carryErr) {
           console.error('⚠️ Carry-over upsert error (non-fatal):', carryErr);
