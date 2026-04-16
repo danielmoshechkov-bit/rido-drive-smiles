@@ -150,11 +150,12 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
 }
 
 // ---- Searchable Combobox ----
-function SearchableCombobox({ items, value, onSelect, onCreateNew, placeholder, renderItem, getLabel }: {
+function SearchableCombobox({ items, value, onSelect, onCreateNew, onAddNew, placeholder, renderItem, getLabel }: {
   items: any[];
   value: string;
   onSelect: (val: string) => void;
   onCreateNew?: (query: string) => void;
+  onAddNew?: (query: string) => void;
   placeholder: string;
   renderItem: (item: any) => React.ReactNode;
   getLabel: (item: any) => string;
@@ -170,40 +171,61 @@ function SearchableCombobox({ items, value, onSelect, onCreateNew, placeholder, 
 
   const selectedLabel = items.find(i => i.id === value) ? getLabel(items.find(i => i.id === value)!) : '';
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && query.trim() && filtered.length === 0 && onCreateNew) {
+      e.preventDefault();
+      onCreateNew(query.trim());
+      setOpen(false);
+      setQuery('');
+    }
+  };
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button variant="outline" role="combobox" className="w-full justify-between h-9 font-normal">
-          {selectedLabel || <span className="text-muted-foreground">{placeholder}</span>}
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+    <div className="flex items-center gap-1">
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button variant="outline" role="combobox" className="w-full justify-between h-9 font-normal">
+            {selectedLabel || <span className="text-muted-foreground">{placeholder}</span>}
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-full p-0" align="start">
+          <Command>
+            <div onKeyDown={handleKeyDown}>
+              <CommandInput placeholder={placeholder} value={query} onValueChange={setQuery} />
+            </div>
+            <CommandList>
+              <CommandEmpty>
+                <div className="space-y-1">
+                  {onCreateNew && query.trim() && (
+                    <button
+                      className="w-full px-3 py-2 text-sm text-left hover:bg-accent flex items-center gap-2"
+                      onClick={() => { onCreateNew(query.trim()); setOpen(false); setQuery(''); }}
+                    >
+                      <Plus className="h-4 w-4" /> Dodaj „{query.trim()}"
+                    </button>
+                  )}
+                  {!query.trim() && 'Nie znaleziono'}
+                </div>
+              </CommandEmpty>
+              <CommandGroup>
+                {filtered.map(item => (
+                  <CommandItem key={item.id} value={getLabel(item)} onSelect={() => { onSelect(item.id); setOpen(false); setQuery(''); }}>
+                    <Check className={`mr-2 h-4 w-4 ${value === item.id ? 'opacity-100' : 'opacity-0'}`} />
+                    {renderItem(item)}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+      {onAddNew && (
+        <Button variant="outline" size="icon" className="h-9 w-9 shrink-0" onClick={() => onAddNew(query.trim())}>
+          <Plus className="h-4 w-4" />
         </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-full p-0" align="start">
-        <Command>
-          <CommandInput placeholder={placeholder} value={query} onValueChange={setQuery} />
-          <CommandList>
-            <CommandEmpty>
-              {onCreateNew && query.trim() ? (
-                <button
-                  className="w-full px-3 py-2 text-sm text-left hover:bg-accent flex items-center gap-2"
-                  onClick={() => { onCreateNew(query.trim()); setOpen(false); setQuery(''); }}
-                >
-                  <Plus className="h-4 w-4" /> Dodaj „{query.trim()}"
-                </button>
-              ) : 'Nie znaleziono'}
-            </CommandEmpty>
-            <CommandGroup>
-              {filtered.map(item => (
-                <CommandItem key={item.id} value={getLabel(item)} onSelect={() => { onSelect(item.id); setOpen(false); setQuery(''); }}>
-                  <Check className={`mr-2 h-4 w-4 ${value === item.id ? 'opacity-100' : 'opacity-0'}`} />
-                  {renderItem(item)}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+      )}
+    </div>
   );
 }
 
