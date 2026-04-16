@@ -321,6 +321,16 @@ Deno.serve(async (req) => {
               const totalBase = (amounts.uber_base || 0) + (amounts.bolt_projected_d || 0) + (amounts.freenow_base_s || 0);
               const totalCash = (amounts.uber_cash_f || 0) + (amounts.bolt_cash || 0) + (amounts.freenow_cash_f || 0);
               const totalCommission = (amounts.uber_commission || 0) + (amounts.bolt_commission || 0) + (amounts.freenow_commission_t || 0);
+              const hasPositivePlatformActivity =
+                Math.max(0, amounts.uber_base || 0) +
+                Math.max(0, amounts.bolt_projected_d || 0) +
+                Math.max(0, amounts.freenow_base_s || 0) +
+                Math.max(0, totalCash) > 0.01;
+              const isNegativeAdjustmentOnly =
+                !hasPositivePlatformActivity &&
+                totalBase < -0.01 &&
+                Math.abs(totalCash) < 0.01 &&
+                Math.abs(totalCommission) < 0.01;
               
               // Always pass through debt function, even for inactive drivers,
               // so debt carry-over is preserved week-to-week.
@@ -352,7 +362,9 @@ Deno.serve(async (req) => {
               const fuelVatRefund = amounts.fuel_vat_refund || 0;
               
               // Service fee lookup: manual override > driver custom > city setting > default 50
-              const isBoltAdjustmentOnly = Math.abs(totalBase) < 0.01 && Math.abs(totalCash) < 0.01 && Math.abs(totalCommission) < 0.01;
+              const isBoltAdjustmentOnly =
+                (Math.abs(totalBase) < 0.01 && Math.abs(totalCash) < 0.01 && Math.abs(totalCommission) < 0.01)
+                || isNegativeAdjustmentOnly;
               let serviceFee = 0;
               if (!isBoltAdjustmentOnly) {
                 const manualFee = amounts.manual_service_fee;
@@ -371,7 +383,7 @@ Deno.serve(async (req) => {
               }
               
               // Rental from settlement
-              const rentalFee = fullSettlement.rental_fee || 0;
+              const rentalFee = isNegativeAdjustmentOnly ? 0 : (fullSettlement.rental_fee || 0);
               
               // Final payout = Base - Commission - VAT - Service Fee - Rental - Cash - Fuel + Fuel VAT Refund
               const calculatedPayout = totalBase - totalCommission - vat8 - serviceFee - rentalFee - totalCash - fuel + fuelVatRefund;
@@ -390,7 +402,9 @@ Deno.serve(async (req) => {
                     settlement_id: settlement.id,
                     period_from: settlement.period_from,
                     period_to: settlement.period_to,
-                    calculated_payout: calculatedPayout
+                    calculated_payout: calculatedPayout,
+                    calculated_payout_without_rental: calculatedPayout + rentalFee,
+                    rental_fee: rentalFee
                   })
                 });
                 

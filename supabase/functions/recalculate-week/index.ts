@@ -198,15 +198,27 @@ serve(async (req) => {
       const totalBase = uberBase + boltBase + freenowBase;
       const totalCashRaw = Number(amounts?.uber_cash_f || 0) + Number(amounts?.bolt_cash || 0) + Number(amounts?.freenow_cash_f || 0);
       const totalCommissionRaw = Number(amounts?.uber_commission || 0) + Number(amounts?.bolt_commission || 0) + Number(amounts?.freenow_commission_t || 0);
+      const hasPositivePlatformActivity =
+        Math.max(0, uberBase) +
+        Math.max(0, boltBase) +
+        Math.max(0, freenowBase) +
+        Math.max(0, totalCashRaw) > 0.01;
+      const isNegativeAdjustmentOnly =
+        !hasPositivePlatformActivity &&
+        totalBase < -0.01 &&
+        Math.abs(totalCashRaw) < 0.01 &&
+        Math.abs(totalCommissionRaw) < 0.01;
       const fuel = Number(amounts?.fuel || 0);
       const fuelVatRefund = Number(amounts?.fuel_vat_refund || 0);
       const manualAdj = Number(amounts?.manual_week_adjustment || 0);
       const calculatedPayout = round2(totalBase - vatAmount - totalCommissionRaw - totalCashRaw - fuel + fuelVatRefund - manualAdj);
 
-      const rentalFee = Number(settlement.rental_fee || 0);
+      const rentalFee = isNegativeAdjustmentOnly ? 0 : Number(settlement.rental_fee || 0);
       
       // Determine if this is a "Bolt adjustment only" week (no real activity → fee = 0)
-      const isBoltAdjustmentOnly = Math.abs(totalBase) < 0.01 && Math.abs(totalCashRaw) < 0.01 && Math.abs(totalCommissionRaw) < 0.01;
+      const isBoltAdjustmentOnly =
+        (Math.abs(totalBase) < 0.01 && Math.abs(totalCashRaw) < 0.01 && Math.abs(totalCommissionRaw) < 0.01)
+        || isNegativeAdjustmentOnly;
       
       const serviceFee = isBoltAdjustmentOnly ? 0 : getDriverServiceFee(settlement.driver_id, amounts);
       const rawPayout = round2(calculatedPayout - rentalFee - serviceFee);
