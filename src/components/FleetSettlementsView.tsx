@@ -1705,6 +1705,34 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         splitDebtByWeek.set(key, value);
       });
 
+      const previousSnapshotDebtByWeek = new Map<string, number>();
+      driverIds.forEach((driverId) => {
+        const weeklyHistory = ((settlementHistoryData || []) as any[])
+          .filter((row) => row.driver_id === driverId)
+          .reduce((map, row) => {
+            const weekKey = `${row.period_from || ''}|${row.period_to || ''}`;
+            const existing = map.get(weekKey) || {
+              periodFrom: row.period_from || '',
+              periodTo: row.period_to || '',
+              debtAfterMax: 0,
+            };
+
+            existing.debtAfterMax = Math.max(existing.debtAfterMax, Math.max(0, Number(row.debt_after || 0)));
+            map.set(weekKey, existing);
+            return map;
+          }, new Map<string, { periodFrom: string; periodTo: string; debtAfterMax: number }>())
+          .values();
+
+        const sortedWeeks = [...weeklyHistory].sort(
+          (a, b) => new Date(a.periodFrom).getTime() - new Date(b.periodFrom).getTime(),
+        );
+
+        sortedWeeks.forEach((week, index) => {
+          const previousDebtAfter = index > 0 ? sortedWeeks[index - 1].debtAfterMax : 0;
+          previousSnapshotDebtByWeek.set(`${driverId}|${week.periodFrom}|${week.periodTo}`, round2(previousDebtAfter));
+        });
+      });
+
       // Mapuj numery kart paliwowych kierowców (normalizacja - usuń wiodące zera)
       // CROSS-FLEET: Kierowca może mieć kartę paliwową przypisaną w innej flocie
       const driverFuelCards: Record<string, string> = {};
@@ -2318,10 +2346,16 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           if (!row.settlement_id || !row.period_from || !row.period_to) return false;
 
           const snapshotRawPayout = getSnapshotRawPayout(row);
-          if (snapshotRawPayout === null) return false;
+          const expectedDebtBefore = round2(previousSnapshotDebtByWeek.get(`${row.driver_id}|${row.period_from}|${row.period_to}`) ?? 0);
+          const snapshotDebtBefore = round2(Math.max(0, row.snapshot_debt_before ?? 0));
+          const debtBeforeMismatch = Math.abs(snapshotDebtBefore - expectedDebtBefore) > 0.01;
+
+          if (snapshotRawPayout === null) {
+            return debtBeforeMismatch;
+          }
 
           const currentRawPayout = round2(getEffectiveSettlement(row).final_payout);
-          return Math.abs(snapshotRawPayout - currentRawPayout) > 0.5;
+          return Math.abs(snapshotRawPayout - currentRawPayout) > 0.5 || debtBeforeMismatch;
         });
 
         if (settlementsNeedingDebtSync.length > 0) {

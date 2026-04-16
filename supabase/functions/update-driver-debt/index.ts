@@ -610,8 +610,6 @@ serve(async (req) => {
       // Narastanie długu — split into settlement vs rental categories
       const totalDeficit = Math.abs(calculated_payout);
       const payoutWithoutRental = calculated_payout_without_rental ?? (calculated_payout + (rental_fee || 0));
-      const effectiveRental = rental_fee || 0;
-
       // Settlement deficit: if payout without rental is already negative
       const settlementDeficit = payoutWithoutRental < 0 ? round2(Math.abs(payoutWithoutRental)) : 0;
       // Rental deficit: whatever is left after settlement deficit
