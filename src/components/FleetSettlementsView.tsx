@@ -42,6 +42,7 @@ import { AddDriverChargeModal } from './fleet/AddDriverChargeModal';
 import { DriverInfoPopover } from './fleet/DriverInfoModal';
 import { useUserRole } from '@/hooks/useUserRole';
 import { getAvailableWeeks, getCurrentWeekNumber, getSettlementExecutionDate, getWeekDates } from '@/lib/utils';
+import { buildWeeklyDebtSplit } from '@/lib/fleetDebtSplit';
 
 interface FleetSettlementsViewProps {
   fleetId: string;
@@ -1695,95 +1696,14 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         }
       });
 
-      for (const driverId of driverIds) {
-        const historyRows = (settlementHistoryData || []).filter((row: any) => row.driver_id === driverId);
-        if (historyRows.length === 0) continue;
-
-        const weeklyRollup = new Map<string, {
-          periodFrom: string;
-          periodTo: string;
-          payoutNoRental: number;
-          rental: number;
-          debtBeforeMax: number;
-        }>();
-
-        historyRows.forEach((row: any) => {
-          const periodFromKey = row.period_from || '';
-          const periodToKey = row.period_to || '';
-          const weekKey = `${periodFromKey}|${periodToKey}`;
-          const amounts = (row.amounts as any) || {};
-          const rawPayout = deriveRawPayoutFromSettlementSnapshot(row);
-
-          const manualRentalFee = amounts?.manual_rental_fee;
-          const baseFromAmounts = Number(amounts.uber_base || 0) + Number(amounts.bolt_projected_d || 0) + Number(amounts.freenow_base_s || 0);
-          const cashFromAmounts = Number(amounts.uber_cash_f || 0) + Number(amounts.bolt_cash || 0) + Number(amounts.freenow_cash_f || 0);
-          const hasAnyActivity = Math.abs(baseFromAmounts) > 0.01 || Math.abs(cashFromAmounts) > 0.01;
-
-          let rentalFee = Number(row.rental_fee || 0);
-          if (manualRentalFee !== null && manualRentalFee !== undefined) {
-            rentalFee = Number(manualRentalFee || 0);
-          } else if (rentalFee <= 0 && hasAnyActivity) {
-            const fallback = fallbackRentalByDriver.get(driverId);
-            if (fallback && fallback.assignedAt && periodFromKey && periodToKey) {
-              rentalFee = calculateProportionalRentForSettlement(
-                fallback.assignedAt, periodFromKey, periodToKey, fallback.weeklyRate
-              );
-            } else {
-              rentalFee = fallback?.weeklyRate || 0;
-            }
-          }
-
-          const debtBefore = Math.max(0, Number(row.debt_before || 0));
-
-          const existing = weeklyRollup.get(weekKey) || {
-            periodFrom: periodFromKey,
-            periodTo: periodToKey,
-            payoutNoRental: 0,
-            rental: 0,
-            debtBeforeMax: 0,
-          };
-
-          existing.payoutNoRental = round2(existing.payoutNoRental + rawPayout + rentalFee);
-          existing.rental = round2(existing.rental + rentalFee);
-          existing.debtBeforeMax = Math.max(existing.debtBeforeMax, debtBefore);
-
-          weeklyRollup.set(weekKey, existing);
-        });
-
-        const sortedWeeks = [...weeklyRollup.values()].sort(
-          (a, b) => new Date(a.periodFrom).getTime() - new Date(b.periodFrom).getTime()
-        );
-
-        if (sortedWeeks.length === 0) continue;
-
-        let runningSettlementDebt = round2(Math.max(0, sortedWeeks[0].debtBeforeMax || 0));
-        let runningRentalDebt = 0;
-
-        for (const week of sortedWeeks) {
-          const weekKey = `${week.periodFrom}|${week.periodTo}`;
-          const settlementDebtBefore = runningSettlementDebt;
-          const rentalDebtBefore = runningRentalDebt;
-
-          const wyplata1 = round2(week.payoutNoRental - settlementDebtBefore);
-          const settlementDebtAfter = round2(Math.max(0, -wyplata1));
-
-          const availableForRental = Math.max(0, wyplata1);
-          const remainingPreviousRentalDebt = Math.max(0, rentalDebtBefore - availableForRental);
-          const availableAfterPreviousRentalDebt = Math.max(0, availableForRental - rentalDebtBefore);
-          const currentRentalDebt = Math.max(0, week.rental - availableAfterPreviousRentalDebt);
-          const rentalDebtAfter = round2(remainingPreviousRentalDebt + currentRentalDebt);
-
-          splitDebtByWeek.set(`${driverId}|${weekKey}`, {
-            settlementDebtBefore,
-            rentalDebtBefore,
-            settlementDebtAfter,
-            rentalDebtAfter,
-          });
-
-          runningSettlementDebt = settlementDebtAfter;
-          runningRentalDebt = rentalDebtAfter;
-        }
-      }
+      const splitDebtMap = buildWeeklyDebtSplit(
+        driverIds,
+        ((settlementHistoryData || []) as any[]),
+        fallbackRentalByDriver,
+      );
+      splitDebtMap.forEach((value, key) => {
+        splitDebtByWeek.set(key, value);
+      });
 
       // Mapuj numery kart paliwowych kierowców (normalizacja - usuń wiodące zera)
       // CROSS-FLEET: Kierowca może mieć kartę paliwową przypisaną w innej flocie
