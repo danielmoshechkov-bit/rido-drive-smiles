@@ -206,8 +206,7 @@ Deno.serve(async (req) => {
     if (missingDriverIds.length > 0) {
       const [
         { data: debtsData },
-        { data: previousDebtsData },
-        { data: assignmentsData }
+        { data: previousSettlementsData }
       ] = await Promise.all([
         supabase
           .from('driver_debts')
@@ -215,19 +214,12 @@ Deno.serve(async (req) => {
           .in('driver_id', missingDriverIds),
         supabase
           .from('settlements')
-          .select('driver_id, debt_after')
+          .select('driver_id, actual_payout')
           .in('driver_id', missingDriverIds)
           .lt('period_to', period_from)
           .order('driver_id', { ascending: true })
           .order('period_to', { ascending: false })
-          .order('updated_at', { ascending: false }),
-        supabase
-          .from('driver_vehicle_assignments')
-          .select('driver_id, assigned_at, vehicles(weekly_rental_fee)')
-          .in('driver_id', missingDriverIds)
-          .eq('status', 'active')
-          .order('driver_id', { ascending: true })
-          .order('assigned_at', { ascending: false })
+          .order('updated_at', { ascending: false })
       ]);
 
       const debtByDriver = new Map<string, number>();
@@ -235,46 +227,25 @@ Deno.serve(async (req) => {
         debtByDriver.set(row.driver_id, round2(Math.max(0, Number(row.current_balance || 0))));
       });
 
-      const previousDebtByDriver = new Map<string, number | null>();
-      (previousDebtsData || []).forEach((row: any) => {
-        if (!previousDebtByDriver.has(row.driver_id)) {
-          previousDebtByDriver.set(
+      const previousNegativePayoutByDriver = new Map<string, number | null>();
+      (previousSettlementsData || []).forEach((row: any) => {
+        if (!previousNegativePayoutByDriver.has(row.driver_id)) {
+          const previousActualPayout = Number(row.actual_payout ?? 0);
+          previousNegativePayoutByDriver.set(
             row.driver_id,
-            row.debt_after === null || row.debt_after === undefined
-              ? null
-              : round2(Math.max(0, Number(row.debt_after)))
+            previousActualPayout < 0 ? round2(Math.abs(previousActualPayout)) : null
           );
-        }
-      });
-
-      const assignmentMap = new Map<string, { assignedAt: string | null; weeklyRate: number }>();
-      (assignmentsData || []).forEach((assignment: any) => {
-        const weeklyRate = Number((assignment?.vehicles as any)?.weekly_rental_fee || 0);
-        if (weeklyRate > 0 && !assignmentMap.has(assignment.driver_id)) {
-          assignmentMap.set(assignment.driver_id, {
-            assignedAt: assignment.assigned_at || null,
-            weeklyRate,
-          });
         }
       });
 
       const carryOverSettlements = missingDriverIds
         .map((driverId: string) => {
-          const previousDebt = previousDebtByDriver.get(driverId);
-          const carryDebt = previousDebt !== null && previousDebt !== undefined
-            ? round2(Math.max(0, Number(previousDebt)))
+          const previousNegativePayout = previousNegativePayoutByDriver.get(driverId);
+          const carryDebt = previousNegativePayout !== null && previousNegativePayout !== undefined
+            ? round2(previousNegativePayout)
             : round2(Math.max(0, Number(debtByDriver.get(driverId) || 0)));
 
-          const assignment = assignmentMap.get(driverId);
-          const rentalFee = assignment?.weeklyRate
-            ? assignment.assignedAt
-              ? calculateProportionalRentForSettlement(assignment.assignedAt, period_from, period_to, assignment.weeklyRate)
-              : round2(assignment.weeklyRate)
-            : 0;
-
-          const newDebtAfter = round2(carryDebt + rentalFee);
-
-          if (newDebtAfter <= 0.01) return null;
+          if (carryDebt <= 0.01) return null;
 
           return {
             city_id: effectiveCityId,
@@ -287,10 +258,10 @@ Deno.serve(async (req) => {
             total_earnings: 0,
             commission_amount: 0,
             net_amount: 0,
-            rental_fee: rentalFee,
+            rental_fee: 0,
             debt_before: carryDebt,
             debt_payment: 0,
-            debt_after: newDebtAfter,
+            debt_after: carryDebt,
             actual_payout: 0,
             amounts: {},
             source: 'debt_carryover',
