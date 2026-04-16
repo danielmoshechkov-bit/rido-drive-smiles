@@ -180,13 +180,6 @@ export const buildWeeklyDebtSplit = (
 
     for (const week of sortedWeeks) {
       const weekKey = `${week.periodFrom}|${week.periodTo}`;
-      const totalDebtBefore = round2(Math.max(0, week.debtBeforeMax || 0));
-
-      if (round2(runningSettlementDebt + runningRentalDebt) !== totalDebtBefore) {
-        const remainder = round2(totalDebtBefore - runningRentalDebt);
-        runningSettlementDebt = Math.max(0, remainder);
-      }
-
       const settlementDebtBefore = runningSettlementDebt;
       const rentalDebtBefore = runningRentalDebt;
 
@@ -198,18 +191,6 @@ export const buildWeeklyDebtSplit = (
       const availableAfterPreviousRentalDebt = Math.max(0, availableForRental - rentalDebtBefore);
       const currentRentalDebt = Math.max(0, week.rental - availableAfterPreviousRentalDebt);
       let rentalDebtAfter = round2(remainingPreviousRentalDebt + currentRentalDebt);
-
-      const totalDebtAfterSnapshot = round2(Math.max(0, week.debtAfterMax || 0));
-      const computedTotalDebtAfter = round2(settlementDebtAfter + rentalDebtAfter);
-
-      if (Math.abs(computedTotalDebtAfter - totalDebtAfterSnapshot) > 0.01) {
-        if (rentalDebtAfter > totalDebtAfterSnapshot) {
-          rentalDebtAfter = totalDebtAfterSnapshot;
-          settlementDebtAfter = 0;
-        } else {
-          settlementDebtAfter = round2(Math.max(0, totalDebtAfterSnapshot - rentalDebtAfter));
-        }
-      }
 
       splitDebtByWeek.set(`${driverId}|${weekKey}`, {
         settlementDebtBefore,
