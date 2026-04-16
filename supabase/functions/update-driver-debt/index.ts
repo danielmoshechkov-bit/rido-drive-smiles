@@ -62,6 +62,31 @@ serve(async (req) => {
 
     const round2 = (value: number): number => Math.round((value + Number.EPSILON) * 100) / 100;
 
+    const calculateProportionalRentForSettlement = (
+      assignedAt: string | null | undefined,
+      settlementPeriodFrom: string,
+      settlementPeriodTo: string,
+      weeklyFee: number,
+    ): number => {
+      if (!assignedAt || weeklyFee <= 0) return 0;
+
+      const startDate = new Date(settlementPeriodFrom);
+      const endDate = new Date(settlementPeriodTo);
+      const assignmentDate = new Date(assignedAt);
+
+      if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime()) || Number.isNaN(assignmentDate.getTime())) {
+        return round2(weeklyFee);
+      }
+
+      if (assignmentDate > endDate) return 0;
+
+      const effectiveStart = assignmentDate > startDate ? assignmentDate : startDate;
+      const days = Math.ceil((endDate.getTime() - effectiveStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      const dailyRate = weeklyFee / 7;
+
+      return round2(dailyRate * Math.min(Math.max(days, 0), 7));
+    };
+
     const computeDebtValues = (debtBefore: number, payout: number) => {
       const normalizedDebtBefore = round2(Math.max(0, debtBefore || 0));
       const normalizedPayout = round2(payout || 0);
@@ -108,6 +133,54 @@ serve(async (req) => {
       }
 
       return round2(actualPayout + debtPayment);
+    };
+
+    const { data: assignmentData } = await supabase
+      .from("driver_vehicle_assignments")
+      .select(`
+        assigned_at,
+        vehicles(weekly_rental_fee)
+      `)
+      .eq("driver_id", driver_id)
+      .eq("status", "active")
+      .order("assigned_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const assignmentWeeklyRate = Number((assignmentData?.vehicles as any)?.weekly_rental_fee || 0);
+    const assignmentAssignedAt = assignmentData?.assigned_at || null;
+
+    const resolveEffectiveRental = (settlement: any): number => {
+      const amountsObj = (settlement?.amounts as any) || {};
+      const manualRentalFee = amountsObj?.manual_rental_fee;
+
+      if (manualRentalFee !== null && manualRentalFee !== undefined) {
+        return Number(manualRentalFee || 0);
+      }
+
+      const persistedRentalFee = Number(settlement?.rental_fee || 0);
+      if (persistedRentalFee > 0) {
+        return persistedRentalFee;
+      }
+
+      const totalBase = Number(amountsObj?.uber_base || 0) + Number(amountsObj?.bolt_projected_d || 0) + Number(amountsObj?.freenow_base_s || 0);
+      const totalCash = Number(amountsObj?.uber_cash_f || 0) + Number(amountsObj?.bolt_cash || 0) + Number(amountsObj?.freenow_cash_f || 0);
+      const hasAnyActivity = Math.abs(totalBase) > 0.01 || Math.abs(totalCash) > 0.01;
+
+      if (!hasAnyActivity || assignmentWeeklyRate <= 0) {
+        return 0;
+      }
+
+      if (assignmentAssignedAt && settlement?.period_from && settlement?.period_to) {
+        return calculateProportionalRentForSettlement(
+          assignmentAssignedAt,
+          settlement.period_from,
+          settlement.period_to,
+          assignmentWeeklyRate,
+        );
+      }
+
+      return round2(assignmentWeeklyRate);
     };
 
     const recalculateDebtChainFromPeriod = async () => {
@@ -206,10 +279,11 @@ serve(async (req) => {
             .eq("id", settlement.id)
             .maybeSingle();
           
-          const rentalFeeFromRecord = Number(settlementDetail?.rental_fee || 0);
-          const manualRentalFee = (settlementDetail?.amounts as any)?.manual_rental_fee;
-          const effectiveRentalFee = (manualRentalFee !== null && manualRentalFee !== undefined) 
-            ? Number(manualRentalFee) : rentalFeeFromRecord;
+          const effectiveRentalFee = resolveEffectiveRental({
+            ...settlement,
+            rental_fee: settlementDetail?.rental_fee,
+            amounts: settlementDetail?.amounts,
+          });
           
           const totalDeficit = Math.abs(rawPayout);
           const payoutWithoutRental = round2(rawPayout + effectiveRentalFee);
@@ -272,9 +346,24 @@ serve(async (req) => {
         }
       }
 
+      const { data: finalLedgerTransactions, error: finalLedgerTransactionsError } = await supabase
+        .from("driver_debt_transactions")
+        .select("type, amount")
+        .eq("driver_id", driver_id);
+
+      if (finalLedgerTransactionsError) {
+        console.error("Error fetching final ledger after chain recalculation:", finalLedgerTransactionsError);
+        throw finalLedgerTransactionsError;
+      }
+
+      const ledgerBalance = round2(Math.max(0, (finalLedgerTransactions || []).reduce((sum: number, tx: any) => {
+        const amount = Math.abs(Number(tx.amount) || 0);
+        return sum + (tx.type === "debt_increase" || tx.type === "manual_add" ? amount : -amount);
+      }, 0)));
+
       const { error: debtUpsertError } = await supabase.from("driver_debts").upsert({
         driver_id,
-        current_balance: runningDebt,
+        current_balance: ledgerBalance,
         updated_at: new Date().toISOString(),
       }, {
         onConflict: "driver_id",

@@ -398,11 +398,19 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
           .eq('driver_id', driverId);
       }
 
-      // 3. Zero out debt snapshots in settlements so future calculations start from 0
-      await supabase
+      // 3. Zero out snapshots only from the selected settlement onward.
+      // Never rewrite older history, because it breaks carry-over visibility.
+      const zeroFromPeriod = weekDebtContext?.periodFrom;
+      let settlementsToReset = supabase
         .from('settlements')
         .update({ debt_before: 0, debt_after: 0, debt_payment: 0 })
         .eq('driver_id', driverId);
+
+      if (zeroFromPeriod) {
+        settlementsToReset = settlementsToReset.gte('period_from', zeroFromPeriod);
+      }
+
+      await settlementsToReset;
 
       toast.success('Dług wyzerowany — historia zachowana, nowe rozliczenia startują od zera');
       await fetchDebtData();
