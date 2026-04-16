@@ -125,10 +125,34 @@ serve(async (req) => {
     // Fetch fleet_city_settings
     const { data: citySettings } = await supabase
       .from('fleet_city_settings')
-      .select('city_name, base_fee, vat_rate, settlement_mode, uber_calculation_mode, secondary_vat_rate, additional_percent_rate')
+      .select('city_name, platform, base_fee, vat_rate, settlement_mode, uber_calculation_mode, secondary_vat_rate, additional_percent_rate')
       .eq('fleet_id', fleet_id);
-    const cityFeeMap = new Map((citySettings || []).map(cs => [cs.city_name, cs.base_fee]));
-    const citySettingsFullMap = new Map((citySettings || []).map(cs => [cs.city_name, cs]));
+
+    // Merge city settings: prefer bolt entry for base_fee and settlement_mode, uber entry for uber_calculation_mode
+    const citySettingsMerged = new Map<string, any>();
+    const byCityName = new Map<string, any[]>();
+    (citySettings || []).forEach(cs => {
+      const existing = byCityName.get(cs.city_name) || [];
+      existing.push(cs);
+      byCityName.set(cs.city_name, existing);
+    });
+    byCityName.forEach((entries, cityName) => {
+      const boltEntry = entries.find(e => e.platform === 'bolt') || entries[0];
+      const uberEntry = entries.find(e => e.platform === 'uber');
+      citySettingsMerged.set(cityName, {
+        base_fee: boltEntry.base_fee,
+        vat_rate: boltEntry.vat_rate,
+        settlement_mode: boltEntry.settlement_mode,
+        secondary_vat_rate: boltEntry.secondary_vat_rate,
+        additional_percent_rate: boltEntry.additional_percent_rate,
+        uber_calculation_mode: uberEntry?.uber_calculation_mode ?? fleetUberCalcMode,
+      });
+    });
+    const cityFeeMap = new Map<string, number>();
+    const citySettingsFullMap = citySettingsMerged;
+    citySettingsMerged.forEach((merged, cityName) => {
+      cityFeeMap.set(cityName, merged.base_fee);
+    });
 
     // Fetch fleet_settlement_fees (additional fees like ZUS)
     const { data: fleetFees } = await supabase
