@@ -411,6 +411,7 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
   const tasksTotal = tasks.reduce((s, t) => s + t.price, 0);
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
