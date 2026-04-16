@@ -7,10 +7,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
+
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useWorkshopClients, useWorkshopVehicles } from '@/hooks/useWorkshop';
+import { WorkshopAddVehicleDialog } from './WorkshopAddVehicleDialog';
+import { WorkshopAddClientDialog } from './WorkshopAddClientDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -148,11 +150,12 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
 }
 
 // ---- Searchable Combobox ----
-function SearchableCombobox({ items, value, onSelect, onCreateNew, placeholder, renderItem, getLabel }: {
+function SearchableCombobox({ items, value, onSelect, onCreateNew, onAddNew, placeholder, renderItem, getLabel }: {
   items: any[];
   value: string;
   onSelect: (val: string) => void;
   onCreateNew?: (query: string) => void;
+  onAddNew?: (query: string) => void;
   placeholder: string;
   renderItem: (item: any) => React.ReactNode;
   getLabel: (item: any) => string;
@@ -168,40 +171,61 @@ function SearchableCombobox({ items, value, onSelect, onCreateNew, placeholder, 
 
   const selectedLabel = items.find(i => i.id === value) ? getLabel(items.find(i => i.id === value)!) : '';
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && query.trim() && filtered.length === 0 && onCreateNew) {
+      e.preventDefault();
+      onCreateNew(query.trim());
+      setOpen(false);
+      setQuery('');
+    }
+  };
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button variant="outline" role="combobox" className="w-full justify-between h-9 font-normal">
-          {selectedLabel || <span className="text-muted-foreground">{placeholder}</span>}
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+    <div className="flex items-center gap-1">
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button variant="outline" role="combobox" className="w-full justify-between h-9 font-normal">
+            {selectedLabel || <span className="text-muted-foreground">{placeholder}</span>}
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-full p-0" align="start">
+          <Command>
+            <div onKeyDown={handleKeyDown}>
+              <CommandInput placeholder={placeholder} value={query} onValueChange={setQuery} />
+            </div>
+            <CommandList>
+              <CommandEmpty>
+                <div className="space-y-1">
+                  {onCreateNew && query.trim() && (
+                    <button
+                      className="w-full px-3 py-2 text-sm text-left hover:bg-accent flex items-center gap-2"
+                      onClick={() => { onCreateNew(query.trim()); setOpen(false); setQuery(''); }}
+                    >
+                      <Plus className="h-4 w-4" /> Dodaj „{query.trim()}"
+                    </button>
+                  )}
+                  {!query.trim() && 'Nie znaleziono'}
+                </div>
+              </CommandEmpty>
+              <CommandGroup>
+                {filtered.map(item => (
+                  <CommandItem key={item.id} value={getLabel(item)} onSelect={() => { onSelect(item.id); setOpen(false); setQuery(''); }}>
+                    <Check className={`mr-2 h-4 w-4 ${value === item.id ? 'opacity-100' : 'opacity-0'}`} />
+                    {renderItem(item)}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+      {onAddNew && (
+        <Button variant="outline" size="icon" className="h-9 w-9 shrink-0" onClick={() => onAddNew(query.trim())}>
+          <Plus className="h-4 w-4" />
         </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-full p-0" align="start">
-        <Command>
-          <CommandInput placeholder={placeholder} value={query} onValueChange={setQuery} />
-          <CommandList>
-            <CommandEmpty>
-              {onCreateNew && query.trim() ? (
-                <button
-                  className="w-full px-3 py-2 text-sm text-left hover:bg-accent flex items-center gap-2"
-                  onClick={() => { onCreateNew(query.trim()); setOpen(false); setQuery(''); }}
-                >
-                  <Plus className="h-4 w-4" /> Dodaj „{query.trim()}"
-                </button>
-              ) : 'Nie znaleziono'}
-            </CommandEmpty>
-            <CommandGroup>
-              {filtered.map(item => (
-                <CommandItem key={item.id} value={getLabel(item)} onSelect={() => { onSelect(item.id); setOpen(false); setQuery(''); }}>
-                  <Check className={`mr-2 h-4 w-4 ${value === item.id ? 'opacity-100' : 'opacity-0'}`} />
-                  {renderItem(item)}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+      )}
+    </div>
   );
 }
 
@@ -209,13 +233,25 @@ function SearchableCombobox({ items, value, onSelect, onCreateNew, placeholder, 
 function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; onOpenChange: (v: boolean) => void; providerId: string }) {
   const queryClient = useQueryClient();
   const { data: clients = [] } = useWorkshopClients(providerId);
-  const { data: vehicles = [] } = useWorkshopVehicles(providerId);
+  const { data: rawVehicles = [] } = useWorkshopVehicles(providerId);
   const { data: servicePoints = [] } = useServicePoints(providerId);
+
+  // Deduplicate vehicles by plate
+  const vehicles = useMemo(() => {
+    const seen = new Set<string>();
+    return rawVehicles.filter((v: any) => {
+      const key = `${v.plate || ''}_${v.brand || ''}_${v.model || ''}`.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [rawVehicles]);
 
   const [clientId, setClientId] = useState('');
   const [clientName, setClientName] = useState('');
   const [clientPhone, setClientPhone] = useState('');
   const [vehicleId, setVehicleId] = useState('');
+  const [vehiclePlateText, setVehiclePlateText] = useState('');
   const [storedAt, setStoredAt] = useState(new Date().toISOString().split('T')[0]);
   const [pickupAt, setPickupAt] = useState('');
   const [storageCost, setStorageCost] = useState('150');
@@ -225,6 +261,10 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
   const [locationDesc, setLocationDesc] = useState('');
   const [season, setSeason] = useState('letnie');
   const [employeeName, setEmployeeName] = useState('');
+
+  // Add dialogs
+  const [showAddClient, setShowAddClient] = useState(false);
+  const [showAddVehicle, setShowAddVehicle] = useState(false);
 
   // Tire fields
   const [tireBrand, setTireBrand] = useState('');
@@ -253,17 +293,20 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
     }
   };
 
-  const handleCreateClient = (query: string) => {
+  const handleCreateClientInline = (query: string) => {
+    // Enter pressed - just use typed name inline
     setClientName(query);
     setClientId('');
   };
 
   const handleSelectVehicle = (id: string) => {
     setVehicleId(id);
+    setVehiclePlateText('');
   };
 
-  const handleCreateVehicle = (query: string) => {
-    // Just store the text for now
+  const handleCreateVehicleInline = (query: string) => {
+    // Enter pressed - just use typed plate text inline
+    setVehiclePlateText(query);
     setVehicleId('');
   };
 
@@ -368,6 +411,7 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
   const tasksTotal = tasks.reduce((s, t) => s + t.price, 0);
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -382,7 +426,8 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
               items={clients}
               value={clientId}
               onSelect={handleSelectClient}
-              onCreateNew={handleCreateClient}
+              onCreateNew={handleCreateClientInline}
+              onAddNew={() => setShowAddClient(true)}
               placeholder="Wpisz imię i nazwisko..."
               renderItem={(c: any) => c.company_name || `${c.first_name} ${c.last_name}`}
               getLabel={(c: any) => c.company_name || `${c.first_name || ''} ${c.last_name || ''}`.trim()}
@@ -405,11 +450,15 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
               items={vehicles}
               value={vehicleId}
               onSelect={handleSelectVehicle}
-              onCreateNew={handleCreateVehicle}
+              onCreateNew={handleCreateVehicleInline}
+              onAddNew={() => setShowAddVehicle(true)}
               placeholder="Wyszukaj pojazd..."
               renderItem={(v: any) => `${v.brand} ${v.model} — ${v.plate}`}
               getLabel={(v: any) => `${v.brand || ''} ${v.model || ''} ${v.plate || ''}`.trim()}
             />
+            {!vehicleId && vehiclePlateText && (
+              <div className="text-xs text-muted-foreground">Wpisano: {vehiclePlateText}</div>
+            )}
           </div>
 
           {/* Season */}
@@ -577,5 +626,29 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
         </div>
       </DialogContent>
     </Dialog>
+
+    <WorkshopAddClientDialog
+      open={showAddClient}
+      onOpenChange={setShowAddClient}
+      providerId={providerId}
+      onCreated={(newClient: any) => {
+        if (newClient?.id) {
+          handleSelectClient(newClient.id);
+        }
+      }}
+    />
+
+    <WorkshopAddVehicleDialog
+      open={showAddVehicle}
+      onOpenChange={setShowAddVehicle}
+      providerId={providerId}
+      onCreated={(newVehicle: any) => {
+        if (newVehicle?.id) {
+          handleSelectVehicle(newVehicle.id);
+          queryClient.invalidateQueries({ queryKey: ['workshop-vehicles'] });
+        }
+      }}
+    />
+    </>
   );
 }
