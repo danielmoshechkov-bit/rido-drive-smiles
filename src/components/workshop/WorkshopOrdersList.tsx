@@ -52,6 +52,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
   const [showNewOrder, setShowNewOrder] = useState(false);
   const [search, setSearch] = useState('');
   const [orderView, setOrderView] = useState<'active' | 'completed'>('active');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [statusDropdownId, setStatusDropdownId] = useState<string | null>(null);
   const [editClient, setEditClient] = useState<any>(null);
@@ -70,11 +71,15 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
   const updateOrder = useUpdateWorkshopOrder();
 
   const filteredOrders = useMemo(() => {
-    return orders.filter((o: any) => orderView === 'completed'
+    let filtered = orders.filter((o: any) => orderView === 'completed'
       ? o.status_name === 'Zakończone'
       : o.status_name !== 'Zakończone'
     );
-  }, [orders, orderView]);
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter((o: any) => o.status_name === statusFilter);
+    }
+    return filtered;
+  }, [orders, orderView, statusFilter]);
 
   useEffect(() => {
     setSelectedIds(new Set());
@@ -235,6 +240,23 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
         )}
 
         <div className="flex-1" />
+
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="h-8 w-[180px]">
+            <SelectValue placeholder="Wszystkie statusy" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Wszystkie statusy</SelectItem>
+            {statuses.filter((s: any) => orderView === 'completed' ? s.name === 'Zakończone' : s.name !== 'Zakończone').map((s: any) => (
+              <SelectItem key={s.id} value={s.name}>
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
+                  {s.name}
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
         <div className="relative w-full sm:w-auto">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
