@@ -52,6 +52,13 @@ function round2(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
+function getEffectiveBoltBase(amounts: any): number {
+  const boltProjected = Number(amounts?.bolt_projected_d || 0);
+  if (Math.abs(boltProjected) > 0.01) return boltProjected;
+
+  return Number(amounts?.bolt_payout_s || 0);
+}
+
 function calculateProportionalRentForSettlement(
   assignedAt: string | null | undefined,
   periodFrom: string,
@@ -210,7 +217,7 @@ Deno.serve(async (req) => {
       ] = await Promise.all([
         supabase
           .from('settlements')
-          .select('driver_id, actual_payout')
+          .select('driver_id, debt_after')
           .in('driver_id', missingDriverIds)
           .lt('period_to', period_from)
           .order('driver_id', { ascending: true })
@@ -224,14 +231,10 @@ Deno.serve(async (req) => {
           .eq('period_to', period_to)
       ]);
 
-      const previousNegativePayoutByDriver = new Map<string, number | null>();
+      const previousDebtByDriver = new Map<string, number>();
       (previousSettlementsData || []).forEach((row: any) => {
-        if (!previousNegativePayoutByDriver.has(row.driver_id)) {
-          const previousActualPayout = Number(row.actual_payout ?? 0);
-          previousNegativePayoutByDriver.set(
-            row.driver_id,
-            previousActualPayout < 0 ? round2(Math.abs(previousActualPayout)) : null
-          );
+        if (!previousDebtByDriver.has(row.driver_id)) {
+          previousDebtByDriver.set(row.driver_id, round2(Math.max(0, Number(row.debt_after ?? 0))));
         }
       });
 
@@ -247,16 +250,14 @@ Deno.serve(async (req) => {
 
       const carryOverSettlements = missingDriverIds
         .map((driverId: string) => {
-          const previousNegativePayout = previousNegativePayoutByDriver.get(driverId);
+          const previousDebt = previousDebtByDriver.get(driverId) ?? 0;
           const existingSettlement = existingCurrentPeriodByDriver.get(driverId);
 
           if (existingSettlement && existingSettlement.source !== 'debt_carryover') {
             return null;
           }
 
-          const carryDebt = previousNegativePayout !== null && previousNegativePayout !== undefined
-            ? round2(previousNegativePayout)
-            : 0;
+          const carryDebt = round2(Math.max(0, previousDebt));
 
           if (carryDebt <= 0.01) return null;
 
@@ -287,7 +288,7 @@ Deno.serve(async (req) => {
       // CRITICAL: Insert carry-over settlements SEPARATELY with ignoreDuplicates: true
       // to NEVER overwrite existing settlements that have real CSV data
       if (carryOverSettlements.length > 0) {
-        console.log(`↪️ Upserting ${carryOverSettlements.length} debt carry-over settlements from previous negative actual_payout`);
+        console.log(`↪️ Upserting ${carryOverSettlements.length} debt carry-over settlements from previous debt_after snapshot`);
         const { error: carryErr } = await supabase
           .from('settlements')
           .upsert(carryOverSettlements, { 
@@ -372,12 +373,13 @@ Deno.serve(async (req) => {
               const amounts = fullSettlement.amounts || {};
               
               // Calculate total base and cash
-              const totalBase = (amounts.uber_base || 0) + (amounts.bolt_projected_d || 0) + (amounts.freenow_base_s || 0);
+              const effectiveBoltBase = getEffectiveBoltBase(amounts);
+              const totalBase = (amounts.uber_base || 0) + effectiveBoltBase + (amounts.freenow_base_s || 0);
               const totalCash = (amounts.uber_cash_f || 0) + (amounts.bolt_cash || 0) + (amounts.freenow_cash_f || 0);
               const totalCommission = (amounts.uber_commission || 0) + (amounts.bolt_commission || 0) + (amounts.freenow_commission_t || 0);
               const hasPositivePlatformActivity =
                 Math.max(0, amounts.uber_base || 0) +
-                Math.max(0, amounts.bolt_projected_d || 0) +
+                Math.max(0, effectiveBoltBase) +
                 Math.max(0, amounts.freenow_base_s || 0) +
                 Math.max(0, totalCash) > 0.01;
               const isNegativeAdjustmentOnly =
@@ -408,7 +410,7 @@ Deno.serve(async (req) => {
                 : driverUberCalcMode2 === 'gross_total'
                   ? Math.max(0, uberGrossVal > 0 ? uberGrossVal : uberBaseVal * 1.25)
                   : Math.max(0, uberBaseVal);
-              const vatBase2 = uberVatBase2 + Math.max(0, amounts.bolt_projected_d || 0) + Math.max(0, amounts.freenow_base_s || 0);
+              const vatBase2 = uberVatBase2 + Math.max(0, effectiveBoltBase) + Math.max(0, amounts.freenow_base_s || 0);
               const vat8 = vatBase2 * (driverVatRate2 / 100);
               
               // Fuel and refund from amounts
