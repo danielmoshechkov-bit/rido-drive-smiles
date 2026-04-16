@@ -233,13 +233,25 @@ function SearchableCombobox({ items, value, onSelect, onCreateNew, onAddNew, pla
 function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; onOpenChange: (v: boolean) => void; providerId: string }) {
   const queryClient = useQueryClient();
   const { data: clients = [] } = useWorkshopClients(providerId);
-  const { data: vehicles = [] } = useWorkshopVehicles(providerId);
+  const { data: rawVehicles = [] } = useWorkshopVehicles(providerId);
   const { data: servicePoints = [] } = useServicePoints(providerId);
+
+  // Deduplicate vehicles by plate
+  const vehicles = useMemo(() => {
+    const seen = new Set<string>();
+    return rawVehicles.filter((v: any) => {
+      const key = `${v.plate || ''}_${v.brand || ''}_${v.model || ''}`.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [rawVehicles]);
 
   const [clientId, setClientId] = useState('');
   const [clientName, setClientName] = useState('');
   const [clientPhone, setClientPhone] = useState('');
   const [vehicleId, setVehicleId] = useState('');
+  const [vehiclePlateText, setVehiclePlateText] = useState('');
   const [storedAt, setStoredAt] = useState(new Date().toISOString().split('T')[0]);
   const [pickupAt, setPickupAt] = useState('');
   const [storageCost, setStorageCost] = useState('150');
@@ -249,6 +261,10 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
   const [locationDesc, setLocationDesc] = useState('');
   const [season, setSeason] = useState('letnie');
   const [employeeName, setEmployeeName] = useState('');
+
+  // Add dialogs
+  const [showAddClient, setShowAddClient] = useState(false);
+  const [showAddVehicle, setShowAddVehicle] = useState(false);
 
   // Tire fields
   const [tireBrand, setTireBrand] = useState('');
@@ -277,17 +293,20 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
     }
   };
 
-  const handleCreateClient = (query: string) => {
+  const handleCreateClientInline = (query: string) => {
+    // Enter pressed - just use typed name inline
     setClientName(query);
     setClientId('');
   };
 
   const handleSelectVehicle = (id: string) => {
     setVehicleId(id);
+    setVehiclePlateText('');
   };
 
-  const handleCreateVehicle = (query: string) => {
-    // Just store the text for now
+  const handleCreateVehicleInline = (query: string) => {
+    // Enter pressed - just use typed plate text inline
+    setVehiclePlateText(query);
     setVehicleId('');
   };
 
