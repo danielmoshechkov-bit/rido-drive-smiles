@@ -2028,7 +2028,13 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           Math.abs(bolt_base - bolt_payout_s) < 0.01 &&
           Math.abs(total_cash) < 0.01 &&
           Math.abs(total_commission) < 0.01;
-        const effectiveServiceFee = isBoltAdjustmentOnly ? 0 : service_fee;
+        const isNegativeAdjustmentOnly =
+          !hasPositivePlatformActivity &&
+          total_base < -0.01 &&
+          Math.abs(total_cash) < 0.01 &&
+          Math.abs(total_commission) < 0.01;
+        const shouldSkipWeekCharges = !hasPositivePlatformActivity || isBoltAdjustmentOnly || isNegativeAdjustmentOnly;
+        const effectiveServiceFee = shouldSkipWeekCharges ? 0 : service_fee;
 
 
         // Nie naliczamy opłat serwisowych ani dodatkowych, ale VAT liczymy normalnie wg ustawień
@@ -2158,7 +2164,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         const isFirstWeek = periodStart ? isFirstFullWeekOfMonth(periodStart) : false;
 
         // Calculate additional fees from fleet_settlement_fees
-        const additional_fees = fleetFees
+        const additional_fees = shouldSkipWeekCharges ? [] : fleetFees
           .filter(fee => {
             const periodStartDate = periodStart ? new Date(periodStart) : new Date();
             if ((fee as any).valid_from) {
