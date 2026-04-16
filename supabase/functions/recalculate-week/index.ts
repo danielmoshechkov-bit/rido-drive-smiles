@@ -28,6 +28,13 @@ serve(async (req) => {
 
     const round2 = (v: number): number => Math.round((v + Number.EPSILON) * 100) / 100;
 
+    // Must match UI logic: when bolt_projected_d is 0, fall back to bolt_payout_s
+    const getEffectiveBoltBase = (amounts: any): number => {
+      const boltProjected = Number(amounts?.bolt_projected_d || 0);
+      if (Math.abs(boltProjected) > 0.01) return boltProjected;
+      return Number(amounts?.bolt_payout_s || 0);
+    };
+
     const calculateProportionalRentForSettlement = (
       assignedAt: string | null | undefined,
       periodFrom: string,
