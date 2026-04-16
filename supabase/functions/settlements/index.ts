@@ -205,78 +205,63 @@ Deno.serve(async (req) => {
 
     if (missingDriverIds.length > 0) {
       const [
-        { data: debtsData },
-        { data: previousDebtsData },
-        { data: assignmentsData }
+        { data: previousSettlementsData },
+        { data: existingCurrentPeriodSettlements }
       ] = await Promise.all([
         supabase
-          .from('driver_debts')
-          .select('driver_id, current_balance')
-          .in('driver_id', missingDriverIds),
-        supabase
           .from('settlements')
-          .select('driver_id, debt_after')
+          .select('driver_id, actual_payout')
           .in('driver_id', missingDriverIds)
           .lt('period_to', period_from)
           .order('driver_id', { ascending: true })
           .order('period_to', { ascending: false })
           .order('updated_at', { ascending: false }),
         supabase
-          .from('driver_vehicle_assignments')
-          .select('driver_id, assigned_at, vehicles(weekly_rental_fee)')
+          .from('settlements')
+          .select('id, driver_id, source')
           .in('driver_id', missingDriverIds)
-          .eq('status', 'active')
-          .order('driver_id', { ascending: true })
-          .order('assigned_at', { ascending: false })
+          .eq('period_from', period_from)
+          .eq('period_to', period_to)
       ]);
 
-      const debtByDriver = new Map<string, number>();
-      (debtsData || []).forEach((row: any) => {
-        debtByDriver.set(row.driver_id, round2(Math.max(0, Number(row.current_balance || 0))));
-      });
-
-      const previousDebtByDriver = new Map<string, number | null>();
-      (previousDebtsData || []).forEach((row: any) => {
-        if (!previousDebtByDriver.has(row.driver_id)) {
-          previousDebtByDriver.set(
+      const previousNegativePayoutByDriver = new Map<string, number | null>();
+      (previousSettlementsData || []).forEach((row: any) => {
+        if (!previousNegativePayoutByDriver.has(row.driver_id)) {
+          const previousActualPayout = Number(row.actual_payout ?? 0);
+          previousNegativePayoutByDriver.set(
             row.driver_id,
-            row.debt_after === null || row.debt_after === undefined
-              ? null
-              : round2(Math.max(0, Number(row.debt_after)))
+            previousActualPayout < 0 ? round2(Math.abs(previousActualPayout)) : null
           );
         }
       });
 
-      const assignmentMap = new Map<string, { assignedAt: string | null; weeklyRate: number }>();
-      (assignmentsData || []).forEach((assignment: any) => {
-        const weeklyRate = Number((assignment?.vehicles as any)?.weekly_rental_fee || 0);
-        if (weeklyRate > 0 && !assignmentMap.has(assignment.driver_id)) {
-          assignmentMap.set(assignment.driver_id, {
-            assignedAt: assignment.assigned_at || null,
-            weeklyRate,
+      const existingCurrentPeriodByDriver = new Map<string, { id: string; source: string | null }>();
+      (existingCurrentPeriodSettlements || []).forEach((row: any) => {
+        if (!existingCurrentPeriodByDriver.has(row.driver_id)) {
+          existingCurrentPeriodByDriver.set(row.driver_id, {
+            id: row.id,
+            source: row.source ?? null,
           });
         }
       });
 
       const carryOverSettlements = missingDriverIds
         .map((driverId: string) => {
-          const previousDebt = previousDebtByDriver.get(driverId);
-          const carryDebt = previousDebt !== null && previousDebt !== undefined
-            ? round2(Math.max(0, Number(previousDebt)))
-            : round2(Math.max(0, Number(debtByDriver.get(driverId) || 0)));
+          const previousNegativePayout = previousNegativePayoutByDriver.get(driverId);
+          const existingSettlement = existingCurrentPeriodByDriver.get(driverId);
 
-          const assignment = assignmentMap.get(driverId);
-          const rentalFee = assignment?.weeklyRate
-            ? assignment.assignedAt
-              ? calculateProportionalRentForSettlement(assignment.assignedAt, period_from, period_to, assignment.weeklyRate)
-              : round2(assignment.weeklyRate)
+          if (existingSettlement && existingSettlement.source !== 'debt_carryover') {
+            return null;
+          }
+
+          const carryDebt = previousNegativePayout !== null && previousNegativePayout !== undefined
+            ? round2(previousNegativePayout)
             : 0;
 
-          const newDebtAfter = round2(carryDebt + rentalFee);
-
-          if (newDebtAfter <= 0.01) return null;
+          if (carryDebt <= 0.01) return null;
 
           return {
+            ...(existingSettlement?.id ? { id: existingSettlement.id } : {}),
             city_id: effectiveCityId,
             driver_id: driverId,
             platform: 'main',
@@ -287,10 +272,10 @@ Deno.serve(async (req) => {
             total_earnings: 0,
             commission_amount: 0,
             net_amount: 0,
-            rental_fee: rentalFee,
+            rental_fee: 0,
             debt_before: carryDebt,
             debt_payment: 0,
-            debt_after: newDebtAfter,
+            debt_after: carryDebt,
             actual_payout: 0,
             amounts: {},
             source: 'debt_carryover',
@@ -302,12 +287,12 @@ Deno.serve(async (req) => {
       // CRITICAL: Insert carry-over settlements SEPARATELY with ignoreDuplicates: true
       // to NEVER overwrite existing settlements that have real CSV data
       if (carryOverSettlements.length > 0) {
-        console.log(`↪️ Inserting ${carryOverSettlements.length} debt carry-over settlements (ignoreDuplicates=true)`);
+        console.log(`↪️ Upserting ${carryOverSettlements.length} debt carry-over settlements from previous negative actual_payout`);
         const { error: carryErr } = await supabase
           .from('settlements')
           .upsert(carryOverSettlements, { 
             onConflict: 'driver_id,period_from,period_to',
-            ignoreDuplicates: true 
+            ignoreDuplicates: false 
           });
         if (carryErr) {
           console.error('⚠️ Carry-over upsert error (non-fatal):', carryErr);
