@@ -377,73 +377,24 @@ serve(async (req) => {
       return targetSnapshot;
     };
 
-    const getAuthoritativeDebtBalance = async (): Promise<number> => {
-      const [
-        { data: debtData, error: debtError },
-        { data: txData, error: txError },
-        { data: previousSettlement, error: previousSettlementError }
-      ] = await Promise.all([
-        supabase
-          .from("driver_debts")
-          .select("current_balance")
-          .eq("driver_id", driver_id)
-          .maybeSingle(),
-        supabase
-          .from("driver_debt_transactions")
-          .select("type, amount")
-          .eq("driver_id", driver_id),
-        supabase
-          .from("settlements")
-          .select("debt_after")
-          .eq("driver_id", driver_id)
-          .lt("period_to", period_from)
-          .not("debt_after", "is", null)
-          .order("period_to", { ascending: false })
-          .order("updated_at", { ascending: false })
-          .limit(1)
-          .maybeSingle()
-      ]);
+    const getPreviousSettlementDebt = async (): Promise<number> => {
+      const { data: previousSettlement, error: previousSettlementError } = await supabase
+        .from("settlements")
+        .select("debt_after")
+        .eq("driver_id", driver_id)
+        .lt("period_to", period_from)
+        .not("debt_after", "is", null)
+        .order("period_to", { ascending: false })
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-      if (debtError) {
-        console.error("Error fetching driver_debts:", debtError);
-        throw debtError;
-      }
-      if (txError) {
-        console.error("Error fetching debt transactions:", txError);
-        throw txError;
-      }
       if (previousSettlementError) {
         console.error("Error fetching previous settlement debt:", previousSettlementError);
         throw previousSettlementError;
       }
 
-      const dbDebt = Math.max(0, debtData?.current_balance || 0);
-      const previousSettlementDebt = Math.max(0, previousSettlement?.debt_after || 0);
-
-      let authoritativeDebt = 0;
-
-      if ((txData || []).length > 0) {
-        const ledgerDebt = (txData || []).reduce((sum: number, tx: any) => {
-          const amount = Math.abs(tx.amount || 0);
-          if (tx.type === "debt_increase" || tx.type === "manual_add") return sum + amount;
-          return sum - amount;
-        }, 0);
-        authoritativeDebt = Math.max(0, ledgerDebt);
-      } else {
-        authoritativeDebt = Math.max(dbDebt, previousSettlementDebt);
-      }
-
-      if (Math.abs(dbDebt - authoritativeDebt) > 0.01) {
-        await supabase.from("driver_debts").upsert({
-          driver_id,
-          current_balance: authoritativeDebt,
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: "driver_id"
-        });
-      }
-
-      return authoritativeDebt;
+      return round2(Math.max(0, Number(previousSettlement?.debt_after ?? 0)));
     };
 
     if (force_recalculate_chain) {
@@ -604,8 +555,10 @@ serve(async (req) => {
       );
     }
 
-    // Get authoritative debt only for non-zero payouts (after zero-payout early return above)
-    const currentDebt = await getAuthoritativeDebtBalance();
+    // CRITICAL: nowe rozliczenie startuje WYŁĄCZNIE z debt_after poprzedniego settlementu.
+    // Nie używamy driver_debts/current ledger jako debt_before dla nowego tygodnia,
+    // bo to powoduje dopisywanie starych/phantom długów.
+    const currentDebt = await getPreviousSettlementDebt();
 
     let debtPayment = 0;
     let remainingDebt = 0;
@@ -657,8 +610,6 @@ serve(async (req) => {
       // Narastanie długu — split into settlement vs rental categories
       const totalDeficit = Math.abs(calculated_payout);
       const payoutWithoutRental = calculated_payout_without_rental ?? (calculated_payout + (rental_fee || 0));
-      const effectiveRental = rental_fee || 0;
-
       // Settlement deficit: if payout without rental is already negative
       const settlementDeficit = payoutWithoutRental < 0 ? round2(Math.abs(payoutWithoutRental)) : 0;
       // Rental deficit: whatever is left after settlement deficit
