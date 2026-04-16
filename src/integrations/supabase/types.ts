@@ -21096,6 +21096,38 @@ export type Database = {
           },
         ]
       }
+      workshop_service_points: {
+        Row: {
+          address: string | null
+          created_at: string
+          id: string
+          name: string
+          provider_id: string
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          provider_id: string
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          provider_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workshop_service_points_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workshop_settings: {
         Row: {
           address: string | null
@@ -21201,18 +21233,28 @@ export type Database = {
       workshop_tire_storage: {
         Row: {
           client_id: string | null
+          client_name: string | null
+          client_phone: string | null
           condition: string | null
           created_at: string
           dot_code: string | null
+          employee_name: string | null
           id: string
           is_active: boolean | null
+          location_name: string | null
           notes: string | null
           photo_urls: string[] | null
           pickup_at: string | null
+          pickup_deadline: string | null
           production_year: number | null
           provider_id: string
           quantity: number | null
+          reminder_months: number | null
+          reminder_sent: boolean | null
+          rim_manufacturer: string | null
+          rim_type: string | null
           season: string | null
+          storage_cost: number | null
           storage_number: string | null
           stored_at: string | null
           tire_brand: string | null
@@ -21224,18 +21266,28 @@ export type Database = {
         }
         Insert: {
           client_id?: string | null
+          client_name?: string | null
+          client_phone?: string | null
           condition?: string | null
           created_at?: string
           dot_code?: string | null
+          employee_name?: string | null
           id?: string
           is_active?: boolean | null
+          location_name?: string | null
           notes?: string | null
           photo_urls?: string[] | null
           pickup_at?: string | null
+          pickup_deadline?: string | null
           production_year?: number | null
           provider_id: string
           quantity?: number | null
+          reminder_months?: number | null
+          reminder_sent?: boolean | null
+          rim_manufacturer?: string | null
+          rim_type?: string | null
           season?: string | null
+          storage_cost?: number | null
           storage_number?: string | null
           stored_at?: string | null
           tire_brand?: string | null
@@ -21247,18 +21299,28 @@ export type Database = {
         }
         Update: {
           client_id?: string | null
+          client_name?: string | null
+          client_phone?: string | null
           condition?: string | null
           created_at?: string
           dot_code?: string | null
+          employee_name?: string | null
           id?: string
           is_active?: boolean | null
+          location_name?: string | null
           notes?: string | null
           photo_urls?: string[] | null
           pickup_at?: string | null
+          pickup_deadline?: string | null
           production_year?: number | null
           provider_id?: string
           quantity?: number | null
+          reminder_months?: number | null
+          reminder_sent?: boolean | null
+          rim_manufacturer?: string | null
+          rim_type?: string | null
           season?: string | null
+          storage_cost?: number | null
           storage_number?: string | null
           stored_at?: string | null
           tire_brand?: string | null
@@ -21288,6 +21350,44 @@ export type Database = {
             columns: ["vehicle_id"]
             isOneToOne: false
             referencedRelation: "workshop_vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workshop_tire_storage_tasks: {
+        Row: {
+          created_at: string
+          done_at: string | null
+          id: string
+          is_done: boolean | null
+          name: string
+          price: number | null
+          storage_id: string
+        }
+        Insert: {
+          created_at?: string
+          done_at?: string | null
+          id?: string
+          is_done?: boolean | null
+          name: string
+          price?: number | null
+          storage_id: string
+        }
+        Update: {
+          created_at?: string
+          done_at?: string | null
+          id?: string
+          is_done?: boolean | null
+          name?: string
+          price?: number | null
+          storage_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workshop_tire_storage_tasks_storage_id_fkey"
+            columns: ["storage_id"]
+            isOneToOne: false
+            referencedRelation: "workshop_tire_storage"
             referencedColumns: ["id"]
           },
         ]
