@@ -425,7 +425,8 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
               items={clients}
               value={clientId}
               onSelect={handleSelectClient}
-              onCreateNew={handleCreateClient}
+              onCreateNew={handleCreateClientInline}
+              onAddNew={() => setShowAddClient(true)}
               placeholder="Wpisz imię i nazwisko..."
               renderItem={(c: any) => c.company_name || `${c.first_name} ${c.last_name}`}
               getLabel={(c: any) => c.company_name || `${c.first_name || ''} ${c.last_name || ''}`.trim()}
@@ -448,11 +449,15 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
               items={vehicles}
               value={vehicleId}
               onSelect={handleSelectVehicle}
-              onCreateNew={handleCreateVehicle}
+              onCreateNew={handleCreateVehicleInline}
+              onAddNew={() => setShowAddVehicle(true)}
               placeholder="Wyszukaj pojazd..."
               renderItem={(v: any) => `${v.brand} ${v.model} — ${v.plate}`}
               getLabel={(v: any) => `${v.brand || ''} ${v.model || ''} ${v.plate || ''}`.trim()}
             />
+            {!vehicleId && vehiclePlateText && (
+              <div className="text-xs text-muted-foreground">Wpisano: {vehiclePlateText}</div>
+            )}
           </div>
 
           {/* Season */}
