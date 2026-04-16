@@ -21,8 +21,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { SimpleFreeInvoice } from '@/components/invoices/SimpleFreeInvoice';
 import {
-  Plus, Search, CheckCircle, Car, Trash2,
-  Wrench, Filter, Loader2, Copy, Phone, Mail, User, ExternalLink, Building, Save, Calendar,
+  Plus, Search, Car, Trash2,
+  Wrench, Loader2, Copy, Phone, Mail, User, ExternalLink, Building, Save, Calendar,
   FileText, Receipt, ChevronDown
 } from 'lucide-react';
 import { format, isFuture, isPast } from 'date-fns';
@@ -51,8 +51,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
   const queryClient = useQueryClient();
   const [showNewOrder, setShowNewOrder] = useState(false);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [completedOnly, setCompletedOnly] = useState(false);
+  const [orderView, setOrderView] = useState<'active' | 'completed'>('active');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [statusDropdownId, setStatusDropdownId] = useState<string | null>(null);
   const [editClient, setEditClient] = useState<any>(null);
@@ -66,16 +65,20 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
 
   const { data: statuses = [] } = useWorkshopStatuses(providerId);
   const { data: orders = [], isLoading } = useWorkshopOrders(providerId, {
-    status: statusFilter !== 'all' ? statusFilter : undefined,
     search: search || undefined,
-    completedOnly,
   });
   const updateOrder = useUpdateWorkshopOrder();
 
   const filteredOrders = useMemo(() => {
-    if (completedOnly) return orders.filter((o: any) => o.status_name === 'Zakończone');
-    return orders;
-  }, [orders, completedOnly]);
+    return orders.filter((o: any) => orderView === 'completed'
+      ? o.status_name === 'Zakończone'
+      : o.status_name !== 'Zakończone'
+    );
+  }, [orders, orderView]);
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [orderView]);
 
   const totalSum = filteredOrders.reduce((s: number, o: any) => s + (o.total_gross || 0), 0);
 
@@ -167,6 +170,26 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
         <Button onClick={() => setShowNewOrder(true)} className="gap-2" size="sm">
           <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Nowe</span> zlecenie
         </Button>
+
+        <div className="flex items-center gap-1 rounded-lg border bg-muted/30 p-0.5">
+          <Button
+            variant={orderView === 'active' ? 'default' : 'ghost'}
+            size="sm"
+            className="h-8"
+            onClick={() => setOrderView('active')}
+          >
+            Aktywne zlecenia
+          </Button>
+          <Button
+            variant={orderView === 'completed' ? 'default' : 'ghost'}
+            size="sm"
+            className="h-8"
+            onClick={() => setOrderView('completed')}
+          >
+            Zakończone zlecenia
+          </Button>
+        </div>
+
         {selectedIds.size > 0 && (
           <Button variant="destructive" size="sm" className="gap-1" onClick={async () => {
             if (!confirm(`Czy na pewno chcesz usunąć ${selectedIds.size} zleceń?`)) return;
@@ -212,29 +235,6 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
         )}
 
         <div className="flex-1" />
-
-        <Button
-          variant={completedOnly ? 'secondary' : 'ghost'}
-          size="icon"
-          title="Tylko zakończone"
-          onClick={() => setCompletedOnly(!completedOnly)}
-          className="h-8 w-8"
-        >
-          <CheckCircle className="h-4 w-4" />
-        </Button>
-
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[130px] sm:w-[180px] h-8 text-xs sm:text-sm">
-            <Filter className="h-3.5 w-3.5 mr-1" />
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Wszystkie statusy</SelectItem>
-            {statuses.map((s: any) => (
-              <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
 
         <div className="relative w-full sm:w-auto">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
