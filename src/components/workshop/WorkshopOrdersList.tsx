@@ -241,6 +241,23 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
 
         <div className="flex-1" />
 
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="h-8 w-[180px]">
+            <SelectValue placeholder="Wszystkie statusy" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Wszystkie statusy</SelectItem>
+            {statuses.filter((s: any) => orderView === 'completed' ? s.name === 'Zakończone' : s.name !== 'Zakończone').map((s: any) => (
+              <SelectItem key={s.id} value={s.name}>
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
+                  {s.name}
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
         <div className="relative w-full sm:w-auto">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
