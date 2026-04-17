@@ -416,6 +416,7 @@ serve(async (req) => {
           debt_payment: computed.debtPayment,
           debt_after: computed.remainingDebt,
           actual_payout: computed.actualPayout,
+          rental_fee: rentalFee,
         })
         .eq('id', settlement.id);
 
