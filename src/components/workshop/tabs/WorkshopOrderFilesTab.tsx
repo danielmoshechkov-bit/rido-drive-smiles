@@ -166,11 +166,17 @@ export function WorkshopOrderFilesTab({ order }: Props) {
             <FileText className="h-4 w-4 text-primary" />
             <h3 className="font-semibold text-sm">Pliki załączone</h3>
           </div>
-          <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
-            {uploading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Upload className="h-4 w-4 mr-1" />}
-            Dodaj pliki
-          </Button>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => cameraInputRef.current?.click()} disabled={uploading} className="md:hidden">
+              <Camera className="h-4 w-4 mr-1" /> Aparat
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+              {uploading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Upload className="h-4 w-4 mr-1" />}
+              Dodaj pliki
+            </Button>
+          </div>
           <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleUpload} accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" />
+          <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" multiple className="hidden" onChange={handleUpload} />
         </div>
 
         {attachments.length === 0 && intakePhotos.length === 0 && (
