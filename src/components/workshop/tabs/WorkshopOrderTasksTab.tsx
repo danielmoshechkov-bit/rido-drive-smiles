@@ -982,8 +982,8 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                       <td className="p-1 tabular-nums">
                         {renderEditableCell(t, 'labor_hours', String(safeNumber(t.labor_hours) || '—'), 'tabular-nums', 'center')}
                       </td>
-                      <td className="p-1 tabular-nums">{renderEditableCell(t, 'price', fmt(price), 'tabular-nums', 'right')}</td>
-                      <td className="p-2 text-right">{hasDiscount ? `${Math.round(getDiscountPercent(t))}%` : '—'}</td>
+                      <td className="p-1 tabular-nums border-r border-border/60">{renderEditableCell(t, 'price', fmt(price), 'tabular-nums', 'right')}</td>
+                      <td className="p-2 text-center border-l border-border/60 bg-muted/10">{hasDiscount ? `${Math.round(getDiscountPercent(t))}%` : '—'}</td>
                       <td className="p-2 text-right font-semibold tabular-nums">{fmt(total)}</td>
                       <td className="p-2 text-center">
                         <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => handleDeleteItem(t.id)}>
@@ -1061,7 +1061,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           }}
                         />
                       </td>
-                      <td className="p-1.5">
+                      <td className="p-1.5 border-r border-border/60">
                         <Input
                           type="number"
                           placeholder={isTaskGross ? 'Brutto' : 'Netto'}
@@ -1076,8 +1076,8 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           className="h-9 w-full text-sm text-right min-w-0"
                         />
                       </td>
-                      <td className="p-1.5">
-                        <div className="flex items-center gap-1">
+                      <td className="p-1.5 border-l border-border/60 bg-muted/10">
+                        <div className="flex items-center gap-1 justify-center">
                           <Select value={row.discountType} onValueChange={(v: DiscountType) => updateTaskRow(idx, { discountType: v })}>
                              <SelectTrigger className="h-9 text-xs w-16 shrink-0"><SelectValue /></SelectTrigger>
                             <SelectContent>
