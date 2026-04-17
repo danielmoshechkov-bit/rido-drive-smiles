@@ -51,8 +51,20 @@ export function WorkshopOrderFilesTab({ order }: Props) {
     if (!selectedFiles?.length || !order?.id) return;
     setUploading(true);
     try {
-      for (const file of Array.from(selectedFiles)) {
-        const _ext = file.name.split('.').pop() || 'bin';
+      for (const original of Array.from(selectedFiles)) {
+        // Kompresja + watermark z datą/godziną dla obrazów (antyfraud + oszczędność miejsca)
+        let file = original;
+        if (original.type.startsWith('image/')) {
+          try {
+            file = await compressImageWithWatermark(original, {
+              maxDimension: 1920,
+              quality: 0.85,
+              watermarkText: formatTimestampPL(),
+            });
+          } catch (err) {
+            console.warn('Kompresja nie powiodła się, używam oryginału', err);
+          }
+        }
         const storagePath = `${order.id}/${Date.now()}_${file.name}`;
         const { error: uploadErr } = await supabase.storage
           .from('workshop-order-photos')
@@ -73,6 +85,7 @@ export function WorkshopOrderFilesTab({ order }: Props) {
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
+      if (cameraInputRef.current) cameraInputRef.current.value = '';
     }
   };
 
