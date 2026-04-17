@@ -25,7 +25,8 @@ const HOURS = Array.from({ length: 11 }, (_, i) => i + 8);
 
 export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Terminarz', focusOrderId }: Props) {
   const queryClient = useQueryClient();
-  const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
+  // For 'day' view: anchor = current day. For 'week' view: anchor = Monday of week.
+  const [currentWeekStart, setCurrentWeekStart] = useState(new Date());
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('day');
   const [search, setSearch] = useState('');
@@ -226,20 +227,23 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Termin
   };
 
   const weekDays = useMemo(() => {
-    return Array.from({ length: viewMode === 'day' ? 1 : 5 }, (_, i) => addDays(currentWeekStart, i));
+    if (viewMode === 'day') return [currentWeekStart];
+    const monday = startOfWeek(currentWeekStart, { weekStartsOn: 1 });
+    return Array.from({ length: 5 }, (_, i) => addDays(monday, i));
   }, [currentWeekStart, viewMode]);
 
   const goToToday = () => {
-    setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }));
+    setCurrentWeekStart(new Date());
     setCurrentMonth(new Date());
   };
   const currentDay = weekDays[0];
-  const weekEnd = addDays(currentWeekStart, 4);
+  const weekStartMonday = startOfWeek(currentWeekStart, { weekStartsOn: 1 });
+  const weekEnd = addDays(weekStartMonday, 4);
   const headerLabel = viewMode === 'day'
     ? format(currentDay, 'EEEE, d MMMM yyyy', { locale: pl })
     : viewMode === 'month'
     ? format(currentMonth, 'LLLL yyyy', { locale: pl })
-    : `${format(currentWeekStart, 'd', { locale: pl })} – ${format(weekEnd, 'd MMM yyyy', { locale: pl })}`;
+    : `${format(weekStartMonday, 'd', { locale: pl })} – ${format(weekEnd, 'd MMM yyyy', { locale: pl })}`;
 
   const handleCellClick = (day: Date, hour: number, stationId: string) => {
     if (isCellOccupied(stationId, day, hour)) return;
@@ -370,12 +374,12 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Termin
   // Navigation
   const handlePrev = () => {
     if (viewMode === 'day') setCurrentWeekStart(subDays(currentWeekStart, 1));
-    else if (viewMode === 'week') setCurrentWeekStart(subWeeks(currentWeekStart, 1));
+    else if (viewMode === 'week') setCurrentWeekStart(subWeeks(startOfWeek(currentWeekStart, { weekStartsOn: 1 }), 1));
     else setCurrentMonth(subMonths(currentMonth, 1));
   };
   const handleNext = () => {
     if (viewMode === 'day') setCurrentWeekStart(addDays(currentWeekStart, 1));
-    else if (viewMode === 'week') setCurrentWeekStart(addWeeks(currentWeekStart, 1));
+    else if (viewMode === 'week') setCurrentWeekStart(addWeeks(startOfWeek(currentWeekStart, { weekStartsOn: 1 }), 1));
     else setCurrentMonth(addMonths(currentMonth, 1));
   };
 
@@ -442,10 +446,10 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Termin
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" className="h-7 w-7" onClick={handlePrev}><ChevronLeft className="h-4 w-4" /></Button>
-          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={goToToday}>Dziś</Button>
-          <Button variant="outline" size="icon" className="h-7 w-7" onClick={handleNext}><ChevronRight className="h-4 w-4" /></Button>
-          <h3 className="text-sm font-semibold capitalize">{headerLabel}</h3>
+          <Button variant="outline" size="icon" className="h-7 w-7 flex-shrink-0" onClick={handlePrev}><ChevronLeft className="h-4 w-4" /></Button>
+          <Button variant="outline" size="sm" className="h-7 text-xs flex-shrink-0" onClick={goToToday}>Dziś</Button>
+          <Button variant="outline" size="icon" className="h-7 w-7 flex-shrink-0" onClick={handleNext}><ChevronRight className="h-4 w-4" /></Button>
+          <h3 className="text-sm font-semibold capitalize text-left" style={{ minWidth: '240px' }}>{headerLabel}</h3>
           <div className="flex items-center gap-0.5 border rounded-lg p-0.5 ml-2">
             {(['day', 'week', 'month'] as const).map(mode => (
               <Button key={mode} variant={viewMode === mode ? 'default' : 'ghost'} size="sm" className="h-7 text-xs" onClick={() => setViewMode(mode)}>
