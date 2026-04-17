@@ -911,12 +911,12 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
               <thead>
                 <tr className="border-b bg-muted/10">
                   <th className="p-2 text-center font-medium text-muted-foreground">LP</th>
-                  <th className="p-2 text-left text-[11px] font-medium text-muted-foreground">USŁUGA</th>
-                  <th className="p-2 text-left text-[11px] font-medium text-muted-foreground">PRACOWNIK</th>
+                  <th className="p-2 text-center text-[11px] font-medium text-muted-foreground">USŁUGA</th>
+                  <th className="p-2 text-center text-[11px] font-medium text-muted-foreground">PRACOWNIK</th>
                   <th className="p-2 text-center text-[11px] font-medium text-muted-foreground">CZAS [h]</th>
-                  <th className="p-2 text-right text-[11px] font-medium text-muted-foreground border-r border-border/60">CENA</th>
+                  <th className="p-2 text-center text-[11px] font-medium text-muted-foreground border-r border-border/60">CENA</th>
                   <th className="p-2 text-center text-[11px] font-medium text-muted-foreground border-l border-border/60 bg-muted/30">RABAT</th>
-                  <th className="p-2 text-right text-[11px] font-medium text-muted-foreground">PO RABACIE</th>
+                  <th className="p-2 text-center text-[11px] font-medium text-muted-foreground">PO RABACIE</th>
                   <th className="p-2"></th>
                 </tr>
               </thead>
@@ -1219,19 +1219,19 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
               <thead>
                 <tr className="border-b bg-muted/10">
                   <th className="p-2 text-center font-medium text-muted-foreground">LP</th>
-                  <th className="p-2 text-left font-medium text-muted-foreground">NAZWA</th>
+                  <th className="p-2 text-center font-medium text-muted-foreground">NAZWA</th>
                   <th className="p-2 text-center text-[11px] font-medium text-muted-foreground">ILOŚĆ</th>
                   <th className="p-2 text-center text-[11px] font-medium text-muted-foreground">J.M.</th>
-                  <th className="p-2 text-right text-[11px] font-medium text-muted-foreground">
-                    <div className="flex items-center justify-end gap-1">
+                  <th className="p-2 text-center text-[11px] font-medium text-muted-foreground">
+                    <div className="flex items-center justify-center gap-1">
                       <EyeOff className="h-3 w-3" />
                       <span>KOSZT</span>
                     </div>
                   </th>
-                  <th className="p-2 text-right text-[11px] font-medium text-muted-foreground">CENA</th>
-                  <th className="p-2 text-right text-[11px] font-medium text-muted-foreground border-r border-border/60">RAZEM</th>
+                  <th className="p-2 text-center text-[11px] font-medium text-muted-foreground">CENA</th>
+                  <th className="p-2 text-center text-[11px] font-medium text-muted-foreground border-r border-border/60">RAZEM</th>
                   <th className="p-2 text-center text-[11px] font-medium text-muted-foreground border-l border-border/60 bg-muted/30">RABAT</th>
-                  <th className="p-2 text-right text-[11px] font-medium text-muted-foreground">PO RAB.</th>
+                  <th className="p-2 text-center text-[11px] font-medium text-muted-foreground">PO RAB.</th>
                   <th className="p-2"></th>
                 </tr>
               </thead>
