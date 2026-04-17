@@ -1277,8 +1277,8 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                       <td className="p-2 text-center">{g.unit}</td>
                       <td className="p-1 text-muted-foreground tabular-nums">{renderEditableCell(g, 'cost', fmt(itemCost), 'tabular-nums', 'right')}</td>
                       <td className="p-1 tabular-nums">{renderEditableCell(g, 'price', fmt(itemPrice), 'tabular-nums', 'right')}</td>
-                      <td className="p-2 text-right tabular-nums">{fmt(rawTotal)}</td>
-                      <td className="p-2 text-right">{hasDiscount ? `${Math.round(getDiscountPercent(g))}%` : '—'}</td>
+                      <td className="p-2 text-right tabular-nums border-r border-border/60">{fmt(rawTotal)}</td>
+                      <td className="p-2 text-center border-l border-border/60 bg-muted/10">{hasDiscount ? `${Math.round(getDiscountPercent(g))}%` : '—'}</td>
                       <td className="p-2 text-right font-semibold tabular-nums">{fmt(itemTotal)}</td>
                       <td className="p-2 text-center">
                         <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => handleDeleteItem(g.id)}>
@@ -1375,11 +1375,11 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           className="h-9 w-full text-sm text-right min-w-0 px-2"
                         />
                       </td>
-                      <td className="p-1.5 text-right text-sm tabular-nums">
+                      <td className="p-1.5 text-right text-sm tabular-nums border-r border-border/60">
                         {fmt(rowTotal)}
                       </td>
-                      <td className="p-1.5">
-                        <div className="flex items-center gap-1">
+                      <td className="p-1.5 border-l border-border/60 bg-muted/10">
+                        <div className="flex items-center gap-1 justify-center">
                           <Select value={row.discountType} onValueChange={(v: DiscountType) => updateGoodsRow(idx, { discountType: v })}>
                             <SelectTrigger className="h-9 text-xs w-16 shrink-0"><SelectValue /></SelectTrigger>
                             <SelectContent>
