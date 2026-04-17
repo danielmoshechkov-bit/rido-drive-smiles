@@ -6,6 +6,23 @@ const CORS = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Parse "24h", "12h", "2h", "30m" etc. → minutes
+function parseLeadMinutes(token: string): number | null {
+  const m = token.trim().toLowerCase().match(/^(\d+)\s*(h|m)?$/)
+  if (!m) return null
+  const n = parseInt(m[1], 10)
+  if (!Number.isFinite(n) || n <= 0) return null
+  const unit = m[2] || 'h'
+  return unit === 'm' ? n : n * 60
+}
+
+// One column per common token; for unknown tokens we use a generic JSONB flag in a tracking table fallback
+// To keep things simple and not require migrations, we re-use existing columns where possible
+// (24h_sent for >=12h leads, 2h_sent for <12h leads). This guarantees we never spam more than 2 reminders.
+function pickSentFlag(leadMinutes: number): 'reminder_24h_sent' | 'reminder_2h_sent' {
+  return leadMinutes >= 12 * 60 ? 'reminder_24h_sent' : 'reminder_2h_sent'
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
 
@@ -22,89 +39,92 @@ serve(async (req) => {
 
   try {
     const now = new Date()
+    // Look at all upcoming bookings within next 48h that have reminders enabled and not sent yet
     const today = now.toISOString().slice(0, 10)
-    const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+    const in2days = new Date(now.getTime() + 48 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
-    // 24h reminders: bookings tomorrow, not yet sent
-    const { data: reminders24h } = await sb
+    const { data: bookings, error: fetchErr } = await sb
       .from('workshop_client_bookings')
       .select('*, service_providers!inner(company_name, company_phone, company_address, company_city, company_postal_code)')
       .eq('reminder_enabled', true)
-      .contains('reminder_times', ['24h'])
-      .eq('reminder_24h_sent', false)
       .eq('status', 'scheduled')
-      .eq('appointment_date', tomorrow)
+      .gte('appointment_date', today)
+      .lte('appointment_date', in2days)
 
-    // 2h reminders: bookings today within next 2-3 hours, not yet sent
-    const twoHoursLater = new Date(now.getTime() + 2 * 60 * 60 * 1000)
-    const threeHoursLater = new Date(now.getTime() + 3 * 60 * 60 * 1000)
-    const timeFrom = `${twoHoursLater.getHours().toString().padStart(2, '0')}:${twoHoursLater.getMinutes().toString().padStart(2, '0')}:00`
-    const timeTo = `${threeHoursLater.getHours().toString().padStart(2, '0')}:${threeHoursLater.getMinutes().toString().padStart(2, '0')}:00`
+    if (fetchErr) {
+      console.error('booking-reminders fetch error:', fetchErr)
+      return json({ error: fetchErr.message }, 500)
+    }
 
-    const { data: reminders2h } = await sb
-      .from('workshop_client_bookings')
-      .select('*, service_providers!inner(company_name, company_phone, company_address, company_city, company_postal_code)')
-      .eq('reminder_enabled', true)
-      .contains('reminder_times', ['2h'])
-      .eq('reminder_2h_sent', false)
-      .eq('status', 'scheduled')
-      .eq('appointment_date', today)
-      .gte('appointment_time', timeFrom)
-      .lte('appointment_time', timeTo)
+    let totalSent = 0
+    const sentDetails: any[] = []
 
-    let sent24 = 0, sent2 = 0
+    for (const b of (bookings || [])) {
+      const times: string[] = Array.isArray(b.reminder_times) ? b.reminder_times : []
+      if (times.length === 0) continue
 
-    // Send 24h reminders
-    for (const b of (reminders24h || [])) {
+      // Compute appointment Date in local tz (Europe/Warsaw assumed via DB stored time)
+      const apptIso = `${b.appointment_date}T${b.appointment_time}`
+      const apptDate = new Date(apptIso)
+      const minutesUntil = (apptDate.getTime() - now.getTime()) / (1000 * 60)
+      if (minutesUntil <= 0) continue
+
+      // Find the largest reminder lead that is "due now" (<=15 min window since cron runs every 15 min)
+      // Catch-up logic: send if we're past the planned trigger time, but still before the appointment,
+      // and the corresponding "sent" flag is still false. This protects against cron downtime / late edits.
+      // Min remaining safety: don't send less than 5 min before the appointment.
+      const due = times
+        .map(parseLeadMinutes)
+        .filter((m): m is number => m !== null)
+        .filter((leadMin) => {
+          const flag = pickSentFlag(leadMin)
+          if (b[flag]) return false
+          if (minutesUntil < 5) return false
+          // Trigger if we are at or past the scheduled lead point (minutesUntil <= leadMin)
+          return minutesUntil <= leadMin
+        })
+        .sort((a, c) => c - a)
+
+      if (due.length === 0) continue
+
+      const leadMin = due[0]
+      const flag = pickSentFlag(leadMin)
       const provider = (b as any).service_providers
-      const address = [provider?.company_address, [provider?.company_postal_code, provider?.company_city].filter(Boolean).join(' ')].filter(Boolean).join(', ')
-      const msg = buildSmsText(provider?.company_name, b.appointment_date, b.appointment_time, address, b.service_description, 24)
-      
-      const { error } = await sb.functions.invoke('workshop-send-sms', {
+      const address = [
+        provider?.company_address,
+        [provider?.company_postal_code, provider?.company_city].filter(Boolean).join(' ')
+      ].filter(Boolean).join(', ')
+
+      const msg = buildSmsText(
+        provider?.company_name,
+        b.appointment_date,
+        b.appointment_time,
+        address,
+        b.service_description,
+        leadMin
+      )
+
+      const { error: smsErr } = await sb.functions.invoke('workshop-send-sms', {
         body: {
           phone: b.phone,
           message: msg,
-          sms_type: 'booking_reminder_24h',
+          sms_type: leadMin >= 12 * 60 ? 'booking_reminder_24h' : 'booking_reminder_2h',
           provider_id: b.provider_id,
         }
       })
 
-      if (!error) {
+      if (!smsErr) {
         await sb.from('workshop_client_bookings')
-          .update({ reminder_24h_sent: true })
+          .update({ [flag]: true })
           .eq('id', b.id)
-        sent24++
+        totalSent++
+        sentDetails.push({ id: b.id, leadMin, phone: b.phone })
       } else {
-        console.error(`24h SMS failed for ${b.id}:`, error)
+        console.error(`Reminder SMS failed for ${b.id}:`, smsErr)
       }
     }
 
-    // Send 2h reminders
-    for (const b of (reminders2h || [])) {
-      const provider = (b as any).service_providers
-      const address = [provider?.company_address, [provider?.company_postal_code, provider?.company_city].filter(Boolean).join(' ')].filter(Boolean).join(', ')
-      const msg = buildSmsText(provider?.company_name, b.appointment_date, b.appointment_time, address, b.service_description, 2)
-      
-      const { error } = await sb.functions.invoke('workshop-send-sms', {
-        body: {
-          phone: b.phone,
-          message: msg,
-          sms_type: 'booking_reminder_2h',
-          provider_id: b.provider_id,
-        }
-      })
-
-      if (!error) {
-        await sb.from('workshop_client_bookings')
-          .update({ reminder_2h_sent: true })
-          .eq('id', b.id)
-        sent2++
-      } else {
-        console.error(`2h SMS failed for ${b.id}:`, error)
-      }
-    }
-
-    return json({ success: true, sent_24h: sent24, sent_2h: sent2 })
+    return json({ success: true, total_sent: totalSent, sent: sentDetails, scanned: bookings?.length ?? 0 })
   } catch (err: any) {
     console.error('booking-reminders error:', err)
     return json({ error: err.message }, 500)
@@ -117,23 +137,25 @@ function buildSmsText(
   time: string,
   address: string | undefined,
   serviceDescription: string | undefined,
-  reminderLeadHours: number
+  leadMinutes: number
 ): string {
-  // No Polish diacritics to fit in 1 SMS (160 chars GSM-7)
   const name = removeDiacritics(companyName || 'Warsztat')
   const d = formatDate(date)
   const t = time?.slice(0, 5) || ''
   const addr = removeDiacritics((address || '').replace(/\s+/g, ' ').trim())
   const service = removeDiacritics((serviceDescription || '').replace(/\s+/g, ' ').trim())
 
-  let msg = reminderLeadHours <= 2
-    ? `Witam, tu ${name}. Przypominamy: wizyta juz za ${reminderLeadHours}h, ${d} o godz. ${t}.`
+  const leadLabel = leadMinutes >= 60
+    ? `${Math.round(leadMinutes / 60)}h`
+    : `${leadMinutes}min`
+
+  let msg = leadMinutes <= 4 * 60
+    ? `Witam, tu ${name}. Przypominamy: wizyta juz za ${leadLabel}, ${d} o godz. ${t}.`
     : `Witam, tu ${name}. Przypominamy o wizycie dnia ${d} o godz. ${t}.`
   if (service) msg += ` Usluga: ${service}.`
   if (addr) msg += ` Adres: ${addr}.`
   msg += ' Zapraszamy!'
 
-  // Trim to 160 chars
   return msg.slice(0, 160)
 }
 
