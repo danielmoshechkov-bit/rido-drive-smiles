@@ -332,14 +332,15 @@ serve(async (req) => {
         return sum + baseAmount;
       }, 0);
 
-      // Rental fee
+      // Rental fee — doliczany ZAWSZE gdy pojazd jest przypisany (jak w Excelu),
+      // niezależnie od aktywności platformy. Brak aktywności = pełny dług = wynajem.
       const manualRentalFee = amounts?.manual_rental_fee;
       let rentalFee = 0;
       if (manualRentalFee !== null && manualRentalFee !== undefined) {
         rentalFee = Number(manualRentalFee || 0);
       } else if (Number(settlement.rental_fee || 0) > 0) {
         rentalFee = Number(settlement.rental_fee || 0);
-      } else if (hasPositivePlatformActivity) {
+      } else {
         const assignment = assignmentMap.get(settlement.driver_id);
         if (assignment?.weeklyRate) {
           rentalFee = assignment.assignedAt
