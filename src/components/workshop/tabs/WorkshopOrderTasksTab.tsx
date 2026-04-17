@@ -297,6 +297,26 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     setGoodsDropIndicator(null);
   };
 
+  const focusTaskDraftRow = (draftKey?: string) => {
+    if (!draftKey) return;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const input = serviceCardRef.current?.querySelector<HTMLInputElement>(`tr[data-task-draft-key="${draftKey}"] input`);
+        input?.focus();
+      });
+    });
+  };
+
+  const focusGoodsDraftRow = (draftKey?: string) => {
+    if (!draftKey) return;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const input = goodsCardRef.current?.querySelector<HTMLInputElement>(`tr[data-goods-draft-key="${draftKey}"] input`);
+        input?.focus();
+      });
+    });
+  };
+
   const getDropIndicator = (event: DragEvent<HTMLTableRowElement>, index: number): DropIndicator => {
     const bounds = event.currentTarget.getBoundingClientRect();
     const position = event.clientY - bounds.top < bounds.height / 2 ? 'before' : 'after';
@@ -405,7 +425,11 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     updateTaskRow(idx, { price_net: net, price_gross: gross });
   };
 
-  const addTaskRow = () => setTaskRows(prev => [...prev, createEmptyTask()]);
+  const addTaskRow = () => {
+    const nextRow = createEmptyTask();
+    setTaskRows(prev => [...prev, nextRow]);
+    focusTaskDraftRow(nextRow.draftKey);
+  };
 
   const removeTaskRow = (idx: number) => {
     if (taskRows.length <= 1) {
@@ -477,7 +501,11 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     updateGoodsRow(idx, { cost_net: net, cost_gross: gross });
   };
 
-  const addGoodsRow = () => setGoodsRows(prev => [...prev, createEmptyGoods()]);
+  const addGoodsRow = () => {
+    const nextRow = createEmptyGoods();
+    setGoodsRows(prev => [...prev, nextRow]);
+    focusGoodsDraftRow(nextRow.draftKey);
+  };
 
   const removeGoodsRow = (idx: number) => {
     if (goodsRows.length <= 1) {
@@ -974,7 +1002,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                     ? rowTotal - (rowTotal * row.discount / 100)
                     : rowTotal - row.discount;
                   return (
-                    <tr key={`new-task-${idx}`} className="bg-primary/5">
+                    <tr key={row.draftKey ?? `new-task-${idx}`} className="bg-primary/5" data-task-draft-key={row.draftKey}>
                       <td className="p-2 text-center text-muted-foreground">
                         {tasks.length + idx + 1}
                       </td>
@@ -990,7 +1018,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           onKeyDown={e => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
-                              void saveTaskDraftRows(true);
+                               addTaskRow();
                             }
                           }}
                         />
@@ -1028,7 +1056,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           onKeyDown={e => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
-                              void saveTaskDraftRows(true);
+                               addTaskRow();
                             }
                           }}
                         />
@@ -1042,7 +1070,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           onKeyDown={e => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
-                              void saveTaskDraftRows(true);
+                               addTaskRow();
                             }
                           }}
                           className="h-9 w-full text-sm text-right min-w-0"
@@ -1066,7 +1094,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                             onKeyDown={e => {
                               if (e.key === 'Enter') {
                                 e.preventDefault();
-                                void saveTaskDraftRows(true);
+                                addTaskRow();
                               }
                             }}
                           />
@@ -1112,7 +1140,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                 <tr className="bg-primary/5">
                   <td colSpan={8} className="p-1.5">
                     <div className="flex items-center gap-2">
-                      <Button onClick={() => saveTaskDraftRows()} variant="ghost" size="sm" className="gap-1 text-xs text-primary">
+                      <Button onClick={addTaskRow} variant="ghost" size="sm" className="gap-1 text-xs text-primary">
                         <Plus className="h-3.5 w-3.5" /> Dodaj usługę
                       </Button>
                       {taskTemplates.length > 0 && (
@@ -1269,7 +1297,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                     ? rowTotal - (rowTotal * row.discount / 100)
                     : rowTotal - row.discount;
                   return (
-                    <tr key={`new-goods-${idx}`} className="bg-amber-500/5">
+                    <tr key={row.draftKey ?? `new-goods-${idx}`} className="bg-amber-500/5" data-goods-draft-key={row.draftKey}>
                       <td className="p-2 text-center text-muted-foreground">
                         {goods.length + idx + 1}
                       </td>
@@ -1282,7 +1310,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           onKeyDown={e => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
-                              void saveGoodsDraftRows(true);
+                               addGoodsRow();
                             }
                           }}
                         />
@@ -1297,7 +1325,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           onKeyDown={e => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
-                              void saveGoodsDraftRows(true);
+                               addGoodsRow();
                             }
                           }}
                         />
@@ -1311,7 +1339,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           onKeyDown={e => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
-                              void saveGoodsDraftRows(true);
+                               addGoodsRow();
                             }
                           }}
                         />
@@ -1327,7 +1355,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           onKeyDown={e => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
-                              void saveGoodsDraftRows(true);
+                              addGoodsRow();
                             }
                           }}
                         />
@@ -1341,7 +1369,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           onKeyDown={e => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
-                              void saveGoodsDraftRows(true);
+                               addGoodsRow();
                             }
                           }}
                           className="h-9 w-full text-sm text-right min-w-0 px-2"
@@ -1368,7 +1396,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                             onKeyDown={e => {
                               if (e.key === 'Enter') {
                                 e.preventDefault();
-                                void saveGoodsDraftRows(true);
+                                addGoodsRow();
                               }
                             }}
                           />
@@ -1395,7 +1423,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                 <tr className="bg-amber-500/5">
                   <td colSpan={10} className="p-1.5">
                     <div className="flex items-center gap-2">
-                      <Button onClick={() => saveGoodsDraftRows()} variant="ghost" size="sm" className="gap-1 text-xs text-amber-600">
+                      <Button onClick={addGoodsRow} variant="ghost" size="sm" className="gap-1 text-xs text-amber-600">
                         <Plus className="h-3.5 w-3.5" /> Dodaj pozycję
                       </Button>
                       <Button variant="outline" size="sm" className="gap-1 h-7 text-xs">
