@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { computeExcelDebtValues, deriveRawPayoutFromSnapshot, round2 } from "../_shared/driverDebtExcel.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -60,8 +61,6 @@ serve(async (req) => {
       }
     }
 
-    const round2 = (value: number): number => Math.round((value + Number.EPSILON) * 100) / 100;
-
     const calculateProportionalRentForSettlement = (
       assignedAt: string | null | undefined,
       settlementPeriodFrom: string,
@@ -85,51 +84,6 @@ serve(async (req) => {
       const dailyRate = weeklyFee / 7;
 
       return round2(dailyRate * Math.min(Math.max(days, 0), 7));
-    };
-
-    const computeDebtValues = (debtBefore: number, payout: number) => {
-      const normalizedDebtBefore = round2(Math.max(0, debtBefore || 0));
-      const normalizedPayout = round2(payout || 0);
-
-      if (Math.abs(normalizedPayout) < 0.01) {
-        return {
-          debtBefore: normalizedDebtBefore,
-          debtPayment: 0,
-          remainingDebt: normalizedDebtBefore,
-          actualPayout: 0,
-        };
-      }
-
-      const debtPayment = normalizedPayout > 0
-        ? round2(Math.min(normalizedDebtBefore, normalizedPayout))
-        : 0;
-      const actualPayout = round2(normalizedPayout - normalizedDebtBefore);
-      const remainingDebt = actualPayout < -0.01 ? round2(Math.abs(actualPayout)) : 0;
-
-      return {
-        debtBefore: normalizedDebtBefore,
-        debtPayment,
-        remainingDebt,
-        actualPayout,
-      };
-    };
-
-    const deriveRawPayoutFromSnapshot = (settlement: any): number => {
-      const debtBefore = round2(Math.max(0, Number(settlement?.debt_before ?? 0)));
-      const debtAfter = round2(Math.max(0, Number(settlement?.debt_after ?? debtBefore)));
-      const debtPayment = round2(Math.max(0, Number(settlement?.debt_payment ?? 0)));
-      const actualPayout = round2(Number(settlement?.actual_payout ?? 0));
-      const legacyDebtIncrease = round2(Math.max(0, debtAfter - debtBefore));
-
-      if (actualPayout < -0.01) {
-        return round2(actualPayout + debtBefore);
-      }
-
-      if (legacyDebtIncrease > 0.01 && Math.abs(actualPayout) < 0.01) {
-        return round2(-legacyDebtIncrease);
-      }
-
-      return round2(actualPayout + debtPayment);
     };
 
     const { data: assignmentData } = await supabase
@@ -251,7 +205,7 @@ serve(async (req) => {
           rawPayout = deriveRawPayoutFromSnapshot(settlement);
         }
 
-        const computed = computeDebtValues(runningDebt, rawPayout);
+        const computed = computeExcelDebtValues(runningDebt, rawPayout);
 
         const { error: settlementUpdateError } = await supabase
           .from("settlements")
@@ -478,56 +432,12 @@ serve(async (req) => {
       );
     }
 
-    // If payout is 0 or very close to 0, carry forward ONLY from previous settlement snapshot
-    // DO NOT use driver_debts.current_balance to prevent phantom debt propagation
-    if (Math.abs(calculated_payout) < 0.01) {
-      console.log(`Payout is ~0, checking previous settlement for debt carry-forward`);
-
-      // Get debt from the previous period's settlement snapshot (not from driver_debts!)
-      const { data: prevSettlementForZero } = await supabase
-        .from("settlements")
-        .select("debt_after")
-        .eq("driver_id", driver_id)
-        .lt("period_to", period_from)
-        .not("debt_after", "is", null)
-        .order("period_to", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      const carryForwardDebt = round2(Math.max(0, Number(prevSettlementForZero?.debt_after ?? 0)));
-
-      await supabase.from("settlements").update({
-        debt_before: carryForwardDebt,
-        debt_payment: 0,
-        debt_after: carryForwardDebt,
-        actual_payout: 0
-      }).eq("id", settlement_id);
-
-      // Sync driver_debts with the carry-forward value (fixes phantom debts)
-      await supabase.from("driver_debts").upsert({
-        driver_id,
-        current_balance: carryForwardDebt,
-        updated_at: new Date().toISOString()
-      }, { onConflict: "driver_id" });
-
-      return new Response(
-        JSON.stringify({
-          success: true,
-          debt_before: carryForwardDebt,
-          debt_payment: 0,
-          debt_after: carryForwardDebt,
-          actual_payout: 0
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     // CRITICAL: nowe rozliczenie startuje WYŁĄCZNIE z debt_after poprzedniego settlementu.
     // Nie używamy driver_debts/current ledger jako debt_before dla nowego tygodnia,
     // bo to powoduje dopisywanie starych/phantom długów.
     const currentDebt = await getPreviousSettlementDebt();
 
-    const computed = computeDebtValues(currentDebt, calculated_payout);
+    const computed = computeExcelDebtValues(currentDebt, calculated_payout);
 
     console.log(`Current debt: ${currentDebt}`);
     console.log(`Computed final payout: ${computed.actualPayout}, next debt: ${computed.remainingDebt}`);

@@ -1030,6 +1030,10 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     const actualPayout = round2(Number(settlement?.actual_payout ?? 0));
     const debtIncrease = round2(Math.max(0, debtAfter - debtBefore));
 
+    if (actualPayout < -0.01) {
+      return round2(actualPayout + debtBefore);
+    }
+
     if (debtIncrease > 0.01) {
       return round2(-debtIncrease);
     }
@@ -1979,8 +1983,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         const splitDebt = splitDebtByWeek.get(`${driver.id}|${rowPeriodFrom}|${rowPeriodTo}`);
         // Prefer weekly snapshot-chain debt split (also for latest week) to avoid
         // drift from live ledger totals that can temporarily include stale values.
-        const settlementDebtBeforeForDisplay = splitDebt?.settlementDebtBefore
-          ?? (isLatestWeek ? round2(liveCategoryDebt.settlement + liveCategoryDebt.rental) : debtBeforeForDisplay);
+        const settlementDebtBeforeForDisplay = splitDebt?.settlementDebtBefore ?? debtBeforeForDisplay;
         const rentalDebtBeforeForDisplay = 0;
         const snapshotSettlementDebtAfter = splitDebt?.settlementDebtAfter ?? 0;
         const snapshotRentalDebtAfter = splitDebt?.rentalDebtAfter ?? 0;

@@ -36,6 +36,10 @@ export const deriveRawPayoutFromSettlementSnapshot = (settlement: {
   const actualPayout = round2(Number(settlement?.actual_payout ?? 0));
   const debtIncrease = round2(Math.max(0, debtAfter - debtBefore));
 
+  if (actualPayout < -0.01) {
+    return round2(actualPayout + debtBefore);
+  }
+
   if (debtIncrease > 0.01) {
     return round2(-debtIncrease);
   }

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { computeExcelDebtValues, round2 } from "../_shared/driverDebtExcel.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -26,8 +27,6 @@ serve(async (req) => {
     const skipLedger = !!historical_only;
     console.log(`🔄 Recalculating week ${period_from} - ${period_to} for fleet ${fleet_id}${skipLedger ? ' [HISTORICAL]' : ''}`);
 
-    const round2 = (v: number): number => Math.round((v + Number.EPSILON) * 100) / 100;
-
     // Must match UI logic: when bolt_projected_d is 0, fall back to bolt_payout_s
     const getEffectiveBoltBase = (amounts: any): number => {
       const boltProjected = Number(amounts?.bolt_projected_d || 0);
@@ -53,30 +52,6 @@ serve(async (req) => {
       const days = Math.ceil((endDate.getTime() - effectiveStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
       const dailyRate = weeklyFee / 7;
       return round2(dailyRate * Math.min(Math.max(days, 0), 7));
-    };
-
-    const computeDebtValues = (debtBefore: number, payout: number) => {
-      const db = round2(Math.max(0, debtBefore || 0));
-      const p = round2(payout || 0);
-      let debtPayment = 0, remainingDebt = db, actualPayout = 0;
-
-      if (Math.abs(p) < 0.01) {
-        return { debtBefore: db, debtPayment, remainingDebt, actualPayout };
-      }
-      if (p < 0) {
-        remainingDebt = round2(db + Math.abs(p));
-      } else if (db <= 0) {
-        remainingDebt = 0;
-        actualPayout = p;
-      } else if (p >= db) {
-        debtPayment = db;
-        remainingDebt = 0;
-        actualPayout = round2(p - db);
-      } else {
-        debtPayment = p;
-        remainingDebt = round2(db - p);
-      }
-      return { debtBefore: db, debtPayment: round2(debtPayment), remainingDebt: round2(remainingDebt), actualPayout: round2(actualPayout) };
     };
 
     // 1. Get all drivers in this fleet
@@ -434,7 +409,7 @@ serve(async (req) => {
         .maybeSingle();
 
       const debtBefore = round2(Math.max(0, Number(prevSettlement?.debt_after ?? 0)));
-      const computed = computeDebtValues(debtBefore, rawPayout);
+      const computed = computeExcelDebtValues(debtBefore, rawPayout);
 
       // Update settlement record
       const { error: updateErr } = await supabase
@@ -464,40 +439,18 @@ serve(async (req) => {
           .not('settlement_id', 'is', null);
 
         if (rawPayout < -0.01) {
-          const totalDeficit = Math.abs(rawPayout);
-          const payoutWithoutRental = round2(rawPayout + rentalFee);
-          const settlementDeficit = payoutWithoutRental < 0 ? round2(Math.abs(payoutWithoutRental)) : 0;
-          const rentalDeficit = round2(Math.max(0, totalDeficit - settlementDeficit));
-
-          if (settlementDeficit > 0.01) {
-            await supabase.from('driver_debt_transactions').insert({
-              driver_id: settlement.driver_id,
-              settlement_id: settlement.id,
-              type: 'debt_increase',
-              amount: settlementDeficit,
-              balance_before: computed.debtBefore,
-              balance_after: round2(computed.debtBefore + settlementDeficit),
-              period_from,
-              period_to,
-              description: `Dług rozliczenia z okresu ${period_from} - ${period_to}`,
-              debt_category: 'settlement',
-            });
-          }
-
-          if (rentalDeficit > 0.01) {
-            await supabase.from('driver_debt_transactions').insert({
-              driver_id: settlement.driver_id,
-              settlement_id: settlement.id,
-              type: 'debt_increase',
-              amount: rentalDeficit,
-              balance_before: round2(computed.debtBefore + settlementDeficit),
-              balance_after: computed.remainingDebt,
-              period_from,
-              period_to,
-              description: `Dług wynajmu z okresu ${period_from} - ${period_to}`,
-              debt_category: 'rental',
-            });
-          }
+          await supabase.from('driver_debt_transactions').insert({
+            driver_id: settlement.driver_id,
+            settlement_id: settlement.id,
+            type: 'debt_increase',
+            amount: round2(Math.abs(rawPayout)),
+            balance_before: computed.debtBefore,
+            balance_after: computed.remainingDebt,
+            period_from,
+            period_to,
+            description: `Dług z okresu ${period_from} - ${period_to}`,
+            debt_category: 'settlement',
+          });
         } else if (computed.debtPayment > 0.01) {
           await supabase.from('driver_debt_transactions').insert({
             driver_id: settlement.driver_id,
