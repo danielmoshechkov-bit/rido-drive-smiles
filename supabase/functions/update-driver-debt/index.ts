@@ -91,33 +91,26 @@ serve(async (req) => {
       const normalizedDebtBefore = round2(Math.max(0, debtBefore || 0));
       const normalizedPayout = round2(payout || 0);
 
-      let debtPayment = 0;
-      let remainingDebt = normalizedDebtBefore;
-      let actualPayout = 0;
-
       if (Math.abs(normalizedPayout) < 0.01) {
-        return { debtBefore: normalizedDebtBefore, debtPayment, remainingDebt, actualPayout };
+        return {
+          debtBefore: normalizedDebtBefore,
+          debtPayment: 0,
+          remainingDebt: normalizedDebtBefore,
+          actualPayout: 0,
+        };
       }
 
-      if (normalizedPayout < 0) {
-        remainingDebt = round2(normalizedDebtBefore + Math.abs(normalizedPayout));
-      } else if (normalizedDebtBefore <= 0) {
-        remainingDebt = 0;
-        actualPayout = normalizedPayout;
-      } else if (normalizedPayout >= normalizedDebtBefore) {
-        debtPayment = normalizedDebtBefore;
-        remainingDebt = 0;
-        actualPayout = round2(normalizedPayout - normalizedDebtBefore);
-      } else {
-        debtPayment = normalizedPayout;
-        remainingDebt = round2(normalizedDebtBefore - normalizedPayout);
-      }
+      const debtPayment = normalizedPayout > 0
+        ? round2(Math.min(normalizedDebtBefore, normalizedPayout))
+        : 0;
+      const actualPayout = round2(normalizedPayout - normalizedDebtBefore);
+      const remainingDebt = actualPayout < -0.01 ? round2(Math.abs(actualPayout)) : 0;
 
       return {
         debtBefore: normalizedDebtBefore,
-        debtPayment: round2(debtPayment),
-        remainingDebt: round2(remainingDebt),
-        actualPayout: round2(actualPayout),
+        debtPayment,
+        remainingDebt,
+        actualPayout,
       };
     };
 
@@ -126,10 +119,14 @@ serve(async (req) => {
       const debtAfter = round2(Math.max(0, Number(settlement?.debt_after ?? debtBefore)));
       const debtPayment = round2(Math.max(0, Number(settlement?.debt_payment ?? 0)));
       const actualPayout = round2(Number(settlement?.actual_payout ?? 0));
-      const debtIncrease = round2(Math.max(0, debtAfter - debtBefore));
+      const legacyDebtIncrease = round2(Math.max(0, debtAfter - debtBefore));
 
-      if (debtIncrease > 0.01) {
-        return round2(-debtIncrease);
+      if (actualPayout < -0.01) {
+        return round2(actualPayout + debtBefore);
+      }
+
+      if (legacyDebtIncrease > 0.01 && Math.abs(actualPayout) < 0.01) {
+        return round2(-legacyDebtIncrease);
       }
 
       return round2(actualPayout + debtPayment);
@@ -272,52 +269,22 @@ serve(async (req) => {
         }
 
         if (rawPayout < -0.01) {
-          // For chain recalc, try to get rental_fee from settlement to split properly
-          const { data: settlementDetail } = await supabase
-            .from("settlements")
-            .select("rental_fee, amounts")
-            .eq("id", settlement.id)
-            .maybeSingle();
-          
-          const effectiveRentalFee = resolveEffectiveRental({
-            ...settlement,
-            rental_fee: settlementDetail?.rental_fee,
-            amounts: settlementDetail?.amounts,
+          const { error: txError } = await supabase.from("driver_debt_transactions").insert({
+            driver_id,
+            settlement_id: settlement.id,
+            type: "debt_increase",
+            amount: round2(Math.abs(rawPayout)),
+            balance_before: computed.debtBefore,
+            balance_after: computed.remainingDebt,
+            period_from: settlement.period_from,
+            period_to: settlement.period_to,
+            description: `Dług z okresu ${settlement.period_from} - ${settlement.period_to}`,
+            debt_category: "settlement",
           });
-          
-          const totalDeficit = Math.abs(rawPayout);
-          const payoutWithoutRental = round2(rawPayout + effectiveRentalFee);
-          const settlementDeficit = payoutWithoutRental < 0 ? round2(Math.abs(payoutWithoutRental)) : 0;
-          const rentalDeficit = round2(Math.max(0, totalDeficit - settlementDeficit));
 
-          if (settlementDeficit > 0.01) {
-            await supabase.from("driver_debt_transactions").insert({
-              driver_id,
-              settlement_id: settlement.id,
-              type: "debt_increase",
-              amount: settlementDeficit,
-              balance_before: computed.debtBefore,
-              balance_after: round2(computed.debtBefore + settlementDeficit),
-              period_from: settlement.period_from,
-              period_to: settlement.period_to,
-              description: `Dług rozliczenia z okresu ${settlement.period_from} - ${settlement.period_to}`,
-              debt_category: "settlement",
-            });
-          }
-
-          if (rentalDeficit > 0.01) {
-            await supabase.from("driver_debt_transactions").insert({
-              driver_id,
-              settlement_id: settlement.id,
-              type: "debt_increase",
-              amount: rentalDeficit,
-              balance_before: round2(computed.debtBefore + settlementDeficit),
-              balance_after: computed.remainingDebt,
-              period_from: settlement.period_from,
-              period_to: settlement.period_to,
-              description: `Dług wynajmu z okresu ${settlement.period_from} - ${settlement.period_to}`,
-              debt_category: "rental",
-            });
+          if (txError) {
+            console.error("Error creating debt increase transaction during chain recalculation:", txError);
+            throw txError;
           }
         } else if (computed.debtPayment > 0.01) {
           const { error: txError } = await supabase.from("driver_debt_transactions").insert({
@@ -560,41 +527,15 @@ serve(async (req) => {
     // bo to powoduje dopisywanie starych/phantom długów.
     const currentDebt = await getPreviousSettlementDebt();
 
-    let debtPayment = 0;
-    let remainingDebt = 0;
-    let actualPayout = 0;
+    const computed = computeDebtValues(currentDebt, calculated_payout);
 
     console.log(`Current debt: ${currentDebt}`);
-
-    // 2. Oblicz spłatę i nowe saldo
-    if (calculated_payout < 0) {
-      // Kierowca jest winien - narastanie długu
-      remainingDebt = currentDebt + Math.abs(calculated_payout);
-      actualPayout = 0;
-      console.log(`Debt increase: ${Math.abs(calculated_payout)}, new debt: ${remainingDebt}`);
-    } else if (currentDebt <= 0) {
-      // Brak długu - pełna wypłata
-      remainingDebt = 0;
-      actualPayout = calculated_payout;
-      console.log(`No debt, full payout: ${actualPayout}`);
-    } else if (calculated_payout >= currentDebt) {
-      // Spłaca cały dług
-      debtPayment = currentDebt;
-      remainingDebt = 0;
-      actualPayout = calculated_payout - currentDebt;
-      console.log(`Full debt payment: ${debtPayment}, remaining payout: ${actualPayout}`);
-    } else {
-      // Częściowa spłata
-      debtPayment = calculated_payout;
-      remainingDebt = currentDebt - calculated_payout;
-      actualPayout = 0;
-      console.log(`Partial debt payment: ${debtPayment}, remaining debt: ${remainingDebt}`);
-    }
+    console.log(`Computed final payout: ${computed.actualPayout}, next debt: ${computed.remainingDebt}`);
 
     // 3. Upsert driver_debts
     const { error: upsertError } = await supabase.from("driver_debts").upsert({
       driver_id,
-      current_balance: remainingDebt,
+      current_balance: computed.remainingDebt,
       updated_at: new Date().toISOString()
     }, {
       onConflict: 'driver_id'
@@ -606,58 +547,33 @@ serve(async (req) => {
     }
 
     // 4. Zapisz transakcję
-    if (calculated_payout < 0) {
-      // Narastanie długu — split into settlement vs rental categories
-      const totalDeficit = Math.abs(calculated_payout);
-      const payoutWithoutRental = calculated_payout_without_rental ?? (calculated_payout + (rental_fee || 0));
-      // Settlement deficit: if payout without rental is already negative
-      const settlementDeficit = payoutWithoutRental < 0 ? round2(Math.abs(payoutWithoutRental)) : 0;
-      // Rental deficit: whatever is left after settlement deficit
-      const rentalDeficit = round2(Math.max(0, totalDeficit - settlementDeficit));
+    if (calculated_payout < -0.01) {
+      const { error: txError } = await supabase.from("driver_debt_transactions").insert({
+        driver_id,
+        settlement_id,
+        type: "debt_increase",
+        amount: round2(Math.abs(calculated_payout)),
+        balance_before: currentDebt,
+        balance_after: computed.remainingDebt,
+        period_from,
+        period_to,
+        description: `Dług z okresu ${period_from} - ${period_to}`,
+        debt_category: "settlement",
+      });
 
-      console.log(`Debt split: total=${totalDeficit}, settlement=${settlementDeficit}, rental=${rentalDeficit}`);
-
-      if (settlementDeficit > 0.01) {
-        const { error: txError } = await supabase.from("driver_debt_transactions").insert({
-          driver_id,
-          settlement_id,
-          type: "debt_increase",
-          amount: settlementDeficit,
-          balance_before: currentDebt,
-          balance_after: round2(currentDebt + settlementDeficit),
-          period_from,
-          period_to,
-          description: `Dług rozliczenia z okresu ${period_from} - ${period_to}`,
-          debt_category: "settlement",
-        });
-        if (txError) { console.error("Error creating settlement debt tx:", txError); throw txError; }
+      if (txError) {
+        console.error("Error creating debt increase transaction:", txError);
+        throw txError;
       }
-
-      if (rentalDeficit > 0.01) {
-        const balBefore = round2(currentDebt + settlementDeficit);
-        const { error: txError } = await supabase.from("driver_debt_transactions").insert({
-          driver_id,
-          settlement_id,
-          type: "debt_increase",
-          amount: rentalDeficit,
-          balance_before: balBefore,
-          balance_after: remainingDebt,
-          period_from,
-          period_to,
-          description: `Dług wynajmu z okresu ${period_from} - ${period_to}`,
-          debt_category: "rental",
-        });
-        if (txError) { console.error("Error creating rental debt tx:", txError); throw txError; }
-      }
-    } else if (debtPayment > 0) {
+    } else if (computed.debtPayment > 0.01) {
       // Spłata długu
       const { error: txError } = await supabase.from("driver_debt_transactions").insert({
         driver_id,
         settlement_id,
         type: "debt_payment",
-        amount: -debtPayment,
+        amount: -computed.debtPayment,
         balance_before: currentDebt,
-        balance_after: remainingDebt,
+        balance_after: computed.remainingDebt,
         period_from,
         period_to,
         description: `Spłata długu z okresu ${period_from} - ${period_to}`,
@@ -673,9 +589,9 @@ serve(async (req) => {
     // 5. Zaktualizuj settlement
     const { error: updateError } = await supabase.from("settlements").update({
       debt_before: currentDebt,
-      debt_payment: debtPayment,
-      debt_after: remainingDebt,
-      actual_payout: actualPayout
+      debt_payment: computed.debtPayment,
+      debt_after: computed.remainingDebt,
+      actual_payout: computed.actualPayout
     }).eq("id", settlement_id);
 
     if (updateError) {
@@ -689,9 +605,9 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         debt_before: currentDebt,
-        debt_payment: debtPayment,
-        debt_after: remainingDebt,
-        actual_payout: actualPayout
+        debt_payment: computed.debtPayment,
+        debt_after: computed.remainingDebt,
+        actual_payout: computed.actualPayout
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
