@@ -195,9 +195,10 @@ export default function ServicesMarketplace() {
         // Merge provider_services into services for each provider
         const merged = provs.map((p: any) => {
           const legacyServices = p.services || [];
+          // Tabela provider_services używa kolumny `is_active` (boolean), nie `status`
           const provServices = (p.provider_services || [])
-            .filter((ps: any) => ps.status === 'active')
-            .map((ps: any) => ({ id: ps.id, name: ps.name, price: ps.price_from, price_type: 'fixed' }));
+            .filter((ps: any) => ps.is_active !== false)
+            .map((ps: any) => ({ id: ps.id, name: ps.name, price: ps.price_from, price_type: 'fixed', category: ps.category }));
           return { ...p, services: [...provServices, ...legacyServices] };
         });
         setProviders(merged as ServiceProvider[]);
