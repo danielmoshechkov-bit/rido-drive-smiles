@@ -1566,56 +1566,37 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
         }}
       />
 
-      {/* Rido Price Modal */}
+      {/* Rido Price Modal — działa wyłącznie na zapisanych pozycjach (tasks). Drafty są zapisywane PRZED otwarciem modala. */}
       <RidoPriceModal
         open={ridoPriceOpen}
         onOpenChange={setRidoPriceOpen}
-        services={[
-          ...tasks.map((t: any) => ({ name: t.name, currentPrice: isTaskGross ? (t.unit_price_gross || 0) : (t.unit_price_net || 0) })),
-          ...taskRows.filter(r => r.name.trim()).map(r => ({
-            name: r.name,
-            currentPrice: isTaskGross ? r.price_gross : r.price_net,
-          })),
-        ]}
+        services={tasks.map((t: any) => ({
+          name: t.name,
+          currentPrice: isTaskGross ? (t.unit_price_gross || 0) : (t.unit_price_net || 0),
+        }))}
         vehicle={order.vehicle}
         city={order.client?.city}
         voivodeship={order.client?.voivodeship}
         industry={ridoPriceSettings?.industry}
         priceMode={taskPriceMode}
         onApplySuggestions={(prices) => {
-          const savedCount = tasks.length;
           prices.forEach(({ index, price }) => {
-            if (index < savedCount && tasks[index]) {
-              const target = tasks[index];
-              const net = isTaskGross ? Math.round((price / VAT_RATE) * 100) / 100 : price;
-              const gross = isTaskGross ? price : Math.round(price * VAT_RATE * 100) / 100;
-              const quantity = safeNumber(target.quantity) || 1;
-              const discountPercent = safeNumber(target.discount_percent);
-              const raw = (isTaskGross ? gross : net) * quantity;
-              const discounted = raw - (raw * discountPercent / 100);
+            const target = tasks[index];
+            if (!target?.id) return;
+            const net = isTaskGross ? Math.round((price / VAT_RATE) * 100) / 100 : price;
+            const gross = isTaskGross ? price : Math.round(price * VAT_RATE * 100) / 100;
+            const quantity = safeNumber(target.quantity) || 1;
+            const discountPercent = safeNumber(target.discount_percent);
+            const raw = (isTaskGross ? gross : net) * quantity;
+            const discounted = raw - (raw * discountPercent / 100);
 
-              updateItem.mutate({
-                id: target.id,
-                unit_price_net: net,
-                unit_price_gross: gross,
-                total_gross: isTaskGross ? discounted : discounted * VAT_RATE,
-                total_net: isTaskGross ? discounted / VAT_RATE : discounted,
-              });
-            }
-          });
-
-          setTaskRows(prev => {
-            const updated = [...prev];
-            prices.forEach(({ index, price }) => {
-              const rowIdx = index - savedCount;
-              if (rowIdx >= 0 && rowIdx < updated.length) {
-                const { net, gross } = isTaskGross
-                  ? { net: Math.round((price / VAT_RATE) * 100) / 100, gross: price }
-                  : { net: price, gross: Math.round(price * VAT_RATE * 100) / 100 };
-                updated[rowIdx] = { ...updated[rowIdx], price_net: net, price_gross: gross };
-              }
+            updateItem.mutate({
+              id: target.id,
+              unit_price_net: net,
+              unit_price_gross: gross,
+              total_gross: isTaskGross ? discounted : discounted * VAT_RATE,
+              total_net: isTaskGross ? discounted / VAT_RATE : discounted,
             });
-            return updated;
           });
         }}
       />
