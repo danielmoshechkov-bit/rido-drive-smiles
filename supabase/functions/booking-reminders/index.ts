@@ -70,14 +70,18 @@ serve(async (req) => {
       if (minutesUntil <= 0) continue
 
       // Find the largest reminder lead that is "due now" (<=15 min window since cron runs every 15 min)
+      // Catch-up logic: send if we're past the planned trigger time, but still before the appointment,
+      // and the corresponding "sent" flag is still false. This protects against cron downtime / late edits.
+      // Min remaining safety: don't send less than 5 min before the appointment.
       const due = times
         .map(parseLeadMinutes)
         .filter((m): m is number => m !== null)
         .filter((leadMin) => {
           const flag = pickSentFlag(leadMin)
           if (b[flag]) return false
-          // Due if minutesUntil is now within [leadMin - 15, leadMin]
-          return minutesUntil <= leadMin && minutesUntil >= leadMin - 15
+          if (minutesUntil < 5) return false
+          // Trigger if we are at or past the scheduled lead point (minutesUntil <= leadMin)
+          return minutesUntil <= leadMin
         })
         .sort((a, c) => c - a)
 
