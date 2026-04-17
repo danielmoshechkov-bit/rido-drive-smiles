@@ -987,10 +987,37 @@ export function RidoPartsSearchModal({
 
           {/* Initial state — no search yet */}
           {!isSearching && !hasSearched && results.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-              <Search className="h-12 w-12 mb-4 opacity-30" />
-              <p className="text-sm">Wpisz nazwę części i kliknij Szukaj</p>
-              <p className="text-xs mt-1">AI przetłumaczy opis na numery OE i przeszuka {enabledIntegrations.length} hurtowni</p>
+            <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
+              <div className="rounded-full bg-primary/10 p-4 mb-4">
+                <Bot className="h-10 w-10 text-primary" />
+              </div>
+              <p className="text-base font-semibold mb-1">Wyszukaj części po opisie lub numerze</p>
+              <p className="text-sm text-muted-foreground max-w-md mb-5">
+                AI (Claude) tłumaczy opis (np. „klocki tylne") na numery OE i przeszukuje
+                <strong className="text-foreground"> {enabledIntegrations.length} {enabledIntegrations.length === 1 ? 'hurtownię' : 'hurtownie'}</strong>
+                {vehicle?.brand ? <> dla pojazdu <strong className="text-foreground">{vehicle.brand} {vehicle.model}</strong></> : ''}.
+                Jeśli opis jest niejednoznaczny — AI zada pytanie doprecyzowujące.
+              </p>
+              <div className="flex flex-wrap gap-2 justify-center max-w-lg">
+                <span className="text-xs text-muted-foreground self-center mr-1">Przykłady:</span>
+                {['klocki hamulcowe tylne', 'tarcze hamulcowe przednie', 'filtr oleju', 'olej silnikowy 5W30', 'akumulator', 'amortyzator przedni'].map(ex => (
+                  <Button
+                    key={ex}
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs px-2.5 hover:bg-primary/10 hover:border-primary"
+                    onClick={() => handleSuggestionClick(ex)}
+                  >
+                    {ex}
+                  </Button>
+                ))}
+              </div>
+              {enabledIntegrations.length === 0 && (
+                <div className="mt-5 rounded-md bg-amber-50 border border-amber-200 px-4 py-2.5 text-xs text-amber-800 flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4" />
+                  Brak skonfigurowanych hurtowni. Przejdź do Ustawienia → Integracje z hurtowniami.
+                </div>
+              )}
             </div>
           )}
         </div>
