@@ -897,15 +897,15 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1100px] text-xs" style={{ tableLayout: 'fixed' }}>
+            <table className="w-full min-w-[1180px] text-xs" style={{ tableLayout: 'fixed' }}>
               <colgroup>
                 <col style={{ width: '40px' }} />
-                <col style={{ width: '28%' }} />
+                <col style={{ width: '26%' }} />
                 <col style={{ width: '150px' }} />
                 <col style={{ width: '80px' }} />
-                <col style={{ width: '100px' }} />
                 <col style={{ width: '110px' }} />
-                <col style={{ width: '100px' }} />
+                <col style={{ width: '170px' }} />
+                <col style={{ width: '110px' }} />
                 <col style={{ width: '56px' }} />
               </colgroup>
               <thead>
@@ -914,8 +914,8 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                   <th className="p-2 text-left text-[11px] font-medium text-muted-foreground">USŁUGA</th>
                   <th className="p-2 text-left text-[11px] font-medium text-muted-foreground">PRACOWNIK</th>
                   <th className="p-2 text-center text-[11px] font-medium text-muted-foreground">CZAS [h]</th>
-                  <th className="p-2 text-right text-[11px] font-medium text-muted-foreground">CENA</th>
-                  <th className="p-2 text-right text-[11px] font-medium text-muted-foreground">RABAT</th>
+                  <th className="p-2 text-right text-[11px] font-medium text-muted-foreground border-r border-border/60">CENA</th>
+                  <th className="p-2 text-center text-[11px] font-medium text-muted-foreground border-l border-border/60 bg-muted/30">RABAT</th>
                   <th className="p-2 text-right text-[11px] font-medium text-muted-foreground">PO RABACIE</th>
                   <th className="p-2"></th>
                 </tr>
@@ -982,8 +982,8 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                       <td className="p-1 tabular-nums">
                         {renderEditableCell(t, 'labor_hours', String(safeNumber(t.labor_hours) || '—'), 'tabular-nums', 'center')}
                       </td>
-                      <td className="p-1 tabular-nums">{renderEditableCell(t, 'price', fmt(price), 'tabular-nums', 'right')}</td>
-                      <td className="p-2 text-right">{hasDiscount ? `${Math.round(getDiscountPercent(t))}%` : '—'}</td>
+                      <td className="p-1 tabular-nums border-r border-border/60">{renderEditableCell(t, 'price', fmt(price), 'tabular-nums', 'right')}</td>
+                      <td className="p-2 text-center border-l border-border/60 bg-muted/10">{hasDiscount ? `${Math.round(getDiscountPercent(t))}%` : '—'}</td>
                       <td className="p-2 text-right font-semibold tabular-nums">{fmt(total)}</td>
                       <td className="p-2 text-center">
                         <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => handleDeleteItem(t.id)}>
@@ -1061,7 +1061,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           }}
                         />
                       </td>
-                      <td className="p-1.5">
+                      <td className="p-1.5 border-r border-border/60">
                         <Input
                           type="number"
                           placeholder={isTaskGross ? 'Brutto' : 'Netto'}
@@ -1076,8 +1076,8 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           className="h-9 w-full text-sm text-right min-w-0"
                         />
                       </td>
-                      <td className="p-1.5">
-                        <div className="flex items-center gap-1">
+                      <td className="p-1.5 border-l border-border/60 bg-muted/10">
+                        <div className="flex items-center gap-1 justify-center">
                           <Select value={row.discountType} onValueChange={(v: DiscountType) => updateTaskRow(idx, { discountType: v })}>
                              <SelectTrigger className="h-9 text-xs w-16 shrink-0"><SelectValue /></SelectTrigger>
                             <SelectContent>
@@ -1196,16 +1196,16 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[980px] text-xs" style={{ tableLayout: 'fixed' }}>
+            <table className="w-full min-w-[1040px] text-xs" style={{ tableLayout: 'fixed' }}>
               <colgroup>
                 <col style={{ width: '40px' }} />
-                <col style={{ width: '30%' }} />
+                <col style={{ width: '28%' }} />
                 <col style={{ width: '80px' }} />
                 <col style={{ width: '72px' }} />
                 <col style={{ width: '110px' }} />
                 <col style={{ width: '110px' }} />
                 <col style={{ width: '100px' }} />
-                <col style={{ width: '120px' }} />
+                <col style={{ width: '170px' }} />
                 <col style={{ width: '100px' }} />
                 <col style={{ width: '50px' }} />
               </colgroup>
@@ -1222,8 +1222,8 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                     </div>
                   </th>
                   <th className="p-2 text-right text-[11px] font-medium text-muted-foreground">CENA</th>
-                  <th className="p-2 text-right text-[11px] font-medium text-muted-foreground">RAZEM</th>
-                  <th className="p-2 text-right text-[11px] font-medium text-muted-foreground">RABAT</th>
+                  <th className="p-2 text-right text-[11px] font-medium text-muted-foreground border-r border-border/60">RAZEM</th>
+                  <th className="p-2 text-center text-[11px] font-medium text-muted-foreground border-l border-border/60 bg-muted/30">RABAT</th>
                   <th className="p-2 text-right text-[11px] font-medium text-muted-foreground">PO RAB.</th>
                   <th className="p-2"></th>
                 </tr>
@@ -1277,8 +1277,8 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                       <td className="p-2 text-center">{g.unit}</td>
                       <td className="p-1 text-muted-foreground tabular-nums">{renderEditableCell(g, 'cost', fmt(itemCost), 'tabular-nums', 'right')}</td>
                       <td className="p-1 tabular-nums">{renderEditableCell(g, 'price', fmt(itemPrice), 'tabular-nums', 'right')}</td>
-                      <td className="p-2 text-right tabular-nums">{fmt(rawTotal)}</td>
-                      <td className="p-2 text-right">{hasDiscount ? `${Math.round(getDiscountPercent(g))}%` : '—'}</td>
+                      <td className="p-2 text-right tabular-nums border-r border-border/60">{fmt(rawTotal)}</td>
+                      <td className="p-2 text-center border-l border-border/60 bg-muted/10">{hasDiscount ? `${Math.round(getDiscountPercent(g))}%` : '—'}</td>
                       <td className="p-2 text-right font-semibold tabular-nums">{fmt(itemTotal)}</td>
                       <td className="p-2 text-center">
                         <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => handleDeleteItem(g.id)}>
@@ -1375,11 +1375,11 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           className="h-9 w-full text-sm text-right min-w-0 px-2"
                         />
                       </td>
-                      <td className="p-1.5 text-right text-sm tabular-nums">
+                      <td className="p-1.5 text-right text-sm tabular-nums border-r border-border/60">
                         {fmt(rowTotal)}
                       </td>
-                      <td className="p-1.5">
-                        <div className="flex items-center gap-1">
+                      <td className="p-1.5 border-l border-border/60 bg-muted/10">
+                        <div className="flex items-center gap-1 justify-center">
                           <Select value={row.discountType} onValueChange={(v: DiscountType) => updateGoodsRow(idx, { discountType: v })}>
                             <SelectTrigger className="h-9 text-xs w-16 shrink-0"><SelectValue /></SelectTrigger>
                             <SelectContent>
