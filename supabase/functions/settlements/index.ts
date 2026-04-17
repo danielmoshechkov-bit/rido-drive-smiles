@@ -438,8 +438,10 @@ Deno.serve(async (req) => {
                 }
               }
               
-              // Rental from settlement
-              const rentalFee = isNegativeAdjustmentOnly ? 0 : (fullSettlement.rental_fee || 0);
+              // Rental from settlement must never disappear from debt carry-over.
+              // Even if the week contains only negative adjustments / no activity,
+              // an already persisted rental charge still belongs to that week.
+              const rentalFee = fullSettlement.rental_fee || 0;
               
               // Final payout = Base - Commission - VAT - Service Fee - Rental - Cash - Fuel + Fuel VAT Refund
               const calculatedPayout = totalBase - totalCommission - vat8 - serviceFee - rentalFee - totalCash - fuel + fuelVatRefund;

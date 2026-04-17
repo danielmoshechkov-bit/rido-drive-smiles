@@ -348,10 +348,6 @@ serve(async (req) => {
         }
       }
 
-      if (isNegativeAdjustmentOnly || isBoltAdjustmentOnly) {
-        rentalFee = 0;
-      }
-
       // === CALCULATE PAYOUT (matching UI formula exactly) ===
       let rawPayout: number;
       
