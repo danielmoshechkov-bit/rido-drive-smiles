@@ -26,6 +26,7 @@ export function WorkshopOrderFilesTab({ order }: Props) {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const fetchFiles = useCallback(async () => {
     if (!order?.id) return;
