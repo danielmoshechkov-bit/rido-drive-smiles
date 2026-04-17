@@ -39,11 +39,15 @@ export async function compressImageWithWatermark(
   canvas.height = dstH;
   const ctx = canvas.getContext('2d');
   if (!ctx) {
-    bitmap.close?.();
+    if ('close' in bitmap && typeof (bitmap as ImageBitmap).close === 'function') {
+      (bitmap as ImageBitmap).close();
+    }
     return file;
   }
-  ctx.drawImage(bitmap, 0, 0, dstW, dstH);
-  bitmap.close?.();
+  ctx.drawImage(bitmap as CanvasImageSource, 0, 0, dstW, dstH);
+  if ('close' in bitmap && typeof (bitmap as ImageBitmap).close === 'function') {
+    (bitmap as ImageBitmap).close();
+  }
 
   // Watermark
   if (watermarkText) {
