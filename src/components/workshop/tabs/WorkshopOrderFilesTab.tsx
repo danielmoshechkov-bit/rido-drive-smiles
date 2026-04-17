@@ -124,6 +124,13 @@ export function WorkshopOrderFilesTab({ order }: Props) {
                 : null;
               return (
                 <div key={file.id} className="group relative rounded-xl border overflow-hidden bg-muted/30">
+                  {file.created_at && (
+                    <div className="px-2 py-1 bg-muted/60 border-b text-center">
+                      <p className="text-[10px] font-semibold tabular-nums text-foreground">
+                        {format(new Date(file.created_at), 'dd.MM.yyyy HH:mm')}
+                      </p>
+                    </div>
+                  )}
                   <div className="aspect-[4/3]">
                     <img src={url} alt={file.file_name} className="w-full h-full object-cover" />
                   </div>
