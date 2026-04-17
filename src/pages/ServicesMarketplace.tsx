@@ -195,9 +195,10 @@ export default function ServicesMarketplace() {
         // Merge provider_services into services for each provider
         const merged = provs.map((p: any) => {
           const legacyServices = p.services || [];
+          // Tabela provider_services używa kolumny `is_active` (boolean), nie `status`
           const provServices = (p.provider_services || [])
-            .filter((ps: any) => ps.status === 'active')
-            .map((ps: any) => ({ id: ps.id, name: ps.name, price: ps.price_from, price_type: 'fixed' }));
+            .filter((ps: any) => ps.is_active !== false)
+            .map((ps: any) => ({ id: ps.id, name: ps.name, price: ps.price_from, price_type: 'fixed', category: ps.category }));
           return { ...p, services: [...provServices, ...legacyServices] };
         });
         setProviders(merged as ServiceProvider[]);
@@ -214,26 +215,45 @@ export default function ServicesMarketplace() {
   const filteredProviders = providers.filter(provider => {
     // Category filter - show provider if they have matching category OR have services in that category
     if (selectedCategorySlug) {
+      const slug = selectedCategorySlug.toLowerCase();
+      const slugWords = slug.replace(/-/g, ' ');
       const categoryMatch = provider.category?.slug === selectedCategorySlug;
+      // Sprawdź provider_services (raw) – is_active + dopasowanie po category lub nazwie usługi
       const hasServicesInCategory = (provider as any).provider_services?.some(
-        (ps: any) => ps.is_active && (
-          ps.category?.toLowerCase() === selectedCategorySlug.toLowerCase()
+        (ps: any) => (ps.is_active !== false) && (
+          ps.category?.toLowerCase().includes(slug) ||
+          ps.category?.toLowerCase().includes(slugWords) ||
+          ps.name?.toLowerCase().includes(slugWords)
         )
       );
-      // Also match if provider name contains category slug (e.g. "Warsztat Testowy" for slug "warsztat")
-      const nameMatchesCategory = provider.company_name?.toLowerCase().includes(
-        selectedCategorySlug.replace(/-/g, ' ').toLowerCase()
-      );
-      if (!categoryMatch && !hasServicesInCategory && !nameMatchesCategory) {
+      // Dopasowanie po nazwie firmy (np. "Warsztat Testowy" do slug "warsztat")
+      const nameMatchesCategory = provider.company_name?.toLowerCase().includes(slugWords);
+      // Dopasowanie po opisie firmy
+      const descMatchesCategory = provider.description?.toLowerCase().includes(slugWords);
+      if (!categoryMatch && !hasServicesInCategory && !nameMatchesCategory && !descMatchesCategory) {
         return false;
       }
     }
 
-    // Group filter - match any slug in the group
+    // Group filter - match any slug in the group OR provider name/services contain group keywords
     if (selectedGroupId && !selectedCategorySlug) {
       const group = CATEGORY_GROUPS.find(g => g.id === selectedGroupId);
-      if (group && group.slugs.length > 0 && !group.slugs.includes(provider.category?.slug || '')) {
-        return false;
+      if (group && group.slugs.length > 0) {
+        const hasGroupSlug = group.slugs.includes(provider.category?.slug || '');
+        const nameOrDescMatch = group.slugs.some(s => {
+          const sw = s.replace(/-/g, ' ');
+          return provider.company_name?.toLowerCase().includes(sw) ||
+                 provider.description?.toLowerCase().includes(sw);
+        });
+        const servicesMatch = (provider as any).provider_services?.some((ps: any) =>
+          (ps.is_active !== false) && group.slugs.some(s => {
+            const sw = s.replace(/-/g, ' ');
+            return ps.category?.toLowerCase().includes(sw) || ps.name?.toLowerCase().includes(sw);
+          })
+        );
+        if (!hasGroupSlug && !nameOrDescMatch && !servicesMatch) {
+          return false;
+        }
       }
     }
     

@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Upload, Trash2, Image, FileText, Loader2, AlertTriangle, Download } from 'lucide-react';
+import { Upload, Trash2, Image, FileText, Loader2, AlertTriangle, Download, Camera } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { compressImageWithWatermark, formatTimestampPL } from '@/lib/imageCompression';
 
 interface Props {
   order: any;
@@ -25,6 +26,7 @@ export function WorkshopOrderFilesTab({ order }: Props) {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const fetchFiles = useCallback(async () => {
     if (!order?.id) return;
@@ -49,8 +51,20 @@ export function WorkshopOrderFilesTab({ order }: Props) {
     if (!selectedFiles?.length || !order?.id) return;
     setUploading(true);
     try {
-      for (const file of Array.from(selectedFiles)) {
-        const _ext = file.name.split('.').pop() || 'bin';
+      for (const original of Array.from(selectedFiles)) {
+        // Kompresja + watermark z datą/godziną dla obrazów (antyfraud + oszczędność miejsca)
+        let file = original;
+        if (original.type.startsWith('image/')) {
+          try {
+            file = await compressImageWithWatermark(original, {
+              maxDimension: 1920,
+              quality: 0.85,
+              watermarkText: formatTimestampPL(),
+            });
+          } catch (err) {
+            console.warn('Kompresja nie powiodła się, używam oryginału', err);
+          }
+        }
         const storagePath = `${order.id}/${Date.now()}_${file.name}`;
         const { error: uploadErr } = await supabase.storage
           .from('workshop-order-photos')
@@ -71,6 +85,7 @@ export function WorkshopOrderFilesTab({ order }: Props) {
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
+      if (cameraInputRef.current) cameraInputRef.current.value = '';
     }
   };
 
@@ -109,6 +124,13 @@ export function WorkshopOrderFilesTab({ order }: Props) {
                 : null;
               return (
                 <div key={file.id} className="group relative rounded-xl border overflow-hidden bg-muted/30">
+                  {file.created_at && (
+                    <div className="px-2 py-1 bg-muted/60 border-b text-center">
+                      <p className="text-[10px] font-semibold tabular-nums text-foreground">
+                        {format(new Date(file.created_at), 'dd.MM.yyyy HH:mm')}
+                      </p>
+                    </div>
+                  )}
                   <div className="aspect-[4/3]">
                     <img src={url} alt={file.file_name} className="w-full h-full object-cover" />
                   </div>
@@ -144,11 +166,17 @@ export function WorkshopOrderFilesTab({ order }: Props) {
             <FileText className="h-4 w-4 text-primary" />
             <h3 className="font-semibold text-sm">Pliki załączone</h3>
           </div>
-          <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
-            {uploading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Upload className="h-4 w-4 mr-1" />}
-            Dodaj pliki
-          </Button>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => cameraInputRef.current?.click()} disabled={uploading} className="md:hidden">
+              <Camera className="h-4 w-4 mr-1" /> Aparat
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+              {uploading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Upload className="h-4 w-4 mr-1" />}
+              Dodaj pliki
+            </Button>
+          </div>
           <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleUpload} accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" />
+          <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" multiple className="hidden" onChange={handleUpload} />
         </div>
 
         {attachments.length === 0 && intakePhotos.length === 0 && (
