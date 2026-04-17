@@ -1158,7 +1158,14 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           variant="outline"
                           size="sm"
                           className="gap-1.5 h-7 text-xs border-primary text-primary hover:bg-primary/10"
-                          onClick={() => setRidoPriceOpen(true)}
+                          onClick={async () => {
+                            // Zapisz drafty PRZED otwarciem wyceny, żeby modal pracował tylko na zapisanych pozycjach
+                            // (eliminuje duplikaty po naciśnięciu "Zastosuj ceny")
+                            if (taskRows.some(isTaskDraftFilled)) {
+                              await saveTaskDraftRows();
+                            }
+                            setRidoPriceOpen(true);
+                          }}
                         >
                           <Sparkles className="h-3.5 w-3.5" /> Rido Wycena
                         </Button>
