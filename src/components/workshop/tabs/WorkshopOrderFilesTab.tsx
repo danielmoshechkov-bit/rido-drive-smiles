@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Upload, Trash2, Image, FileText, Loader2, AlertTriangle, Download } from 'lucide-react';
+import { Upload, Trash2, Image, FileText, Loader2, AlertTriangle, Download, Camera } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { compressImageWithWatermark, formatTimestampPL } from '@/lib/imageCompression';
 
 interface Props {
   order: any;
