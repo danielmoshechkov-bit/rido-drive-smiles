@@ -153,17 +153,19 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
         body: { nip: cleanNip },
       });
       if (error) throw error;
-      if (data?.name) {
+      // registry-gus zwraca { success, data: {...} }
+      const company = data?.data || data;
+      if (company?.name) {
         setSettingsForm((p: any) => ({
           ...p,
-          company_name: data.name,
-          address: data.street || p.address,
-          city: data.city || p.city,
-          postal_code: data.postalCode || data.zipCode || p.postal_code,
+          company_name: company.name,
+          address: company.address || company.street || p.address,
+          city: company.city || p.city,
+          postal_code: company.postalCode || company.zipCode || p.postal_code,
         }));
         toast.success('Dane firmy pobrane z rejestru');
       } else {
-        toast.info('Nie znaleziono firmy o podanym NIP');
+        toast.info(data?.error || 'Nie znaleziono firmy o podanym NIP');
       }
     } catch (e: any) {
       toast.error('Błąd wyszukiwania: ' + (e.message || 'nieznany'));
