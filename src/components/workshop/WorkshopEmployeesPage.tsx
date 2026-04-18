@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Edit, UserX, Loader2, Users } from 'lucide-react';
+import { Plus, Edit, UserX, Loader2, Users, Mail, Send } from 'lucide-react';
 
 const ROLES = [
   { value: 'mechanic', label: 'Mechanik' },
@@ -27,6 +27,7 @@ interface Employee {
   role: string;
   hourly_rate: number;
   phone: string;
+  email?: string;
   pin_code?: string;
   is_active: boolean;
 }
@@ -43,8 +44,10 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
   const [role, setRole] = useState('mechanic');
   const [hourlyRate, setHourlyRate] = useState(0);
   const [phone, setPhone] = useState('');
+  const [emailAddr, setEmailAddr] = useState('');
   const [pinCode, setPinCode] = useState('');
   const [isActive, setIsActive] = useState(true);
+  const [invitingId, setInvitingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (providerId) fetchEmployees();
