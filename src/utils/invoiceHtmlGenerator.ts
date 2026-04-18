@@ -201,25 +201,52 @@ export const numberToWords = (num: number): string => {
   return result.trim();
 };
 
-export const calculateItemTotals = (item: Partial<InvoiceItem>): InvoiceItem => {
+/**
+ * Oblicza sumy pozycji faktury.
+ * - Tryb 'net' (domyślny): kwota netto = qty × unit_net_price (źródło prawdy = netto)
+ * - Tryb 'gross': kwota brutto = qty × unit_gross_price (źródło prawdy = brutto),
+ *   netto i VAT są wyliczane wstecz tak, by suma brutto była dokładnie równa qty × cena brutto.
+ *   To zgodne z polską ustawą o VAT (art. 106e) — przy cenie brutto, podatek liczy się
+ *   metodą "w stu" od kwoty brutto pomnożonej przez ilość.
+ */
+export const calculateItemTotals = (
+  item: Partial<InvoiceItem> & { unit_gross_price?: number; lastEditedField?: 'net' | 'gross' }
+): InvoiceItem => {
   const quantity = item.quantity || 0;
-  const unitNetPrice = item.unit_net_price || 0;
-  const vatRate = parseFloat(item.vat_rate || '23');
-  
-  const netAmount = quantity * unitNetPrice;
-  const vatAmount = netAmount * (vatRate / 100);
-  const grossAmount = netAmount + vatAmount;
-  
+  const vatRateStr = item.vat_rate || '23';
+  const vatRate = parseFloat(vatRateStr) || 0;
+  const useGross = item.lastEditedField === 'gross' && (item.unit_gross_price || 0) > 0;
+
+  let netAmount: number;
+  let grossAmount: number;
+  let vatAmount: number;
+  let unitNetPrice: number;
+
+  if (useGross) {
+    const unitGross = item.unit_gross_price || 0;
+    grossAmount = Math.round(quantity * unitGross * 100) / 100;
+    // VAT "w stu" od kwoty brutto
+    netAmount = Math.round((grossAmount / (1 + vatRate / 100)) * 100) / 100;
+    vatAmount = Math.round((grossAmount - netAmount) * 100) / 100;
+    // jednostkowa netto przeliczona z brutto (do prezentacji)
+    unitNetPrice = Math.round((unitGross / (1 + vatRate / 100)) * 100) / 100;
+  } else {
+    unitNetPrice = item.unit_net_price || 0;
+    netAmount = Math.round(quantity * unitNetPrice * 100) / 100;
+    vatAmount = Math.round(netAmount * (vatRate / 100) * 100) / 100;
+    grossAmount = Math.round((netAmount + vatAmount) * 100) / 100;
+  }
+
   return {
     name: item.name || '',
     pkwiu: item.pkwiu,
     quantity,
     unit: item.unit || 'szt.',
     unit_net_price: unitNetPrice,
-    vat_rate: item.vat_rate || '23',
-    net_amount: Math.round(netAmount * 100) / 100,
-    vat_amount: Math.round(vatAmount * 100) / 100,
-    gross_amount: Math.round(grossAmount * 100) / 100,
+    vat_rate: vatRateStr,
+    net_amount: netAmount,
+    vat_amount: vatAmount,
+    gross_amount: grossAmount,
     discount_percent: item.discount_percent,
     discount_amount: item.discount_amount,
   };
