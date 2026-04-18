@@ -511,54 +511,122 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
 
         {/* Stara wbudowana tabela pracowników została usunięta — pełną listę renderuje <WorkshopEmployeesPage /> poniżej */}
 
-        {settingsTab === 'stanowiska' && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-semibold">Stanowiska robocze</h3>
-                <p className="text-sm text-muted-foreground">Stanowiska widoczne w kalendarzu i terminarzu</p>
+        {settingsTab === 'stanowiska' && (() => {
+          const wsCategories = Array.from(new Set(workstations.map((w: any) => w.category || 'Warsztat')));
+          if (wsCategories.length === 0) wsCategories.push('Warsztat');
+          const currentCat = wsCategories.includes(activeWsCategory) ? activeWsCategory : wsCategories[0];
+          const filteredWs = workstations.filter((w: any) => (w.category || 'Warsztat') === currentCat);
+          return (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-semibold">Stanowiska robocze</h3>
+                  <p className="text-sm text-muted-foreground">Zsynchronizowane z kalendarzem — dodawane tu pojawią się w terminarzu i odwrotnie</p>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setShowAddCategory(true)} className="gap-2">
+                    <Plus className="h-4 w-4" /> Kategoria
+                  </Button>
+                  <Button onClick={() => { setWsCategory(currentCat); setShowAddWorkstation(true); }} className="gap-2">
+                    <Plus className="h-4 w-4" /> Dodaj stanowisko
+                  </Button>
+                </div>
               </div>
-              <Button onClick={() => setShowAddWorkstation(true)} className="gap-2">
-                <Plus className="h-4 w-4" /> Dodaj stanowisko
-              </Button>
-            </div>
-            {workstations.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                <Monitor className="h-12 w-12 mx-auto mb-4 opacity-30" />
-                <p>Brak stanowisk</p>
-                <p className="text-sm">Dodaj stanowiska robocze (np. Podnośnik 1, Stanowisko detailingowe)</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {workstations.map((ws: any) => (
-                  <div key={ws.id} className="flex items-center justify-between bg-muted/50 rounded-lg px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <Monitor className="h-5 w-5 text-primary" />
-                      <span className="font-medium">{ws.name}</span>
-                    </div>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeWorkstationMut.mutate(ws.id)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
+
+              {/* Pill-tabs kategorii */}
+              <div className="flex gap-2 flex-wrap border-b pb-2">
+                {wsCategories.map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => setActiveWsCategory(cat)}
+                    className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                      currentCat === cat
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-foreground hover:bg-muted/80'
+                    }`}
+                  >
+                    {cat}
+                  </button>
                 ))}
               </div>
-            )}
 
-            <Dialog open={showAddWorkstation} onOpenChange={setShowAddWorkstation}>
-              <DialogContent>
-                <DialogHeader><DialogTitle>Dodaj stanowisko</DialogTitle></DialogHeader>
-                <div className="space-y-2">
-                  <Label>Nazwa stanowiska *</Label>
-                  <Input value={wsName} onChange={e => setWsName(e.target.value)} placeholder="np. Podnośnik 1, Stanowisko detailingowe" />
+              {filteredWs.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Monitor className="h-12 w-12 mx-auto mb-4 opacity-30" />
+                  <p>Brak stanowisk w kategorii „{currentCat}"</p>
+                  <p className="text-sm">Kliknij „Dodaj stanowisko" aby utworzyć pierwsze</p>
                 </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setShowAddWorkstation(false)}>Anuluj</Button>
-                  <Button onClick={handleAddWorkstation} disabled={!wsName.trim()}>Dodaj</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
-        )}
+              ) : (
+                <div className="space-y-2">
+                  {filteredWs.map((ws: any) => (
+                    <div key={ws.id} className="flex items-center justify-between bg-muted/50 rounded-lg px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <Monitor className="h-5 w-5 text-primary" />
+                        <span className="font-medium">{ws.name}</span>
+                        <Badge variant="secondary" className="text-xs">{ws.category || 'Warsztat'}</Badge>
+                      </div>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeWorkstationMut.mutate(ws.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <Dialog open={showAddWorkstation} onOpenChange={setShowAddWorkstation}>
+                <DialogContent>
+                  <DialogHeader><DialogTitle>Dodaj stanowisko</DialogTitle></DialogHeader>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Kategoria</Label>
+                      <Select value={wsCategory} onValueChange={setWsCategory}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {wsCategories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Nazwa stanowiska *</Label>
+                      <Input value={wsName} onChange={e => setWsName(e.target.value)} placeholder="np. Podnośnik 1, Myjnia wjazd" />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setShowAddWorkstation(false)}>Anuluj</Button>
+                    <Button onClick={handleAddWorkstation} disabled={!wsName.trim()}>Dodaj</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+
+              <Dialog open={showAddCategory} onOpenChange={setShowAddCategory}>
+                <DialogContent>
+                  <DialogHeader><DialogTitle>Nowa kategoria stanowisk</DialogTitle></DialogHeader>
+                  <div className="space-y-2">
+                    <Label>Nazwa kategorii *</Label>
+                    <Input value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} placeholder="np. Myjnia, Detailing, Wulkanizacja" />
+                    <p className="text-xs text-muted-foreground">Po dodaniu utworzymy w niej pierwsze stanowisko, aby kategoria była widoczna w kalendarzu.</p>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setShowAddCategory(false)}>Anuluj</Button>
+                    <Button
+                      onClick={() => {
+                        if (!newCategoryName.trim()) return;
+                        const cat = newCategoryName.trim();
+                        addWorkstationMut.mutate({ name: `${cat} 1`, category: cat });
+                        setActiveWsCategory(cat);
+                        setNewCategoryName('');
+                        setShowAddCategory(false);
+                      }}
+                      disabled={!newCategoryName.trim()}
+                    >
+                      Dodaj
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
+          );
+        })()}
 
         {settingsTab === 'warsztat' && (
           <WorkshopSettingsPage />
