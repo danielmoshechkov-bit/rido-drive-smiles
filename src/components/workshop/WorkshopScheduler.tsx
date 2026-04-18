@@ -679,6 +679,10 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Termin
         providerId={providerId}
         unplannedOrders={unplannedOrders}
         stations={categoryStations}
+        allWorkstations={workstations}
+        categories={categories}
+        activeCategory={activeCategory}
+        onCategoryChange={setActiveCategory}
         stationName={categoryStations.find((s: any) => s.id === slotData?.stationId)?.name || ''}
         onSchedule={async (orderId, day, hour, stationId) => {
           const scheduledStart = new Date(day);
@@ -929,11 +933,13 @@ function OrderCard({ order, onDragStart, onDragEnd, isFocused, employees, update
   );
 }
 
-function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders, stations, stationName: _stationName, onSchedule, onStationChange }: {
+function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders, stations, allWorkstations, categories, activeCategory, onCategoryChange, stationName: _stationName, onSchedule, onStationChange }: {
   open: boolean; onOpenChange: (v: boolean) => void;
   slotData: { day: Date; hour: number; stationId: string } | null;
   providerId: string;
   unplannedOrders: any[]; stations: any[]; stationName: string;
+  allWorkstations: any[]; categories: string[]; activeCategory: string;
+  onCategoryChange: (cat: string) => void;
   onSchedule: (orderId: string, day: Date, hour: number, stationId: string) => Promise<void>;
   onStationChange: (stationId: string) => void;
 }) {
