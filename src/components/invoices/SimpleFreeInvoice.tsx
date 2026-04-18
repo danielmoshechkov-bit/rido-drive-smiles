@@ -2055,11 +2055,13 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
 
               <Separator />
 
-              {/* KSeF auto-send */}
+              {/* KSeF auto-send (per-invoice override) */}
               <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
                 <div>
-                  <Label className="font-medium">Wyślij do KSeF po wystawieniu</Label>
-                  <p className="text-xs text-muted-foreground">Wymagane od 1.04.2026 dla faktur VAT</p>
+                  <Label className="font-medium">Wyślij tę fakturę do KSeF</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Domyślne ustawienie pobierane z zakładki <strong>KSeF</strong> (główny przełącznik). Tu możesz nadpisać per fakturę.
+                  </p>
                   {autoSendKsef && !buyer.nip?.trim() && (
                     <p className="text-xs text-amber-500 mt-1">ℹ️ Faktura B2C — zostanie wysłana bez NIP nabywcy</p>
                   )}
