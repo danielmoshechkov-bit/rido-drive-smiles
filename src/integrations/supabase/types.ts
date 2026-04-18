@@ -10797,6 +10797,7 @@ export type Database = {
       ksef_settings: {
         Row: {
           auto_send: boolean
+          auto_send_enabled: boolean
           created_at: string
           entity_id: string | null
           environment: string
@@ -10808,6 +10809,7 @@ export type Database = {
         }
         Insert: {
           auto_send?: boolean
+          auto_send_enabled?: boolean
           created_at?: string
           entity_id?: string | null
           environment?: string
@@ -10819,6 +10821,7 @@ export type Database = {
         }
         Update: {
           auto_send?: boolean
+          auto_send_enabled?: boolean
           created_at?: string
           entity_id?: string | null
           environment?: string

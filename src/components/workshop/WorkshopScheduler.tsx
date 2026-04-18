@@ -154,6 +154,8 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Termin
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workshop-workstations'] });
+      queryClient.invalidateQueries({ queryKey: ['calendar-workstations'] });
+      queryClient.invalidateQueries({ queryKey: ['settings-workstations'] });
       toast.success('Stanowisko dodane');
     },
   });
@@ -163,7 +165,11 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Termin
       const { error } = await (supabase as any).from('workshop_workstations').update({ is_active: false }).eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['workshop-workstations'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workshop-workstations'] });
+      queryClient.invalidateQueries({ queryKey: ['calendar-workstations'] });
+      queryClient.invalidateQueries({ queryKey: ['settings-workstations'] });
+    },
   });
 
   const unplannedOrders = useMemo(() => {

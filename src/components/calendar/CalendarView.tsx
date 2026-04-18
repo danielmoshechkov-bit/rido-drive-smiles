@@ -122,16 +122,17 @@ export function CalendarView() {
   });
 
   const addWorkstationMut = useMutation({
-    mutationFn: async (name: string) => {
+    mutationFn: async ({ name, category }: { name: string; category?: string }) => {
       const maxSort = workstations.length;
       const { error } = await (supabase as any)
         .from('workshop_workstations')
-        .insert({ provider_id: providerId, name, sort_order: maxSort });
+        .insert({ provider_id: providerId, name, category: category || 'Warsztat', sort_order: maxSort });
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calendar-workstations'] });
       queryClient.invalidateQueries({ queryKey: ['workshop-workstations'] });
+      queryClient.invalidateQueries({ queryKey: ['settings-workstations'] });
       toast.success('Stanowisko dodane');
     },
     onError: (e: any) => toast.error(e.message),
@@ -148,6 +149,7 @@ export function CalendarView() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calendar-workstations'] });
       queryClient.invalidateQueries({ queryKey: ['workshop-workstations'] });
+      queryClient.invalidateQueries({ queryKey: ['settings-workstations'] });
     },
   });
 
@@ -180,7 +182,7 @@ export function CalendarView() {
 
   const addWorkstation = () => {
     if (!newWorkstationName.trim() || !providerId) return;
-    addWorkstationMut.mutate(newWorkstationName.trim());
+    addWorkstationMut.mutate({ name: newWorkstationName.trim(), category: 'Warsztat' });
     setNewWorkstationName("");
     setShowAddWorkstation(false);
   };
