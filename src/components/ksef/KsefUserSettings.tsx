@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import {
   Shield, RefreshCw, CheckCircle2, XCircle, Clock, ExternalLink,
@@ -61,6 +62,7 @@ export function KsefUserSettings() {
   const [alertEmail, setAlertEmail] = useState('');
   const [userNip, setUserNip] = useState<string | null>(null);
   const [instructionsOpen, setInstructionsOpen] = useState(false);
+  const [autoSendEnabled, setAutoSendEnabled] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -95,6 +97,7 @@ export function KsefUserSettings() {
         setKsefStatus(data.ksef_status || 'not_configured');
         setKsefLastTestAt(data.ksef_last_test_at || null);
         setKsefLastTestResult(data.ksef_last_test_result || null);
+        setAutoSendEnabled(((data as any).ksef_auto_send_enabled as boolean) || false);
       }
       return data;
     },
@@ -119,6 +122,7 @@ export function KsefUserSettings() {
         ksef_status: overrides?.status ?? ksefStatus,
         ksef_last_test_at: overrides?.testAt ?? ksefLastTestAt,
         ksef_last_test_result: overrides?.testResult ?? ksefLastTestResult,
+        ksef_auto_send_enabled: autoSendEnabled,
         nip: userNip || undefined,
       } as any;
       if (settingsId) {
@@ -237,6 +241,39 @@ export function KsefUserSettings() {
 
   return (
     <div className="space-y-4">
+      {/* ═══ MASTER SWITCH ═══ */}
+      <Card className={autoSendEnabled ? 'border-green-500/40 bg-green-50/30 dark:bg-green-950/10' : 'border-amber-500/40 bg-amber-50/30 dark:bg-amber-950/10'}>
+        <CardContent className="pt-6">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <Shield className={`h-5 w-5 ${autoSendEnabled ? 'text-green-600' : 'text-amber-600'}`} />
+                <Label htmlFor="ksef-master" className="text-base font-bold cursor-pointer">
+                  Wysyłaj faktury do KSeF
+                </Label>
+                <Badge className={autoSendEnabled ? 'bg-green-600' : 'bg-amber-600'}>
+                  {autoSendEnabled ? 'WŁĄCZONE' : 'WYŁĄCZONE'}
+                </Badge>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {autoSendEnabled
+                  ? '✓ Faktury VAT będą automatycznie wysyłane do KSeF po wystawieniu (zgodnie z ustawą obowiązkowe od 01.04.2026).'
+                  : '⚠ Wystawione faktury NIE będą wysyłane do KSeF, nawet jeśli token jest skonfigurowany. Włącz, gdy chcesz aktywować integrację.'}
+              </p>
+            </div>
+            <Switch
+              id="ksef-master"
+              checked={autoSendEnabled}
+              onCheckedChange={(v) => {
+                setAutoSendEnabled(v);
+                saveMutation.mutate({});
+              }}
+              className="scale-125"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Non-production warning banner */}
       {ksefEnvironment !== 'production' && (
         <Alert className="border-amber-300 bg-amber-50 dark:bg-amber-950/20">

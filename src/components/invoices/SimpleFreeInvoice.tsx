@@ -423,15 +423,16 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
           }
         }
         
-        // Check if user has KSeF token configured
+        // Check if user has KSeF token configured AND master switch is ON
         const { data: cs } = await supabase
           .from('company_settings')
-          .select('ksef_token')
+          .select('ksef_token, ksef_auto_send_enabled')
           .eq('user_id', session.user.id)
           .maybeSingle();
         if (cs?.ksef_token) {
           setHasKsefToken(true);
-          setAutoSendKsef(true);
+          // Auto-enable per-invoice send only if master switch is ON
+          setAutoSendKsef(!!(cs as any).ksef_auto_send_enabled);
         }
       }
     };
@@ -2054,11 +2055,13 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
 
               <Separator />
 
-              {/* KSeF auto-send */}
+              {/* KSeF auto-send (per-invoice override) */}
               <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
                 <div>
-                  <Label className="font-medium">Wyślij do KSeF po wystawieniu</Label>
-                  <p className="text-xs text-muted-foreground">Wymagane od 1.04.2026 dla faktur VAT</p>
+                  <Label className="font-medium">Wyślij tę fakturę do KSeF</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Domyślne ustawienie pobierane z zakładki <strong>KSeF</strong> (główny przełącznik). Tu możesz nadpisać per fakturę.
+                  </p>
                   {autoSendKsef && !buyer.nip?.trim() && (
                     <p className="text-xs text-amber-500 mt-1">ℹ️ Faktura B2C — zostanie wysłana bez NIP nabywcy</p>
                   )}
