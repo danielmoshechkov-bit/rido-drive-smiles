@@ -487,7 +487,7 @@ export function InvoiceDetailSheet({ invoice, open, onOpenChange, onUpdate }: In
                 {invoice.is_paid ? 'Oznacz jako nieopłaconą' : 'Oznacz jako opłaconą'}
               </Button>
               <div className="grid grid-cols-2 gap-2">
-                <Button variant="outline" onClick={handleDownloadPdf} disabled={isGeneratingPdf || currentInvoice.ksef_status === 'processing' || currentInvoice.ksef_status === 'sent'}>
+                <Button variant="outline" onClick={() => handleDownloadPdf()} disabled={isGeneratingPdf || currentInvoice.ksef_status === 'processing' || currentInvoice.ksef_status === 'sent'}>
                   {isGeneratingPdf ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   ) : currentInvoice.ksef_status === 'processing' || currentInvoice.ksef_status === 'sent' ? (
@@ -502,6 +502,10 @@ export function InvoiceDetailSheet({ invoice, open, onOpenChange, onUpdate }: In
                   Wyślij email
                 </Button>
               </div>
+              <Button variant="outline" className="w-full" onClick={() => handleDownloadPdf('service_confirmation')} disabled={isGeneratingPdf}>
+                <FileText className="h-4 w-4 mr-2" />
+                Potwierdzenie wykonania usługi
+              </Button>
               <div className="grid grid-cols-2 gap-2">
                 <Button variant="outline" onClick={handleSetReminder}>
                   <Clock className="h-4 w-4 mr-2" />
