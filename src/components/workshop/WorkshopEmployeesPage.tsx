@@ -74,6 +74,7 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
     setRole('mechanic');
     setHourlyRate(0);
     setPhone('');
+    setEmailAddr('');
     setPinCode('');
     setIsActive(true);
     setEditingId(null);
@@ -91,10 +92,42 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
     setRole(emp.role || 'mechanic');
     setHourlyRate(emp.hourly_rate || 0);
     setPhone(emp.phone || '');
+    setEmailAddr(emp.email || '');
     setPinCode(emp.pin_code || '');
     setIsActive(emp.is_active);
     setEditingId(emp.id);
     setDialogOpen(true);
+  };
+
+  const handleSendInvite = async (emp: Employee) => {
+    if (!emp.email) {
+      toast.error('Brak adresu email — edytuj pracownika i dodaj email');
+      return;
+    }
+    setInvitingId(emp.id);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-employee-invitation', {
+        body: {
+          employee_id: emp.id,
+          email: emp.email,
+          first_name: emp.first_name,
+          last_name: emp.last_name,
+        },
+      });
+      if (error) throw error;
+      if ((data as any)?.email_sent) {
+        toast.success(`Zaproszenie wysłane na ${emp.email}`);
+      } else if ((data as any)?.action_link) {
+        await navigator.clipboard.writeText((data as any).action_link);
+        toast.success('Link zaproszenia skopiowany do schowka');
+      } else {
+        toast.error('Nie udało się wysłać zaproszenia');
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'Błąd wysyłki zaproszenia');
+    } finally {
+      setInvitingId(null);
+    }
   };
 
   const handleSave = async () => {
@@ -112,6 +145,7 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
         role,
         hourly_rate: hourlyRate,
         phone,
+        email: emailAddr.trim() || null,
         pin_code: pinCode || null,
         is_active: isActive,
       };
