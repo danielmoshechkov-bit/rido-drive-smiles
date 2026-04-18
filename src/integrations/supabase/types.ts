@@ -5994,6 +5994,7 @@ export type Database = {
           invoice_payment_days: number | null
           invoice_prefix: string | null
           invoice_vat_rate: number | null
+          ksef_auto_send_enabled: boolean
           ksef_environment: string | null
           ksef_last_check: string | null
           ksef_last_test_at: string | null
@@ -6031,6 +6032,7 @@ export type Database = {
           invoice_payment_days?: number | null
           invoice_prefix?: string | null
           invoice_vat_rate?: number | null
+          ksef_auto_send_enabled?: boolean
           ksef_environment?: string | null
           ksef_last_check?: string | null
           ksef_last_test_at?: string | null
@@ -6068,6 +6070,7 @@ export type Database = {
           invoice_payment_days?: number | null
           invoice_prefix?: string | null
           invoice_vat_rate?: number | null
+          ksef_auto_send_enabled?: boolean
           ksef_environment?: string | null
           ksef_last_check?: string | null
           ksef_last_test_at?: string | null
