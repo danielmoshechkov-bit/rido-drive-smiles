@@ -661,21 +661,35 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     .footer { display: flex; justify-content: space-between; margin-top: 16px; padding-top: 8px; }
     .signature { width: 160px; text-align: center; }
     .signature-line { border-top: 1px solid #333; margin-top: 30px; padding-top: 4px; font-size: 7px; color: #666; }
+     /* Znak wodny — przezroczysty, powtarzany NA CAŁEJ stronie, na wierzchu treści,
+        żeby było widać że to KOPIA ROBOCZA na każdej pozycji. */
      .draft-watermark {
        position: fixed;
        inset: 0;
-       display: flex;
-       align-items: center;
-       justify-content: center;
-       font-size: 52px;
-       font-weight: 700;
-       letter-spacing: 6px;
-       color: rgba(124, 58, 237, 0.12);
-       transform: rotate(-28deg);
        pointer-events: none;
-       z-index: 0;
+       z-index: 9999;
+       overflow: hidden;
      }
-     .content-layer { position: relative; z-index: 1; }
+     .draft-watermark-inner {
+       position: absolute;
+       top: -50%;
+       left: -50%;
+       width: 200%;
+       height: 200%;
+       transform: rotate(-28deg);
+       font-size: 54px;
+       font-weight: 800;
+       letter-spacing: 8px;
+       color: rgba(124, 58, 237, 0.16);
+       line-height: 180px;
+       text-align: center;
+       word-spacing: 60px;
+       white-space: pre-wrap;
+     }
+     @media print {
+       .draft-watermark { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+     }
+     .content-layer { position: relative; z-index: 1; background: transparent; }
      .ksef-box {
        margin-top: 20px;
        padding: 12px;
