@@ -705,7 +705,12 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
   </style>
 </head>
 <body>
-  ${isProforma ? '<div class="draft-watermark">PROFORMA</div>' : (!hasAcceptedKsef && !isReceipt && !isNota ? '<div class="draft-watermark">KOPIA ROBOCZA</div>' : '')}
+  ${(() => {
+    const watermarkText = isProforma ? 'PROFORMA' : (!hasAcceptedKsef && !isReceipt && !isNota ? 'KOPIA ROBOCZA' : '');
+    if (!watermarkText) return '';
+    const repeated = (watermarkText + '   ').repeat(80);
+    return `<div class="draft-watermark"><div class="draft-watermark-inner">${repeated}</div></div>`;
+  })()}
   <div class="invoice content-layer">
     <div class="top-meta">
       ${invoice.issue_place ? `${invoice.issue_place}, ` : ''}${formatDate(invoice.issue_date)}
