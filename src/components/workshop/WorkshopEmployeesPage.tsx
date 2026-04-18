@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Edit, UserX, Loader2, Users } from 'lucide-react';
+import { Plus, Edit, UserX, Loader2, Users, Mail, Send } from 'lucide-react';
 
 const ROLES = [
   { value: 'mechanic', label: 'Mechanik' },
@@ -27,6 +27,7 @@ interface Employee {
   role: string;
   hourly_rate: number;
   phone: string;
+  email?: string;
   pin_code?: string;
   is_active: boolean;
 }
@@ -43,8 +44,10 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
   const [role, setRole] = useState('mechanic');
   const [hourlyRate, setHourlyRate] = useState(0);
   const [phone, setPhone] = useState('');
+  const [emailAddr, setEmailAddr] = useState('');
   const [pinCode, setPinCode] = useState('');
   const [isActive, setIsActive] = useState(true);
+  const [invitingId, setInvitingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (providerId) fetchEmployees();
@@ -71,6 +74,7 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
     setRole('mechanic');
     setHourlyRate(0);
     setPhone('');
+    setEmailAddr('');
     setPinCode('');
     setIsActive(true);
     setEditingId(null);
@@ -88,10 +92,42 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
     setRole(emp.role || 'mechanic');
     setHourlyRate(emp.hourly_rate || 0);
     setPhone(emp.phone || '');
+    setEmailAddr(emp.email || '');
     setPinCode(emp.pin_code || '');
     setIsActive(emp.is_active);
     setEditingId(emp.id);
     setDialogOpen(true);
+  };
+
+  const handleSendInvite = async (emp: Employee) => {
+    if (!emp.email) {
+      toast.error('Brak adresu email — edytuj pracownika i dodaj email');
+      return;
+    }
+    setInvitingId(emp.id);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-employee-invitation', {
+        body: {
+          employee_id: emp.id,
+          email: emp.email,
+          first_name: emp.first_name,
+          last_name: emp.last_name,
+        },
+      });
+      if (error) throw error;
+      if ((data as any)?.email_sent) {
+        toast.success(`Zaproszenie wysłane na ${emp.email}`);
+      } else if ((data as any)?.action_link) {
+        await navigator.clipboard.writeText((data as any).action_link);
+        toast.success('Link zaproszenia skopiowany do schowka');
+      } else {
+        toast.error('Nie udało się wysłać zaproszenia');
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'Błąd wysyłki zaproszenia');
+    } finally {
+      setInvitingId(null);
+    }
   };
 
   const handleSave = async () => {
@@ -109,6 +145,7 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
         role,
         hourly_rate: hourlyRate,
         phone,
+        email: emailAddr.trim() || null,
         pin_code: pinCode || null,
         is_active: isActive,
       };
@@ -172,6 +209,8 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
               <TableRow>
                 <TableHead>Imię i nazwisko</TableHead>
                 <TableHead>Rola</TableHead>
+                <TableHead>Telefon</TableHead>
+                <TableHead>Email</TableHead>
                 <TableHead>Stawka/h</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Akcje</TableHead>
@@ -179,12 +218,14 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
             </TableHeader>
             <TableBody>
               {employees.length === 0 && (
-                <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Brak pracowników</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">Brak pracowników</TableCell></TableRow>
               )}
               {employees.map(emp => (
                 <TableRow key={emp.id}>
                   <TableCell className="font-medium">{emp.name}</TableCell>
                   <TableCell>{roleLabel(emp.role)}</TableCell>
+                  <TableCell>{emp.phone || '—'}</TableCell>
+                  <TableCell className="text-sm">{emp.email || '—'}</TableCell>
                   <TableCell>{emp.hourly_rate} PLN</TableCell>
                   <TableCell>
                     <Badge variant={emp.is_active ? 'default' : 'secondary'}>
@@ -192,6 +233,15 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right space-x-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      title="Wyślij zaproszenie"
+                      onClick={() => handleSendInvite(emp)}
+                      disabled={invitingId === emp.id || !emp.email}
+                    >
+                      {invitingId === emp.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4 text-primary" />}
+                    </Button>
                     <Button variant="ghost" size="icon" onClick={() => openEdit(emp)}><Edit className="h-4 w-4" /></Button>
                     <Button variant="ghost" size="icon" onClick={() => toggleActive(emp)}>
                       <UserX className="h-4 w-4 text-muted-foreground" />
@@ -238,6 +288,10 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
                 <Label>Telefon służbowy</Label>
                 <Input value={phone} onChange={e => setPhone(e.target.value)} />
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5"><Mail className="h-4 w-4" /> Email (potrzebny do zaproszenia)</Label>
+              <Input type="email" value={emailAddr} onChange={e => setEmailAddr(e.target.value)} placeholder="pracownik@firma.pl" />
             </div>
             <div className="space-y-2">
               <Label>PIN (4 cyfry, opcjonalny)</Label>

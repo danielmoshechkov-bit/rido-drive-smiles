@@ -38,8 +38,12 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
   const [settingsTab, setSettingsTab] = useState('konto');
   const [showAddEmployee, setShowAddEmployee] = useState(false);
   const [showAddWorkstation, setShowAddWorkstation] = useState(false);
+  const [showAddCategory, setShowAddCategory] = useState(false);
   const [empForm, setEmpForm] = useState({ name: '', phone: '', email: '', salary: '' });
   const [wsName, setWsName] = useState('');
+  const [wsCategory, setWsCategory] = useState('Warsztat');
+  const [activeWsCategory, setActiveWsCategory] = useState('Warsztat');
+  const [newCategoryName, setNewCategoryName] = useState('');
   const [primaryTabs, setPrimaryTabs] = useState<ServiceProviderNavTabKey[]>(DEFAULT_SERVICE_PROVIDER_PRIMARY_TABS);
   const queryClient = useQueryClient();
   const [nipSearching, setNipSearching] = useState(false);
@@ -110,10 +114,10 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
   });
 
   const addWorkstationMut = useMutation({
-    mutationFn: async (name: string) => {
+    mutationFn: async ({ name, category }: { name: string; category: string }) => {
       const { error } = await (supabase as any)
         .from('workshop_workstations')
-        .insert({ provider_id: providerId, name, sort_order: workstations.length });
+        .insert({ provider_id: providerId, name, category, sort_order: workstations.length });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -124,6 +128,13 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
     },
     onError: (e: any) => toast.error(e.message),
   });
+
+  const handleAddWorkstation = () => {
+    if (!wsName.trim()) return;
+    addWorkstationMut.mutate({ name: wsName.trim(), category: wsCategory });
+    setWsName('');
+    setShowAddWorkstation(false);
+  };
 
   const removeWorkstationMut = useMutation({
     mutationFn: async (id: string) => {
@@ -153,17 +164,19 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
         body: { nip: cleanNip },
       });
       if (error) throw error;
-      if (data?.name) {
+      // registry-gus zwraca { success, data: {...} }
+      const company = data?.data || data;
+      if (company?.name) {
         setSettingsForm((p: any) => ({
           ...p,
-          company_name: data.name,
-          address: data.street || p.address,
-          city: data.city || p.city,
-          postal_code: data.postalCode || data.zipCode || p.postal_code,
+          company_name: company.name,
+          address: company.address || company.street || p.address,
+          city: company.city || p.city,
+          postal_code: company.postalCode || company.zipCode || p.postal_code,
         }));
         toast.success('Dane firmy pobrane z rejestru');
       } else {
-        toast.info('Nie znaleziono firmy o podanym NIP');
+        toast.info(data?.error || 'Nie znaleziono firmy o podanym NIP');
       }
     } catch (e: any) {
       toast.error('Błąd wyszukiwania: ' + (e.message || 'nieznany'));
@@ -263,12 +276,7 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
     setShowAddEmployee(false);
   };
 
-  const handleAddWorkstation = () => {
-    if (!wsName.trim()) return;
-    addWorkstationMut.mutate(wsName.trim());
-    setWsName('');
-    setShowAddWorkstation(false);
-  };
+
 
   useEffect(() => {
     if (!providerId) return;
@@ -501,123 +509,124 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
           </div>
         )}
 
-        {settingsTab === 'pracownicy' && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-semibold">Pracownicy</h3>
-                <p className="text-sm text-muted-foreground">Zarządzaj zespołem — pracownicy widoczni w kalendarzu</p>
-              </div>
-              <Button onClick={() => setShowAddEmployee(true)} className="gap-2">
-                <UserPlus className="h-4 w-4" /> Dodaj pracownika
-              </Button>
-            </div>
-            {employees.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                <Users className="h-12 w-12 mx-auto mb-4 opacity-30" />
-                <p>Brak pracowników</p>
-                <p className="text-sm">Dodaj pracowników, aby przypisywać ich do zdarzeń w kalendarzu</p>
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Imię i nazwisko</TableHead>
-                    <TableHead>Telefon</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead className="text-right">Pensja</TableHead>
-                    <TableHead></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {employees.map((emp: any) => (
-                    <TableRow key={emp.id}>
-                      <TableCell className="font-medium">{emp.name}</TableCell>
-                      <TableCell>{emp.phone || '—'}</TableCell>
-                      <TableCell>{emp.email || '—'}</TableCell>
-                      <TableCell className="text-right">{emp.salary ? `${emp.salary} zł` : '—'}</TableCell>
-                      <TableCell>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeEmployeeMut.mutate(emp.id)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
+        {/* Stara wbudowana tabela pracowników została usunięta — pełną listę renderuje <WorkshopEmployeesPage /> poniżej */}
 
-            <Dialog open={showAddEmployee} onOpenChange={setShowAddEmployee}>
-              <DialogContent>
-                <DialogHeader><DialogTitle>Dodaj pracownika</DialogTitle></DialogHeader>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Imię i nazwisko *</Label>
-                    <Input value={empForm.name} onChange={e => setEmpForm(p => ({ ...p, name: e.target.value }))} placeholder="Jan Kowalski" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2"><Label>Telefon</Label><Input value={empForm.phone} onChange={e => setEmpForm(p => ({ ...p, phone: e.target.value }))} placeholder="+48..." /></div>
-                    <div className="space-y-2"><Label>Email</Label><Input type="email" value={empForm.email} onChange={e => setEmpForm(p => ({ ...p, email: e.target.value }))} /></div>
-                  </div>
-                  <div className="space-y-2"><Label>Pensja (zł/mies.)</Label><Input type="number" value={empForm.salary} onChange={e => setEmpForm(p => ({ ...p, salary: e.target.value }))} placeholder="0" /></div>
+        {settingsTab === 'stanowiska' && (() => {
+          const wsCategories: string[] = Array.from(new Set<string>(workstations.map((w: any) => (w.category as string) || 'Warsztat')));
+          if (wsCategories.length === 0) wsCategories.push('Warsztat');
+          const currentCat: string = wsCategories.includes(activeWsCategory) ? activeWsCategory : wsCategories[0];
+          const filteredWs = workstations.filter((w: any) => (w.category || 'Warsztat') === currentCat);
+          return (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-semibold">Stanowiska robocze</h3>
+                  <p className="text-sm text-muted-foreground">Zsynchronizowane z kalendarzem — dodawane tu pojawią się w terminarzu i odwrotnie</p>
                 </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setShowAddEmployee(false)}>Anuluj</Button>
-                  <Button onClick={handleAddEmployee} disabled={!empForm.name.trim()}>Dodaj</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
-        )}
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setShowAddCategory(true)} className="gap-2">
+                    <Plus className="h-4 w-4" /> Kategoria
+                  </Button>
+                  <Button onClick={() => { setWsCategory(currentCat); setShowAddWorkstation(true); }} className="gap-2">
+                    <Plus className="h-4 w-4" /> Dodaj stanowisko
+                  </Button>
+                </div>
+              </div>
 
-        {settingsTab === 'stanowiska' && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-semibold">Stanowiska robocze</h3>
-                <p className="text-sm text-muted-foreground">Stanowiska widoczne w kalendarzu i terminarzu</p>
-              </div>
-              <Button onClick={() => setShowAddWorkstation(true)} className="gap-2">
-                <Plus className="h-4 w-4" /> Dodaj stanowisko
-              </Button>
-            </div>
-            {workstations.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                <Monitor className="h-12 w-12 mx-auto mb-4 opacity-30" />
-                <p>Brak stanowisk</p>
-                <p className="text-sm">Dodaj stanowiska robocze (np. Podnośnik 1, Stanowisko detailingowe)</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {workstations.map((ws: any) => (
-                  <div key={ws.id} className="flex items-center justify-between bg-muted/50 rounded-lg px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <Monitor className="h-5 w-5 text-primary" />
-                      <span className="font-medium">{ws.name}</span>
-                    </div>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeWorkstationMut.mutate(ws.id)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
+              {/* Pill-tabs kategorii */}
+              <div className="flex gap-2 flex-wrap border-b pb-2">
+                {wsCategories.map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => setActiveWsCategory(cat)}
+                    className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                      currentCat === cat
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-foreground hover:bg-muted/80'
+                    }`}
+                  >
+                    {cat}
+                  </button>
                 ))}
               </div>
-            )}
 
-            <Dialog open={showAddWorkstation} onOpenChange={setShowAddWorkstation}>
-              <DialogContent>
-                <DialogHeader><DialogTitle>Dodaj stanowisko</DialogTitle></DialogHeader>
-                <div className="space-y-2">
-                  <Label>Nazwa stanowiska *</Label>
-                  <Input value={wsName} onChange={e => setWsName(e.target.value)} placeholder="np. Podnośnik 1, Stanowisko detailingowe" />
+              {filteredWs.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Monitor className="h-12 w-12 mx-auto mb-4 opacity-30" />
+                  <p>Brak stanowisk w kategorii „{currentCat}"</p>
+                  <p className="text-sm">Kliknij „Dodaj stanowisko" aby utworzyć pierwsze</p>
                 </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setShowAddWorkstation(false)}>Anuluj</Button>
-                  <Button onClick={handleAddWorkstation} disabled={!wsName.trim()}>Dodaj</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
-        )}
+              ) : (
+                <div className="space-y-2">
+                  {filteredWs.map((ws: any) => (
+                    <div key={ws.id} className="flex items-center justify-between bg-muted/50 rounded-lg px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <Monitor className="h-5 w-5 text-primary" />
+                        <span className="font-medium">{ws.name}</span>
+                        <Badge variant="secondary" className="text-xs">{ws.category || 'Warsztat'}</Badge>
+                      </div>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeWorkstationMut.mutate(ws.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <Dialog open={showAddWorkstation} onOpenChange={setShowAddWorkstation}>
+                <DialogContent>
+                  <DialogHeader><DialogTitle>Dodaj stanowisko</DialogTitle></DialogHeader>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Kategoria</Label>
+                      <Select value={wsCategory} onValueChange={setWsCategory}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {wsCategories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Nazwa stanowiska *</Label>
+                      <Input value={wsName} onChange={e => setWsName(e.target.value)} placeholder="np. Podnośnik 1, Myjnia wjazd" />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setShowAddWorkstation(false)}>Anuluj</Button>
+                    <Button onClick={handleAddWorkstation} disabled={!wsName.trim()}>Dodaj</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+
+              <Dialog open={showAddCategory} onOpenChange={setShowAddCategory}>
+                <DialogContent>
+                  <DialogHeader><DialogTitle>Nowa kategoria stanowisk</DialogTitle></DialogHeader>
+                  <div className="space-y-2">
+                    <Label>Nazwa kategorii *</Label>
+                    <Input value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} placeholder="np. Myjnia, Detailing, Wulkanizacja" />
+                    <p className="text-xs text-muted-foreground">Po dodaniu utworzymy w niej pierwsze stanowisko, aby kategoria była widoczna w kalendarzu.</p>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setShowAddCategory(false)}>Anuluj</Button>
+                    <Button
+                      onClick={() => {
+                        if (!newCategoryName.trim()) return;
+                        const cat = newCategoryName.trim();
+                        addWorkstationMut.mutate({ name: `${cat} 1`, category: cat });
+                        setActiveWsCategory(cat);
+                        setNewCategoryName('');
+                        setShowAddCategory(false);
+                      }}
+                      disabled={!newCategoryName.trim()}
+                    >
+                      Dodaj
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
+          );
+        })()}
 
         {settingsTab === 'warsztat' && (
           <WorkshopSettingsPage />

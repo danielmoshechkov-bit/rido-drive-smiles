@@ -105,15 +105,17 @@ export const WorkshopSettingsPage = () => {
         body: { nip: cleanNip },
       });
       if (error) throw error;
-      if (data?.name) {
-        setFirmName(data.name);
-        if (!shortName) setShortName(data.name.split(' ').slice(0, 2).join(' '));
-        if (data.street) setAddress(data.street);
-        if (data.city) setCity(data.city);
-        if (data.postalCode || data.zipCode) setPostalCode(data.postalCode || data.zipCode);
+      // registry-gus zwraca { success, data: {...} }
+      const company = data?.data || data;
+      if (company?.name) {
+        setFirmName(company.name);
+        if (!shortName) setShortName(company.name.split(' ').slice(0, 2).join(' '));
+        if (company.address || company.street) setAddress(company.address || company.street);
+        if (company.city) setCity(company.city);
+        if (company.postalCode || company.zipCode) setPostalCode(company.postalCode || company.zipCode);
         toast.success('Dane firmy pobrane z rejestru');
       } else {
-        toast.info('Nie znaleziono firmy o podanym NIP');
+        toast.info(data?.error || 'Nie znaleziono firmy o podanym NIP');
       }
     } catch (e: any) {
       toast.error('Błąd wyszukiwania: ' + (e.message || 'nieznany'));
