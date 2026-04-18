@@ -276,12 +276,7 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
     setShowAddEmployee(false);
   };
 
-  const handleAddWorkstation = () => {
-    if (!wsName.trim()) return;
-    addWorkstationMut.mutate(wsName.trim());
-    setWsName('');
-    setShowAddWorkstation(false);
-  };
+
 
   useEffect(() => {
     if (!providerId) return;
