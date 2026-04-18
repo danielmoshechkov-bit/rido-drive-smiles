@@ -1130,8 +1130,6 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
     }));
   };
 
-  const ALL_HOURS_LIST = Array.from({ length: 15 }, (_, i) => i + 6);
-  const MINUTES_LIST = ['00', '15', '30', '45'];
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) { setSelectedOrderId(''); setActiveTab('client'); } onOpenChange(v); }}>
