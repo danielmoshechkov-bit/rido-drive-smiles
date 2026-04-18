@@ -438,9 +438,10 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
   const isNota = invoice.type === 'nota';
   const isVatRR = invoice.type === 'vat_rr';
   const isProforma = invoice.type === 'proforma';
+  const isServiceConfirmation = invoice.type === 'service_confirmation';
   
   // Documents without VAT columns
-  const noVatDocument = isReceipt || isNota || isMargin;
+  const noVatDocument = isReceipt || isNota || isMargin || isServiceConfirmation;
 
   const displayItems = isCorrection ? invoice.correction_data!.after_items : items;
   
