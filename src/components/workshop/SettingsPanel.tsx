@@ -38,8 +38,12 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
   const [settingsTab, setSettingsTab] = useState('konto');
   const [showAddEmployee, setShowAddEmployee] = useState(false);
   const [showAddWorkstation, setShowAddWorkstation] = useState(false);
+  const [showAddCategory, setShowAddCategory] = useState(false);
   const [empForm, setEmpForm] = useState({ name: '', phone: '', email: '', salary: '' });
   const [wsName, setWsName] = useState('');
+  const [wsCategory, setWsCategory] = useState('Warsztat');
+  const [activeWsCategory, setActiveWsCategory] = useState('Warsztat');
+  const [newCategoryName, setNewCategoryName] = useState('');
   const [primaryTabs, setPrimaryTabs] = useState<ServiceProviderNavTabKey[]>(DEFAULT_SERVICE_PROVIDER_PRIMARY_TABS);
   const queryClient = useQueryClient();
   const [nipSearching, setNipSearching] = useState(false);
