@@ -613,8 +613,14 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
         }
       }
       
-      // Calculate totals
-      const calculated = calculateItemTotals(item);
+      // Calculate totals — pass lastEditedField + unit_gross_price so that
+      // when user typed brutto, totals are derived from brutto (qty × brutto)
+      // and netto/VAT are reconstructed precisely (zgodnie z ustawą o VAT — metoda "w stu").
+      const calculated = calculateItemTotals({
+        ...item,
+        unit_gross_price: item.unit_gross_price,
+        lastEditedField: item.lastEditedField,
+      });
       updated[index] = { 
         ...calculated, 
         unit_gross_price: item.unit_gross_price, 
