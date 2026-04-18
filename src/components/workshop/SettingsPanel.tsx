@@ -114,10 +114,10 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
   });
 
   const addWorkstationMut = useMutation({
-    mutationFn: async (name: string) => {
+    mutationFn: async ({ name, category }: { name: string; category: string }) => {
       const { error } = await (supabase as any)
         .from('workshop_workstations')
-        .insert({ provider_id: providerId, name, sort_order: workstations.length });
+        .insert({ provider_id: providerId, name, category, sort_order: workstations.length });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -128,6 +128,13 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
     },
     onError: (e: any) => toast.error(e.message),
   });
+
+  const handleAddWorkstation = () => {
+    if (!wsName.trim()) return;
+    addWorkstationMut.mutate({ name: wsName.trim(), category: wsCategory });
+    setWsName('');
+    setShowAddWorkstation(false);
+  };
 
   const removeWorkstationMut = useMutation({
     mutationFn: async (id: string) => {
