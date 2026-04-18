@@ -160,7 +160,8 @@ async function queryGUS(nip: string, gusApiKey: string | null, environment: stri
     const resultMatch = searchXml.match(/<DaneSzukajPodmiotyResult>([^]*?)<\/DaneSzukajPodmiotyResult>/);
     
     if (!resultMatch) {
-      return { success: false, error: 'Nie znaleziono podmiotu o podanym NIP', mode: 'api' };
+      console.log('GUS returned no result, falling back to MF white list API');
+      return await queryMFWhiteList(nip);
     }
 
     const resultXml = resultMatch[1]
@@ -172,12 +173,18 @@ async function queryGUS(nip: string, gusApiKey: string | null, environment: stri
     const propertyNumber = extractField(resultXml, 'NrNieruchomosci');
     const apartmentNumber = extractField(resultXml, 'NrLokalu');
 
+    const gusName = extractField(resultXml, 'Nazwa');
+    // Jeśli GUS zwrócił XML ale bez nazwy (firma nie istnieje), fallback do MF
+    if (!gusName) {
+      console.log('GUS XML present but no Nazwa field, falling back to MF white list API');
+      return await queryMFWhiteList(nip);
+    }
     return {
       success: true,
       mode: 'api',
       data: {
-        name: extractField(resultXml, 'Nazwa'),
-        nip: extractField(resultXml, 'Nip'),
+        name: gusName,
+        nip: extractField(resultXml, 'Nip') || nip,
         regon: extractField(resultXml, 'Regon'),
         street,
         propertyNumber,
