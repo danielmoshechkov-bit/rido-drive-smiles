@@ -50,9 +50,11 @@ export function GlobalRidoAIButton() {
         )}
         aria-label="Zapytaj RidoAI"
       >
-        <div className={cn("bg-background border shadow-lg rounded-full px-4 py-2.5 text-sm font-medium text-foreground hidden sm:block", isWorkshopPanel && 'hidden')}>
-          Zadaj pytanie RidoAI
-        </div>
+        {!isWorkshopPanel && (
+          <div className="bg-background border shadow-lg rounded-full px-4 py-2.5 text-sm font-medium text-foreground hidden sm:block">
+            Zadaj pytanie RidoAI
+          </div>
+        )}
         <div className="relative w-14 h-14 rounded-full bg-background shadow-lg flex items-center justify-center ring-2 ring-foreground/80 hover:ring-foreground transition-all overflow-hidden">
           <img src={ridoMascot} alt="RidoAI" className="w-10 h-10 object-contain" />
         </div>

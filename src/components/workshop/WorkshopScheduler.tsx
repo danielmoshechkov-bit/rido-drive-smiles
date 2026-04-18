@@ -387,7 +387,7 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Termin
   const totalColumns = categoryStations.length * weekDays.length;
 
   return (
-    <div className="flex flex-col" style={{ height: 'calc(100vh - 200px)', minHeight: '500px' }}>
+    <div className="flex flex-col" style={{ height: 'calc(100vh - 120px)', minHeight: '500px' }}>
       {title && <h2 className="text-2xl font-bold tracking-tight mb-3">{title}</h2>}
 
       {/* Unplanned orders */}
@@ -679,6 +679,10 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Termin
         providerId={providerId}
         unplannedOrders={unplannedOrders}
         stations={categoryStations}
+        allWorkstations={workstations}
+        categories={categories}
+        activeCategory={activeCategory}
+        onCategoryChange={setActiveCategory}
         stationName={categoryStations.find((s: any) => s.id === slotData?.stationId)?.name || ''}
         onSchedule={async (orderId, day, hour, stationId) => {
           const scheduledStart = new Date(day);
@@ -929,11 +933,13 @@ function OrderCard({ order, onDragStart, onDragEnd, isFocused, employees, update
   );
 }
 
-function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders, stations, stationName: _stationName, onSchedule, onStationChange }: {
+function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders, stations, allWorkstations, categories, activeCategory, onCategoryChange, stationName: _stationName, onSchedule, onStationChange }: {
   open: boolean; onOpenChange: (v: boolean) => void;
   slotData: { day: Date; hour: number; stationId: string } | null;
   providerId: string;
   unplannedOrders: any[]; stations: any[]; stationName: string;
+  allWorkstations: any[]; categories: string[]; activeCategory: string;
+  onCategoryChange: (cat: string) => void;
   onSchedule: (orderId: string, day: Date, hour: number, stationId: string) => Promise<void>;
   onStationChange: (stationId: string) => void;
 }) {
@@ -1124,8 +1130,6 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
     }));
   };
 
-  const ALL_HOURS_LIST = Array.from({ length: 15 }, (_, i) => i + 6);
-  const MINUTES_LIST = ['00', '15', '30', '45'];
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) { setSelectedOrderId(''); setActiveTab('client'); } onOpenChange(v); }}>
@@ -1147,38 +1151,49 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
             </Button>
           </div>
 
-          {/* Editable date/time/station info */}
-          <div className="grid grid-cols-3 gap-3 text-sm">
+          {/* Editable date/time/category/station info */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
             <div>
               <Label className="font-medium text-xs">Data</Label>
-              <Input
-                type="date"
-                value={editDate}
-                onChange={e => setEditDate(e.target.value)}
-                className="mt-1 h-8 text-xs"
-              />
+              <Input type="date" value={editDate} onChange={e => setEditDate(e.target.value)} className="mt-1 h-8 text-xs" />
             </div>
             <div>
               <Label className="font-medium text-xs">Godzina</Label>
               <div className="flex gap-1 mt-1">
-                <Select value={editHourStr} onValueChange={setEditHourStr}>
-                  <SelectTrigger className="h-8 text-xs w-16"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {ALL_HOURS_LIST.map(h => (
-                      <SelectItem key={h} value={String(h).padStart(2, '0')}>{String(h).padStart(2, '0')}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Input
+                  inputMode="numeric"
+                  value={editHourStr}
+                  onChange={e => { const v = e.target.value.replace(/\D/g, '').slice(0, 2); setEditHourStr(v); }}
+                  onBlur={e => { const n = Math.min(23, Math.max(0, parseInt(e.target.value || '0'))); setEditHourStr(String(n).padStart(2, '0')); }}
+                  className="h-8 text-xs w-14 text-center" placeholder="HH"
+                />
                 <span className="flex items-center text-xs font-bold">:</span>
-                <Select value={editMinStr} onValueChange={setEditMinStr}>
-                  <SelectTrigger className="h-8 text-xs w-16"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {MINUTES_LIST.map(m => (
-                      <SelectItem key={m} value={m}>{m}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Input
+                  inputMode="numeric"
+                  value={editMinStr}
+                  onChange={e => { const v = e.target.value.replace(/\D/g, '').slice(0, 2); setEditMinStr(v); }}
+                  onBlur={e => { const n = Math.min(59, Math.max(0, parseInt(e.target.value || '0'))); setEditMinStr(String(n).padStart(2, '0')); }}
+                  className="h-8 text-xs w-14 text-center" placeholder="MM"
+                />
               </div>
+            </div>
+            <div>
+              <Label className="font-medium text-xs">Kategoria</Label>
+              <Select
+                value={activeCategory}
+                onValueChange={(v) => {
+                  onCategoryChange(v);
+                  const first = (allWorkstations || []).find((w: any) => (w.category || 'Warsztat') === v);
+                  if (first) { setEditStationId(first.id); onStationChange(first.id); }
+                }}
+              >
+                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {categories.map((c: string) => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label className="font-medium text-xs">Stanowisko</Label>
