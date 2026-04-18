@@ -209,6 +209,8 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
               <TableRow>
                 <TableHead>Imię i nazwisko</TableHead>
                 <TableHead>Rola</TableHead>
+                <TableHead>Telefon</TableHead>
+                <TableHead>Email</TableHead>
                 <TableHead>Stawka/h</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Akcje</TableHead>
@@ -216,12 +218,14 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
             </TableHeader>
             <TableBody>
               {employees.length === 0 && (
-                <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Brak pracowników</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">Brak pracowników</TableCell></TableRow>
               )}
               {employees.map(emp => (
                 <TableRow key={emp.id}>
                   <TableCell className="font-medium">{emp.name}</TableCell>
                   <TableCell>{roleLabel(emp.role)}</TableCell>
+                  <TableCell>{emp.phone || '—'}</TableCell>
+                  <TableCell className="text-sm">{emp.email || '—'}</TableCell>
                   <TableCell>{emp.hourly_rate} PLN</TableCell>
                   <TableCell>
                     <Badge variant={emp.is_active ? 'default' : 'secondary'}>
@@ -229,6 +233,15 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right space-x-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      title="Wyślij zaproszenie"
+                      onClick={() => handleSendInvite(emp)}
+                      disabled={invitingId === emp.id || !emp.email}
+                    >
+                      {invitingId === emp.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4 text-primary" />}
+                    </Button>
                     <Button variant="ghost" size="icon" onClick={() => openEdit(emp)}><Edit className="h-4 w-4" /></Button>
                     <Button variant="ghost" size="icon" onClick={() => toggleActive(emp)}>
                       <UserX className="h-4 w-4 text-muted-foreground" />
@@ -275,6 +288,10 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
                 <Label>Telefon służbowy</Label>
                 <Input value={phone} onChange={e => setPhone(e.target.value)} />
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5"><Mail className="h-4 w-4" /> Email (potrzebny do zaproszenia)</Label>
+              <Input type="email" value={emailAddr} onChange={e => setEmailAddr(e.target.value)} placeholder="pracownik@firma.pl" />
             </div>
             <div className="space-y-2">
               <Label>PIN (4 cyfry, opcjonalny)</Label>
