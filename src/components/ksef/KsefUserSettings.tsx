@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import {
   Shield, RefreshCw, CheckCircle2, XCircle, Clock, ExternalLink,
@@ -61,6 +62,7 @@ export function KsefUserSettings() {
   const [alertEmail, setAlertEmail] = useState('');
   const [userNip, setUserNip] = useState<string | null>(null);
   const [instructionsOpen, setInstructionsOpen] = useState(false);
+  const [autoSendEnabled, setAutoSendEnabled] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -95,6 +97,7 @@ export function KsefUserSettings() {
         setKsefStatus(data.ksef_status || 'not_configured');
         setKsefLastTestAt(data.ksef_last_test_at || null);
         setKsefLastTestResult(data.ksef_last_test_result || null);
+        setAutoSendEnabled(((data as any).ksef_auto_send_enabled as boolean) || false);
       }
       return data;
     },
@@ -119,6 +122,7 @@ export function KsefUserSettings() {
         ksef_status: overrides?.status ?? ksefStatus,
         ksef_last_test_at: overrides?.testAt ?? ksefLastTestAt,
         ksef_last_test_result: overrides?.testResult ?? ksefLastTestResult,
+        ksef_auto_send_enabled: autoSendEnabled,
         nip: userNip || undefined,
       } as any;
       if (settingsId) {
