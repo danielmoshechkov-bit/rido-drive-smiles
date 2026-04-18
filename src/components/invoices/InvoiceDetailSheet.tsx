@@ -164,7 +164,7 @@ export function InvoiceDetailSheet({ invoice, open, onOpenChange, onUpdate }: In
     }
   };
 
-  const handleDownloadPdf = async () => {
+  const handleDownloadPdf = async (overrideType?: string) => {
     setIsGeneratingPdf(true);
     try {
       // Re-fetch latest ksef data before generating PDF
@@ -192,9 +192,11 @@ export function InvoiceDetailSheet({ invoice, open, onOpenChange, onUpdate }: In
       }
 
       // Build invoice data for HTML generator
+      const isServiceConfirmation = overrideType === 'service_confirmation';
+      const baseNumber = invoice.invoice_number || 'Faktura';
       const invoiceData = {
-        invoice_number: invoice.invoice_number || 'Faktura',
-        type: invoice.invoice_type || 'invoice',
+        invoice_number: isServiceConfirmation ? `PWU/${baseNumber}` : baseNumber,
+        type: overrideType || invoice.invoice_type || 'invoice',
         issue_date: invoice.issue_date || new Date().toISOString().split('T')[0],
         sale_date: invoice.sale_date || invoice.issue_date || new Date().toISOString().split('T')[0],
         due_date: invoice.due_date || new Date().toISOString().split('T')[0],
