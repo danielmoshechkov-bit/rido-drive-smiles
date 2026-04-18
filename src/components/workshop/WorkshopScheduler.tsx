@@ -1153,38 +1153,49 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
             </Button>
           </div>
 
-          {/* Editable date/time/station info */}
-          <div className="grid grid-cols-3 gap-3 text-sm">
+          {/* Editable date/time/category/station info */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
             <div>
               <Label className="font-medium text-xs">Data</Label>
-              <Input
-                type="date"
-                value={editDate}
-                onChange={e => setEditDate(e.target.value)}
-                className="mt-1 h-8 text-xs"
-              />
+              <Input type="date" value={editDate} onChange={e => setEditDate(e.target.value)} className="mt-1 h-8 text-xs" />
             </div>
             <div>
               <Label className="font-medium text-xs">Godzina</Label>
               <div className="flex gap-1 mt-1">
-                <Select value={editHourStr} onValueChange={setEditHourStr}>
-                  <SelectTrigger className="h-8 text-xs w-16"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {ALL_HOURS_LIST.map(h => (
-                      <SelectItem key={h} value={String(h).padStart(2, '0')}>{String(h).padStart(2, '0')}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Input
+                  inputMode="numeric"
+                  value={editHourStr}
+                  onChange={e => { const v = e.target.value.replace(/\D/g, '').slice(0, 2); setEditHourStr(v); }}
+                  onBlur={e => { const n = Math.min(23, Math.max(0, parseInt(e.target.value || '0'))); setEditHourStr(String(n).padStart(2, '0')); }}
+                  className="h-8 text-xs w-14 text-center" placeholder="HH"
+                />
                 <span className="flex items-center text-xs font-bold">:</span>
-                <Select value={editMinStr} onValueChange={setEditMinStr}>
-                  <SelectTrigger className="h-8 text-xs w-16"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {MINUTES_LIST.map(m => (
-                      <SelectItem key={m} value={m}>{m}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Input
+                  inputMode="numeric"
+                  value={editMinStr}
+                  onChange={e => { const v = e.target.value.replace(/\D/g, '').slice(0, 2); setEditMinStr(v); }}
+                  onBlur={e => { const n = Math.min(59, Math.max(0, parseInt(e.target.value || '0'))); setEditMinStr(String(n).padStart(2, '0')); }}
+                  className="h-8 text-xs w-14 text-center" placeholder="MM"
+                />
               </div>
+            </div>
+            <div>
+              <Label className="font-medium text-xs">Kategoria</Label>
+              <Select
+                value={activeCategory}
+                onValueChange={(v) => {
+                  onCategoryChange(v);
+                  const first = (allWorkstations || []).find((w: any) => (w.category || 'Warsztat') === v);
+                  if (first) { setEditStationId(first.id); onStationChange(first.id); }
+                }}
+              >
+                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {categories.map((c: string) => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label className="font-medium text-xs">Stanowisko</Label>
