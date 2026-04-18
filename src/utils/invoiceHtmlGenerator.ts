@@ -438,9 +438,10 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
   const isNota = invoice.type === 'nota';
   const isVatRR = invoice.type === 'vat_rr';
   const isProforma = invoice.type === 'proforma';
+  const isServiceConfirmation = invoice.type === 'service_confirmation';
   
   // Documents without VAT columns
-  const noVatDocument = isReceipt || isNota || isMargin;
+  const noVatDocument = isReceipt || isNota || isMargin || isServiceConfirmation;
 
   const displayItems = isCorrection ? invoice.correction_data!.after_items : items;
   
@@ -478,6 +479,9 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
   } else if (isProforma) {
     invoiceTitle = 'FAKTURA PROFORMA';
     footerNote = 'Dokument nie jest fakturą VAT w rozumieniu ustawy o podatku od towarów i usług. Nie stanowi podstawy do odliczenia VAT.';
+  } else if (isServiceConfirmation) {
+    invoiceTitle = 'POTWIERDZENIE WYKONANIA USŁUGI';
+    footerNote = 'Niniejszy dokument stanowi potwierdzenie wykonania usługi i nie jest fakturą w rozumieniu ustawy z dnia 11 marca 2004 r. o podatku od towarów i usług. Nie stanowi podstawy do odliczenia podatku VAT ani do księgowania jako dokument kosztowy.';
   } else if (isAdvance) {
     invoiceTitle = 'FAKTURA ZALICZKOWA';
     footerNote = 'Faktura zaliczkowa wystawiona zgodnie z art. 106f ust. 1 ustawy z dnia 11 marca 2004 r. o podatku od towarów i usług. Kwota brutto obejmuje otrzymaną zaliczkę.';

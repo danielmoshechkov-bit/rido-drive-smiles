@@ -164,7 +164,7 @@ export function InvoiceDetailSheet({ invoice, open, onOpenChange, onUpdate }: In
     }
   };
 
-  const handleDownloadPdf = async () => {
+  const handleDownloadPdf = async (overrideType?: string) => {
     setIsGeneratingPdf(true);
     try {
       // Re-fetch latest ksef data before generating PDF
@@ -192,9 +192,11 @@ export function InvoiceDetailSheet({ invoice, open, onOpenChange, onUpdate }: In
       }
 
       // Build invoice data for HTML generator
+      const isServiceConfirmation = overrideType === 'service_confirmation';
+      const baseNumber = invoice.invoice_number || 'Faktura';
       const invoiceData = {
-        invoice_number: invoice.invoice_number || 'Faktura',
-        type: invoice.invoice_type || 'invoice',
+        invoice_number: isServiceConfirmation ? `PWU/${baseNumber}` : baseNumber,
+        type: overrideType || invoice.invoice_type || 'invoice',
         issue_date: invoice.issue_date || new Date().toISOString().split('T')[0],
         sale_date: invoice.sale_date || invoice.issue_date || new Date().toISOString().split('T')[0],
         due_date: invoice.due_date || new Date().toISOString().split('T')[0],
@@ -485,7 +487,7 @@ export function InvoiceDetailSheet({ invoice, open, onOpenChange, onUpdate }: In
                 {invoice.is_paid ? 'Oznacz jako nieopłaconą' : 'Oznacz jako opłaconą'}
               </Button>
               <div className="grid grid-cols-2 gap-2">
-                <Button variant="outline" onClick={handleDownloadPdf} disabled={isGeneratingPdf || currentInvoice.ksef_status === 'processing' || currentInvoice.ksef_status === 'sent'}>
+                <Button variant="outline" onClick={() => handleDownloadPdf()} disabled={isGeneratingPdf || currentInvoice.ksef_status === 'processing' || currentInvoice.ksef_status === 'sent'}>
                   {isGeneratingPdf ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   ) : currentInvoice.ksef_status === 'processing' || currentInvoice.ksef_status === 'sent' ? (
@@ -500,6 +502,10 @@ export function InvoiceDetailSheet({ invoice, open, onOpenChange, onUpdate }: In
                   Wyślij email
                 </Button>
               </div>
+              <Button variant="outline" className="w-full" onClick={() => handleDownloadPdf('service_confirmation')} disabled={isGeneratingPdf}>
+                <FileText className="h-4 w-4 mr-2" />
+                Potwierdzenie wykonania usługi
+              </Button>
               <div className="grid grid-cols-2 gap-2">
                 <Button variant="outline" onClick={handleSetReminder}>
                   <Clock className="h-4 w-4 mr-2" />
