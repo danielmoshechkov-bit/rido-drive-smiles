@@ -512,9 +512,9 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
         {/* Stara wbudowana tabela pracowników została usunięta — pełną listę renderuje <WorkshopEmployeesPage /> poniżej */}
 
         {settingsTab === 'stanowiska' && (() => {
-          const wsCategories = Array.from(new Set(workstations.map((w: any) => w.category || 'Warsztat')));
+          const wsCategories: string[] = Array.from(new Set<string>(workstations.map((w: any) => (w.category as string) || 'Warsztat')));
           if (wsCategories.length === 0) wsCategories.push('Warsztat');
-          const currentCat = wsCategories.includes(activeWsCategory) ? activeWsCategory : wsCategories[0];
+          const currentCat: string = wsCategories.includes(activeWsCategory) ? activeWsCategory : wsCategories[0];
           const filteredWs = workstations.filter((w: any) => (w.category || 'Warsztat') === currentCat);
           return (
             <div className="space-y-4">
