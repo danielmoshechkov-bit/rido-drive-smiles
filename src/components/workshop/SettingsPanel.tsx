@@ -503,74 +503,7 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
           </div>
         )}
 
-        {settingsTab === 'pracownicy' && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-semibold">Pracownicy</h3>
-                <p className="text-sm text-muted-foreground">Zarządzaj zespołem — pracownicy widoczni w kalendarzu</p>
-              </div>
-              <Button onClick={() => setShowAddEmployee(true)} className="gap-2">
-                <UserPlus className="h-4 w-4" /> Dodaj pracownika
-              </Button>
-            </div>
-            {employees.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                <Users className="h-12 w-12 mx-auto mb-4 opacity-30" />
-                <p>Brak pracowników</p>
-                <p className="text-sm">Dodaj pracowników, aby przypisywać ich do zdarzeń w kalendarzu</p>
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Imię i nazwisko</TableHead>
-                    <TableHead>Telefon</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead className="text-right">Pensja</TableHead>
-                    <TableHead></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {employees.map((emp: any) => (
-                    <TableRow key={emp.id}>
-                      <TableCell className="font-medium">{emp.name}</TableCell>
-                      <TableCell>{emp.phone || '—'}</TableCell>
-                      <TableCell>{emp.email || '—'}</TableCell>
-                      <TableCell className="text-right">{emp.salary ? `${emp.salary} zł` : '—'}</TableCell>
-                      <TableCell>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeEmployeeMut.mutate(emp.id)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-
-            <Dialog open={showAddEmployee} onOpenChange={setShowAddEmployee}>
-              <DialogContent>
-                <DialogHeader><DialogTitle>Dodaj pracownika</DialogTitle></DialogHeader>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Imię i nazwisko *</Label>
-                    <Input value={empForm.name} onChange={e => setEmpForm(p => ({ ...p, name: e.target.value }))} placeholder="Jan Kowalski" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2"><Label>Telefon</Label><Input value={empForm.phone} onChange={e => setEmpForm(p => ({ ...p, phone: e.target.value }))} placeholder="+48..." /></div>
-                    <div className="space-y-2"><Label>Email</Label><Input type="email" value={empForm.email} onChange={e => setEmpForm(p => ({ ...p, email: e.target.value }))} /></div>
-                  </div>
-                  <div className="space-y-2"><Label>Pensja (zł/mies.)</Label><Input type="number" value={empForm.salary} onChange={e => setEmpForm(p => ({ ...p, salary: e.target.value }))} placeholder="0" /></div>
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setShowAddEmployee(false)}>Anuluj</Button>
-                  <Button onClick={handleAddEmployee} disabled={!empForm.name.trim()}>Dodaj</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
-        )}
+        {/* Stara wbudowana tabela pracowników została usunięta — pełną listę renderuje <WorkshopEmployeesPage /> poniżej */}
 
         {settingsTab === 'stanowiska' && (
           <div className="space-y-4">
