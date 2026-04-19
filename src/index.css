@@ -242,7 +242,7 @@ All colors MUST be HSL.
 .section-content,
 div[class*="widget"],
 div[class*="card"] {
-  background: #F9F7FF !important; /* jasny fiolet RIDO */
+  background: #FFFFFF !important; /* białe tło kafelków RIDO */
   opacity: 1 !important;
   backdrop-filter: none !important;
   border-radius: 16px !important;
@@ -276,7 +276,7 @@ a.button,
 [data-section="faq"],
 [data-section="requirements"],
 [data-section="documents"] {
-  background: #F9F7FF !important;
+  background: #FFFFFF !important;
   opacity: 1 !important;
   backdrop-filter: none !important;
   border: 1px solid rgba(120, 80, 255, 0.07) !important;
