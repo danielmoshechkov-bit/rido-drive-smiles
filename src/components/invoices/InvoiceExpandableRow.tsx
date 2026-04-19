@@ -467,10 +467,10 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
 
   return (
     <>
-      <div className="border rounded-lg bg-card overflow-hidden">
+      <div className="border border-primary/15 rounded-lg bg-[hsl(259_70%_97%)] dark:bg-[hsl(259_30%_18%)] overflow-hidden">
         {/* Main row - always visible */}
         <div 
-          className="p-4 cursor-pointer hover:bg-muted/50 transition-colors"
+          className="p-4 cursor-pointer hover:bg-[hsl(259_70%_94%)] dark:hover:bg-[hsl(259_30%_22%)] transition-colors"
           onClick={() => setIsExpanded(!isExpanded)}
         >
           <div className="flex items-center justify-between">

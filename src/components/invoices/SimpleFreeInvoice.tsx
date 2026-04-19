@@ -1111,6 +1111,22 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
       setShowPreview(true);
       toast.success('Faktura została wystawiona!');
 
+      // Auto-download/print PDF after issuing — otwiera od razu PDF do zapisu/druku
+      try {
+        const html = generateInvoiceHtml(getInvoiceData());
+        const printWindow = window.open('', '_blank');
+        if (printWindow) {
+          printWindow.document.write(html);
+          printWindow.document.close();
+          // Daj przeglądarce moment na renderowanie zanim otworzymy dialog drukowania (zapisz jako PDF)
+          setTimeout(() => {
+            try { printWindow.focus(); printWindow.print(); } catch {}
+          }, 400);
+        }
+      } catch (pdfErr) {
+        console.error('Auto-PDF error:', pdfErr);
+      }
+
       // Auto-send to KSeF if enabled (skip for proforma, drafts, non-VAT documents)
       const isKsefEligible = ['invoice', 'correction', 'advance', 'final'].includes(invoiceType);
       const invoiceIdToSend = editInvoiceId || savedId;

@@ -36,9 +36,9 @@ export function WorkshopSales({ providerId, onBack }: Props) {
 
     const { data, error } = await (supabase as any)
       .from('user_invoices')
-      .select('id, invoice_number, buyer_name, issue_date, sale_date, gross_total, paid_amount, payment_method, type, is_paid')
+      .select('id, invoice_number, buyer_name, issue_date, sale_date, gross_total, paid_amount, payment_method, invoice_type, is_paid')
       .eq('user_id', user.id)
-      .neq('type', 'cost')
+      .neq('invoice_type', 'cost')
       .order('issue_date', { ascending: false });
 
     if (error) {
