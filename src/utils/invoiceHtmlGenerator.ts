@@ -662,8 +662,8 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     .payment-value { font-weight: 500; }
     .notes { margin-bottom: 8px; padding: 6px; background: #fef3c7; border-radius: 4px; font-size: 8px; }
     .notes-label { font-size: 7px; color: #92400e; text-transform: uppercase; margin-bottom: 2px; font-weight: 600; }
-    .footer { display: flex; justify-content: space-between; margin-top: 16px; padding-top: 8px; }
-    .signature { width: 160px; text-align: center; }
+    .footer { display: flex; justify-content: space-between; margin-top: 16px; padding: 8px 60px 0 60px; }
+    .signature { width: 200px; text-align: center; }
     .signature-line { border-top: 1px solid #333; margin-top: 30px; padding-top: 4px; font-size: 7px; color: #666; }
      /* Znak wodny — przezroczysty, powtarzany NA CAŁEJ stronie, na wierzchu treści,
         żeby było widać że to KOPIA ROBOCZA na każdej pozycji. */
