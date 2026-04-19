@@ -391,6 +391,7 @@ export default function ServiceProviderDashboard() {
       }
       const updateData: any = {
         company_name: activationForm.company_name,
+        short_name: activationForm.short_name || null,
         description: activationForm.description,
         company_phone: activationForm.company_phone,
         company_email: activationForm.company_email,
