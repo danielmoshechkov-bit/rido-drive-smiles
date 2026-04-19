@@ -8,10 +8,14 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { TabsContent, TabsTrigger } from '@/components/ui/tabs';
+import { TabsPill } from '@/components/ui/TabsPill';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { ArrowLeft, MessageSquare, Send, RefreshCw, X, Edit, Trash2, Calendar, BarChart3, CheckCircle, AlertCircle, Clock, Plus } from 'lucide-react';
+import { UniversalHomeButton } from '@/components/UniversalHomeButton';
+import { MyGetRidoButton } from '@/components/MyGetRidoButton';
+import { TopBarCredits } from '@/components/TopBarCredits';
+import { MessageSquare, Send, RefreshCw, X, Edit, Trash2, Calendar, BarChart3, CheckCircle, AlertCircle, Clock, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
@@ -29,6 +33,7 @@ export default function WorkshopSmsCenter() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [providerId, setProviderId] = useState<string | null>(null);
+  const [user, setUser] = useState<any>(null);
   const [tab, setTab] = useState<TabKey>('sent');
   const [editingSms, setEditingSms] = useState<any>(null);
 
@@ -42,6 +47,7 @@ export default function WorkshopSmsCenter() {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { navigate('/auth'); return; }
+      setUser(user);
       const { data: provider } = await supabase
         .from('service_providers')
         .select('id')
