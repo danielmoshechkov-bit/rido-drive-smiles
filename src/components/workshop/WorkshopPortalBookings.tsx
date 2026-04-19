@@ -52,16 +52,26 @@ export function WorkshopPortalBookings({ providerId }: Props) {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from('service_bookings')
-        .select('*, provider_services(name)')
+        .select('*')
         .eq('provider_id', providerId)
         .eq('source', 'portal')
         .neq('status', 'cancelled')
         .order('scheduled_date', { ascending: true });
-      if (error) throw error;
-      return (data || []).map((b: any) => ({
-        ...b,
-        service_name: b.provider_services?.name || '',
-      })) as Booking[];
+      if (error) {
+        console.error('[WorkshopPortalBookings] load error:', error);
+        throw error;
+      }
+      const list = (data || []) as any[];
+      const serviceIds = Array.from(new Set(list.map((b) => b.service_id).filter(Boolean)));
+      let nameMap: Record<string, string> = {};
+      if (serviceIds.length > 0) {
+        const { data: svcs } = await (supabase as any)
+          .from('provider_services')
+          .select('id, name')
+          .in('id', serviceIds);
+        nameMap = Object.fromEntries((svcs || []).map((s: any) => [s.id, s.name]));
+      }
+      return list.map((b) => ({ ...b, service_name: nameMap[b.service_id] || '' })) as Booking[];
     },
     enabled: !!providerId,
   });
