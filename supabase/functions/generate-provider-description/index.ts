@@ -64,22 +64,58 @@ Wygeneruj atrakcyjny opis firmy.`
     if (model.startsWith('moonshot')) {
       const kimiKey = Deno.env.get('KIMI_API_KEY')
       if (!kimiKey) throw new Error('Brak klucza KIMI_API_KEY w konfiguracji')
-      const resp = await fetchWithTimeout('https://api.moonshot.cn/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${kimiKey}` },
-        body: JSON.stringify({
-          model,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt },
-          ],
-          temperature: 0.7,
-          max_tokens: 400,
-        }),
-      })
-      const data = await resp.json()
-      if (!resp.ok) throw new Error(data?.error?.message || 'Błąd Kimi API')
-      description = data?.choices?.[0]?.message?.content?.trim() || ''
+      // Try international endpoint first, then China
+      const endpoints = ['https://api.moonshot.ai/v1/chat/completions', 'https://api.moonshot.cn/v1/chat/completions']
+      let lastError = ''
+      let success = false
+      for (const url of endpoints) {
+        try {
+          const resp = await fetchWithTimeout(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${kimiKey}` },
+            body: JSON.stringify({
+              model,
+              messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: userPrompt },
+              ],
+              temperature: 0.7,
+              max_tokens: 400,
+            }),
+          })
+          const data = await resp.json()
+          if (resp.ok) {
+            description = data?.choices?.[0]?.message?.content?.trim() || ''
+            success = true
+            break
+          }
+          lastError = data?.error?.message || `HTTP ${resp.status}`
+          console.warn(`Kimi endpoint ${url} failed: ${lastError}`)
+        } catch (e) {
+          lastError = e instanceof Error ? e.message : String(e)
+          console.warn(`Kimi endpoint ${url} error: ${lastError}`)
+        }
+      }
+      // Fallback to Lovable AI Gateway with google/gemini if Kimi fails
+      if (!success) {
+        console.log('Kimi failed on all endpoints, falling back to Lovable AI Gateway')
+        const lovableKey = Deno.env.get('LOVABLE_API_KEY')
+        if (!lovableKey) throw new Error(`Kimi API: ${lastError}. Brak fallback LOVABLE_API_KEY.`)
+        const resp = await fetchWithTimeout('https://ai.gateway.lovable.dev/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${lovableKey}` },
+          body: JSON.stringify({
+            model: 'google/gemini-2.5-flash',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt },
+            ],
+          }),
+        })
+        const data = await resp.json()
+        if (!resp.ok) throw new Error(`Kimi: ${lastError}. Fallback też nie zadziałał: ${data?.error?.message || resp.status}`)
+        description = data?.choices?.[0]?.message?.content?.trim() || ''
+      }
     } else if (model.startsWith('claude')) {
       const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY')
       if (!anthropicKey) throw new Error('Brak klucza ANTHROPIC_API_KEY')
