@@ -20941,6 +20941,7 @@ export type Database = {
       workshop_orders: {
         Row: {
           acceptance_date: string | null
+          booking_id: string | null
           client_acceptance_confirmed: boolean | null
           client_code: string | null
           client_id: string | null
@@ -20991,6 +20992,7 @@ export type Database = {
         }
         Insert: {
           acceptance_date?: string | null
+          booking_id?: string | null
           client_acceptance_confirmed?: boolean | null
           client_code?: string | null
           client_id?: string | null
@@ -21041,6 +21043,7 @@ export type Database = {
         }
         Update: {
           acceptance_date?: string | null
+          booking_id?: string | null
           client_acceptance_confirmed?: boolean | null
           client_code?: string | null
           client_id?: string | null
