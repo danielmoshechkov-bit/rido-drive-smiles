@@ -4,11 +4,14 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Calendar, Phone, Car, CheckCircle2, XCircle, MessageSquare, Loader2, AlertTriangle } from 'lucide-react';
+import { Calendar, Phone, Car, CheckCircle2, XCircle, Loader2, AlertTriangle, Pencil } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { toast } from 'sonner';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 interface Props {
   providerId: string;
@@ -46,6 +49,10 @@ const STATUS_LABELS: Record<string, { label: string; cls: string }> = {
 export function WorkshopPortalBookings({ providerId }: Props) {
   const queryClient = useQueryClient();
   const [actingId, setActingId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<Booking | null>(null);
+  const [editDate, setEditDate] = useState('');
+  const [editTime, setEditTime] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const { data: bookings = [], isLoading } = useQuery({
     queryKey: ['portal-bookings', providerId],
@@ -129,6 +136,56 @@ export function WorkshopPortalBookings({ providerId }: Props) {
     }
   };
 
+  const openEdit = (b: Booking) => {
+    setEditing(b);
+    setEditDate(b.scheduled_date);
+    setEditTime((b.scheduled_time || '').substring(0, 5));
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editing) return;
+    if (!editDate || !editTime) {
+      toast.error('Podaj datę i godzinę');
+      return;
+    }
+    const oldDate = editing.scheduled_date;
+    const oldTime = editing.scheduled_time;
+    const changed = oldDate !== editDate || (oldTime || '').substring(0, 5) !== editTime;
+
+    setSavingEdit(true);
+    try {
+      const { error } = await (supabase as any)
+        .from('service_bookings')
+        .update({
+          scheduled_date: editDate,
+          scheduled_time: editTime,
+          status: 'confirmed',
+          confirmed_at: new Date().toISOString(),
+        })
+        .eq('id', editing.id);
+      if (error) throw error;
+
+      // Wyślij SMS — rescheduled jeśli zmiana terminu, w przeciwnym razie confirmed
+      supabase.functions.invoke('booking-notify', {
+        body: {
+          booking_id: editing.id,
+          type: changed ? 'rescheduled' : 'confirmed',
+          old_date: oldDate,
+          old_time: oldTime,
+        },
+      }).catch((e) => console.error('booking-notify invoke error:', e));
+
+      toast.success(changed ? 'Termin zmieniony — klient otrzyma SMS' : 'Rezerwacja potwierdzona');
+      setEditing(null);
+      queryClient.invalidateQueries({ queryKey: ['portal-bookings', providerId] });
+      queryClient.invalidateQueries({ queryKey: ['pending-bookings-count'] });
+    } catch (e: any) {
+      toast.error(e.message || 'Błąd zapisu');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
   if (!providerId) return null;
 
   return (
@@ -182,16 +239,21 @@ export function WorkshopPortalBookings({ providerId }: Props) {
                   )}
                   {b.service_name && <p className="text-xs"><span className="text-muted-foreground">Usługa:</span> {b.service_name}</p>}
                   {b.customer_notes && <p className="text-xs italic text-muted-foreground line-clamp-2">{b.customer_notes}</p>}
-                  {b.status === 'pending' && (
-                    <div className="flex gap-2 pt-1">
+                  <div className="flex gap-2 pt-1">
+                    {b.status === 'pending' && (
                       <Button size="sm" className="flex-1 h-7 text-xs" onClick={() => handleConfirm(b)} disabled={actingId === b.id}>
                         {actingId === b.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <><CheckCircle2 className="h-3 w-3 mr-1" /> Potwierdź</>}
                       </Button>
+                    )}
+                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openEdit(b)} title="Edytuj termin">
+                      <Pencil className="h-3 w-3 mr-1" /> Edytuj
+                    </Button>
+                    {b.status === 'pending' && (
                       <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => handleReject(b)} disabled={actingId === b.id}>
                         <XCircle className="h-3 w-3" />
                       </Button>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -253,22 +315,27 @@ export function WorkshopPortalBookings({ providerId }: Props) {
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
-                        {b.status === 'pending' ? (
-                          <div className="flex gap-1 justify-end">
+                        <div className="flex gap-1 justify-end">
+                          {b.status === 'pending' && (
                             <Button size="sm" className="h-7 text-xs" onClick={() => handleConfirm(b)} disabled={actingId === b.id}>
                               {actingId === b.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <><CheckCircle2 className="h-3 w-3 mr-1" /> Potwierdź</>}
                             </Button>
+                          )}
+                          <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => openEdit(b)} title="Edytuj termin">
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                          {b.status === 'pending' ? (
                             <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => handleReject(b)} disabled={actingId === b.id} title="Odrzuć">
                               <XCircle className="h-3 w-3" />
                             </Button>
-                          </div>
-                        ) : (
-                          <a href={`tel:${b.customer_phone}`} className="inline-flex">
-                            <Button size="sm" variant="outline" className="h-7 text-xs">
-                              <Phone className="h-3 w-3 mr-1" /> Zadzwoń
-                            </Button>
-                          </a>
-                        )}
+                          ) : (
+                            <a href={`tel:${b.customer_phone}`} className="inline-flex">
+                              <Button size="sm" variant="outline" className="h-7 px-2" title="Zadzwoń">
+                                <Phone className="h-3 w-3" />
+                              </Button>
+                            </a>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -278,6 +345,40 @@ export function WorkshopPortalBookings({ providerId }: Props) {
           </>
         )}
       </CardContent>
+
+      <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edytuj termin rezerwacji</DialogTitle>
+          </DialogHeader>
+          {editing && (
+            <div className="space-y-3">
+              <div className="text-sm text-muted-foreground">
+                {editing.booking_number} · {editing.customer_name} · {editing.customer_phone}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Data</Label>
+                  <Input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} />
+                </div>
+                <div>
+                  <Label className="text-xs">Godzina</Label>
+                  <Input type="time" value={editTime} onChange={(e) => setEditTime(e.target.value)} />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Po zapisie klient otrzyma SMS: jeśli zmieniono termin — informacja o nowym terminie; w przeciwnym razie — potwierdzenie wizyty.
+              </p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditing(null)} disabled={savingEdit}>Anuluj</Button>
+            <Button onClick={handleSaveEdit} disabled={savingEdit}>
+              {savingEdit ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Zapisz i wyślij SMS'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
