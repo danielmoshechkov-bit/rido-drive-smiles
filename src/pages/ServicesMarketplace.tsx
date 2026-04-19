@@ -44,6 +44,7 @@ interface ServiceProvider {
   description: string;
   logo_url: string | null;
   cover_image_url: string | null;
+  gallery_photos?: string[] | null;
   rating_avg: number | null;
   rating_count: number;
   category_id: string;
