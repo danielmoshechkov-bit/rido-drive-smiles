@@ -211,9 +211,21 @@ export function AIFunctionMappingPanel() {
 
   if (loading) return <div className="flex justify-center p-8"><Loader2 className="h-6 w-6 animate-spin" /></div>;
 
-  const filteredMappings = activeModule === "all"
-    ? mappings
-    : mappings.filter(m => (FUNCTION_MODULES[m.function_key] || "inne") === activeModule);
+  const q = searchQuery.trim().toLowerCase();
+  const filteredMappings = mappings.filter(m => {
+    const moduleOk = activeModule === "all" || (FUNCTION_MODULES[m.function_key] || "inne") === activeModule;
+    if (!moduleOk) return false;
+    if (!q) return true;
+    const haystack = [
+      m.function_name,
+      m.function_key,
+      m.function_description || "",
+      m.provider_key || "",
+      m.model_override || "",
+      MODULE_CONFIG.find(c => c.value === (FUNCTION_MODULES[m.function_key] || "inne"))?.label || "",
+    ].join(" ").toLowerCase();
+    return haystack.includes(q);
+  });
 
   const enabledCount = mappings.filter(m => m.is_enabled).length;
   const enabledProviders = providers.filter(p => p.is_enabled);
