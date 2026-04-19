@@ -304,70 +304,51 @@ export function ServiceProviderDetailPage() {
       </header>
 
       <main className="container mx-auto px-4 py-6 max-w-7xl">
-        {/* Photo Gallery */}
-        <div className="relative bg-muted rounded-xl overflow-hidden aspect-[16/9] md:aspect-[21/9] mb-6">
-          <img
-            src={photos[currentPhotoIndex]}
-            alt={provider.company_name}
-            className="w-full h-full object-cover"
-          />
-          
-          {/* Photo Navigation */}
-          {photos.length > 1 && (
-            <>
-              <button
-                onClick={prevPhoto}
-                className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/80 text-white p-3 rounded-full transition-colors"
-              >
-                <ChevronLeft className="h-6 w-6" />
-              </button>
-              <button
-                onClick={nextPhoto}
-                className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/80 text-white p-3 rounded-full transition-colors"
-              >
-                <ChevronRight className="h-6 w-6" />
-              </button>
-            </>
-          )}
-
-          {/* Photo Indicators */}
-          {photos.length > 1 && (
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-              {photos.map((_, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setCurrentPhotoIndex(idx)}
-                  className={cn(
-                    "w-3 h-3 rounded-full transition-all",
-                    idx === currentPhotoIndex 
-                      ? "bg-white w-8" 
-                      : "bg-white/50 hover:bg-white/70"
+        {/* Photo Gallery — Audi-style: 1 large + 2x2 thumbs grid */}
+        {photos.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-6">
+            {/* Main large photo */}
+            <div
+              className="relative bg-muted rounded-xl overflow-hidden md:col-span-2 aspect-[4/3] md:aspect-auto cursor-pointer group"
+              onClick={() => setCurrentPhotoIndex(0)}
+            >
+              <img src={photos[0]} alt={provider.company_name} className="w-full h-full object-cover" />
+              {provider.category && (
+                <Badge className="absolute top-3 left-3 bg-primary text-primary-foreground">
+                  {provider.category.name}
+                </Badge>
+              )}
+            </div>
+            {/* Right side: up to 4 thumbnails in 2x2 */}
+            <div className="grid grid-cols-2 grid-rows-2 gap-2">
+              {[1, 2, 3, 4].map((i) => (
+                <div
+                  key={i}
+                  className="relative bg-muted rounded-xl overflow-hidden aspect-[4/3] cursor-pointer"
+                  onClick={() => photos[i] && setCurrentPhotoIndex(i)}
+                >
+                  {photos[i] ? (
+                    <img src={photos[i]} alt={`${provider.company_name} ${i + 1}`} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full bg-muted/50" />
                   )}
-                />
+                  {/* Show "+N more" overlay on last thumb if more photos exist */}
+                  {i === 4 && photos.length > 5 && (
+                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-primary-foreground font-bold text-xl">
+                      +{photos.length - 5}
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
-          )}
-
-          {/* Category Badge */}
-          {provider.category && (
-            <Badge className="absolute top-4 left-4 bg-primary text-primary-foreground">
-              {provider.category.name}
-            </Badge>
-          )}
-
-          {/* Rating Badge */}
-          {provider.rating_avg && provider.rating_avg > 0 && (
-            <Badge className="absolute top-4 right-4 bg-yellow-500 text-white">
-              <Star className="h-3 w-3 mr-1 fill-current" />
-              {provider.rating_avg.toFixed(1)} ({provider.rating_count})
-            </Badge>
-          )}
-
-          {/* Photo counter */}
-          <div className="absolute bottom-4 right-4 bg-black/60 text-white px-3 py-1.5 rounded-lg text-sm">
-            {currentPhotoIndex + 1} / {photos.length}
           </div>
-        </div>
+        ) : (
+          <div className="bg-gradient-to-br from-primary/10 to-primary/5 rounded-xl aspect-[16/9] md:aspect-[21/9] mb-6 flex items-center justify-center">
+            <span className="text-7xl font-bold text-primary/40">
+              {(provider.short_name || provider.company_name)?.charAt(0)}
+            </span>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column - Main Content */}
