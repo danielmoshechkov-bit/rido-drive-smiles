@@ -622,12 +622,12 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Termin
                             <td
                               key={key}
                               rowSpan={scheduledOrder ? displaySpan : 1}
-                              className={`border-b border-r border-foreground/15 p-0 cursor-pointer transition-all relative ${scheduledOrder ? '' : 'min-h-14'} ${isLastDayOfStation ? 'border-r-[3px] border-r-foreground/40' : ''} ${
+                              className={`border-b border-r border-foreground/15 p-0 cursor-pointer transition-all relative ${isLastDayOfStation ? 'border-r-[3px] border-r-foreground/40' : ''} ${
                                 today
                                   ? (isEvenRow ? 'bg-[hsl(220,60%,97%)] dark:bg-[hsl(220,30%,15%)]' : 'bg-[hsl(220,60%,94%)] dark:bg-[hsl(220,30%,18%)]')
                                   : (isEvenRow ? 'bg-background' : 'bg-[hsl(220,15%,96%)] dark:bg-[hsl(220,10%,14%)]')
                               } ${isDragOver && draggedOrder ? '!bg-[hsl(220,70%,85%)] dark:!bg-[hsl(220,50%,25%)] ring-2 ring-[hsl(220,70%,50%)] ring-inset' : scheduledOrder ? '' : 'hover:bg-[hsl(220,40%,92%)] dark:hover:bg-[hsl(220,20%,22%)]'}`}
-                              style={scheduledOrder ? { height: `${displaySpan * 56}px` } : undefined}
+                              style={{ height: `${(scheduledOrder ? displaySpan : 1) * ROW_HEIGHT}px` }}
                               onClick={() => !scheduledOrder && handleCellClick(day, hour, st.id)}
                               onDragOver={(e) => { e.preventDefault(); setDragOverCell(key); }}
                               onDragLeave={() => { if (dragOverCell === key) setDragOverCell(null); }}
