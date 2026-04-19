@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { ServiceBookingModal } from './ServiceBookingModal';
 import { getServiceCoverImage } from './serviceCategoryImages';
 import { cn } from '@/lib/utils';
+import { MyGetRidoButton } from '@/components/MyGetRidoButton';
 import { toast } from 'sonner';
 
 interface Service {
