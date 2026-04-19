@@ -142,7 +142,12 @@ export default function ServicesMarketplace() {
 
   const selectedCategorySlug = searchParams.get('kategoria');
   const selectedGroupId = searchParams.get('grupa');
-  const selectedGroup = CATEGORY_GROUPS.find(g => g.id === selectedGroupId);
+  // Resolve active group: explicit ?grupa= OR derived from category slug
+  const explicitGroup = CATEGORY_GROUPS.find(g => g.id === selectedGroupId);
+  const derivedGroup = !explicitGroup && selectedCategorySlug
+    ? CATEGORY_GROUPS.find(g => g.slugs.includes(selectedCategorySlug))
+    : undefined;
+  const selectedGroup = explicitGroup || derivedGroup;
 
   const handleBackToCategories = () => {
     setSearchParams({});
@@ -235,10 +240,11 @@ export default function ServicesMarketplace() {
       }
     }
 
-    // Group filter - match any slug in the group OR provider name/services contain group keywords
-    if (selectedGroupId && !selectedCategorySlug) {
-      const group = CATEGORY_GROUPS.find(g => g.id === selectedGroupId);
-      if (group && group.slugs.length > 0) {
+    // Group filter - applied also when a category from the same group is selected,
+    // to keep results scoped to the active group (e.g. Auto only shows Auto providers).
+    if (selectedGroup && !selectedCategorySlug) {
+      const group = selectedGroup;
+      if (group.slugs.length > 0) {
         const hasGroupSlug = group.slugs.includes(provider.category?.slug || '');
         const nameOrDescMatch = group.slugs.some(s => {
           const sw = s.replace(/-/g, ' ');
@@ -286,7 +292,11 @@ export default function ServicesMarketplace() {
   });
 
   const handleCategoryClick = (slug: string) => {
-    setSearchParams({ kategoria: slug });
+    const params: Record<string, string> = { kategoria: slug };
+    const group = CATEGORY_GROUPS.find(g => g.slugs.includes(slug));
+    if (group) params.grupa = group.id;
+    else if (selectedGroupId) params.grupa = selectedGroupId;
+    setSearchParams(params);
   };
 
   const handleGroupClick = (groupId: string) => {
