@@ -1113,7 +1113,22 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
 
       // Auto-download/print PDF after issuing — otwiera od razu PDF do zapisu/druku
       try {
-        const html = generateInvoiceHtml(getInvoiceData());
+        // Ensure logo is loaded before generating PDF (fallback chain)
+        let finalLogo = companyLogo;
+        if (!finalLogo) {
+          const { data: { session: s2 } } = await supabase.auth.getSession();
+          if (s2?.user) {
+            const { data: sp } = await supabase.from('service_providers').select('logo_url').eq('user_id', s2.user.id).maybeSingle();
+            finalLogo = sp?.logo_url || '';
+            if (!finalLogo) {
+              const { data: ws } = await (supabase as any).from('workshop_settings').select('logo_url').eq('user_id', s2.user.id).maybeSingle();
+              finalLogo = ws?.logo_url || '';
+            }
+            if (finalLogo) setCompanyLogo(finalLogo);
+          }
+        }
+        const invoiceDataForPdf = { ...getInvoiceData(), seller: { ...getInvoiceData().seller, logo_url: finalLogo || undefined } };
+        const html = generateInvoiceHtml(invoiceDataForPdf);
         const printWindow = window.open('', '_blank');
         if (printWindow) {
           printWindow.document.write(html);
