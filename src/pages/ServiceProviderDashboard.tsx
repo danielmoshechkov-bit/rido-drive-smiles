@@ -679,7 +679,7 @@ export default function ServiceProviderDashboard() {
                 <DialogHeader>
                   <DialogTitle>{editingService ? t('sp.services.editService') : t('sp.services.addNewService')}</DialogTitle>
                 </DialogHeader>
-                <div className="space-y-4 max-h-[60vh] overflow-y-auto">
+                <div className="space-y-4 max-h-[60vh] overflow-y-auto px-1 py-1">
                   <div className="space-y-2">
                     <Label>{t('sp.services.serviceNameLabel')}</Label>
                     <Input value={serviceForm.name} onChange={e => setServiceForm(p => ({ ...p, name: e.target.value }))} placeholder={t('sp.services.serviceNamePlaceholder')} />
