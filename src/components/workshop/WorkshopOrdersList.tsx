@@ -117,6 +117,22 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
 
   const openInvoiceForOrder = async (order: any, docType: 'invoice' | 'receipt' = 'invoice') => {
     try {
+      // Duplicate check: if invoice already exists for this order, show existing-invoice modal
+      const { data: existing } = await (supabase as any)
+        .from('user_invoices')
+        .select('*')
+        .eq('workshop_order_id', order.id)
+        .neq('is_correction', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (existing) {
+        setExistingInvoice(existing);
+        setExistingInvoiceOrder(order);
+        return;
+      }
+
       // Load order items
       const { data: orderItems } = await (supabase as any)
         .from('workshop_order_items')
