@@ -284,18 +284,7 @@ export function ServiceProviderDetailPage() {
             </div>
           </div>
           <div className="flex gap-2 items-center">
-            {user ? (
-              <Button variant="outline" size="sm" onClick={() => navigate("/easy")} className="gap-2">
-                <User className="h-4 w-4" />
-                <span className="hidden sm:inline">Moje GetRido</span>
-              </Button>
-            ) : (
-              <Button variant="default" size="sm" onClick={() => navigate("/login")} className="gap-2">
-                <LogIn className="h-4 w-4" />
-                <span className="hidden sm:inline">Zaloguj / Zarejestruj</span>
-                <span className="sm:hidden">Zaloguj</span>
-              </Button>
-            )}
+            <MyGetRidoButton user={user} />
             <Button variant="outline" size="sm" onClick={handleShare} className="gap-2">
               <Share2 className="h-4 w-4" />
               <span className="hidden sm:inline">Udostępnij</span>
