@@ -246,6 +246,29 @@ export function AIFunctionMappingPanel() {
             <Badge variant="secondary">{mappings.length - enabledCount} wyłączonych</Badge>
           </div>
         </CardHeader>
+        <CardContent className="pt-0">
+          <div className="relative">
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="🔍 Szukaj funkcji (np. opis, OCR, listing, kimi, claude)..."
+              className="pr-20"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded hover:bg-muted"
+              >
+                Wyczyść
+              </button>
+            )}
+            {q && (
+              <p className="text-xs text-muted-foreground mt-1.5">
+                Znaleziono {filteredMappings.length} {filteredMappings.length === 1 ? "funkcję" : "funkcji"}
+              </p>
+            )}
+          </div>
+        </CardContent>
       </Card>
 
       {/* Module filter tabs - simple text buttons, matching portal style */}
