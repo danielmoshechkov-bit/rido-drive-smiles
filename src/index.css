@@ -12,6 +12,16 @@ html, body {
   max-width: 100%;
 }
 
+html,
+body,
+#root {
+  min-height: 100dvh;
+}
+
+body {
+  background: linear-gradient(180deg, hsl(259 65% 97%), hsl(259 65% 94%));
+}
+
 *, *::before, *::after {
   box-sizing: border-box;
 }
