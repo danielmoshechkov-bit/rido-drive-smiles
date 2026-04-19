@@ -60,6 +60,36 @@ interface ServiceItem {
   photos: string[];
 }
 
+interface ActivationFormState {
+  company_name: string;
+  short_name: string;
+  description: string;
+  company_phone: string;
+  company_email: string;
+  company_city: string;
+  company_address: string;
+  company_postal_code: string;
+  company_nip: string;
+  category_id: string;
+}
+
+const EMPTY_ACTIVATION_FORM: ActivationFormState = {
+  company_name: '',
+  short_name: '',
+  description: '',
+  company_phone: '',
+  company_email: '',
+  company_city: '',
+  company_address: '',
+  company_postal_code: '',
+  company_nip: '',
+  category_id: '',
+};
+
+const ACTIVATION_DESCRIPTION_TIMEOUT_MS = 25000;
+
+const getActivationDraftKey = (userId?: string | null) => `service-provider-activation-draft:${userId ?? 'anonymous'}`;
+
 export default function ServiceProviderDashboard() {
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -95,11 +125,7 @@ export default function ServiceProviderDashboard() {
   const [isDraggingService, setIsDraggingService] = useState(false);
   const [providerStatus, setProviderStatus] = useState<string | null>(null);
   const [activationDialog, setActivationDialog] = useState(false);
-  const [activationForm, setActivationForm] = useState({
-    company_name: '', short_name: '', description: '', company_phone: '', company_email: '',
-    company_city: '', company_address: '', company_postal_code: '', company_nip: '',
-    category_id: ''
-  });
+  const [activationForm, setActivationForm] = useState<ActivationFormState>(EMPTY_ACTIVATION_FORM);
   const [serviceCategories, setServiceCategories] = useState<any[]>([]);
   const [activationSaving, setActivationSaving] = useState(false);
   const [generatingDescription, setGeneratingDescription] = useState(false);
@@ -114,6 +140,92 @@ export default function ServiceProviderDashboard() {
   });
 
   const queryClient = useQueryClient();
+
+  const loadActivationDraft = useCallback((userId: string, fallback: ActivationFormState) => {
+    try {
+      const rawDraft = localStorage.getItem(getActivationDraftKey(userId));
+      if (!rawDraft) return fallback;
+      const parsed = JSON.parse(rawDraft) as Partial<ActivationFormState>;
+      return {
+        ...fallback,
+        ...parsed,
+      };
+    } catch {
+      localStorage.removeItem(getActivationDraftKey(userId));
+      return fallback;
+    }
+  }, []);
+
+  const clearActivationDraft = useCallback(() => {
+    if (!user?.id) return;
+    localStorage.removeItem(getActivationDraftKey(user.id));
+  }, [user?.id]);
+
+  const generateProviderDescription = useCallback(async () => {
+    const input = activationForm.description.trim();
+    if (!input) {
+      toast.error('Najpierw napisz krótko czym się zajmujesz');
+      return;
+    }
+
+    setGeneratingDescription(true);
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), ACTIVATION_DESCRIPTION_TIMEOUT_MS);
+
+    try {
+      const categoryName = serviceCategories.find(c => c.id === activationForm.category_id)?.name;
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-provider-description`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({
+          input,
+          company_name: activationForm.short_name || activationForm.company_name,
+          category: categoryName,
+        }),
+        signal: controller.signal,
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload?.error) {
+        throw new Error(payload?.error || 'Błąd generowania opisu');
+      }
+
+      if (payload?.description) {
+        setActivationForm(prev => ({ ...prev, description: payload.description }));
+        toast.success('Opis wygenerowany przez AI');
+        return;
+      }
+
+      throw new Error('AI nie zwróciło opisu');
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        toast.error('Generowanie trwało zbyt długo. Spróbuj ponownie za chwilę.');
+      } else {
+        toast.error(error instanceof Error ? error.message : 'Błąd połączenia z AI');
+      }
+    } finally {
+      window.clearTimeout(timeoutId);
+      setGeneratingDescription(false);
+    }
+  }, [activationForm, serviceCategories]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const hasValues = Object.values(activationForm).some(value => value.trim() !== '');
+    const draftKey = getActivationDraftKey(user.id);
+
+    if (!hasValues) {
+      localStorage.removeItem(draftKey);
+      return;
+    }
+
+    localStorage.setItem(draftKey, JSON.stringify(activationForm));
+  }, [activationForm, user?.id]);
 
   useEffect(() => {
     if (roleLoading) return;
@@ -157,7 +269,7 @@ export default function ServiceProviderDashboard() {
       setProviderStatus(provider.status);
 
       // Pre-fill activation form
-      setActivationForm({
+      const providerActivationForm: ActivationFormState = {
         company_name: provider.company_name || '',
         short_name: provider.short_name || '',
         description: provider.description || '',
@@ -168,7 +280,9 @@ export default function ServiceProviderDashboard() {
         company_postal_code: provider.company_postal_code || '',
         company_nip: provider.company_nip || '',
         category_id: provider.category_id || '',
-      });
+      };
+
+      setActivationForm(loadActivationDraft(user.id, providerActivationForm));
 
       const { data: navPreferences } = await (supabase as any)
         .from('service_provider_nav_preferences')
@@ -407,6 +521,7 @@ export default function ServiceProviderDashboard() {
       const { error } = await supabase.from('service_providers').update(updateData).eq('id', providerId);
       if (error) throw error;
       setProviderStatus('active');
+      clearActivationDraft();
       setActivationDialog(false);
       toast.success('Profil aktywowany! Twoje usługi są teraz widoczne w portalu.');
     } catch (err: any) {
@@ -903,35 +1018,7 @@ export default function ServiceProviderDashboard() {
                         size="sm"
                         className="h-7 gap-1 text-xs"
                         disabled={generatingDescription || !activationForm.description.trim()}
-                        onClick={async () => {
-                          if (!activationForm.description.trim()) {
-                            toast.error('Najpierw napisz krótko czym się zajmujesz');
-                            return;
-                          }
-                          setGeneratingDescription(true);
-                          try {
-                            const categoryName = serviceCategories.find(c => c.id === activationForm.category_id)?.name;
-                            const { data, error } = await supabase.functions.invoke('generate-provider-description', {
-                              body: {
-                                input: activationForm.description,
-                                company_name: activationForm.short_name || activationForm.company_name,
-                                category: categoryName,
-                              },
-                            });
-                            if (error || data?.error) {
-                              toast.error(data?.error || error?.message || 'Błąd generowania opisu');
-                              return;
-                            }
-                            if (data?.description) {
-                              setActivationForm(p => ({ ...p, description: data.description }));
-                              toast.success('Opis wygenerowany przez AI');
-                            }
-                          } catch (e) {
-                            toast.error('Błąd połączenia z AI');
-                          } finally {
-                            setGeneratingDescription(false);
-                          }
-                        }}
+                        onClick={generateProviderDescription}
                       >
                         {generatingDescription
                           ? <div className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
