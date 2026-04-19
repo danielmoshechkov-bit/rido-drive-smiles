@@ -127,8 +127,7 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Termin
         .from('service_bookings')
         .select('id, booking_number, customer_name, customer_phone, vehicle_brand, vehicle_model, vehicle_plate, scheduled_date, scheduled_time, duration_minutes, status, customer_notes')
         .eq('provider_id', providerId)
-        .not('verified_at', 'is', null)
-        .not('status', 'in', '(cancelled,rejected)');
+        .in('status', ['pending', 'confirmed', 'in_progress']);
       if (error) throw error;
       return data || [];
     },
