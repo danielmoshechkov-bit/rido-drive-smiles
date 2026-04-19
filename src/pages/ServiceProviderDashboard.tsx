@@ -102,6 +102,7 @@ export default function ServiceProviderDashboard() {
   });
   const [serviceCategories, setServiceCategories] = useState<any[]>([]);
   const [activationSaving, setActivationSaving] = useState(false);
+  const [generatingDescription, setGeneratingDescription] = useState(false);
   const [coverImageFile, setCoverImageFile] = useState<File | null>(null);
   const isWorkshopLayout = false; // Disabled — page scrolls normally; calendar grid has its own internal scroll
 
@@ -894,8 +895,59 @@ export default function ServiceProviderDashboard() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Opis firmy *</Label>
-                    <Textarea rows={3} value={activationForm.description} onChange={e => setActivationForm(p => ({ ...p, description: e.target.value }))} placeholder="Opisz czym zajmuje się Twoja firma..." />
+                    <div className="flex items-center justify-between">
+                      <Label>Opis firmy *</Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 gap-1 text-xs"
+                        disabled={generatingDescription || !activationForm.description.trim()}
+                        onClick={async () => {
+                          if (!activationForm.description.trim()) {
+                            toast.error('Najpierw napisz krótko czym się zajmujesz');
+                            return;
+                          }
+                          setGeneratingDescription(true);
+                          try {
+                            const categoryName = serviceCategories.find(c => c.id === activationForm.category_id)?.name;
+                            const { data, error } = await supabase.functions.invoke('generate-provider-description', {
+                              body: {
+                                input: activationForm.description,
+                                company_name: activationForm.short_name || activationForm.company_name,
+                                category: categoryName,
+                              },
+                            });
+                            if (error || data?.error) {
+                              toast.error(data?.error || error?.message || 'Błąd generowania opisu');
+                              return;
+                            }
+                            if (data?.description) {
+                              setActivationForm(p => ({ ...p, description: data.description }));
+                              toast.success('Opis wygenerowany przez AI');
+                            }
+                          } catch (e) {
+                            toast.error('Błąd połączenia z AI');
+                          } finally {
+                            setGeneratingDescription(false);
+                          }
+                        }}
+                      >
+                        {generatingDescription
+                          ? <div className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                          : <span>✨</span>}
+                        Generuj Rido AI
+                      </Button>
+                    </div>
+                    <Textarea
+                      rows={4}
+                      value={activationForm.description}
+                      onChange={e => setActivationForm(p => ({ ...p, description: e.target.value }))}
+                      placeholder="Opisz krótko czym się zajmujesz (np. 'warsztat BMW + detailing + folie ppf'), a Rido AI przygotuje atrakcyjny opis..."
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Wpisz kilka słów o swojej działalności i kliknij <strong>Generuj Rido AI</strong> — AI stworzy gotowy opis.
+                    </p>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
