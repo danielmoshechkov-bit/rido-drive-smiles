@@ -64,7 +64,7 @@ export function ServiceProviderDetailPage() {
   const [loading, setLoading] = useState(true);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
-  const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
   const [isFavorited, setIsFavorited] = useState(false);
   
   // Auth state
@@ -201,15 +201,6 @@ export function ServiceProviderDetailPage() {
   };
 
   const photos = getPhotos();
-  const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
-
-  const nextPhoto = () => {
-    setCurrentPhotoIndex((prev) => (prev + 1) % photos.length);
-  };
-
-  const prevPhoto = () => {
-    setCurrentPhotoIndex((prev) => (prev - 1 + photos.length) % photos.length);
-  };
 
   // Calculate price range
   const priceRange = services.length > 0 
