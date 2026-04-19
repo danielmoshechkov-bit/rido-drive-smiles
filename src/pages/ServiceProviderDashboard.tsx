@@ -107,6 +107,8 @@ export default function ServiceProviderDashboard() {
   const [moreOpen, setMoreOpen] = useState(false);
   const [primaryTabs, setPrimaryTabs] = useState<string[]>(DEFAULT_SERVICE_PROVIDER_PRIMARY_TABS);
   const [adOrderService, setAdOrderService] = useState<{ id: string; name: string } | null>(null);
+  const [mediaModalOpen, setMediaModalOpen] = useState(false);
+  const [mediaModalTab, setMediaModalTab] = useState<'logo' | 'cover'>('logo');
   
   const [stats, setStats] = useState({
     totalBookings: 0,
