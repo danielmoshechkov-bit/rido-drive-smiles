@@ -14,6 +14,7 @@ import {
   useWorkshopOrders, useWorkshopStatuses, useUpdateWorkshopOrder,
 } from '@/hooks/useWorkshop';
 import { WorkshopNewOrderDialog } from './WorkshopNewOrderDialog';
+import { WorkshopPortalBookings } from './WorkshopPortalBookings';
 import { WorkshopSmsDialog } from './WorkshopSmsDialog';
 import { WorkshopEditClientDialog } from './WorkshopEditClientDialog';
 import { useVehicleLookup } from '@/hooks/useVehicleLookup';
