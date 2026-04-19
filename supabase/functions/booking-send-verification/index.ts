@@ -94,7 +94,13 @@ Deno.serve(async (req) => {
       verification_attempts: 0,
     }).eq('id', booking_id);
 
-    return new Response(JSON.stringify({ ok: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    if (!smsOk) {
+      return new Response(JSON.stringify({ error: smsData?.message || 'Nie udało się wysłać SMS', sms_error: smsData }), {
+        status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    return new Response(JSON.stringify({ ok: true, sender: usedSender }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (e: any) {
     console.error('booking-send-verification error:', e);
     return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: corsHeaders });
