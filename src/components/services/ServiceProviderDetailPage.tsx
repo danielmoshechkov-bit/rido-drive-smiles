@@ -201,11 +201,7 @@ export function ServiceProviderDetailPage() {
       }
     }
 
-    // 4. Category fallback only if still empty
-    if (photos.length === 0) {
-      photos.push(getServiceCoverImage(provider?.category?.slug));
-    }
-
+    // No fallback — return empty if provider hasn't uploaded anything (placeholder shown by UI).
     return photos;
   };
 
@@ -438,8 +434,8 @@ export function ServiceProviderDetailPage() {
 
               {/* Rating Summary — nowe konta dostają domyślne 5 gwiazdek */}
               {(() => {
-                const displayRating = provider.rating_count > 0 ? (provider.rating_avg || 0) : 5;
-                const displayCount = provider.rating_count;
+                const displayRating = provider.rating_avg || 0;
+                const displayCount = provider.rating_count || 0;
                 return (
                   <div className="flex items-center gap-3 mt-4">
                     <div className="flex items-center">
@@ -455,9 +451,9 @@ export function ServiceProviderDetailPage() {
                         />
                       ))}
                     </div>
-                    <span className="font-semibold">{displayRating.toFixed(1)}</span>
+                    <span className="font-semibold">{displayRating > 0 ? displayRating.toFixed(1) : '—'}</span>
                     <span className="text-muted-foreground text-sm">
-                      {displayCount > 0 ? `(${displayCount} opinii)` : '(nowy usługodawca)'}
+                      {displayCount > 0 ? `(${displayCount} opinii)` : '(brak ocen)'}
                     </span>
                   </div>
                 );
