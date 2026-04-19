@@ -24,6 +24,7 @@ interface Service {
   price_from: number | null;
   price_type: string;
   duration_minutes: number;
+  photos?: string[];
 }
 
 interface Review {
@@ -179,17 +180,15 @@ export function ServiceProviderDetailPage() {
   // Get photos for gallery
   const getPhotos = () => {
     const photos: string[] = [];
-    
-    if (provider?.cover_image_url) {
-      photos.push(provider.cover_image_url);
-    } else {
-      photos.push(getServiceCoverImage(provider?.category?.slug));
+
+    if (provider?.cover_image_url) photos.push(provider.cover_image_url);
+
+    for (const service of services) {
+      for (const photo of service.photos || []) {
+        if (photo && !photos.includes(photo)) photos.push(photo);
+      }
     }
-    
-    if (provider?.logo_url) {
-      photos.push(provider.logo_url);
-    }
-    
+
     const categoryImage = getServiceCoverImage(provider?.category?.slug);
     if (!photos.includes(categoryImage)) {
       photos.push(categoryImage);
