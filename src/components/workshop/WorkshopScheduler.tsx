@@ -118,6 +118,34 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Termin
     },
   });
 
+  // Fetch portal bookings (service_bookings) — verified, not cancelled
+  const { data: portalBookings = [] } = useQuery({
+    queryKey: ['workshop-portal-bookings-cal', providerId],
+    enabled: !!providerId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('service_bookings')
+        .select('id, booking_number, customer_name, customer_phone, vehicle_brand, vehicle_model, vehicle_plate, scheduled_date, scheduled_time, duration_minutes, status, customer_notes')
+        .eq('provider_id', providerId)
+        .not('verified_at', 'is', null)
+        .not('status', 'in', '(cancelled,rejected)');
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  useEffect(() => {
+    if (!providerId) return;
+    const ch = (supabase as any)
+      .channel(`portal-bookings-cal-${providerId}`)
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'service_bookings',
+        filter: `provider_id=eq.${providerId}`,
+      }, () => queryClient.invalidateQueries({ queryKey: ['workshop-portal-bookings-cal', providerId] }))
+      .subscribe();
+    return () => { (supabase as any).removeChannel(ch); };
+  }, [providerId, queryClient]);
+
   // Convert bookings to virtual order-like objects for calendar display
   const allCalendarItems = useMemo(() => {
     const bookingItems = clientBookings.map((b: any) => {
@@ -139,8 +167,28 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Termin
         description: b.service_description,
       };
     });
-    return [...orders, ...bookingItems];
-  }, [orders, clientBookings]);
+    const portalItems = (portalBookings as any[]).map((b: any) => {
+      const startDate = new Date(`${b.scheduled_date}T${b.scheduled_time}`);
+      const durationHours = Math.max(1, Math.ceil((b.duration_minutes || 60) / 60));
+      const endDate = new Date(startDate.getTime() + durationHours * 60 * 60 * 1000);
+      return {
+        id: `portal-${b.id}`,
+        _bookingId: b.id,
+        _isBooking: true,
+        _isPortal: true,
+        order_number: `🌐 ${b.customer_name || 'Portal'} (${b.booking_number})`,
+        scheduled_start: startDate.toISOString(),
+        scheduled_end: endDate.toISOString(),
+        scheduled_station_id: null,
+        status_name: b.status === 'confirmed' ? 'Potwierdzona' : 'Portal — oczekuje',
+        vehicle: b.vehicle_plate ? { brand: b.vehicle_brand || '', model: b.vehicle_model || '', plate: b.vehicle_plate } : null,
+        client: { first_name: b.customer_name, last_name: '', phone: b.customer_phone },
+        items: b.customer_notes ? [{ name: b.customer_notes }] : [],
+        description: b.customer_notes,
+      };
+    });
+    return [...orders, ...bookingItems, ...portalItems];
+  }, [orders, clientBookings, portalBookings]);
 
   // Employees for quick preview
   const { data: employees = [] } = useQuery({

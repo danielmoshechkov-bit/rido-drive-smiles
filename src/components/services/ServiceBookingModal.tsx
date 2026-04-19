@@ -7,7 +7,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Calendar as CalendarIcon, Clock, Check, AlertTriangle, Car } from 'lucide-react';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
+import { Loader2, Calendar as CalendarIcon, Clock, Check, AlertTriangle, Car, ShieldCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { AuthModal } from '@/components/auth/AuthModal';
@@ -35,7 +36,7 @@ interface ServiceBookingModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
-type BookingStep = 'datetime' | 'contact' | 'confirmation';
+type BookingStep = 'datetime' | 'contact' | 'verification' | 'confirmation';
 
 interface WorkingHour {
   day_of_week: number;
@@ -65,8 +66,12 @@ export function ServiceBookingModal({ provider, service, open, onOpenChange }: S
   const [vehicleYear, setVehicleYear] = useState('');
   const [vehiclePlate, setVehiclePlate] = useState('');
 
-  // Confirmation
+  // Confirmation / verification
   const [bookingNumber, setBookingNumber] = useState('');
+  const [bookingId, setBookingId] = useState<string>('');
+  const [otpCode, setOtpCode] = useState('');
+  const [verifyError, setVerifyError] = useState('');
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   useEffect(() => { checkUser(); }, []);
 
@@ -79,6 +84,13 @@ export function ServiceBookingModal({ provider, service, open, onOpenChange }: S
       checkPendingReviews();
     }
   }, [open, provider]);
+
+  // Resend cooldown ticker
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const t = setTimeout(() => setResendCooldown(c => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendCooldown]);
 
   useEffect(() => {
     if (selectedDate && provider) loadBusySlots();
@@ -246,14 +258,19 @@ export function ServiceBookingModal({ provider, service, open, onOpenChange }: S
 
       if (error) throw error;
       setBookingNumber(booking.booking_number || '');
+      setBookingId(booking.id);
 
-      // Send "preliminary booking" SMS via edge function (don't block on errors)
-      supabase.functions.invoke('booking-notify', {
-        body: { booking_id: booking.id, type: 'preliminary' }
-      }).catch(err => console.warn('SMS notify failed:', err));
-
-      setStep('confirmation');
-      toast.success('Rezerwacja przekazana do usługodawcy');
+      // Wyślij SMS z 4-cyfrowym kodem weryfikacji (portalowy)
+      const { error: smsErr } = await supabase.functions.invoke('booking-send-verification', {
+        body: { booking_id: booking.id }
+      });
+      if (smsErr) {
+        toast.error('Nie udało się wysłać SMS z kodem. Spróbuj ponownie.');
+      } else {
+        toast.success('Wysłaliśmy SMS z kodem weryfikacji');
+        setResendCooldown(60);
+      }
+      setStep('verification');
     } catch (error: any) {
       console.error('Booking error:', error);
       toast.error(error.message || 'Błąd podczas tworzenia rezerwacji');
@@ -392,20 +409,103 @@ export function ServiceBookingModal({ provider, service, open, onOpenChange }: S
             </div>
           )}
 
+          {step === 'verification' && (
+            <div className="space-y-4">
+              <div className="text-center space-y-2">
+                <div className="w-14 h-14 mx-auto bg-primary/10 rounded-full flex items-center justify-center">
+                  <ShieldCheck className="h-7 w-7 text-primary" />
+                </div>
+                <h3 className="text-lg font-bold">Wprowadź kod z SMS</h3>
+                <p className="text-sm text-muted-foreground">
+                  Wysłaliśmy 4-cyfrowy kod na numer<br />
+                  <span className="font-medium text-foreground">{customerPhone}</span>
+                </p>
+              </div>
+
+              <div className="flex justify-center">
+                <InputOTP maxLength={4} value={otpCode} onChange={setOtpCode}>
+                  <InputOTPGroup>
+                    <InputOTPSlot index={0} />
+                    <InputOTPSlot index={1} />
+                    <InputOTPSlot index={2} />
+                    <InputOTPSlot index={3} />
+                  </InputOTPGroup>
+                </InputOTP>
+              </div>
+
+              {verifyError && (
+                <Alert variant="destructive">
+                  <AlertDescription className="text-sm">{verifyError}</AlertDescription>
+                </Alert>
+              )}
+
+              <Button
+                className="w-full"
+                disabled={otpCode.length !== 4 || loading}
+                onClick={async () => {
+                  setVerifyError('');
+                  setLoading(true);
+                  try {
+                    const { data, error } = await supabase.functions.invoke('booking-verify-code', {
+                      body: { booking_id: bookingId, code: otpCode }
+                    });
+                    if (error || (data as any)?.error) {
+                      setVerifyError((data as any)?.error || 'Nieprawidłowy kod');
+                      setOtpCode('');
+                    } else {
+                      toast.success('Telefon zweryfikowany!');
+                      setStep('confirmation');
+                    }
+                  } catch (e: any) {
+                    setVerifyError(e.message || 'Błąd weryfikacji');
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+              >
+                {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Potwierdź kod
+              </Button>
+
+              <div className="text-center">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={resendCooldown > 0 || loading}
+                  onClick={async () => {
+                    setVerifyError('');
+                    const { error } = await supabase.functions.invoke('booking-send-verification', {
+                      body: { booking_id: bookingId }
+                    });
+                    if (error) {
+                      toast.error('Nie udało się wysłać kodu');
+                    } else {
+                      toast.success('Wysłaliśmy nowy kod');
+                      setResendCooldown(60);
+                      setOtpCode('');
+                    }
+                  }}
+                >
+                  {resendCooldown > 0 ? `Wyślij ponownie (${resendCooldown}s)` : 'Wyślij kod ponownie'}
+                </Button>
+              </div>
+            </div>
+          )}
+
           {step === 'confirmation' && (
             <div className="text-center py-6 space-y-4">
               <div className="w-16 h-16 mx-auto bg-green-100 rounded-full flex items-center justify-center">
                 <Check className="h-8 w-8 text-green-600" />
               </div>
               <div>
-                <h3 className="text-xl font-bold mb-2">Rezerwacja wstępna utworzona</h3>
+                <h3 className="text-xl font-bold mb-2">Rezerwacja wstępna przyjęta</h3>
                 <p className="text-muted-foreground text-sm">
                   Numer: <span className="font-mono font-bold">{bookingNumber}</span>
                 </p>
               </div>
               <Alert>
                 <AlertDescription className="text-left text-sm">
-                  Otrzymałeś SMS z potwierdzeniem rezerwacji wstępnej. Usługodawca potwierdzi termin — wtedy dostaniesz drugi SMS z ostatecznym potwierdzeniem.
+                  Wstępna rezerwacja przyjęta. Prosimy oczekiwać na potwierdzenie terminu przez <strong>{provider.company_name}</strong>. Otrzymasz SMS gdy usługodawca potwierdzi wizytę.
                 </AlertDescription>
               </Alert>
               <Button onClick={() => onOpenChange(false)} className="w-full">Zamknij</Button>

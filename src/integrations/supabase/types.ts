@@ -15550,6 +15550,10 @@ export type Database = {
           vehicle_model: string | null
           vehicle_plate: string | null
           vehicle_year: number | null
+          verification_attempts: number
+          verification_code: string | null
+          verification_sent_at: string | null
+          verified_at: string | null
         }
         Insert: {
           booking_number: string
@@ -15595,6 +15599,10 @@ export type Database = {
           vehicle_model?: string | null
           vehicle_plate?: string | null
           vehicle_year?: number | null
+          verification_attempts?: number
+          verification_code?: string | null
+          verification_sent_at?: string | null
+          verified_at?: string | null
         }
         Update: {
           booking_number?: string
@@ -15640,6 +15648,10 @@ export type Database = {
           vehicle_model?: string | null
           vehicle_plate?: string | null
           vehicle_year?: number | null
+          verification_attempts?: number
+          verification_code?: string | null
+          verification_sent_at?: string | null
+          verified_at?: string | null
         }
         Relationships: [
           {
