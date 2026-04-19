@@ -36,6 +36,7 @@ import { AdOrderModal } from '@/components/ads/AdOrderModal';
 import { ProviderMediaModal } from '@/components/services/ProviderMediaModal';
 import { PortalBookingsPanel } from '@/components/services/PortalBookingsPanel';
 import { CommissionInvoicesPanel } from '@/components/services/CommissionInvoicesPanel';
+import { usePendingBookingsCount } from '@/hooks/usePendingBookingsCount';
 import { KnowledgeBaseEditor } from '@/components/ai-agents/KnowledgeBaseEditor';
 import { ConversationAnalytics } from '@/components/ai-agents/ConversationAnalytics';
 import { GlobalLearningPanel } from '@/components/ai-agents/GlobalLearningPanel';
