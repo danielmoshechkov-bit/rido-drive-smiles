@@ -388,8 +388,6 @@ export function ServiceProviderDetailPage() {
                   </span>
                 </div>
               )}
-                </div>
-              </div>
               
               {/* Price Range */}
               {priceRange && (
