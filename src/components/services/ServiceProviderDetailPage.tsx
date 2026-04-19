@@ -108,7 +108,7 @@ export function ServiceProviderDetailPage() {
         .single();
       
       if (providerError) throw providerError;
-      setProvider(providerData);
+      setProvider(providerData as any);
 
       // Load services from provider_services (where providers save their services)
       const { data: servicesData, error: svcError } = await (supabase as any)
