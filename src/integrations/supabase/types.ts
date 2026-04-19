@@ -13235,6 +13235,7 @@ export type Database = {
           last_reminder_at: string | null
           provider_id: string | null
           reminder_count: number | null
+          resolved_at: string | null
           user_id: string
         }
         Insert: {
@@ -13245,6 +13246,7 @@ export type Database = {
           last_reminder_at?: string | null
           provider_id?: string | null
           reminder_count?: number | null
+          resolved_at?: string | null
           user_id: string
         }
         Update: {
@@ -13255,6 +13257,7 @@ export type Database = {
           last_reminder_at?: string | null
           provider_id?: string | null
           reminder_count?: number | null
+          resolved_at?: string | null
           user_id?: string
         }
         Relationships: [
@@ -15507,7 +15510,12 @@ export type Database = {
           booking_number: string
           cancellation_reason: string | null
           cancelled_at: string | null
+          commission_amount: number | null
+          commission_base: number | null
+          commission_invoice_id: string | null
+          commission_rate: number | null
           completed_at: string | null
+          completion_status: string | null
           confirmed_at: string | null
           created_at: string | null
           customer_email: string | null
@@ -15518,14 +15526,19 @@ export type Database = {
           duration_minutes: number
           employee_id: string | null
           estimated_price: number | null
+          final_amount: number | null
           final_price: number | null
           id: string
+          labor_amount: number | null
           loyalty_points_earned: number | null
+          parts_margin: number | null
           provider_confirmed_at: string | null
           provider_id: string | null
           provider_notes: string | null
           requires_provider_confirmation: boolean
           resource_id: string | null
+          review_request_sent_at: string | null
+          review_token: string | null
           scheduled_date: string
           scheduled_time: string
           service_id: string | null
@@ -15542,7 +15555,12 @@ export type Database = {
           booking_number: string
           cancellation_reason?: string | null
           cancelled_at?: string | null
+          commission_amount?: number | null
+          commission_base?: number | null
+          commission_invoice_id?: string | null
+          commission_rate?: number | null
           completed_at?: string | null
+          completion_status?: string | null
           confirmed_at?: string | null
           created_at?: string | null
           customer_email?: string | null
@@ -15553,14 +15571,19 @@ export type Database = {
           duration_minutes: number
           employee_id?: string | null
           estimated_price?: number | null
+          final_amount?: number | null
           final_price?: number | null
           id?: string
+          labor_amount?: number | null
           loyalty_points_earned?: number | null
+          parts_margin?: number | null
           provider_confirmed_at?: string | null
           provider_id?: string | null
           provider_notes?: string | null
           requires_provider_confirmation?: boolean
           resource_id?: string | null
+          review_request_sent_at?: string | null
+          review_token?: string | null
           scheduled_date: string
           scheduled_time: string
           service_id?: string | null
@@ -15577,7 +15600,12 @@ export type Database = {
           booking_number?: string
           cancellation_reason?: string | null
           cancelled_at?: string | null
+          commission_amount?: number | null
+          commission_base?: number | null
+          commission_invoice_id?: string | null
+          commission_rate?: number | null
           completed_at?: string | null
+          completion_status?: string | null
           confirmed_at?: string | null
           created_at?: string | null
           customer_email?: string | null
@@ -15588,14 +15616,19 @@ export type Database = {
           duration_minutes?: number
           employee_id?: string | null
           estimated_price?: number | null
+          final_amount?: number | null
           final_price?: number | null
           id?: string
+          labor_amount?: number | null
           loyalty_points_earned?: number | null
+          parts_margin?: number | null
           provider_confirmed_at?: string | null
           provider_id?: string | null
           provider_notes?: string | null
           requires_provider_confirmation?: boolean
           resource_id?: string | null
+          review_request_sent_at?: string | null
+          review_token?: string | null
           scheduled_date?: string
           scheduled_time?: string
           service_id?: string | null
@@ -15729,6 +15762,77 @@ export type Database = {
           sort_order?: number | null
         }
         Relationships: []
+      }
+      service_commission_invoices: {
+        Row: {
+          bookings_count: number
+          bookings_total_value: number
+          commission_total: number
+          created_at: string
+          due_date: string | null
+          id: string
+          invoice_number: string | null
+          issued_at: string | null
+          notes: string | null
+          paid_at: string | null
+          pdf_url: string | null
+          period_month: number
+          period_year: number
+          provider_id: string
+          status: string
+          total_gross: number
+          updated_at: string
+          vat_rate: number
+        }
+        Insert: {
+          bookings_count?: number
+          bookings_total_value?: number
+          commission_total?: number
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          invoice_number?: string | null
+          issued_at?: string | null
+          notes?: string | null
+          paid_at?: string | null
+          pdf_url?: string | null
+          period_month: number
+          period_year: number
+          provider_id: string
+          status?: string
+          total_gross?: number
+          updated_at?: string
+          vat_rate?: number
+        }
+        Update: {
+          bookings_count?: number
+          bookings_total_value?: number
+          commission_total?: number
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          invoice_number?: string | null
+          issued_at?: string | null
+          notes?: string | null
+          paid_at?: string | null
+          pdf_url?: string | null
+          period_month?: number
+          period_year?: number
+          provider_id?: string
+          status?: string
+          total_gross?: number
+          updated_at?: string
+          vat_rate?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_commission_invoices_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       service_commission_settings: {
         Row: {
@@ -16190,6 +16294,59 @@ export type Database = {
           },
         ]
       }
+      service_provider_commissions: {
+        Row: {
+          category_id: string | null
+          commission_type: string
+          commission_value: number
+          created_at: string
+          created_by: string | null
+          id: string
+          is_promo: boolean
+          notes: string | null
+          provider_id: string
+          updated_at: string
+          valid_from: string | null
+          valid_to: string | null
+        }
+        Insert: {
+          category_id?: string | null
+          commission_type?: string
+          commission_value?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_promo?: boolean
+          notes?: string | null
+          provider_id: string
+          updated_at?: string
+          valid_from?: string | null
+          valid_to?: string | null
+        }
+        Update: {
+          category_id?: string | null
+          commission_type?: string
+          commission_value?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_promo?: boolean
+          notes?: string | null
+          provider_id?: string
+          updated_at?: string
+          valid_from?: string | null
+          valid_to?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_provider_commissions_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       service_provider_nav_preferences: {
         Row: {
           created_at: string
@@ -16525,36 +16682,48 @@ export type Database = {
           comment: string | null
           created_at: string | null
           customer_user_id: string | null
+          final_cost_reported: number | null
           id: string
           is_visible: boolean | null
           provider_id: string | null
           provider_response: string | null
           provider_response_at: string | null
           rating: number
+          rating_price: number | null
+          rating_quality: number | null
+          rating_time: number | null
         }
         Insert: {
           booking_id?: string | null
           comment?: string | null
           created_at?: string | null
           customer_user_id?: string | null
+          final_cost_reported?: number | null
           id?: string
           is_visible?: boolean | null
           provider_id?: string | null
           provider_response?: string | null
           provider_response_at?: string | null
           rating: number
+          rating_price?: number | null
+          rating_quality?: number | null
+          rating_time?: number | null
         }
         Update: {
           booking_id?: string | null
           comment?: string | null
           created_at?: string | null
           customer_user_id?: string | null
+          final_cost_reported?: number | null
           id?: string
           is_visible?: boolean | null
           provider_id?: string | null
           provider_response?: string | null
           provider_response_at?: string | null
           rating?: number
+          rating_price?: number | null
+          rating_quality?: number | null
+          rating_time?: number | null
         }
         Relationships: [
           {
@@ -22807,6 +22976,13 @@ export type Database = {
         Returns: boolean
       }
       generate_random_listing_number: { Args: never; Returns: string }
+      get_active_commission: {
+        Args: { p_category_id?: string; p_provider_id: string }
+        Returns: {
+          commission_type: string
+          commission_value: number
+        }[]
+      }
       get_driver_city_id: { Args: never; Returns: string }
       get_next_auto_invoice_number: {
         Args: { p_fleet_id: string; p_month: number; p_year: number }
@@ -22900,6 +23076,10 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      user_has_pending_reviews: {
+        Args: { p_user_id: string }
+        Returns: boolean
       }
     }
     Enums: {
