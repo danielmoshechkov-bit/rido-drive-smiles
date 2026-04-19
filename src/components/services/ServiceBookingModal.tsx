@@ -7,7 +7,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Calendar as CalendarIcon, Clock, Check, AlertTriangle, Car } from 'lucide-react';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
+import { Loader2, Calendar as CalendarIcon, Clock, Check, AlertTriangle, Car, ShieldCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { AuthModal } from '@/components/auth/AuthModal';
@@ -35,7 +36,7 @@ interface ServiceBookingModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
-type BookingStep = 'datetime' | 'contact' | 'confirmation';
+type BookingStep = 'datetime' | 'contact' | 'verification' | 'confirmation';
 
 interface WorkingHour {
   day_of_week: number;
@@ -65,8 +66,12 @@ export function ServiceBookingModal({ provider, service, open, onOpenChange }: S
   const [vehicleYear, setVehicleYear] = useState('');
   const [vehiclePlate, setVehiclePlate] = useState('');
 
-  // Confirmation
+  // Confirmation / verification
   const [bookingNumber, setBookingNumber] = useState('');
+  const [bookingId, setBookingId] = useState<string>('');
+  const [otpCode, setOtpCode] = useState('');
+  const [verifyError, setVerifyError] = useState('');
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   useEffect(() => { checkUser(); }, []);
 
@@ -246,14 +251,19 @@ export function ServiceBookingModal({ provider, service, open, onOpenChange }: S
 
       if (error) throw error;
       setBookingNumber(booking.booking_number || '');
+      setBookingId(booking.id);
 
-      // Send "preliminary booking" SMS via edge function (don't block on errors)
-      supabase.functions.invoke('booking-notify', {
-        body: { booking_id: booking.id, type: 'preliminary' }
-      }).catch(err => console.warn('SMS notify failed:', err));
-
-      setStep('confirmation');
-      toast.success('Rezerwacja przekazana do usługodawcy');
+      // Wyślij SMS z 4-cyfrowym kodem weryfikacji (portalowy)
+      const { error: smsErr } = await supabase.functions.invoke('booking-send-verification', {
+        body: { booking_id: booking.id }
+      });
+      if (smsErr) {
+        toast.error('Nie udało się wysłać SMS z kodem. Spróbuj ponownie.');
+      } else {
+        toast.success('Wysłaliśmy SMS z kodem weryfikacji');
+        setResendCooldown(60);
+      }
+      setStep('verification');
     } catch (error: any) {
       console.error('Booking error:', error);
       toast.error(error.message || 'Błąd podczas tworzenia rezerwacji');
