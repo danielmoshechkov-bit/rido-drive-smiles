@@ -21,7 +21,7 @@ interface Props {
   focusOrderId?: string;
 }
 
-const HOURS = Array.from({ length: 11 }, (_, i) => i + 8);
+const ROW_HEIGHT = 56; // px — stała wysokość każdego wiersza godziny
 
 export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Terminarz', focusOrderId }: Props) {
   const queryClient = useQueryClient();
