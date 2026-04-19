@@ -7,6 +7,21 @@ const cors = {
 }
 
 const DEFAULT_SYSTEM_PROMPT = 'Jesteś ekspertem od marketingu lokalnych usług. Tworzysz krótkie, atrakcyjne, profesjonalne opisy firm usługodawców na podstawie surowego, krótkiego opisu od właściciela. Pisz po polsku, naturalnie. Maksymalnie 3-4 zdania (300-500 znaków). Bez emoji, bez wykrzykników, bez CAPS LOCK. Zwracaj WYŁĄCZNIE gotowy opis — bez wstępów typu "Oto opis:", bez cudzysłowów.'
+const AI_REQUEST_TIMEOUT_MS = 20000
+
+async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}, timeoutMs = AI_REQUEST_TIMEOUT_MS) {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    return await fetch(input, {
+      ...init,
+      signal: controller.signal,
+    })
+  } finally {
+    clearTimeout(timeoutId)
+  }
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
@@ -49,7 +64,7 @@ Wygeneruj atrakcyjny opis firmy.`
     if (model.startsWith('moonshot')) {
       const kimiKey = Deno.env.get('KIMI_API_KEY')
       if (!kimiKey) throw new Error('Brak klucza KIMI_API_KEY w konfiguracji')
-      const resp = await fetch('https://api.moonshot.cn/v1/chat/completions', {
+      const resp = await fetchWithTimeout('https://api.moonshot.cn/v1/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${kimiKey}` },
         body: JSON.stringify({
@@ -68,7 +83,7 @@ Wygeneruj atrakcyjny opis firmy.`
     } else if (model.startsWith('claude')) {
       const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY')
       if (!anthropicKey) throw new Error('Brak klucza ANTHROPIC_API_KEY')
-      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      const resp = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
         body: JSON.stringify({
@@ -83,7 +98,7 @@ Wygeneruj atrakcyjny opis firmy.`
       // Lovable AI Gateway (google/* lub openai/*)
       const lovableKey = Deno.env.get('LOVABLE_API_KEY')
       if (!lovableKey) throw new Error('Brak klucza LOVABLE_API_KEY')
-      const resp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      const resp = await fetchWithTimeout('https://ai.gateway.lovable.dev/v1/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${lovableKey}` },
         body: JSON.stringify({
@@ -119,6 +134,11 @@ Wygeneruj atrakcyjny opis firmy.`
     })
   } catch (err) {
     console.error('generate-provider-description error:', err)
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      return new Response(JSON.stringify({ error: 'Generator opisu przekroczył limit czasu. Spróbuj ponownie.' }), {
+        status: 504, headers: { ...cors, 'Content-Type': 'application/json' },
+      })
+    }
     return new Response(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }), {
       status: 500, headers: { ...cors, 'Content-Type': 'application/json' },
     })
