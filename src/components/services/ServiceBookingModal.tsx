@@ -430,7 +430,7 @@ export function ServiceBookingModal({ provider, service, open, onOpenChange }: S
                   <Input value={vehicleBrand} onChange={(e) => setVehicleBrand(e.target.value)} placeholder="Marka (np. BMW)" />
                   <Input value={vehicleModel} onChange={(e) => setVehicleModel(e.target.value)} placeholder="Model (np. 320d)" />
                   <Input value={vehicleYear} onChange={(e) => setVehicleYear(e.target.value)} placeholder="Rok (np. 2020)" type="number" />
-                  <Input value={vehiclePlate} onChange={(e) => setVehiclePlate(e.target.value.toUpperCase())} placeholder="Tablica" />
+                  <Input value={vehiclePlate} onChange={(e) => setVehiclePlate(e.target.value.toUpperCase())} placeholder="Nr rejestracyjny" />
                 </div>
               </div>
 
