@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label';
 
 interface Props {
   providerId: string;
+  onSelectOrder?: (order: any) => void;
 }
 
 type Booking = {
@@ -46,13 +47,132 @@ const STATUS_LABELS: Record<string, { label: string; cls: string }> = {
   cancelled: { label: 'Odrzucona', cls: 'bg-gray-400 text-white' },
 };
 
-export function WorkshopPortalBookings({ providerId }: Props) {
+export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
   const queryClient = useQueryClient();
   const [actingId, setActingId] = useState<string | null>(null);
+  const [openingId, setOpeningId] = useState<string | null>(null);
   const [editing, setEditing] = useState<Booking | null>(null);
   const [editDate, setEditDate] = useState('');
   const [editTime, setEditTime] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
+
+  // Otwórz rezerwację jako zlecenie warsztatowe (utwórz jeśli nie istnieje)
+  const openAsOrder = async (b: Booking) => {
+    if (!onSelectOrder) return;
+    setOpeningId(b.id);
+    try {
+      const sb: any = supabase as any;
+
+      // 1) Czy zlecenie już istnieje?
+      const { data: existing } = await sb
+        .from('workshop_orders')
+        .select('*, client:workshop_clients(*), vehicle:workshop_vehicles(*), items:workshop_order_items(*)')
+        .eq('booking_id', b.id)
+        .maybeSingle();
+
+      if (existing) {
+        onSelectOrder(existing);
+        return;
+      }
+
+      // 2) Klient — szukaj po telefonie u tego providera
+      const phoneDigits = (b.customer_phone || '').replace(/\D/g, '').slice(-9);
+      let clientId: string | null = null;
+      if (phoneDigits) {
+        const { data: existingClients } = await sb
+          .from('workshop_clients')
+          .select('id, phone')
+          .eq('provider_id', providerId);
+        const found = (existingClients || []).find((c: any) => (c.phone || '').replace(/\D/g, '').slice(-9) === phoneDigits);
+        if (found) clientId = found.id;
+      }
+      if (!clientId) {
+        const nameParts = (b.customer_name || '').trim().split(/\s+/);
+        const firstName = nameParts[0] || '';
+        const lastName = nameParts.slice(1).join(' ') || null;
+        const { data: newClient, error: cErr } = await sb
+          .from('workshop_clients')
+          .insert({
+            provider_id: providerId,
+            client_type: 'private',
+            first_name: firstName,
+            last_name: lastName,
+            phone: b.customer_phone,
+            email: b.customer_email,
+          })
+          .select('id')
+          .single();
+        if (cErr) throw cErr;
+        clientId = newClient.id;
+      }
+
+      // 3) Pojazd — szukaj po nr rej
+      let vehicleId: string | null = null;
+      const plateNorm = (b.vehicle_plate || '').toUpperCase().replace(/\s/g, '');
+      if (plateNorm) {
+        const { data: existingVeh } = await sb
+          .from('workshop_vehicles')
+          .select('id, plate')
+          .eq('provider_id', providerId);
+        const fv = (existingVeh || []).find((v: any) => (v.plate || '').toUpperCase().replace(/\s/g, '') === plateNorm);
+        if (fv) vehicleId = fv.id;
+      }
+      if (!vehicleId && (b.vehicle_brand || b.vehicle_model || plateNorm)) {
+        const { data: newVeh, error: vErr } = await sb
+          .from('workshop_vehicles')
+          .insert({
+            provider_id: providerId,
+            owner_client_id: clientId,
+            brand: b.vehicle_brand,
+            model: b.vehicle_model,
+            year: b.vehicle_year,
+            plate: plateNorm || null,
+          })
+          .select('id')
+          .single();
+        if (vErr) throw vErr;
+        vehicleId = newVeh.id;
+      }
+
+      // 4) Zlecenie
+      const description = [b.service_name, b.customer_notes].filter(Boolean).join(' — ');
+      const scheduledStart = b.scheduled_date && b.scheduled_time
+        ? `${b.scheduled_date}T${(b.scheduled_time || '').substring(0, 5)}:00`
+        : null;
+      const scheduledEnd = scheduledStart && b.duration_minutes
+        ? new Date(new Date(scheduledStart).getTime() + b.duration_minutes * 60000).toISOString()
+        : null;
+
+      const orderNumber = `ZL-${String(new Date().getMonth() + 1).padStart(2, '0')}/${new Date().getFullYear()}-${Math.floor(Math.random() * 900) + 100}`;
+
+      const { data: newOrder, error: oErr } = await sb
+        .from('workshop_orders')
+        .insert({
+          provider_id: providerId,
+          order_number: orderNumber,
+          client_id: clientId,
+          vehicle_id: vehicleId,
+          booking_id: b.id,
+          description,
+          status_name: 'Przyjęcie do serwisu',
+          scheduled_date: b.scheduled_date,
+          scheduled_start: scheduledStart,
+          scheduled_end: scheduledEnd,
+        })
+        .select('*, client:workshop_clients(*), vehicle:workshop_vehicles(*), items:workshop_order_items(*)')
+        .single();
+      if (oErr) throw oErr;
+
+      toast.success('Utworzono zlecenie z rezerwacji');
+      queryClient.invalidateQueries({ queryKey: ['workshop-orders'] });
+      onSelectOrder(newOrder);
+    } catch (e: any) {
+      console.error('openAsOrder error:', e);
+      toast.error(e.message || 'Nie udało się otworzyć zlecenia');
+    } finally {
+      setOpeningId(null);
+    }
+  };
 
   const { data: bookings = [], isLoading } = useQuery({
     queryKey: ['portal-bookings', providerId],
