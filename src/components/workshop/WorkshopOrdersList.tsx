@@ -65,6 +65,8 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
   const [invoiceItems, setInvoiceItems] = useState<any[]>([]);
   const [invoiceBuyer, setInvoiceBuyer] = useState<any>(null);
   const [invoiceNotes, setInvoiceNotes] = useState('');
+  const [existingInvoice, setExistingInvoice] = useState<any>(null);
+  const [existingInvoiceOrder, setExistingInvoiceOrder] = useState<any>(null);
 
   const { data: statuses = [] } = useWorkshopStatuses(providerId);
   const { data: orders = [], isLoading } = useWorkshopOrders(providerId, {
