@@ -336,18 +336,27 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
   const loadUserCompanyData = async (userId: string) => {
     // Load logo from any available source as fallback
     const loadLogoFallback = async () => {
+      const { data: cs } = await (supabase as any)
+        .from('company_settings')
+        .select('logo_url')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (cs?.logo_url) { setCompanyLogo(cs.logo_url); return cs.logo_url; }
+
       const { data: sp } = await supabase
         .from('service_providers')
         .select('logo_url')
         .eq('user_id', userId)
         .maybeSingle();
-      if (sp?.logo_url) { setCompanyLogo(sp.logo_url); return; }
+      if (sp?.logo_url) { setCompanyLogo(sp.logo_url); return sp.logo_url; }
       const { data: ws } = await (supabase as any)
         .from('workshop_settings')
         .select('logo_url')
         .eq('user_id', userId)
         .maybeSingle();
-      if (ws?.logo_url) setCompanyLogo(ws.logo_url);
+      if (ws?.logo_url) { setCompanyLogo(ws.logo_url); return ws.logo_url; }
+
+      return '';
     };
 
     // First try user_invoice_companies
@@ -1122,8 +1131,12 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
         if (!finalLogo) {
           const { data: { session: s2 } } = await supabase.auth.getSession();
           if (s2?.user) {
-            const { data: sp } = await supabase.from('service_providers').select('logo_url').eq('user_id', s2.user.id).maybeSingle();
-            finalLogo = sp?.logo_url || '';
+            const { data: cs } = await (supabase as any).from('company_settings').select('logo_url').eq('user_id', s2.user.id).maybeSingle();
+            finalLogo = cs?.logo_url || '';
+            if (!finalLogo) {
+              const { data: sp } = await supabase.from('service_providers').select('logo_url').eq('user_id', s2.user.id).maybeSingle();
+              finalLogo = sp?.logo_url || '';
+            }
             if (!finalLogo) {
               const { data: ws } = await (supabase as any).from('workshop_settings').select('logo_url').eq('user_id', s2.user.id).maybeSingle();
               finalLogo = ws?.logo_url || '';
