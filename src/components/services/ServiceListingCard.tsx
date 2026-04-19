@@ -121,13 +121,17 @@ export function ServiceListingCard({
         >
           {/* Photo - aspect-3/2 like vehicle compact */}
           <div className="relative bg-muted overflow-hidden aspect-[3/2]" onClick={handlePhotoClick}>
-            <img
-              src={getPhotoSrc(currentPhoto)}
-              alt={provider.company_name}
-              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-              onError={() => setImageError(true)}
-            />
-            
+            {hasRealPhotos ? (
+              <img
+                src={getPhotoSrc(currentPhoto)}
+                alt={provider.company_name}
+                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
+                <span className="text-5xl font-bold text-primary/40">{provider.company_name?.charAt(0) || '?'}</span>
+              </div>
+            )}
             {/* Favorite Button */}
             <button
               onClick={(e) => {
@@ -201,12 +205,17 @@ export function ServiceListingCard({
               className="relative bg-muted overflow-hidden sm:w-64 md:w-72 flex-shrink-0 aspect-[4/3] sm:aspect-auto sm:h-48"
               onClick={handlePhotoClick}
             >
-              <img
-                src={getPhotoSrc(currentPhoto)}
-                alt={provider.company_name}
-                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                onError={() => setImageError(true)}
-              />
+              {hasRealPhotos ? (
+                <img
+                  src={getPhotoSrc(currentPhoto)}
+                  alt={provider.company_name}
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
+                  <span className="text-6xl font-bold text-primary/40">{provider.company_name?.charAt(0) || '?'}</span>
+                </div>
+              )}
 
               {/* Favorite Button */}
               <button
@@ -338,12 +347,17 @@ export function ServiceListingCard({
           className="relative bg-muted overflow-hidden aspect-[4/3]"
           onClick={handlePhotoClick}
         >
-          <img
-            src={getPhotoSrc(currentPhoto)}
-            alt={provider.company_name}
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-            onError={() => setImageError(true)}
-          />
+          {hasRealPhotos ? (
+            <img
+              src={getPhotoSrc(currentPhoto)}
+              alt={provider.company_name}
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
+              <span className="text-7xl font-bold text-primary/40">{provider.company_name?.charAt(0) || '?'}</span>
+            </div>
+          )}
 
           {/* Photo Navigation */}
           {displayPhotos.length > 1 && (
