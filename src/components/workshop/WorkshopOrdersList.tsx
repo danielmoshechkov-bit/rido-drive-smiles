@@ -250,7 +250,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
           address_postal_code: companyData?.address_postal_code || '',
           email: companyData?.email || '',
           phone: companyData?.phone || '',
-          logo_url: companyData?.logo_url || '',
+          logo_url: logoUrl || companyData?.logo_url || '',
         },
         buyer,
       };
