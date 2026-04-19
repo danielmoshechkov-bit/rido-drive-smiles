@@ -44,14 +44,15 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: true, already_verified: true }), { headers: corsHeaders });
     }
 
-    // Throttle: max 1 SMS per 60s
+    // Throttle: max 1 SMS per 15s
     if (b.verification_sent_at) {
       const ageSec = (Date.now() - new Date(b.verification_sent_at).getTime()) / 1000;
-      if (ageSec < 60) {
-        return new Response(JSON.stringify({ error: `Poczekaj ${Math.ceil(60 - ageSec)}s przed ponownym wysłaniem` }), { status: 429, headers: corsHeaders });
+      if (ageSec < 15) {
+        return new Response(JSON.stringify({ error: `Poczekaj ${Math.ceil(15 - ageSec)}s przed ponownym wysłaniem` }), { status: 429, headers: corsHeaders });
       }
     }
 
+    // Generuj NOWY kod przy każdym wysłaniu
     const code = String(Math.floor(1000 + Math.random() * 9000));
     const provider: any = b.service_providers;
     const providerName = provider?.short_name || provider?.company_name || 'GetRido';
@@ -64,16 +65,28 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'SMS not configured' }), { status: 500, headers: corsHeaders });
     }
 
-    const smsRes = await fetch('https://api.smsapi.pl/sms.do', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${smsToken}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({ to: phone, message, from: 'GetRido', format: 'json' }),
-    });
-    const smsData = await smsRes.json();
-    console.log('Verification SMS sent:', { phone, smsData });
+    // Próbuj kolejnych nadawców — niektóre konta SMSAPI mają tylko domyślne (Test/Info/2Way)
+    const senderCandidates = ['GetRido', '2Way', 'Info', 'Test'];
+    let smsData: any = null;
+    let usedSender = '';
+    for (const sender of senderCandidates) {
+      const r = await fetch('https://api.smsapi.pl/sms.do', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${smsToken}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({ to: phone, message, from: sender, format: 'json' }),
+      });
+      smsData = await r.json();
+      console.log('Verification SMS attempt:', { sender, phone, smsData });
+      // error 14 = Invalid from field — spróbuj kolejnego nadawcy
+      if (smsData?.error !== 14) {
+        usedSender = sender;
+        break;
+      }
+    }
+    const smsOk = smsData && !smsData.error;
 
     await supabase.from('service_bookings').update({
       verification_code: code,
