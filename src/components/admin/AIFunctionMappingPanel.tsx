@@ -154,6 +154,8 @@ export function AIFunctionMappingPanel() {
   const [activeModule, setActiveModule] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
 
+  useEffect(() => { loadData(); }, []);
+
   const loadData = async () => {
     setLoading(true);
     const [m, p] = await Promise.all([
