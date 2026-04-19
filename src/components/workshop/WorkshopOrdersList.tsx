@@ -328,6 +328,12 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
               }}>
                 <Receipt className="h-4 w-4 mr-2" /> Paragon fiskalny
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => {
+                const order = orders.find((o: any) => selectedIds.has(o.id));
+                if (order) generateServiceConfirmation(order);
+              }}>
+                <ClipboardCheck className="h-4 w-4 mr-2" /> Potw. wykonania
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         )}
