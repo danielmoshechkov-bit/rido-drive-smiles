@@ -21,7 +21,7 @@ interface Props {
   focusOrderId?: string;
 }
 
-const HOURS = Array.from({ length: 11 }, (_, i) => i + 8);
+const ROW_HEIGHT = 56; // px — stała wysokość każdego wiersza godziny
 
 export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Terminarz', focusOrderId }: Props) {
   const queryClient = useQueryClient();
@@ -68,6 +68,38 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Termin
       return data || [];
     },
   });
+
+  // Working hours from provider settings (service_working_hours) — używane do wyliczenia zakresu godzin w kalendarzu (±2h)
+  const { data: workingHoursRows = [] } = useQuery({
+    queryKey: ['service-working-hours', providerId],
+    enabled: !!providerId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('service_working_hours')
+        .select('start_time, end_time, is_working')
+        .eq('provider_id', providerId)
+        .is('employee_id', null);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Wyliczenie zakresu godzin: min start - 2h, max end + 2h (clamp 0–24); domyślnie 8–18
+  const HOURS = useMemo(() => {
+    const working = (workingHoursRows as any[]).filter(r => r.is_working !== false);
+    let minStart = 9;
+    let maxEnd = 17;
+    if (working.length > 0) {
+      const starts = working.map(r => parseInt(String(r.start_time).split(':')[0], 10)).filter(n => !isNaN(n));
+      const ends = working.map(r => parseInt(String(r.end_time).split(':')[0], 10)).filter(n => !isNaN(n));
+      if (starts.length) minStart = Math.min(...starts);
+      if (ends.length) maxEnd = Math.max(...ends);
+    }
+    const from = Math.max(0, minStart - 2);
+    const to = Math.min(24, maxEnd + 2);
+    const len = Math.max(1, to - from);
+    return Array.from({ length: len }, (_, i) => from + i);
+  }, [workingHoursRows]);
 
   const { data: orders = [] } = useWorkshopOrders(providerId);
 
@@ -496,7 +528,7 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Termin
         /* Day/Week grid */
         <div className="flex-1 min-h-0 overflow-hidden rounded-xl border-2 border-foreground/20 shadow-lg flex flex-col">
           <div className="flex-1 min-h-0 overflow-auto">
-            <table className="w-full border-collapse text-xs h-full" style={{ tableLayout: 'fixed' }}>
+            <table className="w-full border-collapse text-xs" style={{ tableLayout: 'fixed' }}>
               <colgroup>
                 <col style={{ width: '60px' }} />
                 {categoryStations.map((st: any) =>
@@ -543,8 +575,8 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Termin
                 {HOURS.map((hour, hourIdx) => {
                   const isEvenRow = hourIdx % 2 === 0;
                   return (
-                    <tr key={hour}>
-                      <td className={`border-b border-r-2 border-foreground/20 p-1.5 text-right font-mono font-bold text-xs sticky left-0 z-10 ${isEvenRow ? 'bg-[hsl(220,20%,97%)] dark:bg-[hsl(220,15%,15%)] text-foreground' : 'bg-[hsl(220,25%,93%)] dark:bg-[hsl(220,15%,18%)] text-foreground'}`}>
+                    <tr key={hour} style={{ height: `${ROW_HEIGHT}px` }}>
+                      <td className={`border-b border-r-2 border-foreground/20 p-1.5 text-right font-mono font-bold text-xs sticky left-0 z-10 ${isEvenRow ? 'bg-[hsl(220,20%,97%)] dark:bg-[hsl(220,15%,15%)] text-foreground' : 'bg-[hsl(220,25%,93%)] dark:bg-[hsl(220,15%,18%)] text-foreground'}`} style={{ height: `${ROW_HEIGHT}px` }}>
                         {`${hour}:00`}
                       </td>
                       {categoryStations.map((st: any, stIdx: number) =>
@@ -590,12 +622,12 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Termin
                             <td
                               key={key}
                               rowSpan={scheduledOrder ? displaySpan : 1}
-                              className={`border-b border-r border-foreground/15 p-0 cursor-pointer transition-all relative ${scheduledOrder ? '' : 'min-h-14'} ${isLastDayOfStation ? 'border-r-[3px] border-r-foreground/40' : ''} ${
+                              className={`border-b border-r border-foreground/15 p-0 cursor-pointer transition-all relative ${isLastDayOfStation ? 'border-r-[3px] border-r-foreground/40' : ''} ${
                                 today
                                   ? (isEvenRow ? 'bg-[hsl(220,60%,97%)] dark:bg-[hsl(220,30%,15%)]' : 'bg-[hsl(220,60%,94%)] dark:bg-[hsl(220,30%,18%)]')
                                   : (isEvenRow ? 'bg-background' : 'bg-[hsl(220,15%,96%)] dark:bg-[hsl(220,10%,14%)]')
                               } ${isDragOver && draggedOrder ? '!bg-[hsl(220,70%,85%)] dark:!bg-[hsl(220,50%,25%)] ring-2 ring-[hsl(220,70%,50%)] ring-inset' : scheduledOrder ? '' : 'hover:bg-[hsl(220,40%,92%)] dark:hover:bg-[hsl(220,20%,22%)]'}`}
-                              style={scheduledOrder ? { height: `${displaySpan * 56}px` } : undefined}
+                              style={{ height: `${(scheduledOrder ? displaySpan : 1) * ROW_HEIGHT}px` }}
                               onClick={() => !scheduledOrder && handleCellClick(day, hour, st.id)}
                               onDragOver={(e) => { e.preventDefault(); setDragOverCell(key); }}
                               onDragLeave={() => { if (dragOverCell === key) setDragOverCell(null); }}
