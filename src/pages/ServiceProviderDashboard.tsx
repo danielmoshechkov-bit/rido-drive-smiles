@@ -60,6 +60,36 @@ interface ServiceItem {
   photos: string[];
 }
 
+interface ActivationFormState {
+  company_name: string;
+  short_name: string;
+  description: string;
+  company_phone: string;
+  company_email: string;
+  company_city: string;
+  company_address: string;
+  company_postal_code: string;
+  company_nip: string;
+  category_id: string;
+}
+
+const EMPTY_ACTIVATION_FORM: ActivationFormState = {
+  company_name: '',
+  short_name: '',
+  description: '',
+  company_phone: '',
+  company_email: '',
+  company_city: '',
+  company_address: '',
+  company_postal_code: '',
+  company_nip: '',
+  category_id: '',
+};
+
+const ACTIVATION_DESCRIPTION_TIMEOUT_MS = 25000;
+
+const getActivationDraftKey = (userId?: string | null) => `service-provider-activation-draft:${userId ?? 'anonymous'}`;
+
 export default function ServiceProviderDashboard() {
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -95,11 +125,7 @@ export default function ServiceProviderDashboard() {
   const [isDraggingService, setIsDraggingService] = useState(false);
   const [providerStatus, setProviderStatus] = useState<string | null>(null);
   const [activationDialog, setActivationDialog] = useState(false);
-  const [activationForm, setActivationForm] = useState({
-    company_name: '', short_name: '', description: '', company_phone: '', company_email: '',
-    company_city: '', company_address: '', company_postal_code: '', company_nip: '',
-    category_id: ''
-  });
+  const [activationForm, setActivationForm] = useState<ActivationFormState>(EMPTY_ACTIVATION_FORM);
   const [serviceCategories, setServiceCategories] = useState<any[]>([]);
   const [activationSaving, setActivationSaving] = useState(false);
   const [generatingDescription, setGeneratingDescription] = useState(false);
@@ -114,6 +140,39 @@ export default function ServiceProviderDashboard() {
   });
 
   const queryClient = useQueryClient();
+
+  const loadActivationDraft = useCallback((userId: string, fallback: ActivationFormState) => {
+    try {
+      const rawDraft = localStorage.getItem(getActivationDraftKey(userId));
+      if (!rawDraft) return fallback;
+      const parsed = JSON.parse(rawDraft) as Partial<ActivationFormState>;
+      return {
+        ...fallback,
+        ...parsed,
+      };
+    } catch {
+      localStorage.removeItem(getActivationDraftKey(userId));
+      return fallback;
+    }
+  }, []);
+
+  const clearActivationDraft = useCallback(() => {
+    if (!user?.id) return;
+    localStorage.removeItem(getActivationDraftKey(user.id));
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const hasValues = Object.values(activationForm).some(value => value.trim() !== '');
+    const draftKey = getActivationDraftKey(user.id);
+
+    if (!hasValues) {
+      localStorage.removeItem(draftKey);
+      return;
+    }
+
+    localStorage.setItem(draftKey, JSON.stringify(activationForm));
+  }, [activationForm, user?.id]);
 
   useEffect(() => {
     if (roleLoading) return;
@@ -157,7 +216,7 @@ export default function ServiceProviderDashboard() {
       setProviderStatus(provider.status);
 
       // Pre-fill activation form
-      setActivationForm({
+      const providerActivationForm: ActivationFormState = {
         company_name: provider.company_name || '',
         short_name: provider.short_name || '',
         description: provider.description || '',
@@ -168,7 +227,9 @@ export default function ServiceProviderDashboard() {
         company_postal_code: provider.company_postal_code || '',
         company_nip: provider.company_nip || '',
         category_id: provider.category_id || '',
-      });
+      };
+
+      setActivationForm(loadActivationDraft(user.id, providerActivationForm));
 
       const { data: navPreferences } = await (supabase as any)
         .from('service_provider_nav_preferences')
@@ -407,6 +468,7 @@ export default function ServiceProviderDashboard() {
       const { error } = await supabase.from('service_providers').update(updateData).eq('id', providerId);
       if (error) throw error;
       setProviderStatus('active');
+      clearActivationDraft();
       setActivationDialog(false);
       toast.success('Profil aktywowany! Twoje usługi są teraz widoczne w portalu.');
     } catch (err: any) {
