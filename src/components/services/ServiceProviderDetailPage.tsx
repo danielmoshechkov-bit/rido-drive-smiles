@@ -681,6 +681,9 @@ export function ServiceProviderDetailPage() {
           </div>
         </div>
       )}
+
+      {/* Auth Modal for login */}
+      <AuthModal
         open={showLoginDialog}
         onOpenChange={setShowLoginDialog}
         initialMode="login"
