@@ -5999,6 +5999,7 @@ export type Database = {
           ksef_last_check: string | null
           ksef_last_test_at: string | null
           ksef_last_test_result: string | null
+          ksef_send_invoices_enabled: boolean | null
           ksef_status: string | null
           ksef_token: string | null
           ksef_token_encrypted: string | null
@@ -6037,6 +6038,7 @@ export type Database = {
           ksef_last_check?: string | null
           ksef_last_test_at?: string | null
           ksef_last_test_result?: string | null
+          ksef_send_invoices_enabled?: boolean | null
           ksef_status?: string | null
           ksef_token?: string | null
           ksef_token_encrypted?: string | null
@@ -6075,6 +6077,7 @@ export type Database = {
           ksef_last_check?: string | null
           ksef_last_test_at?: string | null
           ksef_last_test_result?: string | null
+          ksef_send_invoices_enabled?: boolean | null
           ksef_status?: string | null
           ksef_token?: string | null
           ksef_token_encrypted?: string | null
@@ -18378,6 +18381,7 @@ export type Database = {
           updated_at: string | null
           user_id: string
           vat_total: number | null
+          workshop_order_id: string | null
         }
         Insert: {
           advance_invoice_id?: string | null
@@ -18427,6 +18431,7 @@ export type Database = {
           updated_at?: string | null
           user_id: string
           vat_total?: number | null
+          workshop_order_id?: string | null
         }
         Update: {
           advance_invoice_id?: string | null
@@ -18476,6 +18481,7 @@ export type Database = {
           updated_at?: string | null
           user_id?: string
           vat_total?: number | null
+          workshop_order_id?: string | null
         }
         Relationships: [
           {
