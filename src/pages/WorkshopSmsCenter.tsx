@@ -73,37 +73,55 @@ export default function WorkshopSmsCenter() {
     },
   });
 
-  // Scheduled SMS (booking reminders + manual scheduled)
+  // Scheduled SMS — z workshop_sms_log + auto-przypomnienia z workshop_client_bookings
   const { data: scheduledSms = [] } = useQuery({
     queryKey: ['workshop-sms', providerId, 'scheduled'],
     enabled: !!providerId,
     queryFn: async () => {
-      // From workshop_sms_log
       const { data: manual } = await (supabase as any)
         .from('workshop_sms_log')
         .select('*')
         .eq('provider_id', providerId)
         .eq('status', 'scheduled')
         .order('scheduled_at', { ascending: true });
-      // From booking_appointments (reminders for upcoming bookings)
+
+      // Auto-przypomnienia z aktywnych rezerwacji warsztatu
       const { data: bookings } = await (supabase as any)
-        .from('booking_appointments')
-        .select('id, start_time, customer_phone, customer_name, service_name')
+        .from('workshop_client_bookings')
+        .select('id, appointment_date, appointment_time, phone, first_name, last_name, service_description, plate, brand, model, reminder_times, reminder_enabled, status')
         .eq('provider_id', providerId)
-        .gte('start_time', new Date().toISOString())
-        .order('start_time', { ascending: true })
-        .limit(50);
-      const reminders = (bookings || []).map((b: any) => ({
-        id: `reminder-${b.id}`,
-        appointment_id: b.id,
-        phone: b.customer_phone || '',
-        message: `Przypomnienie: wizyta ${format(new Date(b.start_time), 'dd.MM.yyyy HH:mm', { locale: pl })} - ${b.service_name || ''}`,
-        sms_type: 'reminder',
-        status: 'scheduled',
-        scheduled_at: new Date(new Date(b.start_time).getTime() - 24 * 3600 * 1000).toISOString(),
-        _is_reminder: true,
-        _booking: b,
-      }));
+        .eq('reminder_enabled', true)
+        .in('status', ['scheduled', 'confirmed'])
+        .gte('appointment_date', new Date().toISOString().slice(0, 10))
+        .order('appointment_date', { ascending: true })
+        .limit(200);
+
+      const reminders: any[] = [];
+      (bookings || []).forEach((b: any) => {
+        const apptAt = new Date(`${b.appointment_date}T${b.appointment_time || '08:00:00'}`);
+        const times: string[] = Array.isArray(b.reminder_times) ? b.reminder_times : [];
+        times.forEach((t: string) => {
+          const m = String(t).match(/^(\d+)h$/i);
+          if (!m) return;
+          const hoursBefore = parseInt(m[1], 10);
+          const sendAt = new Date(apptAt.getTime() - hoursBefore * 3600 * 1000);
+          if (sendAt.getTime() < Date.now() - 60 * 60 * 1000) return; // pomiń mocno przeterminowane
+          const name = `${b.first_name || ''} ${b.last_name || ''}`.trim() || 'klient';
+          const car = [b.brand, b.model, b.plate].filter(Boolean).join(' ');
+          reminders.push({
+            id: `reminder-${b.id}-${t}`,
+            appointment_id: b.id,
+            phone: b.phone || '',
+            message: `Przypomnienie (${t} przed): wizyta ${format(apptAt, 'dd.MM.yyyy HH:mm', { locale: pl })}${car ? ` — ${car}` : ''}${b.service_description ? `. Usługa: ${b.service_description}` : ''}`,
+            sms_type: `reminder_${t}`,
+            status: 'scheduled',
+            scheduled_at: sendAt.toISOString(),
+            _is_reminder: true,
+            _booking: { ...b, customer_name: name },
+          });
+        });
+      });
+
       return [...(manual || []), ...reminders].sort((a: any, b: any) =>
         new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime()
       );
@@ -227,30 +245,36 @@ export default function WorkshopSmsCenter() {
   const smsCount = Math.ceil(newMessage.length / 160);
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b bg-card sticky top-0 z-40">
-        <div className="container mx-auto px-4 h-16 flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/uslugi/panel')}>
-            <ArrowLeft className="h-4 w-4 mr-1" /> Wróć
-          </Button>
-          <h1 className="font-bold text-lg flex items-center gap-2">
-            <MessageSquare className="h-5 w-5 text-primary" /> Centrum SMS
-          </h1>
+    <div className="min-h-screen bg-gradient-subtle flex flex-col">
+      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b shadow-sm flex-shrink-0">
+        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <UniversalHomeButton />
+            <div className="hidden sm:block">
+              <h1 className="font-semibold text-lg flex items-center gap-2">
+                <MessageSquare className="h-5 w-5 text-primary" /> Centrum SMS
+              </h1>
+              <p className="text-xs text-muted-foreground">Wysłane, zaplanowane i nowe wiadomości warsztatu</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button variant="outline" size="sm" onClick={() => navigate('/uslugi/panel')}>← Panel</Button>
+            <TopBarCredits />
+            <MyGetRidoButton user={user} />
+          </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-6">
-        <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
-          <TabsList>
-            <TabsTrigger value="sent">
-              <CheckCircle className="h-4 w-4 mr-1" /> Wysłane <Badge variant="secondary" className="ml-2">{sentSms.length}</Badge>
-            </TabsTrigger>
-            <TabsTrigger value="scheduled">
-              <Clock className="h-4 w-4 mr-1" /> Zaplanowane <Badge variant="secondary" className="ml-2">{scheduledSms.length}</Badge>
-            </TabsTrigger>
-            <TabsTrigger value="new"><Plus className="h-4 w-4 mr-1" /> Nowy SMS</TabsTrigger>
-            <TabsTrigger value="stats"><BarChart3 className="h-4 w-4 mr-1" /> Statystyki</TabsTrigger>
-          </TabsList>
+      <main className="container mx-auto px-4 py-6 space-y-6">
+        <TabsPill value={tab} onValueChange={(v) => setTab(v as TabKey)}>
+          <TabsTrigger value="sent">
+            <CheckCircle className="h-4 w-4 mr-1" /> Wysłane <Badge variant="secondary" className="ml-2">{sentSms.length}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="scheduled">
+            <Clock className="h-4 w-4 mr-1" /> Zaplanowane <Badge variant="secondary" className="ml-2">{scheduledSms.length}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="new"><Plus className="h-4 w-4 mr-1" /> Nowy SMS</TabsTrigger>
+          <TabsTrigger value="stats"><BarChart3 className="h-4 w-4 mr-1" /> Statystyki</TabsTrigger>
 
           {/* Sent */}
           <TabsContent value="sent" className="mt-4">
