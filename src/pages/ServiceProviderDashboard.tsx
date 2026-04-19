@@ -981,12 +981,36 @@ export default function ServiceProviderDashboard() {
                       <p className="text-sm text-muted-foreground">{t('sp.services.photosHint')}</p>
                       <input ref={serviceFileRef} type="file" multiple accept="image/*" className="hidden" onChange={handleServiceFileSelect} />
                     </div>
-                    {/* Show existing photos */}
+                    {/* Istniejące zdjęcia — usuwanie / przesuwanie / ustawianie głównego */}
                     {editingService?.photos && editingService.photos.length > 0 && (
-                      <div className="flex gap-2 flex-wrap">
-                        {editingService.photos.map((url, i) => (
-                          <img key={i} src={url} className="h-16 w-16 object-cover rounded" alt="" />
-                        ))}
+                      <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">Pierwsze zdjęcie jest <strong>główne</strong> (widoczne jako miniatura).</p>
+                        <div className="flex gap-2 flex-wrap">
+                          {editingService.photos.map((url, i) => (
+                            <div key={url + i} className="relative group h-20 w-20">
+                              <img src={url} className="h-20 w-20 object-cover rounded border" alt={`Zdjęcie ${i + 1}`} />
+                              {i === 0 && (
+                                <span className="absolute top-0 left-0 bg-primary text-primary-foreground text-[9px] px-1 rounded-tl rounded-br">GŁÓWNE</span>
+                              )}
+                              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-0.5 rounded">
+                                {i !== 0 && (
+                                  <button onClick={() => setMainExistingPhoto(i)} title="Ustaw jako główne"
+                                    className="bg-white/90 text-foreground rounded p-0.5 hover:bg-white">
+                                    <Star className="h-3 w-3" />
+                                  </button>
+                                )}
+                                <button onClick={() => moveExistingPhoto(i, -1)} disabled={i === 0} title="W lewo"
+                                  className="bg-white/90 text-foreground rounded px-1 text-xs hover:bg-white disabled:opacity-30">←</button>
+                                <button onClick={() => moveExistingPhoto(i, 1)} disabled={i === editingService.photos.length - 1} title="W prawo"
+                                  className="bg-white/90 text-foreground rounded px-1 text-xs hover:bg-white disabled:opacity-30">→</button>
+                                <button onClick={() => removeExistingPhoto(i)} title="Usuń"
+                                  className="bg-destructive text-destructive-foreground rounded p-0.5 hover:opacity-80">
+                                  <Trash2 className="h-3 w-3" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
                     {/* Show new photos as thumbnails */}
