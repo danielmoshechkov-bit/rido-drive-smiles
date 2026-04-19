@@ -2,32 +2,23 @@ import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Search, Loader2, FileText, Trash2 } from 'lucide-react';
-import { format } from 'date-fns';
+import { Plus, Search, Loader2, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { SimpleFreeInvoice } from '@/components/invoices/SimpleFreeInvoice';
+import { InvoiceExpandableRow } from '@/components/invoices/InvoiceExpandableRow';
 
 interface Props {
   providerId: string;
   onBack: () => void;
 }
 
-const PAYMENT_LABELS: Record<string, string> = {
-  cash: 'Gotówka',
-  transfer: 'Przelew',
-  card: 'Karta',
-  blik: 'BLIK',
-};
-
-export function WorkshopSales({ providerId, onBack }: Props) {
+export function WorkshopSales({ providerId: _providerId, onBack }: Props) {
   const [search, setSearch] = useState('');
   const [invoices, setInvoices] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showNewInvoice, setShowNewInvoice] = useState(false);
-  const [editInvoiceId, setEditInvoiceId] = useState<string | null>(null);
 
   const loadInvoices = async () => {
     setIsLoading(true);
@@ -36,7 +27,7 @@ export function WorkshopSales({ providerId, onBack }: Props) {
 
     const { data, error } = await (supabase as any)
       .from('user_invoices')
-      .select('id, invoice_number, buyer_name, issue_date, sale_date, gross_total, paid_amount, payment_method, invoice_type, is_paid')
+      .select('*')
       .eq('user_id', user.id)
       .neq('invoice_type', 'cost')
       .order('issue_date', { ascending: false });
@@ -87,95 +78,61 @@ export function WorkshopSales({ providerId, onBack }: Props) {
         </div>
       </div>
 
-      <Card>
-        <CardContent className="p-0">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      {/* Summary card */}
+      {filtered.length > 0 && (
+        <Card>
+          <CardContent className="py-3 flex flex-wrap gap-6 text-sm">
+            <div>
+              <span className="text-muted-foreground">Suma brutto:</span>{' '}
+              <span className="font-semibold">{totalGross.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} zł</span>
             </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>NUMER DOKUMENTU</TableHead>
-                  <TableHead>KLIENT</TableHead>
-                  <TableHead>DATA WYSTAWIENIA</TableHead>
-                  <TableHead>DATA SPRZEDAŻY</TableHead>
-                  <TableHead className="text-right">ZAPŁACONO</TableHead>
-                  <TableHead className="text-right">DO ZAPŁATY</TableHead>
-                  <TableHead className="text-right">RAZEM BRUTTO</TableHead>
-                  <TableHead>METODA PŁAT.</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((doc: any) => {
-                  const paid = doc.paid_amount || (doc.is_paid ? doc.gross_total : 0) || 0;
-                  const toPay = (doc.gross_total || 0) - paid;
-                  return (
-                    <TableRow
-                      key={doc.id}
-                      className="hover:bg-accent/50 cursor-pointer"
-                      onClick={() => setEditInvoiceId(doc.id)}
-                    >
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <FileText className="h-4 w-4 text-muted-foreground" />
-                          <span className="font-medium">{doc.invoice_number}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-sm">{doc.buyer_name}</TableCell>
-                      <TableCell className="text-sm">{doc.issue_date ? format(new Date(doc.issue_date), 'yyyy-MM-dd') : ''}</TableCell>
-                      <TableCell className="text-sm">{doc.sale_date ? format(new Date(doc.sale_date), 'yyyy-MM-dd') : ''}</TableCell>
-                      <TableCell className="text-right font-medium">
-                        {paid.toLocaleString('pl-PL', { minimumFractionDigits: 2 })}
-                      </TableCell>
-                      <TableCell className={`text-right font-medium ${toPay > 0 ? 'text-destructive' : ''}`}>
-                        {toPay.toLocaleString('pl-PL', { minimumFractionDigits: 2 })}
-                      </TableCell>
-                      <TableCell className="text-right font-medium">
-                        {(doc.gross_total || 0).toLocaleString('pl-PL', { minimumFractionDigits: 2 })}
-                      </TableCell>
-                      <TableCell className="text-sm">{PAYMENT_LABELS[doc.payment_method] || doc.payment_method || '-'}</TableCell>
-                    </TableRow>
-                  );
-                })}
-                {filtered.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                      Brak dokumentów sprzedaży
-                    </TableCell>
-                  </TableRow>
-                )}
-                {filtered.length > 0 && (
-                  <TableRow className="font-semibold bg-muted/50">
-                    <TableCell colSpan={4}>Suma</TableCell>
-                    <TableCell className="text-right">{totalPaid.toLocaleString('pl-PL', { minimumFractionDigits: 2 })}</TableCell>
-                    <TableCell className="text-right">{totalToPay.toLocaleString('pl-PL', { minimumFractionDigits: 2 })}</TableCell>
-                    <TableCell className="text-right">{totalGross.toLocaleString('pl-PL', { minimumFractionDigits: 2 })}</TableCell>
-                    <TableCell />
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+            <div>
+              <span className="text-muted-foreground">Zapłacono:</span>{' '}
+              <span className="font-semibold">{totalPaid.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} zł</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Do zapłaty:</span>{' '}
+              <span className={`font-semibold ${totalToPay > 0 ? 'text-destructive' : ''}`}>
+                {totalToPay.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} zł
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : filtered.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center text-muted-foreground">
+            Brak dokumentów sprzedaży
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-2">
+          {filtered.map((doc: any) => (
+            <InvoiceExpandableRow
+              key={doc.id}
+              invoice={doc}
+              onUpdate={loadInvoices}
+            />
+          ))}
+        </div>
+      )}
 
       <div className="text-sm text-muted-foreground">
         Od 1 do {filtered.length} z {filtered.length} wyników
       </div>
 
-      {(showNewInvoice || editInvoiceId) && (
-        <Dialog
-          open={showNewInvoice || !!editInvoiceId}
-          onOpenChange={(v) => { if (!v) { setShowNewInvoice(false); setEditInvoiceId(null); } }}
-        >
+      {showNewInvoice && (
+        <Dialog open={showNewInvoice} onOpenChange={(v) => { if (!v) setShowNewInvoice(false); }}>
           <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto p-0">
-            <DialogTitle className="sr-only">{editInvoiceId ? 'Edytuj fakturę' : 'Wystaw fakturę'}</DialogTitle>
+            <DialogTitle className="sr-only">Wystaw fakturę</DialogTitle>
             <SimpleFreeInvoice
-              editInvoiceId={editInvoiceId || undefined}
-              onClose={() => { setShowNewInvoice(false); setEditInvoiceId(null); }}
-              onSaved={() => { setShowNewInvoice(false); setEditInvoiceId(null); loadInvoices(); }}
+              onClose={() => setShowNewInvoice(false)}
+              onSaved={() => { setShowNewInvoice(false); loadInvoices(); }}
             />
           </DialogContent>
         </Dialog>

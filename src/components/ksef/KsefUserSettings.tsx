@@ -63,6 +63,7 @@ export function KsefUserSettings() {
   const [userNip, setUserNip] = useState<string | null>(null);
   const [instructionsOpen, setInstructionsOpen] = useState(false);
   const [autoSendEnabled, setAutoSendEnabled] = useState(false);
+  const [sendInvoicesEnabled, setSendInvoicesEnabled] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -98,6 +99,7 @@ export function KsefUserSettings() {
         setKsefLastTestAt(data.ksef_last_test_at || null);
         setKsefLastTestResult(data.ksef_last_test_result || null);
         setAutoSendEnabled(((data as any).ksef_auto_send_enabled as boolean) || false);
+        setSendInvoicesEnabled(((data as any).ksef_send_invoices_enabled as boolean) || false);
       }
       return data;
     },
@@ -123,6 +125,7 @@ export function KsefUserSettings() {
         ksef_last_test_at: overrides?.testAt ?? ksefLastTestAt,
         ksef_last_test_result: overrides?.testResult ?? ksefLastTestResult,
         ksef_auto_send_enabled: autoSendEnabled,
+        ksef_send_invoices_enabled: sendInvoicesEnabled,
         nip: userNip || undefined,
       } as any;
       if (settingsId) {
@@ -242,33 +245,61 @@ export function KsefUserSettings() {
   return (
     <div className="space-y-4">
       {/* ═══ MASTER SWITCH ═══ */}
-      <Card className={autoSendEnabled ? 'border-green-500/40 bg-green-50/30 dark:bg-green-950/10' : 'border-amber-500/40 bg-amber-50/30 dark:bg-amber-950/10'}>
-        <CardContent className="pt-6">
+      <Card className={sendInvoicesEnabled ? 'border-green-500/40 bg-green-50/30 dark:bg-green-950/10' : 'border-amber-500/40 bg-amber-50/30 dark:bg-amber-950/10'}>
+        <CardContent className="pt-6 space-y-4">
+          {/* Toggle 1: master switch */}
           <div className="flex items-center justify-between gap-4">
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-1">
-                <Shield className={`h-5 w-5 ${autoSendEnabled ? 'text-green-600' : 'text-amber-600'}`} />
+                <Shield className={`h-5 w-5 ${sendInvoicesEnabled ? 'text-green-600' : 'text-amber-600'}`} />
                 <Label htmlFor="ksef-master" className="text-base font-bold cursor-pointer">
                   Wysyłaj faktury do KSeF
                 </Label>
-                <Badge className={autoSendEnabled ? 'bg-green-600' : 'bg-amber-600'}>
-                  {autoSendEnabled ? 'WŁĄCZONE' : 'WYŁĄCZONE'}
+                <Badge className={sendInvoicesEnabled ? 'bg-green-600' : 'bg-amber-600'}>
+                  {sendInvoicesEnabled ? 'WŁĄCZONE' : 'WYŁĄCZONE'}
                 </Badge>
               </div>
               <p className="text-sm text-muted-foreground">
-                {autoSendEnabled
-                  ? '✓ Faktury VAT będą automatycznie wysyłane do KSeF po wystawieniu (zgodnie z ustawą obowiązkowe od 01.04.2026).'
+                {sendInvoicesEnabled
+                  ? '✓ Integracja z KSeF aktywna. Bez automatu poniżej musisz po wystawieniu kliknąć "Wyślij do KSeF" na pasku akcji faktury.'
                   : '⚠ Wystawione faktury NIE będą wysyłane do KSeF, nawet jeśli token jest skonfigurowany. Włącz, gdy chcesz aktywować integrację.'}
               </p>
             </div>
             <Switch
               id="ksef-master"
-              checked={autoSendEnabled}
+              checked={sendInvoicesEnabled}
               onCheckedChange={(v) => {
-                setAutoSendEnabled(v);
-                saveMutation.mutate({});
+                setSendInvoicesEnabled(v);
+                if (!v) setAutoSendEnabled(false);
+                setTimeout(() => saveMutation.mutate({}), 0);
               }}
               className="scale-125"
+            />
+          </div>
+
+          {/* Toggle 2: auto-send after issue */}
+          <div className={`flex items-center justify-between gap-4 pt-3 border-t ${!sendInvoicesEnabled ? 'opacity-50' : ''}`}>
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <RefreshCw className={`h-4 w-4 ${autoSendEnabled ? 'text-green-600' : 'text-muted-foreground'}`} />
+                <Label htmlFor="ksef-auto" className="text-sm font-semibold cursor-pointer">
+                  Wysyłaj automatycznie po każdym wystawieniu
+                </Label>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Uruchom, aby każda wystawiona faktura była automatycznie wysyłana do KSeF.
+                <br/>
+                <strong>UWAGA:</strong> bez tej funkcji po wystawieniu musisz ręcznie nacisnąć „Wyślij do KSeF" aby faktura została wysłana.
+              </p>
+            </div>
+            <Switch
+              id="ksef-auto"
+              checked={autoSendEnabled}
+              disabled={!sendInvoicesEnabled}
+              onCheckedChange={(v) => {
+                setAutoSendEnabled(v);
+                setTimeout(() => saveMutation.mutate({}), 0);
+              }}
             />
           </div>
         </CardContent>
