@@ -136,6 +136,56 @@ export function WorkshopPortalBookings({ providerId }: Props) {
     }
   };
 
+  const openEdit = (b: Booking) => {
+    setEditing(b);
+    setEditDate(b.scheduled_date);
+    setEditTime((b.scheduled_time || '').substring(0, 5));
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editing) return;
+    if (!editDate || !editTime) {
+      toast.error('Podaj datę i godzinę');
+      return;
+    }
+    const oldDate = editing.scheduled_date;
+    const oldTime = editing.scheduled_time;
+    const changed = oldDate !== editDate || (oldTime || '').substring(0, 5) !== editTime;
+
+    setSavingEdit(true);
+    try {
+      const { error } = await (supabase as any)
+        .from('service_bookings')
+        .update({
+          scheduled_date: editDate,
+          scheduled_time: editTime,
+          status: 'confirmed',
+          confirmed_at: new Date().toISOString(),
+        })
+        .eq('id', editing.id);
+      if (error) throw error;
+
+      // Wyślij SMS — rescheduled jeśli zmiana terminu, w przeciwnym razie confirmed
+      supabase.functions.invoke('booking-notify', {
+        body: {
+          booking_id: editing.id,
+          type: changed ? 'rescheduled' : 'confirmed',
+          old_date: oldDate,
+          old_time: oldTime,
+        },
+      }).catch((e) => console.error('booking-notify invoke error:', e));
+
+      toast.success(changed ? 'Termin zmieniony — klient otrzyma SMS' : 'Rezerwacja potwierdzona');
+      setEditing(null);
+      queryClient.invalidateQueries({ queryKey: ['portal-bookings', providerId] });
+      queryClient.invalidateQueries({ queryKey: ['pending-bookings-count'] });
+    } catch (e: any) {
+      toast.error(e.message || 'Błąd zapisu');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
   if (!providerId) return null;
 
   return (
