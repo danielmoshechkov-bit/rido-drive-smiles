@@ -25,9 +25,8 @@ Deno.serve(async (req) => {
       .from('service_bookings')
       .select(`
         id, booking_number, customer_name, customer_phone, scheduled_date, scheduled_time,
-        vehicle_brand, vehicle_model, vehicle_plate, customer_notes,
-        service_providers(company_name, short_name, company_address, company_city, company_phone),
-        provider_services(name)
+        vehicle_brand, vehicle_model, vehicle_plate, customer_notes, service_id,
+        service_providers(company_name, short_name, company_address, company_city, company_phone)
       `)
       .eq('id', booking_id)
       .single();
@@ -37,8 +36,13 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Booking not found' }), { status: 404, headers: corsHeaders });
     }
 
+    let service: any = null;
+    if (b.service_id) {
+      const { data: svc } = await supabase.from('provider_services').select('name').eq('id', b.service_id).maybeSingle();
+      service = svc;
+    }
+
     const provider: any = b.service_providers;
-    const service: any = b.provider_services;
     const providerName = provider?.short_name || provider?.company_name || 'Usługodawca';
     const providerPhone = provider?.company_phone || '';
     const addr = [provider?.company_address, provider?.company_city].filter(Boolean).join(', ');
