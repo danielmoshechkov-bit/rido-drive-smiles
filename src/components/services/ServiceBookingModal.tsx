@@ -99,7 +99,7 @@ export function ServiceBookingModal({ provider, service, open, onOpenChange }: S
   const checkUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     setUser(user);
-    if (user) setCustomerEmail(user.email || '');
+    // Nie auto-uzupełniamy emaila — klient wpisuje własny
   };
 
   const checkPendingReviews = async () => {
