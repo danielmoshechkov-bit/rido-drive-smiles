@@ -287,7 +287,6 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
   }
 
   // Module view with sidebar
-  const isFullHeightModule = activeModule === 'terminarz';
   return (
     <div className="flex gap-0 min-h-[calc(100dvh-120px)]">
       <WorkshopSidebar activeModule={activeModule} onNavigate={goTo} />
