@@ -129,12 +129,18 @@ export function ExistingInvoiceModal({ open, onOpenChange, invoice, orderNumber,
       )}
 
       {correctionOpen && (
-        <CorrectionInvoiceDialog
-          open={correctionOpen}
-          onOpenChange={(v) => { if (!v) setCorrectionOpen(false); }}
-          originalInvoice={invoice}
-          onSaved={() => { setCorrectionOpen(false); onChanged?.(); }}
-        />
+        <Dialog open={correctionOpen} onOpenChange={(v) => { if (!v) setCorrectionOpen(false); }}>
+          <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto p-0">
+            <DialogTitle className="sr-only">Wystaw korektę</DialogTitle>
+            <SimpleFreeInvoice
+              onClose={() => setCorrectionOpen(false)}
+              onSaved={() => { setCorrectionOpen(false); onChanged?.(); }}
+            />
+            <div className="px-6 pb-4 text-sm text-muted-foreground">
+              Wybierz typ "Faktura korygująca" i fakturę pierwotną <strong>{invoice.invoice_number}</strong>.
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </>
   );
