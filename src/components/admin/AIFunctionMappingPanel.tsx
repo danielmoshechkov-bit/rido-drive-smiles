@@ -152,6 +152,7 @@ export function AIFunctionMappingPanel() {
   const [saving, setSaving] = useState<string | null>(null);
   const [testing, setTesting] = useState<string | null>(null);
   const [activeModule, setActiveModule] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => { loadData(); }, []);
 
@@ -210,9 +211,21 @@ export function AIFunctionMappingPanel() {
 
   if (loading) return <div className="flex justify-center p-8"><Loader2 className="h-6 w-6 animate-spin" /></div>;
 
-  const filteredMappings = activeModule === "all"
-    ? mappings
-    : mappings.filter(m => (FUNCTION_MODULES[m.function_key] || "inne") === activeModule);
+  const q = searchQuery.trim().toLowerCase();
+  const filteredMappings = mappings.filter(m => {
+    const moduleOk = activeModule === "all" || (FUNCTION_MODULES[m.function_key] || "inne") === activeModule;
+    if (!moduleOk) return false;
+    if (!q) return true;
+    const haystack = [
+      m.function_name,
+      m.function_key,
+      m.function_description || "",
+      m.provider_key || "",
+      m.model_override || "",
+      MODULE_CONFIG.find(c => c.value === (FUNCTION_MODULES[m.function_key] || "inne"))?.label || "",
+    ].join(" ").toLowerCase();
+    return haystack.includes(q);
+  });
 
   const enabledCount = mappings.filter(m => m.is_enabled).length;
   const enabledProviders = providers.filter(p => p.is_enabled);
@@ -233,6 +246,29 @@ export function AIFunctionMappingPanel() {
             <Badge variant="secondary">{mappings.length - enabledCount} wyłączonych</Badge>
           </div>
         </CardHeader>
+        <CardContent className="pt-0">
+          <div className="relative">
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="🔍 Szukaj funkcji (np. opis, OCR, listing, kimi, claude)..."
+              className="pr-20"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded hover:bg-muted"
+              >
+                Wyczyść
+              </button>
+            )}
+            {q && (
+              <p className="text-xs text-muted-foreground mt-1.5">
+                Znaleziono {filteredMappings.length} {filteredMappings.length === 1 ? "funkcję" : "funkcji"}
+              </p>
+            )}
+          </div>
+        </CardContent>
       </Card>
 
       {/* Module filter tabs - simple text buttons, matching portal style */}
