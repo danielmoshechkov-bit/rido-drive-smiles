@@ -22,6 +22,7 @@ interface Service {
   price_from: number | null;
   price_type: string;
   duration_minutes: number;
+  category?: string | null;
 }
 
 interface ServiceProvider {
@@ -52,7 +53,8 @@ export function ServiceBookingModal({ provider, service, open, onOpenChange }: S
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [hasPendingReviews, setHasPendingReviews] = useState(false);
   const [workingHours, setWorkingHours] = useState<WorkingHour[]>([]);
-  const [busySlots, setBusySlots] = useState<string[]>([]);
+  const [slotLoad, setSlotLoad] = useState<Record<string, number>>({}); // ile rezerwacji w danym slocie
+  const [maxCapacity, setMaxCapacity] = useState<number>(1); // ile stanowisk obsługuje tę kategorię
 
   // Form state
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
@@ -99,7 +101,7 @@ export function ServiceBookingModal({ provider, service, open, onOpenChange }: S
   const checkUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     setUser(user);
-    if (user) setCustomerEmail(user.email || '');
+    // Nie auto-uzupełniamy emaila — klient wpisuje własny
   };
 
   const checkPendingReviews = async () => {
@@ -165,24 +167,53 @@ export function ServiceBookingModal({ provider, service, open, onOpenChange }: S
   const loadBusySlots = async () => {
     if (!provider || !selectedDate) return;
     const dateStr = format(selectedDate, 'yyyy-MM-dd');
+
+    // 1) Pobierz liczbę aktywnych stanowisk obsługujących kategorię tej usługi
+    const serviceCategory = (service?.category || '').toLowerCase().trim();
+    const { data: stations } = await (supabase as any)
+      .from('workshop_workstations')
+      .select('id, category, is_active')
+      .eq('provider_id', provider.id)
+      .eq('is_active', true);
+
+    let capacity = 1;
+    if (Array.isArray(stations) && stations.length > 0) {
+      // Dopasuj stanowiska po kategorii (case-insensitive, częściowe dopasowanie)
+      const matching = serviceCategory
+        ? stations.filter((s: any) => {
+            const c = (s.category || '').toLowerCase().trim();
+            return c && (c === serviceCategory || c.includes(serviceCategory) || serviceCategory.includes(c));
+          })
+        : [];
+      // Jeśli brak dopasowania per kategoria — użyj wszystkich aktywnych stanowisk
+      capacity = matching.length > 0 ? matching.length : stations.length;
+    }
+    setMaxCapacity(capacity);
+
+    // 2) Policz ile rezerwacji w danym slocie 30-min
     const { data } = await supabase
       .from('service_bookings')
-      .select('scheduled_time, duration_minutes')
+      .select('scheduled_time, duration_minutes, service_id, services:provider_services(category)')
       .eq('provider_id', provider.id)
       .eq('scheduled_date', dateStr)
       .not('status', 'in', '(cancelled,rejected)');
-    
-    const busy: string[] = [];
+
+    const load: Record<string, number> = {};
     (data || []).forEach((b: any) => {
+      // Licz tylko rezerwacje tej samej kategorii (konkurujące o te same stanowiska)
+      const bookingCat = (b.services?.category || '').toLowerCase().trim();
+      if (serviceCategory && bookingCat && bookingCat !== serviceCategory) return;
+
       const start = parse(b.scheduled_time, 'HH:mm:ss', new Date());
       const end = addMinutes(start, b.duration_minutes || 60);
       let cur = start;
       while (cur < end) {
-        busy.push(format(cur, 'HH:mm'));
+        const key = format(cur, 'HH:mm');
+        load[key] = (load[key] || 0) + 1;
         cur = addMinutes(cur, 30);
       }
     });
-    setBusySlots(busy);
+    setSlotLoad(load);
   };
 
   // Generate slots from working hours for selected day
@@ -327,21 +358,46 @@ export function ServiceBookingModal({ provider, service, open, onOpenChange }: S
                   </Label>
                   <div className="grid grid-cols-4 gap-2">
                     {availableSlots.map(time => {
-                      const isBusy = busySlots.includes(time);
+                      const used = slotLoad[time] || 0;
+                      const free = Math.max(0, maxCapacity - used);
+                      const isFull = free <= 0;
+                      const isLastSpot = !isFull && free === 1 && maxCapacity > 1;
+                      const isSelected = selectedTime === time;
+
+                      let cls = '';
+                      if (isSelected) {
+                        cls = 'bg-primary text-primary-foreground hover:bg-primary/90';
+                      } else if (isFull) {
+                        cls = 'bg-destructive/15 text-destructive border-destructive/40 hover:bg-destructive/20';
+                      } else if (isLastSpot) {
+                        cls = 'bg-orange-100 text-orange-900 border-orange-300 hover:bg-orange-200 dark:bg-orange-950/40 dark:text-orange-200 dark:border-orange-700';
+                      }
+
                       return (
                         <Button
                           key={time}
-                          variant={selectedTime === time ? 'default' : 'outline'}
+                          variant={isSelected ? 'default' : 'outline'}
                           size="sm"
-                          disabled={isBusy}
+                          disabled={isFull}
                           onClick={() => setSelectedTime(time)}
+                          className={cls}
+                          title={isFull ? 'Brak wolnych stanowisk' : isLastSpot ? `Zostało ${free} z ${maxCapacity} miejsc` : `${free}/${maxCapacity} wolne`}
                         >
                           {time}
                         </Button>
                       );
                     })}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-2">Wybierz wolny termin z kalendarza usługodawcy.</p>
+                  <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+                    {maxCapacity > 1 && (
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded border bg-background" />Wolne</span>
+                        <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded border border-orange-300 bg-orange-100" />Ostatnie miejsce</span>
+                        <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded border border-destructive/40 bg-destructive/15" />Zajęte</span>
+                      </div>
+                    )}
+                    <p>Rezerwacja nie gwarantuje terminu — zostanie potwierdzony przez usługodawcę po weryfikacji SMS.</p>
+                  </div>
                 </div>
               )}
 
