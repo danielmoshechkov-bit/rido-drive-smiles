@@ -152,8 +152,7 @@ export function AIFunctionMappingPanel() {
   const [saving, setSaving] = useState<string | null>(null);
   const [testing, setTesting] = useState<string | null>(null);
   const [activeModule, setActiveModule] = useState("all");
-
-  useEffect(() => { loadData(); }, []);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const loadData = async () => {
     setLoading(true);
