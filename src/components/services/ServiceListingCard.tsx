@@ -29,6 +29,7 @@ interface ServiceListingCardProps {
     description: string;
     logo_url?: string | null;
     cover_image_url?: string | null;
+    gallery_photos?: string[] | null;
     rating_avg?: number | null;
     rating_count: number;
     category?: { name: string; slug: string };
@@ -56,24 +57,24 @@ export function ServiceListingCard({
   const [showLightbox, setShowLightbox] = useState(false);
   const [imageError, setImageError] = useState(false);
 
-  // Get photos - use cover_image_url + service photos + category gallery (NO logo in main gallery)
+  // Photos priority: gallery_photos uploaded by provider → cover → category fallback (NEVER logo)
   const categorySlug = provider.category?.slug;
   const categoryGallery = getServiceGallery(categorySlug);
-  
-  // Build photos array: cover first, then category gallery as fallback (NEVER logo)
+
   let photos: string[] = [];
-  if (provider.cover_image_url) photos.push(provider.cover_image_url);
-  
-  // Fill remaining slots with category gallery images (up to 3 total)
-  for (const img of categoryGallery) {
-    if (!photos.includes(img) && photos.length < 3) {
-      photos.push(img);
-    }
+  // 1. Provider's own uploaded gallery has top priority
+  if (Array.isArray(provider.gallery_photos) && provider.gallery_photos.length > 0) {
+    photos.push(...provider.gallery_photos.filter(Boolean));
   }
-  
-  // Fallback if still empty
-  if (photos.length === 0) photos = categoryGallery;
-  
+  // 2. Cover image as fallback if no gallery
+  if (photos.length === 0 && provider.cover_image_url) {
+    photos.push(provider.cover_image_url);
+  }
+  // 3. Category gallery fallback only if still empty
+  if (photos.length === 0) {
+    photos = categoryGallery;
+  }
+
   const displayPhotos = photos;
 
   const getPhotoSrc = (index: number) => {
