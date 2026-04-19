@@ -191,7 +191,7 @@ export default function ServicesMarketplace() {
           *,
           category:service_categories(*),
           services(id, name, price, price_type),
-          provider_services(id, name, price_from, price_to, status, category)
+          provider_services(id, name, price_from, price_to, is_active, category)
         `)
         .eq('status', 'active')
         .order('rating_avg', { ascending: false, nullsFirst: false });
