@@ -48,6 +48,7 @@ interface ServiceProvider {
   description: string;
   logo_url: string | null;
   cover_image_url: string | null;
+  gallery_photos: string[] | null;
   rating_avg: number | null;
   rating_count: number;
   category?: { name: string; slug: string };
@@ -177,23 +178,34 @@ export function ServiceProviderDetailPage() {
     setBookingModalOpen(true);
   };
 
-  // Get photos for gallery
+  // Get photos for gallery — provider's own gallery has top priority
   const getPhotos = () => {
     const photos: string[] = [];
 
-    if (provider?.cover_image_url) photos.push(provider.cover_image_url);
+    // 1. Provider's uploaded gallery (highest priority)
+    if (Array.isArray(provider?.gallery_photos)) {
+      for (const ph of provider.gallery_photos) {
+        if (ph && !photos.includes(ph)) photos.push(ph);
+      }
+    }
 
+    // 2. Cover image as fallback
+    if (provider?.cover_image_url && !photos.includes(provider.cover_image_url)) {
+      photos.push(provider.cover_image_url);
+    }
+
+    // 3. Service photos from offer
     for (const service of services) {
       for (const photo of service.photos || []) {
         if (photo && !photos.includes(photo)) photos.push(photo);
       }
     }
 
-    const categoryImage = getServiceCoverImage(provider?.category?.slug);
-    if (!photos.includes(categoryImage)) {
-      photos.push(categoryImage);
+    // 4. Category fallback only if still empty
+    if (photos.length === 0) {
+      photos.push(getServiceCoverImage(provider?.category?.slug));
     }
-    
+
     return photos;
   };
 
@@ -457,7 +469,7 @@ export function ServiceProviderDetailPage() {
             {/* Description */}
             <div>
               <h2 className="text-xl font-semibold mb-4">O firmie</h2>
-              <div className="prose prose-sm max-w-none text-muted-foreground whitespace-pre-line">
+              <div className="prose prose-base max-w-none text-foreground/90 whitespace-pre-line leading-relaxed">
                 {provider.description || "Brak opisu"}
               </div>
             </div>
