@@ -710,6 +710,8 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
         </CardContent>
       </Card>
 
+      {/* Rezerwacje z portalu — druga tabela poniżej */}
+      <WorkshopPortalBookings providerId={providerId} />
       <WorkshopNewOrderDialog
         open={showNewOrder}
         onOpenChange={setShowNewOrder}
