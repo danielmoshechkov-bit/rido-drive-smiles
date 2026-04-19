@@ -748,18 +748,46 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
             <DialogTitle className="sr-only">Wystaw fakturę</DialogTitle>
             <SimpleFreeInvoice
               onClose={() => setInvoiceOrder(null)}
-              onSaved={() => {
+              onSaved={async () => {
+                const orderId = invoiceOrder?.id;
                 setInvoiceOrder(null);
                 toast.success('Faktura wystawiona');
+                // Auto-status: set order to "Gotowy do odbioru" if not yet
+                if (orderId) {
+                  const lower = (invoiceOrder?.status_name || '').toLowerCase();
+                  if (!lower.includes('gotow') && !lower.includes('zakończ') && !lower.includes('odbioru')) {
+                    await (supabase as any)
+                      .from('workshop_orders')
+                      .update({ status_name: 'Gotowy do odbioru' })
+                      .eq('id', orderId);
+                  }
+                  // Trigger ready-SMS popup if not yet sent
+                  if (!invoiceOrder?.ready_notification_sent) {
+                    setSmsDialogType('ready');
+                    setSmsDialogOrder({ ...invoiceOrder, status_name: 'Gotowy do odbioru' });
+                  }
+                }
                 queryClient.invalidateQueries({ queryKey: ['workshop-orders'] });
               }}
               prefillItems={invoiceItems}
               prefillBuyer={invoiceBuyer}
               prefillNotes={invoiceNotes}
               prefillOrderNumber={invoiceOrder?.order_number}
+              prefillWorkshopOrderId={invoiceOrder?.id}
             />
           </DialogContent>
         </Dialog>
+      )}
+
+      {/* Existing invoice — duplicate prevention modal */}
+      {existingInvoice && (
+        <ExistingInvoiceModal
+          open={!!existingInvoice}
+          onOpenChange={(v) => { if (!v) { setExistingInvoice(null); setExistingInvoiceOrder(null); } }}
+          invoice={existingInvoice}
+          orderNumber={existingInvoiceOrder?.order_number}
+          onChanged={() => queryClient.invalidateQueries({ queryKey: ['workshop-orders'] })}
+        />
       )}
     </div>
   );
