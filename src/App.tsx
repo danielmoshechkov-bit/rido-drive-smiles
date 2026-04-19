@@ -76,6 +76,7 @@ import DriverInfoLanding from "./pages/DriverInfoLanding";
 import SalesPortal from "./pages/SalesPortal";
 import RentalClientPortal from "./pages/RentalClientPortal";
 import WorkshopClientCard from "./pages/WorkshopClientCard";
+import WorkshopSmsCenter from "./pages/WorkshopSmsCenter";
 import RidoAIChat from "./pages/RidoAIChat";
 import MeetingsPage from "./pages/MeetingsPage";
 import RidoMailPage from "./pages/RidoMailPage";
