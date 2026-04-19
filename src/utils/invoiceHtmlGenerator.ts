@@ -16,6 +16,7 @@ export interface InvoiceItem {
 
 export interface InvoiceSeller {
   name: string;
+  short_name?: string;
   nip?: string;
   address_street?: string;
   address_building_number?: string;
