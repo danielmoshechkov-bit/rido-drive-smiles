@@ -99,11 +99,55 @@ export function ServiceBookingModal({ provider, service, open, onOpenChange }: S
 
   const loadWorkingHours = async () => {
     if (!provider) return;
-    const { data } = await supabase
+
+    // 1. Try service_working_hours (primary source)
+    const { data: swh } = await supabase
       .from('service_working_hours')
       .select('day_of_week, start_time, end_time, is_working')
       .eq('provider_id', provider.id);
-    setWorkingHours(data || []);
+
+    if (swh && swh.length > 0) {
+      setWorkingHours(swh);
+      return;
+    }
+
+    // 2. Fallback: workshop_settings (provider's user_id)
+    const { data: prov } = await (supabase as any)
+      .from('service_providers')
+      .select('user_id')
+      .eq('id', provider.id)
+      .maybeSingle();
+
+    if (!prov?.user_id) {
+      setWorkingHours([]);
+      return;
+    }
+
+    const { data: ws } = await (supabase as any)
+      .from('workshop_settings')
+      .select('working_hours')
+      .eq('user_id', prov.user_id)
+      .maybeSingle();
+
+    const wh = ws?.working_hours;
+    if (!Array.isArray(wh)) {
+      setWorkingHours([]);
+      return;
+    }
+
+    // workshop_settings format: [Mon, Tue, Wed, Thu, Fri, Sat, Sun] with {open, from, to}
+    // Map to service_working_hours format with day_of_week (0=Sun, 1=Mon..6=Sat to match getDay())
+    const mapped: WorkingHour[] = wh.map((d: any, idx: number) => {
+      // Workshop index 0=Mon → getDay()=1; index 6=Sun → getDay()=0
+      const dayOfWeek = idx === 6 ? 0 : idx + 1;
+      return {
+        day_of_week: dayOfWeek,
+        start_time: (d?.from || '09:00') + ':00',
+        end_time: (d?.to || '17:00') + ':00',
+        is_working: !!d?.open,
+      };
+    });
+    setWorkingHours(mapped);
   };
 
   const loadBusySlots = async () => {

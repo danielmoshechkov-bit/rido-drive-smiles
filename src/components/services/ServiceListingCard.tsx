@@ -57,29 +57,20 @@ export function ServiceListingCard({
   const [showLightbox, setShowLightbox] = useState(false);
   const [imageError, setImageError] = useState(false);
 
-  // Photos priority: gallery_photos uploaded by provider → cover → category fallback (NEVER logo)
-  const categorySlug = provider.category?.slug;
-  const categoryGallery = getServiceGallery(categorySlug);
-
+  // Photos: ONLY provider's actual uploads (gallery → cover). No fake category fallback.
   let photos: string[] = [];
-  // 1. Provider's own uploaded gallery has top priority
   if (Array.isArray(provider.gallery_photos) && provider.gallery_photos.length > 0) {
     photos.push(...provider.gallery_photos.filter(Boolean));
   }
-  // 2. Cover image as fallback if no gallery
   if (photos.length === 0 && provider.cover_image_url) {
     photos.push(provider.cover_image_url);
   }
-  // 3. Category gallery fallback only if still empty
-  if (photos.length === 0) {
-    photos = categoryGallery;
-  }
 
   const displayPhotos = photos;
+  const hasRealPhotos = displayPhotos.length > 0;
 
   const getPhotoSrc = (index: number) => {
-    if (imageError) return categoryGallery[0];
-    return displayPhotos[index] || categoryGallery[0];
+    return displayPhotos[index] || '';
   };
 
   const nextPhoto = (e: React.MouseEvent) => {
@@ -130,13 +121,17 @@ export function ServiceListingCard({
         >
           {/* Photo - aspect-3/2 like vehicle compact */}
           <div className="relative bg-muted overflow-hidden aspect-[3/2]" onClick={handlePhotoClick}>
-            <img
-              src={getPhotoSrc(currentPhoto)}
-              alt={provider.company_name}
-              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-              onError={() => setImageError(true)}
-            />
-            
+            {hasRealPhotos ? (
+              <img
+                src={getPhotoSrc(currentPhoto)}
+                alt={provider.company_name}
+                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
+                <span className="text-5xl font-bold text-primary/40">{provider.company_name?.charAt(0) || '?'}</span>
+              </div>
+            )}
             {/* Favorite Button */}
             <button
               onClick={(e) => {
@@ -210,12 +205,17 @@ export function ServiceListingCard({
               className="relative bg-muted overflow-hidden sm:w-64 md:w-72 flex-shrink-0 aspect-[4/3] sm:aspect-auto sm:h-48"
               onClick={handlePhotoClick}
             >
-              <img
-                src={getPhotoSrc(currentPhoto)}
-                alt={provider.company_name}
-                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                onError={() => setImageError(true)}
-              />
+              {hasRealPhotos ? (
+                <img
+                  src={getPhotoSrc(currentPhoto)}
+                  alt={provider.company_name}
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
+                  <span className="text-6xl font-bold text-primary/40">{provider.company_name?.charAt(0) || '?'}</span>
+                </div>
+              )}
 
               {/* Favorite Button */}
               <button
@@ -347,12 +347,17 @@ export function ServiceListingCard({
           className="relative bg-muted overflow-hidden aspect-[4/3]"
           onClick={handlePhotoClick}
         >
-          <img
-            src={getPhotoSrc(currentPhoto)}
-            alt={provider.company_name}
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-            onError={() => setImageError(true)}
-          />
+          {hasRealPhotos ? (
+            <img
+              src={getPhotoSrc(currentPhoto)}
+              alt={provider.company_name}
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
+              <span className="text-7xl font-bold text-primary/40">{provider.company_name?.charAt(0) || '?'}</span>
+            </div>
+          )}
 
           {/* Photo Navigation */}
           {displayPhotos.length > 1 && (

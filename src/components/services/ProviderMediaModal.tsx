@@ -2,9 +2,10 @@ import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Upload, Trash2, Image as ImageIcon, Loader2, GripVertical } from 'lucide-react';
+import { Upload, Trash2, Image as ImageIcon, Loader2, Star } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 interface ProviderMediaModalProps {
   open: boolean;
@@ -27,6 +28,7 @@ export function ProviderMediaModal({
   const [gallery, setGallery] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState<'logo' | 'cover' | 'gallery' | null>(null);
 
   const logoInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
@@ -65,6 +67,10 @@ export function ProviderMediaModal({
 
   const handleUpload = async (file: File, kind: 'logo' | 'cover') => {
     if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('Wybierz plik graficzny');
+      return;
+    }
     setUploading(true);
     try {
       const url = await uploadToStorage(file, kind);
@@ -85,12 +91,14 @@ export function ProviderMediaModal({
     }
   };
 
-  const handleGalleryUpload = async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
+  const handleGalleryUpload = async (files: FileList | File[] | null) => {
+    if (!files) return;
+    const fileArr = Array.from(files).filter(f => f.type.startsWith('image/'));
+    if (fileArr.length === 0) return;
     setUploading(true);
     try {
       const uploaded: string[] = [];
-      for (const file of Array.from(files)) {
+      for (const file of fileArr) {
         const url = await uploadToStorage(file, 'gallery');
         uploaded.push(url);
       }
@@ -161,6 +169,35 @@ export function ProviderMediaModal({
     onSaved?.();
   };
 
+  const setAsMain = async (index: number) => {
+    if (index === 0) return;
+    const newGallery = [gallery[index], ...gallery.filter((_, i) => i !== index)];
+    setGallery(newGallery);
+    await (supabase as any).from('service_providers').update({ gallery_photos: newGallery }).eq('id', providerId);
+    toast.success('Ustawiono jako zdjęcie główne');
+    onSaved?.();
+  };
+
+  // Drag & drop helpers
+  const dropHandlers = (kind: 'logo' | 'cover' | 'gallery') => ({
+    onDragOver: (e: React.DragEvent) => {
+      e.preventDefault();
+      setDragOver(kind);
+    },
+    onDragLeave: () => setDragOver(null),
+    onDrop: (e: React.DragEvent) => {
+      e.preventDefault();
+      setDragOver(null);
+      const files = e.dataTransfer.files;
+      if (!files || files.length === 0) return;
+      if (kind === 'gallery') {
+        handleGalleryUpload(files);
+      } else {
+        handleUpload(files[0], kind);
+      }
+    },
+  });
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -186,18 +223,27 @@ export function ProviderMediaModal({
             </TabsList>
 
             <TabsContent value="logo" className="space-y-4 mt-4">
-              <div className="aspect-square max-w-xs mx-auto rounded-xl border-2 border-dashed border-border bg-muted/30 flex items-center justify-center overflow-hidden p-2">
+              <div
+                {...dropHandlers('logo')}
+                onClick={() => !logoUrl && logoInputRef.current?.click()}
+                className={cn(
+                  "max-w-xs mx-auto rounded-xl border-2 border-dashed bg-muted/30 flex items-center justify-center overflow-hidden p-4 transition-colors min-h-[240px]",
+                  dragOver === 'logo' ? 'border-primary bg-primary/10' : 'border-border',
+                  !logoUrl && 'cursor-pointer hover:border-primary/60'
+                )}
+              >
                 {logoUrl ? (
-                  <img src={logoUrl} alt="Logo" className="max-h-full max-w-full object-contain" />
+                  <img src={logoUrl} alt="Logo" className="max-h-[220px] max-w-full w-auto h-auto object-contain" />
                 ) : (
                   <div className="text-center text-muted-foreground">
                     <ImageIcon className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">Brak logo</p>
+                    <p className="text-sm font-medium">Przeciągnij i upuść logo</p>
+                    <p className="text-xs mt-1">lub kliknij, aby wybrać plik</p>
                   </div>
                 )}
               </div>
               <p className="text-xs text-muted-foreground text-center">
-                Najlepiej PNG z przezroczystym tłem. Wyświetlane obok nazwy firmy.
+                Najlepiej PNG z przezroczystym tłem. Logo zachowuje oryginalne proporcje (nie jest przycinane).
               </p>
               <div className="flex gap-2 justify-center">
                 <input ref={logoInputRef} type="file" accept="image/*" className="hidden"
@@ -215,13 +261,22 @@ export function ProviderMediaModal({
             </TabsContent>
 
             <TabsContent value="cover" className="space-y-4 mt-4">
-              <div className="aspect-[16/9] rounded-xl border-2 border-dashed border-border bg-muted/30 flex items-center justify-center overflow-hidden">
+              <div
+                {...dropHandlers('cover')}
+                onClick={() => !coverUrl && coverInputRef.current?.click()}
+                className={cn(
+                  "aspect-[16/9] rounded-xl border-2 border-dashed bg-muted/30 flex items-center justify-center overflow-hidden transition-colors",
+                  dragOver === 'cover' ? 'border-primary bg-primary/10' : 'border-border',
+                  !coverUrl && 'cursor-pointer hover:border-primary/60'
+                )}
+              >
                 {coverUrl ? (
                   <img src={coverUrl} alt="Cover" className="w-full h-full object-cover" />
                 ) : (
                   <div className="text-center text-muted-foreground">
                     <ImageIcon className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">Brak zdjęcia tła</p>
+                    <p className="text-sm font-medium">Przeciągnij i upuść zdjęcie tła</p>
+                    <p className="text-xs mt-1">lub kliknij, aby wybrać plik</p>
                   </div>
                 )}
               </div>
@@ -246,7 +301,7 @@ export function ProviderMediaModal({
             <TabsContent value="gallery" className="space-y-4 mt-4">
               <div className="flex justify-between items-center">
                 <p className="text-sm text-muted-foreground">
-                  Zdjęcia widoczne w karuzeli na karcie firmy. Możesz wgrać kilka naraz.
+                  Pierwsze zdjęcie jest <strong>główne</strong> (widoczne w portalu usług). Możesz zmieniać kolejność i wgrać kilka naraz.
                 </p>
                 <input ref={galleryInputRef} type="file" accept="image/*" multiple className="hidden"
                   onChange={(e) => handleGalleryUpload(e.target.files)} />
@@ -256,40 +311,57 @@ export function ProviderMediaModal({
                 </Button>
               </div>
 
-              {gallery.length === 0 ? (
-                <div className="border-2 border-dashed border-border rounded-xl bg-muted/30 py-12 text-center text-muted-foreground">
-                  <ImageIcon className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">Brak zdjęć w galerii</p>
-                  <p className="text-xs mt-1">Dodaj zdjęcia warsztatu, usług lub realizacji</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {gallery.map((url, idx) => (
-                    <div key={url + idx} className="relative group rounded-lg overflow-hidden border bg-muted aspect-[4/3]">
-                      <img src={url} alt={`Galeria ${idx + 1}`} className="w-full h-full object-cover" />
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100">
-                        <Button size="sm" variant="secondary" className="h-7 w-7 p-0" disabled={idx === 0 || uploading}
-                          onClick={() => moveImage(idx, -1)} title="W lewo">
-                          ←
-                        </Button>
-                        <Button size="sm" variant="secondary" className="h-7 w-7 p-0" disabled={idx === gallery.length - 1 || uploading}
-                          onClick={() => moveImage(idx, 1)} title="W prawo">
-                          →
-                        </Button>
-                        <Button size="sm" variant="destructive" className="h-7 w-7 p-0" disabled={uploading}
-                          onClick={() => handleGalleryDelete(idx)}>
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+              <div
+                {...dropHandlers('gallery')}
+                className={cn(
+                  "border-2 border-dashed rounded-xl bg-muted/30 transition-colors p-3",
+                  dragOver === 'gallery' ? 'border-primary bg-primary/10' : 'border-border'
+                )}
+              >
+                {gallery.length === 0 ? (
+                  <div
+                    className="py-12 text-center text-muted-foreground cursor-pointer"
+                    onClick={() => galleryInputRef.current?.click()}
+                  >
+                    <ImageIcon className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm font-medium">Przeciągnij i upuść zdjęcia</p>
+                    <p className="text-xs mt-1">lub kliknij, aby wybrać pliki</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {gallery.map((url, idx) => (
+                      <div key={url + idx} className="relative group rounded-lg overflow-hidden border bg-muted aspect-[4/3]">
+                        <img src={url} alt={`Galeria ${idx + 1}`} className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100">
+                          {idx !== 0 && (
+                            <Button size="sm" variant="secondary" className="h-7 w-7 p-0" disabled={uploading}
+                              onClick={() => setAsMain(idx)} title="Ustaw jako główne">
+                              <Star className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                          <Button size="sm" variant="secondary" className="h-7 w-7 p-0" disabled={idx === 0 || uploading}
+                            onClick={() => moveImage(idx, -1)} title="W lewo">
+                            ←
+                          </Button>
+                          <Button size="sm" variant="secondary" className="h-7 w-7 p-0" disabled={idx === gallery.length - 1 || uploading}
+                            onClick={() => moveImage(idx, 1)} title="W prawo">
+                            →
+                          </Button>
+                          <Button size="sm" variant="destructive" className="h-7 w-7 p-0" disabled={uploading}
+                            onClick={() => handleGalleryDelete(idx)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                        {idx === 0 && (
+                          <span className="absolute top-1 left-1 bg-primary text-primary-foreground text-[10px] px-1.5 py-0.5 rounded flex items-center gap-1">
+                            <Star className="h-2.5 w-2.5 fill-current" /> Główne
+                          </span>
+                        )}
                       </div>
-                      {idx === 0 && (
-                        <span className="absolute top-1 left-1 bg-primary text-primary-foreground text-[10px] px-1.5 py-0.5 rounded">
-                          Główne
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
+              </div>
             </TabsContent>
           </Tabs>
         )}
