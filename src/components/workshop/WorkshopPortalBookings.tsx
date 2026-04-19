@@ -315,22 +315,27 @@ export function WorkshopPortalBookings({ providerId }: Props) {
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
-                        {b.status === 'pending' ? (
-                          <div className="flex gap-1 justify-end">
+                        <div className="flex gap-1 justify-end">
+                          {b.status === 'pending' && (
                             <Button size="sm" className="h-7 text-xs" onClick={() => handleConfirm(b)} disabled={actingId === b.id}>
                               {actingId === b.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <><CheckCircle2 className="h-3 w-3 mr-1" /> Potwierdź</>}
                             </Button>
+                          )}
+                          <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => openEdit(b)} title="Edytuj termin">
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                          {b.status === 'pending' ? (
                             <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => handleReject(b)} disabled={actingId === b.id} title="Odrzuć">
                               <XCircle className="h-3 w-3" />
                             </Button>
-                          </div>
-                        ) : (
-                          <a href={`tel:${b.customer_phone}`} className="inline-flex">
-                            <Button size="sm" variant="outline" className="h-7 text-xs">
-                              <Phone className="h-3 w-3 mr-1" /> Zadzwoń
-                            </Button>
-                          </a>
-                        )}
+                          ) : (
+                            <a href={`tel:${b.customer_phone}`} className="inline-flex">
+                              <Button size="sm" variant="outline" className="h-7 px-2" title="Zadzwoń">
+                                <Phone className="h-3 w-3" />
+                              </Button>
+                            </a>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
