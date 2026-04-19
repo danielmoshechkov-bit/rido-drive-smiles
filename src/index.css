@@ -252,12 +252,26 @@ All colors MUST be HSL.
 .section-content,
 div[class*="widget"],
 div[class*="card"] {
-  background: #F9F7FF !important; /* jasny fiolet RIDO */
+  background: #FFFFFF !important; /* białe tło głównych kart RIDO */
   opacity: 1 !important;
   backdrop-filter: none !important;
   border-radius: 16px !important;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.05) !important;
   border: 1px solid rgba(120, 80, 255, 0.07) !important;
+}
+
+/* --- Karta w karcie: pastelowy fiolet, podkreśla zagnieżdżenie na białym tle --- */
+.card .card,
+.widget .card,
+.card .widget,
+.widget .widget,
+div[class*="card"] div[class*="card"],
+div[class*="widget"] div[class*="widget"],
+div[class*="card"] div[class*="widget"],
+div[class*="widget"] div[class*="card"] {
+  background: #F4F0FF !important; /* pastelowy fiolet RIDO */
+  border: 1px solid rgba(120, 80, 255, 0.10) !important;
+  box-shadow: none !important;
 }
 
 /* --- nagłówki i teksty w kartach --- */
