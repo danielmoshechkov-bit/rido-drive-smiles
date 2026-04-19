@@ -15521,15 +15521,22 @@ export type Database = {
           final_price: number | null
           id: string
           loyalty_points_earned: number | null
+          provider_confirmed_at: string | null
           provider_id: string | null
           provider_notes: string | null
+          requires_provider_confirmation: boolean
           resource_id: string | null
           scheduled_date: string
           scheduled_time: string
           service_id: string | null
+          source: string
           started_at: string | null
           status: string | null
           updated_at: string | null
+          vehicle_brand: string | null
+          vehicle_model: string | null
+          vehicle_plate: string | null
+          vehicle_year: number | null
         }
         Insert: {
           booking_number: string
@@ -15549,15 +15556,22 @@ export type Database = {
           final_price?: number | null
           id?: string
           loyalty_points_earned?: number | null
+          provider_confirmed_at?: string | null
           provider_id?: string | null
           provider_notes?: string | null
+          requires_provider_confirmation?: boolean
           resource_id?: string | null
           scheduled_date: string
           scheduled_time: string
           service_id?: string | null
+          source?: string
           started_at?: string | null
           status?: string | null
           updated_at?: string | null
+          vehicle_brand?: string | null
+          vehicle_model?: string | null
+          vehicle_plate?: string | null
+          vehicle_year?: number | null
         }
         Update: {
           booking_number?: string
@@ -15577,15 +15591,22 @@ export type Database = {
           final_price?: number | null
           id?: string
           loyalty_points_earned?: number | null
+          provider_confirmed_at?: string | null
           provider_id?: string | null
           provider_notes?: string | null
+          requires_provider_confirmation?: boolean
           resource_id?: string | null
           scheduled_date?: string
           scheduled_time?: string
           service_id?: string | null
+          source?: string
           started_at?: string | null
           status?: string | null
           updated_at?: string | null
+          vehicle_brand?: string | null
+          vehicle_model?: string | null
+          vehicle_plate?: string | null
+          vehicle_year?: number | null
         }
         Relationships: [
           {
@@ -16338,6 +16359,7 @@ export type Database = {
           cover_image_url: string | null
           created_at: string | null
           description: string | null
+          gallery_photos: Json
           gmb_access_token: string | null
           gmb_auto_posts: boolean | null
           gmb_auto_reply_reviews: boolean | null
@@ -16380,6 +16402,7 @@ export type Database = {
           cover_image_url?: string | null
           created_at?: string | null
           description?: string | null
+          gallery_photos?: Json
           gmb_access_token?: string | null
           gmb_auto_posts?: boolean | null
           gmb_auto_reply_reviews?: boolean | null
@@ -16422,6 +16445,7 @@ export type Database = {
           cover_image_url?: string | null
           created_at?: string | null
           description?: string | null
+          gallery_photos?: Json
           gmb_access_token?: string | null
           gmb_auto_posts?: boolean | null
           gmb_auto_reply_reviews?: boolean | null
