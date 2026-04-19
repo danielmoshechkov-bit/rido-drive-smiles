@@ -214,7 +214,7 @@ export function FeaturedListings({ className, categoryContext, hideViewMore }: F
           // Combine legacy services and provider_services
           const legacyServices = s.services || [];
           const provServices = (s.provider_services || [])
-            .filter((ps: any) => ps.status === 'active')
+            .filter((ps: any) => ps.is_active !== false)
             .map((ps: any) => ({ name: ps.name, price: ps.price_from, is_featured: false }));
           const servicesList = [...legacyServices, ...provServices];
           
