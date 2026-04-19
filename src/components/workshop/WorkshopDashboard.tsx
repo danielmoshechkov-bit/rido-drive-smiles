@@ -230,6 +230,7 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
   }
 
   const goTo = (key: string | null) => setActiveModule(key);
+  const isSchedulerModule = activeModule === 'terminarz';
 
   const renderModuleContent = () => {
     switch (activeModule) {
@@ -288,9 +289,9 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
 
   // Module view with sidebar
   return (
-    <div className="flex gap-0 min-h-[calc(100dvh-120px)]">
+    <div className={isSchedulerModule ? 'flex h-full min-h-0 gap-0 overflow-hidden' : 'flex gap-0 min-h-[calc(100dvh-120px)]'}>
       <WorkshopSidebar activeModule={activeModule} onNavigate={goTo} />
-      <div className="flex-1 md:pl-3 min-w-0 flex flex-col">
+      <div className={isSchedulerModule ? 'flex-1 md:pl-3 min-w-0 flex h-full min-h-0 flex-col overflow-hidden' : 'flex-1 md:pl-3 min-w-0 flex flex-col'}>
         <MobileBackButton onBack={() => goTo(null)} />
         {renderModuleContent()}
       </div>

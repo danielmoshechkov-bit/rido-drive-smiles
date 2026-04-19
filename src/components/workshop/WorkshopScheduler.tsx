@@ -393,7 +393,7 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Termin
   const totalColumns = categoryStations.length * weekDays.length;
 
   return (
-    <div className="flex flex-col flex-1 min-h-[calc(100dvh-140px)]">
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
       {title && <h2 className="text-2xl font-bold tracking-tight mb-3">{title}</h2>}
 
       {/* Unplanned orders */}
@@ -468,7 +468,7 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Termin
 
       {/* Month View */}
       {viewMode === 'month' ? (
-        <div className="flex-1 overflow-auto rounded-xl border-2 border-foreground/20 shadow-lg">
+        <div className="flex-1 min-h-0 overflow-auto rounded-xl border-2 border-foreground/20 shadow-lg">
           <div className="grid grid-cols-7 bg-[hsl(220,30%,95%)] dark:bg-[hsl(220,20%,20%)]">
             {['Pon', 'Wt', 'Śr', 'Czw', 'Pt', 'Sob', 'Nd'].map(d => (
               <div key={d} className="p-2 text-center text-xs font-bold text-foreground border-b border-r border-foreground/15">{d}</div>
@@ -494,8 +494,8 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Termin
         </div>
       ) : (
         /* Day/Week grid */
-        <div className="flex-1 overflow-hidden rounded-xl border-2 border-foreground/20 shadow-lg">
-          <div className="overflow-auto h-full">
+        <div className="flex-1 min-h-0 overflow-hidden rounded-xl border-2 border-foreground/20 shadow-lg">
+          <div className="h-full overflow-auto">
             <table className="w-full border-collapse text-xs" style={{ tableLayout: 'fixed' }}>
               <colgroup>
                 <col style={{ width: '60px' }} />

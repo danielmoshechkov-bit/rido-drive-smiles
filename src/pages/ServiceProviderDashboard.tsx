@@ -103,6 +103,7 @@ export default function ServiceProviderDashboard() {
   const [serviceCategories, setServiceCategories] = useState<any[]>([]);
   const [activationSaving, setActivationSaving] = useState(false);
   const [coverImageFile, setCoverImageFile] = useState<File | null>(null);
+  const isWorkshopLayout = activeTab === 'workshop';
 
   // Settings state
   const [settingsForm, setSettingsForm] = useState({
@@ -423,7 +424,7 @@ export default function ServiceProviderDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-subtle">
+    <div className="min-h-screen bg-gradient-subtle flex flex-col">
       <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b shadow-sm">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -442,8 +443,8 @@ export default function ServiceProviderDashboard() {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-6">
-        <TabsPill value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+      <main className={`container mx-auto px-4 py-6 ${isWorkshopLayout ? 'flex flex-1 min-h-0 flex-col overflow-hidden' : ''}`}>
+        <TabsPill value={activeTab} onValueChange={setActiveTab} className={isWorkshopLayout ? 'flex min-h-0 flex-1 flex-col space-y-6' : 'space-y-6'}>
           {primaryTabs.includes('dashboard') && (
              <TabsTrigger value="dashboard">
               <LayoutDashboard className="h-4 w-4 mr-1.5" />
@@ -976,7 +977,7 @@ export default function ServiceProviderDashboard() {
             <ServiceProviderAccountingView />
           </TabsContent>
 
-          <TabsContent value="workshop" className="mt-6">
+          <TabsContent value="workshop" className={`mt-6 ${isWorkshopLayout ? 'flex-1 min-h-0 overflow-hidden' : ''}`}>
             <WorkshopDashboard providerId={providerId} />
           </TabsContent>
 
