@@ -135,7 +135,10 @@ export function ServiceProviderDetailPage() {
           name: s.name,
           description: s.description,
           price: s.price_from,
+          price_from: s.price_from,
           price_to: s.price_to,
+          price_type: s.price_type || 'fixed',
+          duration_minutes: s.duration_minutes || 60,
           category: s.category,
           photos: s.photos || [],
           is_active: true,
@@ -143,6 +146,7 @@ export function ServiceProviderDetailPage() {
         })),
         ...(legacyServices || []).map((s: any) => ({
           ...s,
+          duration_minutes: s.duration_minutes || 60,
           _isProviderCategory: true,
         })),
       ];
@@ -181,27 +185,12 @@ export function ServiceProviderDetailPage() {
   // Get photos for gallery — provider's own gallery has top priority
   const getPhotos = () => {
     const photos: string[] = [];
-
-    // 1. Provider's uploaded gallery (highest priority)
+    // ONLY provider's uploaded gallery — no cover/service fallbacks (avoids ghost photos).
     if (Array.isArray(provider?.gallery_photos)) {
       for (const ph of provider.gallery_photos) {
         if (ph && !photos.includes(ph)) photos.push(ph);
       }
     }
-
-    // 2. Cover image as fallback
-    if (provider?.cover_image_url && !photos.includes(provider.cover_image_url)) {
-      photos.push(provider.cover_image_url);
-    }
-
-    // 3. Service photos from offer
-    for (const service of services) {
-      for (const photo of service.photos || []) {
-        if (photo && !photos.includes(photo)) photos.push(photo);
-      }
-    }
-
-    // No fallback — return empty if provider hasn't uploaded anything (placeholder shown by UI).
     return photos;
   };
 
@@ -315,112 +304,90 @@ export function ServiceProviderDetailPage() {
       </header>
 
       <main className="container mx-auto px-4 py-6 max-w-7xl">
-        {/* Photo Gallery */}
-        <div className="relative bg-muted rounded-xl overflow-hidden aspect-[16/9] md:aspect-[21/9] mb-6">
-          <img
-            src={photos[currentPhotoIndex]}
-            alt={provider.company_name}
-            className="w-full h-full object-cover"
-          />
-          
-          {/* Photo Navigation */}
-          {photos.length > 1 && (
-            <>
-              <button
-                onClick={prevPhoto}
-                className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/80 text-white p-3 rounded-full transition-colors"
-              >
-                <ChevronLeft className="h-6 w-6" />
-              </button>
-              <button
-                onClick={nextPhoto}
-                className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/80 text-white p-3 rounded-full transition-colors"
-              >
-                <ChevronRight className="h-6 w-6" />
-              </button>
-            </>
-          )}
-
-          {/* Photo Indicators */}
-          {photos.length > 1 && (
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-              {photos.map((_, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setCurrentPhotoIndex(idx)}
-                  className={cn(
-                    "w-3 h-3 rounded-full transition-all",
-                    idx === currentPhotoIndex 
-                      ? "bg-white w-8" 
-                      : "bg-white/50 hover:bg-white/70"
+        {/* Photo Gallery — Audi-style: 1 large + 2x2 thumbs grid */}
+        {photos.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-6">
+            {/* Main large photo */}
+            <div
+              className="relative bg-muted rounded-xl overflow-hidden md:col-span-2 aspect-[4/3] md:aspect-auto cursor-pointer group"
+              onClick={() => setCurrentPhotoIndex(0)}
+            >
+              <img src={photos[0]} alt={provider.company_name} className="w-full h-full object-cover" />
+              {provider.category && (
+                <Badge className="absolute top-3 left-3 bg-primary text-primary-foreground">
+                  {provider.category.name}
+                </Badge>
+              )}
+            </div>
+            {/* Right side: up to 4 thumbnails in 2x2 */}
+            <div className="grid grid-cols-2 grid-rows-2 gap-2">
+              {[1, 2, 3, 4].map((i) => (
+                <div
+                  key={i}
+                  className="relative bg-muted rounded-xl overflow-hidden aspect-[4/3] cursor-pointer"
+                  onClick={() => photos[i] && setCurrentPhotoIndex(i)}
+                >
+                  {photos[i] ? (
+                    <img src={photos[i]} alt={`${provider.company_name} ${i + 1}`} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full bg-muted/50" />
                   )}
-                />
+                  {/* Show "+N more" overlay on last thumb if more photos exist */}
+                  {i === 4 && photos.length > 5 && (
+                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-primary-foreground font-bold text-xl">
+                      +{photos.length - 5}
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
-          )}
-
-          {/* Category Badge */}
-          {provider.category && (
-            <Badge className="absolute top-4 left-4 bg-primary text-primary-foreground">
-              {provider.category.name}
-            </Badge>
-          )}
-
-          {/* Rating Badge */}
-          {provider.rating_avg && provider.rating_avg > 0 && (
-            <Badge className="absolute top-4 right-4 bg-yellow-500 text-white">
-              <Star className="h-3 w-3 mr-1 fill-current" />
-              {provider.rating_avg.toFixed(1)} ({provider.rating_count})
-            </Badge>
-          )}
-
-          {/* Photo counter */}
-          <div className="absolute bottom-4 right-4 bg-black/60 text-white px-3 py-1.5 rounded-lg text-sm">
-            {currentPhotoIndex + 1} / {photos.length}
           </div>
-        </div>
+        ) : (
+          <div className="bg-gradient-to-br from-primary/10 to-primary/5 rounded-xl aspect-[16/9] md:aspect-[21/9] mb-6 flex items-center justify-center">
+            <span className="text-7xl font-bold text-primary/40">
+              {(provider.short_name || provider.company_name)?.charAt(0)}
+            </span>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column - Main Content */}
           <div className="lg:col-span-2 space-y-6">
             {/* Provider Info */}
             <div>
-              <div className="flex items-start gap-4 mb-4">
-                {/* Logo — pełne, bez przycinania */}
+              <div className="flex items-center gap-4 mb-4 flex-wrap">
+                {/* Logo — prostokątne, zachowuje oryginalne proporcje (PNG/JPG/SVG) */}
                 {provider.logo_url ? (
-                  <div className="h-20 w-20 rounded-xl bg-white border-2 border-primary shrink-0 flex items-center justify-center overflow-hidden p-1">
+                  <div className="h-16 md:h-20 max-w-[280px] bg-white border border-border rounded-lg shrink-0 flex items-center justify-center overflow-hidden px-3 py-2">
                     <img
                       src={provider.logo_url}
-                      alt={provider.company_name}
-                      className="max-h-full max-w-full object-contain"
+                      alt={provider.short_name || provider.company_name}
+                      className="max-h-full max-w-full w-auto h-auto object-contain"
                     />
                   </div>
                 ) : (
-                  <div className="h-20 w-20 rounded-xl bg-primary/20 flex items-center justify-center shrink-0">
-                    <span className="text-2xl font-bold text-primary">
+                  <div className="h-16 md:h-20 px-5 rounded-lg bg-primary/15 flex items-center justify-center shrink-0">
+                    <span className="text-2xl md:text-3xl font-bold text-primary">
                       {(provider.short_name || provider.company_name)?.charAt(0)}
                     </span>
                   </div>
                 )}
-                
-                <div className="flex-1 min-w-0">
-                  <h1 className="text-2xl md:text-3xl font-bold leading-tight">
-                    {provider.short_name?.trim() || provider.company_name}
-                  </h1>
-                  {provider.short_name?.trim() && provider.short_name !== provider.company_name && (
-                    <p className="text-sm text-muted-foreground mt-0.5">{provider.company_name}</p>
-                  )}
-                  
-                  {(provider.company_address || provider.company_city) && (
-                    <div className="flex items-start gap-2 mt-2 text-muted-foreground">
-                      <MapPin className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                      <span>
-                        {[provider.company_address, provider.company_city].filter(Boolean).join(', ')}
-                      </span>
-                    </div>
-                  )}
-                </div>
+
+                {/* Tylko nazwa skrócona obok loga */}
+                <h1 className="text-2xl md:text-3xl font-bold leading-tight">
+                  {provider.short_name?.trim() || provider.company_name}
+                </h1>
               </div>
+
+              {/* Adres pod blokiem logo+nazwa */}
+              {(provider.company_address || provider.company_city) && (
+                <div className="flex items-start gap-2 mb-3 text-muted-foreground">
+                  <MapPin className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                  <span>
+                    {[provider.company_address, provider.company_city].filter(Boolean).join(', ')}
+                  </span>
+                </div>
+              )}
               
               {/* Price Range */}
               {priceRange && (
