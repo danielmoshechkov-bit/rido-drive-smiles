@@ -63,6 +63,7 @@ export function KsefUserSettings() {
   const [userNip, setUserNip] = useState<string | null>(null);
   const [instructionsOpen, setInstructionsOpen] = useState(false);
   const [autoSendEnabled, setAutoSendEnabled] = useState(false);
+  const [sendInvoicesEnabled, setSendInvoicesEnabled] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
