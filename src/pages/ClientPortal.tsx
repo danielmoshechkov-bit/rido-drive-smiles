@@ -106,9 +106,13 @@ const accountingSubTabs = [
   { id: 'ksef', label: 'KSeF', icon: Shield },
 ];
 
+import { MandatoryReviewModal } from '@/components/services/MandatoryReviewModal';
+import { usePendingReviewsBlock } from '@/hooks/usePendingReviewsBlock';
+
 export default function ClientPortal() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { hasPending, refresh: refreshPendingReviews } = usePendingReviewsBlock();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('start');
