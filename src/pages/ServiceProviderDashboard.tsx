@@ -424,8 +424,8 @@ export default function ServiceProviderDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-subtle flex flex-col">
-      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b shadow-sm">
+    <div className={`bg-gradient-subtle flex flex-col ${isWorkshopLayout ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
+      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b shadow-sm flex-shrink-0">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <UniversalHomeButton />
