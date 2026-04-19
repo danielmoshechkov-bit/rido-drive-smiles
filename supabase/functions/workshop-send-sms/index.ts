@@ -240,6 +240,23 @@ serve(async (req) => {
       console.warn("[Workshop SMS] Credit deduction failed:", e);
     }
 
+    // Log successful send to workshop_sms_log
+    try {
+      await supabaseAdmin.from("workshop_sms_log").insert({
+        provider_id: resolvedProviderId,
+        order_id: order_id ?? null,
+        appointment_id: appointment_id ?? null,
+        client_id: client_id ?? null,
+        phone: msisdn,
+        message,
+        sms_type: sms_type ?? "manual",
+        status: "sent",
+        sent_at: new Date().toISOString(),
+      });
+    } catch (logErr) {
+      console.warn("[Workshop SMS] Failed to log SMS:", logErr);
+    }
+
     return new Response(
       JSON.stringify({ success: true, phone: msisdn, sender: senderName, status: response.status }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
