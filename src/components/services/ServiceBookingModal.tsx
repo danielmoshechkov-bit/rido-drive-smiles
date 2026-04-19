@@ -22,6 +22,7 @@ interface Service {
   price_from: number | null;
   price_type: string;
   duration_minutes: number;
+  category?: string | null;
 }
 
 interface ServiceProvider {
@@ -52,7 +53,8 @@ export function ServiceBookingModal({ provider, service, open, onOpenChange }: S
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [hasPendingReviews, setHasPendingReviews] = useState(false);
   const [workingHours, setWorkingHours] = useState<WorkingHour[]>([]);
-  const [busySlots, setBusySlots] = useState<string[]>([]);
+  const [slotLoad, setSlotLoad] = useState<Record<string, number>>({}); // ile rezerwacji w danym slocie
+  const [maxCapacity, setMaxCapacity] = useState<number>(1); // ile stanowisk obsługuje tę kategorię
 
   // Form state
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
