@@ -333,6 +333,22 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
   // Check auth state and load saved company data
   // Helper function to load user company data from multiple sources
   const loadUserCompanyData = async (userId: string) => {
+    // Load logo from any available source as fallback
+    const loadLogoFallback = async () => {
+      const { data: sp } = await supabase
+        .from('service_providers')
+        .select('logo_url')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (sp?.logo_url) { setCompanyLogo(sp.logo_url); return; }
+      const { data: ws } = await (supabase as any)
+        .from('workshop_settings')
+        .select('logo_url')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (ws?.logo_url) setCompanyLogo(ws.logo_url);
+    };
+
     // First try user_invoice_companies
     const { data: company } = await supabase
       .from('user_invoice_companies')
@@ -356,6 +372,8 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
       });
       setSellerExpanded(false);
       if (!issuePlace) setIssuePlace(company.address_city || '');
+      if ((company as any).logo_url) setCompanyLogo((company as any).logo_url);
+      else await loadLogoFallback();
       return;
     }
     
@@ -369,10 +387,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
       .maybeSingle();
     
     if (entity) {
-      // DON'T set savedCompanyId here - entities.id is NOT the same as user_invoice_companies.id
-      // The company will be created in user_invoice_companies when saving the invoice
       setSavedCompanyId(null);
-      // Parse address_street to extract building/apartment numbers
       const streetParts = (entity.address_street || '').split(' ');
       const hasNumber = streetParts.length > 1 && /\d/.test(streetParts[streetParts.length - 1]);
       const street = hasNumber ? streetParts.slice(0, -1).join(' ') : entity.address_street || '';
@@ -391,6 +406,10 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
       });
       setSellerExpanded(false);
       if (!issuePlace) setIssuePlace(entity.address_city || '');
+      if ((entity as any).logo_url) setCompanyLogo((entity as any).logo_url);
+      else await loadLogoFallback();
+    } else {
+      await loadLogoFallback();
     }
   };
 
