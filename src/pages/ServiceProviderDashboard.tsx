@@ -493,6 +493,40 @@ export default function ServiceProviderDashboard() {
     }
   };
 
+  // Modyfikacja istniejących zdjęć w trybie edycji (zapis natychmiast)
+  const updateExistingPhotos = async (newPhotos: string[]) => {
+    if (!editingService) return;
+    setEditingService({ ...editingService, photos: newPhotos });
+    await (supabase as any)
+      .from('provider_services')
+      .update({ photos: newPhotos })
+      .eq('id', editingService.id);
+    qc.invalidateQueries({ queryKey: ['provider-services', providerId] });
+  };
+
+  const removeExistingPhoto = (idx: number) => {
+    if (!editingService?.photos) return;
+    const next = editingService.photos.filter((_, i) => i !== idx);
+    updateExistingPhotos(next);
+    toast.success('Usunięto zdjęcie');
+  };
+
+  const moveExistingPhoto = (idx: number, dir: -1 | 1) => {
+    if (!editingService?.photos) return;
+    const newIdx = idx + dir;
+    if (newIdx < 0 || newIdx >= editingService.photos.length) return;
+    const next = [...editingService.photos];
+    [next[idx], next[newIdx]] = [next[newIdx], next[idx]];
+    updateExistingPhotos(next);
+  };
+
+  const setMainExistingPhoto = (idx: number) => {
+    if (!editingService?.photos || idx === 0) return;
+    const next = [editingService.photos[idx], ...editingService.photos.filter((_, i) => i !== idx)];
+    updateExistingPhotos(next);
+    toast.success('Ustawiono jako główne');
+  };
+
   const handleActivateProfile = async () => {
     if (!providerId) return;
     const { company_name, description, company_phone, company_city, category_id } = activationForm;
