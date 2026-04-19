@@ -358,21 +358,46 @@ export function ServiceBookingModal({ provider, service, open, onOpenChange }: S
                   </Label>
                   <div className="grid grid-cols-4 gap-2">
                     {availableSlots.map(time => {
-                      const isBusy = busySlots.includes(time);
+                      const used = slotLoad[time] || 0;
+                      const free = Math.max(0, maxCapacity - used);
+                      const isFull = free <= 0;
+                      const isLastSpot = !isFull && free === 1 && maxCapacity > 1;
+                      const isSelected = selectedTime === time;
+
+                      let cls = '';
+                      if (isSelected) {
+                        cls = 'bg-primary text-primary-foreground hover:bg-primary/90';
+                      } else if (isFull) {
+                        cls = 'bg-destructive/15 text-destructive border-destructive/40 hover:bg-destructive/20';
+                      } else if (isLastSpot) {
+                        cls = 'bg-orange-100 text-orange-900 border-orange-300 hover:bg-orange-200 dark:bg-orange-950/40 dark:text-orange-200 dark:border-orange-700';
+                      }
+
                       return (
                         <Button
                           key={time}
-                          variant={selectedTime === time ? 'default' : 'outline'}
+                          variant={isSelected ? 'default' : 'outline'}
                           size="sm"
-                          disabled={isBusy}
+                          disabled={isFull}
                           onClick={() => setSelectedTime(time)}
+                          className={cls}
+                          title={isFull ? 'Brak wolnych stanowisk' : isLastSpot ? `Zostało ${free} z ${maxCapacity} miejsc` : `${free}/${maxCapacity} wolne`}
                         >
                           {time}
                         </Button>
                       );
                     })}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-2">Wybierz wolny termin z kalendarza usługodawcy.</p>
+                  <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+                    {maxCapacity > 1 && (
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded border bg-background" />Wolne</span>
+                        <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded border border-orange-300 bg-orange-100" />Ostatnie miejsce</span>
+                        <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded border border-destructive/40 bg-destructive/15" />Zajęte</span>
+                      </div>
+                    )}
+                    <p>Rezerwacja nie gwarantuje terminu — zostanie potwierdzony przez usługodawcę po weryfikacji SMS.</p>
+                  </div>
                 </div>
               )}
 
