@@ -38,6 +38,7 @@ interface Review {
 interface ServiceProvider {
   id: string;
   company_name: string;
+  short_name: string | null;
   company_city: string;
   company_address: string | null;
   company_phone: string | null;
@@ -108,12 +109,13 @@ export function ServiceProviderDetailPage() {
       setProvider(providerData);
 
       // Load services from provider_services (where providers save their services)
-      const { data: servicesData } = await (supabase as any)
+      const { data: servicesData, error: svcError } = await (supabase as any)
         .from('provider_services')
         .select('*')
         .eq('provider_id', providerId)
-        .eq('status', 'active')
+        .eq('is_active', true)
         .order('created_at', { ascending: false });
+      if (svcError) console.error('provider_services load error:', svcError);
       
       // Also check legacy services table
       const { data: legacyServices } = await supabase
