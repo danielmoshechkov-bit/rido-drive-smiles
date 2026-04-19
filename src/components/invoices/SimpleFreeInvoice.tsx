@@ -977,6 +977,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
             is_paid: isFullyPaid,
             notes: notes,
             ksef_status: asDraft ? 'draft' : undefined,
+            ...(prefillWorkshopOrderId ? { workshop_order_id: prefillWorkshopOrderId } : {}),
         };
         if (isCorrection) {
           insertData.is_correction = true;
