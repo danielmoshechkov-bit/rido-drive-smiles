@@ -80,25 +80,13 @@ Deno.serve(async (req) => {
 
     const message = `GetRido: Wstepna rezerwacja ${b.booking_number} przyjeta na ${dateStr} ${timeStr}. Oczekuj na potwierdzenie terminu przez ${providerName}.`;
 
-    const smsToken = Deno.env.get('SMSAPI_TOKEN');
-    if (smsToken && phone) {
-      const senders = ['GetRido', '2Way', 'Info', 'Test'];
-      for (const sender of senders) {
-        try {
-          const r = await fetch('https://api.smsapi.pl/sms.do', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${smsToken}`,
-              'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: new URLSearchParams({ to: phone, message, from: sender, format: 'json' }),
-          });
-          const d = await r.json();
-          if (d?.error !== 14) break;
-        } catch (e) {
-          console.warn('Preliminary SMS failed:', e);
-          break;
-        }
+    if (phone) {
+      try {
+        await supabase.functions.invoke('send-sms', {
+          body: { phone, message, type: 'booking_preliminary' }
+        });
+      } catch (e) {
+        console.warn('Preliminary SMS failed:', e);
       }
     }
 

@@ -60,47 +60,28 @@ Deno.serve(async (req) => {
 
     const message = `GetRido: Twoj kod weryfikacji rezerwacji w ${providerName}: ${code}. Kod wazny 10 minut.`;
 
-    const smsToken = Deno.env.get('SMSAPI_TOKEN');
-    if (!smsToken) {
-      return new Response(JSON.stringify({ error: 'SMS not configured' }), { status: 500, headers: corsHeaders });
-    }
-
-    // Próbuj kolejnych nadawców — niektóre konta SMSAPI mają tylko domyślne (Test/Info/2Way)
-    const senderCandidates = ['GetRido', '2Way', 'Info', 'Test'];
-    let smsData: any = null;
-    let usedSender = '';
-    for (const sender of senderCandidates) {
-      const r = await fetch('https://api.smsapi.pl/sms.do', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${smsToken}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({ to: phone, message, from: sender, format: 'json' }),
-      });
-      smsData = await r.json();
-      console.log('Verification SMS attempt:', { sender, phone, smsData });
-      // error 14 = Invalid from field — spróbuj kolejnego nadawcy
-      if (smsData?.error !== 14) {
-        usedSender = sender;
-        break;
-      }
-    }
-    const smsOk = smsData && !smsData.error;
-
+    // Zapisz kod PRZED wysłaniem SMS, żeby weryfikacja była możliwa nawet przy retry
     await supabase.from('service_bookings').update({
       verification_code: code,
       verification_sent_at: new Date().toISOString(),
       verification_attempts: 0,
     }).eq('id', booking_id);
 
-    if (!smsOk) {
-      return new Response(JSON.stringify({ error: smsData?.message || 'Nie udało się wysłać SMS', sms_error: smsData }), {
-        status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+    // Wyślij SMS przez globalną funkcję portalu (używa ustawień z panelu admina — JustSend / SerwerSMS / inne)
+    const { data: smsData, error: smsErr } = await supabase.functions.invoke('send-sms', {
+      body: { phone, message, type: 'booking_verification' }
+    });
+
+    console.log('Verification SMS via send-sms:', { phone, smsData, smsErr });
+
+    if (smsErr || (smsData as any)?.success === false) {
+      return new Response(JSON.stringify({
+        error: (smsData as any)?.error || smsErr?.message || 'Nie udało się wysłać SMS',
+        sms_error: smsData
+      }), { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    return new Response(JSON.stringify({ ok: true, sender: usedSender }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ ok: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (e: any) {
     console.error('booking-send-verification error:', e);
     return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: corsHeaders });
