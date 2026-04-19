@@ -82,6 +82,11 @@ export function ServiceBookingModal({ provider, service, open, onOpenChange }: S
       setStep('datetime');
       setSelectedDate(undefined);
       setSelectedTime('');
+      setBookingNumber('');
+      setBookingId('');
+      setOtpCode('');
+      setVerifyError('');
+      setResendCooldown(0);
       loadWorkingHours();
       checkPendingReviews();
     }
@@ -259,33 +264,42 @@ export function ServiceBookingModal({ provider, service, open, onOpenChange }: S
     if (!provider || !service || !selectedDate) return;
     setLoading(true);
     try {
-      const bookingNum = 'BK-' + Date.now().toString(36).toUpperCase();
-      const { data: booking, error } = await supabase
-        .from('service_bookings')
-        .insert([{
-          booking_number: bookingNum,
-          provider_id: provider.id,
-          service_id: service.id,
-          customer_user_id: user?.id || null,
-          customer_name: customerName,
-          customer_email: customerEmail || null,
-          customer_phone: customerPhone,
-          scheduled_date: format(selectedDate, 'yyyy-MM-dd'),
-          scheduled_time: selectedTime,
-          duration_minutes: service.duration_minutes,
-          estimated_price: service.price,
-          customer_notes: customerNotes || null,
-          vehicle_brand: vehicleBrand || null,
-          vehicle_model: vehicleModel || null,
-          vehicle_year: vehicleYear ? parseInt(vehicleYear) : null,
-          vehicle_plate: vehiclePlate || null,
-          status: 'pending',
-          completion_status: 'pending',
-          requires_provider_confirmation: true,
-          source: 'portal',
-        }])
-        .select('booking_number, id')
-        .single();
+      const bookingPayload = {
+        provider_id: provider.id,
+        service_id: service.id,
+        customer_user_id: user?.id || null,
+        customer_name: customerName,
+        customer_email: customerEmail || null,
+        customer_phone: customerPhone,
+        scheduled_date: format(selectedDate, 'yyyy-MM-dd'),
+        scheduled_time: selectedTime,
+        duration_minutes: service.duration_minutes,
+        estimated_price: service.price,
+        customer_notes: customerNotes || null,
+        vehicle_brand: vehicleBrand || null,
+        vehicle_model: vehicleModel || null,
+        vehicle_year: vehicleYear ? parseInt(vehicleYear) : null,
+        vehicle_plate: vehiclePlate || null,
+        status: 'pending',
+        completion_status: 'pending',
+        requires_provider_confirmation: true,
+        source: 'portal',
+      };
+
+      const bookingRequest = bookingId
+        ? supabase
+            .from('service_bookings')
+            .update(bookingPayload)
+            .eq('id', bookingId)
+            .select('booking_number, id')
+            .single()
+        : supabase
+            .from('service_bookings')
+            .insert([{ booking_number: 'BK-' + Date.now().toString(36).toUpperCase(), ...bookingPayload }])
+            .select('booking_number, id')
+            .single();
+
+      const { data: booking, error } = await bookingRequest;
 
       if (error) throw error;
       setBookingNumber(booking.booking_number || '');
@@ -522,6 +536,22 @@ export function ServiceBookingModal({ provider, service, open, onOpenChange }: S
                 {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 Potwierdź kod
               </Button>
+
+              <div className="text-center">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mb-2"
+                  disabled={loading}
+                  onClick={() => {
+                    setVerifyError('');
+                    setOtpCode('');
+                    setStep('contact');
+                  }}
+                >
+                  Wstecz
+                </Button>
+              </div>
 
               <div className="text-center">
                 <Button
