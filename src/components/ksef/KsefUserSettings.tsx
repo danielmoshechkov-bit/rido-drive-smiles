@@ -99,6 +99,7 @@ export function KsefUserSettings() {
         setKsefLastTestAt(data.ksef_last_test_at || null);
         setKsefLastTestResult(data.ksef_last_test_result || null);
         setAutoSendEnabled(((data as any).ksef_auto_send_enabled as boolean) || false);
+        setSendInvoicesEnabled(((data as any).ksef_send_invoices_enabled as boolean) || false);
       }
       return data;
     },
