@@ -102,6 +102,7 @@ export default function ServiceProviderDashboard() {
   });
   const [serviceCategories, setServiceCategories] = useState<any[]>([]);
   const [activationSaving, setActivationSaving] = useState(false);
+  const [generatingDescription, setGeneratingDescription] = useState(false);
   const [coverImageFile, setCoverImageFile] = useState<File | null>(null);
   const isWorkshopLayout = false; // Disabled — page scrolls normally; calendar grid has its own internal scroll
 
