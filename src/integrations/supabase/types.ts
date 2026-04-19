@@ -21218,6 +21218,66 @@ export type Database = {
         }
         Relationships: []
       }
+      workshop_sms_log: {
+        Row: {
+          appointment_id: string | null
+          client_id: string | null
+          created_at: string
+          error_message: string | null
+          external_id: string | null
+          id: string
+          message: string
+          order_id: string | null
+          parts_count: number | null
+          phone: string
+          provider_id: string
+          scheduled_at: string | null
+          sent_at: string | null
+          sms_type: string | null
+          status: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          appointment_id?: string | null
+          client_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          external_id?: string | null
+          id?: string
+          message: string
+          order_id?: string | null
+          parts_count?: number | null
+          phone: string
+          provider_id: string
+          scheduled_at?: string | null
+          sent_at?: string | null
+          sms_type?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          appointment_id?: string | null
+          client_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          external_id?: string | null
+          id?: string
+          message?: string
+          order_id?: string | null
+          parts_count?: number | null
+          phone?: string
+          provider_id?: string
+          scheduled_at?: string | null
+          sent_at?: string | null
+          sms_type?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       workshop_status_settings: {
         Row: {
           created_at: string | null

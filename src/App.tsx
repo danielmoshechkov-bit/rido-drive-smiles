@@ -76,6 +76,7 @@ import DriverInfoLanding from "./pages/DriverInfoLanding";
 import SalesPortal from "./pages/SalesPortal";
 import RentalClientPortal from "./pages/RentalClientPortal";
 import WorkshopClientCard from "./pages/WorkshopClientCard";
+import WorkshopSmsCenter from "./pages/WorkshopSmsCenter";
 import RidoAIChat from "./pages/RidoAIChat";
 import MeetingsPage from "./pages/MeetingsPage";
 import RidoMailPage from "./pages/RidoMailPage";
@@ -189,6 +190,7 @@ const App = () => (
                 <Route path="/prawne" element={<LegalPage />} />
                 <Route path="/umowa/:rentalId" element={<RentalClientPortal />} />
                 <Route path="/warsztat/klient/:code" element={<WorkshopClientCard />} />
+                <Route path="/warsztat/sms" element={<WorkshopSmsCenter />} />
                 {/* Aliases for marketplace add listing */}
                 <Route path="/dodaj" element={<AddVehicleListing />} />
                 <Route path="/dodaj-ogloszenie" element={<AddVehicleListing />} />

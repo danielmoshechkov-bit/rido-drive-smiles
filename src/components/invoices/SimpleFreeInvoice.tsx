@@ -154,9 +154,10 @@ interface SimpleFreeInvoiceProps {
   prefillBuyer?: PrefillBuyer;
   prefillNotes?: string;
   prefillOrderNumber?: string;
+  prefillWorkshopOrderId?: string;
 }
 
-export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItems, prefillBuyer, prefillNotes, prefillOrderNumber }: SimpleFreeInvoiceProps = {}) {
+export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItems, prefillBuyer, prefillNotes, prefillOrderNumber, prefillWorkshopOrderId }: SimpleFreeInvoiceProps = {}) {
   const today = format(new Date(), 'yyyy-MM-dd');
   const defaultDueDate = format(addDays(new Date(), 7), 'yyyy-MM-dd');
   
@@ -976,6 +977,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
             is_paid: isFullyPaid,
             notes: notes,
             ksef_status: asDraft ? 'draft' : undefined,
+            ...(prefillWorkshopOrderId ? { workshop_order_id: prefillWorkshopOrderId } : {}),
         };
         if (isCorrection) {
           insertData.is_correction = true;

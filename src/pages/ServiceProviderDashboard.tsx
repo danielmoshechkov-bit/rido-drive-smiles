@@ -103,7 +103,7 @@ export default function ServiceProviderDashboard() {
   const [serviceCategories, setServiceCategories] = useState<any[]>([]);
   const [activationSaving, setActivationSaving] = useState(false);
   const [coverImageFile, setCoverImageFile] = useState<File | null>(null);
-  const isWorkshopLayout = activeTab === 'workshop' || activeTab === 'calendar';
+  const isWorkshopLayout = false; // Disabled — page scrolls normally; calendar grid has its own internal scroll
 
   // Settings state
   const [settingsForm, setSettingsForm] = useState({
@@ -894,7 +894,7 @@ export default function ServiceProviderDashboard() {
           </TabsContent>
 
           {/* Calendar Tab */}
-          <TabsContent value="calendar" className={`mt-6 ${isWorkshopLayout ? 'flex-1 min-h-0 flex flex-col overflow-hidden' : ''}`}>
+          <TabsContent value="calendar" className="mt-6">
             <UniversalSubTabBar
               activeTab={calendarSubTab}
               onTabChange={(v) => setCalendarSubTab(v as 'calendar' | 'bookings')}
@@ -904,7 +904,7 @@ export default function ServiceProviderDashboard() {
               ]}
             />
             {calendarSubTab === 'calendar' && (
-              <div className="mt-4 flex-1 min-h-0 flex flex-col overflow-hidden">
+              <div className="mt-4 h-[calc(100vh-220px)] min-h-[500px] flex flex-col overflow-hidden">
                 {providerId ? (
                   <WorkshopScheduler providerId={providerId} onBack={() => setActiveTab('dashboard')} title="" />
                 ) : (
