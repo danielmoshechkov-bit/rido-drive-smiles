@@ -236,6 +236,7 @@ export default function AdminServices() {
 
   const subTabs = [
     { value: 'commission', label: 'Prowizje', visible: true },
+    { value: 'rates', label: 'Stawki indywidualne', visible: true },
     { value: 'providers', label: 'Wykonawcy', visible: true },
     { value: 'bookings', label: 'Rezerwacje', visible: true },
     { value: 'users', label: 'Użytkownicy', visible: true },
