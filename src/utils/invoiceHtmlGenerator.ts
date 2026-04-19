@@ -726,12 +726,9 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
 
     <div class="header">
       <div class="logo-area">
-        ${seller.logo_url ? `<img src="${seller.logo_url}" alt="Logo firmy" />` : ''}
-        ${(seller.short_name || seller.name) ? `
-          <div class="seller-brand">
-            <div class="seller-brand-name">${seller.short_name || seller.name}</div>
-            ${formatAddress(seller) ? `<div class="seller-brand-addr">${formatAddress(seller)}</div>` : ''}
-          </div>` : ''}
+        ${seller.logo_url 
+          ? `<img src="${seller.logo_url}" alt="Logo firmy" />` 
+          : `<div class="seller-brand"><div class="seller-brand-name">${seller.short_name || seller.name || ''}</div></div>`}
       </div>
       <div class="invoice-title">
         <h1 style="color: #333;">${invoiceTitle}<br><span style="color: ${themeColor};">${invoice.invoice_number}</span></h1>

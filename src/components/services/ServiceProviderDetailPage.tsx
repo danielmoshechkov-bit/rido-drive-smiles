@@ -470,11 +470,10 @@ export function ServiceProviderDetailPage() {
                         
                         <div className="flex items-center gap-4 ml-4">
                           <div className="text-right">
-                            {service.price_type === 'from' && service.price_from ? (
-                              <span className="font-bold text-lg text-primary">od {service.price_from} zł</span>
-                            ) : (
-                              <span className="font-bold text-lg text-primary">{service.price} zł</span>
-                            )}
+                            <span className="font-bold text-lg text-primary">
+                              od {service.price_from || service.price} zł
+                            </span>
+                            <p className="text-[10px] text-muted-foreground mt-0.5">cena orientacyjna</p>
                           </div>
                           <Button size="sm" onClick={() => handleBookService(service)}>
                             Zarezerwuj

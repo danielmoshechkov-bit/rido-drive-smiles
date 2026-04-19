@@ -14,6 +14,7 @@ import {
   useWorkshopOrders, useWorkshopStatuses, useUpdateWorkshopOrder,
 } from '@/hooks/useWorkshop';
 import { WorkshopNewOrderDialog } from './WorkshopNewOrderDialog';
+import { WorkshopPortalBookings } from './WorkshopPortalBookings';
 import { WorkshopSmsDialog } from './WorkshopSmsDialog';
 import { WorkshopEditClientDialog } from './WorkshopEditClientDialog';
 import { useVehicleLookup } from '@/hooks/useVehicleLookup';
@@ -710,6 +711,8 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
         </CardContent>
       </Card>
 
+      {/* Rezerwacje z portalu — druga tabela poniżej */}
+      <WorkshopPortalBookings providerId={providerId} />
       <WorkshopNewOrderDialog
         open={showNewOrder}
         onOpenChange={setShowNewOrder}
