@@ -135,7 +135,10 @@ export function ServiceProviderDetailPage() {
           name: s.name,
           description: s.description,
           price: s.price_from,
+          price_from: s.price_from,
           price_to: s.price_to,
+          price_type: s.price_type || 'fixed',
+          duration_minutes: s.duration_minutes || 60,
           category: s.category,
           photos: s.photos || [],
           is_active: true,
@@ -143,6 +146,7 @@ export function ServiceProviderDetailPage() {
         })),
         ...(legacyServices || []).map((s: any) => ({
           ...s,
+          duration_minutes: s.duration_minutes || 60,
           _isProviderCategory: true,
         })),
       ];
