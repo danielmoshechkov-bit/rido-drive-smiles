@@ -446,7 +446,7 @@ export default function WorkshopSmsCenter() {
               </CardContent>
             </Card>
           </TabsContent>
-        </Tabs>
+        </TabsPill>
       </main>
 
       {/* Edit dialog */}
