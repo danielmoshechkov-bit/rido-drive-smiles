@@ -501,7 +501,7 @@ export default function ServiceProviderDashboard() {
       .from('provider_services')
       .update({ photos: newPhotos })
       .eq('id', editingService.id);
-    qc.invalidateQueries({ queryKey: ['provider-services', providerId] });
+    queryClient.invalidateQueries({ queryKey: ['provider-services', providerId] });
   };
 
   const removeExistingPhoto = (idx: number) => {
