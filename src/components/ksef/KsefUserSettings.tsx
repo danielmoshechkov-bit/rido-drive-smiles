@@ -125,6 +125,7 @@ export function KsefUserSettings() {
         ksef_last_test_at: overrides?.testAt ?? ksefLastTestAt,
         ksef_last_test_result: overrides?.testResult ?? ksefLastTestResult,
         ksef_auto_send_enabled: autoSendEnabled,
+        ksef_send_invoices_enabled: sendInvoicesEnabled,
         nip: userNip || undefined,
       } as any;
       if (settingsId) {
