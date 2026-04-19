@@ -161,6 +161,59 @@ export default function ServiceProviderDashboard() {
     localStorage.removeItem(getActivationDraftKey(user.id));
   }, [user?.id]);
 
+  const generateProviderDescription = useCallback(async () => {
+    const input = activationForm.description.trim();
+    if (!input) {
+      toast.error('Najpierw napisz krótko czym się zajmujesz');
+      return;
+    }
+
+    setGeneratingDescription(true);
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), ACTIVATION_DESCRIPTION_TIMEOUT_MS);
+
+    try {
+      const categoryName = serviceCategories.find(c => c.id === activationForm.category_id)?.name;
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-provider-description`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({
+          input,
+          company_name: activationForm.short_name || activationForm.company_name,
+          category: categoryName,
+        }),
+        signal: controller.signal,
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload?.error) {
+        throw new Error(payload?.error || 'Błąd generowania opisu');
+      }
+
+      if (payload?.description) {
+        setActivationForm(prev => ({ ...prev, description: payload.description }));
+        toast.success('Opis wygenerowany przez AI');
+        return;
+      }
+
+      throw new Error('AI nie zwróciło opisu');
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        toast.error('Generowanie trwało zbyt długo. Spróbuj ponownie za chwilę.');
+      } else {
+        toast.error(error instanceof Error ? error.message : 'Błąd połączenia z AI');
+      }
+    } finally {
+      window.clearTimeout(timeoutId);
+      setGeneratingDescription(false);
+    }
+  }, [activationForm, serviceCategories]);
+
   useEffect(() => {
     if (!user?.id) return;
     const hasValues = Object.values(activationForm).some(value => value.trim() !== '');
@@ -965,35 +1018,7 @@ export default function ServiceProviderDashboard() {
                         size="sm"
                         className="h-7 gap-1 text-xs"
                         disabled={generatingDescription || !activationForm.description.trim()}
-                        onClick={async () => {
-                          if (!activationForm.description.trim()) {
-                            toast.error('Najpierw napisz krótko czym się zajmujesz');
-                            return;
-                          }
-                          setGeneratingDescription(true);
-                          try {
-                            const categoryName = serviceCategories.find(c => c.id === activationForm.category_id)?.name;
-                            const { data, error } = await supabase.functions.invoke('generate-provider-description', {
-                              body: {
-                                input: activationForm.description,
-                                company_name: activationForm.short_name || activationForm.company_name,
-                                category: categoryName,
-                              },
-                            });
-                            if (error || data?.error) {
-                              toast.error(data?.error || error?.message || 'Błąd generowania opisu');
-                              return;
-                            }
-                            if (data?.description) {
-                              setActivationForm(p => ({ ...p, description: data.description }));
-                              toast.success('Opis wygenerowany przez AI');
-                            }
-                          } catch (e) {
-                            toast.error('Błąd połączenia z AI');
-                          } finally {
-                            setGeneratingDescription(false);
-                          }
-                        }}
+                        onClick={generateProviderDescription}
                       >
                         {generatingDescription
                           ? <div className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
