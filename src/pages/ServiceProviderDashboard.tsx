@@ -1137,13 +1137,12 @@ export default function ServiceProviderDashboard() {
 
           {/* Calendar Tab */}
           <TabsContent value="calendar" className="mt-6">
-            <UniversalSubTabBar
+            <CalendarBookingsSubTabs
+              providerId={providerId}
               activeTab={calendarSubTab}
               onTabChange={(v) => setCalendarSubTab(v as 'calendar' | 'bookings')}
-              tabs={[
-                { value: 'calendar', label: t('sp.calendar.calendar') },
-                { value: 'bookings', label: t('sp.calendar.bookings') },
-              ]}
+              labelCalendar={t('sp.calendar.calendar')}
+              labelBookings={t('sp.calendar.bookings')}
             />
             {calendarSubTab === 'calendar' && (
               <div className="mt-4">
