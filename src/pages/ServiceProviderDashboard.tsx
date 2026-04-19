@@ -103,7 +103,7 @@ export default function ServiceProviderDashboard() {
   const [serviceCategories, setServiceCategories] = useState<any[]>([]);
   const [activationSaving, setActivationSaving] = useState(false);
   const [coverImageFile, setCoverImageFile] = useState<File | null>(null);
-  const isWorkshopLayout = activeTab === 'workshop';
+  const isWorkshopLayout = activeTab === 'workshop' || activeTab === 'calendar';
 
   // Settings state
   const [settingsForm, setSettingsForm] = useState({
