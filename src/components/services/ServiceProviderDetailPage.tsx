@@ -645,8 +645,42 @@ export function ServiceProviderDetailPage() {
         </div>
       </main>
 
-      {/* Auth Modal for login */}
-      <AuthModal
+      {/* Lightbox — pełnoekranowy podgląd zdjęć z nawigacją */}
+      {lightboxIdx !== null && photos[lightboxIdx] && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4"
+          onClick={() => setLightboxIdx(null)}
+        >
+          <button
+            className="absolute top-4 right-4 text-white text-3xl hover:opacity-70 z-10"
+            onClick={(e) => { e.stopPropagation(); setLightboxIdx(null); }}
+            aria-label="Zamknij"
+          >×</button>
+          {photos.length > 1 && (
+            <>
+              <button
+                className="absolute left-4 text-white text-4xl hover:opacity-70 z-10 px-3 py-1 bg-white/10 rounded-full"
+                onClick={(e) => { e.stopPropagation(); setLightboxIdx((lightboxIdx - 1 + photos.length) % photos.length); }}
+                aria-label="Poprzednie"
+              >‹</button>
+              <button
+                className="absolute right-4 text-white text-4xl hover:opacity-70 z-10 px-3 py-1 bg-white/10 rounded-full"
+                onClick={(e) => { e.stopPropagation(); setLightboxIdx((lightboxIdx + 1) % photos.length); }}
+                aria-label="Następne"
+              >›</button>
+            </>
+          )}
+          <img
+            src={photos[lightboxIdx]}
+            alt={`${provider.company_name} ${lightboxIdx + 1}`}
+            className="max-h-full max-w-full object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white text-sm bg-black/50 px-3 py-1 rounded-full">
+            {lightboxIdx + 1} / {photos.length}
+          </div>
+        </div>
+      )}
         open={showLoginDialog}
         onOpenChange={setShowLoginDialog}
         initialMode="login"
