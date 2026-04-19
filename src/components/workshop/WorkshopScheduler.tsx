@@ -528,7 +528,7 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Termin
         /* Day/Week grid */
         <div className="flex-1 min-h-0 overflow-hidden rounded-xl border-2 border-foreground/20 shadow-lg flex flex-col">
           <div className="flex-1 min-h-0 overflow-auto">
-            <table className="w-full border-collapse text-xs h-full" style={{ tableLayout: 'fixed' }}>
+            <table className="w-full border-collapse text-xs" style={{ tableLayout: 'fixed' }}>
               <colgroup>
                 <col style={{ width: '60px' }} />
                 {categoryStations.map((st: any) =>
