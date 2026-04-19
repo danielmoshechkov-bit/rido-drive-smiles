@@ -42,7 +42,7 @@ import {
   LayoutDashboard, Wrench, Calendar, ClipboardList, Settings, Phone,
   Users, Clock, Star, Globe, Bot, Hammer, Plus, Trash2, Edit, Save, Image,
   Upload, X, ImageIcon, Briefcase, MoreHorizontal, Calculator, ChevronDown,
-  Megaphone, Target, ShieldCheck, AlertCircle, CheckCircle2
+  Megaphone, Target, ShieldCheck, AlertCircle, CheckCircle2, MessageSquare
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { UniversalSubTabBar } from '@/components/UniversalSubTabBar';
@@ -437,6 +437,15 @@ export default function ServiceProviderDashboard() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate('/warsztat/sms')}
+              title="Centrum SMS"
+              className="text-primary hover:bg-primary/10 relative"
+            >
+              <MessageSquare className="h-5 w-5" />
+            </Button>
             <TopBarCredits />
             <MyGetRidoButton user={user} />
           </div>
