@@ -20,6 +20,7 @@ import { useVehicleLookup } from '@/hooks/useVehicleLookup';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { SimpleFreeInvoice } from '@/components/invoices/SimpleFreeInvoice';
+import { ExistingInvoiceModal } from './ExistingInvoiceModal';
 import { generateInvoiceHtml } from '@/utils/invoiceHtmlGenerator';
 import {
   Plus, Search, Car, Trash2,
