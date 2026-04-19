@@ -80,7 +80,7 @@ All colors MUST be HSL.
     /* RIDO Gradients */
     --gradient-hero: linear-gradient(135deg, hsl(var(--primary)), hsl(259 65% 48%));
     --gradient-accent: linear-gradient(135deg, hsl(var(--accent)), hsl(45 100% 45%));
-    --gradient-subtle: linear-gradient(180deg, hsl(0 0% 100%), hsl(259 65% 98%));
+    --gradient-subtle: linear-gradient(180deg, hsl(259 65% 97%), hsl(259 65% 94%));
 
     /* RIDO Shadows */
     --shadow-purple: 0 10px 30px -10px hsl(var(--primary) / 0.3);
