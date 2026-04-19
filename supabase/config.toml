@@ -243,3 +243,6 @@ verify_jwt = false
 
 [functions.translation-queue-add]
 verify_jwt = false
+
+[functions.generate-provider-description]
+verify_jwt = false
