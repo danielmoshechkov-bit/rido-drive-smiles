@@ -167,6 +167,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
 
       const { data: { session } } = await supabase.auth.getSession();
       let companyData: any = null;
+      let logoUrl: string = '';
       if (session?.user) {
         const { data: cs } = await (supabase as any)
           .from('company_settings')
@@ -174,6 +175,26 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
           .eq('user_id', session.user.id)
           .maybeSingle();
         companyData = cs;
+        // Try invoice company first (has logo_url)
+        const { data: invCompany } = await (supabase as any)
+          .from('user_invoice_companies')
+          .select('logo_url, name, nip, address_street, address_building_number, address_city, address_postal_code, email, phone')
+          .eq('user_id', session.user.id)
+          .eq('is_default', true)
+          .maybeSingle();
+        if (invCompany?.logo_url) logoUrl = invCompany.logo_url;
+        if (invCompany && !companyData) companyData = invCompany;
+        // Fallback: service_providers / workshop_settings
+        if (!logoUrl) {
+          const { data: sp } = await supabase
+            .from('service_providers').select('logo_url').eq('user_id', session.user.id).maybeSingle();
+          if (sp?.logo_url) logoUrl = sp.logo_url;
+        }
+        if (!logoUrl) {
+          const { data: ws } = await (supabase as any)
+            .from('workshop_settings').select('logo_url').eq('user_id', session.user.id).maybeSingle();
+          if (ws?.logo_url) logoUrl = ws.logo_url;
+        }
       }
 
       const items = (orderItems || []).map((item: any) => {
@@ -229,7 +250,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
           address_postal_code: companyData?.address_postal_code || '',
           email: companyData?.email || '',
           phone: companyData?.phone || '',
-          logo_url: companyData?.logo_url || '',
+          logo_url: logoUrl || companyData?.logo_url || '',
         },
         buyer,
       };
