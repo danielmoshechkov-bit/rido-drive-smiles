@@ -614,6 +614,88 @@ export default function ServiceProviderDashboard() {
                 </CardContent>
               </Card>
             )}
+            {/* Visibility & Category Management */}
+            {providerId && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Globe className="h-4 w-4 text-primary" />
+                    Widoczność karty na portalu usług
+                  </CardTitle>
+                  <CardDescription>
+                    Zarządzaj kiedy Twoja karta jest widoczna w wyszukiwarce usług oraz w jakiej kategorii się pojawia.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between gap-4 p-3 rounded-lg border bg-muted/30">
+                    <div className="flex-1">
+                      <Label className="text-sm font-medium">Karta aktywna w portalu</Label>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {isProfileActive
+                          ? 'Karta jest publicznie widoczna w portalu usług.'
+                          : 'Karta jest ukryta — klienci nie zobaczą Twoich usług.'}
+                      </p>
+                    </div>
+                    <Switch
+                      checked={isProfileActive}
+                      onCheckedChange={async (checked) => {
+                        const newStatus = checked ? 'active' : 'inactive';
+                        const { error } = await (supabase as any)
+                          .from('service_providers')
+                          .update({ status: newStatus })
+                          .eq('id', providerId);
+                        if (error) { toast.error(error.message); return; }
+                        setProviderStatus(newStatus);
+                        toast.success(checked ? 'Karta widoczna w portalu' : 'Karta ukryta');
+                      }}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm">Kategoria główna na portalu</Label>
+                    <Select
+                      value={activationForm.category_id || ''}
+                      onValueChange={async (val) => {
+                        const { error } = await (supabase as any)
+                          .from('service_providers')
+                          .update({ category_id: val })
+                          .eq('id', providerId);
+                        if (error) { toast.error(error.message); return; }
+                        setActivationForm(p => ({ ...p, category_id: val }));
+                        toast.success('Kategoria zaktualizowana');
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Wybierz kategorię" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {serviceCategories.map((c: any) => (
+                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Decyduje w której grupie i kategorii pojawi się Twoja karta (np. Auto → Warsztaty samochodowe).
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    <Button variant="outline" size="sm" onClick={() => setActivationDialog(true)} className="gap-2">
+                      <Edit className="h-3.5 w-3.5" /> Edytuj opis i dane firmy
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => setActiveTab('settings')} className="gap-2">
+                      <ImageIcon className="h-3.5 w-3.5" /> Logo i zdjęcie tła
+                    </Button>
+                    {isProfileActive && (
+                      <Button variant="outline" size="sm" onClick={() => window.open(`/uslugi/uslugodawca/${providerId}`, '_blank')} className="gap-2">
+                        <Globe className="h-3.5 w-3.5" /> Zobacz moją kartę
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {isProfileActive && (
               <div className="flex items-center gap-2 text-sm text-green-600">
                 <CheckCircle2 className="h-4 w-4" />
