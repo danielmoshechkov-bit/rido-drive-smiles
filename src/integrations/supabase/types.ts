@@ -15663,13 +15663,6 @@ export type Database = {
             referencedRelation: "service_resources"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "service_bookings_service_id_fkey"
-            columns: ["service_id"]
-            isOneToOne: false
-            referencedRelation: "services"
-            referencedColumns: ["id"]
-          },
         ]
       }
       service_calendar_blocks: {
