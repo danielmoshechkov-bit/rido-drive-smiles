@@ -19,7 +19,7 @@ body,
 }
 
 body {
-  background: linear-gradient(180deg, hsl(259 65% 97%), hsl(259 65% 94%));
+  background: linear-gradient(180deg, hsl(259 65% 98%), hsl(259 60% 96%)) !important;
 }
 
 *, *::before, *::after {
@@ -90,7 +90,7 @@ All colors MUST be HSL.
     /* RIDO Gradients */
     --gradient-hero: linear-gradient(135deg, hsl(var(--primary)), hsl(259 65% 48%));
     --gradient-accent: linear-gradient(135deg, hsl(var(--accent)), hsl(45 100% 45%));
-    --gradient-subtle: linear-gradient(180deg, hsl(259 65% 97%), hsl(259 65% 94%));
+    --gradient-subtle: linear-gradient(180deg, hsl(259 65% 98%), hsl(259 60% 96%));
 
     /* RIDO Shadows */
     --shadow-purple: 0 10px 30px -10px hsl(var(--primary) / 0.3);
@@ -252,12 +252,26 @@ All colors MUST be HSL.
 .section-content,
 div[class*="widget"],
 div[class*="card"] {
-  background: #FFFFFF !important; /* białe tło kafelków RIDO */
+  background: #FFFFFF !important; /* białe tło głównych kart RIDO */
   opacity: 1 !important;
   backdrop-filter: none !important;
   border-radius: 16px !important;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.05) !important;
   border: 1px solid rgba(120, 80, 255, 0.07) !important;
+}
+
+/* --- Karta w karcie: pastelowy fiolet, podkreśla zagnieżdżenie na białym tle --- */
+.card .card,
+.widget .card,
+.card .widget,
+.widget .widget,
+div[class*="card"] div[class*="card"],
+div[class*="widget"] div[class*="widget"],
+div[class*="card"] div[class*="widget"],
+div[class*="widget"] div[class*="card"] {
+  background: #F4F0FF !important; /* pastelowy fiolet RIDO */
+  border: 1px solid rgba(120, 80, 255, 0.10) !important;
+  box-shadow: none !important;
 }
 
 /* --- nagłówki i teksty w kartach --- */
@@ -286,7 +300,7 @@ a.button,
 [data-section="faq"],
 [data-section="requirements"],
 [data-section="documents"] {
-  background: #FFFFFF !important;
+  background: #F9F7FF !important;
   opacity: 1 !important;
   backdrop-filter: none !important;
   border: 1px solid rgba(120, 80, 255, 0.07) !important;

@@ -906,7 +906,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                 <col style={{ width: '110px' }} />
                 <col style={{ width: '170px' }} />
                 <col style={{ width: '110px' }} />
-                <col style={{ width: '56px' }} />
+                <col style={{ width: '72px' }} />
               </colgroup>
               <thead>
                 <tr className="border-b bg-muted/10">
