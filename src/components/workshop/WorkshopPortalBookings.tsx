@@ -49,6 +49,10 @@ const STATUS_LABELS: Record<string, { label: string; cls: string }> = {
 export function WorkshopPortalBookings({ providerId }: Props) {
   const queryClient = useQueryClient();
   const [actingId, setActingId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<Booking | null>(null);
+  const [editDate, setEditDate] = useState('');
+  const [editTime, setEditTime] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const { data: bookings = [], isLoading } = useQuery({
     queryKey: ['portal-bookings', providerId],
