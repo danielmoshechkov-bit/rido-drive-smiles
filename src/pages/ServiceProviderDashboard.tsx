@@ -1238,6 +1238,20 @@ export default function ServiceProviderDashboard() {
           service={adOrderService}
           userId={user?.id || null}
         />
+
+        {/* Logo & Cover Media Modal */}
+        {providerId && (
+          <ProviderMediaModal
+            open={mediaModalOpen}
+            onOpenChange={setMediaModalOpen}
+            providerId={providerId}
+            initialTab={mediaModalTab}
+            onSaved={() => {
+              // refresh activation form preview if needed
+              setActivationForm((p: any) => ({ ...p }));
+            }}
+          />
+        )}
       </main>
     </div>
   );
