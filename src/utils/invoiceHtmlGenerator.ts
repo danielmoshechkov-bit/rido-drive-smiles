@@ -16,6 +16,7 @@ export interface InvoiceItem {
 
 export interface InvoiceSeller {
   name: string;
+  short_name?: string;
   nip?: string;
   address_street?: string;
   address_building_number?: string;
@@ -629,10 +630,13 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     }
     .invoice { max-width: 800px; margin: 0 auto; background: white; }
     .top-meta { display: flex; justify-content: flex-end; font-size: 8px; color: #666; margin-bottom: 4px; }
-    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 2px solid ${themeColor}; }
-    .logo-area { min-width: 100px; }
-    .logo-area img { max-width: 100px; max-height: 30px; object-fit: contain; }
-    .invoice-title { text-align: right; }
+    .header { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 2px solid ${themeColor}; }
+    .logo-area { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+    .logo-area img { max-width: 220px; max-height: 70px; width: auto; height: auto; object-fit: contain; flex-shrink: 0; }
+    .seller-brand { display: flex; flex-direction: column; min-width: 0; }
+    .seller-brand-name { font-size: 13px; font-weight: 700; color: #111; line-height: 1.2; }
+    .seller-brand-addr { font-size: 8px; color: #555; margin-top: 2px; line-height: 1.3; }
+    .invoice-title { text-align: right; flex-shrink: 0; }
     .invoice-title h1 { font-size: ${titleFontSize}; color: #333; margin-bottom: 1px; }
     .invoice-title h1 .invoice-number { color: ${themeColor}; }
     .invoice-dates { font-size: 8px; color: #555; text-align: right; margin-top: 4px; }
@@ -722,7 +726,12 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
 
     <div class="header">
       <div class="logo-area">
-        ${seller.logo_url ? `<img src="${seller.logo_url}" alt="Logo firmy" style="max-height: 80px; max-width: 200px; object-fit: contain;" />` : ''}
+        ${seller.logo_url ? `<img src="${seller.logo_url}" alt="Logo firmy" />` : ''}
+        ${(seller.short_name || seller.name) ? `
+          <div class="seller-brand">
+            <div class="seller-brand-name">${seller.short_name || seller.name}</div>
+            ${formatAddress(seller) ? `<div class="seller-brand-addr">${formatAddress(seller)}</div>` : ''}
+          </div>` : ''}
       </div>
       <div class="invoice-title">
         <h1 style="color: #333;">${invoiceTitle}<br><span style="color: ${themeColor};">${invoice.invoice_number}</span></h1>

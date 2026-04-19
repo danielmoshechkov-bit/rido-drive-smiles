@@ -33,6 +33,7 @@ import { AISalesAgentsDashboard } from '@/components/ai-sales/AISalesAgentsDashb
 import { LeadsTab } from '@/components/leads/LeadsTab';
 import { AdsTab } from '@/components/ads/AdsTab';
 import { AdOrderModal } from '@/components/ads/AdOrderModal';
+import { ProviderMediaModal } from '@/components/services/ProviderMediaModal';
 import { KnowledgeBaseEditor } from '@/components/ai-agents/KnowledgeBaseEditor';
 import { ConversationAnalytics } from '@/components/ai-agents/ConversationAnalytics';
 import { GlobalLearningPanel } from '@/components/ai-agents/GlobalLearningPanel';
@@ -106,6 +107,8 @@ export default function ServiceProviderDashboard() {
   const [moreOpen, setMoreOpen] = useState(false);
   const [primaryTabs, setPrimaryTabs] = useState<string[]>(DEFAULT_SERVICE_PROVIDER_PRIMARY_TABS);
   const [adOrderService, setAdOrderService] = useState<{ id: string; name: string } | null>(null);
+  const [mediaModalOpen, setMediaModalOpen] = useState(false);
+  const [mediaModalTab, setMediaModalTab] = useState<'logo' | 'cover'>('logo');
   
   const [stats, setStats] = useState({
     totalBookings: 0,
@@ -801,7 +804,7 @@ export default function ServiceProviderDashboard() {
                     <Button variant="outline" size="sm" onClick={() => setActivationDialog(true)} className="gap-2">
                       <Edit className="h-3.5 w-3.5" /> Edytuj opis i dane firmy
                     </Button>
-                    <Button variant="outline" size="sm" onClick={() => setActiveTab('settings')} className="gap-2">
+                    <Button variant="outline" size="sm" onClick={() => { setMediaModalTab('logo'); setMediaModalOpen(true); }} className="gap-2">
                       <ImageIcon className="h-3.5 w-3.5" /> Logo i zdjęcie tła
                     </Button>
                     {isProfileActive && (
@@ -1235,6 +1238,20 @@ export default function ServiceProviderDashboard() {
           service={adOrderService}
           userId={user?.id || null}
         />
+
+        {/* Logo & Cover Media Modal */}
+        {providerId && (
+          <ProviderMediaModal
+            open={mediaModalOpen}
+            onOpenChange={setMediaModalOpen}
+            providerId={providerId}
+            initialTab={mediaModalTab}
+            onSaved={() => {
+              // refresh activation form preview if needed
+              setActivationForm((p: any) => ({ ...p }));
+            }}
+          />
+        )}
       </main>
     </div>
   );

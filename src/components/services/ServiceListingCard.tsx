@@ -56,14 +56,13 @@ export function ServiceListingCard({
   const [showLightbox, setShowLightbox] = useState(false);
   const [imageError, setImageError] = useState(false);
 
-  // Get photos - use cover_image_url, logo_url, or category gallery (3 images)
+  // Get photos - use cover_image_url + service photos + category gallery (NO logo in main gallery)
   const categorySlug = provider.category?.slug;
   const categoryGallery = getServiceGallery(categorySlug);
   
-  // Build photos array with provider's images first, then category gallery
+  // Build photos array: cover first, then category gallery as fallback (NEVER logo)
   let photos: string[] = [];
   if (provider.cover_image_url) photos.push(provider.cover_image_url);
-  if (provider.logo_url && !photos.includes(provider.logo_url)) photos.push(provider.logo_url);
   
   // Fill remaining slots with category gallery images (up to 3 total)
   for (const img of categoryGallery) {
