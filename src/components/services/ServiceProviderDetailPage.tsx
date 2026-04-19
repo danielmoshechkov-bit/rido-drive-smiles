@@ -38,6 +38,7 @@ interface Review {
 interface ServiceProvider {
   id: string;
   company_name: string;
+  short_name: string | null;
   company_city: string;
   company_address: string | null;
   company_phone: string | null;
@@ -108,12 +109,13 @@ export function ServiceProviderDetailPage() {
       setProvider(providerData);
 
       // Load services from provider_services (where providers save their services)
-      const { data: servicesData } = await (supabase as any)
+      const { data: servicesData, error: svcError } = await (supabase as any)
         .from('provider_services')
         .select('*')
         .eq('provider_id', providerId)
-        .eq('status', 'active')
+        .eq('is_active', true)
         .order('created_at', { ascending: false });
+      if (svcError) console.error('provider_services load error:', svcError);
       
       // Also check legacy services table
       const { data: legacyServices } = await supabase
@@ -377,28 +379,37 @@ export function ServiceProviderDetailPage() {
             {/* Provider Info */}
             <div>
               <div className="flex items-start gap-4 mb-4">
-                {/* Logo */}
+                {/* Logo — pełne, bez przycinania */}
                 {provider.logo_url ? (
-                  <img
-                    src={provider.logo_url}
-                    alt={provider.company_name}
-                    className="h-16 w-16 rounded-xl object-cover border-2 border-primary shrink-0"
-                  />
+                  <div className="h-20 w-20 rounded-xl bg-white border-2 border-primary shrink-0 flex items-center justify-center overflow-hidden p-1">
+                    <img
+                      src={provider.logo_url}
+                      alt={provider.company_name}
+                      className="max-h-full max-w-full object-contain"
+                    />
+                  </div>
                 ) : (
-                  <div className="h-16 w-16 rounded-xl bg-primary/20 flex items-center justify-center shrink-0">
+                  <div className="h-20 w-20 rounded-xl bg-primary/20 flex items-center justify-center shrink-0">
                     <span className="text-2xl font-bold text-primary">
-                      {provider.company_name?.charAt(0)}
+                      {(provider.short_name || provider.company_name)?.charAt(0)}
                     </span>
                   </div>
                 )}
                 
-                <div className="flex-1">
-                  <h1 className="text-2xl md:text-3xl font-bold">{provider.company_name}</h1>
+                <div className="flex-1 min-w-0">
+                  <h1 className="text-2xl md:text-3xl font-bold leading-tight">
+                    {provider.short_name?.trim() || provider.company_name}
+                  </h1>
+                  {provider.short_name?.trim() && provider.short_name !== provider.company_name && (
+                    <p className="text-sm text-muted-foreground mt-0.5">{provider.company_name}</p>
+                  )}
                   
-                  {provider.company_city && (
-                    <div className="flex items-center gap-2 mt-2 text-muted-foreground">
-                      <MapPin className="h-5 w-5 text-primary" />
-                      <span>{provider.company_city}</span>
+                  {(provider.company_address || provider.company_city) && (
+                    <div className="flex items-start gap-2 mt-2 text-muted-foreground">
+                      <MapPin className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                      <span>
+                        {[provider.company_address, provider.company_city].filter(Boolean).join(', ')}
+                      </span>
                     </div>
                   )}
                 </div>
@@ -414,26 +425,32 @@ export function ServiceProviderDetailPage() {
                 </div>
               )}
 
-              {/* Rating Summary */}
-              {provider.rating_count > 0 && (
-                <div className="flex items-center gap-3 mt-4">
-                  <div className="flex items-center">
-                    {[1, 2, 3, 4, 5].map(star => (
-                      <Star 
-                        key={star}
-                        className={cn(
-                          "h-5 w-5",
-                          star <= Math.round(provider.rating_avg || 0)
-                            ? "fill-yellow-400 text-yellow-400"
-                            : "text-muted-foreground/30"
-                        )}
-                      />
-                    ))}
+              {/* Rating Summary — nowe konta dostają domyślne 5 gwiazdek */}
+              {(() => {
+                const displayRating = provider.rating_count > 0 ? (provider.rating_avg || 0) : 5;
+                const displayCount = provider.rating_count;
+                return (
+                  <div className="flex items-center gap-3 mt-4">
+                    <div className="flex items-center">
+                      {[1, 2, 3, 4, 5].map(star => (
+                        <Star 
+                          key={star}
+                          className={cn(
+                            "h-5 w-5",
+                            star <= Math.round(displayRating)
+                              ? "fill-yellow-400 text-yellow-400"
+                              : "text-muted-foreground/30"
+                          )}
+                        />
+                      ))}
+                    </div>
+                    <span className="font-semibold">{displayRating.toFixed(1)}</span>
+                    <span className="text-muted-foreground text-sm">
+                      {displayCount > 0 ? `(${displayCount} opinii)` : '(nowy usługodawca)'}
+                    </span>
                   </div>
-                  <span className="font-semibold">{provider.rating_avg?.toFixed(1)}</span>
-                  <span className="text-muted-foreground">({provider.rating_count} opinii)</span>
-                </div>
-              )}
+                );
+              })()}
             </div>
 
             <Separator />

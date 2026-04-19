@@ -16355,6 +16355,7 @@ export type Database = {
           owner_phone: string | null
           rating_avg: number | null
           rating_count: number | null
+          short_name: string | null
           sms_balance: number | null
           status: string | null
           total_bookings: number | null
@@ -16396,6 +16397,7 @@ export type Database = {
           owner_phone?: string | null
           rating_avg?: number | null
           rating_count?: number | null
+          short_name?: string | null
           sms_balance?: number | null
           status?: string | null
           total_bookings?: number | null
@@ -16437,6 +16439,7 @@ export type Database = {
           owner_phone?: string | null
           rating_avg?: number | null
           rating_count?: number | null
+          short_name?: string | null
           sms_balance?: number | null
           status?: string | null
           total_bookings?: number | null

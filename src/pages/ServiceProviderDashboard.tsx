@@ -96,7 +96,7 @@ export default function ServiceProviderDashboard() {
   const [providerStatus, setProviderStatus] = useState<string | null>(null);
   const [activationDialog, setActivationDialog] = useState(false);
   const [activationForm, setActivationForm] = useState({
-    company_name: '', description: '', company_phone: '', company_email: '',
+    company_name: '', short_name: '', description: '', company_phone: '', company_email: '',
     company_city: '', company_address: '', company_postal_code: '', company_nip: '',
     category_id: ''
   });
@@ -137,9 +137,9 @@ export default function ServiceProviderDashboard() {
       .single();
     if (config) setConfigData(config);
 
-    const { data: provider } = await supabase
+    const { data: provider } = await (supabase as any)
       .from('service_providers')
-      .select('id, rating_avg, rating_count, company_name, description, company_phone, company_address, company_city, company_postal_code, company_nip, company_website, owner_first_name, owner_last_name, owner_email, status, category_id, cover_image_url, logo_url')
+      .select('id, rating_avg, rating_count, company_name, short_name, description, company_phone, company_address, company_city, company_postal_code, company_nip, company_website, owner_first_name, owner_last_name, owner_email, status, category_id, cover_image_url, logo_url')
       .eq('user_id', user.id)
       .maybeSingle();
 
@@ -158,6 +158,7 @@ export default function ServiceProviderDashboard() {
       // Pre-fill activation form
       setActivationForm({
         company_name: provider.company_name || '',
+        short_name: provider.short_name || '',
         description: provider.description || '',
         company_phone: provider.company_phone || '',
         company_email: provider.owner_email || user.email || '',
@@ -390,6 +391,7 @@ export default function ServiceProviderDashboard() {
       }
       const updateData: any = {
         company_name: activationForm.company_name,
+        short_name: activationForm.short_name || null,
         description: activationForm.description,
         company_phone: activationForm.company_phone,
         company_email: activationForm.company_email,
@@ -873,8 +875,12 @@ export default function ServiceProviderDashboard() {
                 <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
                   <p className="text-sm text-muted-foreground">Uzupełnij dane — po aktywacji Twoja firma i usługi będą widoczne publicznie w portalu.</p>
                   <div className="space-y-2">
-                    <Label>Nazwa firmy *</Label>
-                    <Input value={activationForm.company_name} onChange={e => setActivationForm(p => ({ ...p, company_name: e.target.value }))} placeholder="Np. Auto Serwis Kowalski" />
+                    <Label>Nazwa firmy * <span className="text-xs text-muted-foreground">(pełna, prawna)</span></Label>
+                    <Input value={activationForm.company_name} onChange={e => setActivationForm(p => ({ ...p, company_name: e.target.value }))} placeholder="Np. Auto Serwis Kowalski sp. z o.o." />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Nazwa skrócona <span className="text-xs text-muted-foreground">(wyświetlana na karcie publicznej)</span></Label>
+                    <Input value={activationForm.short_name} onChange={e => setActivationForm(p => ({ ...p, short_name: e.target.value }))} placeholder="Np. Auto Kowalski" />
                   </div>
                   <div className="space-y-2">
                     <Label>Kategoria główna *</Label>
