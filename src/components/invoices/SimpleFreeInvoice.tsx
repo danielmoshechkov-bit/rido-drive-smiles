@@ -1113,7 +1113,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
 
       // Auto-download/print PDF after issuing — otwiera od razu PDF do zapisu/druku
       try {
-        const html = generateInvoiceHtml(invoiceData);
+        const html = generateInvoiceHtml(getInvoiceData());
         const printWindow = window.open('', '_blank');
         if (printWindow) {
           printWindow.document.write(html);
