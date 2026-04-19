@@ -20,10 +20,11 @@ import { useVehicleLookup } from '@/hooks/useVehicleLookup';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { SimpleFreeInvoice } from '@/components/invoices/SimpleFreeInvoice';
+import { generateInvoiceHtml } from '@/utils/invoiceHtmlGenerator';
 import {
   Plus, Search, Car, Trash2,
   Wrench, Loader2, Copy, Phone, Mail, User, ExternalLink, Building, Save, Calendar,
-  FileText, Receipt, ChevronDown
+  FileText, Receipt, ChevronDown, ClipboardCheck
 } from 'lucide-react';
 import { format, isFuture, isPast } from 'date-fns';
 import { pl } from 'date-fns/locale';
