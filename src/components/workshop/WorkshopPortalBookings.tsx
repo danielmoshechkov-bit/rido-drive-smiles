@@ -333,7 +333,12 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
             {/* Mobile */}
             <div className="md:hidden divide-y">
               {bookings.map((b) => (
-                <div key={b.id} className="p-3 space-y-2">
+                <div
+                  key={b.id}
+                  className="p-3 space-y-2 cursor-pointer hover:bg-accent/40 transition-colors"
+                  onClick={() => openAsOrder(b)}
+                  title="Otwórz jako zlecenie"
+                >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
@@ -341,6 +346,7 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
                         <Badge className={`${STATUS_LABELS[b.status]?.cls} text-[10px]`}>
                           {STATUS_LABELS[b.status]?.label || b.status}
                         </Badge>
+                        {openingId === b.id && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
                       </div>
                       <p className="text-sm font-medium mt-1">{b.customer_name}</p>
                       <p className="text-xs text-muted-foreground flex items-center gap-1">
@@ -359,7 +365,7 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
                   )}
                   {b.service_name && <p className="text-xs"><span className="text-muted-foreground">Usługa:</span> {b.service_name}</p>}
                   {b.customer_notes && <p className="text-xs italic text-muted-foreground line-clamp-2">{b.customer_notes}</p>}
-                  <div className="flex gap-2 pt-1">
+                  <div className="flex gap-2 pt-1" onClick={(e) => e.stopPropagation()}>
                     {b.status === 'pending' && (
                       <Button size="sm" className="flex-1 h-7 text-xs" onClick={() => handleConfirm(b)} disabled={actingId === b.id}>
                         {actingId === b.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <><CheckCircle2 className="h-3 w-3 mr-1" /> Potwierdź</>}
@@ -394,11 +400,16 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
                 </TableHeader>
                 <TableBody>
                   {bookings.map((b) => (
-                    <TableRow key={b.id}>
+                    <TableRow
+                      key={b.id}
+                      className="cursor-pointer hover:bg-accent/40 transition-colors"
+                      onClick={() => openAsOrder(b)}
+                    >
                       <TableCell>
                         <div className="flex items-center gap-1.5">
                           <Calendar className="h-3.5 w-3.5 text-primary" />
                           <span className="font-medium text-sm">{b.booking_number}</span>
+                          {openingId === b.id && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -434,7 +445,7 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
                           <div className="text-primary">{b.scheduled_time}</div>
                         </div>
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex gap-1 justify-end">
                           {b.status === 'pending' && (
                             <Button size="sm" className="h-7 text-xs" onClick={() => handleConfirm(b)} disabled={actingId === b.id}>
