@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { UniversalSubTabBar } from '@/components/UniversalSubTabBar';
 import { AdminPortalSwitcher } from '@/components/admin/AdminPortalSwitcher';
 import { AdminUsersPanel } from '@/components/admin/AdminUsersPanel';
+import { CommissionRatesPanel } from '@/components/admin/CommissionRatesPanel';
 import { UniversalHomeButton } from '@/components/UniversalHomeButton';
 import { MyGetRidoButton } from '@/components/MyGetRidoButton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -236,6 +237,7 @@ export default function AdminServices() {
 
   const subTabs = [
     { value: 'commission', label: 'Prowizje', visible: true },
+    { value: 'rates', label: 'Stawki indywidualne', visible: true },
     { value: 'providers', label: 'Wykonawcy', visible: true },
     { value: 'bookings', label: 'Rezerwacje', visible: true },
     { value: 'users', label: 'Użytkownicy', visible: true },
@@ -375,6 +377,9 @@ export default function AdminServices() {
               </Card>
             </div>
           )}
+
+          {/* Rates Tab - per-provider commission rates */}
+          {activeSubTab === 'rates' && <CommissionRatesPanel />}
 
           {/* Providers Tab */}
           {activeSubTab === 'providers' && (

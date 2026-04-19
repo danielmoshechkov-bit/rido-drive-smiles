@@ -34,6 +34,7 @@ import { LeadsTab } from '@/components/leads/LeadsTab';
 import { AdsTab } from '@/components/ads/AdsTab';
 import { AdOrderModal } from '@/components/ads/AdOrderModal';
 import { ProviderMediaModal } from '@/components/services/ProviderMediaModal';
+import { PortalBookingsPanel } from '@/components/services/PortalBookingsPanel';
 import { KnowledgeBaseEditor } from '@/components/ai-agents/KnowledgeBaseEditor';
 import { ConversationAnalytics } from '@/components/ai-agents/ConversationAnalytics';
 import { GlobalLearningPanel } from '@/components/ai-agents/GlobalLearningPanel';
@@ -1160,11 +1161,11 @@ export default function ServiceProviderDashboard() {
             )}
           </TabsContent>
 
-          {/* Bookings Tab */}
+          {/* Bookings Tab - Rezerwacje z portalu */}
            <TabsContent value="bookings" className="mt-6">
-            <Card>
-              <CardContent className="pt-6"><p className="text-muted-foreground text-center py-8">{t('sp.calendar.noBookings')}</p></CardContent>
-            </Card>
+            {providerId ? <PortalBookingsPanel providerId={providerId} /> : (
+              <Card><CardContent className="pt-6"><p className="text-muted-foreground text-center py-8">{t('sp.calendar.noBookings')}</p></CardContent></Card>
+            )}
           </TabsContent>
 
           {/* AI Agent Tab */}
