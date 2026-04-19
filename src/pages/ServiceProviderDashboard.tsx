@@ -875,8 +875,12 @@ export default function ServiceProviderDashboard() {
                 <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
                   <p className="text-sm text-muted-foreground">Uzupełnij dane — po aktywacji Twoja firma i usługi będą widoczne publicznie w portalu.</p>
                   <div className="space-y-2">
-                    <Label>Nazwa firmy *</Label>
-                    <Input value={activationForm.company_name} onChange={e => setActivationForm(p => ({ ...p, company_name: e.target.value }))} placeholder="Np. Auto Serwis Kowalski" />
+                    <Label>Nazwa firmy * <span className="text-xs text-muted-foreground">(pełna, prawna)</span></Label>
+                    <Input value={activationForm.company_name} onChange={e => setActivationForm(p => ({ ...p, company_name: e.target.value }))} placeholder="Np. Auto Serwis Kowalski sp. z o.o." />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Nazwa skrócona <span className="text-xs text-muted-foreground">(wyświetlana na karcie publicznej)</span></Label>
+                    <Input value={activationForm.short_name} onChange={e => setActivationForm(p => ({ ...p, short_name: e.target.value }))} placeholder="Np. Auto Kowalski" />
                   </div>
                   <div className="space-y-2">
                     <Label>Kategoria główna *</Label>
