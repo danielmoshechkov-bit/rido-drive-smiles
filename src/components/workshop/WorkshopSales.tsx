@@ -34,7 +34,7 @@ export function WorkshopSales({ providerId, onBack }: Props) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setInvoices([]); setIsLoading(false); return; }
 
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('user_invoices')
       .select('id, invoice_number, buyer_name, issue_date, sale_date, gross_total, paid_amount, payment_method, type, is_paid')
       .eq('user_id', user.id)
