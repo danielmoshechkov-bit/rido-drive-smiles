@@ -1846,6 +1846,7 @@ export default function ClientPortal() {
         onOpenChange={setShowServiceRegistration}
         user={user}
       />
+      <MandatoryReviewModal open={hasPending} onResolved={refreshPendingReviews} />
     </div>
   );
 }
