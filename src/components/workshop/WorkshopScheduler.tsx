@@ -575,8 +575,8 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Termin
                 {HOURS.map((hour, hourIdx) => {
                   const isEvenRow = hourIdx % 2 === 0;
                   return (
-                    <tr key={hour}>
-                      <td className={`border-b border-r-2 border-foreground/20 p-1.5 text-right font-mono font-bold text-xs sticky left-0 z-10 ${isEvenRow ? 'bg-[hsl(220,20%,97%)] dark:bg-[hsl(220,15%,15%)] text-foreground' : 'bg-[hsl(220,25%,93%)] dark:bg-[hsl(220,15%,18%)] text-foreground'}`}>
+                    <tr key={hour} style={{ height: `${ROW_HEIGHT}px` }}>
+                      <td className={`border-b border-r-2 border-foreground/20 p-1.5 text-right font-mono font-bold text-xs sticky left-0 z-10 ${isEvenRow ? 'bg-[hsl(220,20%,97%)] dark:bg-[hsl(220,15%,15%)] text-foreground' : 'bg-[hsl(220,25%,93%)] dark:bg-[hsl(220,15%,18%)] text-foreground'}`} style={{ height: `${ROW_HEIGHT}px` }}>
                         {`${hour}:00`}
                       </td>
                       {categoryStations.map((st: any, stIdx: number) =>
