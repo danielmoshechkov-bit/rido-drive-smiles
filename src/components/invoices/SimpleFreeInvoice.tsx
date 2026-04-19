@@ -442,16 +442,18 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
           }
         }
         
-        // Check if user has KSeF token configured AND master switch is ON
+        // Check KSeF: token + master switch (send_invoices_enabled) + auto-send toggle
         const { data: cs } = await supabase
           .from('company_settings')
-          .select('ksef_token, ksef_auto_send_enabled')
+          .select('ksef_token, ksef_auto_send_enabled, ksef_send_invoices_enabled')
           .eq('user_id', session.user.id)
           .maybeSingle();
         if (cs?.ksef_token) {
           setHasKsefToken(true);
-          // Auto-enable per-invoice send only if master switch is ON
-          setAutoSendKsef(!!(cs as any).ksef_auto_send_enabled);
+          // Auto-send only when BOTH master switch AND auto-after-issue are ON
+          const masterOn = !!(cs as any).ksef_send_invoices_enabled;
+          const autoOn = !!(cs as any).ksef_auto_send_enabled;
+          setAutoSendKsef(masterOn && autoOn);
         }
       }
     };
