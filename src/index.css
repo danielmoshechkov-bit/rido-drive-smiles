@@ -260,7 +260,7 @@ div[class*="card"] {
   border: 1px solid rgba(120, 80, 255, 0.07) !important;
 }
 
-/* --- Karta w karcie: pastelowy fiolet, podkreśla zagnieżdżenie na białym tle --- */
+/* --- Karta w karcie: bardzo delikatny pastel, ledwo widoczny na białym tle --- */
 .card .card,
 .widget .card,
 .card .widget,
@@ -269,8 +269,8 @@ div[class*="card"] div[class*="card"],
 div[class*="widget"] div[class*="widget"],
 div[class*="card"] div[class*="widget"],
 div[class*="widget"] div[class*="card"] {
-  background: #F4F0FF !important; /* pastelowy fiolet RIDO */
-  border: 1px solid rgba(120, 80, 255, 0.10) !important;
+  background: #FAF8FF !important; /* ~97% jasności — subtelny pastel */
+  border: 1px solid rgba(120, 80, 255, 0.06) !important;
   box-shadow: none !important;
 }
 
