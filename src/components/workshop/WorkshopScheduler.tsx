@@ -393,7 +393,7 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Termin
   const totalColumns = categoryStations.length * weekDays.length;
 
   return (
-    <div className="flex flex-col" style={{ height: 'calc(100vh - 120px)', minHeight: '500px' }}>
+    <div className="flex flex-col h-[calc(100dvh-80px)] min-h-[500px]">
       {title && <h2 className="text-2xl font-bold tracking-tight mb-3">{title}</h2>}
 
       {/* Unplanned orders */}
