@@ -20,10 +20,11 @@ import { useVehicleLookup } from '@/hooks/useVehicleLookup';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { SimpleFreeInvoice } from '@/components/invoices/SimpleFreeInvoice';
+import { generateInvoiceHtml } from '@/utils/invoiceHtmlGenerator';
 import {
   Plus, Search, Car, Trash2,
   Wrench, Loader2, Copy, Phone, Mail, User, ExternalLink, Building, Save, Calendar,
-  FileText, Receipt, ChevronDown
+  FileText, Receipt, ChevronDown, ClipboardCheck
 } from 'lucide-react';
 import { format, isFuture, isPast } from 'date-fns';
 import { pl } from 'date-fns/locale';
@@ -156,6 +157,98 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
     }
   };
 
+  const generateServiceConfirmation = async (order: any) => {
+    try {
+      const { data: orderItems } = await (supabase as any)
+        .from('workshop_order_items')
+        .select('*')
+        .eq('order_id', order.id)
+        .order('sort_order');
+
+      const { data: { session } } = await supabase.auth.getSession();
+      let companyData: any = null;
+      if (session?.user) {
+        const { data: cs } = await (supabase as any)
+          .from('company_settings')
+          .select('*')
+          .eq('user_id', session.user.id)
+          .maybeSingle();
+        companyData = cs;
+      }
+
+      const items = (orderItems || []).map((item: any) => {
+        const qty = item.quantity || 1;
+        const unitNet = item.unit_price_net || 0;
+        const unitGross = item.unit_price_gross || 0;
+        const grossAmount = item.total_gross || qty * unitGross;
+        const netAmount = item.total_net || qty * unitNet;
+        return {
+          name: item.name || '',
+          quantity: qty,
+          unit: item.unit || 'usł.',
+          unit_net_price: unitNet,
+          vat_rate: '23',
+          net_amount: netAmount,
+          vat_amount: grossAmount - netAmount,
+          gross_amount: grossAmount,
+        };
+      });
+
+      const buyer: any = {};
+      if (order.client) {
+        buyer.name = order.client.client_type === 'company'
+          ? order.client.company_name
+          : `${order.client.first_name || ''} ${order.client.last_name || ''}`.trim();
+        buyer.nip = order.client.nip || '';
+        buyer.address_street = order.client.address || '';
+      }
+
+      const vehicleDesc = order.vehicle
+        ? `Pojazd: ${order.vehicle.brand || ''} ${order.vehicle.model || ''}, Nr rej: ${order.vehicle.plate || ''}`
+        : '';
+
+      const today = new Date().toISOString().split('T')[0];
+      const invoiceData: any = {
+        invoice_number: `PWU/${order.order_number || 'dok'}`,
+        type: 'service_confirmation',
+        issue_date: today,
+        sale_date: today,
+        due_date: today,
+        payment_method: 'cash',
+        notes: vehicleDesc,
+        currency: 'PLN',
+        paid_amount: 0,
+        is_fully_paid: true,
+        items,
+        seller: {
+          name: companyData?.name || '',
+          nip: companyData?.nip || '',
+          address_street: companyData?.address_street || '',
+          address_building_number: companyData?.address_building_number || '',
+          address_city: companyData?.address_city || '',
+          address_postal_code: companyData?.address_postal_code || '',
+          email: companyData?.email || '',
+          phone: companyData?.phone || '',
+          logo_url: companyData?.logo_url || '',
+        },
+        buyer,
+      };
+
+      const html = generateInvoiceHtml(invoiceData);
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(html);
+        printWindow.document.close();
+        printWindow.focus();
+        setTimeout(() => printWindow.print(), 400);
+      }
+      toast.success('Potwierdzenie wygenerowane');
+    } catch (e: any) {
+      console.error(e);
+      toast.error('Błąd generowania potwierdzenia');
+    }
+  };
+
   const getClientName = (o: any) => {
     if (!o.client) return '';
     return o.client.client_type === 'company'
@@ -234,6 +327,12 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                 if (order) openInvoiceForOrder(order, 'receipt');
               }}>
                 <Receipt className="h-4 w-4 mr-2" /> Paragon fiskalny
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => {
+                const order = orders.find((o: any) => selectedIds.has(o.id));
+                if (order) generateServiceConfirmation(order);
+              }}>
+                <ClipboardCheck className="h-4 w-4 mr-2" /> Potw. wykonania
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

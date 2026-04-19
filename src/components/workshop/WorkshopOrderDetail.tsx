@@ -93,8 +93,19 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
     }
   };
 
+  const isCompleted = order.status_name === 'Zakończone';
+
   return (
     <div className="space-y-4">
+      {isCompleted && (
+        <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm text-amber-900 dark:text-amber-100">
+          <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+          <div>
+            <strong>Uwaga: zlecenie zakończone.</strong> Każda zmiana w pozycjach, cenach lub zakresie prac
+            wymaga ponownego podpisu klienta na karcie zlecenia. Zmiana zostanie odnotowana z datą i godziną.
+          </div>
+        </div>
+      )}
       {/* Header breadcrumb - desktop */}
       <div className="hidden md:flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2 text-sm">
