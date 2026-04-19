@@ -1160,11 +1160,11 @@ export default function ServiceProviderDashboard() {
             )}
           </TabsContent>
 
-          {/* Bookings Tab */}
+          {/* Bookings Tab - Rezerwacje z portalu */}
            <TabsContent value="bookings" className="mt-6">
-            <Card>
-              <CardContent className="pt-6"><p className="text-muted-foreground text-center py-8">{t('sp.calendar.noBookings')}</p></CardContent>
-            </Card>
+            {providerId ? <PortalBookingsPanel providerId={providerId} /> : (
+              <Card><CardContent className="pt-6"><p className="text-muted-foreground text-center py-8">{t('sp.calendar.noBookings')}</p></CardContent></Card>
+            )}
           </TabsContent>
 
           {/* AI Agent Tab */}
