@@ -239,16 +239,21 @@ export function WorkshopPortalBookings({ providerId }: Props) {
                   )}
                   {b.service_name && <p className="text-xs"><span className="text-muted-foreground">Usługa:</span> {b.service_name}</p>}
                   {b.customer_notes && <p className="text-xs italic text-muted-foreground line-clamp-2">{b.customer_notes}</p>}
-                  {b.status === 'pending' && (
-                    <div className="flex gap-2 pt-1">
+                  <div className="flex gap-2 pt-1">
+                    {b.status === 'pending' && (
                       <Button size="sm" className="flex-1 h-7 text-xs" onClick={() => handleConfirm(b)} disabled={actingId === b.id}>
                         {actingId === b.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <><CheckCircle2 className="h-3 w-3 mr-1" /> Potwierdź</>}
                       </Button>
+                    )}
+                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openEdit(b)} title="Edytuj termin">
+                      <Pencil className="h-3 w-3 mr-1" /> Edytuj
+                    </Button>
+                    {b.status === 'pending' && (
                       <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => handleReject(b)} disabled={actingId === b.id}>
                         <XCircle className="h-3 w-3" />
                       </Button>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
