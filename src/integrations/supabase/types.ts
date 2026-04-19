@@ -13839,6 +13839,7 @@ export type Database = {
           category: string | null
           created_at: string | null
           description: string | null
+          duration_minutes: number | null
           id: string
           is_active: boolean | null
           name: string
@@ -13853,6 +13854,7 @@ export type Database = {
           category?: string | null
           created_at?: string | null
           description?: string | null
+          duration_minutes?: number | null
           id?: string
           is_active?: boolean | null
           name: string
@@ -13867,6 +13869,7 @@ export type Database = {
           category?: string | null
           created_at?: string | null
           description?: string | null
+          duration_minutes?: number | null
           id?: string
           is_active?: boolean | null
           name?: string
