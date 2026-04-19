@@ -461,7 +461,7 @@ export default function ServiceProviderDashboard() {
   const resetServiceForm = () => {
     setEditingService(null);
     setServicePhotos([]);
-    setServiceForm({ name: '', short_description: '', description: '', price_from: '', price_to: '', category: 'ogolne', is_active: true });
+    setServiceForm({ name: '', short_description: '', description: '', price_from: '', price_to: '', duration_minutes: '', category: 'ogolne', is_active: true });
   };
 
   const openEditService = (service: ServiceItem) => {
@@ -473,6 +473,7 @@ export default function ServiceProviderDashboard() {
       description: service.description || '',
       price_from: service.price_from?.toString() || '',
       price_to: service.price_to?.toString() || '',
+      duration_minutes: (service as any).duration_minutes?.toString() || '',
       category: service.category || 'ogolne',
       is_active: service.is_active,
     });
