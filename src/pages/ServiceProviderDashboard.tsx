@@ -904,12 +904,15 @@ export default function ServiceProviderDashboard() {
               ]}
             />
             {calendarSubTab === 'calendar' && (
-              <div className="mt-4 h-[calc(100vh-220px)] min-h-[500px] flex flex-col overflow-hidden">
-                {providerId ? (
-                  <WorkshopScheduler providerId={providerId} onBack={() => setActiveTab('dashboard')} title="" />
-                ) : (
-                  <CalendarView />
-                )}
+              // Spacer wymusza scroll strony; kalendarz przyklejony pod topbar i scrolluje wewnętrznie
+              <div className="mt-4" style={{ minHeight: 'calc(100vh + 200px)' }}>
+                <div className="sticky top-[72px] h-[calc(100vh-90px)] flex flex-col">
+                  {providerId ? (
+                    <WorkshopScheduler providerId={providerId} onBack={() => setActiveTab('dashboard')} title="" />
+                  ) : (
+                    <CalendarView />
+                  )}
+                </div>
               </div>
             )}
             {calendarSubTab === 'bookings' && (
