@@ -500,7 +500,7 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Termin
 
       {/* Month View */}
       {viewMode === 'month' ? (
-        <div className="h-[calc(100vh-320px)] min-h-[420px] overflow-auto rounded-xl border-2 border-foreground/20 shadow-lg">
+        <div className="h-[calc(100vh-240px)] min-h-[420px] overflow-auto rounded-xl border-2 border-foreground/20 shadow-lg">
           <div className="grid grid-cols-7 bg-[hsl(220,30%,95%)] dark:bg-[hsl(220,20%,20%)]">
             {['Pon', 'Wt', 'Śr', 'Czw', 'Pt', 'Sob', 'Nd'].map(d => (
               <div key={d} className="p-2 text-center text-xs font-bold text-foreground border-b border-r border-foreground/15">{d}</div>
@@ -526,7 +526,7 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Termin
         </div>
       ) : (
         /* Day/Week grid */
-        <div className="h-[calc(100vh-320px)] min-h-[420px] overflow-hidden rounded-xl border-2 border-foreground/20 shadow-lg flex flex-col">
+        <div className="h-[calc(100vh-240px)] min-h-[420px] overflow-hidden rounded-xl border-2 border-foreground/20 shadow-lg flex flex-col">
           <div className="flex-1 min-h-0 overflow-auto">
             <table className="w-full border-collapse text-xs" style={{ tableLayout: 'fixed' }}>
               <colgroup>
