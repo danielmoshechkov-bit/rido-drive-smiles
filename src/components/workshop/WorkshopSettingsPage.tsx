@@ -60,32 +60,43 @@ export const WorkshopSettingsPage = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data, error } = await (supabase.from('workshop_settings') as any)
+      const { data } = await (supabase.from('workshop_settings') as any)
         .select('*')
         .eq('user_id', user.id)
         .maybeSingle();
 
-      if (data) {
-        setSettingsId(data.id);
-        setFirmName(data.firm_name || '');
-        setShortName(data.short_name || '');
-        setNip(data.nip || '');
-        setAddress(data.address || '');
-        setCity(data.city || '');
-        setPostalCode(data.postal_code || '');
-        setPhone(data.phone || '');
-        setEmail(data.email || '');
-        setWebsite(data.website || '');
-        setBankAccount(data.bank_account || '');
-        setLogoUrl(data.logo_url || '');
-        setHourlyRate(data.hourly_rate || 150);
-        setShowPricesAs(data.show_prices_as || 'brutto');
-        setPaymentDays(data.payment_days || 0);
-        setPaymentMethod(data.payment_method || 'cash');
-        setDiscountsEnabled(data.discounts_enabled ?? true);
-        setWorkingHours(data.working_hours || DEFAULT_HOURS);
-        setWorkStations(data.work_stations || []);
-      }
+      // Fallback: pobierz z service_providers / company_settings dla pełnej spójności
+      const { data: sp } = await (supabase as any)
+        .from('service_providers')
+        .select('company_name,company_nip,company_address,company_city,company_postal_code,company_phone,owner_email,company_website,logo_url,short_name')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      const { data: cs } = await (supabase as any)
+        .from('company_settings')
+        .select('company_name,nip,address,city,postal_code,phone,email')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (data) setSettingsId(data.id);
+      setFirmName(data?.firm_name || sp?.company_name || cs?.company_name || '');
+      setShortName(data?.short_name || sp?.short_name || '');
+      setNip(data?.nip || sp?.company_nip || cs?.nip || '');
+      setAddress(data?.address || sp?.company_address || cs?.address || '');
+      setCity(data?.city || sp?.company_city || cs?.city || '');
+      setPostalCode(data?.postal_code || sp?.company_postal_code || cs?.postal_code || '');
+      setPhone(data?.phone || sp?.company_phone || cs?.phone || '');
+      setEmail(data?.email || sp?.owner_email || cs?.email || '');
+      setWebsite(data?.website || sp?.company_website || '');
+      setLogoUrl(data?.logo_url || sp?.logo_url || '');
+      setBankAccount(data?.bank_account || '');
+      setHourlyRate(data?.hourly_rate || 150);
+      setShowPricesAs(data?.show_prices_as || 'brutto');
+      setPaymentDays(data?.payment_days || 0);
+      setPaymentMethod(data?.payment_method || 'cash');
+      setDiscountsEnabled(data?.discounts_enabled ?? true);
+      setWorkingHours(data?.working_hours || DEFAULT_HOURS);
+      setWorkStations(data?.work_stations || []);
     } catch (err) {
       console.error(err);
     } finally {
