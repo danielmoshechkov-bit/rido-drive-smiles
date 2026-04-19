@@ -69,6 +69,38 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Termin
     },
   });
 
+  // Working hours from provider settings (service_working_hours) — używane do wyliczenia zakresu godzin w kalendarzu (±2h)
+  const { data: workingHoursRows = [] } = useQuery({
+    queryKey: ['service-working-hours', providerId],
+    enabled: !!providerId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('service_working_hours')
+        .select('start_time, end_time, is_working')
+        .eq('provider_id', providerId)
+        .is('employee_id', null);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Wyliczenie zakresu godzin: min start - 2h, max end + 2h (clamp 0–24); domyślnie 8–18
+  const HOURS = useMemo(() => {
+    const working = (workingHoursRows as any[]).filter(r => r.is_working !== false);
+    let minStart = 9;
+    let maxEnd = 17;
+    if (working.length > 0) {
+      const starts = working.map(r => parseInt(String(r.start_time).split(':')[0], 10)).filter(n => !isNaN(n));
+      const ends = working.map(r => parseInt(String(r.end_time).split(':')[0], 10)).filter(n => !isNaN(n));
+      if (starts.length) minStart = Math.min(...starts);
+      if (ends.length) maxEnd = Math.max(...ends);
+    }
+    const from = Math.max(0, minStart - 2);
+    const to = Math.min(24, maxEnd + 2);
+    const len = Math.max(1, to - from);
+    return Array.from({ length: len }, (_, i) => from + i);
+  }, [workingHoursRows]);
+
   const { data: orders = [] } = useWorkshopOrders(providerId);
 
   // Fetch client bookings to show on calendar
