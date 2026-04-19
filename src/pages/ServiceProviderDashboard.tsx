@@ -35,6 +35,9 @@ import { AdsTab } from '@/components/ads/AdsTab';
 import { AdOrderModal } from '@/components/ads/AdOrderModal';
 import { ProviderMediaModal } from '@/components/services/ProviderMediaModal';
 import { PortalBookingsPanel } from '@/components/services/PortalBookingsPanel';
+import { CommissionInvoicesPanel } from '@/components/services/CommissionInvoicesPanel';
+import { usePendingBookingsCount } from '@/hooks/usePendingBookingsCount';
+import { CalendarBookingsSubTabs } from '@/components/services/CalendarBookingsSubTabs';
 import { KnowledgeBaseEditor } from '@/components/ai-agents/KnowledgeBaseEditor';
 import { ConversationAnalytics } from '@/components/ai-agents/ConversationAnalytics';
 import { GlobalLearningPanel } from '@/components/ai-agents/GlobalLearningPanel';
@@ -1135,13 +1138,12 @@ export default function ServiceProviderDashboard() {
 
           {/* Calendar Tab */}
           <TabsContent value="calendar" className="mt-6">
-            <UniversalSubTabBar
+            <CalendarBookingsSubTabs
+              providerId={providerId}
               activeTab={calendarSubTab}
               onTabChange={(v) => setCalendarSubTab(v as 'calendar' | 'bookings')}
-              tabs={[
-                { value: 'calendar', label: t('sp.calendar.calendar') },
-                { value: 'bookings', label: t('sp.calendar.bookings') },
-              ]}
+              labelCalendar={t('sp.calendar.calendar')}
+              labelBookings={t('sp.calendar.bookings')}
             />
             {calendarSubTab === 'calendar' && (
               <div className="mt-4">
@@ -1154,16 +1156,21 @@ export default function ServiceProviderDashboard() {
             )}
             {calendarSubTab === 'bookings' && (
               <div className="mt-4">
-                <Card>
-                  <CardContent className="pt-6"><p className="text-muted-foreground text-center py-8">{t('sp.calendar.noBookings')}</p></CardContent>
-                </Card>
+                {providerId ? <PortalBookingsPanel providerId={providerId} /> : (
+                  <Card><CardContent className="pt-6"><p className="text-muted-foreground text-center py-8">{t('sp.calendar.noBookings')}</p></CardContent></Card>
+                )}
               </div>
             )}
           </TabsContent>
 
-          {/* Bookings Tab - Rezerwacje z portalu */}
-           <TabsContent value="bookings" className="mt-6">
-            {providerId ? <PortalBookingsPanel providerId={providerId} /> : (
+          {/* Bookings Tab - Rezerwacje z portalu + Faktury prowizyjne */}
+           <TabsContent value="bookings" className="mt-6 space-y-6">
+            {providerId ? (
+              <>
+                <PortalBookingsPanel providerId={providerId} />
+                <CommissionInvoicesPanel providerId={providerId} />
+              </>
+            ) : (
               <Card><CardContent className="pt-6"><p className="text-muted-foreground text-center py-8">{t('sp.calendar.noBookings')}</p></CardContent></Card>
             )}
           </TabsContent>
