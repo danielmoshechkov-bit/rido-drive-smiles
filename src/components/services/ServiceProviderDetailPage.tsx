@@ -185,27 +185,12 @@ export function ServiceProviderDetailPage() {
   // Get photos for gallery — provider's own gallery has top priority
   const getPhotos = () => {
     const photos: string[] = [];
-
-    // 1. Provider's uploaded gallery (highest priority)
+    // ONLY provider's uploaded gallery — no cover/service fallbacks (avoids ghost photos).
     if (Array.isArray(provider?.gallery_photos)) {
       for (const ph of provider.gallery_photos) {
         if (ph && !photos.includes(ph)) photos.push(ph);
       }
     }
-
-    // 2. Cover image as fallback
-    if (provider?.cover_image_url && !photos.includes(provider.cover_image_url)) {
-      photos.push(provider.cover_image_url);
-    }
-
-    // 3. Service photos from offer
-    for (const service of services) {
-      for (const photo of service.photos || []) {
-        if (photo && !photos.includes(photo)) photos.push(photo);
-      }
-    }
-
-    // No fallback — return empty if provider hasn't uploaded anything (placeholder shown by UI).
     return photos;
   };
 
