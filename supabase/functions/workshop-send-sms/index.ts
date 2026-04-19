@@ -89,6 +89,38 @@ serve(async (req) => {
     const msisdn = normalizePhone(phone);
     const senderName = (sender || smsSettings?.sender_name || "GetRido.pl").replace(/[^a-zA-Z0-9.\-]/g, "").slice(0, 11);
 
+    // Scheduled SMS — store and exit (no immediate send)
+    if (scheduled_at) {
+      const scheduledDate = new Date(scheduled_at);
+      if (scheduledDate.getTime() > Date.now() + 60_000) {
+        const { data: insertedRow, error: insErr } = await supabaseAdmin
+          .from("workshop_sms_log")
+          .insert({
+            provider_id: resolvedProviderId,
+            order_id: order_id ?? null,
+            appointment_id: appointment_id ?? null,
+            client_id: client_id ?? null,
+            phone: msisdn,
+            message,
+            sms_type: sms_type ?? "manual",
+            status: "scheduled",
+            scheduled_at: scheduledDate.toISOString(),
+          })
+          .select()
+          .single();
+        if (insErr) {
+          console.error("[Workshop SMS] Failed to store scheduled SMS:", insErr);
+          return new Response(JSON.stringify({ error: insErr.message }), {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        return new Response(JSON.stringify({ success: true, scheduled: true, id: insertedRow.id }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     console.log(`[Workshop SMS] Sending via ${smsProvider} to ${msisdn}, sender=${senderName}`);
 
     let response: Response;
