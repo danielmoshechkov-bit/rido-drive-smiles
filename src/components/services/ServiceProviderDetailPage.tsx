@@ -355,40 +355,39 @@ export function ServiceProviderDetailPage() {
           <div className="lg:col-span-2 space-y-6">
             {/* Provider Info */}
             <div>
-              <div className="flex items-start gap-4 mb-4">
-                {/* Logo — pełne, bez przycinania */}
+              <div className="flex items-center gap-4 mb-4 flex-wrap">
+                {/* Logo — prostokątne, zachowuje oryginalne proporcje (PNG/JPG/SVG) */}
                 {provider.logo_url ? (
-                  <div className="h-20 w-20 rounded-xl bg-white border-2 border-primary shrink-0 flex items-center justify-center overflow-hidden p-1">
+                  <div className="h-16 md:h-20 max-w-[280px] bg-white border border-border rounded-lg shrink-0 flex items-center justify-center overflow-hidden px-3 py-2">
                     <img
                       src={provider.logo_url}
-                      alt={provider.company_name}
-                      className="max-h-full max-w-full object-contain"
+                      alt={provider.short_name || provider.company_name}
+                      className="max-h-full max-w-full w-auto h-auto object-contain"
                     />
                   </div>
                 ) : (
-                  <div className="h-20 w-20 rounded-xl bg-primary/20 flex items-center justify-center shrink-0">
-                    <span className="text-2xl font-bold text-primary">
+                  <div className="h-16 md:h-20 px-5 rounded-lg bg-primary/15 flex items-center justify-center shrink-0">
+                    <span className="text-2xl md:text-3xl font-bold text-primary">
                       {(provider.short_name || provider.company_name)?.charAt(0)}
                     </span>
                   </div>
                 )}
-                
-                <div className="flex-1 min-w-0">
-                  <h1 className="text-2xl md:text-3xl font-bold leading-tight">
-                    {provider.short_name?.trim() || provider.company_name}
-                  </h1>
-                  {provider.short_name?.trim() && provider.short_name !== provider.company_name && (
-                    <p className="text-sm text-muted-foreground mt-0.5">{provider.company_name}</p>
-                  )}
-                  
-                  {(provider.company_address || provider.company_city) && (
-                    <div className="flex items-start gap-2 mt-2 text-muted-foreground">
-                      <MapPin className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                      <span>
-                        {[provider.company_address, provider.company_city].filter(Boolean).join(', ')}
-                      </span>
-                    </div>
-                  )}
+
+                {/* Tylko nazwa skrócona obok loga */}
+                <h1 className="text-2xl md:text-3xl font-bold leading-tight">
+                  {provider.short_name?.trim() || provider.company_name}
+                </h1>
+              </div>
+
+              {/* Adres pod blokiem logo+nazwa */}
+              {(provider.company_address || provider.company_city) && (
+                <div className="flex items-start gap-2 mb-3 text-muted-foreground">
+                  <MapPin className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                  <span>
+                    {[provider.company_address, provider.company_city].filter(Boolean).join(', ')}
+                  </span>
+                </div>
+              )}
                 </div>
               </div>
               
