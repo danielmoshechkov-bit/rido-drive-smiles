@@ -44,7 +44,7 @@ serve(async (req) => {
   }
 
   try {
-    const { phone, message, order_id, sms_type, provider_id, sender } = await req.json();
+    const { phone, message, order_id, sms_type, provider_id, sender, scheduled_at, appointment_id, client_id } = await req.json();
 
     if (!phone || !message) {
       return new Response(JSON.stringify({ error: "Missing phone or message" }), {
