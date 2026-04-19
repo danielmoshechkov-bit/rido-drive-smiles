@@ -139,11 +139,11 @@ export default function AdminServices() {
     try {
       const { data } = await supabase
         .from('service_bookings')
-        .select('*, provider:service_providers(company_name), service:services(name)')
+        .select('*, provider:service_providers(company_name)')
         .order('created_at', { ascending: false })
         .limit(50);
       
-      if (data) setBookings(data as ServiceBooking[]);
+      if (data) setBookings(data as unknown as ServiceBooking[]);
     } catch (error) {
       console.error('Error loading bookings:', error);
     }

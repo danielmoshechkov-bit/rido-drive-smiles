@@ -182,19 +182,26 @@ export function ServiceProviderDetailPage() {
     setBookingModalOpen(true);
   };
 
-  // Get photos for gallery — provider's own gallery has top priority
+  // Galeria: zdjęcia firmy + zdjęcia z usług (deduplikowane)
   const getPhotos = () => {
     const photos: string[] = [];
-    // ONLY provider's uploaded gallery — no cover/service fallbacks (avoids ghost photos).
     if (Array.isArray(provider?.gallery_photos)) {
       for (const ph of provider.gallery_photos) {
         if (ph && !photos.includes(ph)) photos.push(ph);
+      }
+    }
+    for (const s of services as any[]) {
+      if (Array.isArray(s.photos)) {
+        for (const ph of s.photos) {
+          if (ph && !photos.includes(ph)) photos.push(ph);
+        }
       }
     }
     return photos;
   };
 
   const photos = getPhotos();
+  const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
 
   const nextPhoto = () => {
     setCurrentPhotoIndex((prev) => (prev + 1) % photos.length);
@@ -304,43 +311,42 @@ export function ServiceProviderDetailPage() {
       </header>
 
       <main className="container mx-auto px-4 py-6 max-w-7xl">
-        {/* Photo Gallery — Audi-style: 1 large + 2x2 thumbs grid */}
+        {/* Photo Gallery — Audi-style: 1 large + dynamic thumbs grid (renderuje tylko realne zdjęcia) */}
         {photos.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-6">
-            {/* Main large photo */}
             <div
               className="relative bg-muted rounded-xl overflow-hidden md:col-span-2 aspect-[4/3] md:aspect-auto cursor-pointer group"
-              onClick={() => setCurrentPhotoIndex(0)}
+              onClick={() => setLightboxIdx(0)}
             >
-              <img src={photos[0]} alt={provider.company_name} className="w-full h-full object-cover" />
+              <img src={photos[0]} alt={provider.company_name} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
               {provider.category && (
                 <Badge className="absolute top-3 left-3 bg-primary text-primary-foreground">
                   {provider.category.name}
                 </Badge>
               )}
             </div>
-            {/* Right side: up to 4 thumbnails in 2x2 */}
-            <div className="grid grid-cols-2 grid-rows-2 gap-2">
-              {[1, 2, 3, 4].map((i) => (
-                <div
-                  key={i}
-                  className="relative bg-muted rounded-xl overflow-hidden aspect-[4/3] cursor-pointer"
-                  onClick={() => photos[i] && setCurrentPhotoIndex(i)}
-                >
-                  {photos[i] ? (
-                    <img src={photos[i]} alt={`${provider.company_name} ${i + 1}`} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full bg-muted/50" />
-                  )}
-                  {/* Show "+N more" overlay on last thumb if more photos exist */}
-                  {i === 4 && photos.length > 5 && (
-                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-primary-foreground font-bold text-xl">
-                      +{photos.length - 5}
+            {photos.length > 1 && (
+              <div className="grid grid-cols-2 grid-rows-2 gap-2">
+                {photos.slice(1, 5).map((url, i) => {
+                  const idx = i + 1;
+                  const isLastVisible = idx === 4 && photos.length > 5;
+                  return (
+                    <div
+                      key={url + idx}
+                      className="relative bg-muted rounded-xl overflow-hidden aspect-[4/3] cursor-pointer group"
+                      onClick={() => setLightboxIdx(idx)}
+                    >
+                      <img src={url} alt={`${provider.company_name} ${idx + 1}`} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                      {isLastVisible && (
+                        <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white font-bold text-xl">
+                          +{photos.length - 5}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              ))}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         ) : (
           <div className="bg-gradient-to-br from-primary/10 to-primary/5 rounded-xl aspect-[16/9] md:aspect-[21/9] mb-6 flex items-center justify-center">
@@ -399,15 +405,16 @@ export function ServiceProviderDetailPage() {
                 </div>
               )}
 
-              {/* Rating Summary — nowe konta dostają domyślne 5 gwiazdek */}
+              {/* Rating: nowe konta (brak opinii) dostają domyślne 5★, dopiero pierwsza opinia uśrednia */}
               {(() => {
-                const displayRating = provider.rating_avg || 0;
+                const hasReviews = (provider.rating_count || 0) > 0;
+                const displayRating = hasReviews ? (provider.rating_avg || 0) : 5;
                 const displayCount = provider.rating_count || 0;
                 return (
                   <div className="flex items-center gap-3 mt-4">
                     <div className="flex items-center">
                       {[1, 2, 3, 4, 5].map(star => (
-                        <Star 
+                        <Star
                           key={star}
                           className={cn(
                             "h-5 w-5",
@@ -418,9 +425,9 @@ export function ServiceProviderDetailPage() {
                         />
                       ))}
                     </div>
-                    <span className="font-semibold">{displayRating > 0 ? displayRating.toFixed(1) : '—'}</span>
+                    <span className="font-semibold">{displayRating.toFixed(1)}</span>
                     <span className="text-muted-foreground text-sm">
-                      {displayCount > 0 ? `(${displayCount} opinii)` : '(brak ocen)'}
+                      {hasReviews ? `(${displayCount} opinii)` : '(nowy usługodawca)'}
                     </span>
                   </div>
                 );
