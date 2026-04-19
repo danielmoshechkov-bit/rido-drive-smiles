@@ -261,14 +261,14 @@ export function ServiceBookingModal({ provider, service, open, onOpenChange }: S
       setBookingId(booking.id);
 
       // Wyślij SMS z 4-cyfrowym kodem weryfikacji (portalowy)
-      const { error: smsErr } = await supabase.functions.invoke('booking-send-verification', {
+      const { data: smsData, error: smsErr } = await supabase.functions.invoke('booking-send-verification', {
         body: { booking_id: booking.id }
       });
-      if (smsErr) {
-        toast.error('Nie udało się wysłać SMS z kodem. Spróbuj ponownie.');
+      if (smsErr || (smsData as any)?.error) {
+        toast.error((smsData as any)?.error || 'Nie udało się wysłać SMS z kodem. Spróbuj ponownie.');
       } else {
         toast.success('Wysłaliśmy SMS z kodem weryfikacji');
-        setResendCooldown(60);
+        setResendCooldown(15);
       }
       setStep('verification');
     } catch (error: any) {
@@ -284,7 +284,7 @@ export function ServiceBookingModal({ provider, service, open, onOpenChange }: S
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Rezerwacja usługi</DialogTitle>
             <DialogDescription>{service.name} – {provider.company_name}</DialogDescription>
@@ -474,14 +474,14 @@ export function ServiceBookingModal({ provider, service, open, onOpenChange }: S
                   disabled={resendCooldown > 0 || loading}
                   onClick={async () => {
                     setVerifyError('');
-                    const { error } = await supabase.functions.invoke('booking-send-verification', {
+                    const { data, error } = await supabase.functions.invoke('booking-send-verification', {
                       body: { booking_id: bookingId }
                     });
-                    if (error) {
-                      toast.error('Nie udało się wysłać kodu');
+                    if (error || (data as any)?.error) {
+                      toast.error((data as any)?.error || 'Nie udało się wysłać kodu');
                     } else {
                       toast.success('Wysłaliśmy nowy kod');
-                      setResendCooldown(60);
+                      setResendCooldown(15);
                       setOtpCode('');
                     }
                   }}

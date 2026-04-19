@@ -125,7 +125,7 @@ export default function ServiceProviderDashboard() {
   const [serviceDialog, setServiceDialog] = useState(false);
   const [editingService, setEditingService] = useState<ServiceItem | null>(null);
   const [serviceForm, setServiceForm] = useState({
-    name: '', short_description: '', description: '', price_from: '', price_to: '', category: 'ogolne', is_active: true
+    name: '', short_description: '', description: '', price_from: '', price_to: '', duration_minutes: '', category: 'ogolne', is_active: true
   });
   const [servicePhotos, setServicePhotos] = useState<File[]>([]);
   const serviceFileRef = useRef<HTMLInputElement>(null);
@@ -439,6 +439,7 @@ export default function ServiceProviderDashboard() {
         description: serviceForm.description,
         price_from: parseFloat(serviceForm.price_from) || 0,
         price_to: parseFloat(serviceForm.price_to) || 0,
+        duration_minutes: serviceForm.duration_minutes ? parseInt(serviceForm.duration_minutes) : null,
         category: serviceForm.category,
         is_active: serviceForm.is_active,
         photos: photoUrls,
@@ -460,7 +461,7 @@ export default function ServiceProviderDashboard() {
   const resetServiceForm = () => {
     setEditingService(null);
     setServicePhotos([]);
-    setServiceForm({ name: '', short_description: '', description: '', price_from: '', price_to: '', category: 'ogolne', is_active: true });
+    setServiceForm({ name: '', short_description: '', description: '', price_from: '', price_to: '', duration_minutes: '', category: 'ogolne', is_active: true });
   };
 
   const openEditService = (service: ServiceItem) => {
@@ -472,6 +473,7 @@ export default function ServiceProviderDashboard() {
       description: service.description || '',
       price_from: service.price_from?.toString() || '',
       price_to: service.price_to?.toString() || '',
+      duration_minutes: (service as any).duration_minutes?.toString() || '',
       category: service.category || 'ogolne',
       is_active: service.is_active,
     });
@@ -925,11 +927,11 @@ export default function ServiceProviderDashboard() {
 
             {/* Service Add/Edit Dialog */}
             <Dialog open={serviceDialog} onOpenChange={setServiceDialog}>
-              <DialogContent className="max-w-lg">
+              <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-lg max-h-[85vh] overflow-y-auto p-4 sm:p-6">
                 <DialogHeader>
                   <DialogTitle>{editingService ? t('sp.services.editService') : t('sp.services.addNewService')}</DialogTitle>
                 </DialogHeader>
-                <div className="space-y-4 max-h-[60vh] overflow-y-auto">
+                <div className="space-y-4">
                   <div className="space-y-2">
                     <Label>{t('sp.services.serviceNameLabel')}</Label>
                     <Input value={serviceForm.name} onChange={e => setServiceForm(p => ({ ...p, name: e.target.value }))} placeholder={t('sp.services.serviceNamePlaceholder')} />
@@ -940,7 +942,7 @@ export default function ServiceProviderDashboard() {
                   </div>
                   <div className="space-y-2">
                     <Label>{t('sp.services.fullDesc')}</Label>
-                    <Textarea rows={4} value={serviceForm.description} onChange={e => setServiceForm(p => ({ ...p, description: e.target.value }))} placeholder={t('sp.services.fullDescPlaceholder')} />
+                    <Textarea rows={4} className="resize-none" value={serviceForm.description} onChange={e => setServiceForm(p => ({ ...p, description: e.target.value }))} placeholder={t('sp.services.fullDescPlaceholder')} />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -951,6 +953,18 @@ export default function ServiceProviderDashboard() {
                       <Label>{t('sp.services.priceToLabel')}</Label>
                       <Input type="number" value={serviceForm.price_to} onChange={e => setServiceForm(p => ({ ...p, price_to: e.target.value }))} placeholder="0" />
                     </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Czas trwania usługi (min, opcjonalnie)</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="15"
+                      value={serviceForm.duration_minutes}
+                      onChange={e => setServiceForm(p => ({ ...p, duration_minutes: e.target.value }))}
+                      placeholder="np. 60"
+                    />
+                    <p className="text-xs text-muted-foreground">Pozostaw puste, jeśli nie chcesz pokazywać czasu na karcie usługi.</p>
                   </div>
                   <div className="space-y-2">
                     <Label>{t('sp.services.category')}</Label>
