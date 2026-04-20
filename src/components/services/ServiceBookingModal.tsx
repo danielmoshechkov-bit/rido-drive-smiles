@@ -274,7 +274,7 @@ export function ServiceBookingModal({ provider, service, open, onOpenChange }: S
         scheduled_date: format(selectedDate, 'yyyy-MM-dd'),
         scheduled_time: selectedTime,
         duration_minutes: service.duration_minutes,
-        estimated_price: service.price,
+        estimated_price: service.id === 'generic-visit' || service.price_type === 'tbd' ? null : service.price,
         customer_notes: customerNotes || null,
         vehicle_brand: vehicleBrand || null,
         vehicle_model: vehicleModel || null,
