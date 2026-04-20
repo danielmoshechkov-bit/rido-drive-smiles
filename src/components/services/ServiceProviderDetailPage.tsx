@@ -628,16 +628,25 @@ export function ServiceProviderDetailPage() {
                   Napisz wiadomość
                 </Button>
 
-                {/* CTA */}
-                {services.length > 0 && (
-                  <Button 
-                    className="w-full mt-3" 
-                    size="lg"
-                    onClick={() => handleBookService(services[0])}
-                  >
-                    Zarezerwuj wizytę
-                  </Button>
-                )}
+                {/* CTA — generyczna wizyta (bez konkretnej usługi) */}
+                <Button
+                  className="w-full mt-3"
+                  size="lg"
+                  onClick={() => {
+                    setSelectedService({
+                      id: 'generic-visit',
+                      name: 'Wizyta — zakres do ustalenia',
+                      description: null,
+                      price: 0,
+                      price_from: null,
+                      price_type: 'tbd',
+                      duration_minutes: 60,
+                    } as any);
+                    setBookingModalOpen(true);
+                  }}
+                >
+                  Zarezerwuj wizytę
+                </Button>
               </Card>
             </div>
           </div>
