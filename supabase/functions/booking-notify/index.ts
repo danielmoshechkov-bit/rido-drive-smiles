@@ -25,8 +25,8 @@ Deno.serve(async (req) => {
       .from('service_bookings')
       .select(`
         id, booking_number, customer_name, customer_phone, scheduled_date, scheduled_time,
-        vehicle_brand, vehicle_model, vehicle_plate, customer_notes, service_id,
-        service_providers(company_name, short_name, company_address, company_city, company_phone)
+        vehicle_brand, vehicle_model, vehicle_plate, customer_notes, service_id, provider_id,
+        service_providers(id, company_name, short_name, company_address, company_city, company_phone)
       `)
       .eq('id', booking_id)
       .single();
@@ -64,13 +64,14 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Unknown type' }), { status: 400, headers: corsHeaders });
     }
 
-    // Wysyłka przez globalny send-sms (używa ustawień portalu z sms_settings)
+    // Wysyłka przez globalny send-sms — fleet_id = provider_id, by odjąć z licznika usługodawcy
     const { data: smsRes, error: smsErr } = await supabase.functions.invoke('send-sms', {
       body: {
         phone: b.customer_phone,
         message,
         type: 'booking_' + type,
         sender: 'GetRido',
+        fleet_id: b.provider_id, // odejmie z konta usługodawcy
       },
     });
 
