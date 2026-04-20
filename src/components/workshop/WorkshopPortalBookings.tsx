@@ -427,18 +427,25 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
           </div>
           <div className="flex items-center gap-2">
             {selected.size > 0 && (
-              <>
-                <span className="text-xs text-muted-foreground">Zaznaczono: {selected.size}</span>
-                <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={bulkConfirm} disabled={bulkBusy}>
-                  <CheckCircle2 className="h-3 w-3 text-green-600" /> Potwierdź
-                </Button>
-                <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={bulkMoveToOrders} disabled={bulkBusy}>
-                  <ArrowRightCircle className="h-3 w-3 text-primary" /> Przenieś do zleceń
-                </Button>
-                <Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-destructive hover:text-destructive" onClick={bulkCancel} disabled={bulkBusy}>
-                  <XCircle className="h-3 w-3" /> Anuluj
-                </Button>
-              </>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1">
+                    <MoreHorizontal className="h-3 w-3" /> Zaznaczono: {selected.size} — Akcje
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuItem onClick={bulkConfirm} disabled={bulkBusy}>
+                    <CheckCircle2 className="h-4 w-4 mr-2 text-green-600" /> Potwierdź (SMS)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={bulkMoveToOrders} disabled={bulkBusy}>
+                    <ArrowRightCircle className="h-4 w-4 mr-2 text-primary" /> Przenieś do zleceń
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={bulkCancel} disabled={bulkBusy} className="text-destructive focus:text-destructive">
+                    <XCircle className="h-4 w-4 mr-2" /> Anuluj (SMS)
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
             <span className="text-xs text-muted-foreground hidden md:inline">Klienci umówili się przez GetRido</span>
           </div>
