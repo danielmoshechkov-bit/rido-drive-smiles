@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Calendar, Phone, Car, CheckCircle2, XCircle, Loader2, AlertTriangle, Pencil, ArrowRightCircle } from 'lucide-react';
+import { Calendar, Phone, Car, CheckCircle2, XCircle, Loader2, AlertTriangle, Pencil, ArrowRightCircle, MoreHorizontal, Sparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 interface Props {
   providerId: string;
@@ -176,7 +177,7 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
         .eq('provider_id', providerId)
         .eq('source', 'portal')
         .neq('status', 'cancelled')
-        .order('scheduled_date', { ascending: true });
+        .order('created_at', { ascending: false }); // NOWE NA GÓRZE
       if (error) {
         console.error('[WorkshopPortalBookings] load error:', error);
         throw error;
@@ -195,6 +196,13 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
     },
     enabled: !!providerId,
   });
+
+  // Wykrzyknik "NOWE" — rezerwacja utworzona w ciągu ostatnich 24h, nadal w pending
+  const isNewBooking = (b: Booking) => {
+    if (b.status !== 'pending') return false;
+    const created = new Date(b.created_at).getTime();
+    return Date.now() - created < 24 * 60 * 60 * 1000;
+  };
 
   // Realtime
   useEffect(() => {
