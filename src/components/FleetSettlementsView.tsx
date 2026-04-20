@@ -4012,6 +4012,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                 debtAfter: selectedDriverForDebt.debtAfter,
                 periodFrom: selectedDriverForDebt.periodFrom,
                 periodTo: selectedDriverForDebt.periodTo,
+                fleetId: fleetId,
               }}
               onDebtChanged={async () => {
                 debtChangedRef.current = true;

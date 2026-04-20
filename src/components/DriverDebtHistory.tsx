@@ -30,6 +30,8 @@ interface WeekDebtContext {
   debtAfter: number;
   periodFrom?: string;
   periodTo?: string;
+  fleetId?: string;
+  isHistorical?: boolean;
 }
 
 interface DriverDebtHistoryProps {
@@ -54,6 +56,31 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
   const [saving, setSaving] = useState(false);
 
   const round2 = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+
+  // Use the currently selected week as the transaction date so that debts/payments
+  // affect the visible week immediately, not the future week containing today's date.
+  const getTxDates = () => {
+    const today = new Date().toISOString().split('T')[0];
+    const periodFrom = weekDebtContext?.periodFrom || today;
+    const periodTo = weekDebtContext?.periodTo || today;
+    return { periodFrom, periodTo };
+  };
+
+  const recalcWeekIfPossible = async () => {
+    if (!weekDebtContext?.fleetId || !weekDebtContext.periodFrom || !weekDebtContext.periodTo) return;
+    try {
+      await supabase.functions.invoke('recalculate-week', {
+        body: {
+          fleet_id: weekDebtContext.fleetId,
+          period_from: weekDebtContext.periodFrom,
+          period_to: weekDebtContext.periodTo,
+          historical_only: !!weekDebtContext.isHistorical,
+        },
+      });
+    } catch (err) {
+      console.warn('recalculate-week failed:', err);
+    }
+  };
 
   const getTransactionCategory = (tx: DebtTransaction): 'settlement' | 'rental' => {
     if (tx.debt_category === 'rental') return 'rental';
@@ -160,7 +187,12 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
     setSaving(true);
     try {
       const newTotalBalance = Math.max(0, round2(currentDebt - amount));
-      const dateVal = paymentDate || new Date().toISOString().split('T')[0];
+      // Tie the payment to the currently selected settlement week so it shows up
+      // immediately in this week instead of being attributed to a future week.
+      const { periodFrom: weekFrom, periodTo: weekTo } = getTxDates();
+      const dateVal = paymentDate || weekFrom;
+      const periodFromVal = weekFrom;
+      const periodToVal = weekTo;
       const categoryBalances = {
         settlement: settlementDebt,
         rental: rentalDebt,
@@ -186,9 +218,9 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
           amount: -paidAmount,
           balance_before: categoryBalanceBefore,
           balance_after: Math.max(0, round2(categoryBalanceBefore - paidAmount)),
-          period_from: dateVal,
-          period_to: dateVal,
-          description: paymentNote || 'Wpłata własna kierowcy',
+          period_from: periodFromVal,
+          period_to: periodToVal,
+          description: paymentNote || `Wpłata własna kierowcy (${dateVal})`,
           debt_category: category,
         });
 
@@ -202,9 +234,9 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
           amount: -amount,
           balance_before: currentDebt,
           balance_after: newTotalBalance,
-          period_from: dateVal,
-          period_to: dateVal,
-          description: paymentNote || 'Wpłata własna kierowcy',
+          period_from: periodFromVal,
+          period_to: periodToVal,
+          description: paymentNote || `Wpłata własna kierowcy (${dateVal})`,
           debt_category: activeTab,
         });
       }
@@ -244,6 +276,7 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
       setPaymentAmount('');
       setPaymentNote('');
       setShowPaymentForm(false);
+      await recalcWeekIfPossible();
       await fetchDebtData();
       await onDebtChanged?.();
     } catch (err) {
@@ -288,7 +321,8 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
         if (insertDebtError) throw insertDebtError;
       }
 
-      const dateVal = new Date().toISOString().split('T')[0];
+      const today = new Date().toISOString().split('T')[0];
+      const { periodFrom: weekFrom, periodTo: weekTo } = getTxDates();
       const { error: transactionError } = await supabase
         .from('driver_debt_transactions')
         .insert({
@@ -297,9 +331,9 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
           amount: amount,
           balance_before: categoryBalanceBefore,
           balance_after: categoryBalanceAfter,
-          period_from: dateVal,
-          period_to: dateVal,
-          description: debtNote || 'Dług dodany ręcznie',
+          period_from: weekFrom,
+          period_to: weekTo,
+          description: debtNote || `Dług dodany ręcznie (${today})`,
           debt_category: activeTab,
         } as any);
 
@@ -309,6 +343,7 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
       setDebtAmount('');
       setDebtNote('');
       setShowAddDebtForm(false);
+      await recalcWeekIfPossible();
       await fetchDebtData();
       await onDebtChanged?.();
     } catch (err) {
