@@ -319,11 +319,22 @@ serve(async (req) => {
       // Calculate net (netto)
       const nettoCalc = totalBase - totalCommissionRaw;
 
+      // Brak jakiejkolwiek aktywności (kierowca nie jeździł) = nie naliczamy opłat
+      const hasAnyActivity =
+        hasPositivePlatformActivity ||
+        Math.abs(totalBase) > 0.01 ||
+        Math.abs(totalCashRaw) > 0.01 ||
+        Math.abs(totalCommissionRaw) > 0.01 ||
+        Math.abs(fuel) > 0.01 ||
+        Math.abs(manualAdj) > 0.01;
+
+      const skipFees = !hasAnyActivity || isBoltAdjustmentOnly || isNegativeAdjustmentOnly;
+
       // Service fee (zero if no real activity)
-      const effectiveServiceFee = (isBoltAdjustmentOnly || isNegativeAdjustmentOnly) ? 0 : getDriverServiceFee(settlement.driver_id, amounts);
+      const effectiveServiceFee = skipFees ? 0 : getDriverServiceFee(settlement.driver_id, amounts);
 
       // Additional fees from fleet_settlement_fees
-      const additionalFeesTotal = (isBoltAdjustmentOnly || isNegativeAdjustmentOnly) ? 0 : applicableFees.reduce((sum, fee) => {
+      const additionalFeesTotal = skipFees ? 0 : applicableFees.reduce((sum, fee) => {
         // Check manual override in amounts
         const manualKey = `manual_fee_${applicableFees.indexOf(fee)}`;
         const manualVal = amounts?.[manualKey];
