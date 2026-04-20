@@ -398,11 +398,12 @@ export function ServiceProviderDetailPage() {
                 </div>
               )}
 
-              {/* Rating: nowe konta (brak opinii) dostają domyślne 5★, dopiero pierwsza opinia uśrednia */}
+              {/* Rating: gwiazdki zawsze widoczne (nowe konta = 5.0); liczba opinii pokazuje się od 10 */}
               {(() => {
                 const hasReviews = (provider.rating_count || 0) > 0;
                 const displayRating = hasReviews ? (provider.rating_avg || 0) : 5;
                 const displayCount = provider.rating_count || 0;
+                const showCount = displayCount >= 10;
                 return (
                   <div className="flex items-center gap-3 mt-4">
                     <div className="flex items-center">
@@ -419,7 +420,7 @@ export function ServiceProviderDetailPage() {
                       ))}
                     </div>
                     <span className="font-semibold">{displayRating.toFixed(1)}</span>
-                    {hasReviews && (
+                    {showCount && (
                       <span className="text-muted-foreground text-sm">({displayCount} opinii)</span>
                     )}
                   </div>
