@@ -526,6 +526,7 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
                     <TableHead>Pojazd</TableHead>
                     <TableHead>Usługa</TableHead>
                     <TableHead>Termin</TableHead>
+                    <TableHead>Zarezerwowano</TableHead>
                     <TableHead className="text-right">Akcje</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -539,6 +540,9 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
                         <div className="flex items-center gap-1.5">
                           <Calendar className="h-3.5 w-3.5 text-primary" />
                           <span className="font-medium text-sm">{b.booking_number}</span>
+                          {isNewBooking(b) && (
+                            <Badge className="bg-red-500 text-white text-[9px] px-1 py-0 h-4">NOWE</Badge>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -574,6 +578,12 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
                           <div className="text-primary">{b.scheduled_time}</div>
                         </div>
                       </TableCell>
+                      <TableCell>
+                        <div className="text-[11px] text-muted-foreground">
+                          <div>{format(new Date(b.created_at), 'dd.MM.yyyy', { locale: pl })}</div>
+                          <div>{format(new Date(b.created_at), 'HH:mm', { locale: pl })}</div>
+                        </div>
+                      </TableCell>
                       <TableCell className="text-right">
                         <div className="flex gap-1 justify-end">
                           {b.status === 'pending' && (
@@ -584,17 +594,17 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
                           <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => openEdit(b)} title="Edytuj termin">
                             <Pencil className="h-3 w-3" />
                           </Button>
-                          {b.status === 'pending' ? (
-                            <Button size="sm" variant="outline" className="h-7 px-2 text-destructive hover:text-destructive" onClick={() => handleReject(b)} disabled={actingId === b.id} title="Odrzuć (SMS odwołujący)">
-                              <XCircle className="h-3 w-3" />
-                            </Button>
-                          ) : (
+                          {b.status !== 'pending' && (
                             <a href={`tel:${b.customer_phone}`} className="inline-flex">
                               <Button size="sm" variant="outline" className="h-7 px-2" title="Zadzwoń">
                                 <Phone className="h-3 w-3" />
                               </Button>
                             </a>
                           )}
+                          {/* X — zawsze na końcu paska, czerwony */}
+                          <Button size="sm" variant="outline" className="h-7 px-2 text-destructive hover:text-destructive border-destructive/40" onClick={() => handleReject(b)} disabled={actingId === b.id} title="Anuluj wizytę (SMS odwołujący)">
+                            <XCircle className="h-3 w-3" />
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
