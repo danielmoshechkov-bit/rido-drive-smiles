@@ -274,7 +274,7 @@ export function ServiceBookingModal({ provider, service, open, onOpenChange }: S
         scheduled_date: format(selectedDate, 'yyyy-MM-dd'),
         scheduled_time: selectedTime,
         duration_minutes: service.duration_minutes,
-        estimated_price: service.price,
+        estimated_price: service.id === 'generic-visit' || service.price_type === 'tbd' ? null : service.price,
         customer_notes: customerNotes || null,
         vehicle_brand: vehicleBrand || null,
         vehicle_model: vehicleModel || null,
@@ -453,19 +453,25 @@ export function ServiceBookingModal({ provider, service, open, onOpenChange }: S
                 <Textarea value={customerNotes} onChange={(e) => setCustomerNotes(e.target.value)} placeholder="Co należy zrobić, objawy..." rows={3} />
               </div>
 
-              <Alert variant="default" className="border-amber-300 bg-amber-50">
-                <AlertTriangle className="h-4 w-4 text-amber-600" />
-                <AlertDescription className="text-xs text-amber-900">
-                  <strong>Uwaga:</strong> Wskazana cena to <strong>cena orientacyjna „od"</strong>. 
-                  Ostateczny koszt usługi może się różnić w zależności od stanu pojazdu i zakresu prac. 
-                  <strong> Przed rozpoczęciem naprawy ustal cenę z usługodawcą</strong>, aby uniknąć nieporozumień.
-                </AlertDescription>
-              </Alert>
+              {service.price_type !== 'tbd' && service.id !== 'generic-visit' && (
+                <Alert variant="default" className="border-amber-300 bg-amber-50">
+                  <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  <AlertDescription className="text-xs text-amber-900">
+                    <strong>Uwaga:</strong> Wskazana cena to <strong>cena orientacyjna „od"</strong>.
+                    Ostateczny koszt usługi może się różnić w zależności od stanu pojazdu i zakresu prac.
+                    <strong> Przed rozpoczęciem naprawy ustal cenę z usługodawcą</strong>, aby uniknąć nieporozumień.
+                  </AlertDescription>
+                </Alert>
+              )}
 
               <Card className="bg-muted/50">
                 <CardContent className="p-3 text-sm space-y-1">
                   <div className="flex justify-between"><span className="text-muted-foreground">Termin:</span><span className="font-medium">{selectedDate && format(selectedDate, 'dd.MM.yyyy', { locale: pl })} o {selectedTime}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Cena orientacyjna:</span><span className="font-bold text-primary">od {service.price_from || service.price} zł</span></div>
+                  {service.price_type === 'tbd' || service.id === 'generic-visit' ? (
+                    <div className="flex justify-between"><span className="text-muted-foreground">Cena:</span><span className="font-medium text-foreground">do ustalenia w warsztacie</span></div>
+                  ) : (
+                    <div className="flex justify-between"><span className="text-muted-foreground">Cena orientacyjna:</span><span className="font-bold text-primary">od {service.price_from || service.price} zł</span></div>
+                  )}
                 </CardContent>
               </Card>
 

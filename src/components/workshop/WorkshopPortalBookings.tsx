@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Calendar, Phone, Car, CheckCircle2, XCircle, Loader2, AlertTriangle, Pencil, ArrowRightCircle } from 'lucide-react';
+import { Calendar, Phone, Car, CheckCircle2, XCircle, Loader2, AlertTriangle, Pencil, ArrowRightCircle, MoreHorizontal, Sparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 interface Props {
   providerId: string;
@@ -176,7 +177,7 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
         .eq('provider_id', providerId)
         .eq('source', 'portal')
         .neq('status', 'cancelled')
-        .order('scheduled_date', { ascending: true });
+        .order('created_at', { ascending: false }); // NOWE NA GÓRZE
       if (error) {
         console.error('[WorkshopPortalBookings] load error:', error);
         throw error;
@@ -195,6 +196,13 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
     },
     enabled: !!providerId,
   });
+
+  // Wykrzyknik "NOWE" — rezerwacja utworzona w ciągu ostatnich 24h, nadal w pending
+  const isNewBooking = (b: Booking) => {
+    if (b.status !== 'pending') return false;
+    const created = new Date(b.created_at).getTime();
+    return Date.now() - created < 24 * 60 * 60 * 1000;
+  };
 
   // Realtime
   useEffect(() => {
@@ -419,18 +427,25 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
           </div>
           <div className="flex items-center gap-2">
             {selected.size > 0 && (
-              <>
-                <span className="text-xs text-muted-foreground">Zaznaczono: {selected.size}</span>
-                <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={bulkConfirm} disabled={bulkBusy}>
-                  <CheckCircle2 className="h-3 w-3 text-green-600" /> Potwierdź
-                </Button>
-                <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={bulkMoveToOrders} disabled={bulkBusy}>
-                  <ArrowRightCircle className="h-3 w-3 text-primary" /> Przenieś do zleceń
-                </Button>
-                <Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-destructive hover:text-destructive" onClick={bulkCancel} disabled={bulkBusy}>
-                  <XCircle className="h-3 w-3" /> Anuluj
-                </Button>
-              </>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1">
+                    <MoreHorizontal className="h-3 w-3" /> Zaznaczono: {selected.size} — Akcje
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuItem onClick={bulkConfirm} disabled={bulkBusy}>
+                    <CheckCircle2 className="h-4 w-4 mr-2 text-green-600" /> Potwierdź (SMS)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={bulkMoveToOrders} disabled={bulkBusy}>
+                    <ArrowRightCircle className="h-4 w-4 mr-2 text-primary" /> Przenieś do zleceń
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={bulkCancel} disabled={bulkBusy} className="text-destructive focus:text-destructive">
+                    <XCircle className="h-4 w-4 mr-2" /> Anuluj (SMS)
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
             <span className="text-xs text-muted-foreground hidden md:inline">Klienci umówili się przez GetRido</span>
           </div>
@@ -511,6 +526,7 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
                     <TableHead>Pojazd</TableHead>
                     <TableHead>Usługa</TableHead>
                     <TableHead>Termin</TableHead>
+                    <TableHead>Zarezerwowano</TableHead>
                     <TableHead className="text-right">Akcje</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -524,6 +540,9 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
                         <div className="flex items-center gap-1.5">
                           <Calendar className="h-3.5 w-3.5 text-primary" />
                           <span className="font-medium text-sm">{b.booking_number}</span>
+                          {isNewBooking(b) && (
+                            <Badge className="bg-red-500 text-white text-[9px] px-1 py-0 h-4">NOWE</Badge>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -559,6 +578,12 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
                           <div className="text-primary">{b.scheduled_time}</div>
                         </div>
                       </TableCell>
+                      <TableCell>
+                        <div className="text-[11px] text-muted-foreground">
+                          <div>{format(new Date(b.created_at), 'dd.MM.yyyy', { locale: pl })}</div>
+                          <div>{format(new Date(b.created_at), 'HH:mm', { locale: pl })}</div>
+                        </div>
+                      </TableCell>
                       <TableCell className="text-right">
                         <div className="flex gap-1 justify-end">
                           {b.status === 'pending' && (
@@ -569,17 +594,17 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
                           <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => openEdit(b)} title="Edytuj termin">
                             <Pencil className="h-3 w-3" />
                           </Button>
-                          {b.status === 'pending' ? (
-                            <Button size="sm" variant="outline" className="h-7 px-2 text-destructive hover:text-destructive" onClick={() => handleReject(b)} disabled={actingId === b.id} title="Odrzuć (SMS odwołujący)">
-                              <XCircle className="h-3 w-3" />
-                            </Button>
-                          ) : (
+                          {b.status !== 'pending' && (
                             <a href={`tel:${b.customer_phone}`} className="inline-flex">
                               <Button size="sm" variant="outline" className="h-7 px-2" title="Zadzwoń">
                                 <Phone className="h-3 w-3" />
                               </Button>
                             </a>
                           )}
+                          {/* X — zawsze na końcu paska, czerwony */}
+                          <Button size="sm" variant="outline" className="h-7 px-2 text-destructive hover:text-destructive border-destructive/40" onClick={() => handleReject(b)} disabled={actingId === b.id} title="Anuluj wizytę (SMS odwołujący)">
+                            <XCircle className="h-3 w-3" />
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
