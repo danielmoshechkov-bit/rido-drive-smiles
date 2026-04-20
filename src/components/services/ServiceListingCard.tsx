@@ -148,13 +148,17 @@ export function ServiceListingCard({
               />
             </button>
 
-            {/* Rating Badge */}
-            {provider.rating_avg && provider.rating_avg > 0 && (
-              <div className="absolute bottom-2 left-2 bg-black/60 text-white px-1.5 py-0.5 rounded text-xs flex items-center gap-1">
-                <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                <span>{provider.rating_avg.toFixed(1)}</span>
-              </div>
-            )}
+            {/* Rating Badge — gwiazdka zawsze widoczna; nowe konta = 5.0 */}
+            {(() => {
+              const hasReviews = (provider.rating_count || 0) > 0;
+              const display = hasReviews ? (provider.rating_avg || 0) : 5;
+              return (
+                <div className="absolute bottom-2 left-2 bg-black/60 text-white px-1.5 py-0.5 rounded text-xs flex items-center gap-1">
+                  <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                  <span>{display.toFixed(1)}</span>
+                </div>
+              );
+            })()}
           </div>
 
           {/* Compact Content */}
@@ -284,23 +288,32 @@ export function ServiceListingCard({
                 </div>
               )}
 
-              {/* Rating */}
-              <div className="flex items-center gap-1 mt-2">
-                {[1, 2, 3, 4, 5].map(star => (
-                  <Star 
-                    key={star}
-                    className={cn(
-                      "h-4 w-4",
-                      star <= Math.round(provider.rating_avg || 0)
-                        ? "fill-yellow-400 text-yellow-400"
-                        : "text-muted-foreground/30"
+              {/* Rating — gwiazdki zawsze widoczne; licznik łącznie pokazuje się od 5 opinii */}
+              {(() => {
+                const hasReviews = (provider.rating_count || 0) > 0;
+                const displayRating = hasReviews ? (provider.rating_avg || 0) : 5;
+                const showCount = (provider.rating_count || 0) >= 5;
+                return (
+                  <div className="flex items-center gap-1 mt-2">
+                    {[1, 2, 3, 4, 5].map(star => (
+                      <Star
+                        key={star}
+                        className={cn(
+                          "h-4 w-4",
+                          star <= Math.round(displayRating)
+                            ? "fill-yellow-400 text-yellow-400"
+                            : "text-muted-foreground/30"
+                        )}
+                      />
+                    ))}
+                    {showCount && (
+                      <span className="text-sm text-muted-foreground ml-1">
+                        ({provider.rating_count} opinii)
+                      </span>
                     )}
-                  />
-                ))}
-                <span className="text-sm text-muted-foreground ml-1">
-                  ({provider.rating_count} opinii)
-                </span>
-              </div>
+                  </div>
+                );
+              })()}
 
               <div className="flex-grow min-h-2" />
 
