@@ -32,8 +32,8 @@ export function WorkshopVehicleHoverCard({ vehicle, children, onEdit }: Props) {
               {name || 'Pojazd'}
             </h4>
             {onEdit && (
-              <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={onEdit}>
-                <ExternalLink className="h-3 w-3" />
+              <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={onEdit}>
+                <ExternalLink className="h-3 w-3" /> Edytuj
               </Button>
             )}
           </div>
