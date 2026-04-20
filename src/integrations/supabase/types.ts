@@ -20806,6 +20806,30 @@ export type Database = {
           },
         ]
       }
+      workshop_order_sequences: {
+        Row: {
+          kind: string
+          last_number: number
+          month: number
+          provider_id: string
+          year: number
+        }
+        Insert: {
+          kind?: string
+          last_number?: number
+          month: number
+          provider_id: string
+          year: number
+        }
+        Update: {
+          kind?: string
+          last_number?: number
+          month?: number
+          provider_id?: string
+          year?: number
+        }
+        Relationships: []
+      }
       workshop_order_signatures: {
         Row: {
           created_at: string
@@ -23087,6 +23111,10 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      next_workshop_order_number: {
+        Args: { p_kind?: string; p_provider_id: string }
+        Returns: string
       }
       user_has_pending_reviews: {
         Args: { p_user_id: string }
