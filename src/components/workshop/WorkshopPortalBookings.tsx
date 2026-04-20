@@ -3,8 +3,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Calendar, Phone, Car, CheckCircle2, XCircle, Loader2, AlertTriangle, Pencil } from 'lucide-react';
+import { Calendar, Phone, Car, CheckCircle2, XCircle, Loader2, AlertTriangle, Pencil, ArrowRightCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
@@ -50,128 +51,120 @@ const STATUS_LABELS: Record<string, { label: string; cls: string }> = {
 export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
   const queryClient = useQueryClient();
   const [actingId, setActingId] = useState<string | null>(null);
-  const [openingId, setOpeningId] = useState<string | null>(null);
   const [editing, setEditing] = useState<Booking | null>(null);
   const [editDate, setEditDate] = useState('');
   const [editTime, setEditTime] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
 
-  // Otwórz rezerwację jako zlecenie warsztatowe (utwórz jeśli nie istnieje)
-  const openAsOrder = async (b: Booking) => {
-    if (!onSelectOrder) return;
-    setOpeningId(b.id);
-    try {
-      const sb: any = supabase as any;
+  // Konwertuje rezerwację na zlecenie warsztatowe (numeracja ZLP-) i opcjonalnie otwiera kartę
+  const convertToOrder = async (b: Booking, openAfter = true): Promise<any | null> => {
+    const sb: any = supabase as any;
 
-      // 1) Czy zlecenie już istnieje?
-      const { data: existing } = await sb
-        .from('workshop_orders')
-        .select('*, client:workshop_clients(*), vehicle:workshop_vehicles(*), items:workshop_order_items(*)')
-        .eq('booking_id', b.id)
-        .maybeSingle();
+    // 1) Czy zlecenie już istnieje?
+    const { data: existing } = await sb
+      .from('workshop_orders')
+      .select('*, client:workshop_clients(*), vehicle:workshop_vehicles(*), items:workshop_order_items(*)')
+      .eq('booking_id', b.id)
+      .maybeSingle();
 
-      if (existing) {
-        onSelectOrder(existing);
-        return;
-      }
+    if (existing) {
+      if (openAfter && onSelectOrder) onSelectOrder(existing);
+      return existing;
+    }
 
-      // 2) Klient — szukaj po telefonie u tego providera
-      const phoneDigits = (b.customer_phone || '').replace(/\D/g, '').slice(-9);
-      let clientId: string | null = null;
-      if (phoneDigits) {
-        const { data: existingClients } = await sb
-          .from('workshop_clients')
-          .select('id, phone')
-          .eq('provider_id', providerId);
-        const found = (existingClients || []).find((c: any) => (c.phone || '').replace(/\D/g, '').slice(-9) === phoneDigits);
-        if (found) clientId = found.id;
-      }
-      if (!clientId) {
-        const nameParts = (b.customer_name || '').trim().split(/\s+/);
-        const firstName = nameParts[0] || '';
-        const lastName = nameParts.slice(1).join(' ') || null;
-        const { data: newClient, error: cErr } = await sb
-          .from('workshop_clients')
-          .insert({
-            provider_id: providerId,
-            client_type: 'private',
-            first_name: firstName,
-            last_name: lastName,
-            phone: b.customer_phone,
-            email: b.customer_email,
-          })
-          .select('id')
-          .single();
-        if (cErr) throw cErr;
-        clientId = newClient.id;
-      }
-
-      // 3) Pojazd — szukaj po nr rej
-      let vehicleId: string | null = null;
-      const plateNorm = (b.vehicle_plate || '').toUpperCase().replace(/\s/g, '');
-      if (plateNorm) {
-        const { data: existingVeh } = await sb
-          .from('workshop_vehicles')
-          .select('id, plate')
-          .eq('provider_id', providerId);
-        const fv = (existingVeh || []).find((v: any) => (v.plate || '').toUpperCase().replace(/\s/g, '') === plateNorm);
-        if (fv) vehicleId = fv.id;
-      }
-      if (!vehicleId && (b.vehicle_brand || b.vehicle_model || plateNorm)) {
-        const { data: newVeh, error: vErr } = await sb
-          .from('workshop_vehicles')
-          .insert({
-            provider_id: providerId,
-            owner_client_id: clientId,
-            brand: b.vehicle_brand,
-            model: b.vehicle_model,
-            year: b.vehicle_year,
-            plate: plateNorm || null,
-          })
-          .select('id')
-          .single();
-        if (vErr) throw vErr;
-        vehicleId = newVeh.id;
-      }
-
-      // 4) Zlecenie
-      const description = [b.service_name, b.customer_notes].filter(Boolean).join(' — ');
-      const scheduledStart = b.scheduled_date && b.scheduled_time
-        ? `${b.scheduled_date}T${(b.scheduled_time || '').substring(0, 5)}:00`
-        : null;
-      const scheduledEnd = scheduledStart && b.duration_minutes
-        ? new Date(new Date(scheduledStart).getTime() + b.duration_minutes * 60000).toISOString()
-        : null;
-
-      const orderNumber = `ZL-${String(new Date().getMonth() + 1).padStart(2, '0')}/${new Date().getFullYear()}-${Math.floor(Math.random() * 900) + 100}`;
-
-      const { data: newOrder, error: oErr } = await sb
-        .from('workshop_orders')
+    // 2) Klient — szukaj po telefonie
+    const phoneDigits = (b.customer_phone || '').replace(/\D/g, '').slice(-9);
+    let clientId: string | null = null;
+    if (phoneDigits) {
+      const { data: existingClients } = await sb
+        .from('workshop_clients')
+        .select('id, phone')
+        .eq('provider_id', providerId);
+      const found = (existingClients || []).find(
+        (c: any) => (c.phone || '').replace(/\D/g, '').slice(-9) === phoneDigits
+      );
+      if (found) clientId = found.id;
+    }
+    if (!clientId) {
+      const nameParts = (b.customer_name || '').trim().split(/\s+/);
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.slice(1).join(' ') || null;
+      const { data: newClient, error: cErr } = await sb
+        .from('workshop_clients')
         .insert({
           provider_id: providerId,
-          order_number: orderNumber,
-          client_id: clientId,
-          vehicle_id: vehicleId,
-          booking_id: b.id,
-          description,
-          status_name: 'Przyjęcie do serwisu',
-          scheduled_date: b.scheduled_date,
-          scheduled_start: scheduledStart,
-          scheduled_end: scheduledEnd,
+          client_type: 'private',
+          first_name: firstName,
+          last_name: lastName,
+          phone: b.customer_phone,
+          email: b.customer_email,
         })
-        .select('*, client:workshop_clients(*), vehicle:workshop_vehicles(*), items:workshop_order_items(*)')
+        .select('id')
         .single();
-      if (oErr) throw oErr;
-
-      toast.success('Utworzono zlecenie z rezerwacji');
-      queryClient.invalidateQueries({ queryKey: ['workshop-orders'] });
-      onSelectOrder(newOrder);
-    } catch (e: any) {
-      console.error('openAsOrder error:', e);
-      toast.error(e.message || 'Nie udało się otworzyć zlecenia');
-    } finally {
-      setOpeningId(null);
+      if (cErr) throw cErr;
+      clientId = newClient.id;
     }
+
+    // 3) Pojazd
+    let vehicleId: string | null = null;
+    const plateNorm = (b.vehicle_plate || '').toUpperCase().replace(/\s/g, '');
+    if (plateNorm) {
+      const { data: existingVeh } = await sb
+        .from('workshop_vehicles')
+        .select('id, plate')
+        .eq('provider_id', providerId);
+      const fv = (existingVeh || []).find(
+        (v: any) => (v.plate || '').toUpperCase().replace(/\s/g, '') === plateNorm
+      );
+      if (fv) vehicleId = fv.id;
+    }
+    if (!vehicleId && (b.vehicle_brand || b.vehicle_model || plateNorm)) {
+      const { data: newVeh, error: vErr } = await sb
+        .from('workshop_vehicles')
+        .insert({
+          provider_id: providerId,
+          owner_client_id: clientId,
+          brand: b.vehicle_brand,
+          model: b.vehicle_model,
+          year: b.vehicle_year,
+          plate: plateNorm || null,
+        })
+        .select('id')
+        .single();
+      if (vErr) throw vErr;
+      vehicleId = newVeh.id;
+    }
+
+    // 4) Zlecenie — order_number wygeneruje trigger (ZLP-MM/YYYY-NNN, bo booking_id != null)
+    const description = [b.service_name, b.customer_notes].filter(Boolean).join(' — ');
+    const scheduledStart = b.scheduled_date && b.scheduled_time
+      ? `${b.scheduled_date}T${(b.scheduled_time || '').substring(0, 5)}:00`
+      : null;
+    const scheduledEnd = scheduledStart && b.duration_minutes
+      ? new Date(new Date(scheduledStart).getTime() + b.duration_minutes * 60000).toISOString()
+      : null;
+
+    const { data: newOrder, error: oErr } = await sb
+      .from('workshop_orders')
+      .insert({
+        provider_id: providerId,
+        client_id: clientId,
+        vehicle_id: vehicleId,
+        booking_id: b.id,
+        description,
+        status_name: 'Przyjęcie do serwisu',
+        scheduled_date: b.scheduled_date,
+        scheduled_start: scheduledStart,
+        scheduled_end: scheduledEnd,
+      })
+      .select('*, client:workshop_clients(*), vehicle:workshop_vehicles(*), items:workshop_order_items(*)')
+      .single();
+    if (oErr) throw oErr;
+
+    if (openAfter && onSelectOrder) onSelectOrder(newOrder);
+    return newOrder;
   };
 
   const { data: bookings = [], isLoading } = useQuery({
@@ -216,6 +209,7 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
     return () => { (supabase as any).removeChannel(ch); };
   }, [providerId, queryClient]);
 
+  // Pojedyncze potwierdzenie — POTWIERDŹ + KONWERTUJ + OTWÓRZ + SMS
   const handleConfirm = async (b: Booking) => {
     setActingId(b.id);
     try {
@@ -224,12 +218,18 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
         .update({ status: 'confirmed', confirmed_at: new Date().toISOString() })
         .eq('id', b.id);
       if (error) throw error;
-      // Send confirmation SMS (best effort)
+
+      // SMS potwierdzający
       supabase.functions.invoke('booking-notify', {
-        body: { booking_id: b.id, type: 'confirmed' }
-      }).catch(() => {});
-      toast.success('Rezerwacja potwierdzona — klient otrzyma SMS');
+        body: { booking_id: b.id, type: 'confirmed' },
+      }).catch((e) => console.error('booking-notify error:', e));
+
+      // Konwersja → zlecenie ZLP-, otwiera kartę
+      await convertToOrder(b, true);
+
+      toast.success('Potwierdzono — utworzono zlecenie i wysłano SMS');
       queryClient.invalidateQueries({ queryKey: ['portal-bookings', providerId] });
+      queryClient.invalidateQueries({ queryKey: ['workshop-orders'] });
       queryClient.invalidateQueries({ queryKey: ['pending-bookings-count'] });
     } catch (e: any) {
       toast.error(e.message || 'Błąd potwierdzania');
@@ -239,7 +239,7 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
   };
 
   const handleReject = async (b: Booking) => {
-    if (!confirm(`Odrzucić rezerwację ${b.booking_number}?`)) return;
+    if (!confirm(`Odrzucić rezerwację ${b.booking_number}? Klient otrzyma SMS o anulowaniu.`)) return;
     setActingId(b.id);
     try {
       const { error } = await (supabase as any)
@@ -247,7 +247,11 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
         .update({ status: 'cancelled' })
         .eq('id', b.id);
       if (error) throw error;
-      toast.success('Rezerwacja odrzucona');
+      // SMS odwołujący
+      supabase.functions.invoke('booking-notify', {
+        body: { booking_id: b.id, type: 'cancelled' },
+      }).catch(() => {});
+      toast.success('Rezerwacja odrzucona — wysłano SMS');
       queryClient.invalidateQueries({ queryKey: ['portal-bookings', providerId] });
     } catch (e: any) {
       toast.error(e.message || 'Błąd');
@@ -285,17 +289,19 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
         .eq('id', editing.id);
       if (error) throw error;
 
-      // Wyślij SMS — rescheduled jeśli zmiana terminu, w przeciwnym razie confirmed
-      supabase.functions.invoke('booking-notify', {
+      // SMS — rescheduled lub confirmed
+      const { data: smsRes, error: smsErr } = await supabase.functions.invoke('booking-notify', {
         body: {
           booking_id: editing.id,
           type: changed ? 'rescheduled' : 'confirmed',
           old_date: oldDate,
           old_time: oldTime,
         },
-      }).catch((e) => console.error('booking-notify invoke error:', e));
+      });
+      if (smsErr) console.error('booking-notify error:', smsErr);
+      console.log('[booking-notify] result:', smsRes);
 
-      toast.success(changed ? 'Termin zmieniony — klient otrzyma SMS' : 'Rezerwacja potwierdzona');
+      toast.success(changed ? 'Termin zmieniony — klient otrzyma SMS' : 'Rezerwacja potwierdzona — wysłano SMS');
       setEditing(null);
       queryClient.invalidateQueries({ queryKey: ['portal-bookings', providerId] });
       queryClient.invalidateQueries({ queryKey: ['pending-bookings-count'] });
@@ -306,18 +312,128 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
     }
   };
 
+  // ============== MASOWE AKCJE ==============
+  const toggleSelect = (id: string) => {
+    setSelected((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id); else n.add(id);
+      return n;
+    });
+  };
+  const toggleAll = () => {
+    if (selected.size === bookings.length) setSelected(new Set());
+    else setSelected(new Set(bookings.map((b) => b.id)));
+  };
+
+  const bulkConfirm = async () => {
+    if (selected.size === 0) return;
+    setBulkBusy(true);
+    try {
+      const ids = Array.from(selected);
+      const list = bookings.filter((b) => ids.includes(b.id));
+      for (const b of list) {
+        await (supabase as any)
+          .from('service_bookings')
+          .update({ status: 'confirmed', confirmed_at: new Date().toISOString() })
+          .eq('id', b.id);
+        supabase.functions.invoke('booking-notify', {
+          body: { booking_id: b.id, type: 'confirmed' },
+        }).catch(() => {});
+        try { await convertToOrder(b, false); } catch (e) { console.error(e); }
+      }
+      toast.success(`Potwierdzono ${list.length} rezerwacji — utworzono zlecenia, wysłano SMS`);
+      setSelected(new Set());
+      queryClient.invalidateQueries({ queryKey: ['portal-bookings', providerId] });
+      queryClient.invalidateQueries({ queryKey: ['workshop-orders'] });
+    } catch (e: any) {
+      toast.error(e.message || 'Błąd masowego potwierdzania');
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const bulkCancel = async () => {
+    if (selected.size === 0) return;
+    if (!confirm(`Odwołać ${selected.size} rezerwacji? Klienci otrzymają SMS z anulowaniem.`)) return;
+    setBulkBusy(true);
+    try {
+      const ids = Array.from(selected);
+      await (supabase as any)
+        .from('service_bookings')
+        .update({ status: 'cancelled' })
+        .in('id', ids);
+      // SMS dla każdego
+      for (const id of ids) {
+        supabase.functions.invoke('booking-notify', {
+          body: { booking_id: id, type: 'cancelled' },
+        }).catch(() => {});
+      }
+      toast.success(`Odwołano ${ids.length} rezerwacji — wysłano SMS`);
+      setSelected(new Set());
+      queryClient.invalidateQueries({ queryKey: ['portal-bookings', providerId] });
+    } catch (e: any) {
+      toast.error(e.message || 'Błąd masowego anulowania');
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const bulkMoveToOrders = async () => {
+    if (selected.size === 0) return;
+    setBulkBusy(true);
+    try {
+      const ids = Array.from(selected);
+      const list = bookings.filter((b) => ids.includes(b.id));
+      for (const b of list) {
+        if (b.status === 'pending') {
+          await (supabase as any)
+            .from('service_bookings')
+            .update({ status: 'confirmed', confirmed_at: new Date().toISOString() })
+            .eq('id', b.id);
+        }
+        try { await convertToOrder(b, false); } catch (e) { console.error(e); }
+      }
+      toast.success(`Przeniesiono ${list.length} do aktywnych zleceń (numeracja ZLP-)`);
+      setSelected(new Set());
+      queryClient.invalidateQueries({ queryKey: ['portal-bookings', providerId] });
+      queryClient.invalidateQueries({ queryKey: ['workshop-orders'] });
+    } catch (e: any) {
+      toast.error(e.message || 'Błąd przenoszenia');
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
   if (!providerId) return null;
+
+  const allSelected = bookings.length > 0 && selected.size === bookings.length;
 
   return (
     <Card className="border-primary/30">
       <CardContent className="p-0">
-        <div className="flex items-center justify-between px-4 py-3 border-b bg-primary/5">
+        <div className="flex items-center justify-between gap-2 px-4 py-3 border-b bg-primary/5 flex-wrap">
           <div className="flex items-center gap-2">
             <Calendar className="h-4 w-4 text-primary" />
             <h3 className="font-semibold text-sm">Rezerwacje z portalu</h3>
             <Badge variant="secondary" className="text-xs">{bookings.length}</Badge>
           </div>
-          <span className="text-xs text-muted-foreground">Klienci umówili się przez GetRido</span>
+          <div className="flex items-center gap-2">
+            {selected.size > 0 && (
+              <>
+                <span className="text-xs text-muted-foreground">Zaznaczono: {selected.size}</span>
+                <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={bulkConfirm} disabled={bulkBusy}>
+                  <CheckCircle2 className="h-3 w-3 text-green-600" /> Potwierdź
+                </Button>
+                <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={bulkMoveToOrders} disabled={bulkBusy}>
+                  <ArrowRightCircle className="h-3 w-3 text-primary" /> Przenieś do zleceń
+                </Button>
+                <Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-destructive hover:text-destructive" onClick={bulkCancel} disabled={bulkBusy}>
+                  <XCircle className="h-3 w-3" /> Anuluj
+                </Button>
+              </>
+            )}
+            <span className="text-xs text-muted-foreground hidden md:inline">Klienci umówili się przez GetRido</span>
+          </div>
         </div>
 
         {isLoading ? (
@@ -333,25 +449,22 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
             {/* Mobile */}
             <div className="md:hidden divide-y">
               {bookings.map((b) => (
-                <div
-                  key={b.id}
-                  className="p-3 space-y-2 cursor-pointer hover:bg-accent/40 transition-colors"
-                  onClick={() => openAsOrder(b)}
-                  title="Otwórz jako zlecenie"
-                >
+                <div key={b.id} className="p-3 space-y-2">
                   <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-medium text-sm">{b.booking_number}</span>
-                        <Badge className={`${STATUS_LABELS[b.status]?.cls} text-[10px]`}>
-                          {STATUS_LABELS[b.status]?.label || b.status}
-                        </Badge>
-                        {openingId === b.id && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
+                    <div className="flex items-start gap-2 min-w-0">
+                      <Checkbox checked={selected.has(b.id)} onCheckedChange={() => toggleSelect(b.id)} className="mt-0.5" />
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium text-sm">{b.booking_number}</span>
+                          <Badge className={`${STATUS_LABELS[b.status]?.cls} text-[10px]`}>
+                            {STATUS_LABELS[b.status]?.label || b.status}
+                          </Badge>
+                        </div>
+                        <p className="text-sm font-medium mt-1">{b.customer_name}</p>
+                        <p className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Phone className="h-3 w-3" /> {b.customer_phone}
+                        </p>
                       </div>
-                      <p className="text-sm font-medium mt-1">{b.customer_name}</p>
-                      <p className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Phone className="h-3 w-3" /> {b.customer_phone}
-                      </p>
                     </div>
                     <div className="text-right">
                       <p className="text-xs font-medium">{format(new Date(b.scheduled_date), 'dd.MM', { locale: pl })}</p>
@@ -365,7 +478,7 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
                   )}
                   {b.service_name && <p className="text-xs"><span className="text-muted-foreground">Usługa:</span> {b.service_name}</p>}
                   {b.customer_notes && <p className="text-xs italic text-muted-foreground line-clamp-2">{b.customer_notes}</p>}
-                  <div className="flex gap-2 pt-1" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex gap-2 pt-1">
                     {b.status === 'pending' && (
                       <Button size="sm" className="flex-1 h-7 text-xs" onClick={() => handleConfirm(b)} disabled={actingId === b.id}>
                         {actingId === b.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <><CheckCircle2 className="h-3 w-3 mr-1" /> Potwierdź</>}
@@ -389,6 +502,9 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-10">
+                      <Checkbox checked={allSelected} onCheckedChange={toggleAll} />
+                    </TableHead>
                     <TableHead>Numer</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Klient / Telefon</TableHead>
@@ -400,16 +516,14 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
                 </TableHeader>
                 <TableBody>
                   {bookings.map((b) => (
-                    <TableRow
-                      key={b.id}
-                      className="cursor-pointer hover:bg-accent/40 transition-colors"
-                      onClick={() => openAsOrder(b)}
-                    >
+                    <TableRow key={b.id} className="hover:bg-accent/40 transition-colors">
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <Checkbox checked={selected.has(b.id)} onCheckedChange={() => toggleSelect(b.id)} />
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1.5">
                           <Calendar className="h-3.5 w-3.5 text-primary" />
                           <span className="font-medium text-sm">{b.booking_number}</span>
-                          {openingId === b.id && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -445,10 +559,10 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
                           <div className="text-primary">{b.scheduled_time}</div>
                         </div>
                       </TableCell>
-                      <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                      <TableCell className="text-right">
                         <div className="flex gap-1 justify-end">
                           {b.status === 'pending' && (
-                            <Button size="sm" className="h-7 text-xs" onClick={() => handleConfirm(b)} disabled={actingId === b.id}>
+                            <Button size="sm" className="h-7 text-xs" onClick={() => handleConfirm(b)} disabled={actingId === b.id} title="Potwierdź → utwórz zlecenie + SMS">
                               {actingId === b.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <><CheckCircle2 className="h-3 w-3 mr-1" /> Potwierdź</>}
                             </Button>
                           )}
@@ -456,7 +570,7 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
                             <Pencil className="h-3 w-3" />
                           </Button>
                           {b.status === 'pending' ? (
-                            <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => handleReject(b)} disabled={actingId === b.id} title="Odrzuć">
+                            <Button size="sm" variant="outline" className="h-7 px-2 text-destructive hover:text-destructive" onClick={() => handleReject(b)} disabled={actingId === b.id} title="Odrzuć (SMS odwołujący)">
                               <XCircle className="h-3 w-3" />
                             </Button>
                           ) : (
@@ -498,7 +612,7 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                Po zapisie klient otrzyma SMS: jeśli zmieniono termin — informacja o nowym terminie; w przeciwnym razie — potwierdzenie wizyty.
+                Po zapisie klient otrzyma SMS z konta Twojego warsztatu (odejmie 1 z licznika SMS).
               </p>
             </div>
           )}
