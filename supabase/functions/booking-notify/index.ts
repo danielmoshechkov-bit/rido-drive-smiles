@@ -73,13 +73,13 @@ Deno.serve(async (req) => {
         message,
         type: 'booking_' + type,
         sender: 'GetRido',
-        fleet_id: b.provider_id, // odejmie z konta usługodawcy
+        fleet_id: b.provider_id, // provider_id usługodawcy — odejmie z jego konta SMS
       },
     });
 
-    if (smsErr) {
-      console.error('send-sms error:', smsErr);
-      return new Response(JSON.stringify({ ok: false, error: smsErr.message }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    if (smsErr || smsRes?.success === false) {
+      console.error('send-sms error:', smsErr || smsRes);
+      return new Response(JSON.stringify({ ok: false, error: smsErr?.message || smsRes?.error || 'SMS send failed', details: smsRes?.details || null }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     console.log('[booking-notify] sent:', type, '->', b.customer_phone, smsRes);
