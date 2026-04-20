@@ -57,6 +57,31 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
 
   const round2 = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 
+  // Use the currently selected week as the transaction date so that debts/payments
+  // affect the visible week immediately, not the future week containing today's date.
+  const getTxDates = () => {
+    const today = new Date().toISOString().split('T')[0];
+    const periodFrom = weekDebtContext?.periodFrom || today;
+    const periodTo = weekDebtContext?.periodTo || today;
+    return { periodFrom, periodTo };
+  };
+
+  const recalcWeekIfPossible = async () => {
+    if (!weekDebtContext?.fleetId || !weekDebtContext.periodFrom || !weekDebtContext.periodTo) return;
+    try {
+      await supabase.functions.invoke('recalculate-week', {
+        body: {
+          fleet_id: weekDebtContext.fleetId,
+          period_from: weekDebtContext.periodFrom,
+          period_to: weekDebtContext.periodTo,
+          historical_only: !!weekDebtContext.isHistorical,
+        },
+      });
+    } catch (err) {
+      console.warn('recalculate-week failed:', err);
+    }
+  };
+
   const getTransactionCategory = (tx: DebtTransaction): 'settlement' | 'rental' => {
     if (tx.debt_category === 'rental') return 'rental';
     if (tx.debt_category === 'settlement') return 'settlement';
