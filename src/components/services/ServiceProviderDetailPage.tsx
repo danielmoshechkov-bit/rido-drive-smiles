@@ -489,60 +489,57 @@ export function ServiceProviderDetailPage() {
               )}
             </div>
 
-            <Separator />
+            {/* Reviews — sekcja w ogóle ukryta gdy 0 opinii */}
+            {reviews.length > 0 && (
+              <>
+                <Separator />
+                <div>
+                  <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                    <Star className="h-5 w-5 text-yellow-500" />
+                    Opinie klientów{reviews.length >= 5 ? ` (${reviews.length})` : ''}
+                  </h2>
 
-            {/* Reviews */}
-            <div>
-              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                <Star className="h-5 w-5 text-yellow-500" />
-                Opinie klientów ({reviews.length})
-              </h2>
-              
-              {reviews.length === 0 ? (
-                <p className="text-center py-8 text-muted-foreground">
-                  Ten usługodawca nie ma jeszcze opinii
-                </p>
-              ) : (
-                <div className="space-y-4">
-                  {reviews.map(review => (
-                    <Card key={review.id}>
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-1">
-                            {[1, 2, 3, 4, 5].map(star => (
-                              <Star 
-                                key={star}
-                                className={cn(
-                                  "h-4 w-4",
-                                  star <= review.rating 
-                                    ? "fill-yellow-400 text-yellow-400" 
-                                    : "text-muted-foreground/30"
-                                )}
-                              />
-                            ))}
+                  <div className="space-y-4">
+                    {reviews.map(review => (
+                      <Card key={review.id}>
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-1">
+                              {[1, 2, 3, 4, 5].map(star => (
+                                <Star
+                                  key={star}
+                                  className={cn(
+                                    "h-4 w-4",
+                                    star <= review.rating
+                                      ? "fill-yellow-400 text-yellow-400"
+                                      : "text-muted-foreground/30"
+                                  )}
+                                />
+                              ))}
+                            </div>
+                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              {new Date(review.created_at).toLocaleDateString('pl-PL')}
+                            </span>
                           </div>
-                          <span className="text-xs text-muted-foreground flex items-center gap-1">
-                            <Calendar className="h-3 w-3" />
-                            {new Date(review.created_at).toLocaleDateString('pl-PL')}
-                          </span>
-                        </div>
-                        
-                        {review.comment && (
-                          <p className="text-sm">{review.comment}</p>
-                        )}
-                        
-                        {review.provider_response && (
-                          <div className="mt-3 pl-4 border-l-2 border-primary/30 bg-accent/30 rounded-r-lg p-3">
-                            <p className="text-xs font-medium text-primary mb-1">Odpowiedź usługodawcy:</p>
-                            <p className="text-sm text-muted-foreground">{review.provider_response}</p>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ))}
+
+                          {review.comment && (
+                            <p className="text-sm">{review.comment}</p>
+                          )}
+
+                          {review.provider_response && (
+                            <div className="mt-3 pl-4 border-l-2 border-primary/30 bg-accent/30 rounded-r-lg p-3">
+                              <p className="text-xs font-medium text-primary mb-1">Odpowiedź usługodawcy:</p>
+                              <p className="text-sm text-muted-foreground">{review.provider_response}</p>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
                 </div>
-              )}
-            </div>
+              </>
+            )}
           </div>
 
           {/* Right Column - Contact Sidebar */}
