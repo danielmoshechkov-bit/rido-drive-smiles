@@ -30,6 +30,8 @@ interface WeekDebtContext {
   debtAfter: number;
   periodFrom?: string;
   periodTo?: string;
+  fleetId?: string;
+  isHistorical?: boolean;
 }
 
 interface DriverDebtHistoryProps {
