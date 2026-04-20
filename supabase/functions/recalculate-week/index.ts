@@ -405,18 +405,32 @@ serve(async (req) => {
 
       console.log(`💰 Driver ${settlement.driver_id}: mode=${settlementMode}, base=${totalBase}, vat=${vatAmount}(${vatRate}%), secVat=${secondaryVatAmount}, svcFee=${effectiveServiceFee}, addFees=${additionalFeesTotal}, rental=${rentalFee}, rawPayout=${rawPayout}`);
 
-      // Get debt_before from previous week
-      const { data: prevSettlement } = await supabase
-        .from('settlements')
-        .select('debt_after')
-        .eq('driver_id', settlement.driver_id)
-        .lt('period_to', period_from)
-        .not('debt_after', 'is', null)
-        .order('period_to', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      // Get debt_before from authoritative ledger after reset; fallback to previous snapshot only in historical mode
+      let debtBefore = 0;
+      if (!skipLedger) {
+        const { data: debtTx } = await supabase
+          .from('driver_debt_transactions')
+          .select('type, amount, period_to')
+          .eq('driver_id', settlement.driver_id)
+          .lt('period_to', period_from);
 
-      const debtBefore = round2(Math.max(0, Number(prevSettlement?.debt_after ?? 0)));
+        debtBefore = round2(Math.max(0, (debtTx || []).reduce((sum, tx) => {
+          const amt = Math.abs(Number(tx.amount) || 0);
+          return sum + (tx.type === 'debt_increase' || tx.type === 'manual_add' ? amt : -amt);
+        }, 0)));
+      } else {
+        const { data: prevSettlement } = await supabase
+          .from('settlements')
+          .select('debt_after')
+          .eq('driver_id', settlement.driver_id)
+          .lt('period_to', period_from)
+          .not('debt_after', 'is', null)
+          .order('period_to', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        debtBefore = round2(Math.max(0, Number(prevSettlement?.debt_after ?? 0)));
+      }
       const computed = computeExcelDebtValues(debtBefore, rawPayout);
 
       // Update settlement record
