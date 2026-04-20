@@ -15,6 +15,7 @@ import { RidoPartsConfigModal } from '../parts/RidoPartsConfigModal';
 import { getConfiguredPartsIntegrations } from '../parts/partsIntegrationUtils';
 import { ServiceAutocomplete } from '../pricing/ServiceAutocomplete';
 import { RidoPriceModal } from '../pricing/RidoPriceModal';
+import { WorkshopVehicleEditDialog } from '../WorkshopVehicleEditDialog';
 import { useSaveServicePrice, useSaveAnonymousPrice } from '@/hooks/useServicePriceHistory';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -175,6 +176,8 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   const [ridoSearchOpen, setRidoSearchOpen] = useState(false);
   const [ridoConfigOpen, setRidoConfigOpen] = useState(false);
   const [ridoPriceOpen, setRidoPriceOpen] = useState(false);
+  const [vehicleDataWarningOpen, setVehicleDataWarningOpen] = useState(false);
+  const [vehicleEditOpen, setVehicleEditOpen] = useState(false);
   const saveServicePrice = useSaveServicePrice(providerId);
   const saveAnonymousPrice = useSaveAnonymousPrice();
 
@@ -1164,6 +1167,14 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                             if (taskRows.some(isTaskDraftFilled)) {
                               await saveTaskDraftRows();
                             }
+                            const vehicle = order.vehicle;
+                            const missingVehicleData = !vehicle?.vin || !vehicle?.brand || !vehicle?.model || !vehicle?.year;
+                            if (missingVehicleData) {
+                              setVehicleDataWarningOpen(true);
+                              setRidoPriceOpen(true);
+                              return;
+                            }
+                            setVehicleDataWarningOpen(false);
                             setRidoPriceOpen(true);
                           }}
                         >
@@ -1579,6 +1590,11 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
         voivodeship={order.client?.voivodeship}
         industry={ridoPriceSettings?.industry}
         priceMode={taskPriceMode}
+        missingVehicleData={vehicleDataWarningOpen}
+        onCompleteVehicleData={() => {
+          setRidoPriceOpen(false);
+          setVehicleEditOpen(true);
+        }}
         onApplySuggestions={(prices) => {
           prices.forEach(({ index, price }) => {
             const target = tasks[index];
@@ -1600,6 +1616,14 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
           });
         }}
       />
+
+      {order.vehicle && (
+        <WorkshopVehicleEditDialog
+          vehicle={order.vehicle}
+          open={vehicleEditOpen}
+          onOpenChange={setVehicleEditOpen}
+        />
+      )}
     </div>
   );
 }

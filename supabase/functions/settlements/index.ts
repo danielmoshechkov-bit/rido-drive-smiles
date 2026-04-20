@@ -388,12 +388,17 @@ Deno.serve(async (req) => {
                 Math.abs(totalCash) < 0.01 &&
                 Math.abs(totalCommission) < 0.01;
               
-              // Always pass through debt function, even for inactive drivers,
-              // so debt carry-over is preserved week-to-week.
-              const hasAnyActivity = totalBase !== 0 || totalCash !== 0;
-              if (!hasAnyActivity) {
-                console.log(`⏭️ Driver ${driverId}: no activity, forcing debt carry-over sync`);
-              }
+              const fuel = amounts.fuel || 0;
+              const fuelVatRefund = amounts.fuel_vat_refund || 0;
+              const manualWeekAdjustment = Number(amounts.manual_week_adjustment || 0);
+
+              const hasAnyActivity =
+                hasPositivePlatformActivity ||
+                Math.abs(totalBase) > 0.01 ||
+                Math.abs(totalCash) > 0.01 ||
+                Math.abs(totalCommission) > 0.01 ||
+                Math.abs(fuel) > 0.01 ||
+                Math.abs(manualWeekAdjustment) > 0.01;
 
               // VAT calculation using fleet settings (uber_calculation_mode)
               const driverInfo2 = driverDetailMap.get(driverId);
@@ -413,16 +418,16 @@ Deno.serve(async (req) => {
               const vatBase2 = uberVatBase2 + Math.max(0, effectiveBoltBase) + Math.max(0, amounts.freenow_base_s || 0);
               const vat8 = vatBase2 * (driverVatRate2 / 100);
               
-              // Fuel and refund from amounts
-              const fuel = amounts.fuel || 0;
-              const fuelVatRefund = amounts.fuel_vat_refund || 0;
-              
               // Service fee lookup: manual override > driver custom > city setting > default 50
               const isBoltAdjustmentOnly =
-                (Math.abs(totalBase) < 0.01 && Math.abs(totalCash) < 0.01 && Math.abs(totalCommission) < 0.01)
-                || isNegativeAdjustmentOnly;
+                !hasPositivePlatformActivity &&
+                Number(amounts.bolt_payout_s || 0) < -0.01 &&
+                Math.abs(totalBase - Number(amounts.bolt_payout_s || 0)) < 0.01 &&
+                Math.abs(totalCash) < 0.01 &&
+                Math.abs(totalCommission) < 0.01;
+              const shouldSkipWeekCharges = !hasAnyActivity || isBoltAdjustmentOnly || isNegativeAdjustmentOnly;
               let serviceFee = 0;
-              if (!isBoltAdjustmentOnly) {
+              if (!shouldSkipWeekCharges) {
                 const manualFee = amounts.manual_service_fee;
                 if (manualFee !== null && manualFee !== undefined && manualFee !== 0) {
                   serviceFee = Number(manualFee);
@@ -444,7 +449,7 @@ Deno.serve(async (req) => {
               const rentalFee = fullSettlement.rental_fee || 0;
               
               // Final payout = Base - Commission - VAT - Service Fee - Rental - Cash - Fuel + Fuel VAT Refund
-              const calculatedPayout = totalBase - totalCommission - vat8 - serviceFee - rentalFee - totalCash - fuel + fuelVatRefund;
+              const calculatedPayout = totalBase - totalCommission - vat8 - serviceFee - rentalFee - totalCash - fuel + fuelVatRefund - manualWeekAdjustment;
               
               console.log(`📊 Driver ${driverId}: base=${totalBase}, cash=${totalCash}, vat=${vat8}, service=${serviceFee}, rental=${rentalFee}, fuel=${fuel}, fuelRefund=${fuelVatRefund}, payout=${calculatedPayout}`);
               

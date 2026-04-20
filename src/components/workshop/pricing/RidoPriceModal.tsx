@@ -28,6 +28,8 @@ interface Props {
   industry?: string;
   priceMode: 'net' | 'gross';
   onApplySuggestions: (prices: { index: number; price: number }[]) => void;
+  missingVehicleData?: boolean;
+  onCompleteVehicleData?: () => void;
 }
 
 const VAT_RATE = 1.23;
@@ -44,6 +46,8 @@ export function RidoPriceModal({
   industry = 'warsztat',
   priceMode: initialMode,
   onApplySuggestions,
+  missingVehicleData = false,
+  onCompleteVehicleData,
 }: Props) {
   const [mode, setMode] = useState<'net' | 'gross'>(initialMode);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
@@ -261,94 +265,110 @@ Odpowiedz TYLKO w formacie JSON — tablica obiektów, kolejność taka sama jak
           Sprawdź zakres cen od AI, popraw <span className="font-medium text-foreground">Twoją cenę</span> i zatwierdź — zmiany od razu trafią do kosztorysu.
         </div>
 
-        {/* Net/Gross toggle */}
-        <div className="flex items-center gap-1 bg-muted rounded-lg p-0.5 w-fit">
-          <Button
-            variant={mode === 'net' ? 'default' : 'ghost'}
-            size="sm"
-            className="text-xs h-7"
-            onClick={() => setMode('net')}
-          >
-            NETTO
-          </Button>
-          <Button
-            variant={mode === 'gross' ? 'default' : 'ghost'}
-            size="sm"
-            className="text-xs h-7"
-            onClick={() => setMode('gross')}
-          >
-            BRUTTO
-          </Button>
-        </div>
-
-        {/* Content */}
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
-            <span className="text-sm text-muted-foreground">Pobieranie sugestii cenowych...</span>
-          </div>
-        ) : error ? (
-          <div className="text-center py-8">
-            <AlertTriangle className="h-8 w-8 mx-auto mb-2 text-destructive" />
-            <p className="text-sm text-destructive">{error}</p>
-            <Button variant="outline" size="sm" className="mt-3" onClick={fetchSuggestions}>
-              Spróbuj ponownie
-            </Button>
-          </div>
-        ) : suggestions.length > 0 ? (
-          <div className="overflow-x-auto rounded-xl border">
-            <table className="w-full min-w-[980px] text-sm">
-              <thead>
-                <tr className="border-b bg-muted/30">
-                  <th className="p-2 text-left font-medium text-muted-foreground">USŁUGA</th>
-                  <th className="p-2 text-right font-medium text-muted-foreground w-36">TWOJA CENA</th>
-                  <th className="p-2 text-right font-medium text-muted-foreground w-28">OD</th>
-                  <th className="p-2 text-right font-medium text-muted-foreground w-28">DO</th>
-                  <th className="p-2 text-left font-medium text-muted-foreground min-w-[320px]">UWAGI RidoAI</th>
-                </tr>
-              </thead>
-              <tbody>
-                {suggestions.map((s, i) => (
-                  <tr key={i} className="border-b align-top hover:bg-accent/20 transition-colors">
-                    <td className="p-3 font-medium">
-                      <div className="line-clamp-2">{s.name}</div>
-                    </td>
-                    <td className="p-3">
-                      <Input
-                        value={priceInputs[i] ?? ''}
-                        onChange={(e) => handlePriceChange(i, e.target.value)}
-                        onBlur={() => handlePriceCommit(i)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.currentTarget.blur();
-                          }
-                        }}
-                        inputMode="decimal"
-                        className="h-10 text-right tabular-nums"
-                        placeholder={s.min && s.max ? fmt(Math.round((s.min + s.max) / 2)) : '0'}
-                      />
-                    </td>
-                    <td className="p-2 text-right tabular-nums">{fmt(s.min)} zł</td>
-                    <td className="p-2 text-right tabular-nums">{fmt(s.max)} zł</td>
-                    <td className="p-3">
-                      {s.note ? (
-                        <p className="text-sm leading-6 text-foreground/80">{s.note}</p>
-                      ) : (
-                        <span className="text-sm text-muted-foreground">Brak dodatkowych uwag</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {missingVehicleData ? (
+          <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-5 text-sm">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="mt-0.5 h-5 w-5 text-destructive" />
+              <div className="space-y-3">
+                <div>
+                  <p className="font-medium text-foreground">Brakuje danych pojazdu do prawidłowej wyceny.</p>
+                  <p className="text-muted-foreground">Uzupełnij VIN, markę, model i rok pojazdu, aby Rido Wycena mogła wycenić wszystkie pozycje.</p>
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={onCompleteVehicleData} className="gap-2">Uzupełnij dane pojazdu</Button>
+                  <Button variant="outline" onClick={() => onOpenChange(false)}>Zamknij</Button>
+                </div>
+              </div>
+            </div>
           </div>
         ) : (
-          <p className="text-center py-8 text-muted-foreground text-sm">Brak danych do wyświetlenia</p>
+          <>
+            <div className="flex items-center gap-1 bg-muted rounded-lg p-0.5 w-fit">
+              <Button
+                variant={mode === 'net' ? 'default' : 'ghost'}
+                size="sm"
+                className="text-xs h-7"
+                onClick={() => setMode('net')}
+              >
+                NETTO
+              </Button>
+              <Button
+                variant={mode === 'gross' ? 'default' : 'ghost'}
+                size="sm"
+                className="text-xs h-7"
+                onClick={() => setMode('gross')}
+              >
+                BRUTTO
+              </Button>
+            </div>
+
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
+                <span className="text-sm text-muted-foreground">Pobieranie sugestii cenowych...</span>
+              </div>
+            ) : error ? (
+              <div className="text-center py-8">
+                <AlertTriangle className="h-8 w-8 mx-auto mb-2 text-destructive" />
+                <p className="text-sm text-destructive">{error}</p>
+                <Button variant="outline" size="sm" className="mt-3" onClick={fetchSuggestions}>
+                  Spróbuj ponownie
+                </Button>
+              </div>
+            ) : suggestions.length > 0 ? (
+              <div className="overflow-x-auto rounded-xl border">
+                <table className="w-full min-w-[980px] text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/30">
+                      <th className="p-2 text-left font-medium text-muted-foreground">USŁUGA</th>
+                      <th className="p-2 text-right font-medium text-muted-foreground w-36">TWOJA CENA</th>
+                      <th className="p-2 text-right font-medium text-muted-foreground w-28">OD</th>
+                      <th className="p-2 text-right font-medium text-muted-foreground w-28">DO</th>
+                      <th className="p-2 text-left font-medium text-muted-foreground min-w-[320px]">UWAGI RidoAI</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {suggestions.map((s, i) => (
+                      <tr key={i} className="border-b align-top hover:bg-accent/20 transition-colors">
+                        <td className="p-3 font-medium">
+                          <div className="line-clamp-2">{s.name}</div>
+                        </td>
+                        <td className="p-3">
+                          <Input
+                            value={priceInputs[i] ?? ''}
+                            onChange={(e) => handlePriceChange(i, e.target.value)}
+                            onBlur={() => handlePriceCommit(i)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') e.currentTarget.blur();
+                            }}
+                            inputMode="decimal"
+                            className="h-10 text-right tabular-nums"
+                            placeholder={s.min && s.max ? fmt(Math.round((s.min + s.max) / 2)) : '0'}
+                          />
+                        </td>
+                        <td className="p-2 text-right tabular-nums">{fmt(s.min)} zł</td>
+                        <td className="p-2 text-right tabular-nums">{fmt(s.max)} zł</td>
+                        <td className="p-3">
+                          {s.note ? (
+                            <p className="text-sm leading-6 text-foreground/80">{s.note}</p>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">Brak dodatkowych uwag</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-center py-8 text-muted-foreground text-sm">Brak danych do wyświetlenia</p>
+            )}
+          </>
         )}
 
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Zamknij</Button>
-          {suggestions.length > 0 && (
+          {!missingVehicleData && suggestions.length > 0 && (
             <Button onClick={handleApplyAll} className="gap-2">
               <Sparkles className="h-4 w-4" />
               Zastosuj ceny do kosztorysu
