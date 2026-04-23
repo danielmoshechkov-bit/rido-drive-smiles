@@ -169,21 +169,52 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 2. Check for existing driver - PRIORITIZE PHONE (most stable identifier)
+    // 2. Check for existing driver - prefer the target fleet when joining by NIP,
+    // then fall back to phone/email globally.
     let driverId: string | null = null;
     let existingDriver: { id: string; getrido_id: string | null } | null = null;
+
+    if (fleetId) {
+      const { data: driverInFleetByPhone } = await supabaseAdmin
+        .from("drivers")
+        .select("id, getrido_id")
+        .eq("fleet_id", fleetId)
+        .eq("phone", phone)
+        .maybeSingle();
+
+      if (driverInFleetByPhone) {
+        existingDriver = driverInFleetByPhone;
+        console.log("📱 Found existing driver by phone in target fleet:", driverInFleetByPhone.id);
+      } else {
+        const { data: driverInFleetByEmail } = await supabaseAdmin
+          .from("drivers")
+          .select("id, getrido_id")
+          .eq("fleet_id", fleetId)
+          .eq("email", email)
+          .maybeSingle();
+
+        if (driverInFleetByEmail) {
+          existingDriver = driverInFleetByEmail;
+          console.log("📧 Found existing driver by email in target fleet:", driverInFleetByEmail.id);
+        }
+      }
+    }
     
     // First, search by phone number (primary identifier)
-    const { data: driverByPhone } = await supabaseAdmin
-      .from("drivers")
-      .select("id, getrido_id")
-      .eq("phone", phone)
-      .maybeSingle();
-    
-    if (driverByPhone) {
-      existingDriver = driverByPhone;
-      console.log("📱 Found existing driver by phone:", driverByPhone.id);
-    } else {
+    if (!existingDriver) {
+      const { data: driverByPhone } = await supabaseAdmin
+        .from("drivers")
+        .select("id, getrido_id")
+        .eq("phone", phone)
+        .maybeSingle();
+
+      if (driverByPhone) {
+        existingDriver = driverByPhone;
+        console.log("📱 Found existing driver by phone:", driverByPhone.id);
+      }
+    }
+
+    if (!existingDriver) {
       // If not found by phone, search by email
       const { data: driverByEmail } = await supabaseAdmin
         .from("drivers")
