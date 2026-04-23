@@ -365,6 +365,7 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
       // in settlements are zeroed so they don't carry over to next week
 
       const dateVal = new Date().toISOString().split('T')[0];
+      const { periodFrom: weekFrom, periodTo: weekTo } = getTxDates();
       const paymentRows: Array<Record<string, any>> = [];
 
       // Create settlement zeroing payment if settlement debt exists
@@ -376,9 +377,9 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
           amount: -settDebt,
           balance_before: settDebt,
           balance_after: 0,
-          period_from: dateVal,
-          period_to: dateVal,
-          description: 'Wyzerowanie długu przez administratora',
+          period_from: weekFrom,
+          period_to: weekTo,
+          description: `Wyzerowanie długu przez administratora (${dateVal})`,
           debt_category: 'settlement',
         });
       }
@@ -392,9 +393,9 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
           amount: -rentDebt,
           balance_before: rentDebt,
           balance_after: 0,
-          period_from: dateVal,
-          period_to: dateVal,
-          description: 'Wyzerowanie długu przez administratora',
+          period_from: weekFrom,
+          period_to: weekTo,
+          description: `Wyzerowanie długu przez administratora (${dateVal})`,
           debt_category: 'rental',
         });
       }
@@ -407,9 +408,9 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
           amount: -totalDebtToZero,
           balance_before: totalDebtToZero,
           balance_after: 0,
-          period_from: dateVal,
-          period_to: dateVal,
-          description: 'Wyzerowanie długu przez administratora',
+          period_from: weekFrom,
+          period_to: weekTo,
+          description: `Wyzerowanie długu przez administratora (${dateVal})`,
           debt_category: 'settlement',
         });
       }
@@ -448,6 +449,7 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
       await settlementsToReset;
 
       toast.success('Dług wyzerowany — historia zachowana, nowe rozliczenia startują od zera');
+      await recalcWeekIfPossible();
       await fetchDebtData();
       await onDebtChanged?.();
     } catch (err) {
