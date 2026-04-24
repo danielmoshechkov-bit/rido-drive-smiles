@@ -218,6 +218,7 @@ serve(async (req) => {
 
       const isEmptyAmounts = !amounts || (typeof amounts === 'object' && Object.keys(amounts).length === 0);
       if (isEmptyAmounts) {
+        console.log(`📭 Empty amounts for driver ${settlement.driver_id} - using ledger for carry debt`);
         // Compute carry debt from authoritative ledger (includes admin zero-outs and payments)
         // so that any "Wyzerowanie długu" entries dated before this week reduce debt_before to 0.
         let carryDebt = 0;
