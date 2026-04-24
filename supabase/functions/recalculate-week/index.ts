@@ -218,18 +218,34 @@ serve(async (req) => {
 
       const isEmptyAmounts = !amounts || (typeof amounts === 'object' && Object.keys(amounts).length === 0);
       if (isEmptyAmounts) {
-        const { data: prev } = await supabase
-          .from('settlements')
-          .select('debt_after')
-          .eq('driver_id', settlement.driver_id)
-          .lt('period_to', period_from)
-          .not('debt_after', 'is', null)
-          .order('period_to', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+        // Compute carry debt from authoritative ledger (includes admin zero-outs and payments)
+        // so that any "Wyzerowanie długu" entries dated before this week reduce debt_before to 0.
+        let carryDebt = 0;
+        if (!skipLedger) {
+          const { data: debtTx } = await supabase
+            .from('driver_debt_transactions')
+            .select('type, amount, period_to')
+            .eq('driver_id', settlement.driver_id)
+            .lt('period_to', period_from);
 
-        const carryDebt = round2(Math.max(0, Number(prev?.debt_after ?? 0)));
-        
+          carryDebt = round2(Math.max(0, (debtTx || []).reduce((sum, tx) => {
+            const amt = Math.abs(Number(tx.amount) || 0);
+            return sum + (tx.type === 'debt_increase' || tx.type === 'manual_add' ? amt : -amt);
+          }, 0)));
+        } else {
+          const { data: prev } = await supabase
+            .from('settlements')
+            .select('debt_after')
+            .eq('driver_id', settlement.driver_id)
+            .lt('period_to', period_from)
+            .not('debt_after', 'is', null)
+            .order('period_to', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          carryDebt = round2(Math.max(0, Number(prev?.debt_after ?? 0)));
+        }
+
         await supabase.from('settlements').update({
           debt_before: carryDebt,
           debt_after: carryDebt,
