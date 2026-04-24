@@ -995,6 +995,19 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     return round2(Math.max(0, settlement.rental_debt_previous ?? 0));
   };
 
+  // W aktualnym tygodniu kolumna „Dług” ma pokazywać bieżące saldo po zmianach z modala,
+  // a nie historyczny dług wejściowy tygodnia. Dla starszych tygodni zostawiamy snapshot wejściowy.
+  const getDisplayedDebt = (settlement: DriverSettlement): number => {
+    const incomingDebt = round2(
+      Math.max(0, settlement.debt_previous ?? 0) + Math.max(0, settlement.rental_debt_previous ?? 0)
+    );
+    const currentDebt = round2(Math.max(0, settlement.debt_current ?? 0));
+    const isCurrentWeek = weeks.length > 0 && selectedWeek === weeks[0].number;
+    const hasCurrentDebt = settlement.debt_current !== null && settlement.debt_current !== undefined;
+
+    return isCurrentWeek && hasCurrentDebt ? currentDebt : incomingDebt;
+  };
+
   const round2 = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 
   // Proportional rental calculation (same logic as FleetVehicleRevenue)
@@ -3240,8 +3253,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
               case 'payout':
                 return dir * (getEffectiveSettlement(a).final_payout - getEffectiveSettlement(b).final_payout);
               case 'debt': {
-                const debtA = Math.max(0, (a.debt_previous ?? 0)) + Math.max(0, (a.rental_debt_previous ?? 0));
-                const debtB = Math.max(0, (b.debt_previous ?? 0)) + Math.max(0, (b.rental_debt_previous ?? 0));
+                const debtA = getDisplayedDebt(a);
+                const debtB = getDisplayedDebt(b);
                 return dir * (debtA - debtB);
               }
               case 'brutto':
