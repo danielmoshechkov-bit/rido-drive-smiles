@@ -366,6 +366,20 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
 
       const dateVal = new Date().toISOString().split('T')[0];
       const { periodFrom: weekFrom, periodTo: weekTo } = getTxDates();
+
+      // CRITICAL: Zeroing must be dated BEFORE the current week so that
+      // recalculate-week treats it as a historical correction reducing
+      // the debt entering this week (debt_before), not as a same-week payment.
+      const zeroDate = (() => {
+        try {
+          const d = new Date(`${weekFrom}T00:00:00Z`);
+          d.setUTCDate(d.getUTCDate() - 1);
+          return d.toISOString().split('T')[0];
+        } catch {
+          return weekFrom;
+        }
+      })();
+
       const paymentRows: Array<Record<string, any>> = [];
 
       // Create settlement zeroing payment if settlement debt exists
@@ -377,8 +391,8 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
           amount: -settDebt,
           balance_before: settDebt,
           balance_after: 0,
-          period_from: weekFrom,
-          period_to: weekTo,
+          period_from: zeroDate,
+          period_to: zeroDate,
           description: `Wyzerowanie długu przez administratora (${dateVal})`,
           debt_category: 'settlement',
         });
@@ -393,8 +407,8 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
           amount: -rentDebt,
           balance_before: rentDebt,
           balance_after: 0,
-          period_from: weekFrom,
-          period_to: weekTo,
+          period_from: zeroDate,
+          period_to: zeroDate,
           description: `Wyzerowanie długu przez administratora (${dateVal})`,
           debt_category: 'rental',
         });
@@ -408,8 +422,8 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
           amount: -totalDebtToZero,
           balance_before: totalDebtToZero,
           balance_after: 0,
-          period_from: weekFrom,
-          period_to: weekTo,
+          period_from: zeroDate,
+          period_to: zeroDate,
           description: `Wyzerowanie długu przez administratora (${dateVal})`,
           debt_category: 'settlement',
         });
