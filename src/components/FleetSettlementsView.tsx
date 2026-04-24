@@ -995,6 +995,19 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     return round2(Math.max(0, settlement.rental_debt_previous ?? 0));
   };
 
+  // W aktualnym tygodniu kolumna „Dług” ma pokazywać bieżące saldo po zmianach z modala,
+  // a nie historyczny dług wejściowy tygodnia. Dla starszych tygodni zostawiamy snapshot wejściowy.
+  const getDisplayedDebt = (settlement: DriverSettlement): number => {
+    const incomingDebt = round2(
+      Math.max(0, settlement.debt_previous ?? 0) + Math.max(0, settlement.rental_debt_previous ?? 0)
+    );
+    const currentDebt = round2(Math.max(0, settlement.debt_current ?? 0));
+    const isCurrentWeek = weeks.length > 0 && selectedWeek === weeks[0].number;
+    const hasCurrentDebt = settlement.debt_current !== null && settlement.debt_current !== undefined;
+
+    return isCurrentWeek && hasCurrentDebt ? currentDebt : incomingDebt;
+  };
+
   const round2 = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 
   // Proportional rental calculation (same logic as FleetVehicleRevenue)
@@ -3240,8 +3253,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
               case 'payout':
                 return dir * (getEffectiveSettlement(a).final_payout - getEffectiveSettlement(b).final_payout);
               case 'debt': {
-                const debtA = Math.max(0, (a.debt_previous ?? 0)) + Math.max(0, (a.rental_debt_previous ?? 0));
-                const debtB = Math.max(0, (b.debt_previous ?? 0)) + Math.max(0, (b.rental_debt_previous ?? 0));
+                const debtA = getDisplayedDebt(a);
+                const debtB = getDisplayedDebt(b);
                 return dir * (debtA - debtB);
               }
               case 'brutto':
@@ -3369,7 +3382,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                             <span className={getAmountColor(settlement.final_payout)}>{formatCurrency(settlement.final_payout)}</span>
                           </div>
                           {(() => {
-                            const totalDebtMobile = round2(Math.max(0, settlement.debt_previous ?? 0) + Math.max(0, settlement.rental_debt_previous ?? 0));
+                            const totalDebtMobile = getDisplayedDebt(settlement);
                             return totalDebtMobile > 0 ? (
                               <div className="flex justify-between text-xs text-muted-foreground">
                                 <span>Dług:</span>
@@ -3699,10 +3712,9 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                         {/* Dług - TOTAL debt (settlement + rental) entering this week */}
                         {isColVisible('debt') && <TableCell className="text-center px-2 py-1.5 text-xs whitespace-nowrap">
                           {(() => {
-                            // Show TOTAL debt entering this week (settlement + rental combined)
                             const settlementDebtVal = round2(Math.max(0, settlement.debt_previous ?? 0));
                             const rentalDebtVal = round2(Math.max(0, settlement.rental_debt_previous ?? 0));
-                            const debt = round2(settlementDebtVal + rentalDebtVal);
+                            const debt = getDisplayedDebt(settlement);
                             const badgeClick = (e: React.MouseEvent) => {
                               e.stopPropagation();
                               e.preventDefault();
@@ -3929,7 +3941,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                       })()}
                       {isColVisible('debt') && <TableCell className="text-center px-2 py-1.5 text-xs tabular-nums whitespace-nowrap">
                         {(() => {
-                          const totalDebt = filteredSettlements.reduce((sum, s) => sum + (s.debt_previous || 0), 0);
+                          const totalDebt = filteredSettlements.reduce((sum, s) => sum + getDisplayedDebt(s), 0);
                           return totalDebt > 0 ? (
                             <Badge variant="destructive" className="text-[10px]">
                               {formatCurrency(totalDebt)} zł
