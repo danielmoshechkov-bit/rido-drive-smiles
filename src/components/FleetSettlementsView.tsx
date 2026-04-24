@@ -995,14 +995,25 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     return round2(Math.max(0, settlement.rental_debt_previous ?? 0));
   };
 
-  // W aktualnym tygodniu kolumna „Dług” ma pokazywać bieżące saldo po zmianach z modala,
+  const isActiveSettlementWeek = (periodFrom?: string, periodTo?: string) => {
+    if (!periodFrom || !periodTo) return false;
+
+    const today = new Date();
+    const currentDate = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
+    const start = new Date(`${periodFrom}T00:00:00Z`);
+    const end = new Date(`${periodTo}T23:59:59Z`);
+
+    return currentDate >= start && currentDate <= end;
+  };
+
+  // W aktywnym tygodniu roboczym kolumna „Dług” ma pokazywać bieżące saldo po zmianach z modala,
   // a nie historyczny dług wejściowy tygodnia. Dla starszych tygodni zostawiamy snapshot wejściowy.
   const getDisplayedDebt = (settlement: DriverSettlement): number => {
     const incomingDebt = round2(
       Math.max(0, settlement.debt_previous ?? 0) + Math.max(0, settlement.rental_debt_previous ?? 0)
     );
     const currentDebt = round2(Math.max(0, settlement.debt_current ?? 0));
-    const isCurrentWeek = weeks.length > 0 && selectedWeek === weeks[0].number;
+    const isCurrentWeek = isActiveSettlementWeek(settlement.period_from, settlement.period_to);
     const hasCurrentDebt = settlement.debt_current !== null && settlement.debt_current !== undefined;
 
     return isCurrentWeek && hasCurrentDebt ? currentDebt : incomingDebt;
