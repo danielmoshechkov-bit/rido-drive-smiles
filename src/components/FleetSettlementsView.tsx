@@ -2000,6 +2000,13 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         const rentalDebtBeforeForDisplay = 0;
         const snapshotSettlementDebtAfter = splitDebt?.settlementDebtAfter ?? 0;
         const snapshotRentalDebtAfter = splitDebt?.rentalDebtAfter ?? 0;
+        const snapshotTotalDebtAfter = round2(snapshotSettlementDebtAfter + snapshotRentalDebtAfter);
+
+        const hasLiveLedgerValue = liveBalance !== undefined || liveDebtByDriver.has(driver.id);
+        const liveDebtWinsForCurrentWeek = isLatestWeek && hasLiveLedgerValue;
+        const effectiveCurrentDebtForDisplay = liveDebtWinsForCurrentWeek
+          ? round2(Math.max(0, liveTotalBalance || liveBalance || 0))
+          : currentDebtForDisplay;
 
         // ⚠️ OCHRONA ZEROWYCH ZAROBKÓW
         // Jeśli kierowca nie jeździł (suma zarobków = 0) I nie ma ujemnego salda
@@ -2022,7 +2029,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             net_without_commission: 0,
             final_payout: zeroBaseManualPayout,
             has_negative_balance: false,
-            debt_current: currentDebtForDisplay,
+            debt_current: liveDebtWinsForCurrentWeek ? effectiveCurrentDebtForDisplay : snapshotTotalDebtAfter,
             debt_previous: settlementDebtBeforeForDisplay,
             rental_debt_previous: rentalDebtBeforeForDisplay,
             settlement_id: (settlementSnapshot as any)?.id,
@@ -2112,7 +2119,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             final_payout: negFinalPayout,
             has_negative_balance: true,
             negative_deficit: Math.abs(negFinalPayout),
-            debt_current: currentDebtForDisplay,
+            debt_current: liveDebtWinsForCurrentWeek ? effectiveCurrentDebtForDisplay : snapshotTotalDebtAfter,
             debt_previous: settlementDebtBeforeForDisplay,
             rental_debt_previous: rentalDebtBeforeForDisplay,
             settlement_id: (settlementSnapshot as any)?.id,
@@ -2304,7 +2311,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           final_payout: payout,
           has_negative_balance: hasNegativeBalance,
           negative_deficit: hasNegativeBalance ? Math.abs(payout) : 0,
-          debt_current: currentDebtForDisplay,
+          debt_current: liveDebtWinsForCurrentWeek ? effectiveCurrentDebtForDisplay : snapshotTotalDebtAfter,
           debt_previous: settlementDebtBeforeForDisplay,
           rental_debt_previous: rentalDebtBeforeForDisplay,
           // Dual tax fields
