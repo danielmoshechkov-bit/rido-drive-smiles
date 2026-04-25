@@ -75,6 +75,31 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
   });
   const updateOrder = useUpdateWorkshopOrder();
 
+  // Realtime: keep order list in sync with DB changes (e.g. client signs document → status changes)
+  useEffect(() => {
+    if (!providerId) return;
+    const channel = (supabase as any)
+      .channel(`workshop-orders-rt-${providerId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'workshop_orders', filter: `provider_id=eq.${providerId}` },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['workshop-orders'] });
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'workshop_order_items' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['workshop-orders'] });
+        },
+      )
+      .subscribe();
+    return () => {
+      (supabase as any).removeChannel(channel);
+    };
+  }, [providerId, queryClient]);
+
   const filteredOrders = useMemo(() => {
     let filtered = orders.filter((o: any) => orderView === 'completed'
       ? o.status_name === 'Zakończone'
