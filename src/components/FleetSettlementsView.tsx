@@ -934,10 +934,9 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     const rental = effective.rental || 0;
     const rawPayout = round2(payoutNoRental - rental);
     
-    // Odejmij istniejący dług (settlement + rental)
-    const settlementDebt = round2(Math.max(0, settlement.debt_previous ?? 0));
-    const rentalDebt = round2(Math.max(0, settlement.rental_debt_previous ?? 0));
-    const totalDebt = settlementDebt + rentalDebt;
+    // W bieżącym tygodniu używaj tej samej wartości długu, którą pokazuje kolumna „Dług”.
+    // Dzięki temu wyzerowanie długu w modalu od razu przestaje pomniejszać wypłatę.
+    const totalDebt = getDisplayedDebt(settlement);
     
     if (totalDebt <= 0) return rawPayout;
     
@@ -979,7 +978,10 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const getWyplata1 = (settlement: DriverSettlement): number => {
     const effective = getEffectiveSettlement(settlement);
     const payoutNoRental = calculatePayoutWithoutRental(effective);
-    const liveSettlementDebt = round2(Math.max(0, settlement.debt_previous ?? 0));
+    const displayedTotalDebt = getDisplayedDebt(settlement);
+    const liveSettlementDebt = displayedTotalDebt <= 0
+      ? 0
+      : round2(Math.max(0, settlement.debt_previous ?? 0));
 
     if (payoutNoRental <= 0) {
       // Negative payout → return as-is (debt will increase, handled elsewhere)
