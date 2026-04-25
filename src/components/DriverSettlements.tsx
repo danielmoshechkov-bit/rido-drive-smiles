@@ -472,6 +472,44 @@ export const DriverSettlements = ({
       if (data && data.length > 0 && currentWeek) {
         await loadDynamicFuel(currentWeek.start, currentWeek.end);
       }
+
+      // Load live debt ledger for the LATEST week so manual zeroing/adjustments
+      // by the fleet are reflected immediately on the driver's panel.
+      const isLatestWeek = currentWeek && weeks.length > 0 && weeks[0]?.number === currentWeek.number;
+      if (isLatestWeek && currentWeek) {
+        try {
+          const [{ data: debtRow }, { data: txRows }] = await Promise.all([
+            supabase
+              .from('driver_debts')
+              .select('current_balance')
+              .eq('driver_id', driverId)
+              .maybeSingle(),
+            supabase
+              .from('driver_debt_transactions')
+              .select('type, amount, created_at')
+              .eq('driver_id', driverId)
+              .gte('created_at', currentWeek.start)
+              .lte('created_at', `${currentWeek.end}T23:59:59`),
+          ]);
+          setLiveDebtBalance(debtRow?.current_balance ?? 0);
+          // Sum payments made this week (debt_decrease / manual_subtract / payment)
+          const paymentsThisWeek = (txRows || []).reduce((sum: number, tx: any) => {
+            const t = tx.type as string;
+            if (t === 'debt_decrease' || t === 'manual_subtract' || t === 'payment') {
+              return sum + Math.abs(Number(tx.amount) || 0);
+            }
+            return sum;
+          }, 0);
+          setLiveDebtPaymentThisWeek(Math.round(paymentsThisWeek * 100) / 100);
+        } catch (e) {
+          console.warn('[live-debt] failed to load', e);
+          setLiveDebtBalance(null);
+          setLiveDebtPaymentThisWeek(0);
+        }
+      } else {
+        setLiveDebtBalance(null);
+        setLiveDebtPaymentThisWeek(0);
+      }
       
       // Detect last available week if no settlements found
       if (!data || data.length === 0) {
