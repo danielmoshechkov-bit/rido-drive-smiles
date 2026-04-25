@@ -161,29 +161,75 @@ export default function WorkshopClientCard() {
       {/* Company Header — clean, no heavy gradient */}
       <div className="border-b bg-background">
         <div className="max-w-5xl mx-auto px-4 py-5 md:px-8">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div className="flex items-center gap-4">
+          {/* DESKTOP layout */}
+          <div className="hidden md:flex md:items-center md:justify-between gap-6">
+            {/* Left: logo + company info */}
+            <div className="flex items-center gap-4 min-w-0 flex-1">
               {provider?.logo_url ? (
-                <img src={provider.logo_url} alt="Logo" className="h-12 w-12 rounded-xl border object-contain" />
+                <img
+                  src={provider.logo_url}
+                  alt={provider?.company_name || 'Logo'}
+                  className="max-h-16 w-auto object-contain shrink-0"
+                />
               ) : (
-                <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center text-xl font-bold text-primary">
+                <div className="h-14 w-14 rounded-xl bg-primary/10 flex items-center justify-center text-xl font-bold text-primary shrink-0">
                   {provider?.company_name?.charAt(0) || 'W'}
                 </div>
               )}
-              <div>
-                <h1 className="text-lg md:text-xl font-bold text-foreground">{provider?.company_name || 'Serwis'}</h1>
-                <p className="text-sm text-muted-foreground">
+              <div className="min-w-0">
+                <h1 className="text-lg md:text-xl font-bold text-foreground truncate">{provider?.company_name || 'Serwis'}</h1>
+                <p className="text-sm text-muted-foreground truncate">
                   {[provider?.company_address, provider?.company_city].filter(Boolean).join(', ')}
                   {provider?.company_nip && ` · NIP: ${provider.company_nip}`}
                 </p>
               </div>
             </div>
-            <div className="text-right space-y-1">
+            {/* Right: order number */}
+            <div className="text-right space-y-1 shrink-0">
               <p className="text-lg font-bold text-foreground">{order.order_number}</p>
               <p className="text-sm text-muted-foreground">
                 {order.created_at ? format(new Date(order.created_at), 'dd.MM.yyyy') : '---'}
               </p>
               <Badge className={`${status.color} border-0`}>{status.label}</Badge>
+            </div>
+          </div>
+
+          {/* MOBILE layout */}
+          <div className="md:hidden space-y-4">
+            {/* Top: company name + address (no NIP, website instead) */}
+            <div className="text-center">
+              <h1 className="text-base font-bold text-foreground">{provider?.company_name || 'Serwis'}</h1>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {[provider?.company_address, provider?.company_city].filter(Boolean).join(', ')}
+              </p>
+              {provider?.company_website && (
+                <p className="text-xs text-primary mt-0.5 truncate">
+                  {provider.company_website.replace(/^https?:\/\//, '')}
+                </p>
+              )}
+            </div>
+            {/* Bottom: logo (left, in space next to order number) + order number (right) */}
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex-1 flex items-center justify-start">
+                {provider?.logo_url ? (
+                  <img
+                    src={provider.logo_url}
+                    alt={provider?.company_name || 'Logo'}
+                    className="max-h-14 max-w-[140px] w-auto object-contain"
+                  />
+                ) : (
+                  <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center text-xl font-bold text-primary">
+                    {provider?.company_name?.charAt(0) || 'W'}
+                  </div>
+                )}
+              </div>
+              <div className="text-right space-y-1 shrink-0">
+                <p className="text-base font-bold text-foreground">{order.order_number}</p>
+                <p className="text-xs text-muted-foreground">
+                  {order.created_at ? format(new Date(order.created_at), 'dd.MM.yyyy') : '---'}
+                </p>
+                <Badge className={`${status.color} border-0`}>{status.label}</Badge>
+              </div>
             </div>
           </div>
         </div>
