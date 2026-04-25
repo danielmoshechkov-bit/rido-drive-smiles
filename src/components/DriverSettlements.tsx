@@ -151,6 +151,9 @@ export const DriverSettlements = ({
   const [driverName, setDriverName] = useState<string>('');
   const [fleetContact, setFleetContact] = useState<{ name: string; phone: string } | null>(null);
   const [fleetHasSettlement, setFleetHasSettlement] = useState<boolean | null>(null);
+  // Live ledger balance for current/latest week (overrides snapshot when zeroed/adjusted)
+  const [liveDebtBalance, setLiveDebtBalance] = useState<number | null>(null);
+  const [liveDebtPaymentThisWeek, setLiveDebtPaymentThisWeek] = useState<number>(0);
   const { role } = useUserRole();
   const { t } = useTranslation();
 
