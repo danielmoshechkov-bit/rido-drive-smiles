@@ -1730,64 +1730,93 @@ export const DriverSettlements = ({
                       </div>
                     </div>
                       
-                      {/* Debt information */}
-                      {(settlement.debt_before && settlement.debt_before > 0) || (settlement.debt_payment && settlement.debt_payment > 0) ? (
-                        <div className="border-t bg-red-50 p-3">
-                          <div className="space-y-2">
-                            <div className="font-semibold text-red-800 mb-2">💳 {t('weekly.debt')}</div>
-                            
-                            {settlement.debt_before && settlement.debt_before > 0 && (
-                              <div className="flex justify-between text-sm">
-                                <span className="text-muted-foreground">{t('weekly.debtFromPrevious')}:</span>
-                                <span className="font-semibold text-red-600">
-                                  -{settlement.debt_before.toFixed(2)} zł
-                                </span>
+                      {/* Debt information — prefer LIVE ledger for current week */}
+                      {(() => {
+                        const isLatestWeek = currentWeek && weeks.length > 0 && weeks[0]?.number === currentWeek.number;
+                        const useLive = isLatestWeek && liveDebtBalance !== null;
+
+                        const debtBefore = settlement.debt_before || 0;
+                        // Live mode: previous-week debt comes from snapshot, payment = max(snapshot, derived from live)
+                        // If live balance is lower than (debtBefore - snapshotPayment), the missing delta is treated as additional payment
+                        const snapshotPayment = settlement.debt_payment || 0;
+                        const livePayment = useLive
+                          ? Math.max(snapshotPayment, liveDebtPaymentThisWeek, Math.max(0, debtBefore - (liveDebtBalance ?? 0)))
+                          : snapshotPayment;
+                        const remainingDebt = useLive
+                          ? Math.max(0, liveDebtBalance ?? 0)
+                          : (settlement.debt_after ?? 0);
+                        const actualPayout = useLive
+                          ? Math.max(0, payout - remainingDebt)
+                          : (settlement.actual_payout || 0);
+
+                        const hasAnyDebtInfo = debtBefore > 0 || livePayment > 0 || remainingDebt > 0;
+
+                        if (hasAnyDebtInfo) {
+                          return (
+                            <div className="border-t bg-red-50 p-3">
+                              <div className="space-y-2">
+                                <div className="font-semibold text-red-800 mb-2">💳 {t('weekly.debt')}</div>
+
+                                {debtBefore > 0 && (
+                                  <div className="flex justify-between text-sm">
+                                    <span className="text-muted-foreground">{t('weekly.debtFromPrevious')}:</span>
+                                    <span className="font-semibold text-red-600">
+                                      -{debtBefore.toFixed(2)} zł
+                                    </span>
+                                  </div>
+                                )}
+
+                                {livePayment > 0 && (
+                                  <div className="flex justify-between text-sm">
+                                    <span className="text-muted-foreground">{t('weekly.debtPayment')}:</span>
+                                    <span className="font-semibold text-green-600">
+                                      -{livePayment.toFixed(2)} zł
+                                    </span>
+                                  </div>
+                                )}
+
+                                {remainingDebt > 0 && (
+                                  <div className="flex justify-between text-sm border-t border-red-300 pt-2 mt-2">
+                                    <span className="text-muted-foreground">{t('weekly.remainingDebt')}:</span>
+                                    <span className="font-semibold text-red-600">
+                                      -{remainingDebt.toFixed(2)} zł
+                                    </span>
+                                  </div>
+                                )}
+
+                                <div className="flex justify-between border-t-2 border-red-400 pt-2 mt-2">
+                                  <span className="font-bold">{t('weekly.actualPayout')}:</span>
+                                  <span className={`font-bold text-lg ${actualPayout > 0 ? 'text-green-600' : 'text-gray-600'}`}>
+                                    {actualPayout.toFixed(2)} zł
+                                  </span>
+                                </div>
                               </div>
-                            )}
-                            
-                            {settlement.debt_payment && settlement.debt_payment > 0 && (
-                              <div className="flex justify-between text-sm">
-                                <span className="text-muted-foreground">{t('weekly.debtPayment')}:</span>
-                                <span className="font-semibold text-green-600">
-                                  -{settlement.debt_payment.toFixed(2)} zł
-                                </span>
+                            </div>
+                          );
+                        }
+
+                        if (payout < 0) {
+                          return (
+                            <div className="border-t bg-red-50 p-3">
+                              <div className="space-y-2">
+                                <div className="font-semibold text-red-800 mb-2">⚠️ {t('weekly.negativePayoutWarning')}</div>
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">{t('weekly.addedToDebt')}:</span>
+                                  <span className="font-bold text-red-600">
+                                    {Math.abs(payout).toFixed(2)} zł
+                                  </span>
+                                </div>
+                                <div className="flex justify-between border-t-2 border-red-400 pt-2 mt-2">
+                                  <span className="font-bold">{t('weekly.actualPayout')}:</span>
+                                  <span className="font-bold text-lg text-gray-600">0.00 zł</span>
+                                </div>
                               </div>
-                            )}
-                            
-                            {settlement.debt_after !== undefined && settlement.debt_after > 0 && (
-                              <div className="flex justify-between text-sm border-t border-red-300 pt-2 mt-2">
-                                <span className="text-muted-foreground">{t('weekly.remainingDebt')}:</span>
-                                <span className="font-semibold text-red-600">
-                                  -{settlement.debt_after.toFixed(2)} zł
-                                </span>
-                              </div>
-                            )}
-                            
-                            <div className="flex justify-between border-t-2 border-red-400 pt-2 mt-2">
-                              <span className="font-bold">{t('weekly.actualPayout')}:</span>
-                              <span className={`font-bold text-lg ${(settlement.actual_payout || 0) > 0 ? 'text-green-600' : 'text-gray-600'}`}>
-                                {(settlement.actual_payout || 0).toFixed(2)} zł
-                              </span>
                             </div>
-                          </div>
-                        </div>
-                      ) : payout < 0 ? (
-                        <div className="border-t bg-red-50 p-3">
-                          <div className="space-y-2">
-                            <div className="font-semibold text-red-800 mb-2">⚠️ {t('weekly.negativePayoutWarning')}</div>
-                            <div className="flex justify-between">
-                              <span className="text-muted-foreground">{t('weekly.addedToDebt')}:</span>
-                              <span className="font-bold text-red-600">
-                                {Math.abs(payout).toFixed(2)} zł
-                              </span>
-                            </div>
-                            <div className="flex justify-between border-t-2 border-red-400 pt-2 mt-2">
-                              <span className="font-bold">{t('weekly.actualPayout')}:</span>
-                              <span className="font-bold text-lg text-gray-600">0.00 zł</span>
-                            </div>
-                          </div>
-                        </div>
-                      ) : null}
+                          );
+                        }
+
+                        return null;
+                      })()}
                     </div>
                     
                     {/* Chart and B2B Invoice - side by side */}
