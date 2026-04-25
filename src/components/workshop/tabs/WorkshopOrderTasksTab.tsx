@@ -602,6 +602,15 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       const emp = workshopEmployees.find((e: any) => e.id === item.employee_id);
       const hourlyRate = emp?.salary ? emp.salary / 160 : (workshopSettings?.hourly_rate || 150);
       updates.labor_cost = Math.round(hours * hourlyRate * 100) / 100;
+    } else if (editingField === 'discount') {
+      const disc = Math.max(0, Math.min(100, parseFloat(editingValue.replace(',', '.')) || 0));
+      updates.discount_percent = disc;
+      const qty = safeNumber(item.quantity) || 1;
+      const unitPrice = gross ? safeNumber(item.unit_price_gross) : safeNumber(item.unit_price_net);
+      const rawTotal = qty * unitPrice;
+      const afterDiscount = rawTotal - (rawTotal * disc / 100);
+      updates.total_gross = gross ? afterDiscount : afterDiscount * VAT_RATE;
+      updates.total_net = gross ? afterDiscount / VAT_RATE : afterDiscount;
     }
 
     await updateItem.mutateAsync({ id: editingItemId, ...updates });
@@ -810,6 +819,9 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       if (field === 'quantity') {
         return safeNumber(item.quantity) || 1;
       }
+      if (field === 'discount') {
+        return safeNumber(item.discount_percent) || 0;
+      }
       return displayValue;
     };
 
@@ -986,7 +998,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                         {renderEditableCell(t, 'labor_hours', String(safeNumber(t.labor_hours) || '—'), 'tabular-nums', 'center')}
                       </td>
                       <td className="p-1 tabular-nums border-r border-border/60">{renderEditableCell(t, 'price', fmt(price), 'tabular-nums', 'right')}</td>
-                      <td className="p-2 text-center border-l border-border/60 bg-muted/10">{hasDiscount ? `${Math.round(getDiscountPercent(t))}%` : '—'}</td>
+                      <td className="p-1 text-center border-l border-border/60 bg-muted/10">{renderEditableCell(t, 'discount', hasDiscount ? `${Math.round(getDiscountPercent(t))}%` : '—', 'tabular-nums', 'center')}</td>
                       <td className="p-2 text-right font-semibold tabular-nums">{fmt(total)}</td>
                       <td className="p-2 text-center">
                         <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => handleDeleteItem(t.id)}>
