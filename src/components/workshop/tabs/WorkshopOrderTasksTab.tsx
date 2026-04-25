@@ -819,6 +819,9 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       if (field === 'quantity') {
         return safeNumber(item.quantity) || 1;
       }
+      if (field === 'discount') {
+        return safeNumber(item.discount_percent) || 0;
+      }
       return displayValue;
     };
 
