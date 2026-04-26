@@ -132,7 +132,7 @@ interface AISettings {
 }
 
 // Get AI settings from database
-async function getAISettings(supabase: ReturnType<typeof createClient>): Promise<AISettings | null> {
+async function getAISettings(supabase: any): Promise<AISettings | null> {
   const { data } = await supabase
     .from('ai_settings')
     .select('*')
@@ -257,7 +257,7 @@ async function callGeminiImage(
 
 // Log AI usage (legacy + new ai_requests_log)
 async function logAIUsage(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   userId: string | undefined,
   aiType: string,
   modelUsed: string,
