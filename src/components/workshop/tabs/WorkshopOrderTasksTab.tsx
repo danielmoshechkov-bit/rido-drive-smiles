@@ -767,6 +767,16 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       if (target instanceof Element && target.closest('[data-autocomplete-dropdown="true"]')) {
         return;
       }
+      // Ignore clicks on the Rido Wycena trigger or any Radix dialog/popover/select content —
+      // opening these should NOT auto-save drafts (preserves the input layout).
+      if (
+        target instanceof Element &&
+        target.closest(
+          '[data-rido-estimate-trigger="true"], [role="dialog"], [data-radix-popper-content-wrapper], [data-radix-select-content], [data-radix-popover-content]',
+        )
+      ) {
+        return;
+      }
 
       if (
         serviceCardRef.current &&
@@ -1180,6 +1190,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           variant="outline"
                           size="sm"
                           className="gap-1.5 h-7 text-xs border-primary text-primary hover:bg-primary/10"
+                          data-rido-estimate-trigger="true"
                           onClick={() => {
                             // NIE zapisujemy draftów — Rido Wycena działa na tasks (zapisanych) + taskRows (drafty) bez zmiany layoutu.
                             const vehicle = order.vehicle;

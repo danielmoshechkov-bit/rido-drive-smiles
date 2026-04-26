@@ -122,7 +122,13 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
             <>
               <span className="text-muted-foreground">·</span>
               <WorkshopClientHoverCard client={order.client} onEdit={() => setEditClientOpen(true)}>
-                <span className="flex items-center gap-1"><Users className="h-3.5 w-3.5" /> {clientName}</span>
+                <button
+                  type="button"
+                  onClick={() => setEditClientOpen(true)}
+                  className="flex items-center gap-1 cursor-pointer hover:text-primary transition-colors"
+                >
+                  <Users className="h-3.5 w-3.5" /> {clientName}
+                </button>
               </WorkshopClientHoverCard>
             </>
           )}
@@ -130,7 +136,13 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
             <>
               <span className="text-muted-foreground">·</span>
               <WorkshopVehicleHoverCard vehicle={order.vehicle} onEdit={() => setEditVehicleOpen(true)}>
-                <span className="flex items-center gap-1 cursor-pointer"><Car className="h-3.5 w-3.5" /> {vehicleName}</span>
+                <button
+                  type="button"
+                  onClick={() => setEditVehicleOpen(true)}
+                  className="flex items-center gap-1 cursor-pointer hover:text-primary transition-colors"
+                >
+                  <Car className="h-3.5 w-3.5" /> {vehicleName}
+                </button>
               </WorkshopVehicleHoverCard>
             </>
           )}
