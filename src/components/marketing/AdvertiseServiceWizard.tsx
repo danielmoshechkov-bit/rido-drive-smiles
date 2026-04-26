@@ -322,7 +322,7 @@ export function AdvertiseServiceWizard({ service, open, onOpenChange }: Props) {
 
         {/* STEP 4 — Generation in progress */}
         {step === 4 && (
-          <div className="py-12 text-center space-y-3">
+          <div className="py-10 text-center space-y-3">
             {loading ? (
               <>
                 <Loader2 className="h-10 w-10 animate-spin mx-auto text-primary" />
@@ -332,8 +332,15 @@ export function AdvertiseServiceWizard({ service, open, onOpenChange }: Props) {
               <>
                 <Sparkles className="h-10 w-10 mx-auto text-primary" />
                 <p className="text-sm">Gotowy do generowania 3 wariantów reklamy</p>
+                {generationError && (
+                  <div className="mx-auto max-w-md text-left rounded-md border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">
+                    <p className="font-semibold mb-1">Nie udało się wygenerować reklam</p>
+                    <p className="opacity-90 break-words">{generationError}</p>
+                    <p className="mt-2 opacity-70">Sprawdź czy klucz ANTHROPIC_API_KEY jest skonfigurowany w sekretach Supabase, a Edge Function została wdrożona.</p>
+                  </div>
+                )}
                 <Button onClick={generateAds} className="gap-2">
-                  <Sparkles className="h-4 w-4" /> Generuj reklamy AI
+                  <Sparkles className="h-4 w-4" /> {generationError ? 'Spróbuj ponownie' : 'Generuj reklamy AI'}
                 </Button>
               </>
             )}
