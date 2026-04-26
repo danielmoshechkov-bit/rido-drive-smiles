@@ -808,8 +808,13 @@ function ScheduledOrderBlock({ order, displaySpan, employees, updateOrder, onDra
     } catch { toast.error('Błąd przypisania'); }
   };
 
-  const bgColor = isBooking ? 'bg-[hsl(280,60%,55%)]' : 'bg-[hsl(220,70%,55%)]';
-  const bgDark = isBooking ? 'bg-[hsl(280,60%,45%)]' : 'bg-[hsl(220,70%,45%)]';
+  const isConfirmed = order._bookingStatus === 'confirmed' || !!order._confirmedAt;
+  const bgColor = isBooking
+    ? (isConfirmed ? 'bg-[hsl(142,70%,42%)]' : 'bg-[hsl(28,90%,55%)]')
+    : 'bg-[hsl(220,70%,55%)]';
+  const bgDark = isBooking
+    ? (isConfirmed ? 'bg-[hsl(142,70%,32%)]' : 'bg-[hsl(28,90%,45%)]')
+    : 'bg-[hsl(220,70%,45%)]';
 
   return (
     <Popover open={showPreview} onOpenChange={setShowPreview}>
