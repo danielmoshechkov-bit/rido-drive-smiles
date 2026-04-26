@@ -15,6 +15,7 @@ import { ServiceBookingModal } from './ServiceBookingModal';
 import { getServiceCoverImage } from './serviceCategoryImages';
 import { cn } from '@/lib/utils';
 import { MyGetRidoButton } from '@/components/MyGetRidoButton';
+import { AdvertiseServiceButton } from '@/components/marketing/AdvertiseServiceButton';
 import { toast } from 'sonner';
 
 interface Service {
