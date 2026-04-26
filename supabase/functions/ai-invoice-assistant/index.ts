@@ -152,7 +152,9 @@ serve(async (req) => {
       throw new Error('Błąd AI Gateway');
     }
 
+    const aiData = await aiResponse.json();
     const content = aiData.choices?.[0]?.message?.content;
+
 
     if (!content) {
       throw new Error('Brak odpowiedzi AI');
@@ -506,7 +508,7 @@ serve(async (req) => {
     console.error('Error:', error);
     return new Response(
       JSON.stringify({ 
-        error: error.message || 'Wystąpił błąd',
+        error: error instanceof Error ? error.message : 'Wystąpił błąd',
         response: 'Przepraszam, wystąpił błąd. Spróbuj ponownie.'
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

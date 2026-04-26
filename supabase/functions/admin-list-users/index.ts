@@ -94,7 +94,7 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('Error listing users:', error);
     return new Response(
-      JSON.stringify({ error: error.message || 'Błąd serwera' }),
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Błąd serwera' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

@@ -101,7 +101,7 @@ serve(async (req) => {
 
       if (error) {
         console.error("Error inserting Telegram lead:", error);
-        return new Response(JSON.stringify({ ok: false, error: error.message }), {
+        return new Response(JSON.stringify({ ok: false, error: error instanceof Error ? error.message : String(error) }), {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -129,7 +129,7 @@ serve(async (req) => {
 
   } catch (error) {
     console.error("Error processing Telegram webhook:", error);
-    return new Response(JSON.stringify({ ok: false, error: error.message }), {
+    return new Response(JSON.stringify({ ok: false, error: error instanceof Error ? error.message : String(error) }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
