@@ -142,7 +142,7 @@ export default function WorkshopClientCard() {
   const tasksNetTotal = tasks.reduce((s: number, t: any) => s + (t.total_net || 0), 0);
   const goodsTotal = goods.reduce((s: number, g: any) => s + (g.total_gross || 0), 0);
   const goodsNetTotal = goods.reduce((s: number, g: any) => s + (g.total_net || 0), 0);
-  const fmt = (n: number) => n.toLocaleString('pl-PL', { minimumFractionDigits: 2 });
+  const fmt = (n: number) => (n || 0).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const receptionSigned = hasSigned('reception_protocol');
   const estimateSigned = hasSigned('cost_estimate');
