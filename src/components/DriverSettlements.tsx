@@ -154,6 +154,7 @@ export const DriverSettlements = ({
   // Live ledger balance for current/latest week (overrides snapshot when zeroed/adjusted)
   const [liveDebtBalance, setLiveDebtBalance] = useState<number | null>(null);
   const [liveDebtPaymentThisWeek, setLiveDebtPaymentThisWeek] = useState<number>(0);
+  const [liveDebtTransactions, setLiveDebtTransactions] = useState<Array<{ type: string; amount: number; created_at: string; description: string | null; balance_after: number | null }>>([]);
   const { role } = useUserRole();
   const { t } = useTranslation();
 
