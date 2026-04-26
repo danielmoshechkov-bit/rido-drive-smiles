@@ -154,6 +154,7 @@ export const DriverSettlements = ({
   // Live ledger balance for current/latest week (overrides snapshot when zeroed/adjusted)
   const [liveDebtBalance, setLiveDebtBalance] = useState<number | null>(null);
   const [liveDebtPaymentThisWeek, setLiveDebtPaymentThisWeek] = useState<number>(0);
+  const [liveDebtTransactions, setLiveDebtTransactions] = useState<Array<{ type: string; amount: number; created_at: string; description: string | null; balance_after: number | null }>>([]);
   const { role } = useUserRole();
   const { t } = useTranslation();
 
@@ -486,10 +487,11 @@ export const DriverSettlements = ({
               .maybeSingle(),
             supabase
               .from('driver_debt_transactions')
-              .select('type, amount, created_at')
+              .select('type, amount, created_at, description, balance_after')
               .eq('driver_id', driverId)
               .gte('created_at', currentWeek.start)
-              .lte('created_at', `${currentWeek.end}T23:59:59`),
+              .lte('created_at', `${currentWeek.end}T23:59:59`)
+              .order('created_at', { ascending: true }),
           ]);
           setLiveDebtBalance(debtRow?.current_balance ?? 0);
           // Sum payments made this week (debt_decrease / manual_subtract / payment)
@@ -501,14 +503,17 @@ export const DriverSettlements = ({
             return sum;
           }, 0);
           setLiveDebtPaymentThisWeek(Math.round(paymentsThisWeek * 100) / 100);
+          setLiveDebtTransactions((txRows || []) as any);
         } catch (e) {
           console.warn('[live-debt] failed to load', e);
           setLiveDebtBalance(null);
           setLiveDebtPaymentThisWeek(0);
+          setLiveDebtTransactions([]);
         }
       } else {
         setLiveDebtBalance(null);
         setLiveDebtPaymentThisWeek(0);
+        setLiveDebtTransactions([]);
       }
       
       // Detect last available week if no settlements found
@@ -1781,6 +1786,43 @@ export const DriverSettlements = ({
                                     <span className="font-semibold text-red-600">
                                       -{remainingDebt.toFixed(2)} zł
                                     </span>
+                                  </div>
+                                )}
+
+                                {/* Full week transaction history (live ledger) */}
+                                {useLive && liveDebtTransactions.length > 0 && (
+                                  <div className="border-t border-red-300 pt-2 mt-2">
+                                    <div className="text-xs font-semibold text-muted-foreground mb-1.5">
+                                      Historia operacji w tym tygodniu:
+                                    </div>
+                                    <div className="space-y-1">
+                                      {liveDebtTransactions.map((tx, i) => {
+                                        const isPayment = tx.type === 'debt_decrease' || tx.type === 'manual_subtract' || tx.type === 'payment';
+                                        const amt = Math.abs(Number(tx.amount) || 0);
+                                        const sign = isPayment ? '-' : '+';
+                                        const color = isPayment ? 'text-green-600' : 'text-red-600';
+                                        const dateStr = (() => {
+                                          try {
+                                            return format(new Date(tx.created_at), 'dd.MM HH:mm', { locale: pl });
+                                          } catch {
+                                            return tx.created_at;
+                                          }
+                                        })();
+                                        return (
+                                          <div key={i} className="flex items-start justify-between text-xs gap-2 py-1 border-b border-red-200/50 last:border-0">
+                                            <div className="flex-1 min-w-0">
+                                              <div className="text-muted-foreground">{dateStr}</div>
+                                              <div className="text-foreground/80 truncate" title={tx.description || ''}>
+                                                {tx.description || (isPayment ? 'Wpłata' : 'Doliczenie')}
+                                              </div>
+                                            </div>
+                                            <div className={`font-semibold tabular-nums whitespace-nowrap ${color}`}>
+                                              {sign}{amt.toFixed(2)} zł
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
                                   </div>
                                 )}
 
