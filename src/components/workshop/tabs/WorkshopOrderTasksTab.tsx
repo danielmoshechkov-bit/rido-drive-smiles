@@ -763,6 +763,11 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     const handleOutsideClick = (event: MouseEvent) => {
       const target = event.target as Node;
 
+      // Ignore clicks inside autocomplete dropdowns - they should only fill the row, never auto-save
+      if (target instanceof Element && target.closest('[data-autocomplete-dropdown="true"]')) {
+        return;
+      }
+
       if (
         serviceCardRef.current &&
         !serviceCardRef.current.contains(target) &&
