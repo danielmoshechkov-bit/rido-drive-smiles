@@ -40,6 +40,7 @@ interface Review {
 
 interface ServiceProvider {
   id: string;
+  user_id?: string | null;
   company_name: string;
   short_name: string | null;
   company_city: string;
