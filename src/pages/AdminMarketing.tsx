@@ -7,7 +7,9 @@ import { UserDropdown } from '@/components/UserDropdown';
 import { UniversalHomeButton } from '@/components/UniversalHomeButton';
 import { MyGetRidoButton } from '@/components/MyGetRidoButton';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Loader2, LayoutDashboard, Plug, BarChart3, Users, Bot, Sparkles, Shield, Settings, FileText, Brain, Target, MapPin, Palette, BookOpen } from 'lucide-react';
+import { Loader2, LayoutDashboard, Plug, BarChart3, Users, Bot, Sparkles, Shield, Settings, FileText, Brain, Target, MapPin, Palette, BookOpen, PhoneCall, Webhook } from 'lucide-react';
+import { MarketingCallQueueTab } from '@/components/marketing/MarketingCallQueueTab';
+import { MarketingLeadSourcesTab } from '@/components/marketing/MarketingLeadSourcesTab';
 import { MarketingDashboardTab } from '@/components/marketing/MarketingDashboardTab';
 import { MarketingConnectionsTab } from '@/components/marketing/MarketingConnectionsTab';
 import { MarketingCampaignsTab } from '@/components/marketing/MarketingCampaignsTab';
@@ -86,6 +88,8 @@ export default function AdminMarketing() {
     { value: 'campaigns', label: 'Kampanie', icon: BarChart3 },
     { value: 'leads', label: 'Leady', icon: Target },
     { value: 'creatives', label: 'Kreacje', icon: Palette },
+    { value: 'call-queue', label: '📞 Obdzwanianie', icon: PhoneCall },
+    { value: 'lead-sources', label: 'Źródła leadów', icon: Webhook },
     { value: 'clients', label: 'Klienci', icon: Users },
     { value: 'connections', label: 'API', icon: Plug },
     { value: 'ai-agent', label: 'AI Agent', icon: Bot },
@@ -174,6 +178,8 @@ export default function AdminMarketing() {
           <TabsContent value="orders"><MarketingOrdersTab /></TabsContent>
           <TabsContent value="campaigns"><MarketingCampaignsTab /></TabsContent>
           <TabsContent value="leads"><MarketingLeadsTab /></TabsContent>
+          <TabsContent value="call-queue"><MarketingCallQueueTab /></TabsContent>
+          <TabsContent value="lead-sources"><MarketingLeadSourcesTab /></TabsContent>
           <TabsContent value="creatives"><MarketingCreativesTab /></TabsContent>
           <TabsContent value="clients"><MarketingClientsTab /></TabsContent>
           <TabsContent value="connections"><MarketingConnectionsTab /></TabsContent>
