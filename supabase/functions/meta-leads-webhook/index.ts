@@ -16,13 +16,25 @@ serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
-  // Meta webhook verification
+  // Meta webhook verification — sprawdza najpierw token z agency_settings, fallback do env
   if (req.method === "GET") {
     const url = new URL(req.url);
     const mode = url.searchParams.get("hub.mode");
     const token = url.searchParams.get("hub.verify_token");
     const challenge = url.searchParams.get("hub.challenge");
-    if (mode === "subscribe" && token === Deno.env.get("META_VERIFY_TOKEN")) {
+
+    let validToken = Deno.env.get("META_VERIFY_TOKEN");
+    try {
+      const { data: settings } = await supabase
+        .from("agency_settings")
+        .select("report_branding")
+        .limit(1)
+        .maybeSingle();
+      const tokenFromSettings = (settings?.report_branding as any)?.meta_verify_token;
+      if (tokenFromSettings) validToken = tokenFromSettings;
+    } catch {}
+
+    if (mode === "subscribe" && token === validToken) {
       return new Response(challenge, { status: 200 });
     }
     return new Response("Forbidden", { status: 403 });
