@@ -138,7 +138,8 @@ function buildSmsText(
   time: string,
   address: string | undefined,
   serviceDescription: string | undefined,
-  leadMinutes: number
+  leadMinutes: number,
+  confirmationToken?: string,
 ): string {
   const name = removeDiacritics(companyName || 'Warsztat')
   const d = formatDate(date)
@@ -150,12 +151,26 @@ function buildSmsText(
     ? `${Math.round(leadMinutes / 60)}h`
     : `${leadMinutes}min`
 
+  // Confirmation link (short slug saves chars)
+  const confirmUrl = confirmationToken
+    ? `https://rido.app/p/${confirmationToken.slice(0, 8)}`
+    : ''
+
+  // Build message in priority order, drop optional fragments if too long
   let msg = leadMinutes <= 4 * 60
-    ? `Witam, tu ${name}. Przypominamy: wizyta juz za ${leadLabel}, ${d} o godz. ${t}.`
-    : `Witam, tu ${name}. Przypominamy o wizycie dnia ${d} o godz. ${t}.`
+    ? `${name}: wizyta za ${leadLabel}, ${d} ${t}.`
+    : `${name}: przypominamy o wizycie ${d} o ${t}.`
   if (service) msg += ` Usluga: ${service}.`
   if (addr) msg += ` Adres: ${addr}.`
-  msg += ' Zapraszamy!'
+  if (confirmUrl) msg += ` Potwierdz: ${confirmUrl}`
+
+  // SMS limit ~160 chars; drop address first, then service if needed
+  if (msg.length > 160 && addr) {
+    msg = msg.replace(` Adres: ${addr}.`, '')
+  }
+  if (msg.length > 160 && service) {
+    msg = msg.replace(` Usluga: ${service}.`, '')
+  }
 
   return msg.slice(0, 160)
 }
