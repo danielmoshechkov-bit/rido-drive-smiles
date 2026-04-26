@@ -45,7 +45,7 @@ serve(async (req) => {
 
     const { data: bookings, error: fetchErr } = await sb
       .from('workshop_client_bookings')
-      .select('*, service_providers!inner(company_name, company_phone, company_address, company_city, company_postal_code)')
+      .select('*, service_providers!inner(company_name, company_phone, company_address, company_city, company_postal_code, short_name)')
       .eq('reminder_enabled', true)
       .eq('status', 'scheduled')
       .gte('appointment_date', today)
