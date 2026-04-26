@@ -20655,6 +20655,8 @@ export type Database = {
           appointment_date: string
           appointment_time: string
           brand: string | null
+          cancellation_reason: string | null
+          cancelled_at: string | null
           confirmation_sms_sent: boolean | null
           confirmation_token: string | null
           confirmed_at: string | null
@@ -20667,11 +20669,14 @@ export type Database = {
           notes: string | null
           phone: string
           plate: string | null
+          proposed_date: string | null
+          proposed_time: string | null
           provider_id: string
           reminder_24h_sent: boolean
           reminder_2h_sent: boolean
           reminder_enabled: boolean
           reminder_times: string[] | null
+          reschedule_requested_at: string | null
           service_description: string | null
           station_id: string | null
           status: string
@@ -20681,6 +20686,8 @@ export type Database = {
           appointment_date: string
           appointment_time: string
           brand?: string | null
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
           confirmation_sms_sent?: boolean | null
           confirmation_token?: string | null
           confirmed_at?: string | null
@@ -20693,11 +20700,14 @@ export type Database = {
           notes?: string | null
           phone: string
           plate?: string | null
+          proposed_date?: string | null
+          proposed_time?: string | null
           provider_id: string
           reminder_24h_sent?: boolean
           reminder_2h_sent?: boolean
           reminder_enabled?: boolean
           reminder_times?: string[] | null
+          reschedule_requested_at?: string | null
           service_description?: string | null
           station_id?: string | null
           status?: string
@@ -20707,6 +20717,8 @@ export type Database = {
           appointment_date?: string
           appointment_time?: string
           brand?: string | null
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
           confirmation_sms_sent?: boolean | null
           confirmation_token?: string | null
           confirmed_at?: string | null
@@ -20719,11 +20731,14 @@ export type Database = {
           notes?: string | null
           phone?: string
           plate?: string | null
+          proposed_date?: string | null
+          proposed_time?: string | null
           provider_id?: string
           reminder_24h_sent?: boolean
           reminder_2h_sent?: boolean
           reminder_enabled?: boolean
           reminder_times?: string[] | null
+          reschedule_requested_at?: string | null
           service_description?: string | null
           station_id?: string | null
           status?: string
