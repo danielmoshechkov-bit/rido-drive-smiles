@@ -1156,19 +1156,26 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
           const timeStr = appointmentTime.slice(0, 5);
           const nameForSms = workshopShortName || providerInfo?.company_name || 'Warsztat';
           const workshopName = compactSpaces(removePl(nameForSms)).slice(0, 28);
-          const serviceText = compactSpaces(removePl(clientForm.serviceDesc || 'umowiona usluga'));
+          // Aggregate services: split by comma/semicolon/newline, first as primary, rest as count
+          const rawServices = (clientForm.serviceDesc || '')
+            .split(/[,;\n]+/)
+            .map((s) => s.trim())
+            .filter(Boolean);
+          const primaryService = rawServices[0] ? compactSpaces(removePl(rawServices[0])) : '';
+          const extraCount = Math.max(0, rawServices.length - 1);
           const finalAddress = providerInfo?.company_address || wsAddress;
           const finalCity = providerInfo?.company_city || wsCity;
-          const finalPostalCode = providerInfo?.company_postal_code || wsPostalCode;
-          const addressText = compactSpaces(removePl([
-            finalAddress,
-            [finalPostalCode, finalCity].filter(Boolean).join(' '),
-          ].filter(Boolean).join(', ')));
+          // Adres bez kodu pocztowego — tylko ulica + miasto
+          const addressText = compactSpaces(removePl([finalAddress, finalCity].filter(Boolean).join(', ')));
 
-          let smsMessage = `Witam, ${workshopName}. Potwierdzamy wizyte dnia ${dateStr} o godz. ${timeStr}.`;
-          if (serviceText) smsMessage += ` Usluga: ${serviceText}.`;
+          let smsMessage = `Witam, ${workshopName} potwierdza wizyte dnia ${dateStr} o godz. ${timeStr}.`;
+          if (primaryService) {
+            smsMessage += ` Zapraszamy na ${primaryService}${extraCount > 0 ? ` (+${extraCount} inne)` : ''}.`;
+          } else {
+            smsMessage += ' Zapraszamy.';
+          }
           if (addressText) smsMessage += ` Adres: ${addressText}.`;
-          smsMessage = compactSpaces(`${smsMessage} Zapraszamy!`).slice(0, 160);
+          smsMessage = compactSpaces(smsMessage).slice(0, 160);
 
           const { error: smsError } = await supabase.functions.invoke('workshop-send-sms', {
             body: {

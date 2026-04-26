@@ -87,34 +87,37 @@ export function AdvertiseServiceWizard({ service, open, onOpenChange }: Props) {
 
       const SUPABASE_URL = "https://wclrrytmrscqvsyxyvnn.supabase.co";
       const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndjbHJyeXRtcnNjcXZzeXh5dm5uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU4NzcxNjAsImV4cCI6MjA3MTQ1MzE2MH0.AUBGgRgUfLkb2X5DXWat2uCa52ptLzQkEigUnNUXtqk";
-
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/generate-ad-creative`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`,
-          'apikey': SUPABASE_PUBLISHABLE_KEY,
+      const url = `${SUPABASE_URL}/functions/v1/generate-ad-creative`;
+      const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+        'apikey': SUPABASE_PUBLISHABLE_KEY,
+      };
+      const body = {
+        brief: {
+          client: service.name,
+          platform,
+          goal: 'leads',
+          product: `${service.name}. ${service.description || ''}`,
+          audience: '',
+          budget: String(budget),
+          tone,
+          usp: extraInfo,
+          cta: 'Dowiedz się więcej',
+          service_id: service.id,
+          image_url: service.image_url,
         },
-        body: JSON.stringify({
-          brief: {
-            client: service.name,
-            platform,
-            goal: 'leads',
-            product: `${service.name}. ${service.description || ''}`,
-            audience: '',
-            budget: String(budget),
-            tone,
-            usp: extraInfo,
-            cta: 'Dowiedz się więcej',
-            service_id: service.id,
-            image_url: service.image_url,
-          },
-        }),
-      });
+      };
+      // eslint-disable-next-line no-console
+      console.log('[generate-ad-creative] POST', url, { headers: { ...headers, Authorization: 'Bearer ***' }, body });
+
+      const response = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
 
       if (!response.ok) {
         const errBody = await response.text().catch(() => '');
-        throw new Error(`Edge Function zwróciła błąd ${response.status}: ${errBody.slice(0, 200) || 'brak szczegółów'}`);
+        // eslint-disable-next-line no-console
+        console.error('[generate-ad-creative] failed', response.status, response.statusText, errBody);
+        throw new Error(`Edge Function ${response.status} ${response.statusText}: ${errBody.slice(0, 300) || 'brak szczegółów'}`);
       }
 
       const data = await response.json();
