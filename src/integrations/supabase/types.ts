@@ -5375,6 +5375,156 @@ export type Database = {
         }
         Relationships: []
       }
+      call_logs: {
+        Row: {
+          called_by: string | null
+          created_at: string | null
+          duration_seconds: number | null
+          ended_at: string | null
+          id: string
+          lead_id: string | null
+          notes: string | null
+          outcome: string | null
+          owner_user_id: string | null
+          queue_id: string | null
+          started_at: string | null
+        }
+        Insert: {
+          called_by?: string | null
+          created_at?: string | null
+          duration_seconds?: number | null
+          ended_at?: string | null
+          id?: string
+          lead_id?: string | null
+          notes?: string | null
+          outcome?: string | null
+          owner_user_id?: string | null
+          queue_id?: string | null
+          started_at?: string | null
+        }
+        Update: {
+          called_by?: string | null
+          created_at?: string | null
+          duration_seconds?: number | null
+          ended_at?: string | null
+          id?: string
+          lead_id?: string | null
+          notes?: string | null
+          outcome?: string | null
+          owner_user_id?: string | null
+          queue_id?: string | null
+          started_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_logs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "call_logs_queue_id_fkey"
+            columns: ["queue_id"]
+            isOneToOne: false
+            referencedRelation: "call_queue"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      call_queue: {
+        Row: {
+          agent_notes: string | null
+          ai_priority: string | null
+          ai_score: number | null
+          ai_script: Json | null
+          appointment_booked: boolean | null
+          attempts: number | null
+          call_duration_seconds: number | null
+          call_outcome: string | null
+          client_id: string | null
+          created_at: string | null
+          id: string
+          last_attempt_at: string | null
+          lead_id: string | null
+          lead_name: string | null
+          max_attempts: number | null
+          next_attempt_at: string | null
+          owner_user_id: string | null
+          phone_to_call: string
+          recording_url: string | null
+          scheduled_for: string | null
+          status: string | null
+          updated_at: string | null
+          voip_call_id: string | null
+        }
+        Insert: {
+          agent_notes?: string | null
+          ai_priority?: string | null
+          ai_score?: number | null
+          ai_script?: Json | null
+          appointment_booked?: boolean | null
+          attempts?: number | null
+          call_duration_seconds?: number | null
+          call_outcome?: string | null
+          client_id?: string | null
+          created_at?: string | null
+          id?: string
+          last_attempt_at?: string | null
+          lead_id?: string | null
+          lead_name?: string | null
+          max_attempts?: number | null
+          next_attempt_at?: string | null
+          owner_user_id?: string | null
+          phone_to_call: string
+          recording_url?: string | null
+          scheduled_for?: string | null
+          status?: string | null
+          updated_at?: string | null
+          voip_call_id?: string | null
+        }
+        Update: {
+          agent_notes?: string | null
+          ai_priority?: string | null
+          ai_score?: number | null
+          ai_script?: Json | null
+          appointment_booked?: boolean | null
+          attempts?: number | null
+          call_duration_seconds?: number | null
+          call_outcome?: string | null
+          client_id?: string | null
+          created_at?: string | null
+          id?: string
+          last_attempt_at?: string | null
+          lead_id?: string | null
+          lead_name?: string | null
+          max_attempts?: number | null
+          next_attempt_at?: string | null
+          owner_user_id?: string | null
+          phone_to_call?: string
+          recording_url?: string | null
+          scheduled_for?: string | null
+          status?: string | null
+          updated_at?: string | null
+          voip_call_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_queue_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "agency_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "call_queue_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       call_transcripts: {
         Row: {
           ai_next_action: string | null
@@ -8204,6 +8354,95 @@ export type Database = {
         }
         Relationships: []
       }
+      external_lead_sources: {
+        Row: {
+          client_id: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          last_sync_message: string | null
+          last_sync_status: string | null
+          last_synced_at: string | null
+          owner_user_id: string | null
+          sheets_access_token: string | null
+          sheets_column_mapping: Json | null
+          sheets_last_row_imported: number | null
+          sheets_refresh_token: string | null
+          sheets_spreadsheet_id: string | null
+          sheets_tab_name: string | null
+          source_name: string
+          source_type: string
+          sync_interval_minutes: number | null
+          telegram_bot_token: string | null
+          telegram_chat_id: string | null
+          telegram_last_update_id: number | null
+          total_imported: number | null
+          updated_at: string | null
+          webhook_secret: string | null
+          webhook_url: string | null
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_sync_message?: string | null
+          last_sync_status?: string | null
+          last_synced_at?: string | null
+          owner_user_id?: string | null
+          sheets_access_token?: string | null
+          sheets_column_mapping?: Json | null
+          sheets_last_row_imported?: number | null
+          sheets_refresh_token?: string | null
+          sheets_spreadsheet_id?: string | null
+          sheets_tab_name?: string | null
+          source_name: string
+          source_type: string
+          sync_interval_minutes?: number | null
+          telegram_bot_token?: string | null
+          telegram_chat_id?: string | null
+          telegram_last_update_id?: number | null
+          total_imported?: number | null
+          updated_at?: string | null
+          webhook_secret?: string | null
+          webhook_url?: string | null
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_sync_message?: string | null
+          last_sync_status?: string | null
+          last_synced_at?: string | null
+          owner_user_id?: string | null
+          sheets_access_token?: string | null
+          sheets_column_mapping?: Json | null
+          sheets_last_row_imported?: number | null
+          sheets_refresh_token?: string | null
+          sheets_spreadsheet_id?: string | null
+          sheets_tab_name?: string | null
+          source_name?: string
+          source_type?: string
+          sync_interval_minutes?: number | null
+          telegram_bot_token?: string | null
+          telegram_chat_id?: string | null
+          telegram_last_update_id?: number | null
+          total_imported?: number | null
+          updated_at?: string | null
+          webhook_secret?: string | null
+          webhook_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_lead_sources_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "agency_clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       feature_toggles: {
         Row: {
           category: string | null
@@ -10915,6 +11154,44 @@ export type Database = {
             columns: ["invoice_id"]
             isOneToOne: false
             referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_import_logs: {
+        Row: {
+          error_message: string | null
+          id: string
+          imported_at: string | null
+          leads_found: number | null
+          leads_imported: number | null
+          leads_skipped: number | null
+          source_id: string | null
+        }
+        Insert: {
+          error_message?: string | null
+          id?: string
+          imported_at?: string | null
+          leads_found?: number | null
+          leads_imported?: number | null
+          leads_skipped?: number | null
+          source_id?: string | null
+        }
+        Update: {
+          error_message?: string | null
+          id?: string
+          imported_at?: string | null
+          leads_found?: number | null
+          leads_imported?: number | null
+          leads_skipped?: number | null
+          source_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_import_logs_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "external_lead_sources"
             referencedColumns: ["id"]
           },
         ]
