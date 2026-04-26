@@ -88,6 +88,8 @@ export default function AdminMarketing() {
     { value: 'campaigns', label: 'Kampanie', icon: BarChart3 },
     { value: 'leads', label: 'Leady', icon: Target },
     { value: 'creatives', label: 'Kreacje', icon: Palette },
+    { value: 'call-queue', label: '📞 Obdzwanianie', icon: PhoneCall },
+    { value: 'lead-sources', label: 'Źródła leadów', icon: Webhook },
     { value: 'clients', label: 'Klienci', icon: Users },
     { value: 'connections', label: 'API', icon: Plug },
     { value: 'ai-agent', label: 'AI Agent', icon: Bot },
