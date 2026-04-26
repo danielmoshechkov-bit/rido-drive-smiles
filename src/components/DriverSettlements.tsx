@@ -1789,6 +1789,43 @@ export const DriverSettlements = ({
                                   </div>
                                 )}
 
+                                {/* Full week transaction history (live ledger) */}
+                                {useLive && liveDebtTransactions.length > 0 && (
+                                  <div className="border-t border-red-300 pt-2 mt-2">
+                                    <div className="text-xs font-semibold text-muted-foreground mb-1.5">
+                                      Historia operacji w tym tygodniu:
+                                    </div>
+                                    <div className="space-y-1">
+                                      {liveDebtTransactions.map((tx, i) => {
+                                        const isPayment = tx.type === 'debt_decrease' || tx.type === 'manual_subtract' || tx.type === 'payment';
+                                        const amt = Math.abs(Number(tx.amount) || 0);
+                                        const sign = isPayment ? '-' : '+';
+                                        const color = isPayment ? 'text-green-600' : 'text-red-600';
+                                        const dateStr = (() => {
+                                          try {
+                                            return format(new Date(tx.created_at), 'dd.MM HH:mm', { locale: pl });
+                                          } catch {
+                                            return tx.created_at;
+                                          }
+                                        })();
+                                        return (
+                                          <div key={i} className="flex items-start justify-between text-xs gap-2 py-1 border-b border-red-200/50 last:border-0">
+                                            <div className="flex-1 min-w-0">
+                                              <div className="text-muted-foreground">{dateStr}</div>
+                                              <div className="text-foreground/80 truncate" title={tx.description || ''}>
+                                                {tx.description || (isPayment ? 'Wpłata' : 'Doliczenie')}
+                                              </div>
+                                            </div>
+                                            <div className={`font-semibold tabular-nums whitespace-nowrap ${color}`}>
+                                              {sign}{amt.toFixed(2)} zł
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                )}
+
                                 <div className="flex justify-between border-t-2 border-red-400 pt-2 mt-2">
                                   <span className="font-bold">{t('weekly.actualPayout')}:</span>
                                   <span className={`font-bold text-lg ${actualPayout > 0 ? 'text-green-600' : 'text-gray-600'}`}>
