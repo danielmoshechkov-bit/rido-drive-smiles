@@ -480,9 +480,18 @@ export function ServiceProviderDetailPage() {
                             </span>
                             <p className="text-[10px] text-muted-foreground mt-0.5">cena orientacyjna</p>
                           </div>
-                          <Button size="sm" onClick={() => handleBookService(service)}>
-                            Zarezerwuj
-                          </Button>
+                          <div className="flex flex-col gap-1.5">
+                            <Button size="sm" onClick={() => handleBookService(service)}>
+                              Zarezerwuj
+                            </Button>
+                            {user?.id && provider?.user_id === user.id && (
+                              <AdvertiseServiceButton
+                                service={{ id: service.id, name: service.name, description: service.description, price: service.price }}
+                                variant="outline"
+                                size="sm"
+                              />
+                            )}
+                          </div>
                         </div>
                       </CardContent>
                     </Card>
