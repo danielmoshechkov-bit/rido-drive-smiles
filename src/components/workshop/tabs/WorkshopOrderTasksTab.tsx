@@ -767,6 +767,16 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       if (target instanceof Element && target.closest('[data-autocomplete-dropdown="true"]')) {
         return;
       }
+      // Ignore clicks on the Rido Wycena trigger or any Radix dialog/popover/select content —
+      // opening these should NOT auto-save drafts (preserves the input layout).
+      if (
+        target instanceof Element &&
+        target.closest(
+          '[data-rido-estimate-trigger="true"], [role="dialog"], [data-radix-popper-content-wrapper], [data-radix-select-content], [data-radix-popover-content]',
+        )
+      ) {
+        return;
+      }
 
       if (
         serviceCardRef.current &&
