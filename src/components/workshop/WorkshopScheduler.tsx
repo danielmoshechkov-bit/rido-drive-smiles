@@ -141,6 +141,10 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Termin
         event: '*', schema: 'public', table: 'service_bookings',
         filter: `provider_id=eq.${providerId}`,
       }, () => queryClient.invalidateQueries({ queryKey: ['workshop-portal-bookings-cal', providerId] }))
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'workshop_client_bookings',
+        filter: `provider_id=eq.${providerId}`,
+      }, () => queryClient.invalidateQueries({ queryKey: ['workshop-bookings', providerId] }))
       .subscribe();
     return () => { (supabase as any).removeChannel(ch); };
   }, [providerId, queryClient]);
