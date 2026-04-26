@@ -1180,19 +1180,8 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           variant="outline"
                           size="sm"
                           className="gap-1.5 h-7 text-xs border-primary text-primary hover:bg-primary/10"
-                          onClick={async () => {
-                            // Zapisz drafty PRZED otwarciem wyceny — także te BEZ ceny (Rido Wycena uzupełni ceny).
-                            // Wcześniej saveTaskDraftRows() pomijał wiersze z ceną=0 i kasował je przez setTaskRows.
-                            const rowsToSave = taskRows.filter(r => r.name.trim().length > 0);
-                            if (rowsToSave.length > 0) {
-                              let nextSortOrder = getNextSortOrder(tasks);
-                              for (const row of rowsToSave) {
-                                const sourceIndex = taskRows.findIndex(c => c === row);
-                                await submitTask(row, sourceIndex >= 0 ? sourceIndex : 0, nextSortOrder);
-                                nextSortOrder += 1;
-                              }
-                              setTaskRows([createEmptyTask()]);
-                            }
+                          onClick={() => {
+                            // NIE zapisujemy draftów — Rido Wycena działa na tasks (zapisanych) + taskRows (drafty) bez zmiany layoutu.
                             const vehicle = order.vehicle;
                             const missingVehicleData = !vehicle?.vin || !vehicle?.brand || !vehicle?.model || !vehicle?.year;
                             if (missingVehicleData) {
@@ -1607,10 +1596,18 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       <RidoPriceModal
         open={ridoPriceOpen}
         onOpenChange={setRidoPriceOpen}
-        services={tasks.map((t: any) => ({
-          name: t.name,
-          currentPrice: isTaskGross ? (t.unit_price_gross || 0) : (t.unit_price_net || 0),
-        }))}
+        services={[
+          ...tasks.map((t: any) => ({
+            name: t.name,
+            currentPrice: isTaskGross ? (t.unit_price_gross || 0) : (t.unit_price_net || 0),
+          })),
+          ...taskRows
+            .filter(r => r.name.trim().length > 0)
+            .map(r => ({
+              name: r.name,
+              currentPrice: isTaskGross ? (r.price_gross || 0) : (r.price_net || 0),
+            })),
+        ]}
         vehicle={order.vehicle}
         city={order.client?.city}
         voivodeship={order.client?.voivodeship}
@@ -1622,23 +1619,38 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
           setVehicleEditOpen(true);
         }}
         onApplySuggestions={(prices) => {
-          prices.forEach(({ index, price }) => {
-            const target = tasks[index];
-            if (!target?.id) return;
-            const net = isTaskGross ? Math.round((price / VAT_RATE) * 100) / 100 : price;
-            const gross = isTaskGross ? price : Math.round(price * VAT_RATE * 100) / 100;
-            const quantity = safeNumber(target.quantity) || 1;
-            const discountPercent = safeNumber(target.discount_percent);
-            const raw = (isTaskGross ? gross : net) * quantity;
-            const discounted = raw - (raw * discountPercent / 100);
+          const draftRowIndices = taskRows
+            .map((r, i) => ({ r, i }))
+            .filter(({ r }) => r.name.trim().length > 0)
+            .map(({ i }) => i);
 
-            updateItem.mutate({
-              id: target.id,
-              unit_price_net: net,
-              unit_price_gross: gross,
-              total_gross: isTaskGross ? discounted : discounted * VAT_RATE,
-              total_net: isTaskGross ? discounted / VAT_RATE : discounted,
-            });
+          prices.forEach(({ index, price }) => {
+            if (index < tasks.length) {
+              // Saved task — update via mutation
+              const target = tasks[index];
+              if (!target?.id) return;
+              const net = isTaskGross ? Math.round((price / VAT_RATE) * 100) / 100 : price;
+              const gross = isTaskGross ? price : Math.round(price * VAT_RATE * 100) / 100;
+              const quantity = safeNumber(target.quantity) || 1;
+              const discountPercent = safeNumber(target.discount_percent);
+              const raw = (isTaskGross ? gross : net) * quantity;
+              const discounted = raw - (raw * discountPercent / 100);
+              updateItem.mutate({
+                id: target.id,
+                unit_price_net: net,
+                unit_price_gross: gross,
+                total_gross: isTaskGross ? discounted : discounted * VAT_RATE,
+                total_net: isTaskGross ? discounted / VAT_RATE : discounted,
+              });
+            } else {
+              // Draft row — update local state without saving
+              const draftPos = index - tasks.length;
+              const rowIdx = draftRowIndices[draftPos];
+              if (rowIdx === undefined) return;
+              const net = isTaskGross ? Math.round((price / VAT_RATE) * 100) / 100 : price;
+              const gross = isTaskGross ? price : Math.round(price * VAT_RATE * 100) / 100;
+              updateTaskRow(rowIdx, { price_net: net, price_gross: gross });
+            }
           });
         }}
       />
