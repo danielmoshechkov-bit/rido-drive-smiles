@@ -903,9 +903,12 @@ export default function ServiceProviderDashboard() {
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            <Button variant="outline" size="sm" className="gap-1 mr-1" onClick={() => setAdOrderService({ id: service.id, name: service.name })}>
-                              <Megaphone className="h-3 w-3" /> {t('ads.advertise', 'Reklamuj')}
-                            </Button>
+                            <div className="flex flex-col gap-1">
+                              <Button variant="outline" size="sm" className="gap-1" onClick={() => setAdOrderService({ id: service.id, name: service.name })}>
+                                <Megaphone className="h-3 w-3" /> {t('ads.advertise', 'Zleć agencji')}
+                              </Button>
+                              <AdvertiseServiceButton service={{ id: service.id, name: service.name }} variant="default" size="sm" />
+                            </div>
                           </TableCell>
                           <TableCell>
                             <div className="flex gap-1">
