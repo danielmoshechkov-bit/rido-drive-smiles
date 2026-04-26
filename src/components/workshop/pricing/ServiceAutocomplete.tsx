@@ -23,16 +23,15 @@ export function ServiceAutocomplete({
 }: Props) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const justSelectedRef = useRef(false);
+  const lockedRef = useRef(false); // when true: never re-open (until user types again)
   const ref = useRef<HTMLDivElement>(null);
 
   const { data: suggestions = [] } = useServiceAutocomplete(providerId, query);
 
   useEffect(() => {
     setQuery(value);
-    if (justSelectedRef.current) {
-      // After programmatic select, do not re-open dropdown
-      justSelectedRef.current = false;
+    if (lockedRef.current) {
+      // Selection just happened — keep dropdown closed regardless of value changes
       setOpen(false);
       return;
     }
@@ -48,13 +47,19 @@ export function ServiceAutocomplete({
   }, []);
 
   const handleSelect = (s: any) => {
-    justSelectedRef.current = true;
+    lockedRef.current = true;
     setOpen(false);
     onSelectSuggestion(
       s.service_name,
       s.last_price_net || s.price_net || 0,
       s.last_price_gross || s.price_gross || 0,
     );
+  };
+
+  const handleChange = (newValue: string) => {
+    // User typed → unlock so suggestions can show again
+    lockedRef.current = false;
+    onChange(newValue);
   };
 
   const fmt = (v: number) => v.toLocaleString('pl-PL', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
