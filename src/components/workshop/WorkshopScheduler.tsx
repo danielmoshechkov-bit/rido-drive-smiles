@@ -110,7 +110,7 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Termin
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from('workshop_client_bookings')
-        .select('*')
+        .select('*, confirmed_at')
         .eq('provider_id', providerId)
         .in('status', ['scheduled', 'confirmed']);
       if (error) throw error;
