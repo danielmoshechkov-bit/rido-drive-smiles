@@ -23,16 +23,15 @@ export function ServiceAutocomplete({
 }: Props) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const justSelectedRef = useRef(false);
+  const lockedRef = useRef(false); // when true: never re-open (until user types again)
   const ref = useRef<HTMLDivElement>(null);
 
   const { data: suggestions = [] } = useServiceAutocomplete(providerId, query);
 
   useEffect(() => {
     setQuery(value);
-    if (justSelectedRef.current) {
-      // After programmatic select, do not re-open dropdown
-      justSelectedRef.current = false;
+    if (lockedRef.current) {
+      // Selection just happened — keep dropdown closed regardless of value changes
       setOpen(false);
       return;
     }
@@ -48,7 +47,7 @@ export function ServiceAutocomplete({
   }, []);
 
   const handleSelect = (s: any) => {
-    justSelectedRef.current = true;
+    lockedRef.current = true;
     setOpen(false);
     onSelectSuggestion(
       s.service_name,
@@ -57,17 +56,23 @@ export function ServiceAutocomplete({
     );
   };
 
+  const handleChange = (newValue: string) => {
+    // User typed → unlock so suggestions can show again
+    lockedRef.current = false;
+    onChange(newValue);
+  };
+
   const fmt = (v: number) => v.toLocaleString('pl-PL', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 
   return (
     <div className="relative" ref={ref}>
       <Input
         value={value}
-        onChange={e => onChange(e.target.value)}
+        onChange={e => handleChange(e.target.value)}
         placeholder={placeholder}
         className={className}
         onKeyDown={onKeyDown}
-        onFocus={() => value.length >= 2 && setOpen(true)}
+        onFocus={() => !lockedRef.current && value.length >= 2 && setOpen(true)}
       />
       {open && suggestions.length > 0 && (
         <div
