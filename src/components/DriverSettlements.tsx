@@ -487,10 +487,11 @@ export const DriverSettlements = ({
               .maybeSingle(),
             supabase
               .from('driver_debt_transactions')
-              .select('type, amount, created_at')
+              .select('type, amount, created_at, description, balance_after')
               .eq('driver_id', driverId)
               .gte('created_at', currentWeek.start)
-              .lte('created_at', `${currentWeek.end}T23:59:59`),
+              .lte('created_at', `${currentWeek.end}T23:59:59`)
+              .order('created_at', { ascending: true }),
           ]);
           setLiveDebtBalance(debtRow?.current_balance ?? 0);
           // Sum payments made this week (debt_decrease / manual_subtract / payment)
@@ -502,14 +503,17 @@ export const DriverSettlements = ({
             return sum;
           }, 0);
           setLiveDebtPaymentThisWeek(Math.round(paymentsThisWeek * 100) / 100);
+          setLiveDebtTransactions((txRows || []) as any);
         } catch (e) {
           console.warn('[live-debt] failed to load', e);
           setLiveDebtBalance(null);
           setLiveDebtPaymentThisWeek(0);
+          setLiveDebtTransactions([]);
         }
       } else {
         setLiveDebtBalance(null);
         setLiveDebtPaymentThisWeek(0);
+        setLiveDebtTransactions([]);
       }
       
       // Detect last available week if no settlements found
