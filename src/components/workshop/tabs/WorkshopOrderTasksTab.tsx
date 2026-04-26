@@ -1180,19 +1180,8 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           variant="outline"
                           size="sm"
                           className="gap-1.5 h-7 text-xs border-primary text-primary hover:bg-primary/10"
-                          onClick={async () => {
-                            // Zapisz drafty PRZED otwarciem wyceny — także te BEZ ceny (Rido Wycena uzupełni ceny).
-                            // Wcześniej saveTaskDraftRows() pomijał wiersze z ceną=0 i kasował je przez setTaskRows.
-                            const rowsToSave = taskRows.filter(r => r.name.trim().length > 0);
-                            if (rowsToSave.length > 0) {
-                              let nextSortOrder = getNextSortOrder(tasks);
-                              for (const row of rowsToSave) {
-                                const sourceIndex = taskRows.findIndex(c => c === row);
-                                await submitTask(row, sourceIndex >= 0 ? sourceIndex : 0, nextSortOrder);
-                                nextSortOrder += 1;
-                              }
-                              setTaskRows([createEmptyTask()]);
-                            }
+                          onClick={() => {
+                            // NIE zapisujemy draftów — Rido Wycena działa na tasks (zapisanych) + taskRows (drafty) bez zmiany layoutu.
                             const vehicle = order.vehicle;
                             const missingVehicleData = !vehicle?.vin || !vehicle?.brand || !vehicle?.model || !vehicle?.year;
                             if (missingVehicleData) {
