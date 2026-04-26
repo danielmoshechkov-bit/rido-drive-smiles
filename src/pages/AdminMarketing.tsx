@@ -178,6 +178,8 @@ export default function AdminMarketing() {
           <TabsContent value="orders"><MarketingOrdersTab /></TabsContent>
           <TabsContent value="campaigns"><MarketingCampaignsTab /></TabsContent>
           <TabsContent value="leads"><MarketingLeadsTab /></TabsContent>
+          <TabsContent value="call-queue"><MarketingCallQueueTab /></TabsContent>
+          <TabsContent value="lead-sources"><MarketingLeadSourcesTab /></TabsContent>
           <TabsContent value="creatives"><MarketingCreativesTab /></TabsContent>
           <TabsContent value="clients"><MarketingClientsTab /></TabsContent>
           <TabsContent value="connections"><MarketingConnectionsTab /></TabsContent>
