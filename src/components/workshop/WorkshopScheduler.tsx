@@ -110,7 +110,7 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Termin
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from('workshop_client_bookings')
-        .select('*')
+        .select('*, confirmed_at')
         .eq('provider_id', providerId)
         .in('status', ['scheduled', 'confirmed']);
       if (error) throw error;
@@ -141,6 +141,10 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Termin
         event: '*', schema: 'public', table: 'service_bookings',
         filter: `provider_id=eq.${providerId}`,
       }, () => queryClient.invalidateQueries({ queryKey: ['workshop-portal-bookings-cal', providerId] }))
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'workshop_client_bookings',
+        filter: `provider_id=eq.${providerId}`,
+      }, () => queryClient.invalidateQueries({ queryKey: ['workshop-bookings', providerId] }))
       .subscribe();
     return () => { (supabase as any).removeChannel(ch); };
   }, [providerId, queryClient]);
@@ -155,11 +159,13 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Termin
         id: `booking-${b.id}`,
         _bookingId: b.id,
         _isBooking: true,
+        _bookingStatus: b.status,
+        _confirmedAt: b.confirmed_at,
         order_number: `${b.first_name || ''} ${b.last_name || ''}`.trim() || 'Rezerwacja',
         scheduled_start: startDate.toISOString(),
         scheduled_end: endDate.toISOString(),
         scheduled_station_id: b.station_id,
-        status_name: 'Zaplanowane',
+        status_name: b.status === 'confirmed' ? 'Potwierdzona' : 'Zaplanowane',
         vehicle: b.plate ? { brand: b.brand || '', model: b.model || '', plate: b.plate } : null,
         client: { first_name: b.first_name, last_name: b.last_name, phone: b.phone },
         items: b.service_description ? [{ name: b.service_description }] : [],
@@ -806,8 +812,13 @@ function ScheduledOrderBlock({ order, displaySpan, employees, updateOrder, onDra
     } catch { toast.error('Błąd przypisania'); }
   };
 
-  const bgColor = isBooking ? 'bg-[hsl(280,60%,55%)]' : 'bg-[hsl(220,70%,55%)]';
-  const bgDark = isBooking ? 'bg-[hsl(280,60%,45%)]' : 'bg-[hsl(220,70%,45%)]';
+  const isConfirmed = order._bookingStatus === 'confirmed' || !!order._confirmedAt;
+  const bgColor = isBooking
+    ? (isConfirmed ? 'bg-[hsl(142,70%,42%)]' : 'bg-[hsl(28,90%,55%)]')
+    : 'bg-[hsl(220,70%,55%)]';
+  const bgDark = isBooking
+    ? (isConfirmed ? 'bg-[hsl(142,70%,32%)]' : 'bg-[hsl(28,90%,45%)]')
+    : 'bg-[hsl(220,70%,45%)]';
 
   return (
     <Popover open={showPreview} onOpenChange={setShowPreview}>

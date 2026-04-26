@@ -1032,6 +1032,8 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           onChange={name => updateTaskRow(idx, { name })}
                           onSelectSuggestion={(name, priceNet, priceGross) => {
                             updateTaskRow(idx, { name, price_net: priceNet, price_gross: priceGross });
+                            // Auto-add new row and focus it for fast continuous entry
+                            setTimeout(() => addTaskRow(), 50);
                           }}
                           providerId={providerId}
                           className="h-9 w-full text-sm min-w-0"

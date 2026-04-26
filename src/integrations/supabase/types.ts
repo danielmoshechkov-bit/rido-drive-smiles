@@ -20379,6 +20379,8 @@ export type Database = {
           appointment_time: string
           brand: string | null
           confirmation_sms_sent: boolean | null
+          confirmation_token: string | null
+          confirmed_at: string | null
           created_at: string
           duration_minutes: number
           first_name: string | null
@@ -20403,6 +20405,8 @@ export type Database = {
           appointment_time: string
           brand?: string | null
           confirmation_sms_sent?: boolean | null
+          confirmation_token?: string | null
+          confirmed_at?: string | null
           created_at?: string
           duration_minutes?: number
           first_name?: string | null
@@ -20427,6 +20431,8 @@ export type Database = {
           appointment_time?: string
           brand?: string | null
           confirmation_sms_sent?: boolean | null
+          confirmation_token?: string | null
+          confirmed_at?: string | null
           created_at?: string
           duration_minutes?: number
           first_name?: string | null
