@@ -68,11 +68,11 @@ export function ServiceAutocomplete({
     <div className="relative" ref={ref}>
       <Input
         value={value}
-        onChange={e => onChange(e.target.value)}
+        onChange={e => handleChange(e.target.value)}
         placeholder={placeholder}
         className={className}
         onKeyDown={onKeyDown}
-        onFocus={() => value.length >= 2 && setOpen(true)}
+        onFocus={() => !lockedRef.current && value.length >= 2 && setOpen(true)}
       />
       {open && suggestions.length > 0 && (
         <div
