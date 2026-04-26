@@ -152,7 +152,9 @@ serve(async (req) => {
       throw new Error('Błąd AI Gateway');
     }
 
+    const aiData = await aiResponse.json();
     const content = aiData.choices?.[0]?.message?.content;
+
 
     if (!content) {
       throw new Error('Brak odpowiedzi AI');
