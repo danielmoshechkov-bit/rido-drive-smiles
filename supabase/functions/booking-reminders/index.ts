@@ -96,12 +96,13 @@ serve(async (req) => {
       ].filter(Boolean).join(', ')
 
       const msg = buildSmsText(
-        provider?.company_name,
+        provider?.short_name || provider?.company_name,
         b.appointment_date,
         b.appointment_time,
         address,
         b.service_description,
-        leadMin
+        leadMin,
+        b.confirmation_token,
       )
 
       const { error: smsErr } = await sb.functions.invoke('workshop-send-sms', {
