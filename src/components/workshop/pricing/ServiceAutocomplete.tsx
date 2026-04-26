@@ -62,15 +62,23 @@ export function ServiceAutocomplete({
         onFocus={() => value.length >= 2 && setOpen(true)}
       />
       {open && suggestions.length > 0 && (
-        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border border-border rounded-md shadow-lg overflow-hidden">
+        <div
+          data-autocomplete-dropdown="true"
+          className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border border-border rounded-md shadow-lg overflow-hidden"
+        >
           {suggestions.map((s: any, i: number) => {
             const price = s.last_price_gross || s.price_gross || 0;
             return (
               <button
                 key={i}
                 type="button"
+                data-autocomplete-suggestion="true"
                 className="w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors flex items-center justify-between"
-                onMouseDown={e => { e.preventDefault(); handleSelect(s); }}
+                onMouseDown={e => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleSelect(s);
+                }}
               >
                 <span className="font-medium truncate">{s.service_name || s.service_name_normalized}</span>
                 {price > 0 && (
