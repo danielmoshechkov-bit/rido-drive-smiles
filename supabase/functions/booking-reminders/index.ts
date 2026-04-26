@@ -151,9 +151,9 @@ function buildSmsText(
     ? `${Math.round(leadMinutes / 60)}h`
     : `${leadMinutes}min`
 
-  // Confirmation link (short slug saves chars)
+  // Confirmation link
   const confirmUrl = confirmationToken
-    ? `https://rido.app/p/${confirmationToken.slice(0, 8)}`
+    ? `https://rido-drive-smiles.lovable.app/r/${confirmationToken}`
     : ''
 
   // Build message in priority order, drop optional fragments if too long
