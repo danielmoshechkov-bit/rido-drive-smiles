@@ -506,7 +506,7 @@ serve(async (req) => {
     console.error('Error:', error);
     return new Response(
       JSON.stringify({ 
-        error: error.message || 'Wystąpił błąd',
+        error: error instanceof Error ? error.message : 'Wystąpił błąd',
         response: 'Przepraszam, wystąpił błąd. Spróbuj ponownie.'
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
