@@ -246,3 +246,6 @@ verify_jwt = false
 
 [functions.generate-provider-description]
 verify_jwt = false
+
+[functions.generate-ad-creative]
+verify_jwt = true

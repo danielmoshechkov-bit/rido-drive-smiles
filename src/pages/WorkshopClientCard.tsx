@@ -142,7 +142,7 @@ export default function WorkshopClientCard() {
   const tasksNetTotal = tasks.reduce((s: number, t: any) => s + (t.total_net || 0), 0);
   const goodsTotal = goods.reduce((s: number, g: any) => s + (g.total_gross || 0), 0);
   const goodsNetTotal = goods.reduce((s: number, g: any) => s + (g.total_net || 0), 0);
-  const fmt = (n: number) => n.toLocaleString('pl-PL', { minimumFractionDigits: 2 });
+  const fmt = (n: number) => (n || 0).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const receptionSigned = hasSigned('reception_protocol');
   const estimateSigned = hasSigned('cost_estimate');
@@ -195,41 +195,39 @@ export default function WorkshopClientCard() {
           </div>
 
           {/* MOBILE layout */}
-          <div className="md:hidden space-y-4">
-            {/* Top: company name + address (no NIP, website instead) */}
-            <div className="text-center">
-              <h1 className="text-base font-bold text-foreground">{provider?.company_name || 'Serwis'}</h1>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {[provider?.company_address, provider?.company_city].filter(Boolean).join(', ')}
-              </p>
-              {provider?.company_website && (
-                <p className="text-xs text-primary mt-0.5 truncate">
-                  {provider.company_website.replace(/^https?:\/\//, '')}
-                </p>
+          <div className="md:hidden space-y-3">
+            <div className="flex items-center gap-3">
+              {provider?.logo_url ? (
+                <img
+                  src={provider.logo_url}
+                  alt={provider?.company_name || 'Logo'}
+                  className="h-12 w-12 object-contain shrink-0 rounded-md bg-white"
+                />
+              ) : (
+                <div className="h-12 w-12 rounded-md bg-primary/10 flex items-center justify-center text-lg font-bold text-primary shrink-0">
+                  {provider?.company_name?.charAt(0) || 'W'}
+                </div>
               )}
-            </div>
-            {/* Bottom: logo (left, in space next to order number) + order number (right) */}
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex-1 flex items-center justify-start">
-                {provider?.logo_url ? (
-                  <img
-                    src={provider.logo_url}
-                    alt={provider?.company_name || 'Logo'}
-                    className="max-h-14 max-w-[140px] w-auto object-contain"
-                  />
-                ) : (
-                  <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center text-xl font-bold text-primary">
-                    {provider?.company_name?.charAt(0) || 'W'}
-                  </div>
+              <div className="min-w-0 flex-1">
+                <h1 className="text-sm font-bold text-foreground leading-tight">{provider?.company_name || 'Serwis'}</h1>
+                <p className="text-[11px] text-muted-foreground leading-tight mt-0.5 truncate">
+                  {[provider?.company_address, provider?.company_city].filter(Boolean).join(', ')}
+                </p>
+                {provider?.company_website && (
+                  <p className="text-[11px] text-primary leading-tight truncate">
+                    {provider.company_website.replace(/^https?:\/\//, '')}
+                  </p>
                 )}
               </div>
-              <div className="text-right space-y-1 shrink-0">
-                <p className="text-base font-bold text-foreground">{order.order_number}</p>
-                <p className="text-xs text-muted-foreground">
+            </div>
+            <div className="flex items-center justify-between gap-3 pt-2 border-t">
+              <div>
+                <p className="text-sm font-bold text-foreground">{order.order_number}</p>
+                <p className="text-[11px] text-muted-foreground">
                   {order.created_at ? format(new Date(order.created_at), 'dd.MM.yyyy') : '---'}
                 </p>
-                <Badge className={`${status.color} border-0`}>{status.label}</Badge>
               </div>
+              <Badge className={`${status.color} border-0 text-[11px]`}>{status.label}</Badge>
             </div>
           </div>
         </div>
@@ -426,10 +424,10 @@ export default function WorkshopClientCard() {
                       <div className="border rounded-xl overflow-hidden">
                         <Table>
                           <colgroup>
-                            <col style={{ width: '50px' }} />
+                            <col style={{ width: '44px' }} />
                             <col />
-                            <col style={{ width: '140px' }} />
-                            <col style={{ width: '140px' }} />
+                            <col style={{ width: '110px' }} />
+                            <col style={{ width: '120px' }} />
                           </colgroup>
                           <TableHeader>
                             <TableRow className="bg-muted/30">
@@ -442,16 +440,16 @@ export default function WorkshopClientCard() {
                           <TableBody>
                             {tasks.map((t: any, i: number) => (
                               <TableRow key={t.id}>
-                                <TableCell className="text-muted-foreground">{i + 1}</TableCell>
-                                <TableCell className="font-medium">{t.name}</TableCell>
-                                <TableCell className="text-right tabular-nums">{fmt(t.total_net || 0)} zł</TableCell>
-                                <TableCell className="text-right font-medium tabular-nums">{fmt(t.total_gross || 0)} zł</TableCell>
+                                <TableCell className="text-muted-foreground align-top">{i + 1}</TableCell>
+                                <TableCell className="font-medium break-words">{t.name}</TableCell>
+                                <TableCell className="text-right tabular-nums whitespace-nowrap align-top">{fmt(t.total_net || 0)}&nbsp;zł</TableCell>
+                                <TableCell className="text-right font-medium tabular-nums whitespace-nowrap align-top">{fmt(t.total_gross || 0)}&nbsp;zł</TableCell>
                               </TableRow>
                             ))}
                             <TableRow className="font-bold bg-muted/20">
                               <TableCell colSpan={2}>Razem usługi</TableCell>
-                              <TableCell className="text-right text-primary tabular-nums">{fmt(tasksNetTotal)} zł</TableCell>
-                              <TableCell className="text-right text-primary tabular-nums">{fmt(tasksTotal)} zł</TableCell>
+                              <TableCell className="text-right text-primary tabular-nums whitespace-nowrap">{fmt(tasksNetTotal)}&nbsp;zł</TableCell>
+                              <TableCell className="text-right text-primary tabular-nums whitespace-nowrap">{fmt(tasksTotal)}&nbsp;zł</TableCell>
                             </TableRow>
                           </TableBody>
                         </Table>
@@ -465,12 +463,12 @@ export default function WorkshopClientCard() {
                       <div className="border rounded-xl overflow-hidden">
                         <Table>
                           <colgroup>
-                            <col style={{ width: '50px' }} />
+                            <col style={{ width: '40px' }} />
                             <col />
-                            <col style={{ width: '60px' }} />
-                            <col style={{ width: '60px' }} />
-                            <col style={{ width: '140px' }} />
-                            <col style={{ width: '140px' }} />
+                            <col style={{ width: '54px' }} />
+                            <col style={{ width: '50px' }} />
+                            <col style={{ width: '110px' }} />
+                            <col style={{ width: '120px' }} />
                           </colgroup>
                           <TableHeader>
                             <TableRow className="bg-muted/30">
@@ -485,18 +483,18 @@ export default function WorkshopClientCard() {
                           <TableBody>
                             {goods.map((g: any, i: number) => (
                               <TableRow key={g.id}>
-                                <TableCell className="text-muted-foreground">{i + 1}</TableCell>
-                                <TableCell className="font-medium">{g.name}</TableCell>
-                                <TableCell className="text-right tabular-nums">{g.quantity}</TableCell>
-                                <TableCell>{g.unit}</TableCell>
-                                <TableCell className="text-right tabular-nums">{fmt(g.total_net || 0)} zł</TableCell>
-                                <TableCell className="text-right font-medium tabular-nums">{fmt(g.total_gross || 0)} zł</TableCell>
+                                <TableCell className="text-muted-foreground align-top">{i + 1}</TableCell>
+                                <TableCell className="font-medium break-words">{g.name}</TableCell>
+                                <TableCell className="text-right tabular-nums whitespace-nowrap align-top">{g.quantity}</TableCell>
+                                <TableCell className="align-top">{g.unit}</TableCell>
+                                <TableCell className="text-right tabular-nums whitespace-nowrap align-top">{fmt(g.total_net || 0)}&nbsp;zł</TableCell>
+                                <TableCell className="text-right font-medium tabular-nums whitespace-nowrap align-top">{fmt(g.total_gross || 0)}&nbsp;zł</TableCell>
                               </TableRow>
                             ))}
                             <TableRow className="font-bold bg-muted/20">
                               <TableCell colSpan={4}>Razem części</TableCell>
-                              <TableCell className="text-right text-primary tabular-nums">{fmt(goodsNetTotal)} zł</TableCell>
-                              <TableCell className="text-right text-primary tabular-nums">{fmt(goodsTotal)} zł</TableCell>
+                              <TableCell className="text-right text-primary tabular-nums whitespace-nowrap">{fmt(goodsNetTotal)}&nbsp;zł</TableCell>
+                              <TableCell className="text-right text-primary tabular-nums whitespace-nowrap">{fmt(goodsTotal)}&nbsp;zł</TableCell>
                             </TableRow>
                           </TableBody>
                         </Table>
@@ -506,11 +504,11 @@ export default function WorkshopClientCard() {
 
                   {/* Grand total */}
                   <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
-                    <div className="flex justify-between items-center">
+                    <div className="flex flex-wrap justify-between items-center gap-3">
                       <span className="font-bold text-lg">Łącznie do zapłaty</span>
                       <div className="text-right">
-                        <p className="text-sm text-muted-foreground">Netto: {fmt(tasksNetTotal + goodsNetTotal)} zł</p>
-                        <p className="text-xl font-bold text-primary">{fmt(tasksTotal + goodsTotal)} zł brutto</p>
+                        <p className="text-sm text-muted-foreground whitespace-nowrap">Netto: {fmt(tasksNetTotal + goodsNetTotal)}&nbsp;zł</p>
+                        <p className="text-xl font-bold text-primary whitespace-nowrap">{fmt(tasksTotal + goodsTotal)}&nbsp;zł brutto</p>
                       </div>
                     </div>
                   </div>

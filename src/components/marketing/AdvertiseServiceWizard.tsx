@@ -66,6 +66,7 @@ export function AdvertiseServiceWizard({ service, open, onOpenChange }: Props) {
   const [variants, setVariants] = useState<Variant[]>([]);
   const [selectedVariant, setSelectedVariant] = useState<number>(0);
   const [complianceScore, setComplianceScore] = useState<number | null>(null);
+  const [generationError, setGenerationError] = useState<string | null>(null);
 
   const togglePlatform = (p: string) => {
     setPlatforms((prev) => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]);
@@ -75,10 +76,26 @@ export function AdvertiseServiceWizard({ service, open, onOpenChange }: Props) {
 
   const generateAds = async () => {
     setLoading(true);
+    setGenerationError(null);
     try {
       const platform = platforms.length === 2 ? 'both' : platforms[0];
-      const { data, error } = await supabase.functions.invoke('generate-ad-creative', {
-        body: {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      if (!accessToken) {
+        throw new Error('Sesja wygasła. Zaloguj się ponownie.');
+      }
+
+      const SUPABASE_URL = "https://wclrrytmrscqvsyxyvnn.supabase.co";
+      const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndjbHJyeXRtcnNjcXZzeXh5dm5uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU4NzcxNjAsImV4cCI6MjA3MTQ1MzE2MH0.AUBGgRgUfLkb2X5DXWat2uCa52ptLzQkEigUnNUXtqk";
+
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/generate-ad-creative`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+          'apikey': SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({
           brief: {
             client: service.name,
             platform,
@@ -92,21 +109,32 @@ export function AdvertiseServiceWizard({ service, open, onOpenChange }: Props) {
             service_id: service.id,
             image_url: service.image_url,
           },
-        },
+        }),
       });
-      if (error) throw error;
+
+      if (!response.ok) {
+        const errBody = await response.text().catch(() => '');
+        throw new Error(`Edge Function zwróciła błąd ${response.status}: ${errBody.slice(0, 200) || 'brak szczegółów'}`);
+      }
+
+      const data = await response.json();
       const v = data?.variants || [];
       setVariants(v);
       setSelectedVariant(0);
       setComplianceScore(data?.compliance_check?.score ?? null);
       if (!v.length) {
-        toast.error('Nie udało się wygenerować wariantów');
+        const msg = data?.error || 'Nie udało się wygenerować wariantów reklamy.';
+        setGenerationError(msg);
+        toast.error(msg);
       } else {
+        // moved from step 4 to variants display — stay at step 4 to show variants in same view
         setStep(5);
       }
-    } catch (err) {
-      console.error(err);
-      toast.error('Błąd generowania reklam');
+    } catch (err: any) {
+      console.error('generate-ad-creative error:', err);
+      const msg = err?.message || 'Błąd generowania reklam';
+      setGenerationError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -294,7 +322,7 @@ export function AdvertiseServiceWizard({ service, open, onOpenChange }: Props) {
 
         {/* STEP 4 — Generation in progress */}
         {step === 4 && (
-          <div className="py-12 text-center space-y-3">
+          <div className="py-10 text-center space-y-3">
             {loading ? (
               <>
                 <Loader2 className="h-10 w-10 animate-spin mx-auto text-primary" />
@@ -304,8 +332,15 @@ export function AdvertiseServiceWizard({ service, open, onOpenChange }: Props) {
               <>
                 <Sparkles className="h-10 w-10 mx-auto text-primary" />
                 <p className="text-sm">Gotowy do generowania 3 wariantów reklamy</p>
+                {generationError && (
+                  <div className="mx-auto max-w-md text-left rounded-md border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">
+                    <p className="font-semibold mb-1">Nie udało się wygenerować reklam</p>
+                    <p className="opacity-90 break-words">{generationError}</p>
+                    <p className="mt-2 opacity-70">Sprawdź czy klucz ANTHROPIC_API_KEY jest skonfigurowany w sekretach Supabase, a Edge Function została wdrożona.</p>
+                  </div>
+                )}
                 <Button onClick={generateAds} className="gap-2">
-                  <Sparkles className="h-4 w-4" /> Generuj reklamy AI
+                  <Sparkles className="h-4 w-4" /> {generationError ? 'Spróbuj ponownie' : 'Generuj reklamy AI'}
                 </Button>
               </>
             )}
