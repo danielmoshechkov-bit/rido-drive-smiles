@@ -16,13 +16,25 @@ serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
-  // Meta webhook verification
+  // Meta webhook verification — sprawdza najpierw token z agency_settings, fallback do env
   if (req.method === "GET") {
     const url = new URL(req.url);
     const mode = url.searchParams.get("hub.mode");
     const token = url.searchParams.get("hub.verify_token");
     const challenge = url.searchParams.get("hub.challenge");
-    if (mode === "subscribe" && token === Deno.env.get("META_VERIFY_TOKEN")) {
+
+    let validToken = Deno.env.get("META_VERIFY_TOKEN");
+    try {
+      const { data: settings } = await supabase
+        .from("agency_settings")
+        .select("report_branding")
+        .limit(1)
+        .maybeSingle();
+      const tokenFromSettings = (settings?.report_branding as any)?.meta_verify_token;
+      if (tokenFromSettings) validToken = tokenFromSettings;
+    } catch {}
+
+    if (mode === "subscribe" && token === validToken) {
       return new Response(challenge, { status: 200 });
     }
     return new Response("Forbidden", { status: 403 });
@@ -38,45 +50,82 @@ serve(async (req) => {
         const formId = change.value.form_id;
         const adId = change.value.ad_id;
 
-        // Find agent for this form
+        // 1) Sprawdź czy form jest podpięty pod ai_sales_agents (stary flow)
         const { data: agent } = await supabase
           .from("ai_sales_agents")
           .select("*")
           .contains("meta_form_ids", [formId])
           .eq("status", "active")
-          .single();
+          .maybeSingle();
 
-        if (!agent) continue;
+        // 2) Sprawdź czy form jest w external_lead_sources typu meta_lead_ads (nowy flow)
+        const { data: source } = await supabase
+          .from("external_lead_sources")
+          .select("*")
+          .eq("source_type", "meta_lead_ads")
+          .eq("meta_form_id", formId)
+          .eq("is_active", true)
+          .maybeSingle();
 
-        // Fetch lead data from Meta API
-        const leadData = await fetchMetaLead(leadgenId, agent.meta_access_token);
+        const accessToken = agent?.meta_access_token || (source as any)?.meta_access_token;
+        if (!accessToken) continue;
 
-        // Save lead
-        const { data: lead } = await supabase
-          .from("ai_sales_leads")
-          .insert({
-            agent_id: agent.id,
-            service_id: agent.service_id,
-            user_id: agent.user_id,
-            meta_lead_id: leadgenId,
-            meta_form_id: formId,
-            meta_ad_id: adId,
-            first_name: leadData.first_name,
-            last_name: leadData.last_name,
-            phone: leadData.phone,
-            email: leadData.email,
-            city: leadData.city,
-            custom_fields: leadData.custom_fields,
-            status: "new"
-          })
-          .select()
-          .single();
+        const leadData = await fetchMetaLead(leadgenId, accessToken);
 
-        if (lead) {
-          // Trigger first contact
-          await supabase.functions.invoke("ai-agent-contact", {
-            body: { lead_id: lead.id, delay_minutes: agent.first_contact_delay_minutes }
-          });
+        // Routing A — ai_sales_agents
+        if (agent) {
+          const { data: lead } = await supabase
+            .from("ai_sales_leads")
+            .insert({
+              agent_id: agent.id,
+              service_id: agent.service_id,
+              user_id: agent.user_id,
+              meta_lead_id: leadgenId,
+              meta_form_id: formId,
+              meta_ad_id: adId,
+              first_name: leadData.first_name,
+              last_name: leadData.last_name,
+              phone: leadData.phone,
+              email: leadData.email,
+              city: leadData.city,
+              custom_fields: leadData.custom_fields,
+              status: "new"
+            })
+            .select()
+            .single();
+          if (lead) {
+            await supabase.functions.invoke("ai-agent-contact", {
+              body: { lead_id: lead.id, delay_minutes: agent.first_contact_delay_minutes }
+            });
+          }
+        }
+
+        // Routing B — marketing_leads (nowy flow przez external_lead_sources)
+        if (source) {
+          // Dedup po phone/email + client_id
+          let exists = null;
+          if (leadData.phone) {
+            const { data } = await supabase.from("marketing_leads")
+              .select("id").eq("client_id", source.client_id).eq("phone", leadData.phone).limit(1).maybeSingle();
+            exists = data;
+          }
+          if (!exists) {
+            await supabase.from("marketing_leads").insert({
+              client_id: source.client_id,
+              name: `${leadData.first_name || ''} ${leadData.last_name || ''}`.trim() || 'Lead Meta',
+              phone: leadData.phone,
+              email: leadData.email,
+              city: leadData.city,
+              message: `Meta Lead Ads — form ${formId}`,
+              source_platform: 'meta_lead_ads',
+              source_campaign_id: adId,
+              status: 'new',
+            });
+            await supabase.from("external_lead_sources").update({
+              last_synced_at: new Date().toISOString(),
+              total_imported: ((source as any).total_imported || 0) + 1,
+            }).eq("id", source.id);
+          }
         }
       }
     }

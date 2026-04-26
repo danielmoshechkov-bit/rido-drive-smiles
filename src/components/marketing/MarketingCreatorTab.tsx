@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { Sparkles, Loader2, Copy, Image } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import { AdvertiseServiceButton } from './AdvertiseServiceButton';
 
 interface AdVariant {
   headline: string;
@@ -57,9 +58,16 @@ export function MarketingCreatorTab() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-semibold flex items-center gap-2">
-        <Sparkles className="h-5 w-5 text-primary" /> Kreator Reklam AI
-      </h2>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <h2 className="text-xl font-semibold flex items-center gap-2">
+          <Sparkles className="h-5 w-5 text-primary" /> Kreator Reklam AI
+        </h2>
+        <AdvertiseServiceButton
+          service={{ id: 'custom', name: 'Reklama na zamówienie' }}
+          variant="default"
+          size="default"
+        />
+      </div>
 
       <Card>
         <CardHeader>
