@@ -110,7 +110,13 @@ export function ServiceAutocomplete({
         onChange={e => handleChange(e.target.value)}
         placeholder={placeholder}
         className={className}
-        onKeyDown={onKeyDown}
+        onKeyDown={e => {
+          if (e.key === 'Enter' || e.key === 'Escape' || e.key === 'Tab') {
+            lockedRef.current = true;
+            setOpen(false);
+          }
+          onKeyDown?.(e);
+        }}
         onFocus={() => !lockedRef.current && value.length >= 2 && setOpen(true)}
       />
       {open && suggestions.length > 0 && createPortal(
