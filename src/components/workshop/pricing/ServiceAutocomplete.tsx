@@ -23,12 +23,19 @@ export function ServiceAutocomplete({
 }: Props) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const justSelectedRef = useRef(false);
   const ref = useRef<HTMLDivElement>(null);
 
   const { data: suggestions = [] } = useServiceAutocomplete(providerId, query);
 
   useEffect(() => {
     setQuery(value);
+    if (justSelectedRef.current) {
+      // After programmatic select, do not re-open dropdown
+      justSelectedRef.current = false;
+      setOpen(false);
+      return;
+    }
     setOpen(value.length >= 2);
   }, [value]);
 
@@ -41,12 +48,13 @@ export function ServiceAutocomplete({
   }, []);
 
   const handleSelect = (s: any) => {
+    justSelectedRef.current = true;
+    setOpen(false);
     onSelectSuggestion(
       s.service_name,
       s.last_price_net || s.price_net || 0,
       s.last_price_gross || s.price_gross || 0,
     );
-    setOpen(false);
   };
 
   const fmt = (v: number) => v.toLocaleString('pl-PL', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
