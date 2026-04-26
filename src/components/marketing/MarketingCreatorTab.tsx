@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { Sparkles, Loader2, Copy, Image } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import { AdvertiseServiceButton } from './AdvertiseServiceButton';
 
 interface AdVariant {
   headline: string;
