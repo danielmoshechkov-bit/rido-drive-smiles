@@ -74,7 +74,7 @@ Format odpowiedzi:
 }`;
 
 // Get API key with priority: ai_settings.openai_api_key_encrypted > LOVABLE_API_KEY
-async function getOpenAIKey(supabase: ReturnType<typeof createClient>): Promise<string> {
+async function getOpenAIKey(supabase: any): Promise<string> {
   // First try to get key from ai_settings table
   const { data } = await supabase
     .from('ai_settings')
@@ -100,7 +100,7 @@ async function getOpenAIKey(supabase: ReturnType<typeof createClient>): Promise<
 async function interpretCommand(
   userText: string,
   context: Record<string, unknown>,
-  supabase: ReturnType<typeof createClient>
+  supabase: any
 ): Promise<IntentResponse> {
   const apiKey = await getOpenAIKey(supabase);
 
@@ -153,7 +153,7 @@ async function interpretCommand(
 async function executeToolCalls(
   toolCalls: Array<{ name: string; args: Record<string, unknown> }>,
   userId: string,
-  supabase: ReturnType<typeof createClient>
+  supabase: any
 ): Promise<Array<{ name: string; success: boolean; result?: unknown; error?: string }>> {
   const results = [];
 
@@ -238,7 +238,7 @@ async function executeToolCalls(
 async function transcribeAudio(
   audioBase64: string,
   mimeType: string,
-  supabase: ReturnType<typeof createClient>
+  supabase: any
 ): Promise<string> {
   const apiKey = await getOpenAIKey(supabase);
 
@@ -276,7 +276,7 @@ async function transcribeAudio(
 async function generateSpeech(
   text: string,
   voice: string = 'alloy',
-  supabase: ReturnType<typeof createClient>
+  supabase: any
 ): Promise<{ audioUrl: string; cached: boolean }> {
   // Check cache first
   const phraseHash = await crypto.subtle.digest(
