@@ -495,6 +495,20 @@ export function DriverInfoPopover({
               </div>
             </div>
 
+            {/* Assigned from date */}
+            {selectedVehicleId !== 'none' && (
+              <div className="space-y-0.5">
+                <Label className="text-[10px] text-muted-foreground">Przypisane od (data rozpoczęcia wynajmu)</Label>
+                <Input
+                  type="date"
+                  value={assignedAt}
+                  onChange={e => setAssignedAt(e.target.value)}
+                  className="h-7 text-xs"
+                />
+                <p className="text-[9px] text-muted-foreground">Od tej daty liczony jest czynsz wynajmu w rozliczeniach tygodniowych.</p>
+              </div>
+            )}
+
             {/* Fleet */}
             <div className="space-y-0.5">
               <Label className="text-[10px] text-muted-foreground">Flota</Label>
