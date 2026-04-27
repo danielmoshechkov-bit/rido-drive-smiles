@@ -63,6 +63,7 @@ export function DriverInfoPopover({
   const [b2bCity, setB2bCity] = useState('');
   
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>('none');
+  const [assignedAt, setAssignedAt] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [selectedFleetId, setSelectedFleetId] = useState<string>('none');
   const [availableVehicles, setAvailableVehicles] = useState<any[]>([]);
   const [availableFleets, setAvailableFleets] = useState<any[]>([]);
@@ -95,7 +96,9 @@ export function DriverInfoPopover({
           driver_vehicle_assignments(
             vehicle_id,
             status,
-            vehicles(id, plate, brand, model, weekly_rental_fee)
+            assigned_at,
+            unassigned_at,
+            vehicles(id, plate, brand, model, weekly_rental_fee, fleet_id)
           )
         `)
         .eq('id', driverId)
@@ -118,9 +121,14 @@ export function DriverInfoPopover({
         setSelectedFleetId((driver as any).fleet_id || 'none');
 
         const activeAssignment = (driver as any).driver_vehicle_assignments?.find(
-          (a: any) => a.status === 'active'
+          (a: any) => a.status === 'active' && !a.unassigned_at
         );
         setSelectedVehicleId(activeAssignment?.vehicle_id || 'none');
+        if (activeAssignment?.assigned_at) {
+          setAssignedAt(new Date(activeAssignment.assigned_at).toISOString().split('T')[0]);
+        } else {
+          setAssignedAt(new Date().toISOString().split('T')[0]);
+        }
 
         const appUser = (driver as any).driver_app_users;
         if (appUser?.user_id) {
@@ -235,27 +243,68 @@ export function DriverInfoPopover({
       }
 
       const currentVehicleAssignment = driverData?.driver_vehicle_assignments?.find(
-        (a: any) => a.status === 'active'
+        (a: any) => a.status === 'active' && !a.unassigned_at
       );
       const currentVehicleId = currentVehicleAssignment?.vehicle_id;
+      const currentAssignedAt = currentVehicleAssignment?.assigned_at
+        ? new Date(currentVehicleAssignment.assigned_at).toISOString().split('T')[0]
+        : null;
 
-      if (selectedVehicleId !== (currentVehicleId || 'none')) {
+      const vehicleChanged = selectedVehicleId !== (currentVehicleId || 'none');
+      const dateChanged = currentVehicleId && selectedVehicleId === currentVehicleId && assignedAt !== currentAssignedAt;
+
+      if (vehicleChanged || dateChanged) {
+        const nowIso = new Date().toISOString();
+
+        // 1) Deactivate driver's current assignment (if changing or updating date)
         if (currentVehicleId) {
           await supabase
             .from('driver_vehicle_assignments')
-            .update({ status: 'inactive' } as any)
+            .update({ status: 'inactive', unassigned_at: nowIso } as any)
             .eq('driver_id', driverId)
             .eq('vehicle_id', currentVehicleId)
-            .eq('status', 'active');
+            .eq('status', 'active')
+            .is('unassigned_at', null);
         }
+
         if (selectedVehicleId !== 'none') {
+          // 2) Free this vehicle from any OTHER active driver
+          await supabase
+            .from('driver_vehicle_assignments')
+            .update({ status: 'inactive', unassigned_at: nowIso } as any)
+            .eq('vehicle_id', selectedVehicleId)
+            .eq('status', 'active')
+            .is('unassigned_at', null);
+
+          // 3) Determine fleet_id for the assignment (driver's fleet > vehicle's fleet)
+          const { data: vehicleRow } = await supabase
+            .from('vehicles')
+            .select('fleet_id')
+            .eq('id', selectedVehicleId)
+            .single();
+
+          const targetFleetId = (selectedFleetId !== 'none' ? selectedFleetId : null) || (vehicleRow as any)?.fleet_id || null;
+
+          // 4) Insert new assignment with chosen date
+          const assignedIso = new Date(`${assignedAt}T12:00:00`).toISOString();
           await supabase
             .from('driver_vehicle_assignments')
             .insert({
               driver_id: driverId,
               vehicle_id: selectedVehicleId,
+              fleet_id: targetFleetId,
               status: 'active',
+              assigned_at: assignedIso,
+              unassigned_at: null,
             } as any);
+
+          // 5) Sync vehicle.fleet_id to the driver's fleet (so it shows correctly in vehicle list)
+          if (targetFleetId && (vehicleRow as any)?.fleet_id !== targetFleetId) {
+            await supabase
+              .from('vehicles')
+              .update({ fleet_id: targetFleetId } as any)
+              .eq('id', selectedVehicleId);
+          }
         }
       }
 
@@ -445,6 +494,20 @@ export function DriverInfoPopover({
                 </Button>
               </div>
             </div>
+
+            {/* Assigned from date */}
+            {selectedVehicleId !== 'none' && (
+              <div className="space-y-0.5">
+                <Label className="text-[10px] text-muted-foreground">Przypisane od (data rozpoczęcia wynajmu)</Label>
+                <Input
+                  type="date"
+                  value={assignedAt}
+                  onChange={e => setAssignedAt(e.target.value)}
+                  className="h-7 text-xs"
+                />
+                <p className="text-[9px] text-muted-foreground">Od tej daty liczony jest czynsz wynajmu w rozliczeniach tygodniowych.</p>
+              </div>
+            )}
 
             {/* Fleet */}
             <div className="space-y-0.5">
