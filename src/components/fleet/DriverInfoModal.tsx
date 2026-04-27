@@ -121,9 +121,14 @@ export function DriverInfoPopover({
         setSelectedFleetId((driver as any).fleet_id || 'none');
 
         const activeAssignment = (driver as any).driver_vehicle_assignments?.find(
-          (a: any) => a.status === 'active'
+          (a: any) => a.status === 'active' && !a.unassigned_at
         );
         setSelectedVehicleId(activeAssignment?.vehicle_id || 'none');
+        if (activeAssignment?.assigned_at) {
+          setAssignedAt(new Date(activeAssignment.assigned_at).toISOString().split('T')[0]);
+        } else {
+          setAssignedAt(new Date().toISOString().split('T')[0]);
+        }
 
         const appUser = (driver as any).driver_app_users;
         if (appUser?.user_id) {
