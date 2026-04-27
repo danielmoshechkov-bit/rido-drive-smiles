@@ -63,6 +63,7 @@ export function DriverInfoPopover({
   const [b2bCity, setB2bCity] = useState('');
   
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>('none');
+  const [assignedAt, setAssignedAt] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [selectedFleetId, setSelectedFleetId] = useState<string>('none');
   const [availableVehicles, setAvailableVehicles] = useState<any[]>([]);
   const [availableFleets, setAvailableFleets] = useState<any[]>([]);
