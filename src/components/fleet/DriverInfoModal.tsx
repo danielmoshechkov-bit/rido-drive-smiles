@@ -96,7 +96,9 @@ export function DriverInfoPopover({
           driver_vehicle_assignments(
             vehicle_id,
             status,
-            vehicles(id, plate, brand, model, weekly_rental_fee)
+            assigned_at,
+            unassigned_at,
+            vehicles(id, plate, brand, model, weekly_rental_fee, fleet_id)
           )
         `)
         .eq('id', driverId)
