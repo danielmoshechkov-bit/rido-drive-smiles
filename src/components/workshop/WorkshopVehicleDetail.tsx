@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +13,8 @@ import { WorkshopAddClientDialog } from './WorkshopAddClientDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { useVehicleLookup } from '@/hooks/useVehicleLookup';
+import { VehicleLookupCreditsModal } from '@/components/vehicle/VehicleLookupCreditsModal';
 import {
   ArrowLeft, Search, Car, Plus, Phone, QrCode, Loader2, Users, Save
 } from 'lucide-react';
@@ -37,6 +39,44 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
   const [showOwnerList, setShowOwnerList] = useState(false);
   const [showAddClient, setShowAddClient] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showCreditsModal, setShowCreditsModal] = useState(false);
+
+  const [{ data: { user } = { user: null } } = { data: { user: null } }] = [{ data: { user: null } }];
+  const [currentUserId, setCurrentUserId] = useState<string | undefined>();
+  useEffect(() => { supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id)); }, []);
+  const { checkRegistration, checkVin, loading: lookupLoading, purchaseCredits } = useVehicleLookup(currentUserId);
+
+  const applyLookup = (data: any) => {
+    if (!data) return;
+    setForm(p => ({
+      ...p,
+      brand: data.make || p.brand,
+      model: data.model || p.model,
+      color: data.color || p.color,
+      vin: data.vin || p.vin,
+      plate: data.registration_number || p.plate,
+      year: data.registration_year ? String(data.registration_year) : p.year,
+      first_registration_date: data.first_registration_date || p.first_registration_date,
+      fuel_type: data.fuel_type || p.fuel_type,
+      engine_capacity_cm3: data.engine_size || p.engine_capacity_cm3,
+      engine_power_kw: data.engine_power_kw || p.engine_power_kw,
+      description: data.description || p.description,
+    }));
+  };
+
+  const handleLookupPlate = async () => {
+    if (!form.plate?.trim()) { toast.error('Wpisz numer rejestracyjny'); return; }
+    const data = await checkRegistration(form.plate.trim().toUpperCase());
+    if (data) applyLookup(data);
+    else if (!lookupLoading) setShowCreditsModal(true);
+  };
+
+  const handleLookupVin = async () => {
+    if (!form.vin?.trim()) { toast.error('Wpisz numer VIN'); return; }
+    const data = await checkVin(form.vin.trim().toUpperCase());
+    if (data) applyLookup(data);
+    else if (!lookupLoading) setShowCreditsModal(true);
+  };
 
   // Form state
   const [form, setForm] = useState({
@@ -143,7 +183,9 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
                   <Label>Numer VIN</Label>
                   <div className="flex gap-2">
                     <Input value={form.vin} onChange={e => set('vin', e.target.value.toUpperCase())} className="font-mono flex-1" />
-                    <Button size="icon" variant="outline"><Search className="h-4 w-4" /></Button>
+                    <Button size="icon" variant="outline" onClick={handleLookupVin} disabled={lookupLoading} title="Wyszukaj po VIN">
+                      {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                    </Button>
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -185,7 +227,9 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
                   <Label>Numer rejestracyjny</Label>
                   <div className="flex gap-2">
                     <Input value={form.plate} onChange={e => set('plate', e.target.value.toUpperCase())} className="font-mono flex-1" />
-                    <Button size="icon" variant="outline"><Search className="h-4 w-4" /></Button>
+                    <Button size="icon" variant="outline" onClick={handleLookupPlate} disabled={lookupLoading} title="Wyszukaj po numerze rejestracyjnym">
+                      {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                    </Button>
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -392,6 +436,14 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
         onCreated={(c) => {
           setOwnerClientId(c.id);
           setShowOwnerList(false);
+        }}
+      />
+      <VehicleLookupCreditsModal
+        open={showCreditsModal}
+        onOpenChange={setShowCreditsModal}
+        onPurchase={async (credits, priceNet) => {
+          const ok = await purchaseCredits(credits, priceNet);
+          if (ok) setShowCreditsModal(false);
         }}
       />
     </div>

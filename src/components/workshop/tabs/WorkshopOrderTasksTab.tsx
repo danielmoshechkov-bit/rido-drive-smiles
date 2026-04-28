@@ -428,7 +428,29 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     updateTaskRow(idx, { price_net: net, price_gross: gross });
   };
 
-  const addTaskRow = () => {
+  const addTaskRow = async () => {
+    // Auto-save any filled draft rows first, so that pressing Enter / "Dodaj usługę"
+    // commits the previous row to DB before opening a new empty draft.
+    const filled = taskRows.filter(isTaskDraftFilled);
+    const incomplete = taskRows.filter(r => !r.name.trim() && getDraftPrice(r, isTaskGross) > 0);
+    if (incomplete.length > 0) {
+      toast.error('Uzupełnij nazwę usługi — wpisałeś cenę, ale pole "Usługa" jest puste.', {
+        icon: <AlertTriangle className="h-5 w-5" />,
+      });
+      return;
+    }
+    if (filled.length > 0) {
+      let nextSortOrder = getNextSortOrder(tasks);
+      for (const row of filled) {
+        const sourceIndex = taskRows.findIndex(c => c === row);
+        await submitTask(row, sourceIndex >= 0 ? sourceIndex : 0, nextSortOrder);
+        nextSortOrder += 1;
+      }
+      const nextRow = createEmptyTask();
+      setTaskRows([nextRow]);
+      requestAnimationFrame(() => focusTaskDraftRow(nextRow.draftKey));
+      return;
+    }
     const nextRow = createEmptyTask();
     setTaskRows(prev => [...prev, nextRow]);
     focusTaskDraftRow(nextRow.draftKey);
@@ -504,7 +526,27 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     updateGoodsRow(idx, { cost_net: net, cost_gross: gross });
   };
 
-  const addGoodsRow = () => {
+  const addGoodsRow = async () => {
+    const filled = goodsRows.filter(isGoodsDraftFilled);
+    const incomplete = goodsRows.filter(r => !r.name.trim() && getDraftPrice(r, isGoodsGross) > 0);
+    if (incomplete.length > 0) {
+      toast.error('Uzupełnij nazwę części — wpisałeś cenę, ale pole "Nazwa" jest puste.', {
+        icon: <AlertTriangle className="h-5 w-5" />,
+      });
+      return;
+    }
+    if (filled.length > 0) {
+      let nextSortOrder = getNextSortOrder(goods);
+      for (const row of filled) {
+        const sourceIndex = goodsRows.findIndex(c => c === row);
+        await submitGoods(row, sourceIndex >= 0 ? sourceIndex : 0, nextSortOrder);
+        nextSortOrder += 1;
+      }
+      const nextRow = createEmptyGoods();
+      setGoodsRows([nextRow]);
+      requestAnimationFrame(() => focusGoodsDraftRow(nextRow.draftKey));
+      return;
+    }
     const nextRow = createEmptyGoods();
     setGoodsRows(prev => [...prev, nextRow]);
     focusGoodsDraftRow(nextRow.draftKey);
