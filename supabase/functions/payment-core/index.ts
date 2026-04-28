@@ -324,6 +324,46 @@ async function handleCreditsCheck(supabase: any, body: any) {
 
 async function handleAdminGrant(supabase: any, body: any) {
   const { user_id, credit_type, amount } = body;
-  await upsertCredits(supabase, user_id, credit_type, amount);
+
+  if (credit_type === "vehicle_lookup") {
+    // Top up vehicle lookup credits (RegCheck VIN/plate)
+    const { data: existing } = await supabase
+      .from("vehicle_lookup_credits")
+      .select("remaining_credits, total_credits_purchased")
+      .eq("user_id", user_id)
+      .maybeSingle();
+    if (existing) {
+      await supabase.from("vehicle_lookup_credits").update({
+        remaining_credits: (existing.remaining_credits || 0) + amount,
+        total_credits_purchased: (existing.total_credits_purchased || 0) + amount,
+        updated_at: new Date().toISOString(),
+      }).eq("user_id", user_id);
+    } else {
+      await supabase.from("vehicle_lookup_credits").insert({
+        user_id, remaining_credits: amount, total_credits_purchased: amount,
+      });
+    }
+    await supabase.from("vehicle_lookup_credit_transactions").insert({
+      user_id, type: "admin_grant", credits: amount, source: "admin", note: `Admin grant ${amount} credits`,
+    });
+  } else if (credit_type === "sms") {
+    // SMS credits live on service_providers.sms_balance
+    const { data: sp } = await supabase
+      .from("service_providers")
+      .select("id, sms_balance")
+      .eq("user_id", user_id)
+      .maybeSingle();
+    if (sp) {
+      await supabase.from("service_providers")
+        .update({ sms_balance: (sp.sms_balance || 0) + amount })
+        .eq("id", sp.id);
+    } else {
+      // Fallback to user_credits if no provider record
+      await upsertCredits(supabase, user_id, "sms", amount);
+    }
+  } else {
+    await upsertCredits(supabase, user_id, credit_type, amount);
+  }
+
   return new Response(JSON.stringify({ ok: true }), { headers: CORS });
 }

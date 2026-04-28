@@ -212,13 +212,9 @@ function AssignCreditsPanel() {
   const loadCompanies = async () => {
     setLoadingCompanies(true);
     try {
-      const { data, error } = await supabase
-        .from('service_providers')
-        .select('id, user_id, owner_email, company_name, company_nip, company_address, company_city, company_phone, sms_balance')
-        .order('company_name', { ascending: true })
-        .limit(500);
+      const { data, error } = await supabase.rpc('admin_list_service_providers' as any);
       if (error) throw error;
-      setCompanies((data || []).map((r: any) => ({
+      setCompanies(((data as any[]) || []).map((r: any) => ({
         id: r.id, user_id: r.user_id, email: r.owner_email || '',
         company_name: r.company_name, company_nip: r.company_nip,
         company_address: r.company_address, company_city: r.company_city,
@@ -226,6 +222,7 @@ function AssignCreditsPanel() {
       })));
     } catch (e: any) {
       console.error('loadCompanies', e);
+      toast.error('Nie udało się pobrać listy firm');
     }
     setLoadingCompanies(false);
   };
@@ -346,6 +343,7 @@ function AssignCreditsPanel() {
 
   const creditTypes = [
     { value: 'sms', label: 'SMS', icon: MessageSquare },
+    { value: 'vehicle_lookup', label: 'Sprawdzenie pojazdu (VIN/rej.)', icon: Search },
     { value: 'ai', label: 'AI', icon: Sparkles },
     { value: 'ai_photo', label: 'AI Zdjęcia', icon: Sparkles },
     { value: 'listing_featured', label: 'Wyróżnienia', icon: Star },
