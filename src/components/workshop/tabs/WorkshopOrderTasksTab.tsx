@@ -863,6 +863,69 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   }, [taskRows, goodsRows, saveTaskDraftRows, saveGoodsDraftRows]);
 
 
+  // Inline rabat editor for saved rows (persistent % / zł selector + input)
+  const SavedRowDiscountEditor = ({ item, isGross }: { item: any; isGross: boolean }) => {
+    const qty = safeNumber(item.quantity) || 1;
+    const unitPrice = isGross ? safeNumber(item.unit_price_gross) : safeNumber(item.unit_price_net);
+    const rawTotal = qty * unitPrice;
+    const savedPercent = safeNumber(item.discount_percent) || 0;
+    const initialType: DiscountType = (item._discount_type_ui as DiscountType) || 'percent';
+    const initialValue = initialType === 'amount'
+      ? Math.round((rawTotal * savedPercent / 100) * 100) / 100
+      : savedPercent;
+    const [dType, setDType] = useState<DiscountType>(initialType);
+    const [dValue, setDValue] = useState<number>(initialValue);
+
+    const commit = async (nextType: DiscountType, nextValue: number) => {
+      const safeVal = Math.max(0, nextValue || 0);
+      let percent = 0;
+      if (nextType === 'percent') {
+        percent = Math.min(100, safeVal);
+      } else if (rawTotal > 0) {
+        percent = Math.min(100, (safeVal / rawTotal) * 100);
+      }
+      const afterDiscount = rawTotal - (rawTotal * percent / 100);
+      await updateItem.mutateAsync({
+        id: item.id,
+        discount_percent: percent,
+        total_gross: isGross ? afterDiscount : afterDiscount * VAT_RATE,
+        total_net: isGross ? afterDiscount / VAT_RATE : afterDiscount,
+      });
+    };
+
+    return (
+      <div className="flex items-center gap-1 justify-center" onClick={e => e.stopPropagation()}>
+        <Select
+          value={dType}
+          onValueChange={(v: DiscountType) => {
+            setDType(v);
+            commit(v, dValue);
+          }}
+        >
+          <SelectTrigger className="h-9 text-xs w-16 shrink-0"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="percent">%</SelectItem>
+            <SelectItem value="amount">zł</SelectItem>
+          </SelectContent>
+        </Select>
+        <Input
+          type="number"
+          placeholder="0"
+          value={dValue || ''}
+          onChange={e => setDValue(Number(e.target.value))}
+          onBlur={() => commit(dType, dValue)}
+          onKeyDown={e => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              (e.target as HTMLInputElement).blur();
+            }
+          }}
+          className="h-9 text-sm text-right w-16 shrink-0"
+        />
+      </div>
+    );
+  };
+
   // Inline editable cell renderer
   const renderEditableCell = (
     item: any,
@@ -1068,7 +1131,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                         {renderEditableCell(t, 'labor_hours', String(safeNumber(t.labor_hours) || '—'), 'tabular-nums', 'center')}
                       </td>
                       <td className="p-1 tabular-nums border-r border-border/60">{renderEditableCell(t, 'price', fmt(price), 'tabular-nums', 'right')}</td>
-                      <td className="p-1 text-center border-l border-border/60 bg-muted/10">{renderEditableCell(t, 'discount', hasDiscount ? `${Math.round(getDiscountPercent(t))}%` : '—', 'tabular-nums', 'center')}</td>
+                      <td className="p-1.5 text-center border-l border-border/60 bg-muted/10"><SavedRowDiscountEditor item={t} isGross={isTaskGross} /></td>
                       <td className="p-2 text-right font-semibold tabular-nums">{fmt(total)}</td>
                       <td className="p-2 text-center">
                         <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => handleDeleteItem(t.id)}>
@@ -1381,7 +1444,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                       <td className="p-1 text-muted-foreground tabular-nums">{renderEditableCell(g, 'cost', fmt(itemCost), 'tabular-nums', 'right')}</td>
                       <td className="p-1 tabular-nums">{renderEditableCell(g, 'price', fmt(itemPrice), 'tabular-nums', 'right')}</td>
                       <td className="p-2 text-right tabular-nums border-r border-border/60">{fmt(rawTotal)}</td>
-                      <td className="p-2 text-center border-l border-border/60 bg-muted/10">{hasDiscount ? `${Math.round(getDiscountPercent(g))}%` : '—'}</td>
+                      <td className="p-1.5 text-center border-l border-border/60 bg-muted/10"><SavedRowDiscountEditor item={g} isGross={isGoodsGross} /></td>
                       <td className="p-2 text-right font-semibold tabular-nums">{fmt(itemTotal)}</td>
                       <td className="p-2 text-center">
                         <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => handleDeleteItem(g.id)}>
