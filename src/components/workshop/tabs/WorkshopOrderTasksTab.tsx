@@ -749,6 +749,15 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   }, [order.id, order.total_gross, order.total_net, savedGrandGrossTotal, savedGrandNetTotal]);
 
   const saveTaskDraftRows = async (focusNewRow = false) => {
+    // Detect rows with price but no name — warn user instead of silently dropping
+    const incompleteRows = taskRows.filter(r => !r.name.trim() && getDraftPrice(r, isTaskGross) > 0);
+    if (incompleteRows.length > 0) {
+      toast.error('Uzupełnij nazwę usługi — wpisałeś cenę, ale pole "Usługa" jest puste.', {
+        icon: <AlertTriangle className="h-5 w-5" />,
+      });
+      // Don't auto-save anything; let the user fix the row
+      return;
+    }
     const rowsToSave = taskRows.filter(isTaskDraftFilled);
     if (rowsToSave.length === 0) {
       // Don't add extra rows, just ensure there's at least one empty row
