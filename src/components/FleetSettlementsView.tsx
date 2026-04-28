@@ -3770,7 +3770,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                         {isColVisible('wyplata_1') && (() => {
                           const w1 = getWyplata1(rawSettlement);
                           return (
-                            <TableCell className={`text-right font-bold px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${w1 > 0 ? 'text-blue-700' : w1 < 0 ? 'text-red-600' : 'text-muted-foreground'}`}>
+                            <TableCell className={`text-right font-bold px-2 py-1.5 text-xs tabular-nums whitespace-nowrap bg-blue-50 ${w1 > 0 ? 'text-blue-700' : w1 < 0 ? 'text-red-600' : 'text-muted-foreground'}`}>
                               {formatCurrency(w1)}
                             </TableCell>
                           );
