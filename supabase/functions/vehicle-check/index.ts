@@ -286,10 +286,20 @@ async function handleCheckRegistration(supabase: any, supabaseAdmin: any, userId
       source_payload: vehicleData,
     };
 
+    // Validate that we actually got useful data — only deduct credit if vehicle was found
+    const hasUsefulData = !!(mapped.make || mapped.model || mapped.vin);
+    if (!hasUsefulData) {
+      await logIntegration(supabaseAdmin, userId, regNumber, null, "registration", "no_data", { raw: xmlText.substring(0, 2000), parsed: vehicleData }, "API zwróciło pustą odpowiedź — brak danych pojazdu");
+      return new Response(JSON.stringify({ error: "NOT_FOUND", message: "Nie znaleziono danych dla podanego numeru rejestracyjnego" }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Save to cache
     await supabaseAdmin.from("vehicle_registry_cache").insert(mapped);
 
-    // Deduct credit
+    // Deduct credit (only after confirmed success)
     await deductCredit(supabaseAdmin, userId, regNumber, mapped.vin, "external_api");
     await logIntegration(supabaseAdmin, userId, regNumber, mapped.vin, "registration", "success", vehicleData, null);
 
