@@ -353,9 +353,109 @@ function AssignCreditsPanel() {
 
   return (
     <div className="space-y-4">
+      {/* Vehicle search by VIN / plate */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2"><Search className="h-4 w-4" /> Szukaj po VIN / nr rejestracyjnym</CardTitle>
+          <CardDescription className="text-xs">Wpisz fragment VIN lub tablicy — system znajdzie usługodawcę, do którego pojazd jest przypisany.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="relative max-w-md">
+            <Input
+              placeholder="np. WAUZZZ8K... lub WX1234A"
+              value={vehicleQuery}
+              onChange={e => setVehicleQuery(e.target.value)}
+              className="uppercase"
+            />
+            {vehicleSearching && <Loader2 className="h-4 w-4 animate-spin absolute right-3 top-3" />}
+          </div>
+          {vehicleResults.length > 0 && (
+            <div className="mt-3 border rounded-lg overflow-hidden max-h-64 overflow-y-auto">
+              {vehicleResults.map((v, idx) => (
+                <button
+                  key={`${v.vin}-${v.plate}-${idx}`}
+                  disabled={!v.user_id}
+                  onClick={() => v.user_id && selectUser({ id: v.user_id, email: v.email, company_name: v.company_name })}
+                  className="w-full text-left px-3 py-2 hover:bg-muted transition-colors text-sm border-b last:border-0 flex items-center justify-between gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-sm">{v.plate || '—'} {v.vin && <span className="text-xs text-muted-foreground ml-2">VIN: {v.vin}</span>}</div>
+                    <div className="text-xs text-muted-foreground truncate">{v.company_name || v.email || '—'} · {v.source}</div>
+                  </div>
+                  {v.user_id && <Badge variant="secondary" className="text-xs">Wybierz</Badge>}
+                </button>
+              ))}
+            </div>
+          )}
+          {vehicleQuery.length >= 3 && !vehicleSearching && vehicleResults.length === 0 && (
+            <p className="text-sm text-muted-foreground mt-2">Brak wyników</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Companies registered in the portal */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2"><Wallet className="h-4 w-4" /> Firmy korzystające z systemu ({companies.length})</CardTitle>
+          <CardDescription className="text-xs">Wybierz firmę z listy, aby przyznać jej kredyty (SMS, weryfikacja VIN/rej., AI itd.).</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="relative mb-3 max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Szukaj po NIP, nazwie, adresie, mailu, telefonie…"
+              value={companyFilter}
+              onChange={e => setCompanyFilter(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          {loadingCompanies ? (
+            <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin" /></div>
+          ) : filteredCompanies.length === 0 ? (
+            <p className="text-center text-sm text-muted-foreground py-6">Brak firm pasujących do filtra</p>
+          ) : (
+            <div className="border rounded-lg overflow-hidden max-h-[420px] overflow-y-auto">
+              <Table>
+                <TableHeader className="sticky top-0 bg-background z-10">
+                  <TableRow>
+                    <TableHead>Firma / NIP</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead className="hidden md:table-cell">Adres</TableHead>
+                    <TableHead className="hidden md:table-cell">Telefon</TableHead>
+                    <TableHead className="text-right">SMS</TableHead>
+                    <TableHead></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredCompanies.map(c => (
+                    <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => selectCompany(c)}>
+                      <TableCell>
+                        <div className="font-medium text-sm">{c.company_name || '—'}</div>
+                        {c.company_nip && <div className="text-xs text-muted-foreground">NIP {c.company_nip}</div>}
+                      </TableCell>
+                      <TableCell className="text-sm">{c.email || '—'}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground hidden md:table-cell">
+                        {c.company_address || '—'}{c.company_city ? `, ${c.company_city}` : ''}
+                      </TableCell>
+                      <TableCell className="text-xs hidden md:table-cell">{c.company_phone || '—'}</TableCell>
+                      <TableCell className="text-right">
+                        <Badge variant={(c.sms_balance || 0) > 0 ? 'default' : 'secondary'}>{c.sms_balance ?? 0}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="sm" onClick={e => { e.stopPropagation(); selectCompany(c); }}>Wybierz</Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2"><Search className="h-4 w-4" /> Znajdź użytkownika</CardTitle>
+          <CardTitle className="text-base flex items-center gap-2"><Search className="h-4 w-4" /> Znajdź użytkownika po e-mail</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="relative max-w-md">
@@ -378,7 +478,7 @@ function AssignCreditsPanel() {
               </div>
             )}
           </div>
-          {foundUser && <p className="text-sm text-green-600 mt-2">✓ {foundUser.email}</p>}
+          {foundUser && <p className="text-sm text-green-600 mt-2">✓ {foundUser.company_name ? `${foundUser.company_name} — ` : ''}{foundUser.email}</p>}
         </CardContent>
       </Card>
 
