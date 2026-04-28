@@ -543,8 +543,8 @@ export default function WorkshopClientCard() {
 
                   {!estimateSigned ? (
                     <div className="flex justify-end pt-2">
-                      <Button onClick={() => setSigningDoc('cost_estimate')} size="lg" className="gap-2 shadow-lg">
-                        <FileSignature className="h-5 w-5" /> Akceptuję kosztorys
+                      <Button onClick={() => setSigningDoc('cost_estimate')} size="lg" className="gap-2 shadow-lg" disabled={isAdminPreview}>
+                        <FileSignature className="h-5 w-5" /> {isAdminPreview ? 'Oczekuje na akceptację klienta' : 'Akceptuję kosztorys'}
                       </Button>
                     </div>
                   ) : (
