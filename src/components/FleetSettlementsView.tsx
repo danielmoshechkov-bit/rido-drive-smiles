@@ -3870,7 +3870,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                       {isColVisible('freenow_commission') && <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
                         -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.freenow_commission, 0))}
                       </TableCell>}
-                      {isColVisible('brutto') && <TableCell className="text-right px-2 py-1.5 text-xs font-bold tabular-nums whitespace-nowrap bg-blue-50">
+                      {isColVisible('brutto') && <TableCell className="text-right px-2 py-1.5 text-xs font-bold tabular-nums whitespace-nowrap">
                         {formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.total_base, 0))}
                       </TableCell>}
                       {isColVisible('total_cash') && <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 font-semibold tabular-nums whitespace-nowrap">
