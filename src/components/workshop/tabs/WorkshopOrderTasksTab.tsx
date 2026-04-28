@@ -1444,7 +1444,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                       <td className="p-1 text-muted-foreground tabular-nums">{renderEditableCell(g, 'cost', fmt(itemCost), 'tabular-nums', 'right')}</td>
                       <td className="p-1 tabular-nums">{renderEditableCell(g, 'price', fmt(itemPrice), 'tabular-nums', 'right')}</td>
                       <td className="p-2 text-right tabular-nums border-r border-border/60">{fmt(rawTotal)}</td>
-                      <td className="p-2 text-center border-l border-border/60 bg-muted/10">{hasDiscount ? `${Math.round(getDiscountPercent(g))}%` : '—'}</td>
+                      <td className="p-1.5 text-center border-l border-border/60 bg-muted/10"><SavedRowDiscountEditor item={g} isGross={isGoodsGross} /></td>
                       <td className="p-2 text-right font-semibold tabular-nums">{fmt(itemTotal)}</td>
                       <td className="p-2 text-center">
                         <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => handleDeleteItem(g.id)}>
