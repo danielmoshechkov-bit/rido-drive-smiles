@@ -43,7 +43,7 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
 
   const [{ data: { user } = { user: null } } = { data: { user: null } }] = [{ data: { user: null } }];
   const [currentUserId, setCurrentUserId] = useState<string | undefined>();
-  useMemo(() => { supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id)); }, []);
+  useEffect(() => { supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id)); }, []);
   const { checkRegistration, checkVin, loading: lookupLoading, purchaseCredits } = useVehicleLookup(currentUserId);
 
   const applyLookup = (data: any) => {
