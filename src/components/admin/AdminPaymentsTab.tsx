@@ -179,14 +179,56 @@ function PaymentGatewayConfig() {
 
 // ==================== Assign Credits Panel ====================
 
+interface CompanyRow {
+  id: string; user_id: string; email: string;
+  company_name: string | null; company_nip: string | null;
+  company_address: string | null; company_city: string | null;
+  company_phone: string | null; sms_balance: number | null;
+}
+
 function AssignCreditsPanel() {
   const [email, setEmail] = useState('');
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<{ id: string; email: string }[]>([]);
-  const [foundUser, setFoundUser] = useState<{ id: string; email: string } | null>(null);
+  const [foundUser, setFoundUser] = useState<{ id: string; email: string; company_name?: string | null } | null>(null);
   const [creditType, setCreditType] = useState('sms');
   const [amount, setAmount] = useState<number | ''>('');
   const [saving, setSaving] = useState(false);
+
+  // Companies list + filters
+  const [companies, setCompanies] = useState<CompanyRow[]>([]);
+  const [loadingCompanies, setLoadingCompanies] = useState(true);
+  const [companyFilter, setCompanyFilter] = useState('');
+
+  // Vehicle search (VIN / plate)
+  const [vehicleQuery, setVehicleQuery] = useState('');
+  const [vehicleSearching, setVehicleSearching] = useState(false);
+  const [vehicleResults, setVehicleResults] = useState<Array<{ user_id: string; email: string; company_name: string | null; plate: string | null; vin: string | null; source: string }>>([]);
+
+  useEffect(() => {
+    loadCompanies();
+  }, []);
+
+  const loadCompanies = async () => {
+    setLoadingCompanies(true);
+    try {
+      const { data, error } = await supabase
+        .from('service_providers')
+        .select('id, user_id, owner_email, company_name, company_nip, company_address, company_city, company_phone, sms_balance')
+        .order('company_name', { ascending: true })
+        .limit(500);
+      if (error) throw error;
+      setCompanies((data || []).map((r: any) => ({
+        id: r.id, user_id: r.user_id, email: r.owner_email || '',
+        company_name: r.company_name, company_nip: r.company_nip,
+        company_address: r.company_address, company_city: r.company_city,
+        company_phone: r.company_phone, sms_balance: r.sms_balance,
+      })));
+    } catch (e: any) {
+      console.error('loadCompanies', e);
+    }
+    setLoadingCompanies(false);
+  };
 
   useEffect(() => {
     if (email.trim().length < 2) { setSearchResults([]); return; }
@@ -202,11 +244,89 @@ function AssignCreditsPanel() {
     return () => clearTimeout(timer);
   }, [email]);
 
-  const selectUser = (user: { id: string; email: string }) => {
+  const selectUser = (user: { id: string; email: string; company_name?: string | null }) => {
     setFoundUser(user);
     setEmail(user.email);
     setSearchResults([]);
   };
+
+  const selectCompany = (c: CompanyRow) => {
+    if (!c.user_id) {
+      toast.error('Ta firma nie ma jeszcze konta użytkownika');
+      return;
+    }
+    setFoundUser({ id: c.user_id, email: c.email, company_name: c.company_name });
+    setEmail(c.email);
+    setSearchResults([]);
+  };
+
+  // Vehicle search by VIN or plate
+  useEffect(() => {
+    const q = vehicleQuery.trim().toUpperCase();
+    if (q.length < 3) { setVehicleResults([]); return; }
+    const timer = setTimeout(async () => {
+      setVehicleSearching(true);
+      try {
+        // Search workshop_vehicles
+        const { data: wv } = await supabase
+          .from('workshop_vehicles')
+          .select('vin, plate, provider_id')
+          .or(`vin.ilike.%${q}%,plate.ilike.%${q}%`)
+          .limit(20);
+
+        // Resolve providers from workshop_vehicles
+        const providerIds = Array.from(new Set((wv || []).map((v: any) => v.provider_id).filter(Boolean)));
+        const providersMap = new Map<string, { user_id: string; email: string; company_name: string | null }>();
+        if (providerIds.length) {
+          const { data: provs } = await supabase
+            .from('service_providers')
+            .select('id, user_id, owner_email, company_name')
+            .in('id', providerIds);
+          (provs || []).forEach((p: any) => providersMap.set(p.id, { user_id: p.user_id, email: p.owner_email || '', company_name: p.company_name }));
+        }
+
+        const results: typeof vehicleResults = [];
+        (wv || []).forEach((v: any) => {
+          const p = providersMap.get(v.provider_id);
+          if (p?.user_id) results.push({ user_id: p.user_id, email: p.email, company_name: p.company_name, plate: v.plate, vin: v.vin, source: 'Warsztat' });
+        });
+
+        // Also search vehicles (fleet)
+        const { data: fv } = await supabase
+          .from('vehicles')
+          .select('vin, plate')
+          .or(`vin.ilike.%${q}%,plate.ilike.%${q}%`)
+          .limit(20);
+        // fleet vehicles don't directly link to provider user; skip user resolve for now
+        (fv || []).forEach((v: any) => {
+          // mark as "Flota" but without account link
+          if (!results.find(r => r.vin === v.vin && r.plate === v.plate)) {
+            results.push({ user_id: '', email: '', company_name: null, plate: v.plate, vin: v.vin, source: 'Flota (brak konta usługodawcy)' });
+          }
+        });
+
+        setVehicleResults(results);
+      } catch (e) {
+        console.error('vehicle search', e);
+        setVehicleResults([]);
+      }
+      setVehicleSearching(false);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [vehicleQuery]);
+
+  const filteredCompanies = companies.filter(c => {
+    const q = companyFilter.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      (c.company_name || '').toLowerCase().includes(q) ||
+      (c.company_nip || '').toLowerCase().includes(q) ||
+      (c.email || '').toLowerCase().includes(q) ||
+      (c.company_address || '').toLowerCase().includes(q) ||
+      (c.company_city || '').toLowerCase().includes(q) ||
+      (c.company_phone || '').toLowerCase().includes(q)
+    );
+  });
 
   const handleAssign = async () => {
     if (!foundUser || !amount || amount <= 0) return;
@@ -233,9 +353,109 @@ function AssignCreditsPanel() {
 
   return (
     <div className="space-y-4">
+      {/* Vehicle search by VIN / plate */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2"><Search className="h-4 w-4" /> Szukaj po VIN / nr rejestracyjnym</CardTitle>
+          <CardDescription className="text-xs">Wpisz fragment VIN lub tablicy — system znajdzie usługodawcę, do którego pojazd jest przypisany.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="relative max-w-md">
+            <Input
+              placeholder="np. WAUZZZ8K... lub WX1234A"
+              value={vehicleQuery}
+              onChange={e => setVehicleQuery(e.target.value)}
+              className="uppercase"
+            />
+            {vehicleSearching && <Loader2 className="h-4 w-4 animate-spin absolute right-3 top-3" />}
+          </div>
+          {vehicleResults.length > 0 && (
+            <div className="mt-3 border rounded-lg overflow-hidden max-h-64 overflow-y-auto">
+              {vehicleResults.map((v, idx) => (
+                <button
+                  key={`${v.vin}-${v.plate}-${idx}`}
+                  disabled={!v.user_id}
+                  onClick={() => v.user_id && selectUser({ id: v.user_id, email: v.email, company_name: v.company_name })}
+                  className="w-full text-left px-3 py-2 hover:bg-muted transition-colors text-sm border-b last:border-0 flex items-center justify-between gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-sm">{v.plate || '—'} {v.vin && <span className="text-xs text-muted-foreground ml-2">VIN: {v.vin}</span>}</div>
+                    <div className="text-xs text-muted-foreground truncate">{v.company_name || v.email || '—'} · {v.source}</div>
+                  </div>
+                  {v.user_id && <Badge variant="secondary" className="text-xs">Wybierz</Badge>}
+                </button>
+              ))}
+            </div>
+          )}
+          {vehicleQuery.length >= 3 && !vehicleSearching && vehicleResults.length === 0 && (
+            <p className="text-sm text-muted-foreground mt-2">Brak wyników</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Companies registered in the portal */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2"><Wallet className="h-4 w-4" /> Firmy korzystające z systemu ({companies.length})</CardTitle>
+          <CardDescription className="text-xs">Wybierz firmę z listy, aby przyznać jej kredyty (SMS, weryfikacja VIN/rej., AI itd.).</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="relative mb-3 max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Szukaj po NIP, nazwie, adresie, mailu, telefonie…"
+              value={companyFilter}
+              onChange={e => setCompanyFilter(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          {loadingCompanies ? (
+            <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin" /></div>
+          ) : filteredCompanies.length === 0 ? (
+            <p className="text-center text-sm text-muted-foreground py-6">Brak firm pasujących do filtra</p>
+          ) : (
+            <div className="border rounded-lg overflow-hidden max-h-[420px] overflow-y-auto">
+              <Table>
+                <TableHeader className="sticky top-0 bg-background z-10">
+                  <TableRow>
+                    <TableHead>Firma / NIP</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead className="hidden md:table-cell">Adres</TableHead>
+                    <TableHead className="hidden md:table-cell">Telefon</TableHead>
+                    <TableHead className="text-right">SMS</TableHead>
+                    <TableHead></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredCompanies.map(c => (
+                    <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => selectCompany(c)}>
+                      <TableCell>
+                        <div className="font-medium text-sm">{c.company_name || '—'}</div>
+                        {c.company_nip && <div className="text-xs text-muted-foreground">NIP {c.company_nip}</div>}
+                      </TableCell>
+                      <TableCell className="text-sm">{c.email || '—'}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground hidden md:table-cell">
+                        {c.company_address || '—'}{c.company_city ? `, ${c.company_city}` : ''}
+                      </TableCell>
+                      <TableCell className="text-xs hidden md:table-cell">{c.company_phone || '—'}</TableCell>
+                      <TableCell className="text-right">
+                        <Badge variant={(c.sms_balance || 0) > 0 ? 'default' : 'secondary'}>{c.sms_balance ?? 0}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="sm" onClick={e => { e.stopPropagation(); selectCompany(c); }}>Wybierz</Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2"><Search className="h-4 w-4" /> Znajdź użytkownika</CardTitle>
+          <CardTitle className="text-base flex items-center gap-2"><Search className="h-4 w-4" /> Znajdź użytkownika po e-mail</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="relative max-w-md">
@@ -258,7 +478,7 @@ function AssignCreditsPanel() {
               </div>
             )}
           </div>
-          {foundUser && <p className="text-sm text-green-600 mt-2">✓ {foundUser.email}</p>}
+          {foundUser && <p className="text-sm text-green-600 mt-2">✓ {foundUser.company_name ? `${foundUser.company_name} — ` : ''}{foundUser.email}</p>}
         </CardContent>
       </Card>
 

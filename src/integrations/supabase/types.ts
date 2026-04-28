@@ -8363,6 +8363,9 @@ export type Database = {
           last_sync_message: string | null
           last_sync_status: string | null
           last_synced_at: string | null
+          meta_access_token: string | null
+          meta_form_id: string | null
+          meta_page_id: string | null
           owner_user_id: string | null
           sheets_access_token: string | null
           sheets_column_mapping: Json | null
@@ -8389,6 +8392,9 @@ export type Database = {
           last_sync_message?: string | null
           last_sync_status?: string | null
           last_synced_at?: string | null
+          meta_access_token?: string | null
+          meta_form_id?: string | null
+          meta_page_id?: string | null
           owner_user_id?: string | null
           sheets_access_token?: string | null
           sheets_column_mapping?: Json | null
@@ -8415,6 +8421,9 @@ export type Database = {
           last_sync_message?: string | null
           last_sync_status?: string | null
           last_synced_at?: string | null
+          meta_access_token?: string | null
+          meta_form_id?: string | null
+          meta_page_id?: string | null
           owner_user_id?: string | null
           sheets_access_token?: string | null
           sheets_column_mapping?: Json | null
