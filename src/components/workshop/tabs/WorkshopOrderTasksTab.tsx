@@ -784,6 +784,13 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
 
 
   const saveGoodsDraftRows = async (focusNewRow = false) => {
+    const incompleteRows = goodsRows.filter(r => !r.name.trim() && getDraftPrice(r, isGoodsGross) > 0);
+    if (incompleteRows.length > 0) {
+      toast.error('Uzupełnij nazwę części — wpisałeś cenę, ale pole "Nazwa" jest puste.', {
+        icon: <AlertTriangle className="h-5 w-5" />,
+      });
+      return;
+    }
     const rowsToSave = goodsRows.filter(isGoodsDraftFilled);
     if (rowsToSave.length === 0) {
       // Don't add extra rows, just ensure there's at least one empty row
