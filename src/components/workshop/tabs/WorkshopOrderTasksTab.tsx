@@ -659,22 +659,61 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   const displayGrandCost = tasksCost + goodsCost + draftTasksCost + draftGoodsCost;
   const displayGrandProfit = displayGrandTotal - displayGrandCost;
 
+  // Load drafts from localStorage ONCE on mount, and deduplicate against already-saved items
+  // to prevent re-saving rows that were already persisted in a previous session
+  // (which caused duplicate items each time the order was re-opened).
+  const draftLoadedRef = useRef(false);
   useEffect(() => {
+    if (draftLoadedRef.current) return;
+    draftLoadedRef.current = true;
     try {
       const rawDraft = localStorage.getItem(draftStorageKey);
       if (!rawDraft) return;
 
       const parsed = JSON.parse(rawDraft);
-      if (Array.isArray(parsed?.tasks) && parsed.tasks.length > 0) {
-        setTaskRows(parsed.tasks.map((row: TaskRow) => ({ ...createEmptyTask(), ...row, draftKey: row.draftKey || crypto.randomUUID() })));
+
+      // Build sets of saved item names to detect duplicates
+      const savedTaskNames = new Set(
+        ((order.items || []) as any[])
+          .filter((i) => i.item_type === 'service' || i.item_type === 'task' || (i.item_type !== 'part' && i.item_type !== 'goods' && i.item_type !== 'other'))
+          .map((i) => String(i.name || '').trim().toLowerCase())
+          .filter(Boolean)
+      );
+      const savedGoodsNames = new Set(
+        ((order.items || []) as any[])
+          .filter((i) => i.item_type === 'part' || i.item_type === 'goods' || i.item_type === 'other')
+          .map((i) => String(i.name || '').trim().toLowerCase())
+          .filter(Boolean)
+      );
+
+      const filteredTasks = Array.isArray(parsed?.tasks)
+        ? parsed.tasks.filter((row: TaskRow) => {
+            const key = String(row.name || '').trim().toLowerCase();
+            return key && !savedTaskNames.has(key);
+          })
+        : [];
+      const filteredGoods = Array.isArray(parsed?.goods)
+        ? parsed.goods.filter((row: GoodsRow) => {
+            const key = String(row.name || '').trim().toLowerCase();
+            return key && !savedGoodsNames.has(key);
+          })
+        : [];
+
+      if (filteredTasks.length > 0) {
+        setTaskRows(filteredTasks.map((row: TaskRow) => ({ ...createEmptyTask(), ...row, draftKey: row.draftKey || crypto.randomUUID() })));
       }
-      if (Array.isArray(parsed?.goods) && parsed.goods.length > 0) {
-        setGoodsRows(parsed.goods.map((row: GoodsRow) => ({ ...createEmptyGoods(), ...row, draftKey: row.draftKey || crypto.randomUUID() })));
+      if (filteredGoods.length > 0) {
+        setGoodsRows(filteredGoods.map((row: GoodsRow) => ({ ...createEmptyGoods(), ...row, draftKey: row.draftKey || crypto.randomUUID() })));
+      }
+
+      // If everything in draft was already saved, clear the stale draft now
+      if (filteredTasks.length === 0 && filteredGoods.length === 0) {
+        localStorage.removeItem(draftStorageKey);
       }
     } catch {
       localStorage.removeItem(draftStorageKey);
     }
-  }, [draftStorageKey]);
+  }, [draftStorageKey, order.items]);
 
   useEffect(() => {
     const draftPayload = {
