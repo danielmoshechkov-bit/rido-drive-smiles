@@ -317,6 +317,56 @@ async function handleCheckVin(supabase: any, supabaseAdmin: any, userId: string,
   }
 }
 
+function parseVehicleResponse(xmlText: string) {
+  const candidates = [
+    xmlText.match(/<vehicleJson[^>]*>([\s\S]*?)<\/vehicleJson>/)?.[1],
+    xmlText.match(/<string[^>]*>([\s\S]*?)<\/string>/)?.[1],
+    xmlText,
+  ].filter(Boolean) as string[];
+
+  for (const candidate of candidates) {
+    try {
+      const decoded = decodeXmlEntities(candidate.trim());
+      const parsed = JSON.parse(decoded);
+      return parsed?.vehicleData || parsed?.Vehicle || parsed;
+    } catch (_) {
+      // Try the next response shape.
+    }
+  }
+  return null;
+}
+
+function mapRegCheckVehicle(vehicleData: any, regNumber: string | null, vinNumber: string | null) {
+  const descriptionRaw = extractValue(vehicleData, "Description") || "";
+  const engineSize = extractNumberText(vehicleData?.EngineSize) || extractNumberText(vehicleData?.EngineCapacity) || extractEngineSizeFromDescription(descriptionRaw);
+  const power = extractNumberText(vehicleData?.Power) || extractNumberText(vehicleData?.EnginePower) || extractPowerFromDescription(descriptionRaw);
+
+  return {
+    registration_number: regNumber || extractValue(vehicleData, "RegistrationNumber") || null,
+    vin: vehicleData?.VehicleIdentificationNumber || extractValue(vehicleData, "Vin") || extractValue(vehicleData, "VIN") || vinNumber || null,
+    make: extractCurrentText(vehicleData, "CarMake") || extractCurrentText(vehicleData, "Make") || null,
+    model: extractCurrentText(vehicleData, "CarModel") || extractCurrentText(vehicleData, "Model") || extractValue(vehicleData, "CarModel") || null,
+    body_style: extractCurrentText(vehicleData, "BodyStyle") || extractValue(vehicleData, "BodyStyle") || null,
+    color: extractCurrentText(vehicleData, "Colour") || extractCurrentText(vehicleData, "Color") || extractValue(vehicleData, "Colour") || null,
+    registration_year: parseYear(vehicleData?.ManufacturingYear || vehicleData?.ManufactureYear || extractValue(vehicleData, "RegistrationYear") || extractValue(vehicleData, "Year")),
+    first_registration_date: extractValue(vehicleData, "FirstRegistrationDate") || extractValue(vehicleData, "DateFirstRegistered") || null,
+    fuel_type: normalizeFuelType(vehicleData?.FuelType || extractCurrentText(vehicleData, "FuelType") || extractValue(vehicleData, "FuelType")),
+    engine_size: engineSize || null,
+    engine_power_kw: power || null,
+    mileage: extractNumberText(vehicleData?.Mileage) || null,
+    transmission: extractCurrentText(vehicleData, "Transmission") || null,
+    number_of_doors: extractCurrentText(vehicleData, "NumberOfDoors") || extractNumberText(vehicleData?.NumberOfDoors) || null,
+    number_of_seats: extractCurrentText(vehicleData, "NumberOfSeats") || extractNumberText(vehicleData?.NumberOfSeats) || null,
+    description: descriptionRaw || null,
+    source: "regcheck",
+    source_payload: vehicleData,
+  };
+}
+
+function hasUsefulVehicleData(mapped: any) {
+  return !!(mapped.make || mapped.model || mapped.vin || mapped.engine_size || mapped.engine_power_kw);
+}
+
 // Search portal's own workshop_vehicles database across ALL providers
 async function findInPortalDb(supabaseAdmin: any, plate: string | null, vin: string | null) {
   let query = supabaseAdmin
