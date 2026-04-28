@@ -526,7 +526,27 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     updateGoodsRow(idx, { cost_net: net, cost_gross: gross });
   };
 
-  const addGoodsRow = () => {
+  const addGoodsRow = async () => {
+    const filled = goodsRows.filter(isGoodsDraftFilled);
+    const incomplete = goodsRows.filter(r => !r.name.trim() && getDraftPrice(r, isGoodsGross) > 0);
+    if (incomplete.length > 0) {
+      toast.error('Uzupełnij nazwę części — wpisałeś cenę, ale pole "Nazwa" jest puste.', {
+        icon: <AlertTriangle className="h-5 w-5" />,
+      });
+      return;
+    }
+    if (filled.length > 0) {
+      let nextSortOrder = getNextSortOrder(goods);
+      for (const row of filled) {
+        const sourceIndex = goodsRows.findIndex(c => c === row);
+        await submitGoods(row, sourceIndex >= 0 ? sourceIndex : 0, nextSortOrder);
+        nextSortOrder += 1;
+      }
+      const nextRow = createEmptyGoods();
+      setGoodsRows([nextRow]);
+      requestAnimationFrame(() => focusGoodsDraftRow(nextRow.draftKey));
+      return;
+    }
     const nextRow = createEmptyGoods();
     setGoodsRows(prev => [...prev, nextRow]);
     focusGoodsDraftRow(nextRow.draftKey);
