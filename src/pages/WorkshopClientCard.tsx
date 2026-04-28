@@ -397,8 +397,8 @@ export default function WorkshopClientCard() {
                 {/* Sign button or status */}
                 {!receptionSigned ? (
                   <div className="flex justify-end pt-2">
-                    <Button onClick={() => setSigningDoc('reception_protocol')} size="lg" className="gap-2 shadow-lg">
-                      <FileSignature className="h-5 w-5" /> Podpisz protokół przyjęcia
+                    <Button onClick={() => setSigningDoc('reception_protocol')} size="lg" className="gap-2 shadow-lg" disabled={isAdminPreview}>
+                      <FileSignature className="h-5 w-5" /> {isAdminPreview ? 'Oczekuje na podpis klienta' : 'Podpisz protokół przyjęcia'}
                     </Button>
                   </div>
                 ) : (
