@@ -183,7 +183,9 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
                   <Label>Numer VIN</Label>
                   <div className="flex gap-2">
                     <Input value={form.vin} onChange={e => set('vin', e.target.value.toUpperCase())} className="font-mono flex-1" />
-                    <Button size="icon" variant="outline"><Search className="h-4 w-4" /></Button>
+                    <Button size="icon" variant="outline" onClick={handleLookupVin} disabled={lookupLoading} title="Wyszukaj po VIN">
+                      {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                    </Button>
                   </div>
                 </div>
                 <div className="space-y-2">
