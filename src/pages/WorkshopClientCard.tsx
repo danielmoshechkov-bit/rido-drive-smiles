@@ -417,13 +417,13 @@ export default function WorkshopClientCard() {
             )}
 
             {activeTab === 'estimate' && (
-              !receptionSigned ? (
+              (!isAdminPreview && !receptionSigned) ? (
                 <div className="py-12 text-center">
                   <Lock className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
                   <p className="text-muted-foreground font-medium">Najpierw zaakceptuj protokół przyjęcia</p>
                   <p className="text-sm text-muted-foreground/60 mt-1">Kosztorys będzie dostępny po podpisaniu protokołu.</p>
                 </div>
-              ) : !order.estimate_sent_to_client ? (
+              ) : (!isAdminPreview && !order.estimate_sent_to_client) ? (
                 <div className="py-12 text-center">
                   <Lock className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
                   <p className="text-muted-foreground font-medium">Kosztorys jest w trakcie przygotowania</p>
@@ -431,6 +431,14 @@ export default function WorkshopClientCard() {
                 </div>
               ) : (
                 <div className="space-y-6">
+                  {isAdminPreview && (
+                    <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-2.5 text-xs text-amber-800 flex items-center justify-between gap-3">
+                      <span>👁️ Podgląd menedżera — dane na żywo. Klient widzi wersję wysłaną SMS-em.</span>
+                      {order.estimate_changed_after_send && (
+                        <span className="font-semibold text-destructive">⚠ Zmieniono po wysłaniu — wyślij ponownie</span>
+                      )}
+                    </div>
+                  )}
                   {order.description && (
                     <div>
                       <h4 className="text-sm font-semibold text-primary mb-1">Opis zlecenia:</h4>
