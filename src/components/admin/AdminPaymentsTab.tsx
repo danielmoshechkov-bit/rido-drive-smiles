@@ -179,14 +179,56 @@ function PaymentGatewayConfig() {
 
 // ==================== Assign Credits Panel ====================
 
+interface CompanyRow {
+  id: string; user_id: string; email: string;
+  company_name: string | null; company_nip: string | null;
+  company_address: string | null; company_city: string | null;
+  company_phone: string | null; sms_balance: number | null;
+}
+
 function AssignCreditsPanel() {
   const [email, setEmail] = useState('');
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<{ id: string; email: string }[]>([]);
-  const [foundUser, setFoundUser] = useState<{ id: string; email: string } | null>(null);
+  const [foundUser, setFoundUser] = useState<{ id: string; email: string; company_name?: string | null } | null>(null);
   const [creditType, setCreditType] = useState('sms');
   const [amount, setAmount] = useState<number | ''>('');
   const [saving, setSaving] = useState(false);
+
+  // Companies list + filters
+  const [companies, setCompanies] = useState<CompanyRow[]>([]);
+  const [loadingCompanies, setLoadingCompanies] = useState(true);
+  const [companyFilter, setCompanyFilter] = useState('');
+
+  // Vehicle search (VIN / plate)
+  const [vehicleQuery, setVehicleQuery] = useState('');
+  const [vehicleSearching, setVehicleSearching] = useState(false);
+  const [vehicleResults, setVehicleResults] = useState<Array<{ user_id: string; email: string; company_name: string | null; plate: string | null; vin: string | null; source: string }>>([]);
+
+  useEffect(() => {
+    loadCompanies();
+  }, []);
+
+  const loadCompanies = async () => {
+    setLoadingCompanies(true);
+    try {
+      const { data, error } = await supabase
+        .from('service_providers')
+        .select('id, user_id, owner_email, company_name, company_nip, company_address, company_city, company_phone, sms_balance')
+        .order('company_name', { ascending: true })
+        .limit(500);
+      if (error) throw error;
+      setCompanies((data || []).map((r: any) => ({
+        id: r.id, user_id: r.user_id, email: r.owner_email || '',
+        company_name: r.company_name, company_nip: r.company_nip,
+        company_address: r.company_address, company_city: r.company_city,
+        company_phone: r.company_phone, sms_balance: r.sms_balance,
+      })));
+    } catch (e: any) {
+      console.error('loadCompanies', e);
+    }
+    setLoadingCompanies(false);
+  };
 
   useEffect(() => {
     if (email.trim().length < 2) { setSearchResults([]); return; }
@@ -202,11 +244,89 @@ function AssignCreditsPanel() {
     return () => clearTimeout(timer);
   }, [email]);
 
-  const selectUser = (user: { id: string; email: string }) => {
+  const selectUser = (user: { id: string; email: string; company_name?: string | null }) => {
     setFoundUser(user);
     setEmail(user.email);
     setSearchResults([]);
   };
+
+  const selectCompany = (c: CompanyRow) => {
+    if (!c.user_id) {
+      toast.error('Ta firma nie ma jeszcze konta użytkownika');
+      return;
+    }
+    setFoundUser({ id: c.user_id, email: c.email, company_name: c.company_name });
+    setEmail(c.email);
+    setSearchResults([]);
+  };
+
+  // Vehicle search by VIN or plate
+  useEffect(() => {
+    const q = vehicleQuery.trim().toUpperCase();
+    if (q.length < 3) { setVehicleResults([]); return; }
+    const timer = setTimeout(async () => {
+      setVehicleSearching(true);
+      try {
+        // Search workshop_vehicles
+        const { data: wv } = await supabase
+          .from('workshop_vehicles')
+          .select('vin, plate, provider_id')
+          .or(`vin.ilike.%${q}%,plate.ilike.%${q}%`)
+          .limit(20);
+
+        // Resolve providers from workshop_vehicles
+        const providerIds = Array.from(new Set((wv || []).map((v: any) => v.provider_id).filter(Boolean)));
+        const providersMap = new Map<string, { user_id: string; email: string; company_name: string | null }>();
+        if (providerIds.length) {
+          const { data: provs } = await supabase
+            .from('service_providers')
+            .select('id, user_id, owner_email, company_name')
+            .in('id', providerIds);
+          (provs || []).forEach((p: any) => providersMap.set(p.id, { user_id: p.user_id, email: p.owner_email || '', company_name: p.company_name }));
+        }
+
+        const results: typeof vehicleResults = [];
+        (wv || []).forEach((v: any) => {
+          const p = providersMap.get(v.provider_id);
+          if (p?.user_id) results.push({ user_id: p.user_id, email: p.email, company_name: p.company_name, plate: v.plate, vin: v.vin, source: 'Warsztat' });
+        });
+
+        // Also search vehicles (fleet)
+        const { data: fv } = await supabase
+          .from('vehicles')
+          .select('vin, plate')
+          .or(`vin.ilike.%${q}%,plate.ilike.%${q}%`)
+          .limit(20);
+        // fleet vehicles don't directly link to provider user; skip user resolve for now
+        (fv || []).forEach((v: any) => {
+          // mark as "Flota" but without account link
+          if (!results.find(r => r.vin === v.vin && r.plate === v.plate)) {
+            results.push({ user_id: '', email: '', company_name: null, plate: v.plate, vin: v.vin, source: 'Flota (brak konta usługodawcy)' });
+          }
+        });
+
+        setVehicleResults(results);
+      } catch (e) {
+        console.error('vehicle search', e);
+        setVehicleResults([]);
+      }
+      setVehicleSearching(false);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [vehicleQuery]);
+
+  const filteredCompanies = companies.filter(c => {
+    const q = companyFilter.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      (c.company_name || '').toLowerCase().includes(q) ||
+      (c.company_nip || '').toLowerCase().includes(q) ||
+      (c.email || '').toLowerCase().includes(q) ||
+      (c.company_address || '').toLowerCase().includes(q) ||
+      (c.company_city || '').toLowerCase().includes(q) ||
+      (c.company_phone || '').toLowerCase().includes(q)
+    );
+  });
 
   const handleAssign = async () => {
     if (!foundUser || !amount || amount <= 0) return;
