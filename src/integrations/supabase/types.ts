@@ -23294,6 +23294,20 @@ export type Database = {
           id: string
         }[]
       }
+      admin_list_service_providers: {
+        Args: never
+        Returns: {
+          company_address: string
+          company_city: string
+          company_name: string
+          company_nip: string
+          company_phone: string
+          id: string
+          owner_email: string
+          sms_balance: number
+          user_id: string
+        }[]
+      }
       calculate_driver_payout_with_debt: {
         Args: { p_calculated_payout: number; p_driver_id: string }
         Returns: {
