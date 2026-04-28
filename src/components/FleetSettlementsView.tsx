@@ -3495,7 +3495,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                       {isColVisible('freenow') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">FreeNow</TableHead>}
                       {isColVisible('freenow_cash') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">FN got.</TableHead>}
                       {isColVisible('freenow_commission') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">FN prow.</TableHead>}
-                      {isColVisible('brutto') && <TableHead className="text-right px-2 py-1.5 text-xs font-bold whitespace-nowrap bg-blue-50 cursor-pointer select-none hover:bg-blue-100" onClick={() => handleSort('brutto')}>
+                      {isColVisible('brutto') && <TableHead className="text-right px-2 py-1.5 text-xs font-bold whitespace-nowrap cursor-pointer select-none hover:bg-muted/50" onClick={() => handleSort('brutto')}>
                         <span className="inline-flex items-center justify-end w-full">Brutto{getSortIcon('brutto')}</span>
                       </TableHead>}
                       {isColVisible('total_cash') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">Razem got.</TableHead>}
@@ -3542,7 +3542,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                       {isColVisible('debt') && <TableHead className="text-center px-2 py-1.5 text-xs font-medium whitespace-nowrap cursor-pointer select-none hover:bg-muted/50" onClick={() => handleSort('debt')}>
                         <span className="inline-flex items-center justify-center">Dług{getSortIcon('debt')}</span>
                       </TableHead>}
-                      {isColVisible('wyplata_1') && <TableHead className="text-right px-2 py-1.5 text-xs font-bold whitespace-nowrap text-blue-700 cursor-pointer select-none hover:bg-muted/50" onClick={() => handleSort('wyplata_1')}>
+                      {isColVisible('wyplata_1') && <TableHead className="text-right px-2 py-1.5 text-xs font-bold whitespace-nowrap text-blue-700 bg-blue-50 cursor-pointer select-none hover:bg-blue-100" onClick={() => handleSort('wyplata_1')}>
                         <span className="inline-flex items-center justify-end w-full">Wypłata{getSortIcon('wyplata_1')}</span>
                       </TableHead>}
                       {isColVisible('rental') && <TableHead className={`text-right px-2 py-1.5 text-xs font-medium whitespace-nowrap cursor-pointer select-none hover:bg-muted/50 ${showRentalColumns ? 'border-l-2 border-primary/20' : ''}`} onClick={() => handleSort('rental')}>
@@ -3633,7 +3633,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                         {isColVisible('freenow_commission') && <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
                           {displayValue(settlement.freenow_commission, hasFreenowActivity, true)}
                         </TableCell>}
-                        {isColVisible('brutto') && <TableCell className="text-right px-2 py-1.5 text-xs font-bold tabular-nums whitespace-nowrap bg-blue-50">
+                        {isColVisible('brutto') && <TableCell className="text-right px-2 py-1.5 text-xs font-bold tabular-nums whitespace-nowrap">
                           {hasAnyActivity ? formatCurrency(settlement.total_base) : '-'}
                         </TableCell>}
                         {isColVisible('total_cash') && <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 font-semibold tabular-nums whitespace-nowrap">
@@ -3770,7 +3770,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                         {isColVisible('wyplata_1') && (() => {
                           const w1 = getWyplata1(rawSettlement);
                           return (
-                            <TableCell className={`text-right font-bold px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${w1 > 0 ? 'text-blue-700' : w1 < 0 ? 'text-red-600' : 'text-muted-foreground'}`}>
+                            <TableCell className={`text-right font-bold px-2 py-1.5 text-xs tabular-nums whitespace-nowrap bg-blue-50 ${w1 > 0 ? 'text-blue-700' : w1 < 0 ? 'text-red-600' : 'text-muted-foreground'}`}>
                               {formatCurrency(w1)}
                             </TableCell>
                           );
@@ -3870,7 +3870,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                       {isColVisible('freenow_commission') && <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 tabular-nums whitespace-nowrap">
                         -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.freenow_commission, 0))}
                       </TableCell>}
-                      {isColVisible('brutto') && <TableCell className="text-right px-2 py-1.5 text-xs font-bold tabular-nums whitespace-nowrap bg-blue-50">
+                      {isColVisible('brutto') && <TableCell className="text-right px-2 py-1.5 text-xs font-bold tabular-nums whitespace-nowrap">
                         {formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.total_base, 0))}
                       </TableCell>}
                       {isColVisible('total_cash') && <TableCell className="text-right px-2 py-1.5 text-xs text-red-600 font-semibold tabular-nums whitespace-nowrap">
@@ -3965,7 +3965,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                       {isColVisible('wyplata_1') && (() => {
                         const totalW1 = filteredSettlements.reduce((sum, s) => sum + getWyplata1(s), 0);
                         return (
-                          <TableCell className={`text-right font-bold px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${totalW1 > 0 ? 'text-blue-700' : totalW1 < 0 ? 'text-red-600' : 'text-muted-foreground'}`}>
+                          <TableCell className={`text-right font-bold px-2 py-1.5 text-xs tabular-nums whitespace-nowrap bg-blue-50 ${totalW1 > 0 ? 'text-blue-700' : totalW1 < 0 ? 'text-red-600' : 'text-muted-foreground'}`}>
                             {formatCurrency(totalW1)}
                           </TableCell>
                         );
