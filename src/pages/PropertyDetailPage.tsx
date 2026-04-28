@@ -21,6 +21,7 @@ import { AIListingAssessment } from "@/components/realestate/AIListingAssessment
 import { SimilarListings } from "@/components/realestate/SimilarListings";
 import { AdBannerSlot } from "@/components/realestate/AdBannerSlot";
 import { PropertyMessageDialog } from "@/components/realestate/PropertyMessageDialog";
+import { rewritePhotoUrl } from "@/utils/photoUrlRewrite";
 
 const PRICE_TYPE_LABELS: Record<string, string> = {
   sale: "",
@@ -148,7 +149,7 @@ function mapDbToDisplayListing(db: any) {
     description: db.description,
     price: Number(db.price) || 0,
     priceType: db.price_type || 'sale',
-    photos: db.photos || [],
+    photos: (Array.isArray(db.photos) ? db.photos : []).map(rewritePhotoUrl),
     location: fixPolishCase(db.city || db.location || ''),
     district: fixPolishCase(db.district),
     address: fixPolishCase(db.address),
