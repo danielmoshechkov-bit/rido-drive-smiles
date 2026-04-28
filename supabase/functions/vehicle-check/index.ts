@@ -160,17 +160,8 @@ async function handleCheckRegistration(supabase: any, supabaseAdmin: any, userId
     });
   }
 
-  // Step 2: Check portal's own vehicle database (workshop_vehicles from ALL providers)
-  const portalVehicle = await findInPortalDb(supabaseAdmin, regNumber, null);
-  if (portalVehicle) {
-    await deductCredit(supabaseAdmin, userId, regNumber, portalVehicle.vin, "portal_db");
-    await logIntegration(supabaseAdmin, userId, regNumber, portalVehicle.vin, "registration", "portal_db_hit", null, null);
-    return new Response(JSON.stringify({ data: portalVehicle, source: "portal_db" }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
-  // Step 3: Check integration is enabled
+  // Step 2: Always call the external API. Local workshop/cache data can be incomplete or stale,
+  // so a user click on the search icon must fetch fresh data from RegCheck.
   const { data: integration } = await supabaseAdmin
     .from("portal_integrations")
     .select("*")
@@ -184,23 +175,7 @@ async function handleCheckRegistration(supabase: any, supabaseAdmin: any, userId
     });
   }
 
-  // Step 4: Check global cache
-  const { data: cached } = await supabaseAdmin
-    .from("vehicle_registry_cache")
-    .select("*")
-    .ilike("registration_number", regNumber)
-    .limit(1)
-    .maybeSingle();
-
-  if (cached) {
-    await deductCredit(supabaseAdmin, userId, regNumber, null, "cache");
-    await logIntegration(supabaseAdmin, userId, regNumber, null, "registration", "cache_hit", null, null);
-    return new Response(JSON.stringify({ data: cached, source: "cache" }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
-  // Step 4: Call external API
+  // Step 3: Call external API
   const config = integration.config_json || {};
   const username = config.username || "";
   const endpoint = config.endpoint_url || "https://www.regcheck.org.uk/api/reg.asmx/CheckPoland";
@@ -225,79 +200,25 @@ async function handleCheckRegistration(supabase: any, supabaseAdmin: any, userId
       });
     }
 
-    // Parse XML response - extract JSON from XML wrapper
-    const jsonMatch = xmlText.match(/<vehicleJson>([\s\S]*?)<\/vehicleJson>/);
-    let vehicleData: any = null;
-
-    if (jsonMatch && jsonMatch[1]) {
-      try {
-        vehicleData = JSON.parse(jsonMatch[1]);
-      } catch {
-        // Try direct JSON
-        const directMatch = xmlText.match(/<string[^>]*>([\s\S]*?)<\/string>/);
-        if (directMatch && directMatch[1]) {
-          try {
-            vehicleData = JSON.parse(directMatch[1]);
-          } catch {
-            vehicleData = null;
-          }
-        }
-      }
-    }
-
+    const vehicleData = parseVehicleResponse(xmlText);
     if (!vehicleData) {
-      // Try to parse as direct JSON response
-      try {
-        vehicleData = JSON.parse(xmlText);
-      } catch {
-        await logIntegration(supabaseAdmin, userId, regNumber, null, "registration", "no_data", { raw: xmlText.substring(0, 2000) }, "Nie udało się sparsować odpowiedzi");
-        return new Response(JSON.stringify({ error: "NO_DATA", message: "Nie znaleziono danych dla podanego numeru rejestracyjnego" }), {
-          status: 404,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+      await logIntegration(supabaseAdmin, userId, regNumber, null, "registration", "no_data", { raw: xmlText.substring(0, 2000) }, "Nie udało się sparsować odpowiedzi");
+      return new Response(JSON.stringify({ error: "NO_DATA", message: "Nie znaleziono danych dla podanego numeru rejestracyjnego" }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    // Map API response to our schema using documented field names
-    const descriptionRaw = extractValue(vehicleData, "Description") || "";
-    
-    // EngineSize and Power are top-level numeric fields per API docs
-    const engineSizeNum = vehicleData?.EngineSize ?? null;
-    const powerNum = vehicleData?.Power ?? null;
-    const mileageNum = vehicleData?.Mileage ?? null;
-
-    const mapped = {
-      registration_number: regNumber,
-      vin: vehicleData?.VehicleIdentificationNumber || extractValue(vehicleData, "Vin") || null,
-      make: extractCurrentText(vehicleData, "CarMake") || null,
-      model: extractCurrentText(vehicleData, "CarModel") || extractValue(vehicleData, "CarModel") || null,
-      body_style: extractCurrentText(vehicleData, "BodyStyle") || extractValue(vehicleData, "BodyStyle") || null,
-      color: extractCurrentText(vehicleData, "Colour") || extractValue(vehicleData, "Colour") || null,
-      registration_year: vehicleData?.ManufacturingYear || parseInt(extractValue(vehicleData, "RegistrationYear")) || null,
-      fuel_type: vehicleData?.FuelType || extractCurrentText(vehicleData, "FuelType") || null,
-      engine_size: engineSizeNum !== null ? String(engineSizeNum) : null,
-      engine_power_kw: powerNum !== null ? String(powerNum) : null,
-      mileage: mileageNum !== null ? String(mileageNum) : null,
-      transmission: extractCurrentText(vehicleData, "Transmission") || null,
-      number_of_doors: extractCurrentText(vehicleData, "NumberOfDoors") || null,
-      number_of_seats: extractCurrentText(vehicleData, "NumberOfSeats") || null,
-      description: descriptionRaw || null,
-      source: "regcheck",
-      source_payload: vehicleData,
-    };
+    const mapped = mapRegCheckVehicle(vehicleData, regNumber, null);
 
     // Validate that we actually got useful data — only deduct credit if vehicle was found
-    const hasUsefulData = !!(mapped.make || mapped.model || mapped.vin);
-    if (!hasUsefulData) {
+    if (!hasUsefulVehicleData(mapped)) {
       await logIntegration(supabaseAdmin, userId, regNumber, null, "registration", "no_data", { raw: xmlText.substring(0, 2000), parsed: vehicleData }, "API zwróciło pustą odpowiedź — brak danych pojazdu");
       return new Response(JSON.stringify({ error: "NOT_FOUND", message: "Nie znaleziono danych dla podanego numeru rejestracyjnego" }), {
         status: 404,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    // Save to cache
-    await supabaseAdmin.from("vehicle_registry_cache").insert(mapped);
 
     // Deduct credit (only after confirmed success)
     await deductCredit(supabaseAdmin, userId, regNumber, mapped.vin, "external_api");
