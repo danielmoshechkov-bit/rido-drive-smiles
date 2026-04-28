@@ -46,35 +46,51 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
   useEffect(() => { supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id)); }, []);
   const { checkRegistration, checkVin, loading: lookupLoading, purchaseCredits } = useVehicleLookup(currentUserId);
 
-  const applyLookup = (data: any) => {
+  const numberOnly = (value: any) => String(value || '').replace(/[^0-9]/g, '');
+  const applyLookup = async (data: any) => {
     if (!data) return;
-    setForm(p => ({
-      ...p,
-      brand: data.make || p.brand,
-      model: data.model || p.model,
-      color: data.color || p.color,
-      vin: data.vin || p.vin,
-      plate: data.registration_number || p.plate,
-      year: data.registration_year ? String(data.registration_year) : p.year,
-      first_registration_date: data.first_registration_date || p.first_registration_date,
-      fuel_type: data.fuel_type || p.fuel_type,
-      engine_capacity_cm3: data.engine_size || p.engine_capacity_cm3,
-      engine_power_kw: data.engine_power_kw || p.engine_power_kw,
-      description: data.description || p.description,
-    }));
+    const current = form;
+    const patch = {
+      brand: data.make || current.brand,
+      model: data.model || current.model,
+      color: data.color || current.color,
+      vin: data.vin || current.vin,
+      plate: data.registration_number || current.plate,
+      year: data.registration_year ? String(data.registration_year) : current.year,
+      first_registration_date: data.first_registration_date || current.first_registration_date,
+      fuel_type: data.fuel_type || current.fuel_type,
+      engine_capacity_cm3: numberOnly(data.engine_size) || current.engine_capacity_cm3,
+      engine_power_kw: numberOnly(data.engine_power_kw) || current.engine_power_kw,
+      description: data.description || current.description,
+    };
+    setForm(p => ({ ...p, ...patch }));
+    await (supabase as any).from('workshop_vehicles').update({
+      brand: patch.brand || null,
+      model: patch.model || null,
+      color: patch.color || null,
+      vin: patch.vin?.toUpperCase() || null,
+      plate: patch.plate?.toUpperCase() || null,
+      year: patch.year ? parseInt(patch.year, 10) : null,
+      first_registration_date: patch.first_registration_date || null,
+      fuel_type: patch.fuel_type || null,
+      engine_capacity_cm3: patch.engine_capacity_cm3 ? parseInt(patch.engine_capacity_cm3, 10) : null,
+      engine_power_kw: patch.engine_power_kw ? parseInt(patch.engine_power_kw, 10) : null,
+      description: patch.description || null,
+    }).eq('id', vehicle.id);
+    qc.invalidateQueries({ queryKey: ['workshop-vehicles'] });
   };
 
   const handleLookupPlate = async () => {
     if (!form.plate?.trim()) { toast.error('Wpisz numer rejestracyjny'); return; }
     const data = await checkRegistration(form.plate.trim().toUpperCase());
-    if (data) applyLookup(data);
+    if (data) await applyLookup(data);
     else if (!lookupLoading) setShowCreditsModal(true);
   };
 
   const handleLookupVin = async () => {
     if (!form.vin?.trim()) { toast.error('Wpisz numer VIN'); return; }
     const data = await checkVin(form.vin.trim().toUpperCase());
-    if (data) applyLookup(data);
+    if (data) await applyLookup(data);
     else if (!lookupLoading) setShowCreditsModal(true);
   };
 

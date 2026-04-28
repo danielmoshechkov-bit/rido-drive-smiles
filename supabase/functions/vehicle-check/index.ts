@@ -160,17 +160,8 @@ async function handleCheckRegistration(supabase: any, supabaseAdmin: any, userId
     });
   }
 
-  // Step 2: Check portal's own vehicle database (workshop_vehicles from ALL providers)
-  const portalVehicle = await findInPortalDb(supabaseAdmin, regNumber, null);
-  if (portalVehicle) {
-    await deductCredit(supabaseAdmin, userId, regNumber, portalVehicle.vin, "portal_db");
-    await logIntegration(supabaseAdmin, userId, regNumber, portalVehicle.vin, "registration", "portal_db_hit", null, null);
-    return new Response(JSON.stringify({ data: portalVehicle, source: "portal_db" }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
-  // Step 3: Check integration is enabled
+  // Step 2: Always call the external API. Local workshop/cache data can be incomplete or stale,
+  // so a user click on the search icon must fetch fresh data from RegCheck.
   const { data: integration } = await supabaseAdmin
     .from("portal_integrations")
     .select("*")
@@ -184,23 +175,7 @@ async function handleCheckRegistration(supabase: any, supabaseAdmin: any, userId
     });
   }
 
-  // Step 4: Check global cache
-  const { data: cached } = await supabaseAdmin
-    .from("vehicle_registry_cache")
-    .select("*")
-    .ilike("registration_number", regNumber)
-    .limit(1)
-    .maybeSingle();
-
-  if (cached) {
-    await deductCredit(supabaseAdmin, userId, regNumber, null, "cache");
-    await logIntegration(supabaseAdmin, userId, regNumber, null, "registration", "cache_hit", null, null);
-    return new Response(JSON.stringify({ data: cached, source: "cache" }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
-  // Step 4: Call external API
+  // Step 3: Call external API
   const config = integration.config_json || {};
   const username = config.username || "";
   const endpoint = config.endpoint_url || "https://www.regcheck.org.uk/api/reg.asmx/CheckPoland";
@@ -225,79 +200,25 @@ async function handleCheckRegistration(supabase: any, supabaseAdmin: any, userId
       });
     }
 
-    // Parse XML response - extract JSON from XML wrapper
-    const jsonMatch = xmlText.match(/<vehicleJson>([\s\S]*?)<\/vehicleJson>/);
-    let vehicleData: any = null;
-
-    if (jsonMatch && jsonMatch[1]) {
-      try {
-        vehicleData = JSON.parse(jsonMatch[1]);
-      } catch {
-        // Try direct JSON
-        const directMatch = xmlText.match(/<string[^>]*>([\s\S]*?)<\/string>/);
-        if (directMatch && directMatch[1]) {
-          try {
-            vehicleData = JSON.parse(directMatch[1]);
-          } catch {
-            vehicleData = null;
-          }
-        }
-      }
-    }
-
+    const vehicleData = parseVehicleResponse(xmlText);
     if (!vehicleData) {
-      // Try to parse as direct JSON response
-      try {
-        vehicleData = JSON.parse(xmlText);
-      } catch {
-        await logIntegration(supabaseAdmin, userId, regNumber, null, "registration", "no_data", { raw: xmlText.substring(0, 2000) }, "Nie udało się sparsować odpowiedzi");
-        return new Response(JSON.stringify({ error: "NO_DATA", message: "Nie znaleziono danych dla podanego numeru rejestracyjnego" }), {
-          status: 404,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+      await logIntegration(supabaseAdmin, userId, regNumber, null, "registration", "no_data", { raw: xmlText.substring(0, 2000) }, "Nie udało się sparsować odpowiedzi");
+      return new Response(JSON.stringify({ error: "NO_DATA", message: "Nie znaleziono danych dla podanego numeru rejestracyjnego" }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    // Map API response to our schema using documented field names
-    const descriptionRaw = extractValue(vehicleData, "Description") || "";
-    
-    // EngineSize and Power are top-level numeric fields per API docs
-    const engineSizeNum = vehicleData?.EngineSize ?? null;
-    const powerNum = vehicleData?.Power ?? null;
-    const mileageNum = vehicleData?.Mileage ?? null;
-
-    const mapped = {
-      registration_number: regNumber,
-      vin: vehicleData?.VehicleIdentificationNumber || extractValue(vehicleData, "Vin") || null,
-      make: extractCurrentText(vehicleData, "CarMake") || null,
-      model: extractCurrentText(vehicleData, "CarModel") || extractValue(vehicleData, "CarModel") || null,
-      body_style: extractCurrentText(vehicleData, "BodyStyle") || extractValue(vehicleData, "BodyStyle") || null,
-      color: extractCurrentText(vehicleData, "Colour") || extractValue(vehicleData, "Colour") || null,
-      registration_year: vehicleData?.ManufacturingYear || parseInt(extractValue(vehicleData, "RegistrationYear")) || null,
-      fuel_type: vehicleData?.FuelType || extractCurrentText(vehicleData, "FuelType") || null,
-      engine_size: engineSizeNum !== null ? String(engineSizeNum) : null,
-      engine_power_kw: powerNum !== null ? String(powerNum) : null,
-      mileage: mileageNum !== null ? String(mileageNum) : null,
-      transmission: extractCurrentText(vehicleData, "Transmission") || null,
-      number_of_doors: extractCurrentText(vehicleData, "NumberOfDoors") || null,
-      number_of_seats: extractCurrentText(vehicleData, "NumberOfSeats") || null,
-      description: descriptionRaw || null,
-      source: "regcheck",
-      source_payload: vehicleData,
-    };
+    const mapped = mapRegCheckVehicle(vehicleData, regNumber, null);
 
     // Validate that we actually got useful data — only deduct credit if vehicle was found
-    const hasUsefulData = !!(mapped.make || mapped.model || mapped.vin);
-    if (!hasUsefulData) {
+    if (!hasUsefulVehicleData(mapped)) {
       await logIntegration(supabaseAdmin, userId, regNumber, null, "registration", "no_data", { raw: xmlText.substring(0, 2000), parsed: vehicleData }, "API zwróciło pustą odpowiedź — brak danych pojazdu");
       return new Response(JSON.stringify({ error: "NOT_FOUND", message: "Nie znaleziono danych dla podanego numeru rejestracyjnego" }), {
         status: 404,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    // Save to cache
-    await supabaseAdmin.from("vehicle_registry_cache").insert(mapped);
 
     // Deduct credit (only after confirmed success)
     await deductCredit(supabaseAdmin, userId, regNumber, mapped.vin, "external_api");
@@ -325,37 +246,125 @@ async function handleCheckVin(supabase: any, supabaseAdmin: any, userId: string,
     });
   }
 
-  // Step 2: Check portal's own vehicle database (workshop_vehicles from ALL providers)
-  const portalVehicle = await findInPortalDb(supabaseAdmin, null, vinNumber);
-  if (portalVehicle) {
-    await deductCredit(supabaseAdmin, userId, null, vinNumber, "portal_db");
-    await logIntegration(supabaseAdmin, userId, null, vinNumber, "vin", "portal_db_hit", null, null);
-    return new Response(JSON.stringify({ data: portalVehicle, source: "portal_db" }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
-  // Step 3: Search global cache by VIN
-  const { data: cached } = await supabaseAdmin
-    .from("vehicle_registry_cache")
+  const { data: integration } = await supabaseAdmin
+    .from("portal_integrations")
     .select("*")
-    .ilike("vin", vinNumber)
-    .limit(1)
-    .maybeSingle();
+    .eq("key", "regcheck_poland")
+    .single();
 
-  if (cached) {
-    await deductCredit(supabaseAdmin, userId, null, vinNumber, "cache_vin");
-    await logIntegration(supabaseAdmin, userId, null, vinNumber, "vin", "cache_hit", null, null);
-    return new Response(JSON.stringify({ data: cached, source: "cache_vin" }), {
+  if (!integration || !integration.is_enabled) {
+    return new Response(JSON.stringify({ error: "INTEGRATION_DISABLED", message: "Integracja pojazdów nie jest aktywna" }), {
+      status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
-  // No external VIN API yet
-  return new Response(JSON.stringify({ error: "NOT_FOUND", message: "Nie znaleziono pojazdu po numerze VIN w bazie systemu" }), {
-    status: 404,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
+  const config = integration.config_json || {};
+  const username = config.username || "";
+  const baseEndpoint = config.endpoint_url || "https://www.regcheck.org.uk/api/reg.asmx/CheckPoland";
+  const endpoint = baseEndpoint.replace(/\/CheckPoland\/?$/i, "/VinCheck");
+
+  if (!username) {
+    return new Response(JSON.stringify({ error: "CONFIG_ERROR", message: "Brak loginu do integracji RegCheck. Skonfiguruj w panelu admina." }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  try {
+    const apiUrl = `${endpoint}?Vin=${encodeURIComponent(vinNumber)}&username=${encodeURIComponent(username)}`;
+    const apiResp = await fetch(apiUrl);
+    const xmlText = await apiResp.text();
+
+    if (!apiResp.ok) {
+      await logIntegration(supabaseAdmin, userId, null, vinNumber, "vin", "error", null, `HTTP ${apiResp.status}`);
+      return new Response(JSON.stringify({ error: "API_ERROR", message: "Błąd API RegCheck" }), {
+        status: 502,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const vehicleData = parseVehicleResponse(xmlText);
+    if (!vehicleData) {
+      await logIntegration(supabaseAdmin, userId, null, vinNumber, "vin", "no_data", { raw: xmlText.substring(0, 2000) }, "Nie udało się sparsować odpowiedzi VIN");
+      return new Response(JSON.stringify({ error: "NO_DATA", message: "Nie znaleziono danych dla podanego numeru VIN" }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const mapped = mapRegCheckVehicle(vehicleData, null, vinNumber);
+    if (!hasUsefulVehicleData(mapped)) {
+      await logIntegration(supabaseAdmin, userId, null, vinNumber, "vin", "no_data", { raw: xmlText.substring(0, 2000), parsed: vehicleData }, "API zwróciło pustą odpowiedź — brak danych pojazdu");
+      return new Response(JSON.stringify({ error: "NOT_FOUND", message: "Nie znaleziono danych dla podanego numeru VIN" }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    await deductCredit(supabaseAdmin, userId, mapped.registration_number, vinNumber, "external_api_vin");
+    await logIntegration(supabaseAdmin, userId, mapped.registration_number, vinNumber, "vin", "success", vehicleData, null);
+
+    return new Response(JSON.stringify({ data: mapped, source: "external_api_vin" }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  } catch (e) {
+    await logIntegration(supabaseAdmin, userId, null, vinNumber, "vin", "error", null, e.message);
+    return new Response(JSON.stringify({ error: "API_ERROR", message: "Błąd połączenia z API RegCheck" }), {
+      status: 502,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+}
+
+function parseVehicleResponse(xmlText: string) {
+  const candidates = [
+    xmlText.match(/<vehicleJson[^>]*>([\s\S]*?)<\/vehicleJson>/)?.[1],
+    xmlText.match(/<string[^>]*>([\s\S]*?)<\/string>/)?.[1],
+    xmlText,
+  ].filter(Boolean) as string[];
+
+  for (const candidate of candidates) {
+    try {
+      const decoded = decodeXmlEntities(candidate.trim());
+      const parsed = JSON.parse(decoded);
+      return parsed?.vehicleData || parsed?.Vehicle || parsed;
+    } catch (_) {
+      // Try the next response shape.
+    }
+  }
+  return null;
+}
+
+function mapRegCheckVehicle(vehicleData: any, regNumber: string | null, vinNumber: string | null) {
+  const descriptionRaw = extractValue(vehicleData, "Description") || "";
+  const engineSize = extractEngineNumberText(vehicleData?.EngineSize) || extractEngineNumberText(vehicleData?.EngineCapacity) || extractEngineSizeFromDescription(descriptionRaw);
+  const power = extractNumberText(vehicleData?.Power) || extractNumberText(vehicleData?.EnginePower) || extractPowerFromDescription(descriptionRaw);
+
+  return {
+    registration_number: regNumber || extractValue(vehicleData, "RegistrationNumber") || null,
+    vin: vehicleData?.VehicleIdentificationNumber || extractValue(vehicleData, "Vin") || extractValue(vehicleData, "VIN") || vinNumber || null,
+    make: extractCurrentText(vehicleData, "CarMake") || extractCurrentText(vehicleData, "Make") || null,
+    model: extractCurrentText(vehicleData, "CarModel") || extractCurrentText(vehicleData, "Model") || extractValue(vehicleData, "CarModel") || null,
+    body_style: extractCurrentText(vehicleData, "BodyStyle") || extractValue(vehicleData, "BodyStyle") || null,
+    color: extractCurrentText(vehicleData, "Colour") || extractCurrentText(vehicleData, "Color") || extractValue(vehicleData, "Colour") || null,
+    registration_year: parseYear(vehicleData?.ManufacturingYear || vehicleData?.ManufactureYear || extractValue(vehicleData, "RegistrationYear") || extractValue(vehicleData, "Year")),
+    first_registration_date: extractValue(vehicleData, "FirstRegistrationDate") || extractValue(vehicleData, "DateFirstRegistered") || null,
+    fuel_type: normalizeFuelType(vehicleData?.FuelType || extractCurrentText(vehicleData, "FuelType") || extractValue(vehicleData, "FuelType")),
+    engine_size: engineSize || null,
+    engine_power_kw: power || null,
+    mileage: extractNumberText(vehicleData?.Mileage) || null,
+    transmission: extractCurrentText(vehicleData, "Transmission") || null,
+    number_of_doors: extractCurrentText(vehicleData, "NumberOfDoors") || extractNumberText(vehicleData?.NumberOfDoors) || null,
+    number_of_seats: extractCurrentText(vehicleData, "NumberOfSeats") || extractNumberText(vehicleData?.NumberOfSeats) || null,
+    description: descriptionRaw || null,
+    source: "regcheck",
+    source_payload: vehicleData,
+  };
+}
+
+function hasUsefulVehicleData(mapped: any) {
+  return !!(mapped.make || mapped.model || mapped.vin || mapped.engine_size || mapped.engine_power_kw);
 }
 
 // Search portal's own workshop_vehicles database across ALL providers
@@ -410,6 +419,65 @@ function extractCurrentText(obj: any, key: string): string {
   }
   if (typeof obj[key] === "string") return obj[key];
   return "";
+}
+
+function decodeXmlEntities(value: string): string {
+  return value
+    .replace(/&quot;/g, '"')
+    .replace(/&#34;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">");
+}
+
+function extractNumberText(value: any): string {
+  if (value === null || value === undefined || value === "") return "";
+  const text = typeof value === "object" ? String(value.CurrentTextValue || value.CurrentValue || "") : String(value);
+  const match = text.match(/\d+(?:[.,]\d+)?/);
+  return match ? String(Math.round(parseFloat(match[0].replace(",", ".")))) : "";
+}
+
+function extractEngineNumberText(value: any): string {
+  if (value === null || value === undefined || value === "") return "";
+  const text = typeof value === "object" ? String(value.CurrentTextValue || value.CurrentValue || "") : String(value);
+  const match = text.match(/\d+(?:[.,]\d+)?/);
+  if (!match) return "";
+  const num = match[0].replace(",", ".");
+  return num.includes(".") ? String(Math.round(parseFloat(num) * 1000)) : num;
+}
+
+function parseYear(value: any): number | null {
+  const year = String(value || "").match(/(19|20)\d{2}/)?.[0];
+  return year ? parseInt(year, 10) : null;
+}
+
+function normalizeFuelType(value: any): string | null {
+  const raw = String(value || "").trim();
+  const normalized = raw.toLowerCase();
+  if (!normalized) return null;
+  if (normalized.includes("diesel") || normalized.includes("olej")) return "Diesel";
+  if (normalized.includes("petrol") || normalized.includes("benz")) return "Benzyna";
+  if (normalized.includes("lpg")) return "LPG";
+  if (normalized.includes("hybrid") || normalized.includes("hyb")) return "Hybryda";
+  if (normalized.includes("electric") || normalized.includes("elek")) return "Elektryczny";
+  if (normalized.includes("cng")) return "CNG";
+  return raw;
+}
+
+function extractEngineSizeFromDescription(description: string): string {
+  const match = description.match(/(?:^|\s)(\d{3,5})\s*(?:cc|cm3|cm³)\b/i) || description.match(/(?:^|\s)(\d[.,]\d)\b/);
+  if (!match) return "";
+  const value = match[1].replace(",", ".");
+  return value.includes(".") ? String(Math.round(parseFloat(value) * 1000)) : value;
+}
+
+function extractPowerFromDescription(description: string): string {
+  const kw = description.match(/(\d{2,3})\s*kW\b/i)?.[1];
+  if (kw) return kw;
+  const hp = description.match(/(\d{2,4})\s*(?:KM|HP|PS)\b/i)?.[1];
+  return hp ? String(Math.round(parseInt(hp, 10) * 0.735499)) : "";
 }
 
 async function logIntegration(supabaseAdmin: any, userId: string, regNum: string | null, vin: string | null, reqType: string, status: string, response: any, error: string | null) {
