@@ -355,7 +355,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
         </div>
         <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
           <Button variant="outline" size="sm" className="h-7 text-xs gap-1 shrink-0" onClick={() => {
-            if (order.client_code) window.open(`/warsztat/klient/${order.client_code}`, '_blank');
+            if (order.client_code) window.open(`/warsztat/klient/${order.client_code}?admin=1`, '_blank');
           }}>
             <FileText className="h-3.5 w-3.5" /> Karta
           </Button>
