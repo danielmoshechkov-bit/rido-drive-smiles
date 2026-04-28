@@ -3965,7 +3965,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                       {isColVisible('wyplata_1') && (() => {
                         const totalW1 = filteredSettlements.reduce((sum, s) => sum + getWyplata1(s), 0);
                         return (
-                          <TableCell className={`text-right font-bold px-2 py-1.5 text-xs tabular-nums whitespace-nowrap ${totalW1 > 0 ? 'text-blue-700' : totalW1 < 0 ? 'text-red-600' : 'text-muted-foreground'}`}>
+                          <TableCell className={`text-right font-bold px-2 py-1.5 text-xs tabular-nums whitespace-nowrap bg-blue-50 ${totalW1 > 0 ? 'text-blue-700' : totalW1 < 0 ? 'text-red-600' : 'text-muted-foreground'}`}>
                             {formatCurrency(totalW1)}
                           </TableCell>
                         );
