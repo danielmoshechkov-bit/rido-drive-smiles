@@ -3495,7 +3495,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                       {isColVisible('freenow') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">FreeNow</TableHead>}
                       {isColVisible('freenow_cash') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">FN got.</TableHead>}
                       {isColVisible('freenow_commission') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">FN prow.</TableHead>}
-                      {isColVisible('brutto') && <TableHead className="text-right px-2 py-1.5 text-xs font-bold whitespace-nowrap bg-blue-50 cursor-pointer select-none hover:bg-blue-100" onClick={() => handleSort('brutto')}>
+                      {isColVisible('brutto') && <TableHead className="text-right px-2 py-1.5 text-xs font-bold whitespace-nowrap cursor-pointer select-none hover:bg-muted/50" onClick={() => handleSort('brutto')}>
                         <span className="inline-flex items-center justify-end w-full">Brutto{getSortIcon('brutto')}</span>
                       </TableHead>}
                       {isColVisible('total_cash') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">Razem got.</TableHead>}
