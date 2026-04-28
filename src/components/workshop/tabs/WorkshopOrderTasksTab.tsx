@@ -749,6 +749,15 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   }, [order.id, order.total_gross, order.total_net, savedGrandGrossTotal, savedGrandNetTotal]);
 
   const saveTaskDraftRows = async (focusNewRow = false) => {
+    // Detect rows with price but no name — warn user instead of silently dropping
+    const incompleteRows = taskRows.filter(r => !r.name.trim() && getDraftPrice(r, isTaskGross) > 0);
+    if (incompleteRows.length > 0) {
+      toast.error('Uzupełnij nazwę usługi — wpisałeś cenę, ale pole "Usługa" jest puste.', {
+        icon: <AlertTriangle className="h-5 w-5" />,
+      });
+      // Don't auto-save anything; let the user fix the row
+      return;
+    }
     const rowsToSave = taskRows.filter(isTaskDraftFilled);
     if (rowsToSave.length === 0) {
       // Don't add extra rows, just ensure there's at least one empty row
@@ -775,6 +784,13 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
 
 
   const saveGoodsDraftRows = async (focusNewRow = false) => {
+    const incompleteRows = goodsRows.filter(r => !r.name.trim() && getDraftPrice(r, isGoodsGross) > 0);
+    if (incompleteRows.length > 0) {
+      toast.error('Uzupełnij nazwę części — wpisałeś cenę, ale pole "Nazwa" jest puste.', {
+        icon: <AlertTriangle className="h-5 w-5" />,
+      });
+      return;
+    }
     const rowsToSave = goodsRows.filter(isGoodsDraftFilled);
     if (rowsToSave.length === 0) {
       // Don't add extra rows, just ensure there's at least one empty row
@@ -1070,8 +1086,9 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                   const afterDiscount = row.discountType === 'percent'
                     ? rowTotal - (rowTotal * row.discount / 100)
                     : rowTotal - row.discount;
+                  const nameMissing = !row.name.trim() && getDraftPrice(row, isTaskGross) > 0;
                   return (
-                    <tr key={row.draftKey ?? `new-task-${idx}`} className="bg-primary/5" data-task-draft-key={row.draftKey}>
+                    <tr key={row.draftKey ?? `new-task-${idx}`} className={nameMissing ? 'bg-destructive/10' : 'bg-primary/5'} data-task-draft-key={row.draftKey}>
                       <td className="p-2 text-center text-muted-foreground">
                         {tasks.length + idx + 1}
                       </td>
@@ -1085,7 +1102,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                             setTimeout(() => addTaskRow(), 50);
                           }}
                           providerId={providerId}
-                          className="h-9 w-full text-sm min-w-0"
+                          className={`h-9 w-full text-sm min-w-0 ${nameMissing ? 'border-destructive ring-1 ring-destructive' : ''}`}
                           onKeyDown={e => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
@@ -1093,6 +1110,9 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                             }
                           }}
                         />
+                        {nameMissing && (
+                          <p className="text-[10px] text-destructive mt-0.5 px-1">Wpisz nazwę, aby pozycja została policzona</p>
+                        )}
                       </td>
                       <td className="p-1.5">
                         {workshopEmployees.length > 0 ? (
@@ -1379,8 +1399,9 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                   const afterDiscount = row.discountType === 'percent'
                     ? rowTotal - (rowTotal * row.discount / 100)
                     : rowTotal - row.discount;
+                  const nameMissing = !row.name.trim() && getDraftPrice(row, isGoodsGross) > 0;
                   return (
-                    <tr key={row.draftKey ?? `new-goods-${idx}`} className="bg-amber-500/5" data-goods-draft-key={row.draftKey}>
+                    <tr key={row.draftKey ?? `new-goods-${idx}`} className={nameMissing ? 'bg-destructive/10' : 'bg-amber-500/5'} data-goods-draft-key={row.draftKey}>
                       <td className="p-2 text-center text-muted-foreground">
                         {goods.length + idx + 1}
                       </td>
@@ -1389,7 +1410,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           placeholder="Wpisz nazwę części..."
                           value={row.name}
                           onChange={e => updateGoodsRow(idx, { name: e.target.value })}
-                          className="h-9 w-full text-sm min-w-0"
+                          className={`h-9 w-full text-sm min-w-0 ${nameMissing ? 'border-destructive ring-1 ring-destructive' : ''}`}
                           onKeyDown={e => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
@@ -1397,6 +1418,9 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                             }
                           }}
                         />
+                        {nameMissing && (
+                          <p className="text-[10px] text-destructive mt-0.5 px-1">Wpisz nazwę, aby pozycja została policzona</p>
+                        )}
                       </td>
                       <td className="p-1.5">
                         <Input
