@@ -421,6 +421,59 @@ function extractCurrentText(obj: any, key: string): string {
   return "";
 }
 
+function decodeXmlEntities(value: string): string {
+  return value
+    .replace(/&quot;/g, '"')
+    .replace(/&#34;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">");
+}
+
+function extractNumberText(value: any): string {
+  if (value === null || value === undefined || value === "") return "";
+  const text = typeof value === "object" ? String(value.CurrentTextValue || value.CurrentValue || "") : String(value);
+  const match = text.match(/\d+(?:[.,]\d+)?/);
+  if (!match) return "";
+  const num = match[0].replace(",", ".");
+  if (num.includes(".")) return String(Math.round(parseFloat(num) * 1000));
+  return num;
+}
+
+function parseYear(value: any): number | null {
+  const year = String(value || "").match(/(19|20)\d{2}/)?.[0];
+  return year ? parseInt(year, 10) : null;
+}
+
+function normalizeFuelType(value: any): string | null {
+  const raw = String(value || "").trim();
+  const normalized = raw.toLowerCase();
+  if (!normalized) return null;
+  if (normalized.includes("diesel") || normalized.includes("olej")) return "Diesel";
+  if (normalized.includes("petrol") || normalized.includes("benz")) return "Benzyna";
+  if (normalized.includes("lpg")) return "LPG";
+  if (normalized.includes("hybrid") || normalized.includes("hyb")) return "Hybryda";
+  if (normalized.includes("electric") || normalized.includes("elek")) return "Elektryczny";
+  if (normalized.includes("cng")) return "CNG";
+  return raw;
+}
+
+function extractEngineSizeFromDescription(description: string): string {
+  const match = description.match(/(?:^|\s)(\d{3,5})\s*(?:cc|cm3|cm³)\b/i) || description.match(/(?:^|\s)(\d[.,]\d)\b/);
+  if (!match) return "";
+  const value = match[1].replace(",", ".");
+  return value.includes(".") ? String(Math.round(parseFloat(value) * 1000)) : value;
+}
+
+function extractPowerFromDescription(description: string): string {
+  const kw = description.match(/(\d{2,3})\s*kW\b/i)?.[1];
+  if (kw) return kw;
+  const hp = description.match(/(\d{2,4})\s*(?:KM|HP|PS)\b/i)?.[1];
+  return hp ? String(Math.round(parseInt(hp, 10) * 0.735499)) : "";
+}
+
 async function logIntegration(supabaseAdmin: any, userId: string, regNum: string | null, vin: string | null, reqType: string, status: string, response: any, error: string | null) {
   await supabaseAdmin.from("vehicle_integration_logs").insert({
     integration_key: "regcheck_poland",
