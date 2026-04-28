@@ -1399,8 +1399,9 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                   const afterDiscount = row.discountType === 'percent'
                     ? rowTotal - (rowTotal * row.discount / 100)
                     : rowTotal - row.discount;
+                  const nameMissing = !row.name.trim() && getDraftPrice(row, isGoodsGross) > 0;
                   return (
-                    <tr key={row.draftKey ?? `new-goods-${idx}`} className="bg-amber-500/5" data-goods-draft-key={row.draftKey}>
+                    <tr key={row.draftKey ?? `new-goods-${idx}`} className={nameMissing ? 'bg-destructive/10' : 'bg-amber-500/5'} data-goods-draft-key={row.draftKey}>
                       <td className="p-2 text-center text-muted-foreground">
                         {goods.length + idx + 1}
                       </td>
@@ -1409,7 +1410,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           placeholder="Wpisz nazwę części..."
                           value={row.name}
                           onChange={e => updateGoodsRow(idx, { name: e.target.value })}
-                          className="h-9 w-full text-sm min-w-0"
+                          className={`h-9 w-full text-sm min-w-0 ${nameMissing ? 'border-destructive ring-1 ring-destructive' : ''}`}
                           onKeyDown={e => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
@@ -1417,6 +1418,9 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                             }
                           }}
                         />
+                        {nameMissing && (
+                          <p className="text-[10px] text-destructive mt-0.5 px-1">Wpisz nazwę, aby pozycja została policzona</p>
+                        )}
                       </td>
                       <td className="p-1.5">
                         <Input
