@@ -6,9 +6,11 @@
  */
 
 $f = $_GET['f'] ?? '';
+$agency = preg_replace('/[^a-zA-Z0-9_-]/', '', $_GET['agency'] ?? '');
+$path = ltrim($_GET['p'] ?? '', '/');
 
 // Walidacja nazwy pliku
-if (!$f || !preg_match('/^\d+\.(jpg|jpeg|png)$/i', $f)) {
+if (!$f || !preg_match('/^[^\/\\]+\.(jpg|jpeg|png|webp)$/i', $f)) {
     http_response_code(404);
     header('Content-Type: text/plain');
     exit('Not found');
@@ -16,19 +18,22 @@ if (!$f || !preg_match('/^\d+\.(jpg|jpeg|png)$/i', $f)) {
 
 $f = basename($f); // Bezpieczenstwo - zapobiegaj path traversal
 
-// Sciezka do katalogu ze zdjeciami na serwerze LH.pl
-$agency_dir = '/home/serwer408603/domains/getrido.pl/public_html/crm-import/agencja_cac64003-b89c-4a73-a2d6-c15155ce1f08/foto/';
-$local_file = $agency_dir . $f;
+$public_root = '/home/serwer408603/domains/getrido.pl/public_html/';
+$relative_file = $path && preg_match('/^crm-import\/agencja_[a-zA-Z0-9_-]+\/foto\/[^\/\\]+\.(jpg|jpeg|png|webp)$/i', $path)
+    ? $path
+    : ($agency ? "crm-import/{$agency}/foto/{$f}" : '');
+$agency_dir = $relative_file ? dirname($public_root . $relative_file) . '/' : '';
+$local_file = $relative_file ? $public_root . $relative_file : '';
 
 // CORS headers
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET');
 
 // 1. Sprawdz lokalny plik (wysłany przez ASARI przez FTP)
-if (file_exists($local_file) && is_readable($local_file)) {
+if ($local_file && file_exists($local_file) && is_readable($local_file)) {
     $size = filesize($local_file);
     if ($size > 1000) { // Minimum 1KB - prawdziwy obrazek
-        $mime = preg_match('/\.png$/i', $f) ? 'image/png' : 'image/jpeg';
+        $mime = preg_match('/\.png$/i', $f) ? 'image/png' : (preg_match('/\.webp$/i', $f) ? 'image/webp' : 'image/jpeg');
         header('Content-Type: ' . $mime);
         header('Content-Length: ' . $size);
         header('Cache-Control: public, max-age=2592000'); // 30 dni
@@ -73,7 +78,7 @@ foreach ($sources as $url) {
     if (!$is_jpeg && !$is_png) continue;
 
     // Zapisz lokalnie na przyszlosc (cache)
-    if (is_dir($agency_dir) && is_writable($agency_dir)) {
+    if ($agency_dir && is_dir($agency_dir) && is_writable($agency_dir)) {
         @file_put_contents($local_file, $data);
     }
 
