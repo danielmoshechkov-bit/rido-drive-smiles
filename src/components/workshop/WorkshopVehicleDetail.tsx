@@ -13,6 +13,8 @@ import { WorkshopAddClientDialog } from './WorkshopAddClientDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { useVehicleLookup } from '@/hooks/useVehicleLookup';
+import { VehicleLookupCreditsModal } from '@/components/vehicle/VehicleLookupCreditsModal';
 import {
   ArrowLeft, Search, Car, Plus, Phone, QrCode, Loader2, Users, Save
 } from 'lucide-react';
