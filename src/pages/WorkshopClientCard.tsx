@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -30,6 +30,8 @@ type TabKey = 'reception' | 'estimate' | 'release';
 
 export default function WorkshopClientCard() {
   const { code } = useParams<{ code: string }>();
+  const [searchParams] = useSearchParams();
+  const isAdminPreview = searchParams.get('admin') === '1';
   const [order, setOrder] = useState<any>(null);
   const [provider, setProvider] = useState<any>(null);
   const [signatures, setSignatures] = useState<any[]>([]);
@@ -37,10 +39,27 @@ export default function WorkshopClientCard() {
   const [signingDoc, setSigningDoc] = useState<string | null>(null);
   const [accepted, setAccepted] = useState(false);
   const [signing, setSigning] = useState(false);
-  const [activeTab, setActiveTab] = useState<TabKey>('reception');
+  const [activeTab, setActiveTab] = useState<TabKey>(isAdminPreview ? 'estimate' : 'reception');
   const [initialTabSet, setInitialTabSet] = useState(false);
 
   useEffect(() => { loadOrder(); }, [code]);
+
+  // Admin preview: realtime live refresh of order + items
+  useEffect(() => {
+    if (!isAdminPreview || !order?.id) return;
+    const channel = (supabase as any)
+      .channel(`workshop-card-${order.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'workshop_order_items', filter: `order_id=eq.${order.id}` }, () => loadOrder())
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'workshop_orders', filter: `id=eq.${order.id}` }, () => loadOrder())
+      .subscribe();
+    // Also refresh on tab focus
+    const onFocus = () => loadOrder();
+    window.addEventListener('focus', onFocus);
+    return () => {
+      (supabase as any).removeChannel(channel);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [isAdminPreview, order?.id]);
 
   const loadOrder = async () => {
     if (!code) return;
@@ -66,7 +85,8 @@ export default function WorkshopClientCard() {
       setSignatures(sigs || []);
 
       // Auto-open kosztorys if reception is signed AND estimate was sent to client
-      if (!initialTabSet) {
+      // In admin preview mode we already default to 'estimate' and skip this auto-switch
+      if (!initialTabSet && !isAdminPreview) {
         const receptionIsSigned = (sigs || []).some((s: any) => s.document_type === 'reception_protocol');
         if (receptionIsSigned && data.estimate_sent_to_client) {
           setActiveTab('estimate');
@@ -148,12 +168,12 @@ export default function WorkshopClientCard() {
   const estimateSigned = hasSigned('cost_estimate');
   const status = statusLabels[order.status_name] || { label: order.status_name, color: 'bg-muted' };
 
-  const estimateAvailable = receptionSigned && order.estimate_sent_to_client && !order.estimate_changed_after_send;
+  const estimateAvailable = isAdminPreview || (receptionSigned && order.estimate_sent_to_client && !order.estimate_changed_after_send);
 
   const tabs: { key: TabKey; label: string; icon: React.ReactNode; locked?: boolean }[] = [
     { key: 'reception', label: 'Protokół przyjęcia', icon: <Wrench className="h-4 w-4" /> },
     { key: 'estimate', label: 'Kosztorys', icon: <FileSignature className="h-4 w-4" />, locked: !estimateAvailable },
-    { key: 'release', label: 'Protokół wydania', icon: <Shield className="h-4 w-4" />, locked: !estimateSigned },
+    { key: 'release', label: 'Protokół wydania', icon: <Shield className="h-4 w-4" />, locked: !isAdminPreview && !estimateSigned },
   ];
 
   return (
@@ -377,8 +397,8 @@ export default function WorkshopClientCard() {
                 {/* Sign button or status */}
                 {!receptionSigned ? (
                   <div className="flex justify-end pt-2">
-                    <Button onClick={() => setSigningDoc('reception_protocol')} size="lg" className="gap-2 shadow-lg">
-                      <FileSignature className="h-5 w-5" /> Podpisz protokół przyjęcia
+                    <Button onClick={() => setSigningDoc('reception_protocol')} size="lg" className="gap-2 shadow-lg" disabled={isAdminPreview}>
+                      <FileSignature className="h-5 w-5" /> {isAdminPreview ? 'Oczekuje na podpis klienta' : 'Podpisz protokół przyjęcia'}
                     </Button>
                   </div>
                 ) : (
@@ -397,13 +417,13 @@ export default function WorkshopClientCard() {
             )}
 
             {activeTab === 'estimate' && (
-              !receptionSigned ? (
+              (!isAdminPreview && !receptionSigned) ? (
                 <div className="py-12 text-center">
                   <Lock className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
                   <p className="text-muted-foreground font-medium">Najpierw zaakceptuj protokół przyjęcia</p>
                   <p className="text-sm text-muted-foreground/60 mt-1">Kosztorys będzie dostępny po podpisaniu protokołu.</p>
                 </div>
-              ) : !order.estimate_sent_to_client ? (
+              ) : (!isAdminPreview && !order.estimate_sent_to_client) ? (
                 <div className="py-12 text-center">
                   <Lock className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
                   <p className="text-muted-foreground font-medium">Kosztorys jest w trakcie przygotowania</p>
@@ -411,6 +431,14 @@ export default function WorkshopClientCard() {
                 </div>
               ) : (
                 <div className="space-y-6">
+                  {isAdminPreview && (
+                    <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-2.5 text-xs text-amber-800 flex items-center justify-between gap-3">
+                      <span>👁️ Podgląd menedżera — dane na żywo. Klient widzi wersję wysłaną SMS-em.</span>
+                      {order.estimate_changed_after_send && (
+                        <span className="font-semibold text-destructive">⚠ Zmieniono po wysłaniu — wyślij ponownie</span>
+                      )}
+                    </div>
+                  )}
                   {order.description && (
                     <div>
                       <h4 className="text-sm font-semibold text-primary mb-1">Opis zlecenia:</h4>
@@ -515,8 +543,8 @@ export default function WorkshopClientCard() {
 
                   {!estimateSigned ? (
                     <div className="flex justify-end pt-2">
-                      <Button onClick={() => setSigningDoc('cost_estimate')} size="lg" className="gap-2 shadow-lg">
-                        <FileSignature className="h-5 w-5" /> Akceptuję kosztorys
+                      <Button onClick={() => setSigningDoc('cost_estimate')} size="lg" className="gap-2 shadow-lg" disabled={isAdminPreview}>
+                        <FileSignature className="h-5 w-5" /> {isAdminPreview ? 'Oczekuje na akceptację klienta' : 'Akceptuję kosztorys'}
                       </Button>
                     </div>
                   ) : (
