@@ -49,18 +49,19 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
   const numberOnly = (value: any) => String(value || '').replace(/[^0-9]/g, '');
   const applyLookup = async (data: any) => {
     if (!data) return;
+    const current = form;
     const patch = {
-      brand: data.make || p.brand,
-      model: data.model || p.model,
-      color: data.color || p.color,
-      vin: data.vin || p.vin,
-      plate: data.registration_number || p.plate,
-      year: data.registration_year ? String(data.registration_year) : p.year,
-      first_registration_date: data.first_registration_date || p.first_registration_date,
-      fuel_type: data.fuel_type || p.fuel_type,
-      engine_capacity_cm3: numberOnly(data.engine_size) || p.engine_capacity_cm3,
-      engine_power_kw: numberOnly(data.engine_power_kw) || p.engine_power_kw,
-      description: data.description || p.description,
+      brand: data.make || current.brand,
+      model: data.model || current.model,
+      color: data.color || current.color,
+      vin: data.vin || current.vin,
+      plate: data.registration_number || current.plate,
+      year: data.registration_year ? String(data.registration_year) : current.year,
+      first_registration_date: data.first_registration_date || current.first_registration_date,
+      fuel_type: data.fuel_type || current.fuel_type,
+      engine_capacity_cm3: numberOnly(data.engine_size) || current.engine_capacity_cm3,
+      engine_power_kw: numberOnly(data.engine_power_kw) || current.engine_power_kw,
+      description: data.description || current.description,
     };
     setForm(p => ({ ...p, ...patch }));
     await (supabase as any).from('workshop_vehicles').update({
