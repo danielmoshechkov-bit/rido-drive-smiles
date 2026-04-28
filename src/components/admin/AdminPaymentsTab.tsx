@@ -343,6 +343,7 @@ function AssignCreditsPanel() {
 
   const creditTypes = [
     { value: 'sms', label: 'SMS', icon: MessageSquare },
+    { value: 'vehicle_lookup', label: 'Sprawdzenie pojazdu (VIN/rej.)', icon: Search },
     { value: 'ai', label: 'AI', icon: Sparkles },
     { value: 'ai_photo', label: 'AI Zdjęcia', icon: Sparkles },
     { value: 'listing_featured', label: 'Wyróżnienia', icon: Star },
