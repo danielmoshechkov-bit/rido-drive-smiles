@@ -101,6 +101,7 @@ export function LeadsTab({ providerId, userId }: LeadsTabProps) {
 
   return (
     <div className="space-y-6">
+      <LeadSourceIntegrations userId={userId} />
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">🔥 {t('leads.newToday')}</CardTitle></CardHeader>
