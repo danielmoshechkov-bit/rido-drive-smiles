@@ -16,6 +16,7 @@ import { Plus, Search, Eye, User } from 'lucide-react';
 import { format } from 'date-fns';
 import { pl, enUS } from 'date-fns/locale';
 import { LeadDetailDrawer } from './LeadDetailDrawer';
+import { LeadSourceIntegrations } from './LeadSourceIntegrations';
 
 interface LeadsTabProps {
   providerId: string | null;
