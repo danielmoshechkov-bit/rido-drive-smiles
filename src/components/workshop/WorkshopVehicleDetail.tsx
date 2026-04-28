@@ -39,6 +39,44 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
   const [showOwnerList, setShowOwnerList] = useState(false);
   const [showAddClient, setShowAddClient] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showCreditsModal, setShowCreditsModal] = useState(false);
+
+  const [{ data: { user } = { user: null } } = { data: { user: null } }] = [{ data: { user: null } }];
+  const [currentUserId, setCurrentUserId] = useState<string | undefined>();
+  useMemo(() => { supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id)); }, []);
+  const { checkRegistration, checkVin, loading: lookupLoading, purchaseCredits } = useVehicleLookup(currentUserId);
+
+  const applyLookup = (data: any) => {
+    if (!data) return;
+    setForm(p => ({
+      ...p,
+      brand: data.make || p.brand,
+      model: data.model || p.model,
+      color: data.color || p.color,
+      vin: data.vin || p.vin,
+      plate: data.registration_number || p.plate,
+      year: data.registration_year ? String(data.registration_year) : p.year,
+      first_registration_date: data.first_registration_date || p.first_registration_date,
+      fuel_type: data.fuel_type || p.fuel_type,
+      engine_capacity_cm3: data.engine_size || p.engine_capacity_cm3,
+      engine_power_kw: data.engine_power_kw || p.engine_power_kw,
+      description: data.description || p.description,
+    }));
+  };
+
+  const handleLookupPlate = async () => {
+    if (!form.plate?.trim()) { toast.error('Wpisz numer rejestracyjny'); return; }
+    const data = await checkRegistration(form.plate.trim().toUpperCase());
+    if (data) applyLookup(data);
+    else if (!lookupLoading) setShowCreditsModal(true);
+  };
+
+  const handleLookupVin = async () => {
+    if (!form.vin?.trim()) { toast.error('Wpisz numer VIN'); return; }
+    const data = await checkVin(form.vin.trim().toUpperCase());
+    if (data) applyLookup(data);
+    else if (!lookupLoading) setShowCreditsModal(true);
+  };
 
   // Form state
   const [form, setForm] = useState({
