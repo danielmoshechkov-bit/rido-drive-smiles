@@ -171,7 +171,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
             className="gap-1"
             onClick={() => {
               if (order.client_code) {
-                window.open(`/warsztat/klient/${order.client_code}`, '_blank');
+                window.open(`/warsztat/klient/${order.client_code}?admin=1`, '_blank');
               } else {
                 toast.info('Brak kodu klienta — utwórz zlecenie ponownie');
               }
