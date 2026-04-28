@@ -30,6 +30,8 @@ type TabKey = 'reception' | 'estimate' | 'release';
 
 export default function WorkshopClientCard() {
   const { code } = useParams<{ code: string }>();
+  const [searchParams] = useSearchParams();
+  const isAdminPreview = searchParams.get('admin') === '1';
   const [order, setOrder] = useState<any>(null);
   const [provider, setProvider] = useState<any>(null);
   const [signatures, setSignatures] = useState<any[]>([]);
@@ -37,10 +39,27 @@ export default function WorkshopClientCard() {
   const [signingDoc, setSigningDoc] = useState<string | null>(null);
   const [accepted, setAccepted] = useState(false);
   const [signing, setSigning] = useState(false);
-  const [activeTab, setActiveTab] = useState<TabKey>('reception');
+  const [activeTab, setActiveTab] = useState<TabKey>(isAdminPreview ? 'estimate' : 'reception');
   const [initialTabSet, setInitialTabSet] = useState(false);
 
   useEffect(() => { loadOrder(); }, [code]);
+
+  // Admin preview: realtime live refresh of order + items
+  useEffect(() => {
+    if (!isAdminPreview || !order?.id) return;
+    const channel = (supabase as any)
+      .channel(`workshop-card-${order.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'workshop_order_items', filter: `order_id=eq.${order.id}` }, () => loadOrder())
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'workshop_orders', filter: `id=eq.${order.id}` }, () => loadOrder())
+      .subscribe();
+    // Also refresh on tab focus
+    const onFocus = () => loadOrder();
+    window.addEventListener('focus', onFocus);
+    return () => {
+      (supabase as any).removeChannel(channel);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [isAdminPreview, order?.id]);
 
   const loadOrder = async () => {
     if (!code) return;
@@ -66,7 +85,8 @@ export default function WorkshopClientCard() {
       setSignatures(sigs || []);
 
       // Auto-open kosztorys if reception is signed AND estimate was sent to client
-      if (!initialTabSet) {
+      // In admin preview mode we already default to 'estimate' and skip this auto-switch
+      if (!initialTabSet && !isAdminPreview) {
         const receptionIsSigned = (sigs || []).some((s: any) => s.document_type === 'reception_protocol');
         if (receptionIsSigned && data.estimate_sent_to_client) {
           setActiveTab('estimate');
