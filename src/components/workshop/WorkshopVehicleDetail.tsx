@@ -438,6 +438,14 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
           setShowOwnerList(false);
         }}
       />
+      <VehicleLookupCreditsModal
+        open={showCreditsModal}
+        onOpenChange={setShowCreditsModal}
+        onPurchase={async (credits, priceNet) => {
+          const ok = await purchaseCredits(credits, priceNet);
+          if (ok) setShowCreditsModal(false);
+        }}
+      />
     </div>
   );
 }
