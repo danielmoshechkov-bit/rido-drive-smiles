@@ -32,7 +32,7 @@ import { AgentTypeSelector } from '@/components/ai-agents/AgentTypeSelector';
 import { AISalesAgentsDashboard } from '@/components/ai-sales/AISalesAgentsDashboard';
 import { LeadsTab } from '@/components/leads/LeadsTab';
 import { AdsTab } from '@/components/ads/AdsTab';
-import { AdOrderModal } from '@/components/ads/AdOrderModal';
+// AdOrderModal usunięty — zastąpiony przez AdvertiseServiceButton (Wizard Meta/Google)
 import { ProviderMediaModal } from '@/components/services/ProviderMediaModal';
 import { PortalBookingsPanel } from '@/components/services/PortalBookingsPanel';
 import { CommissionInvoicesPanel } from '@/components/services/CommissionInvoicesPanel';
@@ -111,7 +111,7 @@ export default function ServiceProviderDashboard() {
   const [calendarSubTab, setCalendarSubTab] = useState<'calendar' | 'bookings'>('calendar');
   const [moreOpen, setMoreOpen] = useState(false);
   const [primaryTabs, setPrimaryTabs] = useState<string[]>(DEFAULT_SERVICE_PROVIDER_PRIMARY_TABS);
-  const [adOrderService, setAdOrderService] = useState<{ id: string; name: string } | null>(null);
+  // adOrderService state usunięty — używamy tylko AdvertiseServiceButton
   const [mediaModalOpen, setMediaModalOpen] = useState(false);
   const [mediaModalTab, setMediaModalTab] = useState<'logo' | 'cover'>('logo');
   
@@ -1310,13 +1310,7 @@ export default function ServiceProviderDashboard() {
           </TabsContent>
         </TabsPill>
 
-        {/* Ad Order Modal */}
-        <AdOrderModal
-          open={!!adOrderService}
-          onClose={() => setAdOrderService(null)}
-          service={adOrderService}
-          userId={user?.id || null}
-        />
+        {/* Ad Order Modal usunięty — używamy tylko AdvertiseServiceButton (jeden przycisk Reklamuj) */}
 
         {/* Logo & Cover Media Modal */}
         {providerId && (
