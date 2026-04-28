@@ -338,7 +338,7 @@ function parseVehicleResponse(xmlText: string) {
 
 function mapRegCheckVehicle(vehicleData: any, regNumber: string | null, vinNumber: string | null) {
   const descriptionRaw = extractValue(vehicleData, "Description") || "";
-  const engineSize = extractNumberText(vehicleData?.EngineSize) || extractNumberText(vehicleData?.EngineCapacity) || extractEngineSizeFromDescription(descriptionRaw);
+  const engineSize = extractEngineNumberText(vehicleData?.EngineSize) || extractEngineNumberText(vehicleData?.EngineCapacity) || extractEngineSizeFromDescription(descriptionRaw);
   const power = extractNumberText(vehicleData?.Power) || extractNumberText(vehicleData?.EnginePower) || extractPowerFromDescription(descriptionRaw);
 
   return {
@@ -436,10 +436,16 @@ function extractNumberText(value: any): string {
   if (value === null || value === undefined || value === "") return "";
   const text = typeof value === "object" ? String(value.CurrentTextValue || value.CurrentValue || "") : String(value);
   const match = text.match(/\d+(?:[.,]\d+)?/);
+  return match ? String(Math.round(parseFloat(match[0].replace(",", ".")))) : "";
+}
+
+function extractEngineNumberText(value: any): string {
+  if (value === null || value === undefined || value === "") return "";
+  const text = typeof value === "object" ? String(value.CurrentTextValue || value.CurrentValue || "") : String(value);
+  const match = text.match(/\d+(?:[.,]\d+)?/);
   if (!match) return "";
   const num = match[0].replace(",", ".");
-  if (num.includes(".")) return String(Math.round(parseFloat(num) * 1000));
-  return num;
+  return num.includes(".") ? String(Math.round(parseFloat(num) * 1000)) : num;
 }
 
 function parseYear(value: any): number | null {
