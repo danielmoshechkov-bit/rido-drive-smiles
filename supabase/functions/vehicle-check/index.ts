@@ -246,37 +246,75 @@ async function handleCheckVin(supabase: any, supabaseAdmin: any, userId: string,
     });
   }
 
-  // Step 2: Check portal's own vehicle database (workshop_vehicles from ALL providers)
-  const portalVehicle = await findInPortalDb(supabaseAdmin, null, vinNumber);
-  if (portalVehicle) {
-    await deductCredit(supabaseAdmin, userId, null, vinNumber, "portal_db");
-    await logIntegration(supabaseAdmin, userId, null, vinNumber, "vin", "portal_db_hit", null, null);
-    return new Response(JSON.stringify({ data: portalVehicle, source: "portal_db" }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
-  // Step 3: Search global cache by VIN
-  const { data: cached } = await supabaseAdmin
-    .from("vehicle_registry_cache")
+  const { data: integration } = await supabaseAdmin
+    .from("portal_integrations")
     .select("*")
-    .ilike("vin", vinNumber)
-    .limit(1)
-    .maybeSingle();
+    .eq("key", "regcheck_poland")
+    .single();
 
-  if (cached) {
-    await deductCredit(supabaseAdmin, userId, null, vinNumber, "cache_vin");
-    await logIntegration(supabaseAdmin, userId, null, vinNumber, "vin", "cache_hit", null, null);
-    return new Response(JSON.stringify({ data: cached, source: "cache_vin" }), {
+  if (!integration || !integration.is_enabled) {
+    return new Response(JSON.stringify({ error: "INTEGRATION_DISABLED", message: "Integracja pojazdów nie jest aktywna" }), {
+      status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
-  // No external VIN API yet
-  return new Response(JSON.stringify({ error: "NOT_FOUND", message: "Nie znaleziono pojazdu po numerze VIN w bazie systemu" }), {
-    status: 404,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
+  const config = integration.config_json || {};
+  const username = config.username || "";
+  const baseEndpoint = config.endpoint_url || "https://www.regcheck.org.uk/api/reg.asmx/CheckPoland";
+  const endpoint = baseEndpoint.replace(/\/CheckPoland\/?$/i, "/VinCheck");
+
+  if (!username) {
+    return new Response(JSON.stringify({ error: "CONFIG_ERROR", message: "Brak loginu do integracji RegCheck. Skonfiguruj w panelu admina." }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  try {
+    const apiUrl = `${endpoint}?Vin=${encodeURIComponent(vinNumber)}&username=${encodeURIComponent(username)}`;
+    const apiResp = await fetch(apiUrl);
+    const xmlText = await apiResp.text();
+
+    if (!apiResp.ok) {
+      await logIntegration(supabaseAdmin, userId, null, vinNumber, "vin", "error", null, `HTTP ${apiResp.status}`);
+      return new Response(JSON.stringify({ error: "API_ERROR", message: "Błąd API RegCheck" }), {
+        status: 502,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const vehicleData = parseVehicleResponse(xmlText);
+    if (!vehicleData) {
+      await logIntegration(supabaseAdmin, userId, null, vinNumber, "vin", "no_data", { raw: xmlText.substring(0, 2000) }, "Nie udało się sparsować odpowiedzi VIN");
+      return new Response(JSON.stringify({ error: "NO_DATA", message: "Nie znaleziono danych dla podanego numeru VIN" }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const mapped = mapRegCheckVehicle(vehicleData, null, vinNumber);
+    if (!hasUsefulVehicleData(mapped)) {
+      await logIntegration(supabaseAdmin, userId, null, vinNumber, "vin", "no_data", { raw: xmlText.substring(0, 2000), parsed: vehicleData }, "API zwróciło pustą odpowiedź — brak danych pojazdu");
+      return new Response(JSON.stringify({ error: "NOT_FOUND", message: "Nie znaleziono danych dla podanego numeru VIN" }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    await deductCredit(supabaseAdmin, userId, mapped.registration_number, vinNumber, "external_api_vin");
+    await logIntegration(supabaseAdmin, userId, mapped.registration_number, vinNumber, "vin", "success", vehicleData, null);
+
+    return new Response(JSON.stringify({ data: mapped, source: "external_api_vin" }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  } catch (e) {
+    await logIntegration(supabaseAdmin, userId, null, vinNumber, "vin", "error", null, e.message);
+    return new Response(JSON.stringify({ error: "API_ERROR", message: "Błąd połączenia z API RegCheck" }), {
+      status: 502,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
 }
 
 // Search portal's own workshop_vehicles database across ALL providers
