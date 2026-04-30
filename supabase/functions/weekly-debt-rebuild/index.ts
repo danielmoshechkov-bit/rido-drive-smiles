@@ -149,10 +149,21 @@ Deno.serve(async (req) => {
           return false;
         });
 
-        const allPayments: { amount: number }[] = [
-          ...(existingDwdp || []).map((p: any) => ({ amount: Number(p.amount || 0) })),
-          ...matchedTx.map((t: any) => ({ amount: Math.abs(Number(t.amount || 0)) })),
+        const allPayments: { amount: number; source?: string }[] = [
+          ...(existingDwdp || []).map((p: any) => ({ amount: Number(p.amount || 0), source: 'dwdp' })),
+          ...matchedTx.map((t: any) => ({ amount: Math.abs(Number(t.amount || 0)), source: 'tx' })),
         ];
+
+        // Fallback: jeśli stary settlement.debt_payment > 0, a nie znaleźliśmy wpłaty z innych źródeł,
+        // dolicz tę kwotę jako migrowaną wpłatę z settlement (jedyny ślad takiej spłaty w bazie).
+        const sumFromOtherSources = allPayments.reduce((a, p) => a + Math.abs(p.amount), 0);
+        const oldDebtPaymentForFallback = Number(s.debt_payment || 0);
+        if (oldDebtPaymentForFallback > 0.01 && sumFromOtherSources < oldDebtPaymentForFallback - 0.01) {
+          allPayments.push({
+            amount: round2(oldDebtPaymentForFallback - sumFromOtherSources),
+            source: 'settlement_debt_payment',
+          });
+        }
 
         // RAW payout = wypłata PRZED odjęciem długu.
         // IGNORUJEMY stare debt_before/debt_after (są fantomowe, lustrzane).
@@ -263,6 +274,33 @@ Deno.serve(async (req) => {
               note: `migrated:${t.id} ${t.note || ""}`.trim(),
             });
             totalPaymentsMigrated++;
+          }
+
+          // Fallback wpłata z settlements.debt_payment (gdy stary system zarejestrował spłatę
+          // tylko jako pole w settlements, bez transakcji w driver_debt_transactions).
+          const fallbackPayment = allPayments.find((p) => (p as any).source === 'settlement_debt_payment');
+          if (fallbackPayment && fallbackPayment.amount > 0.01) {
+            const { data: alreadyFallback } = await supabase
+              .from("driver_weekly_debt_payments")
+              .select("id")
+              .eq("driver_id", driver.id)
+              .eq("period_from", s.period_from)
+              .eq("period_to", s.period_to)
+              .ilike("note", `%settlement_debt_payment:${s.id}%`)
+              .maybeSingle();
+            if (!alreadyFallback) {
+              await supabase.from("driver_weekly_debt_payments").insert({
+                weekly_debt_id: upserted?.id || null,
+                driver_id: driver.id,
+                settlement_id: s.id,
+                period_from: s.period_from,
+                period_to: s.period_to,
+                amount: round2(fallbackPayment.amount),
+                payment_type: "migrated",
+                note: `settlement_debt_payment:${s.id}`,
+              });
+              totalPaymentsMigrated++;
+            }
           }
 
           // Sync settlements: 
