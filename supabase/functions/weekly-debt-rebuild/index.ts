@@ -9,10 +9,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { corsHeaders } from "../_shared/cors.ts";
 import { calculateWeeklyDebt, round2 } from "../_shared/weeklyDebt.ts";
+import { uiWeekRange, uiWeekFromDate } from "../_shared/weekMapping.ts";
 
 interface RequestBody {
-  start_week: number;       // np. 14
-  year: number;             // np. 2025
+  start_week: number;       // np. 13 (UI numeracja)
+  year: number;             // np. 2026
   dry_run?: boolean;        // domyślnie true
   driver_ids?: string[];    // opcjonalnie ograniczyć do listy
   fleet_id?: string;        // opcjonalnie ograniczyć do floty
@@ -21,40 +22,6 @@ interface RequestBody {
   only_diffs?: boolean;     // raport tylko z tygodniami które mają diff
 }
 
-// UI week start (poniedziałek) – zgodne z src/lib/utils.ts -> getWeekDates.
-// pierwszy poniedziałek roku = tydzień 1.
-function uiWeekStart(year: number, week: number): Date {
-  let firstMon = new Date(Date.UTC(year, 0, 1));
-  while (firstMon.getUTCDay() !== 1) firstMon.setUTCDate(firstMon.getUTCDate() + 1);
-  const start = new Date(firstMon);
-  start.setUTCDate(firstMon.getUTCDate() + (week - 1) * 7);
-  return start;
-}
-
-function fmtDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
-
-// Numer tygodnia zgodny z UI (src/lib/utils.ts -> getWeekDates):
-// pierwszy poniedziałek roku = tydzień 1, każde kolejne 7 dni = +1.
-// To NIE jest ISO week (ISO może mieć tydzień 1 zaczynający się w grudniu poprzedniego roku).
-function uiWeekFromDate(periodFromIso: string): { year: number; week: number } {
-  const [y, m, d] = periodFromIso.split("-").map(Number);
-  const periodFrom = new Date(Date.UTC(y, m - 1, d));
-  // Znajdź pierwszy poniedziałek roku startowego
-  let year = y;
-  let firstMon = new Date(Date.UTC(year, 0, 1));
-  while (firstMon.getUTCDay() !== 1) firstMon.setUTCDate(firstMon.getUTCDate() + 1);
-  if (periodFrom < firstMon) {
-    // tydzień należy jeszcze do poprzedniego roku
-    year = y - 1;
-    firstMon = new Date(Date.UTC(year, 0, 1));
-    while (firstMon.getUTCDay() !== 1) firstMon.setUTCDate(firstMon.getUTCDate() + 1);
-  }
-  const diffDays = Math.round((periodFrom.getTime() - firstMon.getTime()) / 86400000);
-  const week = Math.floor(diffDays / 7) + 1;
-  return { year, week };
-}
 
 interface DriverReport {
   driver_id: string;
@@ -98,7 +65,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const startDate = fmtDate(uiWeekStart(body.year, body.start_week));
+    const startDate = uiWeekRange(body.year, body.start_week).startISO;
 
     // Lista kierowców (z batchowaniem)
     const offset = Math.max(0, Number(body.offset || 0));

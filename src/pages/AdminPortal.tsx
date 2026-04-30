@@ -19,9 +19,10 @@ import { KsefAdminPanel } from '@/components/admin/KsefAdminPanel';
 import { AdminPaymentsTab } from '@/components/admin/AdminPaymentsTab';
 import { AIAgentsPanel } from '@/components/admin/AIAgentsPanel';
 import { SeoAgent } from '@/components/admin/SeoAgent';
+import { WeeklyDebtRebuildPanel } from '@/components/admin/WeeklyDebtRebuildPanel';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { UserDropdown } from '@/components/UserDropdown';
-import { Loader2, Palette, Users, Wrench, Calculator, LayoutGrid, Bot, Key, TicketCheck, Briefcase, Plug, Wallet, Shield, Cpu, Globe } from 'lucide-react';
+import { Loader2, Palette, Users, Wrench, Calculator, LayoutGrid, Bot, Key, TicketCheck, Briefcase, Plug, Wallet, Shield, Cpu, Globe, RefreshCcw } from 'lucide-react';
 
 export default function AdminPortal() {
   const navigate = useNavigate();
@@ -104,6 +105,7 @@ export default function AdminPortal() {
     { value: 'ksef-admin', label: 'KSeF Admin', icon: Shield },
     { value: 'ai-agents', label: 'Agenci AI', icon: Cpu },
     { value: 'seo-agent', label: 'Agent SEO', icon: Globe },
+    { value: 'fleet-debt-rebuild', label: 'Przebudowa długów', icon: RefreshCcw },
   ];
 
   return (
@@ -270,6 +272,11 @@ export default function AdminPortal() {
           {/* SEO Agent Tab */}
           <TabsContent value="seo-agent">
             <SeoAgent />
+          </TabsContent>
+
+          {/* Weekly Debt Rebuild Tab */}
+          <TabsContent value="fleet-debt-rebuild">
+            <WeeklyDebtRebuildPanel />
           </TabsContent>
         </Tabs>
       </div>
