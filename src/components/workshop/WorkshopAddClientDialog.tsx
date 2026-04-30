@@ -6,7 +6,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { useCreateWorkshopClient } from '@/hooks/useWorkshop';
-import { Users, Building, User, Loader2 } from 'lucide-react';
+import { useNipLookup } from '@/hooks/useNipLookup';
+import { toast } from 'sonner';
+import { Users, Building, User, Loader2, Search } from 'lucide-react';
 
 interface Props {
   open: boolean;
@@ -23,6 +25,7 @@ function formatPostalCode(value: string) {
 
 export function WorkshopAddClientDialog({ open, onOpenChange, providerId, onCreated }: Props) {
   const create = useCreateWorkshopClient();
+  const { lookup: lookupNip, loading: nipLoading } = useNipLookup();
   const [clientType, setClientType] = useState<'individual' | 'company'>('individual');
   const [form, setForm] = useState({
     company_name: '', nip: '', first_name: '', last_name: '',
@@ -32,6 +35,38 @@ export function WorkshopAddClientDialog({ open, onOpenChange, providerId, onCrea
   });
 
   const set = (key: string, val: any) => setForm(p => ({ ...p, [key]: val }));
+
+  const handleNipLookup = async () => {
+    const cleanNip = form.nip.replace(/[\s-]/g, '');
+    if (cleanNip.length < 10) {
+      toast.error('Wpisz poprawny numer NIP (10 cyfr)');
+      return;
+    }
+    try {
+      const { data, error: fnErr } = await (await import('@/integrations/supabase/client')).supabase.functions.invoke('lookup-nip', {
+        body: { nip: cleanNip },
+      });
+      if (fnErr) throw fnErr;
+      if (!data?.valid) {
+        toast.error(data?.error || 'Nie znaleziono firmy w rejestrze');
+        return;
+      }
+      const c = data.data;
+      setForm(prev => ({
+        ...prev,
+        company_name: c.name || prev.company_name,
+        nip: c.nip || prev.nip,
+        street: c.street || prev.street,
+        house_number: c.buildingNumber || prev.house_number,
+        apartment_number: c.apartmentNumber || prev.apartment_number,
+        city: c.city || prev.city,
+        postal_code: c.postalCode || prev.postal_code,
+      }));
+      toast.success('Dane firmy zostały pobrane');
+    } catch {
+      toast.error('Błąd połączenia z rejestrem firm');
+    }
+  };
 
   const handlePostalCode = (val: string) => {
     set('postal_code', formatPostalCode(val));
@@ -130,7 +165,26 @@ export function WorkshopAddClientDialog({ open, onOpenChange, providerId, onCrea
                 </div>
                 <div className="space-y-1.5">
                   <Label>NIP</Label>
-                  <Input value={form.nip} onChange={e => set('nip', e.target.value)} placeholder="NIP firmy" />
+                  <div className="relative">
+                    <Input
+                      value={form.nip}
+                      onChange={e => set('nip', e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleNipLookup(); } }}
+                      placeholder="NIP firmy"
+                      className="pr-10"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleNipLookup}
+                      disabled={nipLoading}
+                      className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
+                      title="Pobierz dane firmy z rejestru"
+                    >
+                      {nipLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                    </Button>
+                  </div>
                 </div>
               </div>
               <AddressFields />

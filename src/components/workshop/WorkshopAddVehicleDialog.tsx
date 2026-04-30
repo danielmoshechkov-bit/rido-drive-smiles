@@ -19,6 +19,7 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   providerId: string;
   onCreated?: (vehicle: any) => void;
+  initialPlate?: string;
 }
 
 const fuelTypes = ['Benzyna', 'Diesel', 'LPG', 'Elektryczny', 'Hybryda', 'Wodór', 'CNG'];
@@ -32,7 +33,7 @@ function trimModelName(raw: string): string {
   return raw.replace(/\s+\d+\.\d+(\s+\S+)*$/, '').trim();
 }
 
-export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCreated }: Props) {
+export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCreated, initialPlate }: Props) {
   const create = useCreateWorkshopVehicle();
   const qc = useQueryClient();
   const { data: clients = [] } = useWorkshopClients(providerId);
@@ -57,6 +58,13 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
       if (data?.user) setUserId(data.user.id);
     });
   }, []);
+
+  // Prefill plate when dialog opens with initialPlate
+  useEffect(() => {
+    if (open && initialPlate) {
+      setForm(p => ({ ...p, plate: initialPlate.toUpperCase() }));
+    }
+  }, [open, initialPlate]);
 
   // Close owner dropdown on outside click
   useEffect(() => {

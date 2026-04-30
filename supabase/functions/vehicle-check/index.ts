@@ -338,8 +338,26 @@ function parseVehicleResponse(xmlText: string) {
 
 function mapRegCheckVehicle(vehicleData: any, regNumber: string | null, vinNumber: string | null) {
   const descriptionRaw = extractValue(vehicleData, "Description") || "";
-  const engineSize = extractEngineNumberText(vehicleData?.EngineSize) || extractEngineNumberText(vehicleData?.EngineCapacity) || extractEngineSizeFromDescription(descriptionRaw);
-  const power = extractNumberText(vehicleData?.Power) || extractNumberText(vehicleData?.EnginePower) || extractPowerFromDescription(descriptionRaw);
+  const engineSize = extractEngineNumberText(vehicleData?.EngineSize)
+    || extractEngineNumberText(vehicleData?.EngineCapacity)
+    || extractEngineNumberText(vehicleData?.engineCapacity)
+    || extractEngineSizeFromDescription(descriptionRaw);
+  // Try every known power field across RegCheck variants
+  const powerRaw = extractPowerKw(vehicleData?.EnginePower)
+    || extractPowerKw(vehicleData?.Power)
+    || extractPowerKw(vehicleData?.PowerKW)
+    || extractPowerKw(vehicleData?.PowerKw)
+    || extractPowerKw(vehicleData?.MaxPower)
+    || extractPowerKw(vehicleData?.MaxPowerOutput)
+    || extractPowerFromDescription(descriptionRaw);
+  const colorRaw = extractCurrentText(vehicleData, "Colour")
+    || extractCurrentText(vehicleData, "Color")
+    || extractCurrentText(vehicleData, "BodyColour")
+    || extractCurrentText(vehicleData, "BodyColor")
+    || extractValue(vehicleData, "Colour")
+    || extractValue(vehicleData, "Color")
+    || extractValue(vehicleData, "BodyColour")
+    || null;
 
   return {
     registration_number: regNumber || extractValue(vehicleData, "RegistrationNumber") || null,
@@ -347,12 +365,12 @@ function mapRegCheckVehicle(vehicleData: any, regNumber: string | null, vinNumbe
     make: extractCurrentText(vehicleData, "CarMake") || extractCurrentText(vehicleData, "Make") || null,
     model: extractCurrentText(vehicleData, "CarModel") || extractCurrentText(vehicleData, "Model") || extractValue(vehicleData, "CarModel") || null,
     body_style: extractCurrentText(vehicleData, "BodyStyle") || extractValue(vehicleData, "BodyStyle") || null,
-    color: extractCurrentText(vehicleData, "Colour") || extractCurrentText(vehicleData, "Color") || extractValue(vehicleData, "Colour") || null,
+    color: colorRaw,
     registration_year: parseYear(vehicleData?.ManufacturingYear || vehicleData?.ManufactureYear || extractValue(vehicleData, "RegistrationYear") || extractValue(vehicleData, "Year")),
     first_registration_date: extractValue(vehicleData, "FirstRegistrationDate") || extractValue(vehicleData, "DateFirstRegistered") || null,
     fuel_type: normalizeFuelType(vehicleData?.FuelType || extractCurrentText(vehicleData, "FuelType") || extractValue(vehicleData, "FuelType")),
     engine_size: engineSize || null,
-    engine_power_kw: power || null,
+    engine_power_kw: powerRaw || null,
     mileage: extractNumberText(vehicleData?.Mileage) || null,
     transmission: extractCurrentText(vehicleData, "Transmission") || null,
     number_of_doors: extractCurrentText(vehicleData, "NumberOfDoors") || extractNumberText(vehicleData?.NumberOfDoors) || null,
@@ -446,6 +464,36 @@ function extractEngineNumberText(value: any): string {
   if (!match) return "";
   const num = match[0].replace(",", ".");
   return num.includes(".") ? String(Math.round(parseFloat(num) * 1000)) : num;
+}
+
+function extractEngineNumberText(value: any): string {
+  if (value === null || value === undefined || value === "") return "";
+  const text = typeof value === "object" ? String(value.CurrentTextValue || value.CurrentValue || "") : String(value);
+  const match = text.match(/\d+(?:[.,]\d+)?/);
+  if (!match) return "";
+  const num = match[0].replace(",", ".");
+  return num.includes(".") ? String(Math.round(parseFloat(num) * 1000)) : num;
+}
+
+/** Extract engine power and ALWAYS return value in kW.
+ *  Detects units: "120 kW" → 120; "163 KM" / "163 HP" / "163 PS" → kW.
+ *  If no unit specified and value > 250, assumes KM (most cars are <250 kW). */
+function extractPowerKw(value: any): string {
+  if (value === null || value === undefined || value === "") return "";
+  const text = typeof value === "object" ? String(value.CurrentTextValue || value.CurrentValue || "") : String(value);
+  if (!text) return "";
+  const lower = text.toLowerCase();
+  const numMatch = text.match(/\d+(?:[.,]\d+)?/);
+  if (!numMatch) return "";
+  const num = parseFloat(numMatch[0].replace(",", "."));
+  if (!num) return "";
+  if (lower.includes("kw")) return String(Math.round(num));
+  if (lower.includes("km") || lower.includes("hp") || lower.includes("ps") || lower.includes("bhp")) {
+    return String(Math.round(num * 0.7355));
+  }
+  // No unit — assume kW if reasonable, otherwise convert from HP
+  if (num > 250) return String(Math.round(num * 0.7355));
+  return String(Math.round(num));
 }
 
 function parseYear(value: any): number | null {
