@@ -215,7 +215,7 @@ Deno.serve(async (req) => {
                 paid_amount: computed.paidAmount,
                 remaining_debt: computed.remainingDebt,
                 source_previous_settlement_id: previousSettlementId,
-                source_previous_actual_payout: round2(previousActualPayout),
+                source_previous_actual_payout: round2(openingDebt),
                 source_note: note,
                 status: "active",
               },
