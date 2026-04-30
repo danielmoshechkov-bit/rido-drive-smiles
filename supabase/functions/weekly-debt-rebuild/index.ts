@@ -161,32 +161,42 @@ Deno.serve(async (req) => {
           ...matchedTx.map((t: any) => ({ amount: Math.abs(Number(t.amount || 0)) })),
         ];
 
-        // currentPayoutRaw = stary actual_payout + stary debt_after (odwracamy potrącenie)
+        // RAW payout = wypłata przed odjęciem długu w starym systemie.
+        // Odwracamy stare zapisy: oldActualPayout zawierało już odjęcie debt_payment i nową kontrybucję.
+        // Wzór: raw = oldActualPayout + oldDebtAfter - oldDebtBefore + oldDebtPayment
         const oldActualPayout = Number(s.actual_payout || 0);
+        const oldDebtBefore = Number(s.debt_before || 0);
+        const oldDebtPayment = Number(s.debt_payment || 0);
         const oldDebtAfter = Number(s.debt_after || 0);
-        const currentPayoutRaw = round2(oldActualPayout + oldDebtAfter);
+        const currentPayoutRaw = round2(
+          oldActualPayout + oldDebtAfter - oldDebtBefore + oldDebtPayment,
+        );
 
-        const computed = calculateWeeklyDebt(previousActualPayout, currentPayoutRaw, allPayments);
+        const computed = calculateWeeklyDebt(openingDebt, currentPayoutRaw, allPayments);
 
-        const note = previousActualPayout < -0.01
-          ? `Dług z tygodnia ${seedPrev?.period_to || "poprzedniego"}`
+        const note = openingDebt > 0.01
+          ? `Dług otwarcia ${round2(openingDebt)} z poprzedniego tygodnia`
           : "Brak długu z poprzedniego tygodnia";
 
         driverReport.weeks.push({
           period_from: s.period_from,
           period_to: s.period_to,
           settlement_id: s.id,
-          previous_actual_payout: round2(previousActualPayout),
+          previous_actual_payout: round2(openingDebt), // teraz reprezentuje opening, nie payout
           current_payout_raw: currentPayoutRaw,
           payments_found: round2(allPayments.reduce((a, p) => a + Math.abs(p.amount), 0)),
           payments_count: allPayments.length,
           opening_debt: computed.openingDebt,
           paid_amount: computed.paidAmount,
+          visible_debt: computed.visibleDebt,
           remaining_debt: computed.remainingDebt,
           new_actual_payout: computed.actualPayout,
           old_settlement_actual_payout: round2(oldActualPayout),
+          old_debt_before: round2(oldDebtBefore),
+          old_debt_payment: round2(oldDebtPayment),
           old_debt_after: round2(oldDebtAfter),
           diff_payout: round2(computed.actualPayout - oldActualPayout),
+          diff_debt_visible: round2(computed.visibleDebt - oldDebtAfter),
           diff_debt: round2(computed.remainingDebt - oldDebtAfter),
           note,
         });
