@@ -55,33 +55,29 @@ Deno.serve(async (req) => {
       currentSettlement = data;
     }
 
-    // 2. Poprzedni settlement
-    const { data: previousSettlement } = await supabase
-      .from("settlements")
-      .select("id, actual_payout, period_from, period_to")
+    // 2. Opening_debt = remaining_debt z poprzedniego rekordu w driver_weekly_debts
+    const { data: previousDwd } = await supabase
+      .from("driver_weekly_debts")
+      .select("id, remaining_debt, period_from, period_to, settlement_id")
       .eq("driver_id", body.driver_id)
       .lt("period_to", body.period_from)
       .order("period_to", { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    const previousActualPayout = Number(previousSettlement?.actual_payout || 0);
+    const openingDebt = Number(previousDwd?.remaining_debt || 0);
 
     // 3. Wypłata "raw" tego tygodnia
     let currentPayout: number;
     if (body.current_payout !== undefined && body.current_payout !== null) {
       currentPayout = Number(body.current_payout);
     } else if (currentSettlement) {
-      // Odtwarzamy: actual_payout + ostatnio zapisany remaining_debt
-      const { data: existingDwd } = await supabase
-        .from("driver_weekly_debts")
-        .select("remaining_debt")
-        .eq("driver_id", body.driver_id)
-        .eq("period_from", body.period_from)
-        .eq("period_to", body.period_to)
-        .maybeSingle();
-      const previouslyDeducted = Number(existingDwd?.remaining_debt || 0);
-      currentPayout = Number(currentSettlement.actual_payout || 0) + previouslyDeducted;
+      // Odtwórz raw z istniejącego settlement: actual + debt_after - debt_before + debt_payment
+      const a = Number(currentSettlement.actual_payout || 0);
+      const dB = Number((currentSettlement as any).debt_before || 0);
+      const dP = Number((currentSettlement as any).debt_payment || 0);
+      const dA = Number((currentSettlement as any).debt_after || 0);
+      currentPayout = round2(a + dA - dB + dP);
     } else {
       currentPayout = 0;
     }
@@ -95,11 +91,11 @@ Deno.serve(async (req) => {
       .eq("period_to", body.period_to);
 
     // 5. Oblicz
-    const computed = calculateWeeklyDebt(previousActualPayout, currentPayout, payments || []);
+    const computed = calculateWeeklyDebt(openingDebt, currentPayout, payments || []);
 
     // 6. Upsert driver_weekly_debts
-    const sourceNote = previousActualPayout < -0.01
-      ? "Dług z minusowej wypłaty finalowej poprzedniego tygodnia"
+    const sourceNote = openingDebt > 0.01
+      ? `Dług otwarcia ${round2(openingDebt)} z poprzedniego tygodnia`
       : "Brak długu z poprzedniego tygodnia";
 
     const { data: upserted, error: upsertErr } = await supabase
@@ -112,9 +108,10 @@ Deno.serve(async (req) => {
           period_to: body.period_to,
           opening_debt: computed.openingDebt,
           paid_amount: computed.paidAmount,
+          visible_debt: computed.visibleDebt,
           remaining_debt: computed.remainingDebt,
-          source_previous_settlement_id: previousSettlement?.id || null,
-          source_previous_actual_payout: round2(previousActualPayout),
+          source_previous_settlement_id: previousDwd?.settlement_id || null,
+          source_previous_actual_payout: round2(openingDebt),
           source_note: sourceNote,
           status: "active",
         },
@@ -125,14 +122,14 @@ Deno.serve(async (req) => {
 
     if (upsertErr) throw upsertErr;
 
-    // 7. Sync settlements (informacyjne pola, źródłem prawdy jest dwd)
+    // 7. Sync settlements: debt_after = visibleDebt (UI), NIE remainingDebt
     if (currentSettlement?.id) {
       await supabase
         .from("settlements")
         .update({
           debt_before: computed.openingDebt,
           debt_payment: computed.paidAmount,
-          debt_after: computed.remainingDebt,
+          debt_after: computed.visibleDebt,
           actual_payout: computed.actualPayout,
         })
         .eq("id", currentSettlement.id);
@@ -154,8 +151,8 @@ Deno.serve(async (req) => {
         success: true,
         weekly_debt: upserted,
         computed,
-        previous_settlement_id: previousSettlement?.id || null,
-        previous_actual_payout: previousActualPayout,
+        previous_dwd_id: previousDwd?.id || null,
+        opening_debt_used: openingDebt,
         current_payout_used: currentPayout,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },

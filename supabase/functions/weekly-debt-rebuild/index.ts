@@ -15,6 +15,7 @@ interface RequestBody {
   year: number;             // np. 2025
   dry_run?: boolean;        // domyślnie true
   driver_ids?: string[];    // opcjonalnie ograniczyć do listy
+  fleet_id?: string;        // opcjonalnie ograniczyć do floty
   offset?: number;          // do batchowania
   limit?: number;           // do batchowania (domyślnie 25)
   only_diffs?: boolean;     // raport tylko z tygodniami które mają diff
@@ -83,8 +84,9 @@ Deno.serve(async (req) => {
     const limit = Math.max(1, Math.min(100, Number(body.limit || 25)));
     let driverQuery = supabase
       .from("drivers")
-      .select("id, first_name, last_name", { count: "exact" })
+      .select("id, first_name, last_name, fleet_id", { count: "exact" })
       .order("id", { ascending: true });
+    if (body.fleet_id) driverQuery = driverQuery.eq("fleet_id", body.fleet_id);
     if (body.driver_ids?.length) driverQuery = driverQuery.in("id", body.driver_ids);
     else driverQuery = driverQuery.range(offset, offset + limit - 1);
     const { data: drivers, error: driversErr, count: totalDriversCount } = await driverQuery;
@@ -98,17 +100,19 @@ Deno.serve(async (req) => {
       // Settlements od start_week
       const { data: settlements } = await supabase
         .from("settlements")
-        .select("id, period_from, period_to, actual_payout, amounts, debt_after")
+        .select("id, period_from, period_to, actual_payout, amounts, debt_before, debt_payment, debt_after")
         .eq("driver_id", driver.id)
         .gte("period_from", startDate)
         .order("period_from", { ascending: true });
 
       if (!settlements?.length) continue;
 
-      // Poprzedni settlement (przed start_week) jako seed dla previousActualPayout
-      const { data: seedPrev } = await supabase
-        .from("settlements")
-        .select("id, actual_payout, period_from, period_to")
+      // Seed: opening_debt dla pierwszego tygodnia od start_week.
+      // Bierzemy remaining_debt z poprzedniego rekordu w driver_weekly_debts (jeśli istnieje).
+      // Jeśli nie istnieje (czysty start od t.14) -> 0. Stare settlements.debt_after IGNORUJEMY.
+      const { data: seedPrevDwd } = await supabase
+        .from("driver_weekly_debts")
+        .select("id, remaining_debt, period_from, period_to")
         .eq("driver_id", driver.id)
         .lt("period_from", startDate)
         .order("period_to", { ascending: false })
@@ -129,8 +133,8 @@ Deno.serve(async (req) => {
         unmatched_payments: [],
       };
 
-      let previousActualPayout = Number(seedPrev?.actual_payout || 0);
-      let previousSettlementId: string | null = seedPrev?.id || null;
+      let openingDebt = Number(seedPrevDwd?.remaining_debt || 0);
+      let previousSettlementId: string | null = null;
 
       for (const s of settlements) {
         // Wpłaty dla tego tygodnia: 
@@ -159,32 +163,42 @@ Deno.serve(async (req) => {
           ...matchedTx.map((t: any) => ({ amount: Math.abs(Number(t.amount || 0)) })),
         ];
 
-        // currentPayoutRaw = stary actual_payout + stary debt_after (odwracamy potrącenie)
+        // RAW payout = wypłata przed odjęciem długu w starym systemie.
+        // Odwracamy stare zapisy: oldActualPayout zawierało już odjęcie debt_payment i nową kontrybucję.
+        // Wzór: raw = oldActualPayout + oldDebtAfter - oldDebtBefore + oldDebtPayment
         const oldActualPayout = Number(s.actual_payout || 0);
+        const oldDebtBefore = Number(s.debt_before || 0);
+        const oldDebtPayment = Number(s.debt_payment || 0);
         const oldDebtAfter = Number(s.debt_after || 0);
-        const currentPayoutRaw = round2(oldActualPayout + oldDebtAfter);
+        const currentPayoutRaw = round2(
+          oldActualPayout + oldDebtAfter - oldDebtBefore + oldDebtPayment,
+        );
 
-        const computed = calculateWeeklyDebt(previousActualPayout, currentPayoutRaw, allPayments);
+        const computed = calculateWeeklyDebt(openingDebt, currentPayoutRaw, allPayments);
 
-        const note = previousActualPayout < -0.01
-          ? `Dług z tygodnia ${seedPrev?.period_to || "poprzedniego"}`
+        const note = openingDebt > 0.01
+          ? `Dług otwarcia ${round2(openingDebt)} z poprzedniego tygodnia`
           : "Brak długu z poprzedniego tygodnia";
 
         driverReport.weeks.push({
           period_from: s.period_from,
           period_to: s.period_to,
           settlement_id: s.id,
-          previous_actual_payout: round2(previousActualPayout),
+          previous_actual_payout: round2(openingDebt), // teraz reprezentuje opening, nie payout
           current_payout_raw: currentPayoutRaw,
           payments_found: round2(allPayments.reduce((a, p) => a + Math.abs(p.amount), 0)),
           payments_count: allPayments.length,
           opening_debt: computed.openingDebt,
           paid_amount: computed.paidAmount,
+          visible_debt: computed.visibleDebt,
           remaining_debt: computed.remainingDebt,
           new_actual_payout: computed.actualPayout,
           old_settlement_actual_payout: round2(oldActualPayout),
+          old_debt_before: round2(oldDebtBefore),
+          old_debt_payment: round2(oldDebtPayment),
           old_debt_after: round2(oldDebtAfter),
           diff_payout: round2(computed.actualPayout - oldActualPayout),
+          diff_debt_visible: round2(computed.visibleDebt - oldDebtAfter),
           diff_debt: round2(computed.remainingDebt - oldDebtAfter),
           note,
         });
@@ -201,9 +215,10 @@ Deno.serve(async (req) => {
                 period_to: s.period_to,
                 opening_debt: computed.openingDebt,
                 paid_amount: computed.paidAmount,
+                visible_debt: computed.visibleDebt,
                 remaining_debt: computed.remainingDebt,
                 source_previous_settlement_id: previousSettlementId,
-                source_previous_actual_payout: round2(previousActualPayout),
+                source_previous_actual_payout: round2(openingDebt),
                 source_note: note,
                 status: "active",
               },
@@ -241,20 +256,20 @@ Deno.serve(async (req) => {
             totalPaymentsMigrated++;
           }
 
-          // Sync settlements
+          // Sync settlements (UI dla widoku tygodniowego: debt_after = visibleDebt, NIE remainingDebt!)
           await supabase
             .from("settlements")
             .update({
               debt_before: computed.openingDebt,
               debt_payment: computed.paidAmount,
-              debt_after: computed.remainingDebt,
+              debt_after: computed.visibleDebt,
               actual_payout: computed.actualPayout,
             })
             .eq("id", s.id);
         }
 
-        // Następna iteracja: previous = aktualnie obliczone
-        previousActualPayout = computed.actualPayout;
+        // Następna iteracja: openingDebt następnego tygodnia = remainingDebt (kumulowany)
+        openingDebt = computed.remainingDebt;
         previousSettlementId = s.id;
       }
 
