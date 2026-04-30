@@ -2043,6 +2043,27 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           ? round2(Math.max(0, liveTotalBalance || liveBalance || 0))
           : currentDebtForDisplay;
 
+        // 🔎 DIAGNOSTYKA: pokaż co czyta UI dla każdego kierowcy w wybranym tygodniu
+        console.log('[DWD mapping]', {
+          driverId: driver.id,
+          driverName: `${driver.first_name} ${driver.last_name}`,
+          periodFrom: rowPeriodFrom,
+          periodTo: rowPeriodTo,
+          dwdQueryRange: { from: dwdPeriodFrom, to: dwdPeriodTo },
+          hasDWD: !!dwdSnapshot,
+          dwdOpening: dwdSnapshot?.opening,
+          dwdRemaining: dwdSnapshot?.remaining,
+          settlementDebtBefore: (settlementSnapshot as any)?.debt_before,
+          settlementDebtAfter: (settlementSnapshot as any)?.debt_after,
+          uiDebtColumn_debt_previous: settlementDebtBeforeForDisplay,
+          uiDebtColumn_snapshotTotalDebtAfter: snapshotTotalDebtAfter,
+          uiDialog_debt_current: liveDebtWinsForCurrentWeek ? effectiveCurrentDebtForDisplay : snapshotTotalDebtAfter,
+          sourceForDebtColumn: dwdSnapshot ? 'DWD.opening_debt' : 'fallback(splitDebt/settlement)',
+          sourceForDialogSnapshot: dwdSnapshot ? 'DWD.remaining' : 'fallback(splitDebt/settlement)',
+          isLatestWeek,
+          liveDebtWinsForCurrentWeek,
+        });
+
         // ⚠️ OCHRONA ZEROWYCH ZAROBKÓW
         // Jeśli kierowca nie jeździł (suma zarobków = 0) I nie ma ujemnego salda
         // NIE naliczamy opłat, ale jeśli ma dług to nadal pokazujemy go na liście
