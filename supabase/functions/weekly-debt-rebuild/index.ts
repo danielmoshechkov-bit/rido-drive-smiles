@@ -78,10 +78,16 @@ Deno.serve(async (req) => {
 
     const startDate = fmtDate(isoWeekStart(body.year, body.start_week));
 
-    // Lista kierowców
-    let driverQuery = supabase.from("drivers").select("id, first_name, last_name");
+    // Lista kierowców (z batchowaniem)
+    const offset = Math.max(0, Number(body.offset || 0));
+    const limit = Math.max(1, Math.min(100, Number(body.limit || 25)));
+    let driverQuery = supabase
+      .from("drivers")
+      .select("id, first_name, last_name", { count: "exact" })
+      .order("id", { ascending: true });
     if (body.driver_ids?.length) driverQuery = driverQuery.in("id", body.driver_ids);
-    const { data: drivers, error: driversErr } = await driverQuery;
+    else driverQuery = driverQuery.range(offset, offset + limit - 1);
+    const { data: drivers, error: driversErr, count: totalDriversCount } = await driverQuery;
     if (driversErr) throw driversErr;
 
     const reports: DriverReport[] = [];
