@@ -248,13 +248,17 @@ Deno.serve(async (req) => {
             totalPaymentsMigrated++;
           }
 
-          // Sync settlements (UI dla widoku tygodniowego: debt_after = visibleDebt, NIE remainingDebt!)
+          // Sync settlements: 
+          //   debt_before = openingDebt (to co UI ma pokazać w kolumnie "Dług")
+          //   debt_payment = paidAmount (wpłaty zaksięgowane w tym tygodniu)
+          //   debt_after = remainingDebt (przechodzi do następnego tygodnia)
+          //   actual_payout = nowy faktyczny payout
           await supabase
             .from("settlements")
             .update({
               debt_before: computed.openingDebt,
               debt_payment: computed.paidAmount,
-              debt_after: computed.visibleDebt,
+              debt_after: computed.remainingDebt,
               actual_payout: computed.actualPayout,
             })
             .eq("id", s.id);
