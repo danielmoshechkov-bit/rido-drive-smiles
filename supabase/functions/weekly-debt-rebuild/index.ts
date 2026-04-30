@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
       // Settlements od start_week
       const { data: settlements } = await supabase
         .from("settlements")
-        .select("id, period_from, period_to, actual_payout, amounts, debt_after")
+        .select("id, period_from, period_to, actual_payout, amounts, debt_before, debt_payment, debt_after")
         .eq("driver_id", driver.id)
         .gte("period_from", startDate)
         .order("period_from", { ascending: true });
