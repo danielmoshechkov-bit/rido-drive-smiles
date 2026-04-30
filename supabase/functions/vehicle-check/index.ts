@@ -338,8 +338,26 @@ function parseVehicleResponse(xmlText: string) {
 
 function mapRegCheckVehicle(vehicleData: any, regNumber: string | null, vinNumber: string | null) {
   const descriptionRaw = extractValue(vehicleData, "Description") || "";
-  const engineSize = extractEngineNumberText(vehicleData?.EngineSize) || extractEngineNumberText(vehicleData?.EngineCapacity) || extractEngineSizeFromDescription(descriptionRaw);
-  const power = extractNumberText(vehicleData?.Power) || extractNumberText(vehicleData?.EnginePower) || extractPowerFromDescription(descriptionRaw);
+  const engineSize = extractEngineNumberText(vehicleData?.EngineSize)
+    || extractEngineNumberText(vehicleData?.EngineCapacity)
+    || extractEngineNumberText(vehicleData?.engineCapacity)
+    || extractEngineSizeFromDescription(descriptionRaw);
+  // Try every known power field across RegCheck variants
+  const powerRaw = extractPowerKw(vehicleData?.EnginePower)
+    || extractPowerKw(vehicleData?.Power)
+    || extractPowerKw(vehicleData?.PowerKW)
+    || extractPowerKw(vehicleData?.PowerKw)
+    || extractPowerKw(vehicleData?.MaxPower)
+    || extractPowerKw(vehicleData?.MaxPowerOutput)
+    || extractPowerFromDescription(descriptionRaw);
+  const colorRaw = extractCurrentText(vehicleData, "Colour")
+    || extractCurrentText(vehicleData, "Color")
+    || extractCurrentText(vehicleData, "BodyColour")
+    || extractCurrentText(vehicleData, "BodyColor")
+    || extractValue(vehicleData, "Colour")
+    || extractValue(vehicleData, "Color")
+    || extractValue(vehicleData, "BodyColour")
+    || null;
 
   return {
     registration_number: regNumber || extractValue(vehicleData, "RegistrationNumber") || null,
@@ -347,12 +365,12 @@ function mapRegCheckVehicle(vehicleData: any, regNumber: string | null, vinNumbe
     make: extractCurrentText(vehicleData, "CarMake") || extractCurrentText(vehicleData, "Make") || null,
     model: extractCurrentText(vehicleData, "CarModel") || extractCurrentText(vehicleData, "Model") || extractValue(vehicleData, "CarModel") || null,
     body_style: extractCurrentText(vehicleData, "BodyStyle") || extractValue(vehicleData, "BodyStyle") || null,
-    color: extractCurrentText(vehicleData, "Colour") || extractCurrentText(vehicleData, "Color") || extractValue(vehicleData, "Colour") || null,
+    color: colorRaw,
     registration_year: parseYear(vehicleData?.ManufacturingYear || vehicleData?.ManufactureYear || extractValue(vehicleData, "RegistrationYear") || extractValue(vehicleData, "Year")),
     first_registration_date: extractValue(vehicleData, "FirstRegistrationDate") || extractValue(vehicleData, "DateFirstRegistered") || null,
     fuel_type: normalizeFuelType(vehicleData?.FuelType || extractCurrentText(vehicleData, "FuelType") || extractValue(vehicleData, "FuelType")),
     engine_size: engineSize || null,
-    engine_power_kw: power || null,
+    engine_power_kw: powerRaw || null,
     mileage: extractNumberText(vehicleData?.Mileage) || null,
     transmission: extractCurrentText(vehicleData, "Transmission") || null,
     number_of_doors: extractCurrentText(vehicleData, "NumberOfDoors") || extractNumberText(vehicleData?.NumberOfDoors) || null,
