@@ -21,14 +21,14 @@ interface RequestBody {
   only_diffs?: boolean;     // raport tylko z tygodniami które mają diff
 }
 
-// ISO week start (poniedziałek)
-function isoWeekStart(year: number, week: number): Date {
-  const simple = new Date(Date.UTC(year, 0, 1 + (week - 1) * 7));
-  const dow = simple.getUTCDay();
-  const isoStart = new Date(simple);
-  if (dow <= 4) isoStart.setUTCDate(simple.getUTCDate() - simple.getUTCDay() + 1);
-  else isoStart.setUTCDate(simple.getUTCDate() + 8 - simple.getUTCDay());
-  return isoStart;
+// UI week start (poniedziałek) – zgodne z src/lib/utils.ts -> getWeekDates.
+// pierwszy poniedziałek roku = tydzień 1.
+function uiWeekStart(year: number, week: number): Date {
+  let firstMon = new Date(Date.UTC(year, 0, 1));
+  while (firstMon.getUTCDay() !== 1) firstMon.setUTCDate(firstMon.getUTCDate() + 1);
+  const start = new Date(firstMon);
+  start.setUTCDate(firstMon.getUTCDate() + (week - 1) * 7);
+  return start;
 }
 
 function fmtDate(d: Date): string {
