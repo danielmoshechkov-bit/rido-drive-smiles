@@ -6,7 +6,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { useCreateWorkshopClient } from '@/hooks/useWorkshop';
-import { Users, Building, User, Loader2 } from 'lucide-react';
+import { useNipLookup } from '@/hooks/useNipLookup';
+import { toast } from 'sonner';
+import { Users, Building, User, Loader2, Search } from 'lucide-react';
 
 interface Props {
   open: boolean;
