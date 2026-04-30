@@ -7791,6 +7791,7 @@ export type Database = {
           source_previous_settlement_id: string | null
           status: string
           updated_at: string
+          visible_debt: number | null
           week_number: number | null
           year: number | null
         }
@@ -7809,6 +7810,7 @@ export type Database = {
           source_previous_settlement_id?: string | null
           status?: string
           updated_at?: string
+          visible_debt?: number | null
           week_number?: number | null
           year?: number | null
         }
@@ -7827,6 +7829,7 @@ export type Database = {
           source_previous_settlement_id?: string | null
           status?: string
           updated_at?: string
+          visible_debt?: number | null
           week_number?: number | null
           year?: number | null
         }
