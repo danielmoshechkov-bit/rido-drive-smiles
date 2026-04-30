@@ -15,6 +15,9 @@ interface RequestBody {
   year: number;             // np. 2025
   dry_run?: boolean;        // domyślnie true
   driver_ids?: string[];    // opcjonalnie ograniczyć do listy
+  offset?: number;          // do batchowania
+  limit?: number;           // do batchowania (domyślnie 25)
+  only_diffs?: boolean;     // raport tylko z tygodniami które mają diff
 }
 
 // ISO week start (poniedziałek)
@@ -75,10 +78,16 @@ Deno.serve(async (req) => {
 
     const startDate = fmtDate(isoWeekStart(body.year, body.start_week));
 
-    // Lista kierowców
-    let driverQuery = supabase.from("drivers").select("id, first_name, last_name");
+    // Lista kierowców (z batchowaniem)
+    const offset = Math.max(0, Number(body.offset || 0));
+    const limit = Math.max(1, Math.min(100, Number(body.limit || 25)));
+    let driverQuery = supabase
+      .from("drivers")
+      .select("id, first_name, last_name", { count: "exact" })
+      .order("id", { ascending: true });
     if (body.driver_ids?.length) driverQuery = driverQuery.in("id", body.driver_ids);
-    const { data: drivers, error: driversErr } = await driverQuery;
+    else driverQuery = driverQuery.range(offset, offset + limit - 1);
+    const { data: drivers, error: driversErr, count: totalDriversCount } = await driverQuery;
     if (driversErr) throw driversErr;
 
     const reports: DriverReport[] = [];
@@ -281,6 +290,18 @@ Deno.serve(async (req) => {
       r.weeks.some((w) => Math.abs(w.diff_payout) > 0.01 || Math.abs(w.diff_debt) > 0.01),
     );
 
+    // Filtr only_diffs - oszczędność payloadu
+    const filteredReports = body.only_diffs
+      ? reports
+          .map((r) => ({
+            ...r,
+            weeks: r.weeks.filter(
+              (w) => Math.abs(w.diff_payout) > 0.01 || Math.abs(w.diff_debt) > 0.01,
+            ),
+          }))
+          .filter((r) => r.weeks.length > 0 || r.unmatched_payments.length > 0)
+      : reports;
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -288,11 +309,16 @@ Deno.serve(async (req) => {
         start_week: body.start_week,
         year: body.year,
         start_date: startDate,
+        offset,
+        limit,
+        total_drivers: totalDriversCount ?? null,
+        next_offset: body.driver_ids?.length ? null : offset + (drivers?.length || 0),
+        has_more: body.driver_ids?.length ? false : (offset + (drivers?.length || 0)) < (totalDriversCount ?? 0),
         drivers_processed: reports.length,
         drivers_with_diffs: driversWithDiffs.length,
         weeks_written: totalWritten,
         payments_migrated: totalPaymentsMigrated,
-        reports,
+        reports: filteredReports,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
