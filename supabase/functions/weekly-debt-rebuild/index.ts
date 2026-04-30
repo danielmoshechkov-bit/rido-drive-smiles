@@ -154,16 +154,17 @@ Deno.serve(async (req) => {
           ...matchedTx.map((t: any) => ({ amount: Math.abs(Number(t.amount || 0)) })),
         ];
 
-        // RAW payout = wypłata przed odjęciem długu w starym systemie.
-        // Odwracamy stare zapisy: oldActualPayout zawierało już odjęcie debt_payment i nową kontrybucję.
-        // Wzór: raw = oldActualPayout + oldDebtAfter - oldDebtBefore + oldDebtPayment
+        // RAW payout = wypłata PRZED odjęciem długu.
+        // IGNORUJEMY stare debt_before/debt_after (są fantomowe, lustrzane).
+        // Ufamy tylko: oldActualPayout (co kierowca naprawdę dostał) + oldDebtPayment (ile ze starego długu poszło).
+        // raw = oldActualPayout + oldDebtPayment
+        // Wartość dodatnia = realna wypłata; ujemna w starym systemie była zerowana (raw < 0 → debt).
+        // Dla rekonstrukcji ujemnego raw musielibyśmy sumować przychody/koszty z amounts — pominięte na ten rebuild.
         const oldActualPayout = Number(s.actual_payout || 0);
         const oldDebtBefore = Number(s.debt_before || 0);
         const oldDebtPayment = Number(s.debt_payment || 0);
         const oldDebtAfter = Number(s.debt_after || 0);
-        const currentPayoutRaw = round2(
-          oldActualPayout + oldDebtAfter - oldDebtBefore + oldDebtPayment,
-        );
+        const currentPayoutRaw = round2(oldActualPayout + oldDebtPayment);
 
         const computed = calculateWeeklyDebt(openingDebt, currentPayoutRaw, allPayments);
 
