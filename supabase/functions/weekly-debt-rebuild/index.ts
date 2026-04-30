@@ -253,20 +253,20 @@ Deno.serve(async (req) => {
             totalPaymentsMigrated++;
           }
 
-          // Sync settlements
+          // Sync settlements (UI dla widoku tygodniowego: debt_after = visibleDebt, NIE remainingDebt!)
           await supabase
             .from("settlements")
             .update({
               debt_before: computed.openingDebt,
               debt_payment: computed.paidAmount,
-              debt_after: computed.remainingDebt,
+              debt_after: computed.visibleDebt,
               actual_payout: computed.actualPayout,
             })
             .eq("id", s.id);
         }
 
-        // Następna iteracja: previous = aktualnie obliczone
-        previousActualPayout = computed.actualPayout;
+        // Następna iteracja: openingDebt następnego tygodnia = remainingDebt (kumulowany)
+        openingDebt = computed.remainingDebt;
         previousSettlementId = s.id;
       }
 
