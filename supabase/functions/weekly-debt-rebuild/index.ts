@@ -107,17 +107,8 @@ Deno.serve(async (req) => {
 
       if (!settlements?.length) continue;
 
-      // Seed: opening_debt dla pierwszego tygodnia od start_week.
-      // Bierzemy remaining_debt z poprzedniego rekordu w driver_weekly_debts (jeśli istnieje).
-      // Jeśli nie istnieje (czysty start od t.14) -> 0. Stare settlements.debt_after IGNORUJEMY.
-      const { data: seedPrevDwd } = await supabase
-        .from("driver_weekly_debts")
-        .select("id, remaining_debt, period_from, period_to")
-        .eq("driver_id", driver.id)
-        .lt("period_from", startDate)
-        .order("period_to", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      // CZYSTY START od start_week: opening_debt pierwszego tygodnia = 0.
+      // Stary system (debt_after, debt_before, driver_debts, driver_weekly_debts sprzed t.14) — IGNORUJEMY.
 
       // Stare driver_debt_transactions od start_week (do migracji wpłat)
       const { data: oldDebtTx } = await supabase
@@ -133,7 +124,7 @@ Deno.serve(async (req) => {
         unmatched_payments: [],
       };
 
-      let openingDebt = Number(seedPrevDwd?.remaining_debt || 0);
+      let openingDebt = 0; // czysty start — stare długi są fantomowe i nieufne
       let previousSettlementId: string | null = null;
 
       for (const s of settlements) {
@@ -163,16 +154,17 @@ Deno.serve(async (req) => {
           ...matchedTx.map((t: any) => ({ amount: Math.abs(Number(t.amount || 0)) })),
         ];
 
-        // RAW payout = wypłata przed odjęciem długu w starym systemie.
-        // Odwracamy stare zapisy: oldActualPayout zawierało już odjęcie debt_payment i nową kontrybucję.
-        // Wzór: raw = oldActualPayout + oldDebtAfter - oldDebtBefore + oldDebtPayment
+        // RAW payout = wypłata PRZED odjęciem długu.
+        // IGNORUJEMY stare debt_before/debt_after (są fantomowe, lustrzane).
+        // Ufamy tylko: oldActualPayout (co kierowca naprawdę dostał) + oldDebtPayment (ile ze starego długu poszło).
+        // raw = oldActualPayout + oldDebtPayment
+        // Wartość dodatnia = realna wypłata; ujemna w starym systemie była zerowana (raw < 0 → debt).
+        // Dla rekonstrukcji ujemnego raw musielibyśmy sumować przychody/koszty z amounts — pominięte na ten rebuild.
         const oldActualPayout = Number(s.actual_payout || 0);
         const oldDebtBefore = Number(s.debt_before || 0);
         const oldDebtPayment = Number(s.debt_payment || 0);
         const oldDebtAfter = Number(s.debt_after || 0);
-        const currentPayoutRaw = round2(
-          oldActualPayout + oldDebtAfter - oldDebtBefore + oldDebtPayment,
-        );
+        const currentPayoutRaw = round2(oldActualPayout + oldDebtPayment);
 
         const computed = calculateWeeklyDebt(openingDebt, currentPayoutRaw, allPayments);
 
@@ -256,13 +248,17 @@ Deno.serve(async (req) => {
             totalPaymentsMigrated++;
           }
 
-          // Sync settlements (UI dla widoku tygodniowego: debt_after = visibleDebt, NIE remainingDebt!)
+          // Sync settlements: 
+          //   debt_before = openingDebt (to co UI ma pokazać w kolumnie "Dług")
+          //   debt_payment = paidAmount (wpłaty zaksięgowane w tym tygodniu)
+          //   debt_after = remainingDebt (przechodzi do następnego tygodnia)
+          //   actual_payout = nowy faktyczny payout
           await supabase
             .from("settlements")
             .update({
               debt_before: computed.openingDebt,
               debt_payment: computed.paidAmount,
-              debt_after: computed.visibleDebt,
+              debt_after: computed.remainingDebt,
               actual_payout: computed.actualPayout,
             })
             .eq("id", s.id);
