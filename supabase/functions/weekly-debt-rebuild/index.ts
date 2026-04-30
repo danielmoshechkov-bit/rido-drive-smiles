@@ -84,8 +84,9 @@ Deno.serve(async (req) => {
     const limit = Math.max(1, Math.min(100, Number(body.limit || 25)));
     let driverQuery = supabase
       .from("drivers")
-      .select("id, first_name, last_name", { count: "exact" })
+      .select("id, first_name, last_name, fleet_id", { count: "exact" })
       .order("id", { ascending: true });
+    if (body.fleet_id) driverQuery = driverQuery.eq("fleet_id", body.fleet_id);
     if (body.driver_ids?.length) driverQuery = driverQuery.in("id", body.driver_ids);
     else driverQuery = driverQuery.range(offset, offset + limit - 1);
     const { data: drivers, error: driversErr, count: totalDriversCount } = await driverQuery;
