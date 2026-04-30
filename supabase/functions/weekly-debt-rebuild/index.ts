@@ -290,6 +290,18 @@ Deno.serve(async (req) => {
       r.weeks.some((w) => Math.abs(w.diff_payout) > 0.01 || Math.abs(w.diff_debt) > 0.01),
     );
 
+    // Filtr only_diffs - oszczędność payloadu
+    const filteredReports = body.only_diffs
+      ? reports
+          .map((r) => ({
+            ...r,
+            weeks: r.weeks.filter(
+              (w) => Math.abs(w.diff_payout) > 0.01 || Math.abs(w.diff_debt) > 0.01,
+            ),
+          }))
+          .filter((r) => r.weeks.length > 0 || r.unmatched_payments.length > 0)
+      : reports;
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -297,11 +309,16 @@ Deno.serve(async (req) => {
         start_week: body.start_week,
         year: body.year,
         start_date: startDate,
+        offset,
+        limit,
+        total_drivers: totalDriversCount ?? null,
+        next_offset: body.driver_ids?.length ? null : offset + (drivers?.length || 0),
+        has_more: body.driver_ids?.length ? false : (offset + (drivers?.length || 0)) < (totalDriversCount ?? 0),
         drivers_processed: reports.length,
         drivers_with_diffs: driversWithDiffs.length,
         weeks_written: totalWritten,
         payments_migrated: totalPaymentsMigrated,
-        reports,
+        reports: filteredReports,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
