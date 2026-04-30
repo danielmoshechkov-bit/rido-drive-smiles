@@ -107,17 +107,8 @@ Deno.serve(async (req) => {
 
       if (!settlements?.length) continue;
 
-      // Seed: opening_debt dla pierwszego tygodnia od start_week.
-      // Bierzemy remaining_debt z poprzedniego rekordu w driver_weekly_debts (jeśli istnieje).
-      // Jeśli nie istnieje (czysty start od t.14) -> 0. Stare settlements.debt_after IGNORUJEMY.
-      const { data: seedPrevDwd } = await supabase
-        .from("driver_weekly_debts")
-        .select("id, remaining_debt, period_from, period_to")
-        .eq("driver_id", driver.id)
-        .lt("period_from", startDate)
-        .order("period_to", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      // CZYSTY START od start_week: opening_debt pierwszego tygodnia = 0.
+      // Stary system (debt_after, debt_before, driver_debts, driver_weekly_debts sprzed t.14) — IGNORUJEMY.
 
       // Stare driver_debt_transactions od start_week (do migracji wpłat)
       const { data: oldDebtTx } = await supabase
