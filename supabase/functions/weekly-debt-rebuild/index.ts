@@ -276,6 +276,33 @@ Deno.serve(async (req) => {
             totalPaymentsMigrated++;
           }
 
+          // Fallback wpłata z settlements.debt_payment (gdy stary system zarejestrował spłatę
+          // tylko jako pole w settlements, bez transakcji w driver_debt_transactions).
+          const fallbackPayment = allPayments.find((p) => (p as any).source === 'settlement_debt_payment');
+          if (fallbackPayment && fallbackPayment.amount > 0.01) {
+            const { data: alreadyFallback } = await supabase
+              .from("driver_weekly_debt_payments")
+              .select("id")
+              .eq("driver_id", driver.id)
+              .eq("period_from", s.period_from)
+              .eq("period_to", s.period_to)
+              .ilike("note", `%settlement_debt_payment:${s.id}%`)
+              .maybeSingle();
+            if (!alreadyFallback) {
+              await supabase.from("driver_weekly_debt_payments").insert({
+                weekly_debt_id: upserted?.id || null,
+                driver_id: driver.id,
+                settlement_id: s.id,
+                period_from: s.period_from,
+                period_to: s.period_to,
+                amount: round2(fallbackPayment.amount),
+                payment_type: "migrated",
+                note: `settlement_debt_payment:${s.id}`,
+              });
+              totalPaymentsMigrated++;
+            }
+          }
+
           // Sync settlements: 
           //   debt_before = openingDebt (to co UI ma pokazać w kolumnie "Dług")
           //   debt_payment = paidAmount (wpłaty zaksięgowane w tym tygodniu)
