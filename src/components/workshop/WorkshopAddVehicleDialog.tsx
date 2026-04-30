@@ -33,7 +33,7 @@ function trimModelName(raw: string): string {
   return raw.replace(/\s+\d+\.\d+(\s+\S+)*$/, '').trim();
 }
 
-export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCreated }: Props) {
+export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCreated, initialPlate }: Props) {
   const create = useCreateWorkshopVehicle();
   const qc = useQueryClient();
   const { data: clients = [] } = useWorkshopClients(providerId);
