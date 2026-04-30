@@ -527,32 +527,27 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                       </div>
                     </TableCell>
                     <TableCell onClick={e => e.stopPropagation()}>
-                      <div className="relative">
-                        <button
-                          onClick={() => setStatusDropdownId(statusDropdownId === order.id ? null : order.id)}
-                          className="cursor-pointer"
-                        >
-                          <Badge className={`${statusColors[order.status_name] || 'bg-gray-200 text-black'} text-xs whitespace-nowrap hover:opacity-80 transition-opacity`}>
-                            {order.status_name || 'Brak'}
-                          </Badge>
-                        </button>
-                        {statusDropdownId === order.id && (
-                          <div className="absolute z-50 mt-1 border rounded-md bg-background shadow-lg min-w-[180px]">
-                            {statuses.map((s: any) => (
-                              <button
-                                key={s.id}
-                                className={`w-full text-left px-3 py-2 hover:bg-accent text-sm flex items-center gap-2 ${
-                                  s.name === order.status_name ? 'bg-accent font-medium' : ''
-                                }`}
-                                onClick={() => changeStatus(order.id, s.name)}
-                              >
-                                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: s.color }} />
-                                {s.name}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className="cursor-pointer">
+                            <Badge className={`${statusColors[order.status_name] || 'bg-gray-200 text-black'} text-xs whitespace-nowrap hover:opacity-80 transition-opacity`}>
+                              {order.status_name || 'Brak'}
+                            </Badge>
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" side="bottom" sideOffset={4} className="min-w-[200px] max-h-[80vh] overflow-y-auto z-[60]">
+                          {statuses.map((s: any) => (
+                            <DropdownMenuItem
+                              key={s.id}
+                              onClick={() => changeStatus(order.id, s.name)}
+                              className={`gap-2 ${s.name === order.status_name ? 'bg-accent font-medium' : ''}`}
+                            >
+                              <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
+                              <span>{s.name}</span>
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                     <TableCell className="text-right font-medium">
                       {(order.total_gross || 0).toLocaleString('pl-PL', { minimumFractionDigits: 2 })}
