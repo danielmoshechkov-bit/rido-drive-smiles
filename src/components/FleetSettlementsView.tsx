@@ -2022,14 +2022,23 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         const splitDebt = splitDebtByWeek.get(`${driver.id}|${rowPeriodFrom}|${rowPeriodTo}`);
         // Prefer weekly snapshot-chain debt split (also for latest week) to avoid
         // drift from live ledger totals that can temporarily include stale values.
-        const settlementDebtBeforeForDisplay = splitDebt?.settlementDebtBefore ?? debtBeforeForDisplay;
+        // ŹRÓDŁO PRAWDY: jeśli istnieje wpis w driver_weekly_debts dla tego tygodnia
+        // → nadpisuje wszystko (opening = UI Dług, remaining = dług końcowy NIE pokazywany w kolumnie).
+        const dwdSnapshot = dwdMap.get(driver.id);
+        const settlementDebtBeforeForDisplay = dwdSnapshot
+          ? dwdSnapshot.opening
+          : (splitDebt?.settlementDebtBefore ?? debtBeforeForDisplay);
         const rentalDebtBeforeForDisplay = 0;
-        const snapshotSettlementDebtAfter = splitDebt?.settlementDebtAfter ?? 0;
-        const snapshotRentalDebtAfter = splitDebt?.rentalDebtAfter ?? 0;
+        const snapshotSettlementDebtAfter = dwdSnapshot
+          ? dwdSnapshot.remaining
+          : (splitDebt?.settlementDebtAfter ?? 0);
+        const snapshotRentalDebtAfter = dwdSnapshot ? 0 : (splitDebt?.rentalDebtAfter ?? 0);
         const snapshotTotalDebtAfter = round2(snapshotSettlementDebtAfter + snapshotRentalDebtAfter);
 
         const hasLiveLedgerValue = liveBalance !== undefined || liveDebtByDriver.has(driver.id);
-        const liveDebtWinsForCurrentWeek = isLatestWeek && hasLiveLedgerValue;
+        // Jeśli mamy dwdSnapshot, traktujemy go jako autorytatywny — NIE pozwalamy live ledgerowi
+        // nadpisywać kolumny "Dług bieżący" remaining z innego okresu.
+        const liveDebtWinsForCurrentWeek = isLatestWeek && hasLiveLedgerValue && !dwdSnapshot;
         const effectiveCurrentDebtForDisplay = liveDebtWinsForCurrentWeek
           ? round2(Math.max(0, liveTotalBalance || liveBalance || 0))
           : currentDebtForDisplay;
