@@ -124,7 +124,7 @@ Deno.serve(async (req) => {
         unmatched_payments: [],
       };
 
-      let openingDebt = Number(seedPrevDwd?.remaining_debt || 0);
+      let openingDebt = 0; // czysty start — stare długi są fantomowe i nieufne
       let previousSettlementId: string | null = null;
 
       for (const s of settlements) {
