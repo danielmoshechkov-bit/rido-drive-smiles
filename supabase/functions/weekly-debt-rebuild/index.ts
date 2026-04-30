@@ -21,18 +21,39 @@ interface RequestBody {
   only_diffs?: boolean;     // raport tylko z tygodniami które mają diff
 }
 
-// ISO week start (poniedziałek)
-function isoWeekStart(year: number, week: number): Date {
-  const simple = new Date(Date.UTC(year, 0, 1 + (week - 1) * 7));
-  const dow = simple.getUTCDay();
-  const isoStart = new Date(simple);
-  if (dow <= 4) isoStart.setUTCDate(simple.getUTCDate() - simple.getUTCDay() + 1);
-  else isoStart.setUTCDate(simple.getUTCDate() + 8 - simple.getUTCDay());
-  return isoStart;
+// UI week start (poniedziałek) – zgodne z src/lib/utils.ts -> getWeekDates.
+// pierwszy poniedziałek roku = tydzień 1.
+function uiWeekStart(year: number, week: number): Date {
+  let firstMon = new Date(Date.UTC(year, 0, 1));
+  while (firstMon.getUTCDay() !== 1) firstMon.setUTCDate(firstMon.getUTCDate() + 1);
+  const start = new Date(firstMon);
+  start.setUTCDate(firstMon.getUTCDate() + (week - 1) * 7);
+  return start;
 }
 
 function fmtDate(d: Date): string {
   return d.toISOString().slice(0, 10);
+}
+
+// Numer tygodnia zgodny z UI (src/lib/utils.ts -> getWeekDates):
+// pierwszy poniedziałek roku = tydzień 1, każde kolejne 7 dni = +1.
+// To NIE jest ISO week (ISO może mieć tydzień 1 zaczynający się w grudniu poprzedniego roku).
+function uiWeekFromDate(periodFromIso: string): { year: number; week: number } {
+  const [y, m, d] = periodFromIso.split("-").map(Number);
+  const periodFrom = new Date(Date.UTC(y, m - 1, d));
+  // Znajdź pierwszy poniedziałek roku startowego
+  let year = y;
+  let firstMon = new Date(Date.UTC(year, 0, 1));
+  while (firstMon.getUTCDay() !== 1) firstMon.setUTCDate(firstMon.getUTCDate() + 1);
+  if (periodFrom < firstMon) {
+    // tydzień należy jeszcze do poprzedniego roku
+    year = y - 1;
+    firstMon = new Date(Date.UTC(year, 0, 1));
+    while (firstMon.getUTCDay() !== 1) firstMon.setUTCDate(firstMon.getUTCDate() + 1);
+  }
+  const diffDays = Math.round((periodFrom.getTime() - firstMon.getTime()) / 86400000);
+  const week = Math.floor(diffDays / 7) + 1;
+  return { year, week };
 }
 
 interface DriverReport {
@@ -77,7 +98,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const startDate = fmtDate(isoWeekStart(body.year, body.start_week));
+    const startDate = fmtDate(uiWeekStart(body.year, body.start_week));
 
     // Lista kierowców (z batchowaniem)
     const offset = Math.max(0, Number(body.offset || 0));
@@ -200,7 +221,11 @@ Deno.serve(async (req) => {
           ? `Dług otwarcia ${round2(openingDebt)} z poprzedniego tygodnia`
           : "Brak długu z poprzedniego tygodnia";
 
+        const uiW = uiWeekFromDate(s.period_from);
         driverReport.weeks.push({
+          ui_week: uiW.week,
+          ui_year: uiW.year,
+          ui_label: `t.${uiW.week}/${uiW.year} (${s.period_from} – ${s.period_to})`,
           period_from: s.period_from,
           period_to: s.period_to,
           settlement_id: s.id,
