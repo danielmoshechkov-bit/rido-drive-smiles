@@ -105,10 +105,12 @@ Deno.serve(async (req) => {
 
       if (!settlements?.length) continue;
 
-      // Poprzedni settlement (przed start_week) jako seed dla previousActualPayout
-      const { data: seedPrev } = await supabase
-        .from("settlements")
-        .select("id, actual_payout, period_from, period_to")
+      // Seed: opening_debt dla pierwszego tygodnia od start_week.
+      // Bierzemy remaining_debt z poprzedniego rekordu w driver_weekly_debts (jeśli istnieje).
+      // Jeśli nie istnieje (czysty start od t.14) -> 0. Stare settlements.debt_after IGNORUJEMY.
+      const { data: seedPrevDwd } = await supabase
+        .from("driver_weekly_debts")
+        .select("id, remaining_debt, period_from, period_to")
         .eq("driver_id", driver.id)
         .lt("period_from", startDate)
         .order("period_to", { ascending: false })
@@ -129,8 +131,8 @@ Deno.serve(async (req) => {
         unmatched_payments: [],
       };
 
-      let previousActualPayout = Number(seedPrev?.actual_payout || 0);
-      let previousSettlementId: string | null = seedPrev?.id || null;
+      let openingDebt = Number(seedPrevDwd?.remaining_debt || 0);
+      let previousSettlementId: string | null = null;
 
       for (const s of settlements) {
         // Wpłaty dla tego tygodnia: 
