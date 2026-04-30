@@ -7725,6 +7725,113 @@ export type Database = {
           },
         ]
       }
+      driver_weekly_debt_payments: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          driver_id: string
+          id: string
+          note: string | null
+          payment_type: string
+          period_from: string
+          period_to: string
+          settlement_id: string | null
+          weekly_debt_id: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          driver_id: string
+          id?: string
+          note?: string | null
+          payment_type?: string
+          period_from: string
+          period_to: string
+          settlement_id?: string | null
+          weekly_debt_id?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          driver_id?: string
+          id?: string
+          note?: string | null
+          payment_type?: string
+          period_from?: string
+          period_to?: string
+          settlement_id?: string | null
+          weekly_debt_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_weekly_debt_payments_weekly_debt_id_fkey"
+            columns: ["weekly_debt_id"]
+            isOneToOne: false
+            referencedRelation: "driver_weekly_debts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      driver_weekly_debts: {
+        Row: {
+          created_at: string
+          driver_id: string
+          id: string
+          opening_debt: number
+          paid_amount: number
+          period_from: string
+          period_to: string
+          remaining_debt: number
+          settlement_id: string | null
+          source_note: string | null
+          source_previous_actual_payout: number
+          source_previous_settlement_id: string | null
+          status: string
+          updated_at: string
+          week_number: number | null
+          year: number | null
+        }
+        Insert: {
+          created_at?: string
+          driver_id: string
+          id?: string
+          opening_debt?: number
+          paid_amount?: number
+          period_from: string
+          period_to: string
+          remaining_debt?: number
+          settlement_id?: string | null
+          source_note?: string | null
+          source_previous_actual_payout?: number
+          source_previous_settlement_id?: string | null
+          status?: string
+          updated_at?: string
+          week_number?: number | null
+          year?: number | null
+        }
+        Update: {
+          created_at?: string
+          driver_id?: string
+          id?: string
+          opening_debt?: number
+          paid_amount?: number
+          period_from?: string
+          period_to?: string
+          remaining_debt?: number
+          settlement_id?: string | null
+          source_note?: string | null
+          source_previous_actual_payout?: number
+          source_previous_settlement_id?: string | null
+          status?: string
+          updated_at?: string
+          week_number?: number | null
+          year?: number | null
+        }
+        Relationships: []
+      }
       drivers: {
         Row: {
           address_city: string | null
@@ -23331,6 +23438,7 @@ export type Database = {
         Args: { p_vehicle_id: string }
         Returns: boolean
       }
+      driver_owns_record: { Args: { _driver_id: string }; Returns: boolean }
       generate_random_listing_number: { Args: never; Returns: string }
       get_active_commission: {
         Args: { p_category_id?: string; p_provider_id: string }
@@ -23436,6 +23544,10 @@ export type Database = {
       next_workshop_order_number: {
         Args: { p_kind?: string; p_provider_id: string }
         Returns: string
+      }
+      user_can_access_driver: {
+        Args: { _driver_id: string; _user_id: string }
+        Returns: boolean
       }
       user_has_pending_reviews: {
         Args: { p_user_id: string }
