@@ -638,6 +638,7 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
         open={showAddVehicle}
         onOpenChange={setShowAddVehicle}
         providerId={providerId}
+        initialPlate={vehicleSearch}
         onCreated={(v) => {
           setVehicleId(v.id);
           setCreatedVehicleData(v);
