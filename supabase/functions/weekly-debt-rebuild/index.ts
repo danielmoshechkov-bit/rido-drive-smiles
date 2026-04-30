@@ -221,7 +221,11 @@ Deno.serve(async (req) => {
           ? `Dług otwarcia ${round2(openingDebt)} z poprzedniego tygodnia`
           : "Brak długu z poprzedniego tygodnia";
 
+        const uiW = uiWeekFromDate(s.period_from);
         driverReport.weeks.push({
+          ui_week: uiW.week,
+          ui_year: uiW.year,
+          ui_label: `t.${uiW.week}/${uiW.year} (${s.period_from} – ${s.period_to})`,
           period_from: s.period_from,
           period_to: s.period_to,
           settlement_id: s.id,
