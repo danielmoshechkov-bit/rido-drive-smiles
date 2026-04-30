@@ -149,10 +149,21 @@ Deno.serve(async (req) => {
           return false;
         });
 
-        const allPayments: { amount: number }[] = [
-          ...(existingDwdp || []).map((p: any) => ({ amount: Number(p.amount || 0) })),
-          ...matchedTx.map((t: any) => ({ amount: Math.abs(Number(t.amount || 0)) })),
+        const allPayments: { amount: number; source?: string }[] = [
+          ...(existingDwdp || []).map((p: any) => ({ amount: Number(p.amount || 0), source: 'dwdp' })),
+          ...matchedTx.map((t: any) => ({ amount: Math.abs(Number(t.amount || 0)), source: 'tx' })),
         ];
+
+        // Fallback: jeśli stary settlement.debt_payment > 0, a nie znaleźliśmy wpłaty z innych źródeł,
+        // dolicz tę kwotę jako migrowaną wpłatę z settlement (jedyny ślad takiej spłaty w bazie).
+        const sumFromOtherSources = allPayments.reduce((a, p) => a + Math.abs(p.amount), 0);
+        const oldDebtPaymentForFallback = Number(s.debt_payment || 0);
+        if (oldDebtPaymentForFallback > 0.01 && sumFromOtherSources < oldDebtPaymentForFallback - 0.01) {
+          allPayments.push({
+            amount: round2(oldDebtPaymentForFallback - sumFromOtherSources),
+            source: 'settlement_debt_payment',
+          });
+        }
 
         // RAW payout = wypłata PRZED odjęciem długu.
         // IGNORUJEMY stare debt_before/debt_after (są fantomowe, lustrzane).
