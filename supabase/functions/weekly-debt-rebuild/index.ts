@@ -35,6 +35,27 @@ function fmtDate(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
+// Numer tygodnia zgodny z UI (src/lib/utils.ts -> getWeekDates):
+// pierwszy poniedziałek roku = tydzień 1, każde kolejne 7 dni = +1.
+// To NIE jest ISO week (ISO może mieć tydzień 1 zaczynający się w grudniu poprzedniego roku).
+function uiWeekFromDate(periodFromIso: string): { year: number; week: number } {
+  const [y, m, d] = periodFromIso.split("-").map(Number);
+  const periodFrom = new Date(Date.UTC(y, m - 1, d));
+  // Znajdź pierwszy poniedziałek roku startowego
+  let year = y;
+  let firstMon = new Date(Date.UTC(year, 0, 1));
+  while (firstMon.getUTCDay() !== 1) firstMon.setUTCDate(firstMon.getUTCDate() + 1);
+  if (periodFrom < firstMon) {
+    // tydzień należy jeszcze do poprzedniego roku
+    year = y - 1;
+    firstMon = new Date(Date.UTC(year, 0, 1));
+    while (firstMon.getUTCDay() !== 1) firstMon.setUTCDate(firstMon.getUTCDate() + 1);
+  }
+  const diffDays = Math.round((periodFrom.getTime() - firstMon.getTime()) / 86400000);
+  const week = Math.floor(diffDays / 7) + 1;
+  return { year, week };
+}
+
 interface DriverReport {
   driver_id: string;
   driver_name?: string;
