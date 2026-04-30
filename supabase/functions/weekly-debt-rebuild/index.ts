@@ -65,7 +65,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const startDate = fmtDate(uiWeekStart(body.year, body.start_week));
+    const startDate = uiWeekRange(body.year, body.start_week).startISO;
 
     // Lista kierowców (z batchowaniem)
     const offset = Math.max(0, Number(body.offset || 0));
