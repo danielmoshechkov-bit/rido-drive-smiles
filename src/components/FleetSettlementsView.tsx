@@ -1752,6 +1752,30 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         });
       });
 
+      // ========== ŹRÓDŁO PRAWDY: driver_weekly_debts ==========
+      // Dla WYBRANEGO tygodnia pobierz snapshot opening_debt / remaining_debt z tabeli
+      // driver_weekly_debts (źródło prawdy po rebuildzie). Jeśli istnieje wpis dla
+      // (driver_id, period_from, period_to) → nadpisuje wartości wyliczane z settlements.
+      const dwdMap = new Map<string, { opening: number; visible: number; remaining: number }>();
+      const dwdPeriodFrom = currentWeek?.start || periodFrom;
+      const dwdPeriodTo = currentWeek?.end || periodTo;
+      if (dwdPeriodFrom && dwdPeriodTo && driverIds.length > 0) {
+        const { data: dwdRows } = await supabase
+          .from('driver_weekly_debts')
+          .select('driver_id, opening_debt, visible_debt, remaining_debt')
+          .in('driver_id', driverIds)
+          .eq('period_from', dwdPeriodFrom)
+          .eq('period_to', dwdPeriodTo);
+
+        (dwdRows || []).forEach((row: any) => {
+          dwdMap.set(row.driver_id, {
+            opening: round2(Math.max(0, Number(row.opening_debt || 0))),
+            visible: round2(Math.max(0, Number(row.visible_debt || 0))),
+            remaining: round2(Math.max(0, Number(row.remaining_debt || 0))),
+          });
+        });
+      }
+
       // Mapuj numery kart paliwowych kierowców (normalizacja - usuń wiodące zera)
       // CROSS-FLEET: Kierowca może mieć kartę paliwową przypisaną w innej flocie
       const driverFuelCards: Record<string, string> = {};
