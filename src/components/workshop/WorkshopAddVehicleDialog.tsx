@@ -19,6 +19,7 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   providerId: string;
   onCreated?: (vehicle: any) => void;
+  initialPlate?: string;
 }
 
 const fuelTypes = ['Benzyna', 'Diesel', 'LPG', 'Elektryczny', 'Hybryda', 'Wodór', 'CNG'];
