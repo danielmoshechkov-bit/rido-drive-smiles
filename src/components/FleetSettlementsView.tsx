@@ -997,17 +997,17 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     return round2(Math.max(0, settlement.rental_debt_previous ?? 0));
   };
 
-  // W najnowszym dostępnym tygodniu kolumna „Dług” ma pokazywać bieżące saldo po zmianach z modala,
-  // a nie historyczny dług wejściowy tygodnia. Dla starszych tygodni zostawiamy snapshot wejściowy.
+  // Kolumna „Dług" w tabeli tygodniowej ZAWSZE pokazuje dług WEJŚCIOWY tego tygodnia
+  // (opening_debt / visible_debt — to co kierowca jest winien NA POCZĄTKU tygodnia,
+  // przeniesione z poprzedniego tygodnia po wpłatach).
+  // NIE pokazujemy tu remaining_debt / debt_after / debt_current — to dług KOŃCOWY,
+  // który dopiero przechodzi na następny tydzień.
+  // Dotyczy zarówno tygodni historycznych, jak i bieżącego.
   const getDisplayedDebt = (settlement: DriverSettlement): number => {
     const incomingDebt = round2(
       Math.max(0, settlement.debt_previous ?? 0) + Math.max(0, settlement.rental_debt_previous ?? 0)
     );
-    const currentDebt = round2(Math.max(0, settlement.debt_current ?? 0));
-    const isCurrentWeek = weeks.length > 0 && selectedWeek === weeks[0].number;
-    const hasCurrentDebt = settlement.debt_current !== null && settlement.debt_current !== undefined;
-
-    return isCurrentWeek && hasCurrentDebt ? currentDebt : incomingDebt;
+    return incomingDebt;
   };
 
   const round2 = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;

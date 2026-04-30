@@ -164,7 +164,24 @@ Deno.serve(async (req) => {
         const oldDebtBefore = Number(s.debt_before || 0);
         const oldDebtPayment = Number(s.debt_payment || 0);
         const oldDebtAfter = Number(s.debt_after || 0);
-        const currentPayoutRaw = round2(oldActualPayout + oldDebtPayment);
+        // Rekonstrukcja RAW payout (przed odjęciem długu otwarcia):
+        //   - jeśli stary actual_payout > 0: raw = actual_payout + debt_payment (kierowca dostał na rękę + spłacił dług)
+        //   - jeśli stary actual_payout <= 0: stary system wyzerował payout i wpakował resztę do debt_after.
+        //     Wtedy: raw_final = -(debt_after - debt_before + debt_payment) [bo old: debt_after = |raw_final| + (debt_before - debt_payment)]
+        //     gdzie raw_final to wypłata po odjęciu opening. Ale my chcemy raw PRZED odjęciem opening:
+        //     raw = raw_final + effective_opening = -(debt_after - debt_before + debt_payment) + (debt_before - debt_payment)
+        //         = -debt_after + 2*debt_before - 2*debt_payment ... złe.
+        //     Prościej: raw = actual_payout - (debt_before - debt_payment) jeśli actual_payout < 0
+        //              ALE stary system zerował actual_payout do 0 lub do final negative.
+        //     Z analizy danych Wojtali: stary actual_payout = raw - effective_opening (gdy ujemne).
+        //     Czyli: raw = actual_payout + (debt_before - debt_payment) gdy actual_payout < 0.
+        let currentPayoutRaw: number;
+        if (oldActualPayout < -0.01) {
+          const effectiveOpeningOld = Math.max(0, oldDebtBefore - oldDebtPayment);
+          currentPayoutRaw = round2(oldActualPayout + effectiveOpeningOld);
+        } else {
+          currentPayoutRaw = round2(oldActualPayout + oldDebtPayment);
+        }
 
         const computed = calculateWeeklyDebt(openingDebt, currentPayoutRaw, allPayments);
 
