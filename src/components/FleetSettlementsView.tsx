@@ -1752,6 +1752,30 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         });
       });
 
+      // ========== ŹRÓDŁO PRAWDY: driver_weekly_debts ==========
+      // Dla WYBRANEGO tygodnia pobierz snapshot opening_debt / remaining_debt z tabeli
+      // driver_weekly_debts (źródło prawdy po rebuildzie). Jeśli istnieje wpis dla
+      // (driver_id, period_from, period_to) → nadpisuje wartości wyliczane z settlements.
+      const dwdMap = new Map<string, { opening: number; visible: number; remaining: number }>();
+      const dwdPeriodFrom = currentWeek?.start || periodFrom;
+      const dwdPeriodTo = currentWeek?.end || periodTo;
+      if (dwdPeriodFrom && dwdPeriodTo && driverIds.length > 0) {
+        const { data: dwdRows } = await supabase
+          .from('driver_weekly_debts')
+          .select('driver_id, opening_debt, visible_debt, remaining_debt')
+          .in('driver_id', driverIds)
+          .eq('period_from', dwdPeriodFrom)
+          .eq('period_to', dwdPeriodTo);
+
+        (dwdRows || []).forEach((row: any) => {
+          dwdMap.set(row.driver_id, {
+            opening: round2(Math.max(0, Number(row.opening_debt || 0))),
+            visible: round2(Math.max(0, Number(row.visible_debt || 0))),
+            remaining: round2(Math.max(0, Number(row.remaining_debt || 0))),
+          });
+        });
+      }
+
       // Mapuj numery kart paliwowych kierowców (normalizacja - usuń wiodące zera)
       // CROSS-FLEET: Kierowca może mieć kartę paliwową przypisaną w innej flocie
       const driverFuelCards: Record<string, string> = {};
@@ -1998,14 +2022,23 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         const splitDebt = splitDebtByWeek.get(`${driver.id}|${rowPeriodFrom}|${rowPeriodTo}`);
         // Prefer weekly snapshot-chain debt split (also for latest week) to avoid
         // drift from live ledger totals that can temporarily include stale values.
-        const settlementDebtBeforeForDisplay = splitDebt?.settlementDebtBefore ?? debtBeforeForDisplay;
+        // ŹRÓDŁO PRAWDY: jeśli istnieje wpis w driver_weekly_debts dla tego tygodnia
+        // → nadpisuje wszystko (opening = UI Dług, remaining = dług końcowy NIE pokazywany w kolumnie).
+        const dwdSnapshot = dwdMap.get(driver.id);
+        const settlementDebtBeforeForDisplay = dwdSnapshot
+          ? dwdSnapshot.opening
+          : (splitDebt?.settlementDebtBefore ?? debtBeforeForDisplay);
         const rentalDebtBeforeForDisplay = 0;
-        const snapshotSettlementDebtAfter = splitDebt?.settlementDebtAfter ?? 0;
-        const snapshotRentalDebtAfter = splitDebt?.rentalDebtAfter ?? 0;
+        const snapshotSettlementDebtAfter = dwdSnapshot
+          ? dwdSnapshot.remaining
+          : (splitDebt?.settlementDebtAfter ?? 0);
+        const snapshotRentalDebtAfter = dwdSnapshot ? 0 : (splitDebt?.rentalDebtAfter ?? 0);
         const snapshotTotalDebtAfter = round2(snapshotSettlementDebtAfter + snapshotRentalDebtAfter);
 
         const hasLiveLedgerValue = liveBalance !== undefined || liveDebtByDriver.has(driver.id);
-        const liveDebtWinsForCurrentWeek = isLatestWeek && hasLiveLedgerValue;
+        // Jeśli mamy dwdSnapshot, traktujemy go jako autorytatywny — NIE pozwalamy live ledgerowi
+        // nadpisywać kolumny "Dług bieżący" remaining z innego okresu.
+        const liveDebtWinsForCurrentWeek = isLatestWeek && hasLiveLedgerValue && !dwdSnapshot;
         const effectiveCurrentDebtForDisplay = liveDebtWinsForCurrentWeek
           ? round2(Math.max(0, liveTotalBalance || liveBalance || 0))
           : currentDebtForDisplay;
