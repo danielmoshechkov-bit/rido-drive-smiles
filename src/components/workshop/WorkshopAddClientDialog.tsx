@@ -165,7 +165,26 @@ export function WorkshopAddClientDialog({ open, onOpenChange, providerId, onCrea
                 </div>
                 <div className="space-y-1.5">
                   <Label>NIP</Label>
-                  <Input value={form.nip} onChange={e => set('nip', e.target.value)} placeholder="NIP firmy" />
+                  <div className="relative">
+                    <Input
+                      value={form.nip}
+                      onChange={e => set('nip', e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleNipLookup(); } }}
+                      placeholder="NIP firmy"
+                      className="pr-10"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleNipLookup}
+                      disabled={nipLoading}
+                      className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
+                      title="Pobierz dane firmy z rejestru"
+                    >
+                      {nipLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                    </Button>
+                  </div>
                 </div>
               </div>
               <AddressFields />
