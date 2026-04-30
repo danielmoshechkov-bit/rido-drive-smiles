@@ -15,6 +15,7 @@ interface RequestBody {
   year: number;             // np. 2025
   dry_run?: boolean;        // domyślnie true
   driver_ids?: string[];    // opcjonalnie ograniczyć do listy
+  fleet_id?: string;        // opcjonalnie ograniczyć do floty
   offset?: number;          // do batchowania
   limit?: number;           // do batchowania (domyślnie 25)
   only_diffs?: boolean;     // raport tylko z tygodniami które mają diff
