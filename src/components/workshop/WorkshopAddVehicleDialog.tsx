@@ -59,6 +59,13 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
     });
   }, []);
 
+  // Prefill plate when dialog opens with initialPlate
+  useEffect(() => {
+    if (open && initialPlate) {
+      setForm(p => ({ ...p, plate: initialPlate.toUpperCase() }));
+    }
+  }, [open, initialPlate]);
+
   // Close owner dropdown on outside click
   useEffect(() => {
     if (!showOwnerList) return;
