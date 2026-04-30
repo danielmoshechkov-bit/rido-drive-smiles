@@ -25,6 +25,7 @@ function formatPostalCode(value: string) {
 
 export function WorkshopAddClientDialog({ open, onOpenChange, providerId, onCreated }: Props) {
   const create = useCreateWorkshopClient();
+  const { lookup: lookupNip, loading: nipLoading } = useNipLookup();
   const [clientType, setClientType] = useState<'individual' | 'company'>('individual');
   const [form, setForm] = useState({
     company_name: '', nip: '', first_name: '', last_name: '',
@@ -34,6 +35,38 @@ export function WorkshopAddClientDialog({ open, onOpenChange, providerId, onCrea
   });
 
   const set = (key: string, val: any) => setForm(p => ({ ...p, [key]: val }));
+
+  const handleNipLookup = async () => {
+    const cleanNip = form.nip.replace(/[\s-]/g, '');
+    if (cleanNip.length < 10) {
+      toast.error('Wpisz poprawny numer NIP (10 cyfr)');
+      return;
+    }
+    try {
+      const { data, error: fnErr } = await (await import('@/integrations/supabase/client')).supabase.functions.invoke('lookup-nip', {
+        body: { nip: cleanNip },
+      });
+      if (fnErr) throw fnErr;
+      if (!data?.valid) {
+        toast.error(data?.error || 'Nie znaleziono firmy w rejestrze');
+        return;
+      }
+      const c = data.data;
+      setForm(prev => ({
+        ...prev,
+        company_name: c.name || prev.company_name,
+        nip: c.nip || prev.nip,
+        street: c.street || prev.street,
+        house_number: c.buildingNumber || prev.house_number,
+        apartment_number: c.apartmentNumber || prev.apartment_number,
+        city: c.city || prev.city,
+        postal_code: c.postalCode || prev.postal_code,
+      }));
+      toast.success('Dane firmy zostały pobrane');
+    } catch {
+      toast.error('Błąd połączenia z rejestrem firm');
+    }
+  };
 
   const handlePostalCode = (val: string) => {
     set('postal_code', formatPostalCode(val));
