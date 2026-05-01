@@ -446,6 +446,23 @@ export function InventoryPurchaseOCR({ entityId, showKsefOption }: Props) {
 
   const handleApprove = async () => {
     if (!invoiceHeader || ocrItems.length === 0) return;
+
+    // Wykrycie duplikatu (ten sam NIP + nr dokumentu)
+    const docNum = invoiceHeader.document_number?.trim();
+    const nip = (invoiceHeader.supplier_nip || '').replace(/[^0-9]/g, '');
+    if (docNum && nip) {
+      const dup = pastInvoices.find(p =>
+        (p.document_number || '').trim() === docNum &&
+        (p.supplier_nip || '').replace(/[^0-9]/g, '') === nip
+      );
+      if (dup) {
+        const ok = confirm(
+          `⚠️ Duplikat!\n\nFaktura ${docNum} od dostawcy NIP ${nip} już istnieje w systemie (data: ${dup.purchase_date || '?'}).\n\nDodać mimo to?`
+        );
+        if (!ok) return;
+      }
+    }
+
     setProcessing(true);
 
     try {
