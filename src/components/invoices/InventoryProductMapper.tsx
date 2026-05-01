@@ -13,11 +13,16 @@ const VAT_RATES = ['23', '8', '5', '0', 'zw', 'np'];
 interface InventoryProductMapperProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  entityId: string;
+  entityId: string | null;
+  userId?: string | null;
   itemName: string;
   itemNetPrice: number;
   itemQuantity: number;
   itemVatRate: string;
+  /** Dla zapisu aliasu (auto-mapowanie kolejnych faktur) */
+  supplierNip?: string | null;
+  supplierName?: string | null;
+  supplierSymbol?: string | null;
   onProductMapped: (productId: string) => void;
 }
 
