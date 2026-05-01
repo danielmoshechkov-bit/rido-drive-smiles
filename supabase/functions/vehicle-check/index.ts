@@ -466,15 +466,6 @@ function extractEngineNumberText(value: any): string {
   return num.includes(".") ? String(Math.round(parseFloat(num) * 1000)) : num;
 }
 
-function extractEngineNumberText(value: any): string {
-  if (value === null || value === undefined || value === "") return "";
-  const text = typeof value === "object" ? String(value.CurrentTextValue || value.CurrentValue || "") : String(value);
-  const match = text.match(/\d+(?:[.,]\d+)?/);
-  if (!match) return "";
-  const num = match[0].replace(",", ".");
-  return num.includes(".") ? String(Math.round(parseFloat(num) * 1000)) : num;
-}
-
 /** Extract engine power and ALWAYS return value in kW.
  *  Detects units: "120 kW" → 120; "163 KM" / "163 HP" / "163 PS" → kW.
  *  If no unit specified and value > 250, assumes KM (most cars are <250 kW). */
