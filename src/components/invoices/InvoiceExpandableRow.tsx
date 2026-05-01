@@ -361,25 +361,57 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
     }
   };
 
+  // Konwertuje URL obrazka na data: URL (omija CORS i sprawia że html2canvas zawsze go zrenderuje)
+  const urlToDataURL = async (url: string): Promise<string | null> => {
+    try {
+      const res = await fetch(url, { mode: 'cors', credentials: 'omit' });
+      if (!res.ok) return null;
+      const blob = await res.blob();
+      return await new Promise<string>((resolve, reject) => {
+        const fr = new FileReader();
+        fr.onload = () => resolve(fr.result as string);
+        fr.onerror = reject;
+        fr.readAsDataURL(blob);
+      });
+    } catch {
+      return null;
+    }
+  };
+
   const generatePdfBase64 = async (): Promise<string | null> => {
     try {
       const data = await prepareInvoiceData();
       if (!data) return null;
+
+      // Prekonwertuj logo na data URL — inaczej html2canvas renderuje białą kartkę przy CORS.
+      if (data.seller?.logo_url && /^https?:\/\//.test(data.seller.logo_url)) {
+        const dataUrl = await urlToDataURL(data.seller.logo_url);
+        if (dataUrl) data.seller.logo_url = dataUrl;
+      }
+
       const { generateInvoiceHtml } = await import('@/utils/invoiceHtmlGenerator');
-      const html = generateInvoiceHtml(data);
+      let html = generateInvoiceHtml(data);
+
+      // Usuń zewnętrzny QR KSeF (api.qrserver.com) — wisi przez CORS i blokuje render
+      html = html.replace(/<img[^>]+api\.qrserver\.com[^>]*>/gi, '');
+
       const html2pdf = (await import('html2pdf.js')).default;
-      
+
       const container = document.createElement('div');
       container.innerHTML = html;
-      // WAŻNE: html2canvas nie renderuje elementów z opacity:0 ani display:none.
-      // Umieszczamy kontener poza viewportem, ale w pełni widocznym dla renderera.
-      container.style.position = 'absolute';
-      container.style.left = '-10000px';
-      container.style.top = '0';
-      container.style.width = '210mm';
-      container.style.background = '#ffffff';
-      container.style.zIndex = '-1';
-      container.style.pointerEvents = 'none';
+      // Renderuj OFF-SCREEN ale w widzialnym layoucie (left -10000) z jawną szerokością A4 w pikselach
+      Object.assign(container.style, {
+        position: 'fixed',
+        left: '-10000px',
+        top: '0',
+        width: '794px',           // 210mm @ 96dpi
+        minHeight: '1123px',      // 297mm @ 96dpi
+        background: '#ffffff',
+        zIndex: '-1',
+        pointerEvents: 'none',
+        visibility: 'visible',
+        opacity: '1',
+      });
       document.body.appendChild(container);
 
       // Poczekaj aż fonty i obrazy się załadują
@@ -389,35 +421,39 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
         }
         const imgs = Array.from(container.querySelectorAll('img'));
         await Promise.all(imgs.map(img => {
-          if ((img as HTMLImageElement).complete) return Promise.resolve();
+          if ((img as HTMLImageElement).complete && (img as HTMLImageElement).naturalWidth > 0) return Promise.resolve();
           return new Promise<void>(res => {
             img.addEventListener('load', () => res(), { once: true });
             img.addEventListener('error', () => res(), { once: true });
-            // safety timeout 3s per image
-            setTimeout(() => res(), 3000);
+            setTimeout(() => res(), 4000);
           });
         }));
       } catch (e) {
         console.warn('Font/img wait skipped:', e);
       }
-      // Mały bufor na layout/reflow
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
+      // Większy bufor na layout/reflow
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       const pdfBlob: Blob = await (html2pdf()
         .set({
           margin: 0,
           filename: 'faktura.pdf',
           image: { type: 'jpeg', quality: 0.95 },
-          html2canvas: { scale: 2, useCORS: true, width: 794, windowWidth: 794 },
+          html2canvas: { scale: 2, useCORS: true, allowTaint: true, width: 794, windowWidth: 794, backgroundColor: '#ffffff' },
           jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
         })
         .from(container) as any)
         .output('blob');
-      
+
       document.body.removeChild(container);
-      
+
       console.log('PDF blob size:', pdfBlob.size, 'bytes');
-      
+      if (pdfBlob.size < 8000) {
+        // Coś poszło nie tak — pusty/malutki PDF. Zwróć null żeby nie wysyłać śmiecia.
+        console.error('PDF too small — likely render failure. Aborting.');
+        return null;
+      }
+
       // Convert blob to base64
       const reader = new FileReader();
       return new Promise((resolve) => {
