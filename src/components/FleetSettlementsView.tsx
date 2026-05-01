@@ -3871,10 +3871,18 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                           const rentalDebtBadgeClick = (e: React.MouseEvent) => {
                             e.stopPropagation();
                             e.preventDefault();
-                            const settlementDebtBefore = round2(Math.max(0, settlement.debt_previous ?? 0));
-                            const rentalDebtBefore = round2(Math.max(0, settlement.rental_debt_previous ?? 0));
+                            // Spójność z dialogiem długu rozliczeniowego: gdy DWD istnieje,
+                            // używamy WYŁĄCZNIE dwd_opening / dwd_remaining.
+                            const settlementDebtBefore = settlement.has_dwd
+                              ? round2(Math.max(0, settlement.dwd_opening ?? 0))
+                              : round2(Math.max(0, settlement.debt_previous ?? 0));
+                            const rentalDebtBefore = settlement.has_dwd
+                              ? 0
+                              : round2(Math.max(0, settlement.rental_debt_previous ?? 0));
                             const totalDebtBefore = round2(settlementDebtBefore + rentalDebtBefore);
-                            const debtAfter = round2(Math.max(0, settlement.debt_current ?? 0));
+                            const debtAfter = settlement.has_dwd
+                              ? round2(Math.max(0, settlement.dwd_remaining ?? 0))
+                              : round2(Math.max(0, settlement.debt_current ?? 0));
                             setSelectedDriverForDebt({
                               id: settlement.driver_id,
                               name: settlement.driver_name,
