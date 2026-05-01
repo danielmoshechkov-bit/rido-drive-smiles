@@ -475,19 +475,10 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
           .eq('driver_id', driverId);
       }
 
-      // 3. Zero out snapshots only from the selected settlement onward.
-      // Never rewrite older history, because it breaks carry-over visibility.
-      const zeroFromPeriod = weekDebtContext?.periodFrom;
-      let settlementsToReset = supabase
-        .from('settlements')
-        .update({ debt_before: 0, debt_after: 0, debt_payment: 0 })
-        .eq('driver_id', driverId);
-
-      if (zeroFromPeriod) {
-        settlementsToReset = settlementsToReset.gte('period_from', zeroFromPeriod);
-      }
-
-      await settlementsToReset;
+      // 3. NIE resetujemy settlements od wybranego tygodnia w przód.
+      // Wcześniej powodowało to dwa źródła prawdy (settlements vs DWD) i niszczyło historię.
+      // Snapshot tygodnia ma rekonstruować weekly-debt-rebuild z driver_debt_transactions
+      // (ledger jest jedynym źródłem prawdy dla ręcznych akcji operatora).
 
       toast.success('Dług wyzerowany — historia zachowana, nowe rozliczenia startują od zera');
       await recalcWeekIfPossible();
