@@ -184,21 +184,35 @@ Deno.serve(async (req) => {
           rawPayout = round2(oldActualPayout + oldDebtPayment);
         }
 
-        // Formuła v3 (no double-count):
-        // Jeśli ledger ma debt_increase/manual_add w tym tygodniu, to ledger_added jest źródłem długu.
-        // Ujemny raw_payout z settlement byłby tym samym długiem -> zerujemy raw_payout, żeby nie dublować.
+        // Formuła v4 (ledger-first, brak ukrytej spłaty z dodatniego raw):
+        //   1. Jeśli ledger ma debt_increase/manual_add w tym tygodniu -> ledger jest źródłem długu.
+        //      Ujemny raw_payout z settlement byłby tym samym długiem -> zerujemy raw, żeby nie dublować.
+        //   2. Jeśli NIE ma ledger_added, ujemny raw z settlement traktujemy jako dług tygodnia.
+        //   3. Dodatni raw_payout NIGDY nie zmniejsza długu (nie ma ukrytej spłaty). To po prostu wypłata.
+        //      Spłata długu wymaga jawnego wpisu w ledgerze (payment/zero_out) albo w DWD payments.
+        //
+        // Formuła:
+        //   addedThisWeek   = manualAddedDebt + (rawPayoutUsed < 0 ? abs(rawPayoutUsed) : 0)
+        //   paidThisWeek    = manualPaidDebt
+        //   remaining_debt  = max(0, opening + addedThisWeek - paidThisWeek)
+        //   actualPayout    = max(0, rawPayoutUsed)   // dodatni raw = wypłata, dług osobno
+        //   visible_debt    = opening (przed odjęciem wpłat tego tygodnia – do UI "Dług")
         const rawPayoutOriginal = rawPayout;
         let rawPayoutUsed = rawPayout;
         if (manualAddedDebt > 0.01 && rawPayout < -0.01) {
-          rawPayoutUsed = 0;
+          rawPayoutUsed = 0; // no double-count
         }
 
-        const effectiveOpening = Math.max(0, round2(openingDebt - manualPaidDebt));
-        const final = round2(rawPayoutUsed - effectiveOpening - manualAddedDebt);
-        const actualPayout = final >= 0 ? final : 0;
-        const remainingDebt = final < 0 ? round2(Math.abs(final)) : 0;
-        const visibleDebt = effectiveOpening;
-        const paidAmount = round2(Math.min(openingDebt, manualPaidDebt));
+        const negRawAsDebt = rawPayoutUsed < -0.01 ? Math.abs(rawPayoutUsed) : 0;
+        const addedThisWeek = round2(manualAddedDebt + negRawAsDebt);
+        const paidThisWeek = round2(manualPaidDebt);
+
+        const remainingDebt = round2(Math.max(0, openingDebt + addedThisWeek - paidThisWeek));
+        const actualPayout = rawPayoutUsed > 0 ? round2(rawPayoutUsed) : 0;
+        const visibleDebt = round2(openingDebt);
+        const paidAmount = round2(Math.min(openingDebt + addedThisWeek, paidThisWeek));
+        const effectiveOpening = round2(Math.max(0, openingDebt - paidThisWeek));
+        const final = round2(actualPayout - 0); // kept for backward report compat
 
         driverReport.weeks.push({
           ui_week: uiW.week,
@@ -333,7 +347,7 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        version: "v2-ledger-first",
+        version: "v4-ledger-first-no-hidden-payment",
         dry_run: dryRun,
         start_week: body.start_week,
         year: body.year,
