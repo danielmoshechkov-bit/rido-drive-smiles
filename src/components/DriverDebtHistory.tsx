@@ -401,9 +401,10 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
       const dateVal = new Date().toISOString().split('T')[0];
       const { periodFrom: weekFrom, periodTo: weekTo } = getTxDates();
 
-      // Zero-out należy do WYBRANEGO tygodnia (period_from = weekFrom, period_to = weekTo).
-      // Nie cofamy daty o 1 dzień, bo to wrzucało transakcję do poprzedniego tygodnia UI
-      // i psuło snapshot DWD. Rebuild i tak grupuje transakcje po created_at -> tygodniu UI.
+      // Zero-out należy do WYBRANEGO tygodnia.
+      // period_from = start wybranego tygodnia, period_to = koniec wybranego tygodnia.
+      // NIE cofamy daty o 1 dzień (psuło to mapowanie do poprzedniego tygodnia w rebuildzie).
+      // Rebuild grupuje transakcje po period_from (priorytet) -> tygodnia UI.
       const zeroPeriodFrom = weekFrom;
       const zeroPeriodTo = weekTo;
 
