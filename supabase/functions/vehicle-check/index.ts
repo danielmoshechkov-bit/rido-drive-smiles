@@ -359,13 +359,26 @@ function mapRegCheckVehicle(vehicleData: any, regNumber: string | null, vinNumbe
     || extractValue(vehicleData, "BodyColour")
     || null;
 
+  // Fallback body_style z Description (np. "5DR Hatchback Auris")
+  let bodyStyle = extractCurrentText(vehicleData, "BodyStyle") || extractValue(vehicleData, "BodyStyle") || null;
+  if (!bodyStyle && descriptionRaw) {
+    const m = descriptionRaw.match(/\b(Sedan|Hatchback|Kombi|Estate|SUV|Coupe|Cabrio|Convertible|Van|Pickup|MPV|Liftback)\b/i);
+    if (m) bodyStyle = m[1];
+  }
+  // Fallback color z Description (np. "Silver Toyota Auris...")
+  let colorFinal = colorRaw;
+  if (!colorFinal && descriptionRaw) {
+    const cm = descriptionRaw.match(/\b(Black|White|Silver|Grey|Gray|Red|Blue|Green|Yellow|Orange|Brown|Beige|Gold|Czarny|Bia[lł]y|Srebrny|Szary|Czerwony|Niebieski|Zielony|[ZŻ]ó[lł]ty|Br[aą]zowy)\b/i);
+    if (cm) colorFinal = cm[1];
+  }
+
   return {
     registration_number: regNumber || extractValue(vehicleData, "RegistrationNumber") || null,
     vin: vehicleData?.VehicleIdentificationNumber || extractValue(vehicleData, "Vin") || extractValue(vehicleData, "VIN") || vinNumber || null,
     make: extractCurrentText(vehicleData, "CarMake") || extractCurrentText(vehicleData, "Make") || null,
     model: extractCurrentText(vehicleData, "CarModel") || extractCurrentText(vehicleData, "Model") || extractValue(vehicleData, "CarModel") || null,
-    body_style: extractCurrentText(vehicleData, "BodyStyle") || extractValue(vehicleData, "BodyStyle") || null,
-    color: colorRaw,
+    body_style: bodyStyle,
+    color: colorFinal,
     registration_year: parseYear(vehicleData?.ManufacturingYear || vehicleData?.ManufactureYear || extractValue(vehicleData, "RegistrationYear") || extractValue(vehicleData, "Year")),
     first_registration_date: extractValue(vehicleData, "FirstRegistrationDate") || extractValue(vehicleData, "DateFirstRegistered") || null,
     fuel_type: normalizeFuelType(vehicleData?.FuelType || extractCurrentText(vehicleData, "FuelType") || extractValue(vehicleData, "FuelType")),
