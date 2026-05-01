@@ -418,8 +418,8 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
           amount: -settDebt,
           balance_before: settDebt,
           balance_after: 0,
-          period_from: zeroDate,
-          period_to: zeroDate,
+          period_from: zeroPeriodFrom,
+          period_to: zeroPeriodTo,
           description: `Wyzerowanie długu przez administratora (${dateVal})`,
           debt_category: 'settlement',
         });
@@ -434,8 +434,8 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
           amount: -rentDebt,
           balance_before: rentDebt,
           balance_after: 0,
-          period_from: zeroDate,
-          period_to: zeroDate,
+          period_from: zeroPeriodFrom,
+          period_to: zeroPeriodTo,
           description: `Wyzerowanie długu przez administratora (${dateVal})`,
           debt_category: 'rental',
         });
@@ -449,8 +449,8 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
           amount: -totalDebtToZero,
           balance_before: totalDebtToZero,
           balance_after: 0,
-          period_from: zeroDate,
-          period_to: zeroDate,
+          period_from: zeroPeriodFrom,
+          period_to: zeroPeriodTo,
           description: `Wyzerowanie długu przez administratora (${dateVal})`,
           debt_category: 'settlement',
         });
