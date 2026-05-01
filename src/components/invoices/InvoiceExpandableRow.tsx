@@ -371,17 +371,37 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
       
       const container = document.createElement('div');
       container.innerHTML = html;
-      container.style.position = 'fixed';
-      container.style.left = '0';
+      // WAŻNE: html2canvas nie renderuje elementów z opacity:0 ani display:none.
+      // Umieszczamy kontener poza viewportem, ale w pełni widocznym dla renderera.
+      container.style.position = 'absolute';
+      container.style.left = '-10000px';
       container.style.top = '0';
       container.style.width = '210mm';
-      container.style.zIndex = '-9999';
-      container.style.opacity = '0';
+      container.style.background = '#ffffff';
+      container.style.zIndex = '-1';
       container.style.pointerEvents = 'none';
       document.body.appendChild(container);
-      
-      // Wait for images and rendering
-      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Poczekaj aż fonty i obrazy się załadują
+      try {
+        if ((document as any).fonts?.ready) {
+          await (document as any).fonts.ready;
+        }
+        const imgs = Array.from(container.querySelectorAll('img'));
+        await Promise.all(imgs.map(img => {
+          if ((img as HTMLImageElement).complete) return Promise.resolve();
+          return new Promise<void>(res => {
+            img.addEventListener('load', () => res(), { once: true });
+            img.addEventListener('error', () => res(), { once: true });
+            // safety timeout 3s per image
+            setTimeout(() => res(), 3000);
+          });
+        }));
+      } catch (e) {
+        console.warn('Font/img wait skipped:', e);
+      }
+      // Mały bufor na layout/reflow
+      await new Promise(resolve => setTimeout(resolve, 300));
       
       const pdfBlob: Blob = await (html2pdf()
         .set({
