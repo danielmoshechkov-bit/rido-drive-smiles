@@ -167,6 +167,40 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
   const settlementDebt = getCategoryDebt('settlement');
   const rentalDebt = getCategoryDebt('rental');
 
+  // ====== HISTORYCZNY SNAPSHOT TYGODNIA ======
+  // Gdy dialog otwarto z konkretnego tygodnia (weekDebtContext), liczymy stan
+  // tygodnia uwzględniając ręczne akcje operatora z ledgera w tym okresie.
+  // NIE używamy tu `currentDebt` (live driver_debts.current_balance).
+  const isWeekView = !!(weekDebtContext?.periodFrom && weekDebtContext?.periodTo);
+
+  const weekTxs = (() => {
+    if (!isWeekView) return [] as DebtTransaction[];
+    const from = weekDebtContext!.periodFrom!;
+    const to = weekDebtContext!.periodTo!;
+    return transactions.filter((tx) => {
+      // Datą efektywną jest period_from transakcji (operator wybiera tydzień);
+      // fallback na created_at gdy brak.
+      const d = (tx.period_from || tx.created_at || '').slice(0, 10);
+      return d >= from && d <= to;
+    });
+  })();
+
+  const weekAdded = weekTxs
+    .filter((tx) => tx.type === 'debt_increase' || tx.type === 'manual_add')
+    .reduce((s, tx) => s + Math.abs(Number(tx.amount) || 0), 0);
+  const weekPaid = weekTxs
+    .filter((tx) => tx.type === 'payment' || tx.type === 'debt_payment')
+    .reduce((s, tx) => s + Math.abs(Number(tx.amount) || 0), 0);
+
+  const weekOpening = round2(Number(weekDebtContext?.totalDebtBefore || 0));
+  // Snapshot końca tygodnia: opening + dodane − spłaty (z ledgera w tym okresie),
+  // ale nie schodzimy poniżej 0. Jeśli DWD już ma debtAfter, używamy go jako
+  // źródła prawdy snapshotu i ledger służy tylko do wyświetlenia rozbicia.
+  const weekClosingFromLedger = Math.max(0, round2(weekOpening + weekAdded - weekPaid));
+  const weekClosing = weekDebtContext
+    ? round2(Number(weekDebtContext.debtAfter || 0))
+    : weekClosingFromLedger;
+
   const handlePayment = async () => {
     const amount = parseFloat(paymentAmount.replace(',', '.'));
     if (!amount || amount <= 0) {
