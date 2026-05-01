@@ -508,51 +508,104 @@ export function PurchaseInvoicesModule({ entityId, userId }: Props) {
 
       {/* Detail dialog */}
       <Dialog open={!!selectedInvoice} onOpenChange={(o) => !o && setSelectedInvoice(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-6xl max-h-[95vh] overflow-hidden flex flex-col">
           {selectedInvoice && (
             <>
               <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
+                <DialogTitle className="flex items-center gap-2 flex-wrap">
                   {selectedInvoice.document_number}
                   {selectedInvoice.needs_review && <Badge variant="outline" className="border-amber-500 text-amber-700"><AlertTriangle className="h-3 w-3 mr-1" />Do weryfikacji</Badge>}
                   {selectedInvoice.inventory_processed && <Badge variant="outline" className="border-green-500 text-green-700"><Package className="h-3 w-3 mr-1" />W magazynie</Badge>}
                 </DialogTitle>
               </DialogHeader>
 
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div><Label>Sprzedawca</Label><p className="font-medium">{selectedInvoice.supplier_name}</p><p className="text-xs text-muted-foreground">NIP: {selectedInvoice.supplier_nip}</p></div>
-                <div><Label>Daty</Label><p>Wyst.: {selectedInvoice.issue_date}</p><p className="text-xs">Termin: {selectedInvoice.due_date}</p></div>
-                <div><Label>Kategoria AI</Label><Badge variant="secondary">{selectedInvoice.ai_category || '-'}</Badge></div>
-                <div><Label>Płatność</Label><p>{selectedInvoice.payment_method} {selectedInvoice.is_paid ? '✓ zapłacone' : '✗ niezapłacone'}</p></div>
-              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1 overflow-y-auto">
+                {/* LEWO: Podgląd PDF */}
+                <div className="bg-muted rounded-lg overflow-hidden min-h-[400px] lg:min-h-[600px] flex items-center justify-center">
+                  {pdfPreviewUrl ? (
+                    <iframe
+                      src={pdfPreviewUrl}
+                      title="Podgląd faktury"
+                      className="w-full h-full min-h-[600px] border-0"
+                    />
+                  ) : (
+                    <div className="text-center text-muted-foreground p-8">
+                      <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">{selectedInvoice.pdf_url ? 'Ładowanie podglądu...' : 'Brak załączonego PDF'}</p>
+                    </div>
+                  )}
+                </div>
 
-              <div className="grid grid-cols-3 gap-2 p-3 rounded-lg bg-muted">
-                <div><p className="text-xs text-muted-foreground">Netto</p><p className="font-bold">{fmt(selectedInvoice.total_net)}</p></div>
-                <div><p className="text-xs text-muted-foreground">VAT</p><p className="font-bold text-blue-600">{fmt(selectedInvoice.total_vat)}</p></div>
-                <div><p className="text-xs text-muted-foreground">Brutto</p><p className="font-bold text-destructive">{fmt(selectedInvoice.total_gross)}</p></div>
-              </div>
+                {/* PRAWO: Dane + pozycje */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div><Label>Sprzedawca</Label><p className="font-medium">{selectedInvoice.supplier_name}</p><p className="text-xs text-muted-foreground">NIP: {selectedInvoice.supplier_nip}</p></div>
+                    <div><Label>Daty</Label><p>Wyst.: {selectedInvoice.issue_date || selectedInvoice.purchase_date}</p><p className="text-xs">Termin: {selectedInvoice.due_date || '—'}</p></div>
+                    <div><Label>Kategoria AI</Label><Badge variant="secondary">{selectedInvoice.ai_category || '-'}</Badge></div>
+                    <div><Label>Płatność</Label><p>{selectedInvoice.payment_method || '—'} {selectedInvoice.is_paid ? '✓ zapłacone' : '✗ niezapłacone'}</p></div>
+                  </div>
 
-              <div>
-                <Label>Pozycje ({selectedItems.length})</Label>
-                <div className="overflow-x-auto mt-2">
-                  <table className="w-full text-sm">
-                    <thead className="text-muted-foreground"><tr><th className="text-left py-1">Nazwa</th><th>Ilość</th><th>j.m.</th><th className="text-right">Cena netto</th><th>VAT</th><th className="text-right">Wartość</th></tr></thead>
-                    <tbody>
-                      {selectedItems.map(it => (
-                        <tr key={it.id} className="border-t"><td className="py-1.5">{it.name}{it.supplier_symbol && <span className="text-xs text-muted-foreground ml-1">[{it.supplier_symbol}]</span>}</td><td className="text-center">{it.quantity}</td><td className="text-center">{it.unit}</td><td className="text-right">{fmt(it.unit_price_net)}</td><td className="text-center">{it.vat_rate}%</td><td className="text-right">{fmt(it.total_gross)}</td></tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  <div className="grid grid-cols-3 gap-2 p-3 rounded-lg bg-muted">
+                    <div><p className="text-xs text-muted-foreground">Netto</p><p className="font-bold">{fmt(selectedInvoice.total_net)}</p></div>
+                    <div><p className="text-xs text-muted-foreground">VAT</p><p className="font-bold text-blue-600">{fmt(selectedInvoice.total_vat)}</p></div>
+                    <div><p className="text-xs text-muted-foreground">Brutto</p><p className="font-bold text-destructive">{fmt(selectedInvoice.total_gross)}</p></div>
+                  </div>
+
+                  <div>
+                    <Label>Pozycje ({selectedItems.length})</Label>
+                    {selectedItems.length === 0 ? (
+                      <div className="text-center py-6 text-sm text-muted-foreground bg-muted/40 rounded mt-2">Brak pozycji – AI nie odczytał ich poprawnie. Edytuj fakturę lub usuń i wgraj ponownie.</div>
+                    ) : (
+                      <div className="space-y-1.5 mt-2">
+                        {selectedItems.map(it => (
+                          <div key={it.id} className="border rounded-lg p-2.5 text-sm">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0 flex-1">
+                                <p className="font-medium truncate">{it.name}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {it.quantity} {it.unit} × {fmt(it.unit_price_net)} • VAT {it.vat_rate}%
+                                  {it.supplier_symbol && <> • SKU: <span className="font-mono">{it.supplier_symbol}</span></>}
+                                </p>
+                              </div>
+                              <p className="font-semibold whitespace-nowrap">{fmt(it.total_gross)}</p>
+                            </div>
+                            <div className="mt-2 flex items-center justify-between gap-2">
+                              {it.product_id ? (
+                                <Badge variant="outline" className="border-green-500 text-green-700 text-xs">
+                                  <Package className="h-3 w-3 mr-1" />
+                                  Magazyn: {it.product_name || 'przypisano'}
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="border-amber-400 text-amber-700 text-xs">
+                                  <AlertTriangle className="h-3 w-3 mr-1" />
+                                  Brak przypisania
+                                </Badge>
+                              )}
+                              <Button
+                                size="sm"
+                                variant={it.product_id ? 'outline' : 'default'}
+                                onClick={() => setMapperItem(it)}
+                                className="h-7 text-xs gap-1"
+                              >
+                                <Link2 className="h-3 w-3" />
+                                {it.product_id ? 'Zmień' : 'Przypisz / +Dodaj'}
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {selectedInvoice.needs_review && (selectedInvoice as any).ai_notes && (
+                    <div className="p-2 rounded bg-amber-50 border border-amber-200 text-xs text-amber-900">
+                      <strong>Uwagi AI:</strong> {(selectedInvoice as any).ai_notes}
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {selectedInvoice.needs_review && (selectedInvoice as any).ai_notes && (
-                <div className="p-2 rounded bg-amber-50 border border-amber-200 text-xs text-amber-900">
-                  <strong>Uwagi AI:</strong> {(selectedInvoice as any).ai_notes}
-                </div>
-              )}
-
-              <DialogFooter className="gap-2 flex-wrap">
+              <DialogFooter className="gap-2 flex-wrap border-t pt-3 mt-2">
                 {selectedInvoice.pdf_url && <Button variant="outline" onClick={() => downloadPdf(selectedInvoice)}><Download className="h-4 w-4 mr-1" />Pobierz PDF</Button>}
                 <Button variant="outline" onClick={() => deleteInvoice(selectedInvoice)} className="text-destructive"><Trash2 className="h-4 w-4 mr-1" />Usuń</Button>
                 {!selectedInvoice.inventory_processed ? (
@@ -571,6 +624,24 @@ export function PurchaseInvoicesModule({ entityId, userId }: Props) {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Mapper produktu */}
+      {mapperItem && selectedInvoice && (
+        <InventoryProductMapper
+          open={!!mapperItem}
+          onOpenChange={(o) => !o && setMapperItem(null)}
+          entityId={entityId}
+          userId={userId}
+          itemName={mapperItem.name}
+          itemNetPrice={Number(mapperItem.unit_price_net || 0)}
+          itemQuantity={Number(mapperItem.quantity || 1)}
+          itemVatRate={String(mapperItem.vat_rate || '23')}
+          supplierNip={selectedInvoice.supplier_nip}
+          supplierName={selectedInvoice.supplier_name}
+          supplierSymbol={mapperItem.supplier_symbol}
+          onProductMapped={handleManualMap}
+        />
+      )}
     </div>
   );
 }
