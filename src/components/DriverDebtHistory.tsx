@@ -401,18 +401,11 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
       const dateVal = new Date().toISOString().split('T')[0];
       const { periodFrom: weekFrom, periodTo: weekTo } = getTxDates();
 
-      // CRITICAL: Zeroing must be dated BEFORE the current week so that
-      // recalculate-week treats it as a historical correction reducing
-      // the debt entering this week (debt_before), not as a same-week payment.
-      const zeroDate = (() => {
-        try {
-          const d = new Date(`${weekFrom}T00:00:00Z`);
-          d.setUTCDate(d.getUTCDate() - 1);
-          return d.toISOString().split('T')[0];
-        } catch {
-          return weekFrom;
-        }
-      })();
+      // Zero-out należy do WYBRANEGO tygodnia (period_from = weekFrom, period_to = weekTo).
+      // Nie cofamy daty o 1 dzień, bo to wrzucało transakcję do poprzedniego tygodnia UI
+      // i psuło snapshot DWD. Rebuild i tak grupuje transakcje po created_at -> tygodniu UI.
+      const zeroPeriodFrom = weekFrom;
+      const zeroPeriodTo = weekTo;
 
       const paymentRows: Array<Record<string, any>> = [];
 
@@ -425,8 +418,8 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
           amount: -settDebt,
           balance_before: settDebt,
           balance_after: 0,
-          period_from: zeroDate,
-          period_to: zeroDate,
+          period_from: zeroPeriodFrom,
+          period_to: zeroPeriodTo,
           description: `Wyzerowanie długu przez administratora (${dateVal})`,
           debt_category: 'settlement',
         });
@@ -441,8 +434,8 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
           amount: -rentDebt,
           balance_before: rentDebt,
           balance_after: 0,
-          period_from: zeroDate,
-          period_to: zeroDate,
+          period_from: zeroPeriodFrom,
+          period_to: zeroPeriodTo,
           description: `Wyzerowanie długu przez administratora (${dateVal})`,
           debt_category: 'rental',
         });
@@ -456,8 +449,8 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
           amount: -totalDebtToZero,
           balance_before: totalDebtToZero,
           balance_after: 0,
-          period_from: zeroDate,
-          period_to: zeroDate,
+          period_from: zeroPeriodFrom,
+          period_to: zeroPeriodTo,
           description: `Wyzerowanie długu przez administratora (${dateVal})`,
           debt_category: 'settlement',
         });
@@ -482,19 +475,10 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
           .eq('driver_id', driverId);
       }
 
-      // 3. Zero out snapshots only from the selected settlement onward.
-      // Never rewrite older history, because it breaks carry-over visibility.
-      const zeroFromPeriod = weekDebtContext?.periodFrom;
-      let settlementsToReset = supabase
-        .from('settlements')
-        .update({ debt_before: 0, debt_after: 0, debt_payment: 0 })
-        .eq('driver_id', driverId);
-
-      if (zeroFromPeriod) {
-        settlementsToReset = settlementsToReset.gte('period_from', zeroFromPeriod);
-      }
-
-      await settlementsToReset;
+      // 3. NIE resetujemy settlements od wybranego tygodnia w przód.
+      // Wcześniej powodowało to dwa źródła prawdy (settlements vs DWD) i niszczyło historię.
+      // Snapshot tygodnia ma rekonstruować weekly-debt-rebuild z driver_debt_transactions
+      // (ledger jest jedynym źródłem prawdy dla ręcznych akcji operatora).
 
       toast.success('Dług wyzerowany — historia zachowana, nowe rozliczenia startują od zera');
       await recalcWeekIfPossible();
