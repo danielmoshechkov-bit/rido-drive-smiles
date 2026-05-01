@@ -73,6 +73,15 @@ export function InvoiceEditor({ open, onOpenChange, entityId, invoiceId, onSaved
   const [paymentMethod, setPaymentMethod] = useState('transfer');
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState('draft');
+
+  // Auto: gdy gotowka/karta lub status=paid -> termin platnosci = data wystawienia
+  useEffect(() => {
+    const instant = paymentMethod === 'cash' || paymentMethod === 'card' || status === 'paid';
+    if (instant && issueDate && dueDate !== issueDate) {
+      setDueDate(issueDate);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paymentMethod, status, issueDate]);
   
   // Buyer
   const [recipients, setRecipients] = useState<InvoiceRecipient[]>([]);
