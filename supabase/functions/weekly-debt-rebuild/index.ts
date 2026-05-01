@@ -184,9 +184,17 @@ Deno.serve(async (req) => {
           rawPayout = round2(oldActualPayout + oldDebtPayment);
         }
 
-        // Formuła v2
+        // Formuła v3 (no double-count):
+        // Jeśli ledger ma debt_increase/manual_add w tym tygodniu, to ledger_added jest źródłem długu.
+        // Ujemny raw_payout z settlement byłby tym samym długiem -> zerujemy raw_payout, żeby nie dublować.
+        const rawPayoutOriginal = rawPayout;
+        let rawPayoutUsed = rawPayout;
+        if (manualAddedDebt > 0.01 && rawPayout < -0.01) {
+          rawPayoutUsed = 0;
+        }
+
         const effectiveOpening = Math.max(0, round2(openingDebt - manualPaidDebt));
-        const final = round2(rawPayout - effectiveOpening - manualAddedDebt);
+        const final = round2(rawPayoutUsed - effectiveOpening - manualAddedDebt);
         const actualPayout = final >= 0 ? final : 0;
         const remainingDebt = final < 0 ? round2(Math.abs(final)) : 0;
         const visibleDebt = effectiveOpening;
