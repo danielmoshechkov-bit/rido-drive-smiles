@@ -278,13 +278,62 @@ export function PurchaseInvoicesModule({ entityId, userId }: Props) {
     handleFiles(files);
   };
 
+  // Resolve PDF URL: obsługuje (a) pełny URL z http(s), (b) ścieżkę w bucket purchase-invoices,
+  // (c) starą ścieżkę z prefixem 'purchase-invoices/' w bucket 'documents'
+  const resolvePdfUrl = async (pdfUrl: string | null | undefined): Promise<string | null> => {
+    if (!pdfUrl) return null;
+    if (/^https?:\/\//i.test(pdfUrl)) return pdfUrl; // pełny URL (publiczny lub stary)
+    // spróbuj najpierw nowy bucket
+    const { data: a } = await supabase.storage.from('purchase-invoices').createSignedUrl(pdfUrl, 600);
+    if (a?.signedUrl) return a.signedUrl;
+    // fallback do starego bucketa documents
+    const { data: b } = await supabase.storage.from('documents').createSignedUrl(pdfUrl, 600);
+    return b?.signedUrl || null;
+  };
+
   const openInvoice = async (inv: PurchaseInvoice) => {
     setSelectedInvoice(inv);
+    setSelectedItems([]);
+    setPdfPreviewUrl(null);
+
+    // Pozycje z nazwą produktu (jeśli przypisane)
     const { data } = await supabase
       .from('purchase_invoice_items')
-      .select('*')
+      .select('*, inventory_products(id, name_sales)')
       .eq('purchase_invoice_id', inv.id);
-    setSelectedItems((data as any) || []);
+
+    const enriched = ((data as any[]) || []).map(it => ({
+      ...it,
+      product_name: it.inventory_products?.name_sales || null,
+    }));
+    setSelectedItems(enriched);
+
+    // Podgląd PDF
+    const url = await resolvePdfUrl(inv.pdf_url);
+    setPdfPreviewUrl(url);
+  };
+
+  const refreshSelectedItems = async () => {
+    if (!selectedInvoice) return;
+    const { data } = await supabase
+      .from('purchase_invoice_items')
+      .select('*, inventory_products(id, name_sales)')
+      .eq('purchase_invoice_id', selectedInvoice.id);
+    const enriched = ((data as any[]) || []).map(it => ({
+      ...it,
+      product_name: it.inventory_products?.name_sales || null,
+    }));
+    setSelectedItems(enriched);
+  };
+
+  const handleManualMap = async (productId: string) => {
+    if (!mapperItem) return;
+    const { error } = await (supabase as any)
+      .from('purchase_invoice_items')
+      .update({ product_id: productId })
+      .eq('id', mapperItem.id);
+    if (error) toast.error(error.message);
+    else { setMapperItem(null); await refreshSelectedItems(); }
   };
 
   const acceptToInventory = async (inv: PurchaseInvoice) => {
@@ -305,7 +354,6 @@ export function PurchaseInvoicesModule({ entityId, userId }: Props) {
   };
 
   const acceptOnly = async (inv: PurchaseInvoice) => {
-    // Tylko oznacz jako zaakceptowaną (bez zasilenia magazynu)
     const { error } = await supabase
       .from('purchase_invoices')
       .update({ needs_review: false, status: 'accepted' })
@@ -316,8 +364,8 @@ export function PurchaseInvoicesModule({ entityId, userId }: Props) {
 
   const deleteInvoice = async (inv: PurchaseInvoice) => {
     if (!confirm(`Usunąć fakturę ${inv.document_number}?`)) return;
-    if (inv.pdf_url) {
-      await supabase.storage.from('purchase-invoices').remove([inv.pdf_url]);
+    if (inv.pdf_url && !/^https?:\/\//i.test(inv.pdf_url)) {
+      await supabase.storage.from('purchase-invoices').remove([inv.pdf_url]).catch(() => {});
     }
     const { error } = await supabase.from('purchase_invoices').delete().eq('id', inv.id);
     if (error) toast.error(error.message);
@@ -325,10 +373,9 @@ export function PurchaseInvoicesModule({ entityId, userId }: Props) {
   };
 
   const downloadPdf = async (inv: PurchaseInvoice) => {
-    if (!inv.pdf_url) return toast.error('Brak pliku');
-    const { data, error } = await supabase.storage.from('purchase-invoices').createSignedUrl(inv.pdf_url, 60);
-    if (error) return toast.error(error.message);
-    window.open(data.signedUrl, '_blank');
+    const url = await resolvePdfUrl(inv.pdf_url);
+    if (!url) return toast.error('Brak pliku PDF');
+    window.open(url, '_blank');
   };
 
   if (!userId) return <div className="text-center py-8 text-muted-foreground">Zaloguj się aby korzystać z faktur zakupowych</div>;
