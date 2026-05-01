@@ -403,24 +403,65 @@ Deno.serve(async (req) => {
                 Math.abs(fuel) > 0.01 ||
                 Math.abs(manualWeekAdjustment) > 0.01;
 
-              // VAT calculation using fleet settings (uber_calculation_mode)
+              // === Driver/city overrides ===
               const driverInfo2 = driverDetailMap.get(driverId);
               const cityName2 = driverInfo2?.city_id ? cityNameMapForFee.get(driverInfo2.city_id) : null;
               const cs2 = cityName2 ? citySettingsFullMapForFee.get(cityName2) : null;
-              const driverVatRate2 = cs2?.vat_rate ?? fleetVatRateForSync;
-              const driverUberCalcMode2 = cs2?.uber_calculation_mode ?? fleetUberCalcModeForSync;
+              const driverVatRate = cs2?.vat_rate ?? fleetVatRateForSync;
+              const driverUberCalcMode = cs2?.uber_calculation_mode ?? fleetUberCalcModeForSync;
+              const driverSettlementMode = cs2?.settlement_mode ?? fleetSettlementModeForSync;
+              const driverSecondaryVatRate = fleetSecondaryVatRateForSync;
+              const driverAdditionalPercentRate = fleetAdditionalPercentRateForSync;
 
+              // B2B status (mirror UI/recalculate-week)
+              const isB2BDriver =
+                driverInfo2?.payment_method === 'b2b' ||
+                driverInfo2?.billing_method === 'b2b' ||
+                driverInfo2?.b2b_enabled === true;
+              const isB2BVatPayer = isB2BDriver && driverInfo2?.b2b_vat_payer === true;
+              const effectiveVatRate = isB2BVatPayer ? 0 : driverVatRate;
+
+              // === VAT calculation by settlement_mode (matches recalculate-week + UI) ===
               const uberBaseVal = amounts.uber_base || 0;
               const uberPayoutDVal = amounts.uber_payout_d || 0;
               const uberGrossVal = amounts.uber_gross_total || 0;
-              const uberVatBase2 = driverUberCalcMode2 === 'netto'
-                ? Math.max(0, uberPayoutDVal || uberBaseVal)
-                : driverUberCalcMode2 === 'gross_total'
-                  ? Math.max(0, uberGrossVal > 0 ? uberGrossVal : uberBaseVal * 1.25)
-                  : Math.max(0, uberBaseVal);
-              const vatBase2 = uberVatBase2 + Math.max(0, effectiveBoltBase) + Math.max(0, amounts.freenow_base_s || 0);
-              const vat8 = vatBase2 * (driverVatRate2 / 100);
-              
+              const freenowBaseVal = amounts.freenow_base_s || 0;
+
+              let vat8 = 0;
+              let secondaryVatAmount = 0;
+
+              if (driverSettlementMode === 'dual_tax') {
+                // Combined VAT% + Additional% on Bolt brutto (D)
+                const combinedVatRate = effectiveVatRate + driverAdditionalPercentRate;
+                const boltVatEf = isB2BVatPayer ? 0 : Math.max(0, effectiveBoltBase) * (combinedVatRate / 100);
+
+                // Secondary 23% VAT on bolt I + J + K (campaigns / cancellations / returns)
+                const boltI = Math.abs(Number(amounts.bolt_col_i || 0));
+                const boltJ = Math.abs(Number(amounts.bolt_col_j || 0));
+                const boltK = Math.abs(Number(amounts.bolt_col_k || 0));
+                secondaryVatAmount = isB2BVatPayer
+                  ? 0
+                  : round2((boltI + boltJ + boltK) * (driverSecondaryVatRate / 100));
+
+                // Uber VAT base in dual_tax: 'netto' → base*1.25, 'brutto' → gross_total (or base*1.25 fallback)
+                const uberVatBaseDual = driverUberCalcMode === 'brutto'
+                  ? Math.max(0, uberGrossVal > 0 ? uberGrossVal : Math.max(0, uberBaseVal) * 1.25)
+                  : Math.max(0, uberBaseVal) * 1.25;
+                const uberFreenowBase = uberVatBaseDual + Math.max(0, freenowBaseVal);
+                const uberFreenowVat = isB2BVatPayer ? 0 : round2(uberFreenowBase * (effectiveVatRate / 100));
+
+                vat8 = round2(boltVatEf + uberFreenowVat);
+              } else {
+                // Single tax (existing behavior)
+                const uberVatBaseSingle = driverUberCalcMode === 'netto'
+                  ? Math.max(0, uberPayoutDVal || uberBaseVal)
+                  : driverUberCalcMode === 'gross_total'
+                    ? Math.max(0, uberGrossVal > 0 ? uberGrossVal : uberBaseVal * 1.25)
+                    : Math.max(0, uberBaseVal);
+                const adjustedVatBase = uberVatBaseSingle + Math.max(0, effectiveBoltBase) + Math.max(0, freenowBaseVal);
+                vat8 = round2(adjustedVatBase * (effectiveVatRate / 100));
+              }
+
               // Service fee lookup: manual override > driver custom > city setting > default 50
               const isBoltAdjustmentOnly =
                 !hasPositivePlatformActivity &&
@@ -435,26 +476,51 @@ Deno.serve(async (req) => {
                 if (manualFee !== null && manualFee !== undefined && manualFee !== 0) {
                   serviceFee = Number(manualFee);
                 } else {
-                  const driverInfo = driverDetailMap.get(driverId);
-                  if (driverInfo?.custom_weekly_fee !== null && driverInfo?.custom_weekly_fee !== undefined) {
-                    serviceFee = Number(driverInfo.custom_weekly_fee);
+                  if (driverInfo2?.custom_weekly_fee !== null && driverInfo2?.custom_weekly_fee !== undefined) {
+                    serviceFee = Number(driverInfo2.custom_weekly_fee);
                   } else {
-                    const cityName = cityNameMapForFee.get(driverInfo?.city_id);
-                    const cityFee = cityName ? cityFeeMapForFee.get(cityName) : undefined;
+                    const cityFee = cityName2 ? cityFeeMapForFee.get(cityName2) : undefined;
                     serviceFee = (cityFee !== null && cityFee !== undefined) ? Number(cityFee) : 50;
                   }
                 }
               }
-              
+              if (shouldSkipWeekCharges) {
+                secondaryVatAmount = 0; // mirror recalculate-week: no fees on adjustment-only weeks
+              }
+
               // Rental from settlement must never disappear from debt carry-over.
-              // Even if the week contains only negative adjustments / no activity,
-              // an already persisted rental charge still belongs to that week.
               const rentalFee = fullSettlement.rental_fee || 0;
-              
-              // Final payout = Base - Commission - VAT - Service Fee - Rental - Cash - Fuel + Fuel VAT Refund
-              const calculatedPayout = totalBase - totalCommission - vat8 - serviceFee - rentalFee - totalCash - fuel + fuelVatRefund - manualWeekAdjustment;
-              
-              console.log(`📊 Driver ${driverId}: base=${totalBase}, cash=${totalCash}, vat=${vat8}, service=${serviceFee}, rental=${rentalFee}, fuel=${fuel}, fuelRefund=${fuelVatRefund}, payout=${calculatedPayout}`);
+
+              // === Final payout — formula matches recalculate-week / UI ===
+              let calculatedPayout: number;
+              if (driverSettlementMode === 'dual_tax') {
+                const nettoCalc = totalBase - totalCommission;
+                calculatedPayout = round2(
+                  nettoCalc
+                  - totalCash
+                  - vat8
+                  - secondaryVatAmount
+                  - serviceFee
+                  - rentalFee
+                  - fuel
+                  + fuelVatRefund
+                  - manualWeekAdjustment
+                );
+              } else {
+                calculatedPayout = round2(
+                  totalBase
+                  - totalCommission
+                  - vat8
+                  - serviceFee
+                  - rentalFee
+                  - totalCash
+                  - fuel
+                  + fuelVatRefund
+                  - manualWeekAdjustment
+                );
+              }
+
+              console.log(`📊 Driver ${driverId}: mode=${driverSettlementMode}, base=${totalBase}, cash=${totalCash}, vat=${vat8}, secVat=${secondaryVatAmount}, service=${serviceFee}, rental=${rentalFee}, fuel=${fuel}, fuelRefund=${fuelVatRefund}, payout=${calculatedPayout}`);
               
               try {
                 const debtResponse = await fetch(`${supabaseUrl}/functions/v1/update-driver-debt`, {
