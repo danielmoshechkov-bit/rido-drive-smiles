@@ -56,11 +56,21 @@ function txIsPay(t: any) {
 }
 
 function txWeekKey(t: any): string {
-  // Klucz tygodnia UI z created_at (źródło prawdy dla zero-out i ręcznych akcji).
-  const iso = String(t.created_at || "").slice(0, 10);
+  // PRIORYTET: period_from/period_to (jeśli są) — to jest okres, którego transakcja dotyczy.
+  // FALLBACK: created_at (kiedy operator kliknął) — tylko gdy period_from brak.
+  // Powód: dług za t.16 zaksięgowany 30.04 (t.17) musi wpaść do t.16, jeśli ma period_from=2026-04-20.
+  const periodIso = String(t.period_from || "").slice(0, 10);
+  const iso = periodIso || String(t.created_at || "").slice(0, 10);
   if (!iso) return "";
   const w = uiWeekFromDate(iso);
   return `${w.year}-${w.week}`;
+}
+
+function txIsInvalid(t: any): boolean {
+  // Pomijamy transakcje oznaczone jako invalid lub duplicate w metadata.
+  const m = t?.metadata;
+  if (!m || typeof m !== "object") return false;
+  return m.invalid === true || m.invalid === "true" || m.duplicate === true || m.duplicate === "true";
 }
 
 Deno.serve(async (req) => {
@@ -109,10 +119,11 @@ Deno.serve(async (req) => {
 
       if (!settlements?.length) continue;
 
-      // Pełny ledger od start_week (po created_at, bo zero-out / akcje ręczne mogą mieć period_from sprzed tygodnia)
+      // Pełny ledger: bierzemy szeroki zakres po created_at, bo transakcje z period_from w przeszłości
+      // mogą być zaksięgowane później (created_at > start_week) — i odwrotnie. Filtrujemy potem po period_from/created_at.
       const { data: ledger } = await supabase
         .from("driver_debt_transactions")
-        .select("id, amount, type, period_from, period_to, created_at, description, settlement_id, debt_category")
+        .select("id, amount, type, period_from, period_to, created_at, description, settlement_id, debt_category, metadata")
         .eq("driver_id", driver.id)
         .gte("created_at", startDate)
         .order("created_at", { ascending: true });
@@ -125,9 +136,11 @@ Deno.serve(async (req) => {
         .maybeSingle();
       const ledgerBalance = round2(Number(liveDebt?.current_balance || 0));
 
-      // Grupuj ledger po tygodniu UI (z created_at)
+      // Grupuj ledger po tygodniu UI (priorytet: period_from, fallback: created_at).
+      // Pomijamy transakcje oznaczone jako invalid/duplicate w metadata.
       const ledgerByWeek = new Map<string, any[]>();
       for (const t of ledger || []) {
+        if (txIsInvalid(t)) continue;
         const k = txWeekKey(t);
         if (!k) continue;
         if (!ledgerByWeek.has(k)) ledgerByWeek.set(k, []);
