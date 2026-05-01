@@ -984,9 +984,14 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     const effective = getEffectiveSettlement(settlement);
     const payoutNoRental = calculatePayoutWithoutRental(effective);
     const displayedTotalDebt = getDisplayedDebt(settlement);
+
+    // ŹRÓDŁO PRAWDY: gdy istnieje DWD snapshot dla tygodnia → używamy dwd_opening.
+    // NIE czytamy settlement.debt_previous / splitDebt / live ledger.
     const liveSettlementDebt = displayedTotalDebt <= 0
       ? 0
-      : round2(Math.max(0, settlement.debt_previous ?? 0));
+      : (settlement.has_dwd
+          ? round2(Math.max(0, settlement.dwd_opening ?? 0))
+          : round2(Math.max(0, settlement.debt_previous ?? 0)));
 
     if (payoutNoRental <= 0) {
       // Negative payout → return as-is (debt will increase, handled elsewhere)
@@ -999,16 +1004,21 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
   // Dług wynajmu (kolumna wejściowa tygodnia): tylko zaległość z wynajmu z poprzednich tygodni
   const getRentalDebt = (settlement: DriverSettlement): number => {
+    // Gdy DWD jest źródłem prawdy → cały dług tygodnia siedzi w dwd_opening,
+    // a kolumna wynajmu nie powinna podwajać tej wartości.
+    if (settlement.has_dwd) return 0;
     return round2(Math.max(0, settlement.rental_debt_previous ?? 0));
   };
 
   // Kolumna „Dług" w tabeli tygodniowej ZAWSZE pokazuje dług WEJŚCIOWY tego tygodnia
-  // (opening_debt / visible_debt — to co kierowca jest winien NA POCZĄTKU tygodnia,
-  // przeniesione z poprzedniego tygodnia po wpłatach).
-  // NIE pokazujemy tu remaining_debt / debt_after / debt_current — to dług KOŃCOWY,
-  // który dopiero przechodzi na następny tydzień.
-  // Dotyczy zarówno tygodni historycznych, jak i bieżącego.
+  // ŹRÓDŁO PRAWDY: driver_weekly_debts (DWD) — gdy istnieje wpis dla tego tygodnia,
+  // używamy WYŁĄCZNIE dwd_opening. Nie czytamy settlement.debt_previous,
+  // splitDebt ani live ledgera. Dialog korzysta z tej samej wartości
+  // (przekazywanej przez weekDebtContext.totalDebtBefore = getDisplayedDebt).
   const getDisplayedDebt = (settlement: DriverSettlement): number => {
+    if (settlement.has_dwd) {
+      return round2(Math.max(0, settlement.dwd_opening ?? 0));
+    }
     const incomingDebt = round2(
       Math.max(0, settlement.debt_previous ?? 0) + Math.max(0, settlement.rental_debt_previous ?? 0)
     );
