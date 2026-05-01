@@ -401,18 +401,11 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
       const dateVal = new Date().toISOString().split('T')[0];
       const { periodFrom: weekFrom, periodTo: weekTo } = getTxDates();
 
-      // CRITICAL: Zeroing must be dated BEFORE the current week so that
-      // recalculate-week treats it as a historical correction reducing
-      // the debt entering this week (debt_before), not as a same-week payment.
-      const zeroDate = (() => {
-        try {
-          const d = new Date(`${weekFrom}T00:00:00Z`);
-          d.setUTCDate(d.getUTCDate() - 1);
-          return d.toISOString().split('T')[0];
-        } catch {
-          return weekFrom;
-        }
-      })();
+      // Zero-out należy do WYBRANEGO tygodnia (period_from = weekFrom, period_to = weekTo).
+      // Nie cofamy daty o 1 dzień, bo to wrzucało transakcję do poprzedniego tygodnia UI
+      // i psuło snapshot DWD. Rebuild i tak grupuje transakcje po created_at -> tygodniu UI.
+      const zeroPeriodFrom = weekFrom;
+      const zeroPeriodTo = weekTo;
 
       const paymentRows: Array<Record<string, any>> = [];
 
