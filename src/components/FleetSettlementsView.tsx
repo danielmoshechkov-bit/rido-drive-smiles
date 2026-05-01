@@ -2798,7 +2798,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                     )}
                   </TableCell>
                   <TableCell className="text-right p-1.5 text-xs">
-                    {formatCurrency(settlement.debt_previous)}
+                    {formatCurrency(getDisplayedDebt(settlement))}
                   </TableCell>
                   <TableCell className="text-right p-1.5 text-xs">
                     {formatCurrency(settlement.debt_current)}
