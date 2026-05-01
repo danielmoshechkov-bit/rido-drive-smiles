@@ -10,9 +10,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   Upload, FileText, AlertTriangle, CheckCircle2, Loader2, TrendingDown,
-  Package, Eye, Trash2, Download, X
+  Package, Eye, Trash2, Download, X, Link2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { InventoryProductMapper } from './InventoryProductMapper';
 
 interface PurchaseInvoice {
   id: string;
