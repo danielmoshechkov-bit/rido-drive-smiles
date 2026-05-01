@@ -592,13 +592,13 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
         <CardTitle className="flex items-center justify-between gap-2 flex-wrap">
           <span>💳 Historia zadłużenia</span>
           {isWeekView ? (
-            weekClosing > 0 ? (
+            weekOpening > 0 ? (
               <span className="text-red-600 font-bold">
-                Dług po wybranym tygodniu: {weekClosing.toFixed(2)} zł
+                Dług na start tygodnia: {weekOpening.toFixed(2)} zł
               </span>
             ) : (
               <span className="text-green-600 font-bold">
-                ✓ Brak długu po wybranym tygodniu
+                ✓ Brak długu na start wybranego tygodnia
               </span>
             )
           ) : currentDebt > 0 ? (
