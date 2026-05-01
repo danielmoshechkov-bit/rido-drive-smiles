@@ -475,13 +475,19 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
     try {
       toast.info('Generuję PDF i wysyłam...');
       const pdfBase64 = await generatePdfBase64();
-      
+
+      if (!pdfBase64) {
+        toast.error('Nie udało się wygenerować PDF. Otwórz podgląd i spróbuj ponownie.');
+        setIsSendingEmail(false);
+        return;
+      }
+
       const { data, error } = await supabase.functions.invoke('send-invoice-email', {
-        body: { 
+        body: {
           invoice_id: invoice.id,
           recipient_email: email,
           type: 'new_invoice',
-          pdf_base64: pdfBase64 || undefined,
+          pdf_base64: pdfBase64,
         }
       });
 
