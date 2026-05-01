@@ -347,7 +347,7 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        version: "v2-ledger-first",
+        version: "v4-ledger-first-no-hidden-payment",
         dry_run: dryRun,
         start_week: body.start_week,
         year: body.year,
