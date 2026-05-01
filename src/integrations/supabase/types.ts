@@ -14503,75 +14503,108 @@ export type Database = {
           account_kpir: string | null
           ai_category: string | null
           ai_notes: string | null
+          confidence: number | null
           created_at: string | null
+          currency: string | null
           document_number: string
           due_date: string | null
           entity_id: string | null
           environment: string | null
+          file_name: string | null
           id: string
+          inventory_processed: boolean | null
           is_paid: boolean | null
+          issue_date: string | null
           ksef_number: string | null
+          needs_review: boolean | null
           ocr_raw: Json | null
           payment_method: string | null
           pdf_url: string | null
           purchase_date: string | null
+          sale_date: string | null
+          source: string | null
           status: string | null
+          supplier_account: string | null
+          supplier_address: string | null
           supplier_name: string | null
           supplier_nip: string | null
           total_gross: number | null
           total_net: number | null
           total_vat: number | null
           user_id: string | null
+          vat_breakdown: Json | null
           xml_content: string | null
         }
         Insert: {
           account_kpir?: string | null
           ai_category?: string | null
           ai_notes?: string | null
+          confidence?: number | null
           created_at?: string | null
+          currency?: string | null
           document_number: string
           due_date?: string | null
           entity_id?: string | null
           environment?: string | null
+          file_name?: string | null
           id?: string
+          inventory_processed?: boolean | null
           is_paid?: boolean | null
+          issue_date?: string | null
           ksef_number?: string | null
+          needs_review?: boolean | null
           ocr_raw?: Json | null
           payment_method?: string | null
           pdf_url?: string | null
           purchase_date?: string | null
+          sale_date?: string | null
+          source?: string | null
           status?: string | null
+          supplier_account?: string | null
+          supplier_address?: string | null
           supplier_name?: string | null
           supplier_nip?: string | null
           total_gross?: number | null
           total_net?: number | null
           total_vat?: number | null
           user_id?: string | null
+          vat_breakdown?: Json | null
           xml_content?: string | null
         }
         Update: {
           account_kpir?: string | null
           ai_category?: string | null
           ai_notes?: string | null
+          confidence?: number | null
           created_at?: string | null
+          currency?: string | null
           document_number?: string
           due_date?: string | null
           entity_id?: string | null
           environment?: string | null
+          file_name?: string | null
           id?: string
+          inventory_processed?: boolean | null
           is_paid?: boolean | null
+          issue_date?: string | null
           ksef_number?: string | null
+          needs_review?: boolean | null
           ocr_raw?: Json | null
           payment_method?: string | null
           pdf_url?: string | null
           purchase_date?: string | null
+          sale_date?: string | null
+          source?: string | null
           status?: string | null
+          supplier_account?: string | null
+          supplier_address?: string | null
           supplier_name?: string | null
           supplier_nip?: string | null
           total_gross?: number | null
           total_net?: number | null
           total_vat?: number | null
           user_id?: string | null
+          vat_breakdown?: Json | null
           xml_content?: string | null
         }
         Relationships: [
