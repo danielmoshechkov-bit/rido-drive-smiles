@@ -167,6 +167,40 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
   const settlementDebt = getCategoryDebt('settlement');
   const rentalDebt = getCategoryDebt('rental');
 
+  // ====== HISTORYCZNY SNAPSHOT TYGODNIA ======
+  // Gdy dialog otwarto z konkretnego tygodnia (weekDebtContext), liczymy stan
+  // tygodnia uwzględniając ręczne akcje operatora z ledgera w tym okresie.
+  // NIE używamy tu `currentDebt` (live driver_debts.current_balance).
+  const isWeekView = !!(weekDebtContext?.periodFrom && weekDebtContext?.periodTo);
+
+  const weekTxs = (() => {
+    if (!isWeekView) return [] as DebtTransaction[];
+    const from = weekDebtContext!.periodFrom!;
+    const to = weekDebtContext!.periodTo!;
+    return transactions.filter((tx) => {
+      // Datą efektywną jest period_from transakcji (operator wybiera tydzień);
+      // fallback na created_at gdy brak.
+      const d = (tx.period_from || tx.created_at || '').slice(0, 10);
+      return d >= from && d <= to;
+    });
+  })();
+
+  const weekAdded = weekTxs
+    .filter((tx) => tx.type === 'debt_increase' || tx.type === 'manual_add')
+    .reduce((s, tx) => s + Math.abs(Number(tx.amount) || 0), 0);
+  const weekPaid = weekTxs
+    .filter((tx) => tx.type === 'payment' || tx.type === 'debt_payment')
+    .reduce((s, tx) => s + Math.abs(Number(tx.amount) || 0), 0);
+
+  const weekOpening = round2(Number(weekDebtContext?.totalDebtBefore || 0));
+  // Snapshot końca tygodnia: opening + dodane − spłaty (z ledgera w tym okresie),
+  // ale nie schodzimy poniżej 0. Jeśli DWD już ma debtAfter, używamy go jako
+  // źródła prawdy snapshotu i ledger służy tylko do wyświetlenia rozbicia.
+  const weekClosingFromLedger = Math.max(0, round2(weekOpening + weekAdded - weekPaid));
+  const weekClosing = weekDebtContext
+    ? round2(Number(weekDebtContext.debtAfter || 0))
+    : weekClosingFromLedger;
+
   const handlePayment = async () => {
     const amount = parseFloat(paymentAmount.replace(',', '.'));
     if (!amount || amount <= 0) {
@@ -570,11 +604,21 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center justify-between">
+        <CardTitle className="flex items-center justify-between gap-2 flex-wrap">
           <span>💳 Historia zadłużenia</span>
-          {(currentDebt > 0 || (weekDebtContext && weekDebtContext.totalDebtBefore > 0)) ? (
+          {isWeekView ? (
+            weekClosing > 0 ? (
+              <span className="text-red-600 font-bold">
+                Dług po wybranym tygodniu: {weekClosing.toFixed(2)} zł
+              </span>
+            ) : (
+              <span className="text-green-600 font-bold">
+                ✓ Brak długu po wybranym tygodniu
+              </span>
+            )
+          ) : currentDebt > 0 ? (
             <span className="text-red-600 font-bold">
-              Obecny dług (na dziś): {Math.max(currentDebt, 0).toFixed(2)} zł
+              Obecny dług (na dziś): {currentDebt.toFixed(2)} zł
             </span>
           ) : (
             <span className="text-green-600 font-bold">
@@ -624,46 +668,51 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
 
         {weekDebtContext && (
           <div className="p-3 rounded-lg border bg-muted/40 space-y-2">
-            <div className="text-sm font-semibold">📅 Dług w tym tygodniu (snapshot)</div>
+            <div className="text-sm font-semibold">📅 Dług w wybranym tygodniu (snapshot historyczny)</div>
             {(weekDebtContext.periodFrom && weekDebtContext.periodTo) && (
               <div className="text-xs text-muted-foreground">
                 Okres: {format(new Date(weekDebtContext.periodFrom), 'dd.MM.yyyy', { locale: pl })} – {format(new Date(weekDebtContext.periodTo), 'dd.MM.yyyy', { locale: pl })}
               </div>
             )}
-            <div className="grid grid-cols-3 gap-2 text-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
               <div className="p-2 rounded bg-background border">
                 <div className="text-muted-foreground">Dług na start tygodnia</div>
                 <div className="font-bold text-foreground tabular-nums">
-                  {weekDebtContext.totalDebtBefore.toFixed(2)} zł
+                  {weekOpening.toFixed(2)} zł
                 </div>
               </div>
               <div className="p-2 rounded bg-background border">
-                <div className="text-muted-foreground">Zmiana w tygodniu</div>
-                <div className={`font-bold tabular-nums ${
-                  weekDebtContext.debtAfter - weekDebtContext.totalDebtBefore > 0.01
-                    ? 'text-destructive'
-                    : weekDebtContext.debtAfter - weekDebtContext.totalDebtBefore < -0.01
-                      ? 'text-green-600'
-                      : 'text-foreground'
-                }`}>
-                  {(weekDebtContext.debtAfter - weekDebtContext.totalDebtBefore >= 0 ? '+' : '')}
-                  {(weekDebtContext.debtAfter - weekDebtContext.totalDebtBefore).toFixed(2)} zł
+                <div className="text-muted-foreground">+ dodane w tygodniu</div>
+                <div className="font-bold text-destructive tabular-nums">
+                  +{weekAdded.toFixed(2)} zł
+                </div>
+              </div>
+              <div className="p-2 rounded bg-background border">
+                <div className="text-muted-foreground">− spłaty w tygodniu</div>
+                <div className="font-bold text-green-600 tabular-nums">
+                  −{weekPaid.toFixed(2)} zł
                 </div>
               </div>
               <div className="p-2 rounded bg-background border">
                 <div className="text-muted-foreground">Dług po tygodniu</div>
                 <div className="font-bold text-foreground tabular-nums">
-                  {weekDebtContext.debtAfter.toFixed(2)} zł
+                  {weekClosing.toFixed(2)} zł
                 </div>
               </div>
             </div>
             <div className="text-[11px] text-muted-foreground">
-              Rozliczeniowy: <span className="font-medium text-foreground">{weekDebtContext.settlementDebtBefore.toFixed(2)} zł</span>
-              {' • '}Wynajem: <span className="font-medium text-foreground">{weekDebtContext.rentalDebtBefore.toFixed(2)} zł</span>
+              Rozliczeniowy (start): <span className="font-medium text-foreground">{weekDebtContext.settlementDebtBefore.toFixed(2)} zł</span>
+              {' • '}Wynajem (start): <span className="font-medium text-foreground">{weekDebtContext.rentalDebtBefore.toFixed(2)} zł</span>
             </div>
-            {currentDebt === 0 && weekDebtContext.totalDebtBefore > 0 && (
-              <div className="text-xs font-medium text-green-700">Ten dług został już spłacony — dlatego obecnie saldo to 0.</div>
+            {Math.abs(weekClosing - weekClosingFromLedger) > 0.01 && (
+              <div className="text-[11px] text-amber-700 dark:text-amber-400">
+                ⚠ Snapshot DWD ({weekClosing.toFixed(2)} zł) różni się od wyliczenia z ledgera ({weekClosingFromLedger.toFixed(2)} zł). Pokazujemy DWD jako źródło prawdy tygodnia.
+              </div>
             )}
+            <div className="text-[11px] text-muted-foreground border-t pt-2 mt-1">
+              Obecny dług na dziś (live): <span className={`font-semibold ${currentDebt > 0 ? 'text-red-600' : 'text-green-600'}`}>{currentDebt.toFixed(2)} zł</span>
+              <span className="ml-1 italic">— niezależny od stanu wybranego tygodnia.</span>
+            </div>
           </div>
         )}
 
