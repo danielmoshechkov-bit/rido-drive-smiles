@@ -395,22 +395,27 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
       // Usuń zewnętrzny QR KSeF (api.qrserver.com) — wisi przez CORS i blokuje render
       html = html.replace(/<img[^>]+api\.qrserver\.com[^>]*>/gi, '');
 
-      const html2pdf = (await import('html2pdf.js')).default;
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+        import('html2canvas'),
+        import('jspdf'),
+      ]);
 
       const container = document.createElement('div');
       container.innerHTML = html;
-      // Renderuj OFF-SCREEN ale w widzialnym layoucie (left -10000) z jawną szerokością A4 w pikselach
+      // Renderuj WIDZIALNIE ale poza viewportem (absolute + top:0/left:0 ale z translate poza ekran)
+      // html2canvas wymaga widzialnego layoutu — fixed/-10000 czasem daje pustą stronę
       Object.assign(container.style, {
-        position: 'fixed',
-        left: '-10000px',
+        position: 'absolute',
+        left: '0',
         top: '0',
         width: '794px',           // 210mm @ 96dpi
         minHeight: '1123px',      // 297mm @ 96dpi
         background: '#ffffff',
-        zIndex: '-1',
+        zIndex: '-9999',
         pointerEvents: 'none',
         visibility: 'visible',
         opacity: '1',
+        transform: 'translateX(-20000px)',
       });
       document.body.appendChild(container);
 
@@ -431,21 +436,48 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
       } catch (e) {
         console.warn('Font/img wait skipped:', e);
       }
-      // Większy bufor na layout/reflow
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Bufor na layout/reflow
+      await new Promise(resolve => setTimeout(resolve, 600));
 
-      const pdfBlob: Blob = await (html2pdf()
-        .set({
-          margin: 0,
-          filename: 'faktura.pdf',
-          image: { type: 'jpeg', quality: 0.95 },
-          html2canvas: { scale: 2, useCORS: true, allowTaint: true, width: 794, windowWidth: 794, backgroundColor: '#ffffff' },
-          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        })
-        .from(container) as any)
-        .output('blob');
+      // Renderuj do canvas
+      const canvas = await html2canvas(container, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        width: 794,
+        windowWidth: 794,
+        logging: false,
+      });
 
       document.body.removeChild(container);
+
+      console.log('Canvas size:', canvas.width, 'x', canvas.height);
+      if (canvas.width < 100 || canvas.height < 100) {
+        console.error('Canvas too small — render failure');
+        return null;
+      }
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+      const pageWidth = 210;
+      const pageHeight = 297;
+      const imgWidth = pageWidth;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      let heightLeft = imgHeight;
+      let position = 0;
+      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      const pdfBlob: Blob = pdf.output('blob');
 
       console.log('PDF blob size:', pdfBlob.size, 'bytes');
       if (pdfBlob.size < 8000) {
