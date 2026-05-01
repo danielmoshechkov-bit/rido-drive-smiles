@@ -112,7 +112,7 @@ Deno.serve(async (req) => {
       // Pełny ledger od start_week (po created_at, bo zero-out / akcje ręczne mogą mieć period_from sprzed tygodnia)
       const { data: ledger } = await supabase
         .from("driver_debt_transactions")
-        .select("id, amount, type, transaction_type, period_from, period_to, created_at, description, note, settlement_id, debt_category")
+        .select("id, amount, type, period_from, period_to, created_at, description, settlement_id, debt_category")
         .eq("driver_id", driver.id)
         .gte("created_at", startDate)
         .order("created_at", { ascending: true });
@@ -248,7 +248,7 @@ Deno.serve(async (req) => {
               period_to: s.period_to,
               amount: round2(Math.abs(Number(t.amount || 0))),
               payment_type: "migrated",
-              note: `${ledgerTag} ${t.description || t.note || t.type || ""}`.trim(),
+              note: `${ledgerTag} ${t.description || t.type || ""}`.trim(),
             });
             totalPaymentsMigrated++;
           }
@@ -277,7 +277,7 @@ Deno.serve(async (req) => {
             type: t.type || t.transaction_type,
             amount: Number(t.amount || 0),
             created_at: t.created_at,
-            description: t.description || t.note,
+            description: t.description,
           });
         }
       }
