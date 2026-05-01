@@ -77,6 +77,8 @@ export function PurchaseInvoicesModule({ entityId, userId }: Props) {
   const [selectedInvoice, setSelectedInvoice] = useState<PurchaseInvoice | null>(null);
   const [selectedItems, setSelectedItems] = useState<PurchaseInvoiceItem[]>([]);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+  const [mapperItem, setMapperItem] = useState<PurchaseInvoiceItem | null>(null);
 
   // Load
   const loadInvoices = useCallback(async () => {
