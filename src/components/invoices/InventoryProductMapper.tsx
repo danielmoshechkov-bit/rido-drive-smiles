@@ -37,9 +37,13 @@ export function InventoryProductMapper({
   open,
   onOpenChange,
   entityId,
+  userId,
   itemName,
   itemNetPrice,
   itemVatRate,
+  supplierNip,
+  supplierName,
+  supplierSymbol,
   onProductMapped
 }: InventoryProductMapperProps) {
   const [mode, setMode] = useState<'search' | 'create'>('search');
@@ -49,7 +53,7 @@ export function InventoryProductMapper({
   const [saving, setSaving] = useState(false);
   
   const [newName, setNewName] = useState(itemName);
-  const [newSku, setNewSku] = useState('');
+  const [newSku, setNewSku] = useState(supplierSymbol || '');
   const [newBarcode, setNewBarcode] = useState('');
   const [newNetPrice, setNewNetPrice] = useState(itemNetPrice);
   const [newVatRate, setNewVatRate] = useState(itemVatRate || '23');
@@ -57,20 +61,24 @@ export function InventoryProductMapper({
   useEffect(() => {
     if (open) {
       setNewName(itemName);
+      setNewSku(supplierSymbol || '');
       setNewNetPrice(itemNetPrice);
       setNewVatRate(itemVatRate || '23');
-      searchProducts('');
+      searchProducts(itemName.split(' ').slice(0, 2).join(' '));
     }
-  }, [open, itemName, itemNetPrice, itemVatRate]);
+  }, [open, itemName, itemNetPrice, itemVatRate, supplierSymbol]);
 
   const searchProducts = async (term: string) => {
     setLoading(true);
     try {
-      let query = supabase
+      let query = (supabase as any)
         .from('inventory_products')
         .select('id, name_sales, sku, barcode')
-        .eq('entity_id', entityId)
+        .eq('is_active', true)
         .limit(20);
+      
+      if (entityId) query = query.eq('entity_id', entityId);
+      else if (userId) query = query.eq('user_id', userId);
       
       if (term) {
         query = query.or(`name_sales.ilike.%${term}%,sku.ilike.%${term}%,barcode.ilike.%${term}%`);
@@ -85,9 +93,30 @@ export function InventoryProductMapper({
     }
   };
 
+  // Zapisz alias do auto-mapowania na przyszłość
+  const saveAlias = async (productId: string) => {
+    try {
+      const normalized = (itemName || '').toLowerCase().trim().replace(/\s+/g, ' ');
+      const payload: any = {
+        product_id: productId,
+        entity_id: entityId,
+        user_id: userId,
+        supplier_name: supplierName || null,
+        supplier_nip: supplierNip || null,
+        source_label: itemName,
+        normalized_label: normalized,
+        confidence: 1.0,
+      };
+      await (supabase as any).from('inventory_product_aliases').insert(payload);
+    } catch (e) {
+      console.warn('Alias save failed (non-critical):', e);
+    }
+  };
+
   const handleSelectProduct = async (product: Product) => {
+    await saveAlias(product.id);
     onProductMapped(product.id);
-    toast.success(`Przypisano do: ${product.name_sales}`);
+    toast.success(`Przypisano: ${product.name_sales}. Zapamiętane na przyszłość.`);
     onOpenChange(false);
   };
 
@@ -99,23 +128,31 @@ export function InventoryProductMapper({
 
     setSaving(true);
     try {
-      const { data: newProduct, error } = await supabase
+      const insertData: any = {
+        name_sales: newName.trim(),
+        sku: newSku.trim() || null,
+        barcode: newBarcode.trim() || null,
+        default_sale_price_net: newNetPrice,
+        default_purchase_price_net: itemNetPrice,
+        vat_rate: newVatRate,
+        is_active: true,
+        unit: 'szt.',
+        currency: 'PLN',
+      };
+      if (entityId) insertData.entity_id = entityId;
+      if (userId) insertData.user_id = userId;
+
+      const { data: newProduct, error } = await (supabase as any)
         .from('inventory_products')
-        .insert({
-          entity_id: entityId,
-          name_sales: newName.trim(),
-          sku: newSku.trim() || null,
-          barcode: newBarcode.trim() || null,
-          default_sale_price_net: newNetPrice,
-          vat_rate: newVatRate
-        })
+        .insert(insertData)
         .select('id')
         .single();
 
       if (error) throw error;
 
+      await saveAlias(newProduct.id);
       onProductMapped(newProduct.id);
-      toast.success('Utworzono produkt i przypisano');
+      toast.success('Utworzono produkt i przypisano. Zapamiętane na przyszłość.');
       onOpenChange(false);
     } catch (err: any) {
       console.error('Error creating product:', err);
