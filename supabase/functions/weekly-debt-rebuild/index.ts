@@ -56,11 +56,21 @@ function txIsPay(t: any) {
 }
 
 function txWeekKey(t: any): string {
-  // Klucz tygodnia UI z created_at (źródło prawdy dla zero-out i ręcznych akcji).
-  const iso = String(t.created_at || "").slice(0, 10);
+  // PRIORYTET: period_from/period_to (jeśli są) — to jest okres, którego transakcja dotyczy.
+  // FALLBACK: created_at (kiedy operator kliknął) — tylko gdy period_from brak.
+  // Powód: dług za t.16 zaksięgowany 30.04 (t.17) musi wpaść do t.16, jeśli ma period_from=2026-04-20.
+  const periodIso = String(t.period_from || "").slice(0, 10);
+  const iso = periodIso || String(t.created_at || "").slice(0, 10);
   if (!iso) return "";
   const w = uiWeekFromDate(iso);
   return `${w.year}-${w.week}`;
+}
+
+function txIsInvalid(t: any): boolean {
+  // Pomijamy transakcje oznaczone jako invalid lub duplicate w metadata.
+  const m = t?.metadata;
+  if (!m || typeof m !== "object") return false;
+  return m.invalid === true || m.invalid === "true" || m.duplicate === true || m.duplicate === "true";
 }
 
 Deno.serve(async (req) => {
