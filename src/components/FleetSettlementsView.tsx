@@ -940,7 +940,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     const rawPayout = round2(payoutNoRental - rental);
     
     // W bieżącym tygodniu używaj tej samej wartości długu, którą pokazuje kolumna „Dług”.
-    // Dzięki temu wyzerowanie długu w modalu od razu przestaje pomniejszać wypłatę.
+    // (DWD = źródło prawdy gdy istnieje — patrz getDisplayedDebt)
     const totalDebt = getDisplayedDebt(settlement);
     
     if (totalDebt <= 0) return rawPayout;
