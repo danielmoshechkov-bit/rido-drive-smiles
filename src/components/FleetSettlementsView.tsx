@@ -938,13 +938,25 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     const payoutNoRental = calculatePayoutWithoutRental(effective);
     const rental = effective.rental || 0;
     const rawPayout = round2(payoutNoRental - rental);
-    
+
+    // ŹRÓDŁO PRAWDY: gdy istnieje DWD snapshot dla tygodnia → wypłata MUSI być
+    // spójna z dwd_remaining (= dług na start następnego tygodnia + dialog "Dług po tygodniu").
+    // Inaczej UI pokazuje rozjazd kilka zł przez różnice zaokrągleń lokalnych vs DB.
+    if (settlement.has_dwd) {
+      const dwdRemaining = round2(Math.max(0, settlement.dwd_remaining ?? 0));
+      if (dwdRemaining > 0) {
+        // Ujemna wypłata = dług końcowy tygodnia ze snapshotu DWD
+        return round2(-dwdRemaining);
+      }
+      // dwd_remaining === 0 → kierowca pokrył dług, wypłata to to co zostało po pokryciu
+      // dwd_opening z rawPayout. Bezpieczny fallback do liczenia lokalnego.
+    }
+
     // W bieżącym tygodniu używaj tej samej wartości długu, którą pokazuje kolumna „Dług”.
-    // (DWD = źródło prawdy gdy istnieje — patrz getDisplayedDebt)
     const totalDebt = getDisplayedDebt(settlement);
-    
+
     if (totalDebt <= 0) return rawPayout;
-    
+
     // Dług pomniejsza wypłatę — jeśli wypłata nie pokryje długu, wynik jest ujemny (= nowy dług)
     return round2(rawPayout - totalDebt);
   };
