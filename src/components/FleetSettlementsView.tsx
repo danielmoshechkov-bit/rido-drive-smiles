@@ -108,6 +108,11 @@ interface DriverSettlement {
   snapshot_settlement_debt_after?: number;
   snapshot_rental_debt_after?: number;
   manual_week_adjustment?: number;
+  // DWD (driver_weekly_debts) snapshot — JEDYNE ŹRÓDŁO PRAWDY tygodnia gdy istnieje.
+  // Gdy has_dwd=true, kolumna "Dług" / Wypłata1 MUSZĄ używać dwd_opening, nie debt_previous/splitDebt/live ledger.
+  has_dwd?: boolean;
+  dwd_opening?: number;
+  dwd_remaining?: number;
 }
 
 interface FleetFee {
@@ -935,7 +940,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     const rawPayout = round2(payoutNoRental - rental);
     
     // W bieżącym tygodniu używaj tej samej wartości długu, którą pokazuje kolumna „Dług”.
-    // Dzięki temu wyzerowanie długu w modalu od razu przestaje pomniejszać wypłatę.
+    // (DWD = źródło prawdy gdy istnieje — patrz getDisplayedDebt)
     const totalDebt = getDisplayedDebt(settlement);
     
     if (totalDebt <= 0) return rawPayout;
@@ -979,9 +984,14 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     const effective = getEffectiveSettlement(settlement);
     const payoutNoRental = calculatePayoutWithoutRental(effective);
     const displayedTotalDebt = getDisplayedDebt(settlement);
+
+    // ŹRÓDŁO PRAWDY: gdy istnieje DWD snapshot dla tygodnia → używamy dwd_opening.
+    // NIE czytamy settlement.debt_previous / splitDebt / live ledger.
     const liveSettlementDebt = displayedTotalDebt <= 0
       ? 0
-      : round2(Math.max(0, settlement.debt_previous ?? 0));
+      : (settlement.has_dwd
+          ? round2(Math.max(0, settlement.dwd_opening ?? 0))
+          : round2(Math.max(0, settlement.debt_previous ?? 0)));
 
     if (payoutNoRental <= 0) {
       // Negative payout → return as-is (debt will increase, handled elsewhere)
@@ -994,16 +1004,21 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
   // Dług wynajmu (kolumna wejściowa tygodnia): tylko zaległość z wynajmu z poprzednich tygodni
   const getRentalDebt = (settlement: DriverSettlement): number => {
+    // Gdy DWD jest źródłem prawdy → cały dług tygodnia siedzi w dwd_opening,
+    // a kolumna wynajmu nie powinna podwajać tej wartości.
+    if (settlement.has_dwd) return 0;
     return round2(Math.max(0, settlement.rental_debt_previous ?? 0));
   };
 
   // Kolumna „Dług" w tabeli tygodniowej ZAWSZE pokazuje dług WEJŚCIOWY tego tygodnia
-  // (opening_debt / visible_debt — to co kierowca jest winien NA POCZĄTKU tygodnia,
-  // przeniesione z poprzedniego tygodnia po wpłatach).
-  // NIE pokazujemy tu remaining_debt / debt_after / debt_current — to dług KOŃCOWY,
-  // który dopiero przechodzi na następny tydzień.
-  // Dotyczy zarówno tygodni historycznych, jak i bieżącego.
+  // ŹRÓDŁO PRAWDY: driver_weekly_debts (DWD) — gdy istnieje wpis dla tego tygodnia,
+  // używamy WYŁĄCZNIE dwd_opening. Nie czytamy settlement.debt_previous,
+  // splitDebt ani live ledgera. Dialog korzysta z tej samej wartości
+  // (przekazywanej przez weekDebtContext.totalDebtBefore = getDisplayedDebt).
   const getDisplayedDebt = (settlement: DriverSettlement): number => {
+    if (settlement.has_dwd) {
+      return round2(Math.max(0, settlement.dwd_opening ?? 0));
+    }
     const incomingDebt = round2(
       Math.max(0, settlement.debt_previous ?? 0) + Math.max(0, settlement.rental_debt_previous ?? 0)
     );
@@ -2097,6 +2112,9 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             snapshot_actual_payout: (settlementSnapshot as any)?.actual_payout ?? undefined,
             snapshot_settlement_debt_after: snapshotSettlementDebtAfter,
             snapshot_rental_debt_after: snapshotRentalDebtAfter,
+            has_dwd: !!dwdSnapshot,
+            dwd_opening: dwdSnapshot?.opening,
+            dwd_remaining: dwdSnapshot?.remaining,
           };
         }
 
@@ -2187,6 +2205,9 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             snapshot_actual_payout: (settlementSnapshot as any)?.actual_payout ?? undefined,
             snapshot_settlement_debt_after: snapshotSettlementDebtAfter,
             snapshot_rental_debt_after: snapshotRentalDebtAfter,
+            has_dwd: !!dwdSnapshot,
+            dwd_opening: dwdSnapshot?.opening,
+            dwd_remaining: dwdSnapshot?.remaining,
           };
         }
 
@@ -2390,6 +2411,9 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           snapshot_actual_payout: (settlementSnapshot as any)?.actual_payout ?? undefined,
           snapshot_settlement_debt_after: snapshotSettlementDebtAfter,
           snapshot_rental_debt_after: snapshotRentalDebtAfter,
+          has_dwd: !!dwdSnapshot,
+          dwd_opening: dwdSnapshot?.opening,
+          dwd_remaining: dwdSnapshot?.remaining,
         };
       });
 
@@ -2774,7 +2798,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                     )}
                   </TableCell>
                   <TableCell className="text-right p-1.5 text-xs">
-                    {formatCurrency(settlement.debt_previous)}
+                    {formatCurrency(getDisplayedDebt(settlement))}
                   </TableCell>
                   <TableCell className="text-right p-1.5 text-xs">
                     {formatCurrency(settlement.debt_current)}
@@ -3775,16 +3799,23 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                         {/* Dług - TOTAL debt (settlement + rental) entering this week */}
                         {isColVisible('debt') && <TableCell className="text-center px-2 py-1.5 text-xs whitespace-nowrap">
                           {(() => {
-                            const settlementDebtVal = round2(Math.max(0, settlement.debt_previous ?? 0));
-                            const rentalDebtVal = round2(Math.max(0, settlement.rental_debt_previous ?? 0));
+                            // Gdy DWD jest źródłem prawdy → pokazujemy dwd_opening, NIE debt_previous.
                             const debt = getDisplayedDebt(settlement);
+                            const settlementDebtVal = settlement.has_dwd
+                              ? debt
+                              : round2(Math.max(0, settlement.debt_previous ?? 0));
+                            const rentalDebtVal = settlement.has_dwd
+                              ? 0
+                              : round2(Math.max(0, settlement.rental_debt_previous ?? 0));
                             const badgeClick = (e: React.MouseEvent) => {
                               e.stopPropagation();
                               e.preventDefault();
                               const settlementDebtBefore = settlementDebtVal;
                               const rentalDebtBefore = rentalDebtVal;
                               const totalDebtBefore = debt;
-                              const debtAfter = round2(Math.max(0, settlement.debt_current ?? 0));
+                              const debtAfter = settlement.has_dwd
+                                ? round2(Math.max(0, settlement.dwd_remaining ?? 0))
+                                : round2(Math.max(0, settlement.debt_current ?? 0));
                               setSelectedDriverForDebt({
                                 id: settlement.driver_id,
                                 name: settlement.driver_name,
@@ -3840,10 +3871,18 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                           const rentalDebtBadgeClick = (e: React.MouseEvent) => {
                             e.stopPropagation();
                             e.preventDefault();
-                            const settlementDebtBefore = round2(Math.max(0, settlement.debt_previous ?? 0));
-                            const rentalDebtBefore = round2(Math.max(0, settlement.rental_debt_previous ?? 0));
+                            // Spójność z dialogiem długu rozliczeniowego: gdy DWD istnieje,
+                            // używamy WYŁĄCZNIE dwd_opening / dwd_remaining.
+                            const settlementDebtBefore = settlement.has_dwd
+                              ? round2(Math.max(0, settlement.dwd_opening ?? 0))
+                              : round2(Math.max(0, settlement.debt_previous ?? 0));
+                            const rentalDebtBefore = settlement.has_dwd
+                              ? 0
+                              : round2(Math.max(0, settlement.rental_debt_previous ?? 0));
                             const totalDebtBefore = round2(settlementDebtBefore + rentalDebtBefore);
-                            const debtAfter = round2(Math.max(0, settlement.debt_current ?? 0));
+                            const debtAfter = settlement.has_dwd
+                              ? round2(Math.max(0, settlement.dwd_remaining ?? 0))
+                              : round2(Math.max(0, settlement.debt_current ?? 0));
                             setSelectedDriverForDebt({
                               id: settlement.driver_id,
                               name: settlement.driver_name,
