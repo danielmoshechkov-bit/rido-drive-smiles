@@ -51,6 +51,7 @@ import { CompanySetupWizard } from '@/components/invoices/CompanySetupWizard';
 import { ContractorsList } from '@/components/invoices/ContractorsList';
 import { MonthlySummaryDialog, MonthlySummaryData } from '@/components/invoices/MonthlySummaryDialog';
 import { SimpleFreeInvoice } from '@/components/invoices/SimpleFreeInvoice';
+import { PurchaseInvoicesModule } from '@/components/invoices/PurchaseInvoicesModule';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
 
@@ -861,51 +862,7 @@ export default function InvoiceProgram() {
 
           {/* Costs Tab */}
           <TabsContent value="costs">
-            <Card>
-              <CardHeader>
-                <CardTitle>Faktury kosztowe</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {invoices.filter(i => i.type === 'cost').length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <TrendingDown className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>Brak faktur kosztowych</p>
-                    <Button className="mt-4" variant="outline" onClick={() => setShowCostInvoice(true)}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Dodaj pierwszą fakturę kosztową
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {invoices.filter(i => i.type === 'cost').map((invoice) => (
-                      <div
-                        key={invoice.id}
-                        className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors"
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className="p-2 rounded-lg bg-destructive/10">
-                            <TrendingDown className="h-5 w-5 text-destructive" />
-                          </div>
-                          <div>
-                            <p className="font-semibold">{invoice.invoice_number || 'Bez numeru'}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {(invoice.buyer_snapshot as any)?.name || 'Brak dostawcy'}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <div className="text-right">
-                            <p className="font-semibold text-destructive">-{(invoice.gross_amount || 0).toLocaleString('pl-PL')} PLN</p>
-                            <p className="text-sm text-muted-foreground">{invoice.issue_date}</p>
-                          </div>
-                          {getStatusBadge(invoice.status)}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <PurchaseInvoicesModule entityId={selectedEntity} userId={user?.id || null} />
           </TabsContent>
 
           {/* Payments Tab */}
