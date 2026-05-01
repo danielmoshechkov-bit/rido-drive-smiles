@@ -324,7 +324,7 @@ Deno.serve(async (req) => {
         const insertedDriverIds = [...new Set(insertedSettlements.map(s => s.driver_id))];
         const { data: driverDetails } = await supabase
           .from('drivers')
-          .select('id, city_id, custom_weekly_fee')
+          .select('id, city_id, custom_weekly_fee, payment_method, billing_method, b2b_enabled, b2b_vat_payer')
           .in('id', insertedDriverIds);
         const driverDetailMap = new Map((driverDetails || []).map((d: any) => [d.id, d]));
 
