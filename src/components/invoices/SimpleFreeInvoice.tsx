@@ -183,6 +183,15 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
   // Payment tab fields
   const [paidAmount, setPaidAmount] = useState<number>(0);
   const [isFullyPaid, setIsFullyPaid] = useState(false);
+
+  // Auto: gotowka/karta lub w pelni zaplacone -> termin platnosci = data wystawienia
+  useEffect(() => {
+    const instant = paymentMethod === 'cash' || paymentMethod === 'card' || isFullyPaid;
+    if (instant && issueDate && dueDate !== issueDate) {
+      setDueDate(issueDate);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paymentMethod, isFullyPaid, issueDate]);
   
   // Additional tab fields
   const [signatureType, setSignatureType] = useState('valid_without_signature');
