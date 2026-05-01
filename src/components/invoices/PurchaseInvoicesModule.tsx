@@ -48,6 +48,8 @@ interface PurchaseInvoiceItem {
   total_net: number | null;
   total_gross: number | null;
   supplier_symbol: string | null;
+  product_id?: string | null;
+  product_name?: string | null;
 }
 
 const fmt = (n: number | null | undefined) =>
