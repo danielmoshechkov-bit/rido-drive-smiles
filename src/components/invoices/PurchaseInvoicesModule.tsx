@@ -223,19 +223,37 @@ export function PurchaseInvoicesModule({ entityId, userId }: Props) {
 
     if (invErr) throw invErr;
 
-    // Insert items
+    // Insert items + auto-mapowanie po aliasach (na podstawie poprzednich faktur od tego dostawcy)
     if (parsed.items?.length && inv?.id) {
-      const itemsPayload = parsed.items.map((it: any) => ({
-        purchase_invoice_id: inv.id,
-        name: it.name || 'Pozycja',
-        supplier_symbol: it.sku || null,
-        quantity: Number(it.quantity || 1),
-        unit: it.unit || 'szt.',
-        unit_price_net: Number(it.unit_price_net || 0),
-        vat_rate: parseInt(String(it.vat_rate || '23').replace(/\D/g, '') || '23') || 23,
-        total_net: Number(it.total_net || 0),
-        total_gross: Number(it.total_gross || 0),
-      }));
+      // Pobierz aliasy dla tego dostawcy (po NIP) – do auto-mapowania
+      const supplierNip = parsed.supplier?.nip || null;
+      let aliases: Array<{ product_id: string; normalized_label: string | null; source_label: string | null }> = [];
+      if (supplierNip) {
+        const { data: aliasData } = await (supabase as any)
+          .from('inventory_product_aliases')
+          .select('product_id, normalized_label, source_label')
+          .eq('user_id', userId)
+          .eq('supplier_nip', supplierNip);
+        aliases = (aliasData as any[]) || [];
+      }
+
+      const norm = (s: string) => (s || '').toLowerCase().trim().replace(/\s+/g, ' ');
+      const itemsPayload = parsed.items.map((it: any) => {
+        const itemNorm = norm(it.name || '');
+        const matched = aliases.find(a => a.normalized_label === itemNorm);
+        return {
+          purchase_invoice_id: inv.id,
+          name: it.name || 'Pozycja',
+          supplier_symbol: it.sku || null,
+          quantity: Number(it.quantity || 1),
+          unit: it.unit || 'szt.',
+          unit_price_net: Number(it.unit_price_net || 0),
+          vat_rate: parseInt(String(it.vat_rate || '23').replace(/\D/g, '') || '23') || 23,
+          total_net: Number(it.total_net || 0),
+          total_gross: Number(it.total_gross || 0),
+          product_id: matched?.product_id || null,
+        };
+      });
       const { error: itemsErr } = await supabase.from('purchase_invoice_items').insert(itemsPayload);
       if (itemsErr) console.warn('Items insert error:', itemsErr.message);
     }
