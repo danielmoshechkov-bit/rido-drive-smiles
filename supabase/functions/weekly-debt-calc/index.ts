@@ -38,14 +38,14 @@ Deno.serve(async (req) => {
     if (body.settlement_id) {
       const { data } = await supabase
         .from("settlements")
-        .select("id, actual_payout, period_from, period_to, amounts")
+        .select("id, actual_payout, debt_before, debt_payment, debt_after, period_from, period_to, amounts")
         .eq("id", body.settlement_id)
         .maybeSingle();
       currentSettlement = data;
     } else {
       const { data } = await supabase
         .from("settlements")
-        .select("id, actual_payout, period_from, period_to, amounts")
+        .select("id, actual_payout, debt_before, debt_payment, debt_after, period_from, period_to, amounts")
         .eq("driver_id", body.driver_id)
         .eq("period_from", body.period_from)
         .eq("period_to", body.period_to)
