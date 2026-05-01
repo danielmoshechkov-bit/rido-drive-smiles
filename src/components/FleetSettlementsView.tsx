@@ -108,6 +108,11 @@ interface DriverSettlement {
   snapshot_settlement_debt_after?: number;
   snapshot_rental_debt_after?: number;
   manual_week_adjustment?: number;
+  // DWD (driver_weekly_debts) snapshot — JEDYNE ŹRÓDŁO PRAWDY tygodnia gdy istnieje.
+  // Gdy has_dwd=true, kolumna "Dług" / Wypłata1 MUSZĄ używać dwd_opening, nie debt_previous/splitDebt/live ledger.
+  has_dwd?: boolean;
+  dwd_opening?: number;
+  dwd_remaining?: number;
 }
 
 interface FleetFee {
