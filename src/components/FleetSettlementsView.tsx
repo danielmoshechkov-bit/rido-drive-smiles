@@ -3799,16 +3799,23 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                         {/* Dług - TOTAL debt (settlement + rental) entering this week */}
                         {isColVisible('debt') && <TableCell className="text-center px-2 py-1.5 text-xs whitespace-nowrap">
                           {(() => {
-                            const settlementDebtVal = round2(Math.max(0, settlement.debt_previous ?? 0));
-                            const rentalDebtVal = round2(Math.max(0, settlement.rental_debt_previous ?? 0));
+                            // Gdy DWD jest źródłem prawdy → pokazujemy dwd_opening, NIE debt_previous.
                             const debt = getDisplayedDebt(settlement);
+                            const settlementDebtVal = settlement.has_dwd
+                              ? debt
+                              : round2(Math.max(0, settlement.debt_previous ?? 0));
+                            const rentalDebtVal = settlement.has_dwd
+                              ? 0
+                              : round2(Math.max(0, settlement.rental_debt_previous ?? 0));
                             const badgeClick = (e: React.MouseEvent) => {
                               e.stopPropagation();
                               e.preventDefault();
                               const settlementDebtBefore = settlementDebtVal;
                               const rentalDebtBefore = rentalDebtVal;
                               const totalDebtBefore = debt;
-                              const debtAfter = round2(Math.max(0, settlement.debt_current ?? 0));
+                              const debtAfter = settlement.has_dwd
+                                ? round2(Math.max(0, settlement.dwd_remaining ?? 0))
+                                : round2(Math.max(0, settlement.debt_current ?? 0));
                               setSelectedDriverForDebt({
                                 id: settlement.driver_id,
                                 name: settlement.driver_name,
