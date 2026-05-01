@@ -347,11 +347,14 @@ Deno.serve(async (req) => {
         // Fetch fleet global settings for VAT
         const { data: fleetSettingsForVat } = fleet_id ? await supabase
           .from('fleets')
-          .select('vat_rate, settlement_mode, uber_calculation_mode')
+          .select('vat_rate, settlement_mode, uber_calculation_mode, secondary_vat_rate, additional_percent_rate')
           .eq('id', fleet_id)
           .maybeSingle() : { data: null };
         const fleetVatRateForSync = fleetSettingsForVat?.vat_rate ?? 8;
         const fleetUberCalcModeForSync = fleetSettingsForVat?.uber_calculation_mode ?? 'netto';
+        const fleetSettlementModeForSync = fleetSettingsForVat?.settlement_mode ?? 'single_tax';
+        const fleetSecondaryVatRateForSync = fleetSettingsForVat?.secondary_vat_rate ?? 23;
+        const fleetAdditionalPercentRateForSync = fleetSettingsForVat?.additional_percent_rate ?? 0;
 
         const settlementsByDriver = new Map<string, any[]>();
         for (const settlement of insertedSettlements) {
