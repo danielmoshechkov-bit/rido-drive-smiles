@@ -81,7 +81,7 @@ export default function BuyCredits() {
             user_id: (await supabase.auth.getUser()).data.user?.id,
             discount_amount: basePrice - finalPrice,
           } as any);
-          await supabase.rpc("increment" as any, {}).then(() => {}).catch(() => {});
+          // increment used_count below
           // increment used_count
           const { data: pc } = await supabase.from("promo_codes" as any).select("used_count").eq("id", promoApplied.id).single();
           if (pc) await supabase.from("promo_codes" as any).update({ used_count: ((pc as any).used_count || 0) + 1 } as any).eq("id", promoApplied.id);
