@@ -367,6 +367,7 @@ export default function EasyHub() {
   const mainTiles = useMemo(() => buildMainTiles(t), [t]);
   const motoryzacjaSubTiles = useMemo(() => buildMotoryzacjaSubTiles(t), [t]);
   const nieruchomosciSubTiles = useMemo(() => buildNieruchomosciSubTiles(t), [t]);
+  const biznesSubTiles = useMemo(() => buildBiznesSubTiles(t), [t]);
 
   // Build dynamic tiles list with conditional visibility
   const dynamicTiles = useMemo(() => {
