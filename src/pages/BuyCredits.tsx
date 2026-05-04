@@ -43,19 +43,49 @@ export default function BuyCredits() {
       });
   }, []);
 
+  const applyPromo = async () => {
+    if (!promo.trim()) return;
+    setPromoChecking(true);
+    const { data, error } = await supabase.rpc("validate_promo_code" as any, { _code: promo.trim() });
+    setPromoChecking(false);
+    const row = (data as any)?.[0];
+    if (error || !row?.valid) {
+      toast.error(row?.message || "Nieprawidłowy kod");
+      setPromoApplied(null);
+      return;
+    }
+    setPromoApplied({ id: row.id, discount: Number(row.discount_percent) });
+    toast.success(`Kod aktywny: -${row.discount_percent}%`);
+  };
+
   const handleBuy = async (pkg: any) => {
     const productTypeMap: Record<string, string> = {
       sms: "sms_credits",
       ai_photo: "ai_photo_package",
       listing_featured: "listing_featured",
     };
+    const basePrice = Number(pkg.price);
+    const finalPrice = promoApplied
+      ? Math.round(basePrice * (1 - promoApplied.discount / 100) * 100) / 100
+      : basePrice;
 
     await initiatePayment({
       productType: productTypeMap[pkg.credit_type] || "sms_credits",
-      amount: Number(pkg.price),
-      description: `Zakup: ${pkg.name}`,
-      metadata: { credits_amount: pkg.credits_amount, package_id: pkg.id },
-      onSuccess: () => {
+      amount: finalPrice,
+      description: `Zakup: ${pkg.name}${promoApplied ? ` (kod ${promo.toUpperCase()} -${promoApplied.discount}%)` : ""}`,
+      metadata: { credits_amount: pkg.credits_amount, package_id: pkg.id, promo_code_id: promoApplied?.id, promo_discount: promoApplied?.discount },
+      onSuccess: async () => {
+        if (promoApplied) {
+          await supabase.from("promo_code_redemptions" as any).insert({
+            promo_code_id: promoApplied.id,
+            user_id: (await supabase.auth.getUser()).data.user?.id,
+            discount_amount: basePrice - finalPrice,
+          } as any);
+          await supabase.rpc("increment" as any, {}).then(() => {}).catch(() => {});
+          // increment used_count
+          const { data: pc } = await supabase.from("promo_codes" as any).select("used_count").eq("id", promoApplied.id).single();
+          if (pc) await supabase.from("promo_codes" as any).update({ used_count: ((pc as any).used_count || 0) + 1 } as any).eq("id", promoApplied.id);
+        }
         toast.success(`Dodano ${pkg.credits_amount} kredytów!`);
         navigate("/payment/success?payment_id=simulated");
       },
