@@ -82,7 +82,7 @@ interface MarketplaceTile {
   available: boolean;
 }
 
-type CategoryView = 'main' | 'motoryzacja' | 'nieruchomosci';
+type CategoryView = 'main' | 'motoryzacja' | 'nieruchomosci' | 'biznes';
 
 // Tile builders that use t() — called inside the component
 function buildMainTiles(t: (key: string) => string): MarketplaceTile[] {
@@ -92,6 +92,17 @@ function buildMainTiles(t: (key: string) => string): MarketplaceTile[] {
     { id: 'services', title: t('home.uslugi'), description: t('home.uslugiDesc'), icon: Sparkles, image: tileServices, link: '/uslugi', available: true },
     { id: 'marketplace', title: t('home.marketplace'), description: t('home.marketplaceDesc'), icon: ShoppingCart, image: tileAutoMarketplace, link: '/marketplace', available: true },
     { id: 'ksiegowosc', title: t('home.ksiegowosc'), description: t('home.ksiegowoscDesc'), icon: Receipt, image: tileInvoicing, link: '/faktury', available: true },
+    { id: 'biznes', title: 'Dla Biznesu', description: 'Systemy: warsztat, detailing, księgowość, flota', icon: Settings, image: tileFleet, link: null, available: true },
+  ];
+}
+
+function buildBiznesSubTiles(t: (key: string) => string): MarketplaceTile[] {
+  return [
+    { id: 'biz-warsztat', title: 'Portal Warsztatowy', description: 'ERP serwisowy: zlecenia, magazyn, terminarz, SMS', icon: Wrench, image: tileWorkshop, link: '/uslugi?kategoria=warsztat', available: true },
+    { id: 'biz-detailing', title: 'Portal Detailing & PPF', description: 'Zarządzanie studiem detailingu, ceramiką i foliami', icon: Droplets, image: tileDetailing, link: '/uslugi?kategoria=detailing', available: true },
+    { id: 'biz-ksiegowosc', title: 'Program Księgowy', description: 'Faktury, KSeF (FA(3)), JPK_V7, rejestr VAT', icon: Calculator, image: tileInvoicing, link: '/ksiegowosc-info', available: true },
+    { id: 'biz-flota', title: 'Zarządzanie Flotą', description: 'Rozliczenia kierowców, Uber/Bolt, paliwo, przelewy', icon: Calculator, image: tileFleet, link: '/fleet', available: true },
+    { id: 'biz-kierowca', title: 'Portal Kierowcy', description: 'Dla kierowców: rozliczenia, długi, dokumenty', icon: User, image: tileDriver, link: '/kierowca-info', available: true },
   ];
 }
 
@@ -250,6 +261,8 @@ export default function EasyHub() {
       setActiveCategory('motoryzacja');
     } else if (kategoria === 'nieruchomosci') {
       setActiveCategory('nieruchomosci');
+    } else if (kategoria === 'biznes') {
+      setActiveCategory('biznes');
     } else {
       // Reset to main view when no category parameter
       setActiveCategory('main');
@@ -307,6 +320,10 @@ export default function EasyHub() {
       setActiveCategory('nieruchomosci');
       return;
     }
+    if (tile.id === 'biznes') {
+      setActiveCategory('biznes');
+      return;
+    }
     
     // Services - check access
     if (tile.id === 'services') {
@@ -356,6 +373,7 @@ export default function EasyHub() {
   const mainTiles = useMemo(() => buildMainTiles(t), [t]);
   const motoryzacjaSubTiles = useMemo(() => buildMotoryzacjaSubTiles(t), [t]);
   const nieruchomosciSubTiles = useMemo(() => buildNieruchomosciSubTiles(t), [t]);
+  const biznesSubTiles = useMemo(() => buildBiznesSubTiles(t), [t]);
 
   // Build dynamic tiles list with conditional visibility
   const dynamicTiles = useMemo(() => {
@@ -413,6 +431,7 @@ export default function EasyHub() {
     switch (activeCategory) {
       case 'motoryzacja': return t('home.motoryzacja');
       case 'nieruchomosci': return t('home.nieruchomosci');
+      case 'biznes': return 'Dla Biznesu';
       default: return null;
     }
   };
@@ -422,9 +441,10 @@ export default function EasyHub() {
     switch (activeCategory) {
       case 'motoryzacja': return motoryzacjaSubTiles;
       case 'nieruchomosci': return nieruchomosciSubTiles;
+      case 'biznes': return biznesSubTiles;
       default: return dynamicTiles;
     }
-  }, [activeCategory, dynamicTiles, motoryzacjaSubTiles, nieruchomosciSubTiles]);
+  }, [activeCategory, dynamicTiles, motoryzacjaSubTiles, nieruchomosciSubTiles, biznesSubTiles]);
 
   // Get current SEO config based on category
   const currentSEO = useMemo(() => {
