@@ -139,6 +139,31 @@ export default function BuyCredits() {
           })}
         </div>
 
+        {/* Promo code */}
+        <Card className="border-primary/20">
+          <CardContent className="pt-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <div className="flex items-center gap-2 text-primary font-medium">
+              <Tag className="h-4 w-4"/> Kod promocyjny
+            </div>
+            <Input
+              placeholder="Wpisz kod (np. WIOSNA20)"
+              value={promo}
+              onChange={(e) => { setPromo(e.target.value.toUpperCase()); setPromoApplied(null); }}
+              className="flex-1"
+              disabled={!!promoApplied}
+            />
+            {promoApplied ? (
+              <Button variant="outline" onClick={() => { setPromoApplied(null); setPromo(""); }}>
+                <Check className="h-4 w-4 mr-1 text-emerald-600"/> -{promoApplied.discount}% (usuń)
+              </Button>
+            ) : (
+              <Button onClick={applyPromo} disabled={promoChecking || !promo.trim()}>
+                {promoChecking ? <Loader2 className="h-4 w-4 animate-spin"/> : "Zastosuj"}
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Packages grouped by type */}
         {Object.entries(grouped).map(([type, pkgs]) => {
           const cfg = typeConfig[type] || { label: type, icon: Wallet, color: "bg-muted" };
