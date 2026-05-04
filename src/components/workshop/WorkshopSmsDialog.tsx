@@ -56,6 +56,7 @@ const smsTemplates = {
 
 export function WorkshopSmsDialog({ open, onOpenChange, order, type }: Props) {
   const qc = useQueryClient();
+  const { runWithQuota } = useQuotaGuard();
   const clientName = order.client
     ? order.client.client_type === 'company'
       ? order.client.company_name
