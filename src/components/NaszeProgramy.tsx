@@ -1,6 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Wrench, Calculator, Building2, ShoppingCart, Briefcase, Megaphone } from "lucide-react";
+import { Wrench, Calculator, Truck, User, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { AuthModal } from "@/components/auth/AuthModal";
@@ -18,16 +18,16 @@ interface ProgramTile {
 const programs: ProgramTile[] = [
   {
     icon: Wrench,
-    title: "Program dla Warsztatu",
-    description: "Pełny ERP serwisowy: zlecenia, magazyn części, terminarz, SMS do klientów.",
+    title: "Warsztat i Detailing",
+    description: "Pełny ERP serwisowy: zlecenia, magazyn części, terminarz, SMS do klientów. Także detailing.",
     features: ["Zlecenia i kosztorysy", "Magazyn z OCR faktur", "Terminarz online", "SMS i powiadomienia"],
-    cta: "Wypróbuj 14 dni za darmo",
+    cta: "Zarejestruj warsztat",
     redirect: "/warsztat",
     color: "from-blue-500/10 to-blue-600/5",
   },
   {
     icon: Calculator,
-    title: "Program Księgowy",
+    title: "Księgowość",
     description: "Faktury, KSeF (FA(3)), JPK_V7, rejestr VAT i automatyczne rozliczenia.",
     features: ["Faktury VAT i KSeF", "JPK_V7 i rejestr VAT", "Faktury zakupowe AI", "Korekty i noty"],
     cta: "Załóż konto księgowe",
@@ -35,39 +35,30 @@ const programs: ProgramTile[] = [
     color: "from-emerald-500/10 to-emerald-600/5",
   },
   {
-    icon: Briefcase,
-    title: "CRM Sprzedażowy",
-    description: "Lead management, pipeline, integracja Meta Ads, AI scoring leadów.",
-    features: ["Pipeline i kanban", "Auto-import leadów Meta", "AI scoring Hot/Warm/Cold", "Kalendarz spotkań"],
-    cta: "Sprawdź CRM",
-    redirect: "/sprzedaz",
-    color: "from-purple-500/10 to-purple-600/5",
-  },
-  {
-    icon: Building2,
-    title: "Nieruchomości",
-    description: "CRM dla agentów, wycena z GUGiK, integracja ASARI, ogłoszenia.",
-    features: ["Kanban transakcji", "Integracja ASARI/CRM", "Wycena GUGiK", "Marketplace nieruchomości"],
-    cta: "Wejdź w nieruchomości",
-    redirect: "/nieruchomosci",
+    icon: Truck,
+    title: "Zarządzanie Flotą",
+    description: "Rozliczenia kierowców Uber/Bolt, paliwo, długi tygodniowe, przelewy Santander.",
+    features: ["Rozliczenia tygodniowe", "Import Uber/Bolt", "Karty paliwowe", "Przelewy bankowe"],
+    cta: "Zarejestruj flotę",
+    redirect: "/flota",
     color: "from-orange-500/10 to-orange-600/5",
   },
   {
-    icon: ShoppingCart,
-    title: "RidoMarket",
-    description: "Marketplace pojazdów i części z AI score, gwarancją i transakcjami online.",
-    features: ["Ogłoszenia z AI score", "Galeria Before/After", "Płatności Przelewy24", "Wysyłka InPost"],
-    cta: "Zobacz RidoMarket",
-    redirect: "/ridomarket",
-    color: "from-pink-500/10 to-pink-600/5",
+    icon: User,
+    title: "Portal Kierowcy",
+    description: "Dla kierowców taxi/Uber/Bolt — rozliczenia, długi, dokumenty, wypłaty.",
+    features: ["Twoje rozliczenia", "Historia wypłat", "Dokumenty i umowa", "Komunikacja z flotą"],
+    cta: "Zarejestruj się jako kierowca",
+    redirect: "/kierowca",
+    color: "from-purple-500/10 to-purple-600/5",
   },
   {
-    icon: Megaphone,
-    title: "Agencja Marketingowa AI",
-    description: "Generowanie reklam, kampanii Meta/Google, lokalne SEO, GMB autopilot.",
-    features: ["AI kreacje reklam", "Lokalne SEO autopilot", "GMB posty", "ROI dashboard"],
-    cta: "Uruchom marketing",
-    redirect: "/marketing",
+    icon: Sparkles,
+    title: "Wszystko-w-jednym (GetRido AI)",
+    description: "Pełny ekosystem: CRM, nieruchomości, marketplace, marketing AI w jednym pakiecie.",
+    features: ["CRM i sprzedaż", "Nieruchomości i ASARI", "RidoMarket", "Marketing & SEO AI"],
+    cta: "Wypróbuj wszystko 14 dni",
+    redirect: "/klient",
     color: "from-indigo-500/10 to-indigo-600/5",
   },
 ];

@@ -8,9 +8,10 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, CreditCard, Save, Wallet, History, ShoppingCart, RefreshCw, Gift, Search, MessageSquare, Sparkles, Star } from 'lucide-react';
+import { Loader2, CreditCard, Save, Wallet, History, ShoppingCart, RefreshCw, Gift, Search, MessageSquare, Sparkles, Star, Tag } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { PromoCodesPanel } from './PromoCodesPanel';
 
 export function AdminPaymentsTab() {
   const [activeTab, setActiveTab] = useState('gateways');
@@ -43,6 +44,11 @@ export function AdminPaymentsTab() {
             <RefreshCw className="h-3.5 w-3.5" /> Subskrypcje
           </div>
         </TabsTrigger>
+        <TabsTrigger value="promo" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm hover:bg-accent/20 rounded-md transition-colors px-2.5 py-1.5 text-sm font-medium flex-1">
+          <div className="flex items-center gap-1.5 justify-center">
+            <Tag className="h-3.5 w-3.5" /> Kody promo
+          </div>
+        </TabsTrigger>
       </TabsList>
 
       <TabsContent value="gateways"><PaymentGatewayConfig /></TabsContent>
@@ -56,6 +62,7 @@ export function AdminPaymentsTab() {
           <p className="text-sm mt-1">Wkrótce — konfiguracja planów abonamentowych</p>
         </div>
       </TabsContent>
+      <TabsContent value="promo"><PromoCodesPanel /></TabsContent>
     </Tabs>
   );
 }

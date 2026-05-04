@@ -3,10 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 import { UniversalHomeButton } from "@/components/UniversalHomeButton";
 import { usePayment, useCredits } from "@/hooks/usePayment";
-import { Loader2, MessageSquare, Sparkles, Star, ArrowLeft, Wallet } from "lucide-react";
+import { Loader2, MessageSquare, Sparkles, Star, ArrowLeft, Wallet, Tag, Check } from "lucide-react";
 import { toast } from "sonner";
 
 const typeConfig: Record<string, { label: string; icon: any; color: string }> = {
@@ -20,6 +21,9 @@ export default function BuyCredits() {
   const { initiatePayment, loading: paying } = usePayment();
   const [packages, setPackages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [promo, setPromo] = useState("");
+  const [promoApplied, setPromoApplied] = useState<{ id: string; discount: number } | null>(null);
+  const [promoChecking, setPromoChecking] = useState(false);
 
   const { balance: smsBalance } = useCredits("sms");
   const { balance: aiPhotoBalance } = useCredits("ai_photo");
@@ -39,19 +43,49 @@ export default function BuyCredits() {
       });
   }, []);
 
+  const applyPromo = async () => {
+    if (!promo.trim()) return;
+    setPromoChecking(true);
+    const { data, error } = await supabase.rpc("validate_promo_code" as any, { _code: promo.trim() });
+    setPromoChecking(false);
+    const row = (data as any)?.[0];
+    if (error || !row?.valid) {
+      toast.error(row?.message || "Nieprawidłowy kod");
+      setPromoApplied(null);
+      return;
+    }
+    setPromoApplied({ id: row.id, discount: Number(row.discount_percent) });
+    toast.success(`Kod aktywny: -${row.discount_percent}%`);
+  };
+
   const handleBuy = async (pkg: any) => {
     const productTypeMap: Record<string, string> = {
       sms: "sms_credits",
       ai_photo: "ai_photo_package",
       listing_featured: "listing_featured",
     };
+    const basePrice = Number(pkg.price);
+    const finalPrice = promoApplied
+      ? Math.round(basePrice * (1 - promoApplied.discount / 100) * 100) / 100
+      : basePrice;
 
     await initiatePayment({
       productType: productTypeMap[pkg.credit_type] || "sms_credits",
-      amount: Number(pkg.price),
-      description: `Zakup: ${pkg.name}`,
-      metadata: { credits_amount: pkg.credits_amount, package_id: pkg.id },
-      onSuccess: () => {
+      amount: finalPrice,
+      description: `Zakup: ${pkg.name}${promoApplied ? ` (kod ${promo.toUpperCase()} -${promoApplied.discount}%)` : ""}`,
+      metadata: { credits_amount: pkg.credits_amount, package_id: pkg.id, promo_code_id: promoApplied?.id, promo_discount: promoApplied?.discount },
+      onSuccess: async () => {
+        if (promoApplied) {
+          await supabase.from("promo_code_redemptions" as any).insert({
+            promo_code_id: promoApplied.id,
+            user_id: (await supabase.auth.getUser()).data.user?.id,
+            discount_amount: basePrice - finalPrice,
+          } as any);
+          // increment used_count below
+          // increment used_count
+          const { data: pc } = await supabase.from("promo_codes" as any).select("used_count").eq("id", promoApplied.id).single();
+          if (pc) await supabase.from("promo_codes" as any).update({ used_count: ((pc as any).used_count || 0) + 1 } as any).eq("id", promoApplied.id);
+        }
         toast.success(`Dodano ${pkg.credits_amount} kredytów!`);
         navigate("/payment/success?payment_id=simulated");
       },
@@ -105,6 +139,31 @@ export default function BuyCredits() {
           })}
         </div>
 
+        {/* Promo code */}
+        <Card className="border-primary/20">
+          <CardContent className="pt-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <div className="flex items-center gap-2 text-primary font-medium">
+              <Tag className="h-4 w-4"/> Kod promocyjny
+            </div>
+            <Input
+              placeholder="Wpisz kod (np. WIOSNA20)"
+              value={promo}
+              onChange={(e) => { setPromo(e.target.value.toUpperCase()); setPromoApplied(null); }}
+              className="flex-1"
+              disabled={!!promoApplied}
+            />
+            {promoApplied ? (
+              <Button variant="outline" onClick={() => { setPromoApplied(null); setPromo(""); }}>
+                <Check className="h-4 w-4 mr-1 text-emerald-600"/> -{promoApplied.discount}% (usuń)
+              </Button>
+            ) : (
+              <Button onClick={applyPromo} disabled={promoChecking || !promo.trim()}>
+                {promoChecking ? <Loader2 className="h-4 w-4 animate-spin"/> : "Zastosuj"}
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Packages grouped by type */}
         {Object.entries(grouped).map(([type, pkgs]) => {
           const cfg = typeConfig[type] || { label: type, icon: Wallet, color: "bg-muted" };
@@ -122,9 +181,18 @@ export default function BuyCredits() {
                       <CardDescription>{pkg.credits_amount} kredytów</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                      <p className="text-2xl font-bold text-primary">
-                        {Number(pkg.price).toFixed(2)} zł
-                      </p>
+                      {promoApplied ? (
+                        <div>
+                          <p className="text-sm line-through text-muted-foreground">{Number(pkg.price).toFixed(2)} zł</p>
+                          <p className="text-2xl font-bold text-emerald-600">
+                            {(Number(pkg.price) * (1 - promoApplied.discount / 100)).toFixed(2)} zł
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="text-2xl font-bold text-primary">
+                          {Number(pkg.price).toFixed(2)} zł
+                        </p>
+                      )}
                       <Button
                         className="w-full"
                         onClick={() => handleBuy(pkg)}
