@@ -82,7 +82,7 @@ interface MarketplaceTile {
   available: boolean;
 }
 
-type CategoryView = 'main' | 'motoryzacja' | 'nieruchomosci';
+type CategoryView = 'main' | 'motoryzacja' | 'nieruchomosci' | 'biznes';
 
 // Tile builders that use t() — called inside the component
 function buildMainTiles(t: (key: string) => string): MarketplaceTile[] {
@@ -92,6 +92,17 @@ function buildMainTiles(t: (key: string) => string): MarketplaceTile[] {
     { id: 'services', title: t('home.uslugi'), description: t('home.uslugiDesc'), icon: Sparkles, image: tileServices, link: '/uslugi', available: true },
     { id: 'marketplace', title: t('home.marketplace'), description: t('home.marketplaceDesc'), icon: ShoppingCart, image: tileAutoMarketplace, link: '/marketplace', available: true },
     { id: 'ksiegowosc', title: t('home.ksiegowosc'), description: t('home.ksiegowoscDesc'), icon: Receipt, image: tileInvoicing, link: '/faktury', available: true },
+    { id: 'biznes', title: 'Dla Biznesu', description: 'Systemy: warsztat, detailing, księgowość, flota', icon: Settings, image: tileFleet, link: null, available: true },
+  ];
+}
+
+function buildBiznesSubTiles(t: (key: string) => string): MarketplaceTile[] {
+  return [
+    { id: 'biz-warsztat', title: 'Portal Warsztatowy', description: 'ERP serwisowy: zlecenia, magazyn, terminarz, SMS', icon: Wrench, image: tileWorkshop, link: '/warsztat-info', available: true },
+    { id: 'biz-detailing', title: 'Portal Detailing & PPF', description: 'Zarządzanie studiem detailingu, ceramiką i foliami', icon: Droplets, image: tileDetailing, link: '/warsztat-info', available: true },
+    { id: 'biz-ksiegowosc', title: 'Program Księgowy', description: 'Faktury, KSeF (FA(3)), JPK_V7, rejestr VAT', icon: Calculator, image: tileInvoicing, link: '/ksiegowosc-info', available: true },
+    { id: 'biz-flota', title: 'Zarządzanie Flotą', description: 'Rozliczenia kierowców, Uber/Bolt, paliwo, przelewy', icon: Calculator, image: tileFleet, link: '/flota-info', available: true },
+    { id: 'biz-kierowca', title: 'Portal Kierowcy', description: 'Dla kierowców: rozliczenia, długi, dokumenty', icon: User, image: tileDriver, link: '/kierowca-info', available: true },
   ];
 }
 
