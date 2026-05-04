@@ -1,5 +1,6 @@
 import Header from "@/components/Header";
 import Hero from "@/components/Hero";
+import NaszeProgramy from "@/components/NaszeProgramy";
 import ProsteCenniki from "@/components/ProsteCenniki";
 import WhyRido from "@/components/WhyRido";
 import JakZaczac from "@/components/JakZaczac";
