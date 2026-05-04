@@ -209,6 +209,7 @@ const App = () => (
               {/* Global Onboarding Widget */}
               <OnboardingWidget />
             </CompareProvider>
+            </QuotaGuardProvider>
           </BrowserRouter>
         </UISettingsLoader>
       </OnboardingProvider>
