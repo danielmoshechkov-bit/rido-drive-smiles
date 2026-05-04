@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useQuotaGuard } from '@/components/quota/QuotaGuardProvider';
 
 interface VehicleLookupCredits {
   remaining_credits: number;
@@ -29,6 +30,7 @@ export function useVehicleLookup(userId?: string) {
   const [credits, setCredits] = useState<VehicleLookupCredits | null>(null);
   const [loading, setLoading] = useState(false);
   const [creditsLoading, setCreditsLoading] = useState(true);
+  const { runWithQuota } = useQuotaGuard();
 
   const fetchCredits = useCallback(async () => {
     if (!userId) return;
@@ -69,20 +71,22 @@ export function useVehicleLookup(userId?: string) {
     if (!userId) { toast.error('Musisz być zalogowany'); return null; }
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('vehicle-check', {
-        body: { action: 'check-registration', registrationNumber: regNumber },
-      });
-
-      if (error) {
-        const msg = error.message || '';
-        if (msg.includes('402') || msg.includes('NO_CREDITS')) {
-          return null; // caller handles modal
+      const result = await runWithQuota('vehicle_lookup', async () => {
+        const { data, error } = await supabase.functions.invoke('vehicle-check', {
+          body: { action: 'check-registration', registrationNumber: regNumber },
+        });
+        if (error) {
+          const msg = error.message || '';
+          if (msg.includes('402') || msg.includes('NO_CREDITS')) throw new Error('NO_CREDITS');
+          throw error;
         }
-        toast.error('Błąd sprawdzania pojazdu');
-        return null;
-      }
+        if (data?.error === 'NO_CREDITS') throw new Error('NO_CREDITS');
+        return data;
+      }, { retryLabel: `sprawdzenie rejestracji ${regNumber}` });
 
-      if (data?.error === 'NO_CREDITS') return null;
+      if (!result) return null;
+      const data: any = result;
+
       if (data?.error === 'INTEGRATION_DISABLED') {
         toast.error('Integracja pojazdów nie jest aktywna');
         return null;
@@ -95,13 +99,11 @@ export function useVehicleLookup(userId?: string) {
         toast.error(data.message || 'Błąd');
         return null;
       }
-
       if (data?.data) {
         toast.success('Dane pojazdu zostały pobrane');
         await fetchCredits();
         return data.data as VehicleData;
       }
-
       return null;
     } catch (e: any) {
       toast.error('Błąd połączenia');
@@ -109,24 +111,28 @@ export function useVehicleLookup(userId?: string) {
     } finally {
       setLoading(false);
     }
-  }, [userId, fetchCredits]);
+  }, [userId, fetchCredits, runWithQuota]);
 
   const checkVin = useCallback(async (vinNumber: string): Promise<VehicleData | null> => {
     if (!userId) { toast.error('Musisz być zalogowany'); return null; }
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('vehicle-check', {
-        body: { action: 'check-vin', vin: vinNumber },
-      });
+      const result = await runWithQuota('vehicle_lookup', async () => {
+        const { data, error } = await supabase.functions.invoke('vehicle-check', {
+          body: { action: 'check-vin', vin: vinNumber },
+        });
+        if (error) {
+          const msg = error.message || '';
+          if (msg.includes('402') || msg.includes('NO_CREDITS')) throw new Error('NO_CREDITS');
+          throw error;
+        }
+        if (data?.error === 'NO_CREDITS') throw new Error('NO_CREDITS');
+        return data;
+      }, { retryLabel: `sprawdzenie VIN ${vinNumber}` });
 
-      if (error) {
-        const msg = error.message || '';
-        if (msg.includes('402') || msg.includes('NO_CREDITS')) return null;
-        toast.error('Błąd sprawdzania VIN');
-        return null;
-      }
+      if (!result) return null;
+      const data: any = result;
 
-      if (data?.error === 'NO_CREDITS') return null;
       if (data?.error === 'NOT_FOUND') {
         toast.error('Nie znaleziono pojazdu po numerze VIN w bazie systemu');
         return null;
@@ -135,7 +141,6 @@ export function useVehicleLookup(userId?: string) {
         toast.error(data.message || 'Błąd');
         return null;
       }
-
       if (data?.data) {
         toast.success('Dane pojazdu zostały pobrane');
         await fetchCredits();
@@ -148,7 +153,7 @@ export function useVehicleLookup(userId?: string) {
     } finally {
       setLoading(false);
     }
-  }, [userId, fetchCredits]);
+  }, [userId, fetchCredits, runWithQuota]);
 
   const purchaseCredits = useCallback(async (amount: number, priceNet: number) => {
     if (!userId) return false;

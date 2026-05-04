@@ -71,6 +71,33 @@ serve(async (req) => {
       );
     }
 
+    // Pre-check SMS balance for this user (if authenticated and has a provider account)
+    try {
+      const authHeader = req.headers.get('Authorization');
+      if (authHeader && type !== 'test') {
+        const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('SUPABASE_PUBLISHABLE_KEY');
+        const userClient = createClient(
+          Deno.env.get('SUPABASE_URL') ?? '',
+          anonKey ?? '',
+          { global: { headers: { Authorization: authHeader } } }
+        );
+        const { data: { user } } = await userClient.auth.getUser();
+        if (user) {
+          const { data: sp } = await supabase
+            .from('service_providers')
+            .select('id, sms_balance')
+            .eq('user_id', user.id)
+            .maybeSingle();
+          if (sp && (sp.sms_balance || 0) <= 0) {
+            return new Response(
+              JSON.stringify({ success: false, error: 'NO_SMS', message: 'Brak pakietu SMS. Doładuj pakiet, aby kontynuować.' }),
+              { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+        }
+      }
+    } catch (e) { /* non-fatal */ }
+
     console.log(`[SMS] Sending via ${provider} to ${msisdn}, sender=${senderName}`);
 
     let response: Response;
