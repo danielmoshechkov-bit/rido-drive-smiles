@@ -93,16 +93,21 @@ export function WorkshopSmsDialog({ open, onOpenChange, order, type }: Props) {
         throw new Error('Nieprawidłowy numer telefonu');
       }
 
-      const { error } = await supabase.functions.invoke('workshop-send-sms', {
-        body: {
-          phone: smsPhone,
-          message,
-          order_id: order.id,
-          sms_type: type,
-          provider_id: order.provider_id,
-        },
-      });
-      if (error) throw error;
+      const result = await runWithQuota('sms', async () => {
+        const { data, error } = await supabase.functions.invoke('workshop-send-sms', {
+          body: {
+            phone: smsPhone,
+            message,
+            order_id: order.id,
+            sms_type: type,
+            provider_id: order.provider_id,
+          },
+        });
+        if (error) throw error;
+        if ((data as any)?.error === 'NO_SMS') throw new Error('NO_SMS');
+        return data;
+      }, { retryLabel: 'wysłanie SMS do klienta' });
+      if (!result) { setSending(false); return; }
 
       // Update order flags based on SMS type
       const updates: any = { sms_sent_count: (order.sms_sent_count || 0) + 1, last_sms_sent_at: new Date().toISOString() };
