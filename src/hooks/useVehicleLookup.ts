@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useQuotaGuard } from '@/components/quota/QuotaGuardProvider';
 
 interface VehicleLookupCredits {
   remaining_credits: number;
