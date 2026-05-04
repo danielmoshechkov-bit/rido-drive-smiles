@@ -318,6 +318,10 @@ export default function EasyHub() {
       setActiveCategory('nieruchomosci');
       return;
     }
+    if (tile.id === 'biznes') {
+      setActiveCategory('biznes');
+      return;
+    }
     
     // Services - check access
     if (tile.id === 'services') {
