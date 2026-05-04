@@ -98,10 +98,10 @@ function buildMainTiles(t: (key: string) => string): MarketplaceTile[] {
 
 function buildBiznesSubTiles(t: (key: string) => string): MarketplaceTile[] {
   return [
-    { id: 'biz-warsztat', title: 'Portal Warsztatowy', description: 'ERP serwisowy: zlecenia, magazyn, terminarz, SMS', icon: Wrench, image: tileWorkshop, link: '/warsztat-info', available: true },
-    { id: 'biz-detailing', title: 'Portal Detailing & PPF', description: 'Zarządzanie studiem detailingu, ceramiką i foliami', icon: Droplets, image: tileDetailing, link: '/warsztat-info', available: true },
+    { id: 'biz-warsztat', title: 'Portal Warsztatowy', description: 'ERP serwisowy: zlecenia, magazyn, terminarz, SMS', icon: Wrench, image: tileWorkshop, link: '/uslugi?kategoria=warsztat', available: true },
+    { id: 'biz-detailing', title: 'Portal Detailing & PPF', description: 'Zarządzanie studiem detailingu, ceramiką i foliami', icon: Droplets, image: tileDetailing, link: '/uslugi?kategoria=detailing', available: true },
     { id: 'biz-ksiegowosc', title: 'Program Księgowy', description: 'Faktury, KSeF (FA(3)), JPK_V7, rejestr VAT', icon: Calculator, image: tileInvoicing, link: '/ksiegowosc-info', available: true },
-    { id: 'biz-flota', title: 'Zarządzanie Flotą', description: 'Rozliczenia kierowców, Uber/Bolt, paliwo, przelewy', icon: Calculator, image: tileFleet, link: '/flota-info', available: true },
+    { id: 'biz-flota', title: 'Zarządzanie Flotą', description: 'Rozliczenia kierowców, Uber/Bolt, paliwo, przelewy', icon: Calculator, image: tileFleet, link: '/fleet', available: true },
     { id: 'biz-kierowca', title: 'Portal Kierowcy', description: 'Dla kierowców: rozliczenia, długi, dokumenty', icon: User, image: tileDriver, link: '/kierowca-info', available: true },
   ];
 }
