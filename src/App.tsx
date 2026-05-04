@@ -11,6 +11,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { CompareProvider } from "@/contexts/CompareContext";
 import { OnboardingProvider } from "@/contexts/OnboardingContext";
+import { QuotaGuardProvider } from "@/components/quota/QuotaGuardProvider";
 import { GlobalRidoAIButton } from "@/components/ai/GlobalRidoAIButton";
 
 import { OnboardingWidget } from "@/components/onboarding";
