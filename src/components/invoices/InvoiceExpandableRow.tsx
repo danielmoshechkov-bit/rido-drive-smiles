@@ -402,22 +402,24 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
 
       const container = document.createElement('div');
       container.innerHTML = html;
-      // Renderuj WIDZIALNIE ale poza viewportem (absolute + top:0/left:0 ale z translate poza ekran)
-      // html2canvas wymaga widzialnego layoutu — fixed/-10000 czasem daje pustą stronę
       Object.assign(container.style, {
         position: 'absolute',
         left: '0',
         top: '0',
-        width: '794px',           // 210mm @ 96dpi
-        minHeight: '1123px',      // 297mm @ 96dpi
+        width: '794px',
         background: '#ffffff',
         zIndex: '-9999',
         pointerEvents: 'none',
         visibility: 'visible',
         opacity: '1',
         transform: 'translateX(-20000px)',
+        padding: '0',
+        margin: '0',
+        overflow: 'visible',
       });
       document.body.appendChild(container);
+      // Wymuś auto height żeby html2canvas nie obciął zawartości
+      const realHeight = Math.max(container.scrollHeight, container.offsetHeight, 1123);
 
       // Poczekaj aż fonty i obrazy się załadują
       try {
@@ -446,7 +448,9 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
         allowTaint: true,
         backgroundColor: '#ffffff',
         width: 794,
+        height: realHeight,
         windowWidth: 794,
+        windowHeight: realHeight,
         logging: false,
       });
 
@@ -460,21 +464,30 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
 
       const imgData = canvas.toDataURL('image/jpeg', 0.95);
       const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
-      const pageWidth = 210;
-      const pageHeight = 297;
-      const imgWidth = pageWidth;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      const pageWidthMm = 210;
+      const pageHeightMm = 297;
+      // pikseli A4 strony przy naszym scale (canvas.width = 794*scale = 1588)
+      const pxPerMm = canvas.width / pageWidthMm;
+      const pageHeightPx = Math.floor(pageHeightMm * pxPerMm);
 
-      let heightLeft = imgHeight;
-      let position = 0;
-      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
-
-      while (heightLeft > 0) {
-        position = heightLeft - imgHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
+      let renderedPx = 0;
+      let pageIndex = 0;
+      while (renderedPx < canvas.height) {
+        const sliceHeight = Math.min(pageHeightPx, canvas.height - renderedPx);
+        const pageCanvas = document.createElement('canvas');
+        pageCanvas.width = canvas.width;
+        pageCanvas.height = sliceHeight;
+        const ctx = pageCanvas.getContext('2d');
+        if (!ctx) break;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+        ctx.drawImage(canvas, 0, renderedPx, canvas.width, sliceHeight, 0, 0, canvas.width, sliceHeight);
+        const sliceData = pageCanvas.toDataURL('image/jpeg', 0.92);
+        const sliceMmHeight = (sliceHeight / canvas.width) * pageWidthMm;
+        if (pageIndex > 0) pdf.addPage();
+        pdf.addImage(sliceData, 'JPEG', 0, 0, pageWidthMm, sliceMmHeight);
+        renderedPx += sliceHeight;
+        pageIndex++;
       }
 
       const pdfBlob: Blob = pdf.output('blob');
