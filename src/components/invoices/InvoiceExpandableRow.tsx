@@ -448,7 +448,9 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
         allowTaint: true,
         backgroundColor: '#ffffff',
         width: 794,
+        height: realHeight,
         windowWidth: 794,
+        windowHeight: realHeight,
         logging: false,
       });
 
