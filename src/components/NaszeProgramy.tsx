@@ -1,6 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Wrench, Calculator, Building2, ShoppingCart, Briefcase, Megaphone } from "lucide-react";
+import { Wrench, Calculator, Truck, User, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { AuthModal } from "@/components/auth/AuthModal";
