@@ -30,6 +30,7 @@ export function useVehicleLookup(userId?: string) {
   const [credits, setCredits] = useState<VehicleLookupCredits | null>(null);
   const [loading, setLoading] = useState(false);
   const [creditsLoading, setCreditsLoading] = useState(true);
+  const { runWithQuota } = useQuotaGuard();
 
   const fetchCredits = useCallback(async () => {
     if (!userId) return;
