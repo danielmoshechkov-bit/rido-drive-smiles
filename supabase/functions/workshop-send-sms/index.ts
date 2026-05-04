@@ -85,6 +85,43 @@ serve(async (req) => {
       });
     }
 
+    // Resolve providerId via auth header if still missing
+    if (!resolvedProviderId) {
+      const authHeader = req.headers.get("Authorization");
+      if (authHeader) {
+        const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
+        const userClient = createClient(
+          Deno.env.get("SUPABASE_URL") ?? "",
+          anonKey ?? "",
+          { global: { headers: { Authorization: authHeader } } }
+        );
+        const { data: { user } } = await userClient.auth.getUser();
+        if (user) {
+          const { data: sp } = await supabaseAdmin
+            .from("service_providers")
+            .select("id")
+            .eq("user_id", user.id)
+            .maybeSingle();
+          resolvedProviderId = sp?.id ?? null;
+        }
+      }
+    }
+
+    // Pre-check SMS balance
+    if (resolvedProviderId) {
+      const { data: spBal } = await supabaseAdmin
+        .from("service_providers")
+        .select("sms_balance")
+        .eq("id", resolvedProviderId)
+        .maybeSingle();
+      if (!spBal || (spBal.sms_balance || 0) <= 0) {
+        return new Response(
+          JSON.stringify({ error: "NO_SMS", message: "Brak pakietu SMS. Doładuj pakiet, aby kontynuować." }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
     const smsProvider = smsSettings?.provider || "justsend";
     const msisdn = normalizePhone(phone);
     const senderName = (sender || smsSettings?.sender_name || "GetRido.pl").replace(/[^a-zA-Z0-9.\-]/g, "").slice(0, 11);
