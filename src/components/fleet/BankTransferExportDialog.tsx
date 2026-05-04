@@ -405,9 +405,13 @@ export function BankTransferExportDialog({
       await supabase.from('drivers').update(updates).eq('id', row.id);
     }
 
+    const skippedNegative = selectedTransfers.filter(r => r.payout <= 0);
     const transfers: TransferRow[] = selectedTransfers
-      .filter(r => r.iban.replace(/\s/g, '').length >= 20)
+      .filter(r => r.payout > 0 && r.iban.replace(/\s/g, '').length >= 20)
       .map(r => ({ iban: r.iban, amount: r.payout, name: r.displayName, title: getTransferTitle(r) }));
+    if (skippedNegative.length > 0) {
+      toast.warning(`Pominięto ${skippedNegative.length} kierowców z zerową lub ujemną wypłatą (nie można przelać). Sprawdź ich saldo.`);
+    }
 
     // Add fleet aggregate transfers
     for (const group of fleetGroupedDrivers) {
