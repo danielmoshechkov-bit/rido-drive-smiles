@@ -21,6 +21,9 @@ export default function BuyCredits() {
   const { initiatePayment, loading: paying } = usePayment();
   const [packages, setPackages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [promo, setPromo] = useState("");
+  const [promoApplied, setPromoApplied] = useState<{ id: string; discount: number } | null>(null);
+  const [promoChecking, setPromoChecking] = useState(false);
 
   const { balance: smsBalance } = useCredits("sms");
   const { balance: aiPhotoBalance } = useCredits("ai_photo");
