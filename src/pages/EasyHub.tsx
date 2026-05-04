@@ -425,6 +425,7 @@ export default function EasyHub() {
     switch (activeCategory) {
       case 'motoryzacja': return t('home.motoryzacja');
       case 'nieruchomosci': return t('home.nieruchomosci');
+      case 'biznes': return 'Dla Biznesu';
       default: return null;
     }
   };
@@ -434,9 +435,10 @@ export default function EasyHub() {
     switch (activeCategory) {
       case 'motoryzacja': return motoryzacjaSubTiles;
       case 'nieruchomosci': return nieruchomosciSubTiles;
+      case 'biznes': return biznesSubTiles;
       default: return dynamicTiles;
     }
-  }, [activeCategory, dynamicTiles, motoryzacjaSubTiles, nieruchomosciSubTiles]);
+  }, [activeCategory, dynamicTiles, motoryzacjaSubTiles, nieruchomosciSubTiles, biznesSubTiles]);
 
   // Get current SEO config based on category
   const currentSEO = useMemo(() => {
