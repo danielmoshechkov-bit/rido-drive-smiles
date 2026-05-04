@@ -11,7 +11,7 @@ serve(async (req) => {
 
   try {
     const { brief, image_url, target_audience, service_id, client_id, platform } = await req.json()
-    const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
+    const apiKey = (Deno.env.get('ANTHROPIC_API_KEY') || '').trim().replace(/[\r\n\t]/g, '')
 
     if (!apiKey) {
       return json({ variants: [], error: 'Brak klucza Anthropic API' }, 200)
