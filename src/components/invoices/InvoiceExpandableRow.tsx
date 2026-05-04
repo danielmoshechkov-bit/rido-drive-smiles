@@ -402,22 +402,24 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
 
       const container = document.createElement('div');
       container.innerHTML = html;
-      // Renderuj WIDZIALNIE ale poza viewportem (absolute + top:0/left:0 ale z translate poza ekran)
-      // html2canvas wymaga widzialnego layoutu — fixed/-10000 czasem daje pustą stronę
       Object.assign(container.style, {
         position: 'absolute',
         left: '0',
         top: '0',
-        width: '794px',           // 210mm @ 96dpi
-        minHeight: '1123px',      // 297mm @ 96dpi
+        width: '794px',
         background: '#ffffff',
         zIndex: '-9999',
         pointerEvents: 'none',
         visibility: 'visible',
         opacity: '1',
         transform: 'translateX(-20000px)',
+        padding: '0',
+        margin: '0',
+        overflow: 'visible',
       });
       document.body.appendChild(container);
+      // Wymuś auto height żeby html2canvas nie obciął zawartości
+      const realHeight = Math.max(container.scrollHeight, container.offsetHeight, 1123);
 
       // Poczekaj aż fonty i obrazy się załadują
       try {
