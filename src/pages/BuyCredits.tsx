@@ -181,9 +181,18 @@ export default function BuyCredits() {
                       <CardDescription>{pkg.credits_amount} kredytów</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                      <p className="text-2xl font-bold text-primary">
-                        {Number(pkg.price).toFixed(2)} zł
-                      </p>
+                      {promoApplied ? (
+                        <div>
+                          <p className="text-sm line-through text-muted-foreground">{Number(pkg.price).toFixed(2)} zł</p>
+                          <p className="text-2xl font-bold text-emerald-600">
+                            {(Number(pkg.price) * (1 - promoApplied.discount / 100)).toFixed(2)} zł
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="text-2xl font-bold text-primary">
+                          {Number(pkg.price).toFixed(2)} zł
+                        </p>
+                      )}
                       <Button
                         className="w-full"
                         onClick={() => handleBuy(pkg)}
