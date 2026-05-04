@@ -22,6 +22,7 @@ const Index = () => {
       <Header />
       <main>
         <Hero />
+        <NaszeProgramy />
         <ProsteCenniki />
         <WhyRido />
         <JakZaczac />
