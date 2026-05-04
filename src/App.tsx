@@ -113,6 +113,7 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
+            <QuotaGuardProvider>
             <CompareProvider>
               <Routes>
                 <Route path="/" element={<EasyHub />} />
