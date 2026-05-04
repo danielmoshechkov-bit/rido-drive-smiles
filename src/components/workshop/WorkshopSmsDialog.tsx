@@ -8,6 +8,7 @@ import { Send, MessageSquare } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
+import { useQuotaGuard } from '@/components/quota/QuotaGuardProvider';
 
 interface Props {
   open: boolean;
