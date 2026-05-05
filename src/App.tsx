@@ -46,6 +46,7 @@ import MarketplaceRegister from "./pages/MarketplaceRegister";
 import MarketplaceAuth from "./pages/MarketplaceAuth";
 import MarketplaceDashboard from "./pages/MarketplaceDashboard";
 import EasyHub from "./pages/EasyHub";
+import WorkshopLanding from "./pages/WorkshopLanding";
 import EasyAuth from "./pages/EasyAuth";
 import RealEstateMarketplace from "./pages/RealEstateMarketplace";
 import OfertaPage from "./pages/OfertaPage";
