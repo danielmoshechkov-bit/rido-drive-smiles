@@ -124,7 +124,10 @@ export default function InvoicingLanding() {
       </header>
 
       {/* Hero Section */}
-      <section className="container mx-auto px-4 py-12 md:py-20">
+      <section className="relative overflow-hidden">
+        <div className="absolute inset-0 opacity-[0.07] bg-cover bg-center pointer-events-none" style={{ backgroundImage: "url('/lovable-uploads/tile-invoicing-bg.jpg')" }} />
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-purple-500/5 pointer-events-none" />
+        <div className="relative container mx-auto px-4 py-12 md:py-20">
         <div className="max-w-4xl mx-auto text-center">
           <Badge className="mb-4 bg-emerald-500/10 text-emerald-600 border-emerald-500/20 text-sm px-4 py-1">
             <Sparkles className="h-3.5 w-3.5 mr-1" />
