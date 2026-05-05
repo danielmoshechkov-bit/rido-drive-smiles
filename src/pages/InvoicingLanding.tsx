@@ -166,6 +166,7 @@ export default function InvoicingLanding() {
             ))}
           </div>
         </div>
+        </div>
       </section>
 
       {/* Features Grid */}
