@@ -150,6 +150,7 @@ const App = () => (
                 <Route path="/wyniki" element={<UniversalSearchResults />} />
                 <Route path="/ksiegowosc" element={<AccountingDashboard />} />
                 <Route path="/ksiegowosc-info" element={<InvoicingLanding />} />
+                <Route path="/warsztat-info" element={<WorkshopLanding />} />
                 <Route path="/faktury" element={<InvoiceProgram />} />
                 <Route path="/klient" element={<ClientPortal />} />
                 <Route path="/ai-pro" element={<AIProPage />} />
