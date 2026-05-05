@@ -257,15 +257,19 @@ export default function GeneralListingDetail() {
                   )}
                 </div>
                 <div className="grid grid-rows-2 gap-2">
-                  {photos.slice(1, 3).map((p, i) => (
-                    <div
-                      key={p.id || i}
-                      className="relative cursor-pointer overflow-hidden group"
-                      onClick={() => { setSelectedPhoto(i + 1); setFullscreenGallery(true); }}
-                    >
-                      <img src={p.url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                    </div>
-                  ))}
+                  {[1, 2].map((idx) => {
+                    const p = photos[idx];
+                    if (!p) return <div key={idx} className="bg-muted/30" />;
+                    return (
+                      <div
+                        key={p.id || idx}
+                        className="relative cursor-pointer overflow-hidden group"
+                        onClick={() => { setSelectedPhoto(idx); setFullscreenGallery(true); }}
+                      >
+                        <img src={p.url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                      </div>
+                    );
+                  })}
                   {photos.length > 3 ? (
                     <div
                       className="relative cursor-pointer overflow-hidden group"
@@ -279,9 +283,7 @@ export default function GeneralListingDetail() {
                       )}
                     </div>
                   ) : photos.length <= 2 ? (
-                    <div className="bg-muted flex items-center justify-center text-muted-foreground text-sm">
-                      <ImageIcon className="h-6 w-6" />
-                    </div>
+                    <div className="bg-muted/30" />
                   ) : null}
                 </div>
               </div>

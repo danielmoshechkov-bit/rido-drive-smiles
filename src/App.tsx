@@ -46,6 +46,7 @@ import MarketplaceRegister from "./pages/MarketplaceRegister";
 import MarketplaceAuth from "./pages/MarketplaceAuth";
 import MarketplaceDashboard from "./pages/MarketplaceDashboard";
 import EasyHub from "./pages/EasyHub";
+import WorkshopLanding from "./pages/WorkshopLanding";
 import EasyAuth from "./pages/EasyAuth";
 import RealEstateMarketplace from "./pages/RealEstateMarketplace";
 import OfertaPage from "./pages/OfertaPage";
@@ -150,6 +151,7 @@ const App = () => (
                 <Route path="/wyniki" element={<UniversalSearchResults />} />
                 <Route path="/ksiegowosc" element={<AccountingDashboard />} />
                 <Route path="/ksiegowosc-info" element={<InvoicingLanding />} />
+                <Route path="/warsztat-info" element={<WorkshopLanding />} />
                 <Route path="/faktury" element={<InvoiceProgram />} />
                 <Route path="/klient" element={<ClientPortal />} />
                 <Route path="/ai-pro" element={<AIProPage />} />
