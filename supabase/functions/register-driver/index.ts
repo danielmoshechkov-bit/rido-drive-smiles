@@ -196,6 +196,23 @@ Deno.serve(async (req) => {
         if (driverInFleetByEmail) {
           existingDriver = driverInFleetByEmail;
           console.log("📧 Found existing driver by email in target fleet:", driverInFleetByEmail.id);
+        } else {
+          // Fallback: match by first_name + last_name (case-insensitive) within fleet
+          // Critical for historical drivers without email/phone in DB
+          const { data: driversByName } = await supabaseAdmin
+            .from("drivers")
+            .select("id, getrido_id, email, phone")
+            .eq("fleet_id", fleetId)
+            .ilike("first_name", first_name.trim())
+            .ilike("last_name", last_name.trim());
+
+          if (driversByName && driversByName.length > 0) {
+            // Prefer driver with NULL/empty email and phone (historical record)
+            const historical = driversByName.find(d => (!d.email || d.email === "") && (!d.phone || d.phone === ""));
+            const chosen = historical || driversByName[0];
+            existingDriver = { id: chosen.id, getrido_id: chosen.getrido_id };
+            console.log("👤 Found existing driver by full name in target fleet:", chosen.id, "(historical:", !!historical, ")");
+          }
         }
       }
     }
