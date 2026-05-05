@@ -23627,6 +23627,10 @@ export type Database = {
         Args: { p_driver_id: string; p_user_id: string }
         Returns: undefined
       }
+      merge_duplicate_drivers: {
+        Args: { p_source: string; p_target: string }
+        Returns: undefined
+      }
       my_fuel_transactions: {
         Args: { p_from: string; p_to: string }
         Returns: {
