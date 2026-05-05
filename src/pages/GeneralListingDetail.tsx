@@ -279,9 +279,7 @@ export default function GeneralListingDetail() {
                       )}
                     </div>
                   ) : photos.length <= 2 ? (
-                    <div className="bg-muted flex items-center justify-center text-muted-foreground text-sm">
-                      <ImageIcon className="h-6 w-6" />
-                    </div>
+                    <div className="bg-muted/30" />
                   ) : null}
                 </div>
               </div>
