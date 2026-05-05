@@ -329,7 +329,18 @@ export default function GeneralListingAdd() {
         setUploadingPhotos(false);
       }
 
-      // Add to translation queue (don't block UX)
+      // Trigger immediate auto-translation (best-effort, non-blocking)
+      supabase.functions.invoke('auto-translate-listing', {
+        body: {
+          listing_id: listingId,
+          listing_type: 'general',
+          title,
+          description,
+          source_lang: 'pl',
+        }
+      }).catch(err => console.warn('Auto-translate failed:', err));
+
+      // Also enqueue (in case direct call fails or for retries)
       supabase.functions.invoke('translation-queue-add', {
         body: {
           listing_id: listingId,
