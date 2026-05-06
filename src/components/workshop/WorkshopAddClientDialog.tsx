@@ -104,7 +104,7 @@ export function WorkshopAddClientDialog({ open, onOpenChange, providerId, onCrea
     onOpenChange(false);
   };
 
-  const AddressFields = () => (
+  const addressFields = (
     <>
       <div className="grid grid-cols-[1fr_auto_auto] gap-3">
         <div className="space-y-1.5">
@@ -123,7 +123,7 @@ export function WorkshopAddClientDialog({ open, onOpenChange, providerId, onCrea
       <div className="grid grid-cols-3 gap-4">
         <div className="space-y-1.5">
           <Label>Kod pocztowy</Label>
-          <Input value={form.postal_code} onChange={e => handlePostalCode(e.target.value)} placeholder="00-000" />
+          <Input value={form.postal_code} onChange={e => handlePostalCode(e.target.value)} placeholder="00-000" inputMode="numeric" maxLength={6} />
         </div>
         <div className="space-y-1.5">
           <Label>Miasto</Label>
