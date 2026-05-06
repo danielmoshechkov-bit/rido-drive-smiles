@@ -21508,6 +21508,7 @@ export type Database = {
           last_sms_sent_at: string | null
           mechanic_id: string | null
           mechanic_notes: string | null
+          mechanic_parts: Json | null
           mileage: number | null
           order_number: string
           pickup_date: string | null
@@ -21559,6 +21560,7 @@ export type Database = {
           last_sms_sent_at?: string | null
           mechanic_id?: string | null
           mechanic_notes?: string | null
+          mechanic_parts?: Json | null
           mileage?: number | null
           order_number: string
           pickup_date?: string | null
@@ -21610,6 +21612,7 @@ export type Database = {
           last_sms_sent_at?: string | null
           mechanic_id?: string | null
           mechanic_notes?: string | null
+          mechanic_parts?: Json | null
           mileage?: number | null
           order_number?: string
           pickup_date?: string | null
