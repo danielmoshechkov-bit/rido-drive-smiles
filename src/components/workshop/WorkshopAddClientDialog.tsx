@@ -187,7 +187,7 @@ export function WorkshopAddClientDialog({ open, onOpenChange, providerId, onCrea
                   </div>
                 </div>
               </div>
-              <AddressFields />
+              {addressFields}
               {/* Contact person */}
               <div className="border-t pt-4">
                 <Label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3 block">Osoba kontaktowa</Label>
@@ -241,7 +241,7 @@ export function WorkshopAddClientDialog({ open, onOpenChange, providerId, onCrea
                   <Input type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="E-mail" />
                 </div>
               </div>
-              <AddressFields />
+              {addressFields}
             </>
           )}
 
