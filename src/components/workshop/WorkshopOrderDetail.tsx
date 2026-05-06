@@ -468,6 +468,11 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
         onOpenChange={setEstimatePreviewOpen}
         order={order}
       />
+      <WorkshopMechanicCardDialog
+        open={mechanicCardOpen}
+        onOpenChange={setMechanicCardOpen}
+        order={order}
+      />
     </div>
   );
 }
