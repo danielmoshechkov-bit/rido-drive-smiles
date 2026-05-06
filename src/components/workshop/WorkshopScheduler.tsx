@@ -1101,7 +1101,8 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
       const appointmentHour = parseInt(editHourStr) || 0;
       const appointmentMin = parseInt(editMinStr) || 0;
       const appointmentTime = `${appointmentHour.toString().padStart(2, '0')}:${appointmentMin.toString().padStart(2, '0')}:00`;
-      const stationId = editStationId || slotData.stationId;
+      let stationId = editStationId || slotData.stationId;
+      if (stationId === '__default') stationId = null;
       const { data: insertedBooking, error } = await (supabase as any).from('workshop_client_bookings').insert({
         provider_id: providerId,
         phone: clientForm.phone,
