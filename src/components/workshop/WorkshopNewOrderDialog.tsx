@@ -440,7 +440,46 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                                 </div>
                               </button>
                             ))}
-                            {filteredVehicles.length === 0 && <div className="px-3 py-3 text-sm text-muted-foreground text-center">Brak wyników</div>}
+                            {filteredVehicles.length === 0 && (
+                              <div className="px-3 py-3 text-sm text-muted-foreground text-center">
+                                Brak wyników
+                                {vehicleSearch.trim().length >= 2 && (
+                                  <button
+                                    className="block w-full mt-2 px-3 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 text-sm"
+                                    onClick={async () => {
+                                      const txt = vehicleSearch.trim();
+                                      // Heuristic: "MARKA MODEL REJ" or "REJ" or just "MARKA MODEL"
+                                      const parts = txt.split(/\s+/);
+                                      const last = parts[parts.length - 1];
+                                      const looksLikePlate = /^[A-Z0-9]{4,8}$/i.test(last) && parts.length > 1;
+                                      const plate = looksLikePlate ? last.toUpperCase() : (parts.length === 1 && /^[A-Z0-9]{4,8}$/i.test(last) ? last.toUpperCase() : null);
+                                      const brandModel = looksLikePlate ? parts.slice(0, -1) : (plate ? [] : parts);
+                                      const brand = brandModel[0] || null;
+                                      const model = brandModel.slice(1).join(' ') || null;
+                                      try {
+                                        const { data: v, error } = await (supabase as any)
+                                          .from('workshop_vehicles')
+                                          .insert({ provider_id: providerId, brand, model, plate })
+                                          .select()
+                                          .single();
+                                        if (error) throw error;
+                                        setCreatedVehicleData(v);
+                                        setVehicleId(v.id);
+                                        setShowVehicleList(false);
+                                        setVehicleSearch('');
+                                        setErrors(e => { const { vehicle, ...rest } = e; return rest; });
+                                        qc.invalidateQueries({ queryKey: ['workshop-vehicles'] });
+                                        toast.success('Pojazd dodany ręcznie');
+                                      } catch (e: any) {
+                                        toast.error('Nie udało się dodać pojazdu: ' + e.message);
+                                      }
+                                    }}
+                                  >
+                                    + Dodaj „{vehicleSearch.trim()}" jako nowy pojazd
+                                  </button>
+                                )}
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
