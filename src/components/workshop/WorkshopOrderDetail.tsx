@@ -15,10 +15,11 @@ import { WorkshopVehicleHoverCard } from './WorkshopVehicleHoverCard';
 import { WorkshopVehicleEditDialog } from './WorkshopVehicleEditDialog';
 import { WorkshopClientHoverCard } from './WorkshopClientHoverCard';
 import { WorkshopEstimatePreviewDialog } from './WorkshopEstimatePreviewDialog';
+import { WorkshopMechanicCardDialog } from './WorkshopMechanicCardDialog';
 import { RidoPartsCartButton } from './parts/RidoPartsCartButton';
 import {
   ArrowLeft, FileText, Send, Eye, Link2, MessageSquare, MoreVertical,
-  Printer, Download, ClipboardList, Car, Users, CheckCircle, XCircle, Ban, AlertTriangle
+  Printer, Download, ClipboardList, Car, Users, CheckCircle, XCircle, Ban, AlertTriangle, Wrench
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -57,6 +58,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
   const [editClientOpen, setEditClientOpen] = useState(false);
   const [editVehicleOpen, setEditVehicleOpen] = useState(false);
   const [estimatePreviewOpen, setEstimatePreviewOpen] = useState(false);
+  const [mechanicCardOpen, setMechanicCardOpen] = useState(false);
   const clientName = order.client
     ? order.client.client_type === 'company'
       ? order.client.company_name
@@ -178,6 +180,16 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
             }}
           >
             <FileText className="h-4 w-4" /> Karta zlecenia
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1"
+            onClick={() => setMechanicCardOpen(true)}
+            title="Karta mechanika — zakres prac, lista części, notatki"
+          >
+            <Wrench className="h-4 w-4" /> Karta mechanika
           </Button>
 
           {/* Action icons with dropdowns */}
@@ -454,6 +466,11 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
       <WorkshopEstimatePreviewDialog
         open={estimatePreviewOpen}
         onOpenChange={setEstimatePreviewOpen}
+        order={order}
+      />
+      <WorkshopMechanicCardDialog
+        open={mechanicCardOpen}
+        onOpenChange={setMechanicCardOpen}
         order={order}
       />
     </div>
