@@ -187,6 +187,11 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
       fuel_level: fuelLevel || null,
       internal_notes: clientNotes || null,
       status_name: 'Nowe zlecenie',
+      return_parts_to_client: checklist.return_parts,
+      registration_document: checklist.registration_doc,
+      test_drive_consent: checklist.test_drive,
+      top_up_fluids: checklist.refill_fluids,
+      top_up_lights: checklist.refill_lights,
     });
     // Auto-persist owner to vehicle
     if (vehicleId && clientId) {
