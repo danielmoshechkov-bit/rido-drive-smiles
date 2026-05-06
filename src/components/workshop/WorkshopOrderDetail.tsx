@@ -182,6 +182,16 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
             <FileText className="h-4 w-4" /> Karta zlecenia
           </Button>
 
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1"
+            onClick={() => setMechanicCardOpen(true)}
+            title="Karta mechanika — zakres prac, lista części, notatki"
+          >
+            <Wrench className="h-4 w-4" /> Karta mechanika
+          </Button>
+
           {/* Action icons with dropdowns */}
           <div className="flex items-center gap-1">
             {/* Protokół przyjęcia */}
