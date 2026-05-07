@@ -462,12 +462,11 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
         useCORS: true,
         allowTaint: true,
         backgroundColor: '#ffffff',
-        letterRendering: true,
         logging: false,
         windowWidth: PX_W,
         width: PX_W,
         height: target.scrollHeight,
-      });
+      } as any);
       console.log('[PDF] canvas:', canvas.width, 'x', canvas.height);
 
       const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait', compress: true });
