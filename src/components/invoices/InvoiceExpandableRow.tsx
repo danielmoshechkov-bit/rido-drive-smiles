@@ -220,6 +220,24 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
         .maybeSingle();
       companyData = company;
     }
+    // Fallback / uzupełnij brakujące dane bankowe i logo z entities
+    if (invoice.user_id) {
+      const { data: ent } = await supabase
+        .from('entities')
+        .select('bank_name, bank_account, logo_url, email, phone')
+        .eq('owner_user_id', invoice.user_id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (ent) {
+        companyData = companyData || {};
+        if (!companyData.bank_name) companyData.bank_name = ent.bank_name;
+        if (!companyData.bank_account) companyData.bank_account = ent.bank_account;
+        if (!companyData.logo_url) companyData.logo_url = ent.logo_url;
+        if (!companyData.email) companyData.email = ent.email;
+        if (!companyData.phone) companyData.phone = ent.phone;
+      }
+    }
 
     // Build correction_data if this is a correction invoice
     let correctionDataForPdf: InvoiceData['correction_data'] = undefined;
@@ -522,9 +540,7 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
       const pdfBase64 = await generatePdfBase64();
 
       if (!pdfBase64) {
-        toast.error('Nie udało się wygenerować PDF. Otwórz podgląd i spróbuj ponownie.');
-        setIsSendingEmail(false);
-        return;
+        toast.warning('Nie udało się wygenerować PDF — wysyłam fakturę bez załącznika.');
       }
 
       const { data, error } = await supabase.functions.invoke('send-invoice-email', {
@@ -532,13 +548,13 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
           invoice_id: invoice.id,
           recipient_email: email,
           type: 'new_invoice',
-          pdf_base64: pdfBase64,
+          ...(pdfBase64 ? { pdf_base64: pdfBase64 } : {}),
         }
       });
 
       if (error) throw error;
       if (data && !data.success) throw new Error(data.error || 'Nie udało się wysłać');
-      toast.success(`Faktura wysłana na ${email}`);
+      toast.success(`Faktura wysłana na ${email}${pdfBase64 ? '' : ' (bez PDF)'}`);
       setShowInlineEmail(false);
       setInlineEmail('');
     } catch (err: any) {
