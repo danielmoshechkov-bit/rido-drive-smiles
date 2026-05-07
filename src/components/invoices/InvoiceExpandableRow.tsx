@@ -397,7 +397,7 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
   };
 
   const generatePdfBase64 = async (): Promise<string | null> => {
-    let iframe: HTMLIFrameElement | null = null;
+    let host: HTMLDivElement | null = null;
     try {
       const data = await prepareInvoiceData();
       if (!data) {
@@ -412,74 +412,62 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
       }
 
       const { generateInvoiceHtml } = await import('@/utils/invoiceHtmlGenerator');
-      let html = generateInvoiceHtml(data);
-      html = html.replace(/<img[^>]+api\.qrserver\.com[^>]*>/gi, '');
+      let fullHtml = generateInvoiceHtml(data);
+      fullHtml = fullHtml.replace(/<img[^>]+api\.qrserver\.com[^>]*>/gi, '');
 
-      // Renderujemy w iframe — IDENTYCZNIE jak w podglądzie (gwarantuje ten sam wygląd)
-      iframe = document.createElement('iframe');
-      Object.assign(iframe.style, {
+      // Wyciągamy <style> z <head> i <body> – wstrzykujemy w jeden kontener w GŁÓWNYM dokumencie
+      // (html2canvas niezawodnie renderuje elementy z głównego dokumentu, NIE z iframe)
+      const parser = new DOMParser();
+      const parsed = parser.parseFromString(fullHtml, 'text/html');
+      const styleTags = Array.from(parsed.querySelectorAll('style')).map(s => s.outerHTML).join('\n');
+      const bodyHtml = parsed.body?.innerHTML || fullHtml;
+
+      host = document.createElement('div');
+      Object.assign(host.style, {
         position: 'fixed',
-        left: '0',
-        top: '0',
-        width: '210mm',
-        height: '297mm',
-        border: '0',
-        opacity: '0.01',
-        zIndex: '-9999',
+        left: '0px',
+        top: '0px',
+        width: '794px', // 210mm @ 96dpi
+        background: '#ffffff',
+        zIndex: '-1',
+        // Off-screen visually, ale w pełni renderowane przez przeglądarkę
+        clipPath: 'inset(50%)',
         pointerEvents: 'none',
-      });
-      iframe.setAttribute('aria-hidden', 'true');
-      document.body.appendChild(iframe);
+      } as any);
+      host.innerHTML = `${styleTags}<div class="rido-pdf-root" style="width:794px;background:#fff;">${bodyHtml}</div>`;
+      document.body.appendChild(host);
 
-      const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-      if (!iframeDoc) {
-        console.error('[PDF] no iframe document');
-        return null;
-      }
-      iframeDoc.open();
-      iframeDoc.write(html);
-      iframeDoc.close();
-
-      // Czekaj na load
-      await new Promise<void>((resolve) => {
-        if (iframe!.contentDocument?.readyState === 'complete') resolve();
-        else iframe!.addEventListener('load', () => resolve(), { once: true });
-        setTimeout(resolve, 3000);
-      });
-      try {
-        const winFonts = (iframe.contentDocument as any)?.fonts;
-        if (winFonts?.ready) await winFonts.ready;
-      } catch {}
-      const imgs = Array.from(iframeDoc.querySelectorAll('img'));
+      // Czekaj na obrazy
+      const imgs = Array.from(host.querySelectorAll('img')) as HTMLImageElement[];
       await Promise.all(imgs.map(img => {
-        const i = img as HTMLImageElement;
-        if (i.complete && i.naturalWidth > 0) return Promise.resolve();
+        if (img.complete && img.naturalWidth > 0) return Promise.resolve();
         return new Promise<void>(res => {
-          i.addEventListener('load', () => res(), { once: true });
-          i.addEventListener('error', () => res(), { once: true });
+          img.addEventListener('load', () => res(), { once: true });
+          img.addEventListener('error', () => res(), { once: true });
           setTimeout(() => res(), 4000);
         });
       }));
-      await new Promise(r => setTimeout(r, 500));
+      try { await (document as any).fonts?.ready; } catch {}
+      await new Promise(r => setTimeout(r, 300));
 
-      const target = iframeDoc.body;
-      console.log('[PDF] iframe body size:', target?.scrollWidth, 'x', target?.scrollHeight);
+      const target = host.querySelector('.rido-pdf-root') as HTMLElement;
+      console.log('[PDF] target size:', target?.scrollWidth, 'x', target?.scrollHeight);
 
       const { default: html2pdf } = await import('html2pdf.js');
       const opt = {
         margin: 0,
         filename: 'faktura.pdf',
         image: { type: 'jpeg', quality: 0.95 },
-        html2canvas: { scale: 2, useCORS: true, allowTaint: true, backgroundColor: '#ffffff', letterRendering: true, logging: false, windowWidth: 794 },
+        html2canvas: { scale: 2, useCORS: true, allowTaint: true, backgroundColor: '#ffffff', letterRendering: true, logging: false, windowWidth: 794, scrollX: 0, scrollY: 0 },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const, compress: true },
         pagebreak: { mode: ['avoid-all', 'css', 'legacy'] as any },
       };
 
-      let pdfBlob: Blob;
+      let pdfBlob: Blob | null = null;
       try {
         pdfBlob = await (html2pdf() as any).set(opt).from(target).outputPdf('blob');
       } catch (e) {
-        console.error('[PDF] outputPdf failed, trying .output:', e);
+        console.error('[PDF] outputPdf failed:', e);
         try {
           pdfBlob = await (html2pdf() as any).set(opt).from(target).output('blob');
         } catch (e2) {
@@ -508,8 +496,8 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
       console.error('[PDF] Error generating:', err);
       return null;
     } finally {
-      if (iframe && iframe.parentNode) {
-        try { iframe.parentNode.removeChild(iframe); } catch {}
+      if (host && host.parentNode) {
+        try { host.parentNode.removeChild(host); } catch {}
       }
     }
   };
