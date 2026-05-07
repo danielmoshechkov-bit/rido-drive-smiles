@@ -397,7 +397,7 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
   };
 
   const generatePdfBase64 = async (): Promise<string | null> => {
-    let host: HTMLDivElement | null = null;
+    let iframe: HTMLIFrameElement | null = null;
     try {
       const data = await prepareInvoiceData();
       if (!data) {
@@ -405,7 +405,7 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
         return null;
       }
 
-      // Prekonwertuj logo na data URL
+      // Prekonwertuj logo na data URL (omija CORS w iframe)
       if (data.seller?.logo_url && /^https?:\/\//.test(data.seller.logo_url)) {
         const dataUrl = await urlToDataURL(data.seller.logo_url);
         if (dataUrl) data.seller.logo_url = dataUrl;
@@ -415,30 +415,37 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
       let fullHtml = generateInvoiceHtml(data);
       fullHtml = fullHtml.replace(/<img[^>]+api\.qrserver\.com[^>]*>/gi, '');
 
-      // Wyciągamy <style> i <body> – wstrzykujemy w głównym dokumencie (poza ekranem)
-      const parser = new DOMParser();
-      const parsed = parser.parseFromString(fullHtml, 'text/html');
-      const styleTags = Array.from(parsed.querySelectorAll('style')).map(s => s.outerHTML).join('\n');
-      const bodyHtml = parsed.body?.innerHTML || fullHtml;
-
-      // A4 @ 96dpi: 794 x 1123 px. Renderujemy w tej szerokości — 1:1 z preview.
+      // A4 @ 96dpi
       const PX_W = 794;
 
-      host = document.createElement('div');
-      Object.assign(host.style, {
+      // Renderujemy w izolowanym iframe — żadne style strony nie wyciekają,
+      // i odwzorowuje to dokładnie podgląd (który też używa tego samego HTML).
+      iframe = document.createElement('iframe');
+      Object.assign(iframe.style, {
         position: 'fixed',
         left: '-10000px',
         top: '0',
         width: `${PX_W}px`,
+        height: '2000px',
+        border: '0',
         background: '#ffffff',
-        zIndex: '-1',
-        pointerEvents: 'none',
       } as any);
-      host.innerHTML = `${styleTags}<div class="rido-pdf-root" style="width:${PX_W}px;background:#fff;">${bodyHtml}</div>`;
-      document.body.appendChild(host);
+      document.body.appendChild(iframe);
 
-      // Czekaj na obrazy + fonty
-      const imgs = Array.from(host.querySelectorAll('img')) as HTMLImageElement[];
+      const doc = iframe.contentDocument!;
+      doc.open();
+      doc.write(fullHtml);
+      doc.close();
+
+      // Czekaj aż iframe się załaduje
+      await new Promise<void>(res => {
+        if (doc.readyState === 'complete') return res();
+        iframe!.addEventListener('load', () => res(), { once: true });
+        setTimeout(() => res(), 2000);
+      });
+
+      // Czekaj na obrazy + fonty wewnątrz iframe
+      const imgs = Array.from(doc.querySelectorAll('img')) as HTMLImageElement[];
       await Promise.all(imgs.map(img => {
         if (img.complete && img.naturalWidth > 0) return Promise.resolve();
         return new Promise<void>(res => {
@@ -447,31 +454,33 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
           setTimeout(() => res(), 4000);
         });
       }));
-      try { await (document as any).fonts?.ready; } catch {}
-      await new Promise(r => setTimeout(r, 400));
+      try { await (doc as any).fonts?.ready; } catch {}
+      await new Promise(r => setTimeout(r, 300));
 
-      const target = host.querySelector('.rido-pdf-root') as HTMLElement;
-      console.log('[PDF] target size:', target?.scrollWidth, 'x', target?.scrollHeight);
+      const body = doc.body as HTMLElement;
+      const renderHeight = Math.max(body.scrollHeight, doc.documentElement.scrollHeight, 1123);
+      iframe.style.height = `${renderHeight}px`;
+      console.log('[PDF] iframe body:', body.scrollWidth, 'x', renderHeight);
 
-      // Bezpośrednio html2canvas + jsPDF (html2pdf.js skalował błędnie)
       const html2canvas = (await import('html2canvas')).default;
       const { jsPDF } = await import('jspdf');
 
-      const canvas = await html2canvas(target, {
+      const canvas = await html2canvas(body, {
         scale: 2,
         useCORS: true,
         allowTaint: true,
         backgroundColor: '#ffffff',
         logging: false,
         windowWidth: PX_W,
+        windowHeight: renderHeight,
         width: PX_W,
-        height: target.scrollHeight,
+        height: renderHeight,
       } as any);
       console.log('[PDF] canvas:', canvas.width, 'x', canvas.height);
 
       const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait', compress: true });
-      const pageW = pdf.internal.pageSize.getWidth();   // 210
-      const pageH = pdf.internal.pageSize.getHeight();  // 297
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
       const imgW = pageW;
       const imgH = (canvas.height * imgW) / canvas.width;
 
@@ -480,7 +489,6 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
       if (imgH <= pageH) {
         pdf.addImage(imgData, 'JPEG', 0, 0, imgW, imgH, undefined, 'FAST');
       } else {
-        // Wielostronicowo: powtarzamy obraz przesuwając Y
         let remaining = imgH;
         let y = 0;
         while (remaining > 0) {
@@ -512,8 +520,8 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
       console.error('[PDF] Error generating:', err);
       return null;
     } finally {
-      if (host && host.parentNode) {
-        try { host.parentNode.removeChild(host); } catch {}
+      if (iframe && iframe.parentNode) {
+        try { iframe.parentNode.removeChild(iframe); } catch {}
       }
     }
   };
