@@ -120,6 +120,29 @@ export function InventoryPurchaseOCR({ entityId, showKsefOption }: Props) {
 
   // Purchase invoice preview modal
   const [previewInvoice, setPreviewInvoice] = useState<PurchaseInvoice | null>(null);
+  const [previewSignedUrl, setPreviewSignedUrl] = useState<string | null>(null);
+
+  // Generuj signed URL dla podglądu (bucket 'documents' jest prywatny)
+  useEffect(() => {
+    if (!previewInvoice?.pdf_url) { setPreviewSignedUrl(null); return; }
+    const url = previewInvoice.pdf_url;
+    // Wyciągnij ścieżkę z public URL: .../object/public/documents/<path> lub .../object/sign/documents/<path>
+    const match = url.match(/\/storage\/v1\/object\/(?:public|sign)\/documents\/([^?]+)/);
+    if (!match) {
+      // Nie znamy bucketa — użyj URL jak jest
+      setPreviewSignedUrl(url);
+      return;
+    }
+    const path = decodeURIComponent(match[1]);
+    supabase.storage.from('documents').createSignedUrl(path, 3600).then(({ data, error }) => {
+      if (error || !data?.signedUrl) {
+        console.warn('Signed URL error:', error);
+        setPreviewSignedUrl(url);
+      } else {
+        setPreviewSignedUrl(data.signedUrl);
+      }
+    });
+  }, [previewInvoice?.id, previewInvoice?.pdf_url]);
 
   // Invoice mode: 'magazyn' = add to inventory, 'kosztowa' = cost invoice only
   const [invoiceMode, setInvoiceMode] = useState<'magazyn' | 'kosztowa'>('magazyn');
@@ -1464,7 +1487,7 @@ export function InventoryPurchaseOCR({ entityId, showKsefOption }: Props) {
       </Dialog>
 
       {/* ═══════════ PURCHASE INVOICE PREVIEW MODAL ═══════════ */}
-      <Dialog open={!!previewInvoice} onOpenChange={(open) => { if (!open) setPreviewInvoice(null); }}>
+      <Dialog open={!!previewInvoice} onOpenChange={(open) => { if (!open) setPreviewInvoice(null); setPreviewSignedUrl(null); }}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -1476,11 +1499,21 @@ export function InventoryPurchaseOCR({ entityId, showKsefOption }: Props) {
           {previewInvoice && (
             <div className="space-y-4">
               {/* Document preview */}
-              {previewInvoice.pdf_url && (
-                <div className="border rounded-lg overflow-hidden bg-muted/30">
-                  <iframe src={previewInvoice.pdf_url} className="w-full h-[500px]" title="Podgląd dokumentu" />
-                </div>
-              )}
+              {previewSignedUrl ? (
+                /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(previewSignedUrl) ? (
+                  <div className="border rounded-lg overflow-hidden bg-muted/30 flex items-center justify-center">
+                    <img src={previewSignedUrl} alt="Podgląd" className="max-h-[600px] w-auto" />
+                  </div>
+                ) : (
+                  <div className="border rounded-lg overflow-hidden bg-muted/30">
+                    <object data={previewSignedUrl} type="application/pdf" className="w-full h-[600px]">
+                      <iframe src={`https://docs.google.com/viewer?embedded=true&url=${encodeURIComponent(previewSignedUrl)}`} className="w-full h-[600px]" title="Podgląd dokumentu" />
+                    </object>
+                  </div>
+                )
+              ) : previewInvoice.pdf_url ? (
+                <div className="border rounded-lg p-8 bg-muted/30 text-center text-sm text-muted-foreground">Ładuję podgląd...</div>
+              ) : null}
 
               {/* Invoice details */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -1494,8 +1527,26 @@ export function InventoryPurchaseOCR({ entityId, showKsefOption }: Props) {
                   {previewInvoice.supplier_nip && <p className="text-xs text-muted-foreground">NIP: {previewInvoice.supplier_nip}</p>}
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Data zakupu</p>
-                  <p className="font-medium">{previewInvoice.purchase_date || '—'}</p>
+                  <p className="text-xs text-muted-foreground">Data zakupu (miesiąc księgowania)</p>
+                  <Input
+                    type="date"
+                    value={previewInvoice.purchase_date || ''}
+                    onChange={async (e) => {
+                      const newDate = e.target.value;
+                      setPreviewInvoice({ ...previewInvoice, purchase_date: newDate });
+                      const { error } = await supabase
+                        .from('purchase_invoices')
+                        .update({ purchase_date: newDate })
+                        .eq('id', previewInvoice.id);
+                      if (error) {
+                        toast.error('Błąd zapisu daty');
+                      } else {
+                        toast.success('Data zaktualizowana');
+                        setPastInvoices(prev => prev.map(i => i.id === previewInvoice.id ? { ...i, purchase_date: newDate } : i));
+                      }
+                    }}
+                    className="h-8 text-sm"
+                  />
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Status</p>
@@ -1516,8 +1567,8 @@ export function InventoryPurchaseOCR({ entityId, showKsefOption }: Props) {
 
               {/* Actions */}
               <div className="flex gap-2 pt-2 border-t">
-                {previewInvoice.pdf_url && (
-                  <a href={previewInvoice.pdf_url} download target="_blank" rel="noopener noreferrer">
+                {previewSignedUrl && (
+                  <a href={previewSignedUrl} download target="_blank" rel="noopener noreferrer">
                     <Button variant="outline" size="sm"><Download className="h-4 w-4 mr-2" />Pobierz</Button>
                   </a>
                 )}
@@ -1525,6 +1576,7 @@ export function InventoryPurchaseOCR({ entityId, showKsefOption }: Props) {
                   if (!confirm('Na pewno usunąć tę fakturę?')) return;
                   await supabase.from('purchase_invoices').delete().eq('id', previewInvoice.id);
                   setPreviewInvoice(null);
+                  setPreviewSignedUrl(null);
                   fetchInvoices();
                   toast.success('Faktura usunięta');
                 }}>

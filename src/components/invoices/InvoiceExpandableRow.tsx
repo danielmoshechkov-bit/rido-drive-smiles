@@ -456,7 +456,7 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
         pagebreak: { mode: ['avoid-all', 'css', 'legacy'] as any },
       };
 
-      const pdfBlob: Blob = await html2pdf().set(opt).from(container).outputPdf('blob');
+      const pdfBlob: Blob = await html2pdf().set(opt).from(container).output('blob');
 
       document.body.removeChild(container);
 
