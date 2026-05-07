@@ -426,9 +426,12 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
       Object.assign(container.style, {
         width: '210mm',
         background: '#ffffff',
-        position: 'absolute',
-        left: '-20000px',
+        position: 'fixed',
+        left: '0',
         top: '0',
+        zIndex: '-9999',
+        opacity: '0.01',
+        pointerEvents: 'none',
       });
       document.body.appendChild(container);
 
@@ -451,30 +454,39 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
         margin: 0,
         filename: 'faktura.pdf',
         image: { type: 'jpeg', quality: 0.95 },
-        html2canvas: { scale: 2, useCORS: true, allowTaint: true, backgroundColor: '#ffffff', letterRendering: true },
+        html2canvas: { scale: 2, useCORS: true, allowTaint: true, backgroundColor: '#ffffff', letterRendering: true, logging: false },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const, compress: true },
         pagebreak: { mode: ['avoid-all', 'css', 'legacy'] as any },
       };
 
-      const pdfBlob: Blob = await html2pdf().set(opt).from(container).output('blob');
+      let pdfBlob: Blob;
+      try {
+        const worker: any = html2pdf().set(opt).from(container);
+        pdfBlob = await worker.outputPdf('blob');
+      } catch (e) {
+        console.error('html2pdf failed:', e);
+        try { document.body.removeChild(container); } catch {}
+        return null;
+      }
 
-      document.body.removeChild(container);
+      try { document.body.removeChild(container); } catch {}
 
-      console.log('PDF blob size:', pdfBlob.size, 'bytes');
-      if (pdfBlob.size < 8000) {
+      console.log('PDF blob size:', pdfBlob?.size, 'bytes');
+      if (!pdfBlob || pdfBlob.size < 4000) {
         console.error('PDF too small — likely render failure. Aborting.');
         return null;
       }
 
-      const reader = new FileReader();
-      return new Promise((resolve) => {
-        reader.onload = () => {
-          const base64 = (reader.result as string).split(',')[1];
-          console.log('PDF base64 length:', base64?.length);
-          resolve(base64);
-        };
-        reader.readAsDataURL(pdfBlob);
-      });
+      const arrayBuffer = await pdfBlob.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuffer);
+      let binary = '';
+      const chunk = 0x8000;
+      for (let i = 0; i < bytes.length; i += chunk) {
+        binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunk)) as any);
+      }
+      const base64 = btoa(binary);
+      console.log('PDF base64 length:', base64?.length);
+      return base64;
     } catch (err) {
       console.error('Error generating PDF:', err);
       return null;
