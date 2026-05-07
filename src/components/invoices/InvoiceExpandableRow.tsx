@@ -490,22 +490,33 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
 
       let renderedPx = 0;
       let pageIndex = 0;
-      while (renderedPx < canvas.height) {
-        const sliceHeight = Math.min(pageHeightPx, canvas.height - renderedPx);
-        const pageCanvas = document.createElement('canvas');
-        pageCanvas.width = canvas.width;
-        pageCanvas.height = sliceHeight;
-        const ctx = pageCanvas.getContext('2d');
-        if (!ctx) break;
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
-        ctx.drawImage(canvas, 0, renderedPx, canvas.width, sliceHeight, 0, 0, canvas.width, sliceHeight);
-        const sliceData = pageCanvas.toDataURL('image/jpeg', 0.92);
-        const sliceMmHeight = (sliceHeight / canvas.width) * pageWidthMm;
-        if (pageIndex > 0) pdf.addPage();
-        pdf.addImage(sliceData, 'JPEG', 0, 0, pageWidthMm, sliceMmHeight);
-        renderedPx += sliceHeight;
-        pageIndex++;
+      // Tolerancja: jeśli zawartość przekracza pełną stronę o mniej niż 8%, ściśnij wszystko na 1 stronę
+      const overflow = canvas.height - pageHeightPx;
+      if (overflow > 0 && overflow / pageHeightPx < 0.08) {
+        const sliceMmHeight = (canvas.height / canvas.width) * pageWidthMm;
+        // Wciśnij całość w wysokość strony A4 (lekkie skalowanie w pionie ~max 8%)
+        const fitHeight = Math.min(sliceMmHeight, pageHeightMm);
+        pdf.addImage(imgData, 'JPEG', 0, 0, pageWidthMm, fitHeight);
+      } else {
+        while (renderedPx < canvas.height) {
+          const sliceHeight = Math.min(pageHeightPx, canvas.height - renderedPx);
+          // Pomiń cieniutki ostatni pasek (<2% strony) — to zwykle margines/pusta przestrzeń
+          if (sliceHeight < pageHeightPx * 0.02 && pageIndex > 0) break;
+          const pageCanvas = document.createElement('canvas');
+          pageCanvas.width = canvas.width;
+          pageCanvas.height = sliceHeight;
+          const ctx = pageCanvas.getContext('2d');
+          if (!ctx) break;
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+          ctx.drawImage(canvas, 0, renderedPx, canvas.width, sliceHeight, 0, 0, canvas.width, sliceHeight);
+          const sliceData = pageCanvas.toDataURL('image/jpeg', 0.92);
+          const sliceMmHeight = (sliceHeight / canvas.width) * pageWidthMm;
+          if (pageIndex > 0) pdf.addPage();
+          pdf.addImage(sliceData, 'JPEG', 0, 0, pageWidthMm, sliceMmHeight);
+          renderedPx += sliceHeight;
+          pageIndex++;
+        }
       }
 
       const pdfBlob: Blob = pdf.output('blob');
