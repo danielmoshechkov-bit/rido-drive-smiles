@@ -199,13 +199,28 @@ export function AuthModal({
         // Check if there's data with error info
         if (response.data?.error) {
           errorMessage = response.data.error;
-          if (response.data.field) {
-            errorField = response.data.field;
+          if (response.data.field) errorField = response.data.field;
+        } else {
+          // FunctionsHttpError — try to extract body from context
+          try {
+            const ctx: any = (response.error as any).context;
+            if (ctx?.body) {
+              const text = typeof ctx.body === 'string' ? ctx.body : await new Response(ctx.body).text();
+              const parsed = JSON.parse(text);
+              if (parsed?.error) {
+                errorMessage = parsed.error;
+                if (parsed.field) errorField = parsed.field;
+              }
+            } else if ((response.error as any).message) {
+              errorMessage = (response.error as any).message;
+            }
+          } catch (e) {
+            console.error("Could not parse error body:", e);
           }
         }
         
         // Set field-specific errors
-        if (errorField === "email" || errorMessage.includes("email") || errorMessage.includes("zarejestrowany")) {
+        if (errorField === "email" || errorMessage.toLowerCase().includes("email") || errorMessage.includes("zarejestrowany")) {
           setFieldErrors({ email: errorMessage });
         } else if (errorField === "password" || errorMessage.includes("hasło") || errorMessage.includes("password")) {
           setFieldErrors({ password: errorMessage });
