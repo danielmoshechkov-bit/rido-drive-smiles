@@ -397,11 +397,15 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
   };
 
   const generatePdfBase64 = async (): Promise<string | null> => {
+    let iframe: HTMLIFrameElement | null = null;
     try {
       const data = await prepareInvoiceData();
-      if (!data) return null;
+      if (!data) {
+        console.error('[PDF] prepareInvoiceData returned null');
+        return null;
+      }
 
-      // Prekonwertuj logo na data URL — inaczej html2canvas renderuje białą kartkę przy CORS.
+      // Prekonwertuj logo na data URL
       if (data.seller?.logo_url && /^https?:\/\//.test(data.seller.logo_url)) {
         const dataUrl = await urlToDataURL(data.seller.logo_url);
         if (dataUrl) data.seller.logo_url = dataUrl;
@@ -409,71 +413,84 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
 
       const { generateInvoiceHtml } = await import('@/utils/invoiceHtmlGenerator');
       let html = generateInvoiceHtml(data);
-
-      // Usuń zewnętrzny QR KSeF (api.qrserver.com) — wisi przez CORS i blokuje render
       html = html.replace(/<img[^>]+api\.qrserver\.com[^>]*>/gi, '');
 
-      const { default: html2pdf } = await import('html2pdf.js');
-
-      // Wyciągnij body content (html2pdf renderuje element, nie pełne <html>)
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(html, 'text/html');
-      const container = document.createElement('div');
-      // Skopiuj <style> z head do containera, żeby style się zachowały
-      doc.head.querySelectorAll('style').forEach(s => container.appendChild(s.cloneNode(true)));
-      // Skopiuj body
-      Array.from(doc.body.childNodes).forEach(n => container.appendChild(n.cloneNode(true)));
-      Object.assign(container.style, {
-        width: '210mm',
-        background: '#ffffff',
+      // Renderujemy w iframe — IDENTYCZNIE jak w podglądzie (gwarantuje ten sam wygląd)
+      iframe = document.createElement('iframe');
+      Object.assign(iframe.style, {
         position: 'fixed',
         left: '0',
         top: '0',
-        zIndex: '-9999',
+        width: '210mm',
+        height: '297mm',
+        border: '0',
         opacity: '0.01',
+        zIndex: '-9999',
         pointerEvents: 'none',
       });
-      document.body.appendChild(container);
+      iframe.setAttribute('aria-hidden', 'true');
+      document.body.appendChild(iframe);
 
-      // Czekaj na fonty/obrazy
+      const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+      if (!iframeDoc) {
+        console.error('[PDF] no iframe document');
+        return null;
+      }
+      iframeDoc.open();
+      iframeDoc.write(html);
+      iframeDoc.close();
+
+      // Czekaj na load
+      await new Promise<void>((resolve) => {
+        if (iframe!.contentDocument?.readyState === 'complete') resolve();
+        else iframe!.addEventListener('load', () => resolve(), { once: true });
+        setTimeout(resolve, 3000);
+      });
       try {
-        if ((document as any).fonts?.ready) await (document as any).fonts.ready;
-        const imgs = Array.from(container.querySelectorAll('img'));
-        await Promise.all(imgs.map(img => {
-          if ((img as HTMLImageElement).complete && (img as HTMLImageElement).naturalWidth > 0) return Promise.resolve();
-          return new Promise<void>(res => {
-            img.addEventListener('load', () => res(), { once: true });
-            img.addEventListener('error', () => res(), { once: true });
-            setTimeout(() => res(), 4000);
-          });
-        }));
+        const winFonts = (iframe.contentDocument as any)?.fonts;
+        if (winFonts?.ready) await winFonts.ready;
       } catch {}
-      await new Promise(r => setTimeout(r, 300));
+      const imgs = Array.from(iframeDoc.querySelectorAll('img'));
+      await Promise.all(imgs.map(img => {
+        const i = img as HTMLImageElement;
+        if (i.complete && i.naturalWidth > 0) return Promise.resolve();
+        return new Promise<void>(res => {
+          i.addEventListener('load', () => res(), { once: true });
+          i.addEventListener('error', () => res(), { once: true });
+          setTimeout(() => res(), 4000);
+        });
+      }));
+      await new Promise(r => setTimeout(r, 500));
 
+      const target = iframeDoc.body;
+      console.log('[PDF] iframe body size:', target?.scrollWidth, 'x', target?.scrollHeight);
+
+      const { default: html2pdf } = await import('html2pdf.js');
       const opt = {
         margin: 0,
         filename: 'faktura.pdf',
         image: { type: 'jpeg', quality: 0.95 },
-        html2canvas: { scale: 2, useCORS: true, allowTaint: true, backgroundColor: '#ffffff', letterRendering: true, logging: false },
+        html2canvas: { scale: 2, useCORS: true, allowTaint: true, backgroundColor: '#ffffff', letterRendering: true, logging: false, windowWidth: 794 },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const, compress: true },
         pagebreak: { mode: ['avoid-all', 'css', 'legacy'] as any },
       };
 
       let pdfBlob: Blob;
       try {
-        const worker: any = html2pdf().set(opt).from(container);
-        pdfBlob = await worker.outputPdf('blob');
+        pdfBlob = await (html2pdf() as any).set(opt).from(target).outputPdf('blob');
       } catch (e) {
-        console.error('html2pdf failed:', e);
-        try { document.body.removeChild(container); } catch {}
-        return null;
+        console.error('[PDF] outputPdf failed, trying .output:', e);
+        try {
+          pdfBlob = await (html2pdf() as any).set(opt).from(target).output('blob');
+        } catch (e2) {
+          console.error('[PDF] both methods failed:', e2);
+          return null;
+        }
       }
 
-      try { document.body.removeChild(container); } catch {}
-
-      console.log('PDF blob size:', pdfBlob?.size, 'bytes');
-      if (!pdfBlob || pdfBlob.size < 4000) {
-        console.error('PDF too small — likely render failure. Aborting.');
+      console.log('[PDF] blob size:', pdfBlob?.size, 'type:', pdfBlob?.type);
+      if (!pdfBlob || pdfBlob.size < 2000) {
+        console.error('[PDF] too small');
         return null;
       }
 
@@ -485,11 +502,15 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
         binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunk)) as any);
       }
       const base64 = btoa(binary);
-      console.log('PDF base64 length:', base64?.length);
+      console.log('[PDF] base64 length:', base64.length);
       return base64;
     } catch (err) {
-      console.error('Error generating PDF:', err);
+      console.error('[PDF] Error generating:', err);
       return null;
+    } finally {
+      if (iframe && iframe.parentNode) {
+        try { iframe.parentNode.removeChild(iframe); } catch {}
+      }
     }
   };
 
