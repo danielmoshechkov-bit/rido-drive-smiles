@@ -229,6 +229,24 @@ serve(async (req) => {
         .maybeSingle();
       company = companyData;
     }
+    // Fallback bank/logo z entities
+    {
+      const { data: ent } = await supabase
+        .from('entities')
+        .select('bank_name, bank_account, logo_url, email, phone')
+        .eq('owner_user_id', invoice.user_id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (ent) {
+        company = company || {};
+        if (!company.bank_name) company.bank_name = ent.bank_name;
+        if (!company.bank_account) company.bank_account = ent.bank_account;
+        if (!company.logo_url) company.logo_url = ent.logo_url;
+        if (!company.email) company.email = ent.email;
+        if (!company.phone) company.phone = ent.phone;
+      }
+    }
 
     // Determine recipient
     let toEmail = recipient_email;
