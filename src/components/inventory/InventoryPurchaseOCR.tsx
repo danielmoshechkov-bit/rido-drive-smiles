@@ -120,6 +120,7 @@ export function InventoryPurchaseOCR({ entityId, showKsefOption }: Props) {
 
   // Purchase invoice preview modal
   const [previewInvoice, setPreviewInvoice] = useState<PurchaseInvoice | null>(null);
+  const [previewSignedUrl, setPreviewSignedUrl] = useState<string | null>(null);
 
   // Invoice mode: 'magazyn' = add to inventory, 'kosztowa' = cost invoice only
   const [invoiceMode, setInvoiceMode] = useState<'magazyn' | 'kosztowa'>('magazyn');
