@@ -147,9 +147,16 @@ const handler = async (req: Request): Promise<Response> => {
     await client.send({
       from: `${senderName} <${senderEmail}>`,
       to: [email],
+      replyTo: senderEmail,
       subject: finalSubject,
-      content: "Twoja przeglądarka nie obsługuje HTML. Proszę otworzyć w nowoczesnej przeglądarce.",
+      content: `Witaj ${first_name || ''},\n\nKliknij poniższy link aby aktywować konto:\n${activation_link}\n\nJeśli to nie Ty - zignoruj tę wiadomość.\n\n--\nGetRido`,
       html: minifiedHtml,
+      headers: {
+        'List-Unsubscribe': `<mailto:${senderEmail}?subject=Unsubscribe>`,
+        'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+        'X-Mailer': 'GetRido Auth',
+        'Auto-Submitted': 'auto-generated',
+      },
     });
 
     await client.close();

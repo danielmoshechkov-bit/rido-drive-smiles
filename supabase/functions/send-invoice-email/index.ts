@@ -321,18 +321,45 @@ serve(async (req) => {
       .replace(/\s{2,}/g, ' ')
       .trim();
 
-    // Build email with optional PDF attachment
+    // Plain-text alternatywa (lepsze score antyspamowe niż "twoja przeglądarka...")
+    const plainText = [
+      `Dzień dobry,`,
+      ``,
+      `przesyłamy fakturę ${invoiceNumber} na kwotę ${grossAmount} ${currency}.`,
+      `Data wystawienia: ${issueDate}`,
+      `Termin płatności: ${dueDate}`,
+      companyBankAccount ? `\nDane do przelewu:\nBank: ${companyBankName}\nNr konta: ${companyBankAccount}\nTytuł: ${invoiceNumber}\nKwota: ${grossAmount} ${currency}` : '',
+      ``,
+      `Faktura w załączniku PDF.`,
+      ``,
+      `--`,
+      `${companyName}`,
+      companyNip ? `NIP: ${companyNip}` : '',
+      companyAddress,
+      companyEmail ? `E-mail: ${companyEmail}` : '',
+      companyPhone ? `Tel: ${companyPhone}` : '',
+    ].filter(Boolean).join('\n');
+
+    // Reply-To MUSI być prawdziwym adresem firmy (nie noreply) - poprawia dostarczalność
+    const replyTo = companyEmail || senderEmail;
+
+    // Build email with optional PDF attachment + nagłówki anty-spam
     const emailMsg: any = {
       from: fromAddress,
       to: [toEmail],
+      replyTo,
       subject,
-      content: "Twoja przeglądarka nie obsługuje HTML.",
+      content: plainText,
       html: minifiedHtml,
+      headers: {
+        'List-Unsubscribe': `<mailto:${replyTo}?subject=Unsubscribe>`,
+        'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+        'X-Entity-Ref-ID': `${invoice_id}`,
+        'X-Mailer': 'GetRido Invoicing',
+        'Auto-Submitted': 'auto-generated',
+        'Precedence': 'bulk',
+      },
     };
-
-    if (companyEmail) {
-      emailMsg.replyTo = companyEmail;
-    }
 
     if (pdf_base64 && pdf_base64.length > 100) {
       const pdfFilename = `${invoiceNumber || 'Faktura'}.pdf`.replace(/\//g, '-');
