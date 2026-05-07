@@ -415,29 +415,29 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
       let fullHtml = generateInvoiceHtml(data);
       fullHtml = fullHtml.replace(/<img[^>]+api\.qrserver\.com[^>]*>/gi, '');
 
-      // Wyciągamy <style> z <head> i <body> – wstrzykujemy w jeden kontener w GŁÓWNYM dokumencie
-      // (html2canvas niezawodnie renderuje elementy z głównego dokumentu, NIE z iframe)
+      // Wyciągamy <style> i <body> – wstrzykujemy w głównym dokumencie (poza ekranem)
       const parser = new DOMParser();
       const parsed = parser.parseFromString(fullHtml, 'text/html');
       const styleTags = Array.from(parsed.querySelectorAll('style')).map(s => s.outerHTML).join('\n');
       const bodyHtml = parsed.body?.innerHTML || fullHtml;
 
+      // A4 @ 96dpi: 794 x 1123 px. Renderujemy w tej szerokości — 1:1 z preview.
+      const PX_W = 794;
+
       host = document.createElement('div');
       Object.assign(host.style, {
         position: 'fixed',
-        left: '0px',
-        top: '0px',
-        width: '794px', // 210mm @ 96dpi
+        left: '-10000px',
+        top: '0',
+        width: `${PX_W}px`,
         background: '#ffffff',
         zIndex: '-1',
-        // Off-screen visually, ale w pełni renderowane przez przeglądarkę
-        clipPath: 'inset(50%)',
         pointerEvents: 'none',
       } as any);
-      host.innerHTML = `${styleTags}<div class="rido-pdf-root" style="width:794px;background:#fff;">${bodyHtml}</div>`;
+      host.innerHTML = `${styleTags}<div class="rido-pdf-root" style="width:${PX_W}px;background:#fff;">${bodyHtml}</div>`;
       document.body.appendChild(host);
 
-      // Czekaj na obrazy
+      // Czekaj na obrazy + fonty
       const imgs = Array.from(host.querySelectorAll('img')) as HTMLImageElement[];
       await Promise.all(imgs.map(img => {
         if (img.complete && img.naturalWidth > 0) return Promise.resolve();
@@ -448,35 +448,52 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
         });
       }));
       try { await (document as any).fonts?.ready; } catch {}
-      await new Promise(r => setTimeout(r, 300));
+      await new Promise(r => setTimeout(r, 400));
 
       const target = host.querySelector('.rido-pdf-root') as HTMLElement;
       console.log('[PDF] target size:', target?.scrollWidth, 'x', target?.scrollHeight);
 
-      const { default: html2pdf } = await import('html2pdf.js');
-      const opt = {
-        margin: 0,
-        filename: 'faktura.pdf',
-        image: { type: 'jpeg', quality: 0.95 },
-        html2canvas: { scale: 2, useCORS: true, allowTaint: true, backgroundColor: '#ffffff', letterRendering: true, logging: false, windowWidth: 794, scrollX: 0, scrollY: 0 },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const, compress: true },
-        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] as any },
-      };
+      // Bezpośrednio html2canvas + jsPDF (html2pdf.js skalował błędnie)
+      const html2canvas = (await import('html2canvas')).default;
+      const { jsPDF } = await import('jspdf');
 
-      let pdfBlob: Blob | null = null;
-      try {
-        pdfBlob = await (html2pdf() as any).set(opt).from(target).outputPdf('blob');
-      } catch (e) {
-        console.error('[PDF] outputPdf failed:', e);
-        try {
-          pdfBlob = await (html2pdf() as any).set(opt).from(target).output('blob');
-        } catch (e2) {
-          console.error('[PDF] both methods failed:', e2);
-          return null;
+      const canvas = await html2canvas(target, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        letterRendering: true,
+        logging: false,
+        windowWidth: PX_W,
+        width: PX_W,
+        height: target.scrollHeight,
+      });
+      console.log('[PDF] canvas:', canvas.width, 'x', canvas.height);
+
+      const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait', compress: true });
+      const pageW = pdf.internal.pageSize.getWidth();   // 210
+      const pageH = pdf.internal.pageSize.getHeight();  // 297
+      const imgW = pageW;
+      const imgH = (canvas.height * imgW) / canvas.width;
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+
+      if (imgH <= pageH) {
+        pdf.addImage(imgData, 'JPEG', 0, 0, imgW, imgH, undefined, 'FAST');
+      } else {
+        // Wielostronicowo: powtarzamy obraz przesuwając Y
+        let remaining = imgH;
+        let y = 0;
+        while (remaining > 0) {
+          pdf.addImage(imgData, 'JPEG', 0, y, imgW, imgH, undefined, 'FAST');
+          remaining -= pageH;
+          y -= pageH;
+          if (remaining > 0) pdf.addPage();
         }
       }
 
-      console.log('[PDF] blob size:', pdfBlob?.size, 'type:', pdfBlob?.type);
+      const pdfBlob: Blob = pdf.output('blob');
+      console.log('[PDF] blob size:', pdfBlob?.size);
       if (!pdfBlob || pdfBlob.size < 2000) {
         console.error('[PDF] too small');
         return null;
