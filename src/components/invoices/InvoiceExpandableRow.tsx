@@ -540,9 +540,7 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
       const pdfBase64 = await generatePdfBase64();
 
       if (!pdfBase64) {
-        toast.error('Nie udało się wygenerować PDF. Otwórz podgląd i spróbuj ponownie.');
-        setIsSendingEmail(false);
-        return;
+        toast.warning('Nie udało się wygenerować PDF — wysyłam fakturę bez załącznika.');
       }
 
       const { data, error } = await supabase.functions.invoke('send-invoice-email', {
@@ -550,13 +548,13 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
           invoice_id: invoice.id,
           recipient_email: email,
           type: 'new_invoice',
-          pdf_base64: pdfBase64,
+          ...(pdfBase64 ? { pdf_base64: pdfBase64 } : {}),
         }
       });
 
       if (error) throw error;
       if (data && !data.success) throw new Error(data.error || 'Nie udało się wysłać');
-      toast.success(`Faktura wysłana na ${email}`);
+      toast.success(`Faktura wysłana na ${email}${pdfBase64 ? '' : ' (bez PDF)'}`);
       setShowInlineEmail(false);
       setInlineEmail('');
     } catch (err: any) {
