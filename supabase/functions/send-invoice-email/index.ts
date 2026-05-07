@@ -298,21 +298,20 @@ serve(async (req) => {
 
     console.log(`Sending email to ${toEmail}, from: ${fromAddress}, subject: ${subject}`);
 
-    // Configure SMTP (same as send-registration-email)
-    const port = emailSettings.smtp_port || 587;
-    const useTls = port === 465;
+    // Configure SMTP via nodemailer (denomailer ma bug z ConnectionReset po wysłaniu PDF)
+    const smtpHost = emailSettings.smtp_host || "mail-serwer408603.lh.pl";
+    const port = emailSettings.smtp_port || 465;
+    const smtpUser = emailSettings.smtp_user || "noreply@getrido.pl";
 
-    const client = new SMTPClient({
-      connection: {
-        hostname: emailSettings.smtp_host || "getrido.pl",
-        port: port,
-        tls: useTls,
-        auth: {
-          username: emailSettings.smtp_user || "kontakt@getrido.pl",
-          password: smtpPassword,
-        },
-      },
-    });
+    const transporter = nodemailer.createTransport({
+      host: smtpHost,
+      port,
+      secure: port === 465,
+      auth: { user: smtpUser, pass: smtpPassword },
+      connectionTimeout: 20000,
+      greetingTimeout: 15000,
+      socketTimeout: 30000,
+    } as any);
 
     // Minify HTML
     const minifiedHtml = html
@@ -322,18 +321,13 @@ serve(async (req) => {
       .replace(/\s{2,}/g, ' ')
       .trim();
 
-    // Plain-text alternatywa (lepsze score antyspamowe niż "twoja przeglądarka...")
     const plainText = [
-      `Dzień dobry,`,
-      ``,
+      `Dzień dobry,`, ``,
       `przesyłamy fakturę ${invoiceNumber} na kwotę ${grossAmount} ${currency}.`,
       `Data wystawienia: ${issueDate}`,
       `Termin płatności: ${dueDate}`,
       companyBankAccount ? `\nDane do przelewu:\nBank: ${companyBankName}\nNr konta: ${companyBankAccount}\nTytuł: ${invoiceNumber}\nKwota: ${grossAmount} ${currency}` : '',
-      ``,
-      `Faktura w załączniku PDF.`,
-      ``,
-      `--`,
+      ``, `Faktura w załączniku PDF.`, ``, `--`,
       `${companyName}`,
       companyNip ? `NIP: ${companyNip}` : '',
       companyAddress,
@@ -341,16 +335,14 @@ serve(async (req) => {
       companyPhone ? `Tel: ${companyPhone}` : '',
     ].filter(Boolean).join('\n');
 
-    // Reply-To MUSI być prawdziwym adresem firmy (nie noreply) - poprawia dostarczalność
     const replyTo = companyEmail || senderEmail;
 
-    // Build email with optional PDF attachment + nagłówki anty-spam
-    const emailMsg: any = {
+    const mailOpts: any = {
       from: fromAddress,
-      to: [toEmail],
+      to: toEmail,
       replyTo,
       subject,
-      content: plainText,
+      text: plainText,
       html: minifiedHtml,
       headers: {
         'List-Unsubscribe': `<mailto:${replyTo}?subject=Unsubscribe>`,
@@ -358,49 +350,36 @@ serve(async (req) => {
         'X-Entity-Ref-ID': `${invoice_id}`,
         'X-Mailer': 'GetRido Invoicing',
         'Auto-Submitted': 'auto-generated',
-        'Precedence': 'bulk',
       },
     };
 
     if (pdf_base64 && pdf_base64.length > 100) {
       const pdfFilename = `${invoiceNumber || 'Faktura'}.pdf`.replace(/\//g, '-');
-      // denomailer expects attachments with content as Uint8Array
-      const binaryStr = atob(pdf_base64);
-      const bytes = new Uint8Array(binaryStr.length);
-      for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
-
-      emailMsg.attachments = [{
+      mailOpts.attachments = [{
         filename: pdfFilename,
-        content: bytes,
+        content: pdf_base64,
+        encoding: 'base64',
         contentType: 'application/pdf',
-        encoding: 'binary',
       }];
       console.log(`Attaching PDF: ${pdfFilename} (${Math.round(pdf_base64.length / 1024)}KB base64)`);
     }
 
-    let sendError: any = null;
     try {
-      await client.send(emailMsg);
-      console.log("Email sent successfully to:", toEmail);
-    } catch (e) {
-      sendError = e;
-      console.error("SMTP send error:", e);
-    }
-    // close() na denomailer często rzuca ConnectionReset po dużych załącznikach
-    // — łapiemy żeby nie wywaliło event loop'a i nie zerwało odpowiedzi HTTP
-    try { await client.close(); } catch (e) { console.warn("SMTP close warning (ignored):", (e as any)?.message); }
-
-    if (sendError) {
+      const info = await transporter.sendMail(mailOpts);
+      console.log("Email sent OK:", info.messageId, "response:", info.response, "accepted:", info.accepted);
+      try { transporter.close(); } catch (_) {}
       return new Response(
-        JSON.stringify({ success: false, error: `SMTP: ${sendError.message || sendError}` }),
+        JSON.stringify({ success: true, message: `Email wysłany do ${toEmail}`, messageId: info.messageId, response: info.response }),
+        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    } catch (sendErr: any) {
+      console.error("Nodemailer send error:", sendErr?.message, "code:", sendErr?.code, "response:", sendErr?.response);
+      try { transporter.close(); } catch (_) {}
+      return new Response(
+        JSON.stringify({ success: false, error: `SMTP: ${sendErr?.message || sendErr}`, code: sendErr?.code, response: sendErr?.response }),
         { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
-
-    return new Response(
-      JSON.stringify({ success: true, message: `Email wysłany do ${toEmail}` }),
-      { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
-    );
   } catch (error: any) {
     console.error("Error in send-invoice-email:", error);
     return new Response(
