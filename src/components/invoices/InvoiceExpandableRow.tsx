@@ -479,23 +479,26 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
       console.log('[PDF] canvas:', canvas.width, 'x', canvas.height);
 
       const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait', compress: true });
-      const pageW = pdf.internal.pageSize.getWidth();
-      const pageH = pdf.internal.pageSize.getHeight();
-      const imgW = pageW;
+      const pageW = pdf.internal.pageSize.getWidth();   // 210
+      const pageH = pdf.internal.pageSize.getHeight();  // 297
+      // Marginesy dopasowane do podglądu przeglądarki (~10mm)
+      const MARGIN = 10;
+      const imgW = pageW - MARGIN * 2;
       const imgH = (canvas.height * imgW) / canvas.width;
+      const usableH = pageH - MARGIN * 2;
 
       const imgData = canvas.toDataURL('image/jpeg', 0.95);
 
-      if (imgH <= pageH) {
-        pdf.addImage(imgData, 'JPEG', 0, 0, imgW, imgH, undefined, 'FAST');
+      if (imgH <= usableH) {
+        pdf.addImage(imgData, 'JPEG', MARGIN, MARGIN, imgW, imgH, undefined, 'FAST');
       } else {
         let remaining = imgH;
-        let y = 0;
+        let y = MARGIN;
         while (remaining > 0) {
-          pdf.addImage(imgData, 'JPEG', 0, y, imgW, imgH, undefined, 'FAST');
-          remaining -= pageH;
-          y -= pageH;
-          if (remaining > 0) pdf.addPage();
+          pdf.addImage(imgData, 'JPEG', MARGIN, y, imgW, imgH, undefined, 'FAST');
+          remaining -= usableH;
+          y -= usableH;
+          if (remaining > 0) { pdf.addPage(); y = MARGIN - (imgH - remaining); }
         }
       }
 
