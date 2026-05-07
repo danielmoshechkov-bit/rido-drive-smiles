@@ -122,6 +122,28 @@ export function InventoryPurchaseOCR({ entityId, showKsefOption }: Props) {
   const [previewInvoice, setPreviewInvoice] = useState<PurchaseInvoice | null>(null);
   const [previewSignedUrl, setPreviewSignedUrl] = useState<string | null>(null);
 
+  // Generuj signed URL dla podglądu (bucket 'documents' jest prywatny)
+  useEffect(() => {
+    if (!previewInvoice?.pdf_url) { setPreviewSignedUrl(null); return; }
+    const url = previewInvoice.pdf_url;
+    // Wyciągnij ścieżkę z public URL: .../object/public/documents/<path> lub .../object/sign/documents/<path>
+    const match = url.match(/\/storage\/v1\/object\/(?:public|sign)\/documents\/([^?]+)/);
+    if (!match) {
+      // Nie znamy bucketa — użyj URL jak jest
+      setPreviewSignedUrl(url);
+      return;
+    }
+    const path = decodeURIComponent(match[1]);
+    supabase.storage.from('documents').createSignedUrl(path, 3600).then(({ data, error }) => {
+      if (error || !data?.signedUrl) {
+        console.warn('Signed URL error:', error);
+        setPreviewSignedUrl(url);
+      } else {
+        setPreviewSignedUrl(data.signedUrl);
+      }
+    });
+  }, [previewInvoice?.id, previewInvoice?.pdf_url]);
+
   // Invoice mode: 'magazyn' = add to inventory, 'kosztowa' = cost invoice only
   const [invoiceMode, setInvoiceMode] = useState<'magazyn' | 'kosztowa'>('magazyn');
   const [autoMatchedCount, setAutoMatchedCount] = useState(0);
