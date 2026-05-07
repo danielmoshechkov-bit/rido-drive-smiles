@@ -377,10 +377,24 @@ serve(async (req) => {
       console.log(`Attaching PDF: ${pdfFilename} (${Math.round(pdf_base64.length / 1024)}KB base64)`);
     }
 
-    await client.send(emailMsg);
-    await client.close();
+    let sendError: any = null;
+    try {
+      await client.send(emailMsg);
+      console.log("Email sent successfully to:", toEmail);
+    } catch (e) {
+      sendError = e;
+      console.error("SMTP send error:", e);
+    }
+    // close() na denomailer często rzuca ConnectionReset po dużych załącznikach
+    // — łapiemy żeby nie wywaliło event loop'a i nie zerwało odpowiedzi HTTP
+    try { await client.close(); } catch (e) { console.warn("SMTP close warning (ignored):", (e as any)?.message); }
 
-    console.log("Email sent successfully to:", toEmail);
+    if (sendError) {
+      return new Response(
+        JSON.stringify({ success: false, error: `SMTP: ${sendError.message || sendError}` }),
+        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
 
     return new Response(
       JSON.stringify({ success: true, message: `Email wysłany do ${toEmail}` }),
