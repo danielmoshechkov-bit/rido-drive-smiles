@@ -172,15 +172,54 @@ export const numberToWords = (num: number): string => {
   const zlote = Math.floor(num);
   const grosze = Math.round((num - zlote) * 100);
   
+  // Helper: liczba 0-999 słownie
+  const upTo999 = (n: number): string => {
+    let r = '';
+    if (n >= 100) {
+      r += hundreds[Math.floor(n / 100)] + ' ';
+      n = n % 100;
+    }
+    if (n >= 10 && n < 20) {
+      r += teens[n - 10] + ' ';
+    } else {
+      if (n >= 20) {
+        r += tens[Math.floor(n / 10)] + ' ';
+        n = n % 10;
+      }
+      if (n > 0) r += ones[n] + ' ';
+    }
+    return r.trim();
+  };
+
+  // Polska odmiana dla tysięcy: 1=tysiąc, 2-4=tysiące, 5+=tysięcy (z wyjątkiem 12-14=tysięcy)
+  const tysiacForm = (n: number): string => {
+    if (n === 1) return 'tysiąc';
+    const lastTwo = n % 100;
+    const last = n % 10;
+    if (lastTwo >= 12 && lastTwo <= 14) return 'tysięcy';
+    if (last >= 2 && last <= 4) return 'tysiące';
+    return 'tysięcy';
+  };
+
   let result = '';
-  
-  if (zlote >= 1000) {
-    const thousands = Math.floor(zlote / 1000);
-    if (thousands === 1) result += 'tysiąc ';
-    else if (thousands < 5) result += ones[thousands] + ' tysiące ';
-    else result += ones[thousands] + ' tysięcy ';
+
+  // Miliony (do 999 999 999)
+  if (zlote >= 1_000_000) {
+    const millions = Math.floor(zlote / 1_000_000);
+    const lastTwo = millions % 100;
+    const last = millions % 10;
+    let mForm = 'milionów';
+    if (millions === 1) mForm = 'milion';
+    else if (last >= 2 && last <= 4 && (lastTwo < 12 || lastTwo > 14)) mForm = 'miliony';
+    result += (millions === 1 ? '' : upTo999(millions) + ' ') + mForm + ' ';
   }
-  
+
+  const afterM = zlote % 1_000_000;
+  if (afterM >= 1000) {
+    const thousands = Math.floor(afterM / 1000);
+    result += (thousands === 1 ? '' : upTo999(thousands) + ' ') + tysiacForm(thousands) + ' ';
+  }
+
   const remainder = zlote % 1000;
   if (remainder >= 100) {
     result += hundreds[Math.floor(remainder / 100)] + ' ';
