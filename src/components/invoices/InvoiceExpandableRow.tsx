@@ -425,10 +425,14 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
       Array.from(doc.body.childNodes).forEach(n => container.appendChild(n.cloneNode(true)));
       Object.assign(container.style, {
         width: '210mm',
+        minHeight: '297mm',
         background: '#ffffff',
-        position: 'absolute',
-        left: '-20000px',
+        position: 'fixed',
+        left: '0',
         top: '0',
+        zIndex: '-1',
+        opacity: '0',
+        pointerEvents: 'none',
       });
       document.body.appendChild(container);
 
