@@ -43,7 +43,7 @@ function generateEmailTemplate(
         <p style="margin: 0 0 10px 0; font-weight: 600; color: #6C5CE7; font-size: 14px;">💳 Dane do przelewu</p>
         <table style="width: 100%; border-collapse: collapse;">
           <tr><td style="padding: 4px 0; color: #666; font-size: 13px; width: 140px;">Bank:</td><td style="padding: 4px 0; font-weight: 500; font-size: 13px;">${companyBankName || "-"}</td></tr>
-          <tr><td style="padding: 4px 0; color: #666; font-size: 13px;">Numer konta:</td><td style="padding: 4px 0; font-weight: 500; font-size: 13px; font-family: 'Courier New', monospace; letter-spacing: 0.5px;">${companyBankAccount}</td></tr>
+          <tr><td style="padding: 4px 0; color: #666; font-size: 13px;">Numer konta:</td><td style="padding: 4px 0; font-weight: 500; font-size: 13px;  letter-spacing: 0.5px;">${companyBankAccount}</td></tr>
           <tr><td style="padding: 4px 0; color: #666; font-size: 13px;">Tytuł przelewu:</td><td style="padding: 4px 0; font-weight: 500; font-size: 13px;">${invoiceNumber}</td></tr>
           <tr><td style="padding: 4px 0; color: #666; font-size: 13px;">Kwota:</td><td style="padding: 4px 0; font-weight: 700; font-size: 14px; color: #6C5CE7;">${grossAmount} ${cur}</td></tr>
         </table>
@@ -66,7 +66,7 @@ function generateEmailTemplate(
           <td style="vertical-align: top; text-align: right;">
             ${companyBankAccount ? `
               <p style="margin: 0 0 2px 0; font-size: 11px; color: #999;">Nr konta:</p>
-              <p style="margin: 0; font-size: 11px; color: #666; font-family: 'Courier New', monospace;">${companyBankAccount}</p>
+              <p style="margin: 0; font-size: 11px; color: #666; ">${companyBankAccount}</p>
             ` : ''}
           </td>
         </tr>
