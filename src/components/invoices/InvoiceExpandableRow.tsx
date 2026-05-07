@@ -413,37 +413,28 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
       // Usuń zewnętrzny QR KSeF (api.qrserver.com) — wisi przez CORS i blokuje render
       html = html.replace(/<img[^>]+api\.qrserver\.com[^>]*>/gi, '');
 
-      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
-        import('html2canvas'),
-        import('jspdf'),
-      ]);
+      const { default: html2pdf } = await import('html2pdf.js');
 
+      // Wyciągnij body content (html2pdf renderuje element, nie pełne <html>)
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
       const container = document.createElement('div');
-      container.innerHTML = html;
+      // Skopiuj <style> z head do containera, żeby style się zachowały
+      doc.head.querySelectorAll('style').forEach(s => container.appendChild(s.cloneNode(true)));
+      // Skopiuj body
+      Array.from(doc.body.childNodes).forEach(n => container.appendChild(n.cloneNode(true)));
       Object.assign(container.style, {
-        position: 'absolute',
-        left: '0',
-        top: '0',
-        width: '794px',
+        width: '210mm',
         background: '#ffffff',
-        zIndex: '-9999',
-        pointerEvents: 'none',
-        visibility: 'visible',
-        opacity: '1',
-        transform: 'translateX(-20000px)',
-        padding: '0',
-        margin: '0',
-        overflow: 'visible',
+        position: 'absolute',
+        left: '-20000px',
+        top: '0',
       });
       document.body.appendChild(container);
-      // Wymuś auto height żeby html2canvas nie obciął zawartości
-      const realHeight = Math.max(container.scrollHeight, container.offsetHeight, 1123);
 
-      // Poczekaj aż fonty i obrazy się załadują
+      // Czekaj na fonty/obrazy
       try {
-        if ((document as any).fonts?.ready) {
-          await (document as any).fonts.ready;
-        }
+        if ((document as any).fonts?.ready) await (document as any).fonts.ready;
         const imgs = Array.from(container.querySelectorAll('img'));
         await Promise.all(imgs.map(img => {
           if ((img as HTMLImageElement).complete && (img as HTMLImageElement).naturalWidth > 0) return Promise.resolve();
@@ -453,82 +444,28 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
             setTimeout(() => res(), 4000);
           });
         }));
-      } catch (e) {
-        console.warn('Font/img wait skipped:', e);
-      }
-      // Bufor na layout/reflow
-      await new Promise(resolve => setTimeout(resolve, 600));
+      } catch {}
+      await new Promise(r => setTimeout(r, 300));
 
-      // Renderuj do canvas
-      const canvas = await html2canvas(container, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff',
-        width: 794,
-        height: realHeight,
-        windowWidth: 794,
-        windowHeight: realHeight,
-        logging: false,
-      });
+      const opt = {
+        margin: 0,
+        filename: 'faktura.pdf',
+        image: { type: 'jpeg', quality: 0.95 },
+        html2canvas: { scale: 2, useCORS: true, allowTaint: true, backgroundColor: '#ffffff', letterRendering: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const, compress: true },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] as any },
+      };
+
+      const pdfBlob: Blob = await html2pdf().set(opt).from(container).outputPdf('blob');
 
       document.body.removeChild(container);
 
-      console.log('Canvas size:', canvas.width, 'x', canvas.height);
-      if (canvas.width < 100 || canvas.height < 100) {
-        console.error('Canvas too small — render failure');
-        return null;
-      }
-
-      const imgData = canvas.toDataURL('image/jpeg', 0.95);
-      const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
-      const pageWidthMm = 210;
-      const pageHeightMm = 297;
-      // pikseli A4 strony przy naszym scale (canvas.width = 794*scale = 1588)
-      const pxPerMm = canvas.width / pageWidthMm;
-      const pageHeightPx = Math.floor(pageHeightMm * pxPerMm);
-
-      let renderedPx = 0;
-      let pageIndex = 0;
-      // Tolerancja: jeśli zawartość przekracza pełną stronę o mniej niż 8%, ściśnij wszystko na 1 stronę
-      const overflow = canvas.height - pageHeightPx;
-      if (overflow > 0 && overflow / pageHeightPx < 0.08) {
-        const sliceMmHeight = (canvas.height / canvas.width) * pageWidthMm;
-        // Wciśnij całość w wysokość strony A4 (lekkie skalowanie w pionie ~max 8%)
-        const fitHeight = Math.min(sliceMmHeight, pageHeightMm);
-        pdf.addImage(imgData, 'JPEG', 0, 0, pageWidthMm, fitHeight);
-      } else {
-        while (renderedPx < canvas.height) {
-          const sliceHeight = Math.min(pageHeightPx, canvas.height - renderedPx);
-          // Pomiń cieniutki ostatni pasek (<2% strony) — to zwykle margines/pusta przestrzeń
-          if (sliceHeight < pageHeightPx * 0.02 && pageIndex > 0) break;
-          const pageCanvas = document.createElement('canvas');
-          pageCanvas.width = canvas.width;
-          pageCanvas.height = sliceHeight;
-          const ctx = pageCanvas.getContext('2d');
-          if (!ctx) break;
-          ctx.fillStyle = '#ffffff';
-          ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
-          ctx.drawImage(canvas, 0, renderedPx, canvas.width, sliceHeight, 0, 0, canvas.width, sliceHeight);
-          const sliceData = pageCanvas.toDataURL('image/jpeg', 0.92);
-          const sliceMmHeight = (sliceHeight / canvas.width) * pageWidthMm;
-          if (pageIndex > 0) pdf.addPage();
-          pdf.addImage(sliceData, 'JPEG', 0, 0, pageWidthMm, sliceMmHeight);
-          renderedPx += sliceHeight;
-          pageIndex++;
-        }
-      }
-
-      const pdfBlob: Blob = pdf.output('blob');
-
       console.log('PDF blob size:', pdfBlob.size, 'bytes');
       if (pdfBlob.size < 8000) {
-        // Coś poszło nie tak — pusty/malutki PDF. Zwróć null żeby nie wysyłać śmiecia.
         console.error('PDF too small — likely render failure. Aborting.');
         return null;
       }
 
-      // Convert blob to base64
       const reader = new FileReader();
       return new Promise((resolve) => {
         reader.onload = () => {
