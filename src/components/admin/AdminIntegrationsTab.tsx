@@ -170,6 +170,8 @@ export function AdminIntegrationsTab() {
           </div>
         </CardContent>
       </Card>
+
+      <TelegramBotPanel />
     </div>
   );
 }
