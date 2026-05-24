@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Loader2, MessageCircle, CheckCircle2, XCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -68,59 +69,9 @@ export function TelegramConnectButton({ variant = 'compact', onConnect }: Props)
   };
 
   const handleConnect = async () => {
-    try {
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) {
-        toast.error('Zaloguj się, aby połączyć Telegram');
-        return;
-      }
-
-      const { data, error } = await supabase.rpc('generate_telegram_token');
-      if (error) throw error;
-
-      const result = data as { link: string | null; bot_username: string; token: string };
-      if (!result.link) {
-        toast.error('Bot Telegram nie jest jeszcze skonfigurowany przez administratora');
-        return;
-      }
-      setLink(result.link);
-      setStatus('waiting');
-      setOpen(true);
-      window.open(result.link, '_blank');
-
-      // Subscribe to realtime updates on our row
-      const ch = supabase
-        .channel(`tg-conn-${u.user.id}`)
-        .on(
-          'postgres_changes',
-          { event: 'UPDATE', schema: 'public', table: 'telegram_connections', filter: `user_id=eq.${u.user.id}` },
-          (payload) => {
-            const row = payload.new as ConnectionRow & { is_active: boolean };
-            if (row.is_active) {
-              setConnection(row);
-              setStatus('connected');
-              toast.success('Pomyślnie połączono z Telegram!');
-              onConnect?.();
-              cleanup();
-              setTimeout(() => setOpen(false), 1500);
-            }
-          }
-        )
-        .subscribe();
-      channelRef.current = ch;
-
-      timeoutRef.current = window.setTimeout(() => {
-        if (status !== 'connected') {
-          toast.error('Upłynął czas oczekiwania (5 min). Spróbuj ponownie.');
-          setStatus('idle');
-          setOpen(false);
-          cleanup();
-        }
-      }, 5 * 60 * 1000);
-    } catch (e: any) {
-      toast.error('Błąd: ' + (e?.message || 'nieznany'));
-      setStatus('idle');
-    }
+    toast.info('Integracja Telegram jest w trakcie konfiguracji. Preferencje możesz zapisać teraz — kanał aktywujemy po wdrożeniu backendu.', {
+      duration: 5000,
+    });
   };
 
   const handleDisconnect = async () => {
@@ -162,19 +113,22 @@ export function TelegramConnectButton({ variant = 'compact', onConnect }: Props)
 
   return (
     <>
-      <Button
-        size={btnSize as any}
-        onClick={handleConnect}
-        disabled={status === 'waiting'}
-        className="bg-[#229ED9] hover:bg-[#1a87b8] text-white gap-2"
-      >
-        {status === 'waiting' ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          <MessageCircle className="h-4 w-4" />
-        )}
-        {variant === 'minimal' ? 'Telegram' : 'Połącz z Telegram'}
-      </Button>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              size={btnSize as any}
+              variant="outline"
+              onClick={handleConnect}
+              className="gap-2 border-primary text-primary hover:bg-primary/10"
+            >
+              <MessageCircle className="h-4 w-4" />
+              {variant === 'minimal' ? 'Telegram' : 'Połącz z Telegram'}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Wkrótce dostępne — backend Telegram jest w trakcie konfiguracji</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
 
       <Dialog
         open={open}

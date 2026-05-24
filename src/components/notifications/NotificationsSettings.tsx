@@ -6,7 +6,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Bell, Mail, MessageSquare, Smartphone, Clock, Loader2, Send } from 'lucide-react';
+import { Bell, Mail, MessageSquare, Smartphone, Clock, Loader2, Send, Info } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
@@ -124,6 +124,16 @@ export function NotificationsSettings({ visibleModules, userEmail, userPhone }: 
 
   return (
     <div className="space-y-6">
+      <div className="rounded-lg border bg-muted/40 p-4 flex items-start gap-3">
+        <Info className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+        <div className="space-y-1 text-sm">
+          <p className="font-medium">Integracja Telegram jest w trakcie konfiguracji.</p>
+          <p className="text-muted-foreground">
+            Możesz zapisać preferencje powiadomień teraz — Telegram zostanie aktywowany po wdrożeniu backendu.
+          </p>
+        </div>
+      </div>
+
       {/* Channels */}
       <Card>
         <CardHeader>
@@ -155,7 +165,7 @@ export function NotificationsSettings({ visibleModules, userEmail, userPhone }: 
           </div>
           <div className="flex items-center justify-between p-3 border rounded-lg gap-3 flex-wrap">
             <div className="flex items-center gap-3">
-              <MessageSquare className="h-5 w-5 text-[#229ED9]" />
+              <MessageSquare className="h-5 w-5 text-primary" />
               <div>
                 <p className="font-medium text-sm">Telegram</p>
                 <p className="text-xs text-muted-foreground">Najszybsze powiadomienia, bezpłatne</p>
