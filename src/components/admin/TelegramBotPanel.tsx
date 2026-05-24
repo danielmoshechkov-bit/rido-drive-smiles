@@ -219,6 +219,50 @@ export function TelegramBotPanel() {
           </div>
 
           <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <Label>Bot Token *</Label>
+              <Badge variant={tokenConfigured ? 'default' : 'secondary'}>
+                {tokenConfigured ? '✅ Token ustawiony' : '⚠️ Brak tokenu'}
+              </Badge>
+            </div>
+            {!editingToken ? (
+              <div className="flex gap-2">
+                <Input value={tokenConfigured ? '••••••••••••••••••••••••' : ''} placeholder="Brak tokenu" readOnly className="font-mono" />
+                <Button variant="outline" size="sm" onClick={() => { setEditingToken(true); setNewToken(''); setShowToken(false); }} className="gap-1">
+                  <Pencil className="h-4 w-4" /> {tokenConfigured ? 'Zmień' : 'Dodaj'}
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <Input
+                    type={showToken ? 'text' : 'password'}
+                    value={newToken}
+                    onChange={(e) => setNewToken(e.target.value)}
+                    placeholder="Wklej nowy token od @BotFather"
+                    autoFocus
+                    className="font-mono"
+                  />
+                  <Button variant="outline" size="icon" onClick={() => setShowToken((s) => !s)} title={showToken ? 'Ukryj' : 'Pokaż'}>
+                    {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                  <Button onClick={handleSaveToken} disabled={savingToken} size="icon" title="Zapisz">
+                    {savingToken ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => { setEditingToken(false); setNewToken(''); }} title="Anuluj">
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Pobierz token z{' '}
+              <a href="https://t.me/BotFather" target="_blank" rel="noopener noreferrer" className="text-primary underline">@BotFather</a>.
+              Token jest przechowywany szyfrowany w bazie (tabela <code className="bg-muted px-1 rounded">secure_app_settings</code>, dostępna tylko dla administratorów).
+            </p>
+          </div>
+
+          <div className="space-y-2">
             <Label>Bot Username *</Label>
             <Input
               value={botUsername}
@@ -226,6 +270,16 @@ export function TelegramBotPanel() {
               placeholder="GetRidoBot (bez @ i bez https://t.me/)"
             />
             {savedBotUsername && (
+              <a
+                href={`https://t.me/${savedBotUsername}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-primary underline inline-flex items-center gap-1"
+              >
+                https://t.me/{savedBotUsername} <ExternalLink className="h-3 w-3" />
+              </a>
+            )}
+          </div>
               <a
                 href={`https://t.me/${savedBotUsername}`}
                 target="_blank"
