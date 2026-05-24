@@ -62,9 +62,6 @@ export function AdminApiKeysTab() {
         <CRMIntegrationsPanel />
       </TabsContent>
 
-      <TabsContent value="telegram">
-        <TelegramBotPanel />
-      </TabsContent>
     </Tabs>
   );
 }
