@@ -669,6 +669,7 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
 
         {settingsTab === 'powiadomienia' && (
           <NotificationsSettings
+            visibleModules={['warsztat', 'ksef']}
             userEmail={settingsForm?.email}
             userPhone={settingsForm?.phone}
           />
