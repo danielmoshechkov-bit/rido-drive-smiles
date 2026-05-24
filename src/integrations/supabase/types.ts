@@ -4331,6 +4331,27 @@ export type Database = {
         }
         Relationships: []
       }
+      app_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Relationships: []
+      }
       audit_log: {
         Row: {
           action: string
@@ -13232,6 +13253,69 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_log: {
+        Row: {
+          channel: string
+          error_message: string | null
+          id: string
+          notification_type: string
+          payload: Json | null
+          sent_at: string
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          channel: string
+          error_message?: string | null
+          id?: string
+          notification_type: string
+          payload?: Json | null
+          sent_at?: string
+          status: string
+          user_id?: string | null
+        }
+        Update: {
+          channel?: string
+          error_message?: string | null
+          id?: string
+          notification_type?: string
+          payload?: Json | null
+          sent_at?: string
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      notification_preferences: {
+        Row: {
+          created_at: string
+          prefs: Json
+          quiet_hours_enabled: boolean
+          quiet_hours_end: string
+          quiet_hours_start: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          prefs?: Json
+          quiet_hours_enabled?: boolean
+          quiet_hours_end?: string
+          quiet_hours_start?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          prefs?: Json
+          quiet_hours_enabled?: boolean
+          quiet_hours_end?: string
+          quiet_hours_start?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       notification_settings: {
         Row: {
           created_at: string | null
@@ -18351,6 +18435,57 @@ export type Database = {
           name?: string
           ryczalt_rate?: number | null
           vat_deductible_percent?: number | null
+        }
+        Relationships: []
+      }
+      telegram_connections: {
+        Row: {
+          connected_at: string | null
+          connection_token: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          last_message_sent_at: string | null
+          messages_sent_count: number
+          telegram_chat_id: number | null
+          telegram_first_name: string | null
+          telegram_last_name: string | null
+          telegram_username: string | null
+          token_expires_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          connected_at?: string | null
+          connection_token?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_message_sent_at?: string | null
+          messages_sent_count?: number
+          telegram_chat_id?: number | null
+          telegram_first_name?: string | null
+          telegram_last_name?: string | null
+          telegram_username?: string | null
+          token_expires_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          connected_at?: string | null
+          connection_token?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_message_sent_at?: string | null
+          messages_sent_count?: number
+          telegram_chat_id?: number | null
+          telegram_first_name?: string | null
+          telegram_last_name?: string | null
+          telegram_username?: string | null
+          token_expires_at?: string | null
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -23550,12 +23685,14 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: undefined
       }
+      disconnect_telegram: { Args: never; Returns: undefined }
       driver_has_vehicle_access: {
         Args: { p_vehicle_id: string }
         Returns: boolean
       }
       driver_owns_record: { Args: { _driver_id: string }; Returns: boolean }
       generate_random_listing_number: { Args: never; Returns: string }
+      generate_telegram_token: { Args: never; Returns: Json }
       get_active_commission: {
         Args: { p_category_id?: string; p_provider_id: string }
         Returns: {
