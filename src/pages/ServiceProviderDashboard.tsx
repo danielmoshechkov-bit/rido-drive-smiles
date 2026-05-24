@@ -1295,6 +1295,7 @@ export default function ServiceProviderDashboard() {
               setSettingsForm={setSettingsForm}
               websiteBuilderEnabled={features.website_builder_enabled}
               onPrimaryTabsSaved={setPrimaryTabs}
+              initialSubTab={settingsInitialSubTab}
             />
           </TabsContent>
 
