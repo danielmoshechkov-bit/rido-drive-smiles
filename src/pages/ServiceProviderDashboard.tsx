@@ -105,6 +105,11 @@ export default function ServiceProviderDashboard() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [settingsInitialSubTab, setSettingsInitialSubTab] = useState<string | undefined>(undefined);
+  const openNotificationsSettings = () => {
+    setSettingsInitialSubTab('powiadomienia');
+    setActiveTab('settings');
+  };
   const [configData, setConfigData] = useState<any>(null);
   const [selectedAgentType, setSelectedAgentType] = useState<string | null>(null);
   const [aiAgentSubTab, setAiAgentSubTab] = useState<'overview' | 'knowledge' | 'analytics' | 'learning'>('overview');
