@@ -280,16 +280,6 @@ export function TelegramBotPanel() {
               </a>
             )}
           </div>
-              <a
-                href={`https://t.me/${savedBotUsername}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-primary underline inline-flex items-center gap-1"
-              >
-                https://t.me/{savedBotUsername} <ExternalLink className="h-3 w-3" />
-              </a>
-            )}
-          </div>
 
           <div className="space-y-2">
             <Label>Webhook URL</Label>
