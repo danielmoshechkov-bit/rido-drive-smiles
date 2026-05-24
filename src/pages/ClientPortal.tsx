@@ -1693,7 +1693,11 @@ export default function ClientPortal() {
               )}
 
               {settingsSubTab === 'powiadomienia' && (
-                <NotificationsSettings userEmail={accountEmail} userPhone={accountPhone} />
+                <NotificationsSettings
+                  visibleModules={['vehicle', 'real_estate', 'marketplace']}
+                  userEmail={accountEmail}
+                  userPhone={accountPhone}
+                />
               )}
 
               {settingsSubTab === 'preferencje' && (
