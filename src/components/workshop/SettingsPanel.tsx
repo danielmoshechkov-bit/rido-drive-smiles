@@ -667,6 +667,13 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
           </div>
         )}
 
+        {settingsTab === 'powiadomienia' && (
+          <NotificationsSettings
+            userEmail={settingsForm?.email}
+            userPhone={settingsForm?.phone}
+          />
+        )}
+
         {settingsTab === 'rido-price' && (
           <div className="space-y-6">
             {providerId ? (
