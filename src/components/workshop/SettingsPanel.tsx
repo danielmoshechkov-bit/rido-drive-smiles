@@ -347,6 +347,7 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
     { value: 'listy-kontrolne', label: 'Listy kontrolne', visible: true },
     { value: 'numeracja', label: 'Numeracja', visible: true },
     { value: 'integracje', label: 'Integracje', visible: true },
+    { value: 'powiadomienia', label: 'Powiadomienia', visible: true },
     { value: 'rido-price', label: 'Rido Price', visible: true },
   ];
 
