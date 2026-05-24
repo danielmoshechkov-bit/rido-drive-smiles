@@ -27,6 +27,7 @@ import { SearchCategoryModal } from '@/components/search/SearchCategoryModal';
 import { InventoryModuleView } from '@/components/inventory';
 import { InventoryPurchaseOCR } from '@/components/inventory/InventoryPurchaseOCR';
 import { KsefUserSettings } from '@/components/ksef/KsefUserSettings';
+import { NotificationsSettings } from '@/components/notifications/NotificationsSettings';
 import { useKsefUnreadCount } from '@/hooks/useKsefUnreadCount';
 import { ServiceRegistrationModal } from '@/components/services/ServiceRegistrationModal';
 import { MyViewingsPanel } from '@/components/realestate/MyViewingsPanel';
@@ -1662,6 +1663,11 @@ export default function ClientPortal() {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Notifications */}
+              <NotificationsSettings userEmail={accountEmail} userPhone={accountPhone} />
+
+
 
               {/* Preferences */}
               <Card>

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Key, Map, MessageSquare, Mail, Building2, Database } from 'lucide-react';
+import { Key, Map, MessageSquare, Mail, Building2, Database, MessageCircle } from 'lucide-react';
 
 import { SecurityApiKeysPanel } from './SecurityApiKeysPanel';
 import { LocationIntegrationsPanel } from './LocationIntegrationsPanel';
@@ -8,6 +8,7 @@ import { SMSIntegrationsPanel } from './SMSIntegrationsPanel';
 import { EmailSettings } from '@/components/EmailSettings';
 import { RegistryIntegrationsPanel } from './RegistryIntegrationsPanel';
 import { CRMIntegrationsPanel } from './CRMIntegrationsPanel';
+import { TelegramBotPanel } from './TelegramBotPanel';
 
 const API_CATEGORIES = [
   { value: 'general', label: 'Ogólne / Bezpieczeństwo', icon: Key },
@@ -16,6 +17,7 @@ const API_CATEGORIES = [
   { value: 'email', label: 'Email / SMTP', icon: Mail },
   { value: 'registries', label: 'Rejestry (GUS, VAT, KSeF)', icon: Building2 },
   { value: 'crm', label: 'CRM / Nieruchomości', icon: Database },
+  { value: 'telegram', label: 'Telegram Bot', icon: MessageCircle },
 ];
 
 export function AdminApiKeysTab() {
@@ -59,6 +61,10 @@ export function AdminApiKeysTab() {
 
       <TabsContent value="crm">
         <CRMIntegrationsPanel />
+      </TabsContent>
+
+      <TabsContent value="telegram">
+        <TelegramBotPanel />
       </TabsContent>
     </Tabs>
   );
