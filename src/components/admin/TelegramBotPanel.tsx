@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { MessageCircle, Save, Loader2, ExternalLink, Copy } from 'lucide-react';
+import { MessageCircle, Save, Loader2, ExternalLink, Copy, Eye, EyeOff, Pencil, Check, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -40,7 +40,11 @@ export function TelegramBotPanel() {
   const [page, setPage] = useState(0);
   const PAGE_SIZE = 20;
 
-  const tokenConfigured = true; // Admins manage TELEGRAM_BOT_TOKEN via Supabase Secrets
+  const [tokenConfigured, setTokenConfigured] = useState(false);
+  const [editingToken, setEditingToken] = useState(false);
+  const [showToken, setShowToken] = useState(false);
+  const [newToken, setNewToken] = useState('');
+  const [savingToken, setSavingToken] = useState(false);
 
   const loadSettings = async () => {
     const { data } = await supabase
@@ -51,6 +55,35 @@ export function TelegramBotPanel() {
     const username = (data?.value as any)?.username || '';
     setBotUsername(username);
     setSavedBotUsername(username);
+
+    const { data: tokenSet } = await supabase.rpc('telegram_bot_token_is_set' as any);
+    setTokenConfigured(!!tokenSet);
+  };
+
+  const handleSaveToken = async () => {
+    const t = newToken.trim();
+    if (!t) {
+      toast.error('Wpisz token bota');
+      return;
+    }
+    setSavingToken(true);
+    const { data: u } = await supabase.auth.getUser();
+    const { error } = await supabase.from('secure_app_settings' as any).upsert({
+      key: 'telegram_bot_token',
+      value: { token: t },
+      updated_at: new Date().toISOString(),
+      updated_by: u.user?.id ?? null,
+    });
+    setSavingToken(false);
+    if (error) {
+      toast.error('Błąd zapisu tokenu: ' + error.message);
+      return;
+    }
+    setTokenConfigured(true);
+    setEditingToken(false);
+    setNewToken('');
+    setShowToken(false);
+    toast.success('Token bota zaktualizowany');
   };
 
   const loadStats = async () => {
