@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, Plug, TestTube, Save, Car } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { TelegramBotPanel } from './TelegramBotPanel';
 
 export function AdminIntegrationsTab() {
   const [loading, setLoading] = useState(true);
@@ -169,6 +170,8 @@ export function AdminIntegrationsTab() {
           </div>
         </CardContent>
       </Card>
+
+      <TelegramBotPanel />
     </div>
   );
 }
