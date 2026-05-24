@@ -34,6 +34,7 @@ import { LeadsTab } from '@/components/leads/LeadsTab';
 import { AdsTab } from '@/components/ads/AdsTab';
 // AdOrderModal usunięty — zastąpiony przez AdvertiseServiceButton (Wizard Meta/Google)
 import { ProviderMediaModal } from '@/components/services/ProviderMediaModal';
+import { ServiceProviderNotificationBell } from '@/components/services/ServiceProviderNotificationBell';
 import { PortalBookingsPanel } from '@/components/services/PortalBookingsPanel';
 import { CommissionInvoicesPanel } from '@/components/services/CommissionInvoicesPanel';
 import { AdvertiseServiceButton } from '@/components/marketing/AdvertiseServiceButton';
@@ -104,6 +105,11 @@ export default function ServiceProviderDashboard() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [settingsInitialSubTab, setSettingsInitialSubTab] = useState<string | undefined>(undefined);
+  const openNotificationsSettings = () => {
+    setSettingsInitialSubTab('powiadomienia');
+    setActiveTab('settings');
+  };
   const [configData, setConfigData] = useState<any>(null);
   const [selectedAgentType, setSelectedAgentType] = useState<string | null>(null);
   const [aiAgentSubTab, setAiAgentSubTab] = useState<'overview' | 'knowledge' | 'analytics' | 'learning'>('overview');
@@ -608,6 +614,7 @@ export default function ServiceProviderDashboard() {
             >
               <MessageSquare className="h-5 w-5" />
             </Button>
+            <ServiceProviderNotificationBell onOpenSettings={openNotificationsSettings} />
             <TopBarCredits />
             <MyGetRidoButton user={user} />
           </div>
@@ -1288,6 +1295,7 @@ export default function ServiceProviderDashboard() {
               setSettingsForm={setSettingsForm}
               websiteBuilderEnabled={features.website_builder_enabled}
               onPrimaryTabsSaved={setPrimaryTabs}
+              initialSubTab={settingsInitialSubTab}
             />
           </TabsContent>
 
