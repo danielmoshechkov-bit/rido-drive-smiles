@@ -165,7 +165,7 @@ export function NotificationsSettings({ visibleModules, userEmail, userPhone }: 
           </div>
           <div className="flex items-center justify-between p-3 border rounded-lg gap-3 flex-wrap">
             <div className="flex items-center gap-3">
-              <MessageSquare className="h-5 w-5 text-[#229ED9]" />
+              <MessageSquare className="h-5 w-5 text-primary" />
               <div>
                 <p className="font-medium text-sm">Telegram</p>
                 <p className="text-xs text-muted-foreground">Najszybsze powiadomienia, bezpłatne</p>
