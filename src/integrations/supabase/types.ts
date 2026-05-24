@@ -23713,13 +23713,7 @@ export type Database = {
       }
       driver_owns_record: { Args: { _driver_id: string }; Returns: boolean }
       generate_random_listing_number: { Args: never; Returns: string }
-      generate_telegram_token: {
-        Args: never
-        Returns: {
-          expires_at: string
-          token: string
-        }[]
-      }
+      generate_telegram_token: { Args: never; Returns: Json }
       get_active_commission: {
         Args: { p_category_id?: string; p_provider_id: string }
         Returns: {
