@@ -1663,6 +1663,11 @@ export default function ClientPortal() {
                 </CardContent>
               </Card>
 
+              {/* Notifications */}
+              <NotificationsSettings userEmail={accountEmail} userPhone={accountPhone} />
+
+
+
               {/* Preferences */}
               <Card>
                 <CardHeader>
