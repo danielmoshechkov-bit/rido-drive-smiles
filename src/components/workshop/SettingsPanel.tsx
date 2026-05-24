@@ -25,6 +25,7 @@ import { DEFAULT_SERVICE_PROVIDER_PRIMARY_TABS, SERVICE_PROVIDER_TAB_LABELS, SER
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { NotificationsSettings } from '@/components/notifications/NotificationsSettings';
 
 interface SettingsPanelProps {
   providerId: string | null;
@@ -32,10 +33,12 @@ interface SettingsPanelProps {
   setSettingsForm: (fn: (prev: any) => any) => void;
   websiteBuilderEnabled?: boolean;
   onPrimaryTabsSaved?: (tabs: string[]) => void;
+  initialSubTab?: string;
 }
 
-export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websiteBuilderEnabled = false, onPrimaryTabsSaved }: SettingsPanelProps) {
-  const [settingsTab, setSettingsTab] = useState('konto');
+export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websiteBuilderEnabled = false, onPrimaryTabsSaved, initialSubTab }: SettingsPanelProps) {
+  const [settingsTab, setSettingsTab] = useState(initialSubTab || 'konto');
+  useEffect(() => { if (initialSubTab) setSettingsTab(initialSubTab); }, [initialSubTab]);
   const [showAddEmployee, setShowAddEmployee] = useState(false);
   const [showAddWorkstation, setShowAddWorkstation] = useState(false);
   const [showAddCategory, setShowAddCategory] = useState(false);
