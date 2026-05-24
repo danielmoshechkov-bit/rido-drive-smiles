@@ -16,7 +16,7 @@ const API_CATEGORIES = [
   { value: 'email', label: 'Email / SMTP', icon: Mail },
   { value: 'registries', label: 'Rejestry (GUS, VAT, KSeF)', icon: Building2 },
   { value: 'crm', label: 'CRM / Nieruchomości', icon: Database },
-  { value: 'telegram', label: 'Telegram Bot', icon: MessageCircle },
+  
 ];
 
 export function AdminApiKeysTab() {
