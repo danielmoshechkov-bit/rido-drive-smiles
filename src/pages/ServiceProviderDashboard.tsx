@@ -34,6 +34,7 @@ import { LeadsTab } from '@/components/leads/LeadsTab';
 import { AdsTab } from '@/components/ads/AdsTab';
 // AdOrderModal usunięty — zastąpiony przez AdvertiseServiceButton (Wizard Meta/Google)
 import { ProviderMediaModal } from '@/components/services/ProviderMediaModal';
+import { ServiceProviderNotificationBell } from '@/components/services/ServiceProviderNotificationBell';
 import { PortalBookingsPanel } from '@/components/services/PortalBookingsPanel';
 import { CommissionInvoicesPanel } from '@/components/services/CommissionInvoicesPanel';
 import { AdvertiseServiceButton } from '@/components/marketing/AdvertiseServiceButton';
