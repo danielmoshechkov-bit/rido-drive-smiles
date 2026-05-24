@@ -614,6 +614,7 @@ export default function ServiceProviderDashboard() {
             >
               <MessageSquare className="h-5 w-5" />
             </Button>
+            <ServiceProviderNotificationBell onOpenSettings={openNotificationsSettings} />
             <TopBarCredits />
             <MyGetRidoButton user={user} />
           </div>
