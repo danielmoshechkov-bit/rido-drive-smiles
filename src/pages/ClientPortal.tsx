@@ -118,6 +118,7 @@ export default function ClientPortal() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('start');
   const [accountingSubTab, setAccountingSubTab] = useState('przeglad');
+  const [settingsSubTab, setSettingsSubTab] = useState<'firma' | 'konto' | 'powiadomienia' | 'preferencje'>('firma');
   const { count: ksefUnread, markAllRead: markKsefRead } = useKsefUnreadCount();
   
   // Account types
@@ -1477,6 +1478,30 @@ export default function ClientPortal() {
           {/* Settings Tab */}
           {activeTab === 'ustawienia' && (
             <div className="space-y-6">
+              {/* Settings sub-tabs */}
+              <div className="overflow-x-auto -mx-2 px-2">
+                <div className="inline-flex gap-1 p-1 bg-muted rounded-lg w-max">
+                  {[
+                    { id: 'firma', label: '🏢 Moja firma' },
+                    { id: 'konto', label: '👤 Dane konta' },
+                    { id: 'powiadomienia', label: '🔔 Powiadomienia' },
+                    { id: 'preferencje', label: '⚙️ Preferencje' },
+                  ].map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => setSettingsSubTab(t.id as any)}
+                      className={`px-3 py-1.5 text-sm rounded-md whitespace-nowrap transition-colors ${
+                        settingsSubTab === t.id ? 'bg-background shadow-sm font-medium' : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {settingsSubTab === 'firma' && (
+              <>
               {/* Company Data Section - 1 company per account */}
               <Card>
                 <CardHeader>
@@ -1593,8 +1618,10 @@ export default function ClientPortal() {
                   )}
                 </CardContent>
               </Card>
+              </>
+              )}
 
-              {/* Account Settings */}
+              {settingsSubTab === 'konto' && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -1663,13 +1690,13 @@ export default function ClientPortal() {
                   </div>
                 </CardContent>
               </Card>
+              )}
 
-              {/* Notifications */}
-              <NotificationsSettings userEmail={accountEmail} userPhone={accountPhone} />
+              {settingsSubTab === 'powiadomienia' && (
+                <NotificationsSettings userEmail={accountEmail} userPhone={accountPhone} />
+              )}
 
-
-
-              {/* Preferences */}
+              {settingsSubTab === 'preferencje' && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -1696,6 +1723,7 @@ export default function ClientPortal() {
                   </div>
                 </CardContent>
               </Card>
+              )}
             </div>
           )}
 

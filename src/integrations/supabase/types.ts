@@ -16013,6 +16013,27 @@ export type Database = {
         }
         Relationships: []
       }
+      secure_app_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Relationships: []
+      }
       seo_audit_results: {
         Row: {
           approved_at: string | null
@@ -23802,6 +23823,7 @@ export type Database = {
         Args: { p_kind?: string; p_provider_id: string }
         Returns: string
       }
+      telegram_bot_token_is_set: { Args: never; Returns: boolean }
       user_can_access_driver: {
         Args: { _driver_id: string; _user_id: string }
         Returns: boolean

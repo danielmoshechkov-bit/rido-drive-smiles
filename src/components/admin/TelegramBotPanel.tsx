@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { MessageCircle, Save, Loader2, ExternalLink, Copy } from 'lucide-react';
+import { MessageCircle, Save, Loader2, ExternalLink, Copy, Eye, EyeOff, Pencil, Check, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -40,7 +40,11 @@ export function TelegramBotPanel() {
   const [page, setPage] = useState(0);
   const PAGE_SIZE = 20;
 
-  const tokenConfigured = true; // Admins manage TELEGRAM_BOT_TOKEN via Supabase Secrets
+  const [tokenConfigured, setTokenConfigured] = useState(false);
+  const [editingToken, setEditingToken] = useState(false);
+  const [showToken, setShowToken] = useState(false);
+  const [newToken, setNewToken] = useState('');
+  const [savingToken, setSavingToken] = useState(false);
 
   const loadSettings = async () => {
     const { data } = await supabase
@@ -51,6 +55,35 @@ export function TelegramBotPanel() {
     const username = (data?.value as any)?.username || '';
     setBotUsername(username);
     setSavedBotUsername(username);
+
+    const { data: tokenSet } = await supabase.rpc('telegram_bot_token_is_set' as any);
+    setTokenConfigured(!!tokenSet);
+  };
+
+  const handleSaveToken = async () => {
+    const t = newToken.trim();
+    if (!t) {
+      toast.error('Wpisz token bota');
+      return;
+    }
+    setSavingToken(true);
+    const { data: u } = await supabase.auth.getUser();
+    const { error } = await supabase.from('secure_app_settings' as any).upsert({
+      key: 'telegram_bot_token',
+      value: { token: t },
+      updated_at: new Date().toISOString(),
+      updated_by: u.user?.id ?? null,
+    });
+    setSavingToken(false);
+    if (error) {
+      toast.error('Błąd zapisu tokenu: ' + error.message);
+      return;
+    }
+    setTokenConfigured(true);
+    setEditingToken(false);
+    setNewToken('');
+    setShowToken(false);
+    toast.success('Token bota zaktualizowany');
   };
 
   const loadStats = async () => {
@@ -182,6 +215,50 @@ export function TelegramBotPanel() {
               Token bota przechowywany jest jako sekret Supabase pod nazwą <code className="bg-background px-1 py-0.5 rounded">TELEGRAM_BOT_TOKEN</code>.
               Aby go ustawić lub zmienić, użyj panelu sekretów Supabase. Pobierz token z{' '}
               <a href="https://t.me/BotFather" target="_blank" rel="noopener noreferrer" className="text-primary underline">@BotFather</a>.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <Label>Bot Token *</Label>
+              <Badge variant={tokenConfigured ? 'default' : 'secondary'}>
+                {tokenConfigured ? '✅ Token ustawiony' : '⚠️ Brak tokenu'}
+              </Badge>
+            </div>
+            {!editingToken ? (
+              <div className="flex gap-2">
+                <Input value={tokenConfigured ? '••••••••••••••••••••••••' : ''} placeholder="Brak tokenu" readOnly className="font-mono" />
+                <Button variant="outline" size="sm" onClick={() => { setEditingToken(true); setNewToken(''); setShowToken(false); }} className="gap-1">
+                  <Pencil className="h-4 w-4" /> {tokenConfigured ? 'Zmień' : 'Dodaj'}
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <Input
+                    type={showToken ? 'text' : 'password'}
+                    value={newToken}
+                    onChange={(e) => setNewToken(e.target.value)}
+                    placeholder="Wklej nowy token od @BotFather"
+                    autoFocus
+                    className="font-mono"
+                  />
+                  <Button variant="outline" size="icon" onClick={() => setShowToken((s) => !s)} title={showToken ? 'Ukryj' : 'Pokaż'}>
+                    {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                  <Button onClick={handleSaveToken} disabled={savingToken} size="icon" title="Zapisz">
+                    {savingToken ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => { setEditingToken(false); setNewToken(''); }} title="Anuluj">
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Pobierz token z{' '}
+              <a href="https://t.me/BotFather" target="_blank" rel="noopener noreferrer" className="text-primary underline">@BotFather</a>.
+              Token jest przechowywany szyfrowany w bazie (tabela <code className="bg-muted px-1 rounded">secure_app_settings</code>, dostępna tylko dla administratorów).
             </p>
           </div>
 
