@@ -1618,8 +1618,10 @@ export default function ClientPortal() {
                   )}
                 </CardContent>
               </Card>
+              </>
+              )}
 
-              {/* Account Settings */}
+              {settingsSubTab === 'konto' && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -1688,13 +1690,13 @@ export default function ClientPortal() {
                   </div>
                 </CardContent>
               </Card>
+              )}
 
-              {/* Notifications */}
-              <NotificationsSettings userEmail={accountEmail} userPhone={accountPhone} />
+              {settingsSubTab === 'powiadomienia' && (
+                <NotificationsSettings userEmail={accountEmail} userPhone={accountPhone} />
+              )}
 
-
-
-              {/* Preferences */}
+              {settingsSubTab === 'preferencje' && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -1721,6 +1723,7 @@ export default function ClientPortal() {
                   </div>
                 </CardContent>
               </Card>
+              )}
             </div>
           )}
 
