@@ -25,3 +25,6 @@ dist-ssr
 
 # Supabase
 supabase/.temp/
+
+# Local-only rollback scripts (outside Lovable migration sync)
+_local-rollbacks/

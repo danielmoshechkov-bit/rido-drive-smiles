@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
-import { Search, Package, Loader2, ShoppingCart, Image as ImageIcon, AlertTriangle, Sparkles, SearchX, Bot, ArrowLeft, CheckCircle2, XCircle } from 'lucide-react';
+import { Search, Package, Loader2, ShoppingCart, Image as ImageIcon, AlertTriangle, Sparkles, SearchX, Bot, ArrowLeft, CheckCircle2, XCircle, Wrench, Copy } from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { usePartsApi, useCreatePartsOrder, usePartsIntegrations, useIcCatalogSync, useIcCatalogIntegration } from '@/hooks/useWorkshopParts';
 import { useCreateWorkshopOrderItem } from '@/hooks/useWorkshop';
 import { getConfiguredPartsIntegrations } from './partsIntegrationUtils';
@@ -155,6 +156,7 @@ interface SearchResult {
   imageUrl: string | null;
   selected: boolean;
   quantity: number;
+  isCheapest: boolean;
 }
 
 const availabilityColors: Record<string, string> = {
@@ -183,7 +185,24 @@ export function RidoPartsSearchModal({
   const [hasSearched, setHasSearched] = useState(false);
   const [currentPartIndex, setCurrentPartIndex] = useState(0);
   const [aiInfo, setAiInfo] = useState<{ partDescription?: string; searchedTerms?: string[]; aiResolved?: boolean } | null>(null);
-  const [supplierDiagnostics, setSupplierDiagnostics] = useState<Record<string, { status: 'ok' | 'error' | 'searching'; count: number; message?: string }>>({});
+  const [supplierDiagnostics, setSupplierDiagnostics] = useState<Record<string, { status: 'ok' | 'error' | 'searching'; count: number; message?: string; textFallback?: boolean }>>({});
+  // _debug payload — wypełniany tylko dla zalogowanego admina (user_roles.role='admin')
+  const [debugData, setDebugData] = useState<any>(null);
+  const [debugSheetOpen, setDebugSheetOpen] = useState(false);
+  // Click-to-zoom modal dla zdjęć części
+  const [zoomedImage, setZoomedImage] = useState<{ url: string; alt: string } | null>(null);
+  // Cross-supplier comparison — klik "Porównaj" przy wyniku
+  const [crossSupplierData, setCrossSupplierData] = useState<{
+    productCode: string;
+    manufacturer: string;
+    originalItemId: string;
+    originalSupplier: string;
+    originalSupplierCode: string;
+    originalPrice: number;
+    originalDelivery: string;
+    results: any[];
+    loading: boolean;
+  } | null>(null);
   const partsApi = usePartsApi();
   const createPartsOrder = useCreatePartsOrder();
   const createOrderItem = useCreateWorkshopOrderItem();
@@ -254,7 +273,48 @@ export function RidoPartsSearchModal({
     }
     setSupplierDiagnostics(initDiag);
 
+    // Reset debug data for fresh search
+    setDebugData(null);
+
     try {
+      // ── Centralized AI resolve — JEDEN call Claude'a zamiast 3 (per hurtownia)
+      // Wynik (oeNumbers + partDescription) jest przekazywany do każdej hurtowni przez params.preResolvedQuery
+      let preResolvedQuery: any = null;
+      let resolveDebug: any = null;
+      try {
+        const resolveRes = await partsApi.mutateAsync({
+          action: 'resolve_query',
+          provider_id: providerId,
+          params: {
+            query: searchTerm,
+            vin: vehicleVin || undefined,
+            vehicle: vehicle ? {
+              brand: vehicle.brand,
+              model: vehicle.model,
+              year: vehicle.year,
+              engineCapacityCm3: vehicle.engine_capacity_cm3 || vehicle.engine_capacity,
+              enginePowerKw: vehicle.engine_power_kw || vehicle.engine_power,
+              fuelType: vehicle.fuel_type,
+            } : undefined,
+          },
+        });
+        if (resolveRes && Array.isArray(resolveRes.oeNumbers)) {
+          preResolvedQuery = {
+            oeNumbers: resolveRes.oeNumbers,
+            partDescription: resolveRes.partDescription,
+            searchTermsMultiLang: resolveRes.searchTermsMultiLang,
+            clarificationQuestion: resolveRes.clarificationQuestion,
+            confidence: resolveRes.confidence,
+          };
+          console.log('[RidoParts] AI pre-resolved OE:', resolveRes.oeNumbers,
+            'multilang:', resolveRes.searchTermsMultiLang,
+            '(timeMs:', resolveRes.timeMs, ')');
+          if (resolveRes._debug) resolveDebug = { ...resolveRes._debug, timeMs: resolveRes.timeMs };
+        }
+      } catch (resolveErr: any) {
+        console.warn('[RidoParts] Centralized resolve failed, per-supplier fallback aktywny:', resolveErr?.message);
+      }
+
       const searchPromises = enabledIntegrations.map(async (integration: any) => {
         try {
           const res = await partsApi.mutateAsync({
@@ -272,6 +332,7 @@ export function RidoPartsSearchModal({
                 enginePowerKw: vehicle.engine_power_kw || vehicle.engine_power,
                 fuelType: vehicle.fuel_type,
               } : undefined,
+              preResolvedQuery,
             },
           });
 
@@ -305,12 +366,13 @@ export function RidoPartsSearchModal({
               imageUrl: item.imageUrl || item.image_url || item.image || item.photoUrl || item.thumbnailUrl || (tecdocId ? `https://webservice.tecalliance.services/pegasus-3-0/img/A/${encodeURIComponent(tecdocId)}` : null),
               selected: false,
               quantity: 1,
+              isCheapest: false,
             } as SearchResult;
           });
 
           setSupplierDiagnostics(prev => ({
             ...prev,
-            [integration.supplier_code]: { status: 'ok', count: mappedItems.length },
+            [integration.supplier_code]: { status: 'ok', count: mappedItems.length, textFallback: !!res.usedTextFallback },
           }));
 
           return {
@@ -320,6 +382,7 @@ export function RidoPartsSearchModal({
             partDescription: res.partDescription || null,
             searchedTerms: res.searchedTerms || [],
             supplierCode: integration.supplier_code,
+            _debug: res._debug || null,
           };
         } catch (err: any) {
           console.warn(`Search failed for ${integration.supplier_code}:`, err.message);
@@ -327,7 +390,7 @@ export function RidoPartsSearchModal({
             ...prev,
             [integration.supplier_code]: { status: 'error', count: 0, message: err.message },
           }));
-          return { items: [], clarificationQuestion: null, aiResolved: false, partDescription: null, searchedTerms: [], supplierCode: integration.supplier_code };
+          return { items: [], clarificationQuestion: null, aiResolved: false, partDescription: null, searchedTerms: [], supplierCode: integration.supplier_code, _debug: null };
         }
       });
 
@@ -335,6 +398,7 @@ export function RidoPartsSearchModal({
       const mergedResults: SearchResult[] = [];
       const clarificationQuestions: string[] = [];
       let firstAiInfo: typeof aiInfo = null;
+      const supplierDebugs: Record<string, any> = {};
 
       for (const result of allResults) {
         if (result.status === 'fulfilled') {
@@ -349,7 +413,30 @@ export function RidoPartsSearchModal({
               searchedTerms: result.value.searchedTerms,
             };
           }
+          if (result.value._debug && result.value.supplierCode) {
+            supplierDebugs[result.value.supplierCode] = result.value._debug;
+          }
         }
+      }
+
+      // Jeśli admin → kompleksowy _debug payload do sheet'a
+      if (resolveDebug || Object.keys(supplierDebugs).length > 0) {
+        setDebugData({
+          query: searchTerm,
+          timestamp: new Date().toISOString(),
+          vehicle: vehicle ? {
+            brand: vehicle.brand,
+            model: vehicle.model,
+            year: vehicle.year,
+            vin: vehicleVin,
+            engineCapacityCm3: vehicle.engine_capacity_cm3 || vehicle.engine_capacity,
+            enginePowerKw: vehicle.engine_power_kw || vehicle.engine_power,
+            fuelType: vehicle.fuel_type,
+          } : null,
+          aiResolve: resolveDebug,
+          suppliers: supplierDebugs,
+          totalCandidates: mergedResults.length,
+        });
       }
 
       // Cross-reference prices
@@ -377,6 +464,15 @@ export function RidoPartsSearchModal({
         if (diff !== 0) return diff;
         return a.purchasePriceNet - b.purchasePriceNet;
       });
+
+      // NAJTANIEJ marker — najniższa cena netto wśród dostępnych itemów z prawdziwą ceną
+      const pricedAndAvailable = mergedResults.filter(r => r.purchasePriceNet > 0 && r.availability !== 'unavailable');
+      if (pricedAndAvailable.length > 1) {
+        const minPrice = Math.min(...pricedAndAvailable.map(r => r.purchasePriceNet));
+        for (const r of mergedResults) {
+          r.isCheapest = r.purchasePriceNet === minPrice && r.availability !== 'unavailable' && r.purchasePriceNet > 0;
+        }
+      }
 
       setResults(mergedResults);
       setAiInfo(firstAiInfo);
@@ -450,6 +546,98 @@ export function RidoPartsSearchModal({
   };
 
   const handleSearch = () => doSearch();
+
+  // Cross-supplier — szukaj tej samej części (producent + numer) w pozostałych hurtowniach
+  const findInOtherWholesalers = async (item: SearchResult) => {
+    setCrossSupplierData({
+      productCode: item.code,
+      manufacturer: item.manufacturer,
+      originalItemId: item.id,
+      originalSupplier: item.supplier,
+      originalSupplierCode: item.supplierCode,
+      originalPrice: item.purchasePriceNet,
+      originalDelivery: item.deliveryTime,
+      results: [],
+      loading: true,
+    });
+    try {
+      const res = await partsApi.mutateAsync({
+        action: 'find_in_other_wholesalers',
+        provider_id: providerId,
+        params: {
+          productCode: item.code,
+          manufacturer: item.manufacturer,
+          excludeSupplier: item.supplierCode,
+        },
+      });
+      setCrossSupplierData(prev => prev ? {
+        ...prev,
+        results: Array.isArray(res.results) ? res.results : [],
+        loading: false,
+      } : prev);
+    } catch (err: any) {
+      toast.error(err.message || 'Błąd porównywania cen');
+      setCrossSupplierData(prev => prev ? { ...prev, loading: false } : prev);
+    }
+  };
+
+  // Zastąp oryginalną pozycję w głównej tabeli alternatywą z tańszej hurtowni
+  const selectAlternative = (
+    alt: any,
+    altSupplierCode: string,
+    altSupplierName: string,
+  ) => {
+    if (!crossSupplierData) return;
+    const priceNet = Number(alt.price || 0);
+    // Marża per-integration (spójność z głównym mapping'iem w searchInWholesalers)
+    const altIntegration = (integrations as any[]).find((i: any) => i.supplier_code === altSupplierCode);
+    const altMargin = altIntegration?.sales_margin_percent || margin;
+    const sellingGross = priceNet > 0
+      ? Math.round(priceNet * (1 + altMargin / 100) * 1.23 * 100) / 100
+      : 0;
+    const qty = typeof alt.availability === 'number' ? alt.availability : 0;
+    const newAvail: SearchResult['availability'] = qty > 5 ? 'today' : qty > 0 ? 'tomorrow' : 'unavailable';
+    const newItem: SearchResult = {
+      id: `${altSupplierCode}-${alt.partNumber || alt.productCode || alt.code}-cross-${Date.now()}`,
+      code: alt.partNumber || alt.productCode || alt.code || crossSupplierData.productCode,
+      name: alt.name || `${crossSupplierData.manufacturer} ${crossSupplierData.productCode}`,
+      manufacturer: alt.manufacturer || alt.producer || crossSupplierData.manufacturer,
+      supplier: altSupplierName,
+      supplierCode: altSupplierCode,
+      purchasePriceNet: priceNet,
+      sellingPriceGross: sellingGross,
+      suggestedPrice: null,
+      isSuggested: false,
+      availability: newAvail,
+      deliveryTime: alt.waitingTime || alt.deliveryTime || (qty > 0 ? 'Dziś' : 'Zapytaj'),
+      imageUrl: alt.imageUrl || null,
+      selected: true,
+      quantity: 1,
+      isCheapest: false,
+    };
+    setResults(prev => {
+      const filtered = prev.filter(r => r.id !== crossSupplierData.originalItemId);
+      const updated = [...filtered, newItem];
+      // Re-sort jak po normalnym searchu
+      updated.sort((a, b) => {
+        const availOrder = { today: 0, tomorrow: 1, '2-3days': 2, unavailable: 3 };
+        const diff = availOrder[a.availability] - availOrder[b.availability];
+        if (diff !== 0) return diff;
+        return a.purchasePriceNet - b.purchasePriceNet;
+      });
+      // Recompute NAJTANIEJ
+      const priced = updated.filter(r => r.purchasePriceNet > 0 && r.availability !== 'unavailable');
+      if (priced.length > 1) {
+        const minPrice = Math.min(...priced.map(r => r.purchasePriceNet));
+        for (const r of updated) {
+          r.isCheapest = r.purchasePriceNet === minPrice && r.availability !== 'unavailable' && r.purchasePriceNet > 0;
+        }
+      }
+      return updated;
+    });
+    toast.success(`Wymieniono ofertę: ${altSupplierName} — ${priceNet.toFixed(2)} zł netto`);
+    setCrossSupplierData(null);
+  };
 
   const toggleSelect = (id: string) => {
     setResults(prev => prev.map(r => {
@@ -665,6 +853,16 @@ export function RidoPartsSearchModal({
           </div>
         )}
 
+        {/* Text-only fallback banner — AI nie znalazło numerów OE, hurtownia szuka po tekście */}
+        {!isSearching && Object.values(supplierDiagnostics).some(d => d.textFallback) && (
+          <div className="flex items-center gap-2 text-xs bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md px-3 py-1.5">
+            <Search className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+            <span className="text-amber-800 dark:text-amber-200">
+              🔍 Wyszukiwanie tekstowe — AI nie znalazło numerów OE, hurtownie szukają po opisie. Wyniki mogą być mniej trafne.
+            </span>
+          </div>
+        )}
+
         {/* Per-wholesaler diagnostics */}
         {hasSearched && Object.keys(supplierDiagnostics).length > 0 && !isSearching && (
           <div className="flex items-center gap-3 text-[11px] bg-muted/20 rounded-md px-3 py-1.5 flex-wrap">
@@ -681,6 +879,18 @@ export function RidoPartsSearchModal({
                 </span>
               </span>
             ))}
+            {/* Diagnostyka — przycisk widoczny tylko dla admina (debugData wypełnia się tylko jeśli backend zwrócił _debug) */}
+            {debugData && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 ml-auto gap-1 text-[10px]"
+                onClick={() => setDebugSheetOpen(true)}
+                title="Diagnostyka AI + hurtowni (tylko admin)"
+              >
+                <Wrench className="h-3 w-3" /> Diagnostyka
+              </Button>
+            )}
           </div>
         )}
 
@@ -827,17 +1037,20 @@ export function RidoPartsSearchModal({
                           onCheckedChange={() => toggleSelect(r.id)}
                         />
                       </td>
-                      <td className="p-2 text-center">
+                      <td className="p-2 text-center" onClick={e => e.stopPropagation()}>
                         {r.imageUrl ? (
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <div
-                                className="w-8 h-8 rounded border overflow-hidden mx-auto cursor-zoom-in"
+                              <button
+                                type="button"
+                                className="w-8 h-8 rounded border overflow-hidden mx-auto cursor-zoom-in block hover:ring-2 hover:ring-primary/50 transition"
                                 onMouseEnter={() => setHoveredImage(r.imageUrl)}
                                 onMouseLeave={() => setHoveredImage(null)}
+                                onClick={() => setZoomedImage({ url: r.imageUrl!, alt: r.name })}
+                                title="Kliknij aby powiększyć"
                               >
                                 <img src={r.imageUrl} alt={r.name} className="w-full h-full object-cover" />
-                              </div>
+                              </button>
                             </TooltipTrigger>
                             <TooltipContent side="right" className="p-0">
                               <img src={r.imageUrl} alt={r.name} className="w-48 h-48 object-contain rounded" />
@@ -858,6 +1071,19 @@ export function RidoPartsSearchModal({
                       <td className="p-2 text-muted-foreground">{r.manufacturer}</td>
                       <td className="p-2">
                         <Badge variant="outline" className="text-[10px]">{r.supplier}</Badge>
+                        {r.code && r.manufacturer && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              findInOtherWholesalers(r);
+                            }}
+                            className="mt-1 flex items-center gap-1 text-[10px] text-primary hover:underline cursor-pointer"
+                            title="Znajdź tę część w innych hurtowniach"
+                          >
+                            <Search className="h-2.5 w-2.5" /> Porównaj
+                          </button>
+                        )}
                       </td>
                       <td className="p-2 text-center" onClick={e => e.stopPropagation()}>
                         <Input
@@ -870,7 +1096,19 @@ export function RidoPartsSearchModal({
                       </td>
                       <td className="p-2 text-right tabular-nums">
                         {r.purchasePriceNet > 0 ? (
-                          <span>{fmt(r.purchasePriceNet)} zł</span>
+                          <div className="flex items-center justify-end gap-1.5">
+                            {r.isCheapest && (
+                              <span
+                                title="Najniższa cena hurtowa wśród dostępnych ofert"
+                                className="bg-green-500/15 text-green-700 dark:text-green-400 text-[9px] font-bold rounded px-1.5 py-0.5 whitespace-nowrap"
+                              >
+                                🏆 NAJTANIEJ
+                              </span>
+                            )}
+                            <span className={r.isCheapest ? 'text-green-700 dark:text-green-400 font-semibold' : ''}>
+                              {fmt(r.purchasePriceNet)} zł
+                            </span>
+                          </div>
                         ) : (
                           <span className="text-muted-foreground">—</span>
                         )}
@@ -1052,6 +1290,237 @@ export function RidoPartsSearchModal({
           </div>
         </DialogFooter>
       </DialogContent>
+
+      {/* Cross-supplier porównanie — modal z tą samą częścią w pozostałych hurtowniach */}
+      <Dialog open={!!crossSupplierData} onOpenChange={(open) => !open && setCrossSupplierData(null)}>
+        <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Search className="h-5 w-5 text-primary" />
+              Porównanie cen: {crossSupplierData?.manufacturer} {crossSupplierData?.productCode}
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Ta sama część — różne hurtownie. Wybierz najtańszą dla swojego zamówienia.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-auto space-y-4">
+            {/* Twoja oferta — oryginalna z głównej tabeli */}
+            {crossSupplierData && (
+              <div className="rounded-lg border-2 border-primary/40 bg-primary/5 p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <Badge className="bg-primary text-primary-foreground text-[10px]">Twoja oferta</Badge>
+                  <span className="text-sm font-semibold">{crossSupplierData.originalSupplier}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <div className="text-muted-foreground">
+                    {crossSupplierData.manufacturer} {crossSupplierData.productCode}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-muted-foreground">{crossSupplierData.originalDelivery}</span>
+                    <span className="font-bold text-base tabular-nums">
+                      {fmt(crossSupplierData.originalPrice)} zł
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Loading state */}
+            {crossSupplierData?.loading && (
+              <div className="flex flex-col items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary mb-3" />
+                <p className="text-sm text-muted-foreground">Szukam w innych hurtowniach...</p>
+              </div>
+            )}
+
+            {/* Wyniki z innych hurtowni */}
+            {!crossSupplierData?.loading && crossSupplierData && (() => {
+              // Znajdź min cenę spośród WSZYSTKICH ofert (oryginał + alternatywy)
+              const altPrices: number[] = [crossSupplierData.originalPrice];
+              for (const sup of crossSupplierData.results) {
+                if (sup.status !== 'ok') continue;
+                for (const it of sup.items) {
+                  const p = Number(it.price || 0);
+                  if (p > 0) altPrices.push(p);
+                }
+              }
+              const minPrice = altPrices.length > 0 ? Math.min(...altPrices) : 0;
+
+              // Wyniki posortowane po cenie rosnąco (per supplier każda pozycja osobno)
+              const flatAlts: Array<{ item: any; supplier: string; supplierName: string }> = [];
+              for (const sup of crossSupplierData.results) {
+                if (sup.status !== 'ok') continue;
+                for (const it of sup.items) {
+                  flatAlts.push({ item: it, supplier: sup.supplier, supplierName: sup.supplierName });
+                }
+              }
+              flatAlts.sort((a, b) => Number(a.item.price || 0) - Number(b.item.price || 0));
+
+              return (
+                <>
+                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    Inne hurtownie
+                  </div>
+
+                  {/* Per supplier: jeśli error lub items pusto — komunikat */}
+                  {crossSupplierData.results.map((sup) => {
+                    if (sup.status === 'error') {
+                      return (
+                        <div key={sup.supplier} className="rounded-md border border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-900 p-2 text-xs text-red-700 dark:text-red-300">
+                          ❌ {sup.supplierName}: {sup.error || 'Błąd zapytania'}
+                        </div>
+                      );
+                    }
+                    if (sup.status === 'unsupported') {
+                      return (
+                        <div key={sup.supplier} className="rounded-md border bg-muted/30 p-2 text-xs text-muted-foreground">
+                          {sup.supplierName}: nieobsługiwana hurtownia
+                        </div>
+                      );
+                    }
+                    if (sup.items.length === 0) {
+                      return (
+                        <div key={sup.supplier} className="rounded-md border bg-muted/30 p-2 text-xs text-muted-foreground">
+                          {sup.supplierName}: brak ofert dla {crossSupplierData.manufacturer} {crossSupplierData.productCode}
+                          {sup.totalUnfiltered > 0 && (
+                            <span className="ml-1 text-[10px]">({sup.totalUnfiltered} wyników bez tego producenta)</span>
+                          )}
+                        </div>
+                      );
+                    }
+                    return null;
+                  })}
+
+                  {/* Karty z wynikami (sorted by price asc) */}
+                  {flatAlts.map((entry, idx) => {
+                    const it = entry.item;
+                    const priceNet = Number(it.price || 0);
+                    const isMin = priceNet > 0 && priceNet === minPrice;
+                    const qty = typeof it.availability === 'number' ? it.availability : 0;
+                    const availLabel = qty > 5 ? 'Dziś' : qty > 0 ? 'Jutro' : 'Zapytaj';
+                    return (
+                      <div
+                        key={`${entry.supplier}-${it.partNumber || it.productCode || idx}`}
+                        className={`rounded-lg border p-3 ${isMin ? 'border-green-400 bg-green-50 dark:bg-green-950/20' : ''}`}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2 min-w-0">
+                            {it.imageUrl && (
+                              <img src={it.imageUrl} alt="" className="h-8 w-8 rounded object-cover border shrink-0" />
+                            )}
+                            <div className="min-w-0">
+                              <div className="text-sm font-medium truncate">{it.name || `${entry.supplierName} — ${it.partNumber}`}</div>
+                              <div className="text-[11px] text-muted-foreground truncate">
+                                {it.manufacturer || it.producer} · {it.partNumber || it.productCode}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <div className="flex items-center gap-1.5 justify-end">
+                              {isMin && (
+                                <span className="bg-green-500/20 text-green-700 dark:text-green-400 text-[9px] font-bold rounded px-1.5 py-0.5 whitespace-nowrap">
+                                  🏆 NAJTANIEJ
+                                </span>
+                              )}
+                              <span className={`text-base font-bold tabular-nums ${isMin ? 'text-green-700 dark:text-green-400' : ''}`}>
+                                {fmt(priceNet)} zł
+                              </span>
+                            </div>
+                            <div className="text-[10px] text-muted-foreground">
+                              {entry.supplierName} · {availLabel} · {it.waitingTime || it.deliveryTime || ''}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="mt-2 flex justify-end">
+                          <Button
+                            size="sm"
+                            variant={isMin ? 'default' : 'outline'}
+                            className="h-7 text-xs"
+                            onClick={() => selectAlternative(it, entry.supplier, entry.supplierName)}
+                          >
+                            Wybierz tę ofertę
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {flatAlts.length === 0 && crossSupplierData.results.every(s => s.items.length === 0) && (
+                    <div className="text-center py-6 text-sm text-muted-foreground">
+                      Brak ofert {crossSupplierData.manufacturer} {crossSupplierData.productCode} w pozostałych hurtowniach.
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCrossSupplierData(null)}>
+              Zostaw oryginalną
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Zoom modal — pełnowymiarowe zdjęcie części po kliknięciu w thumbnail */}
+      <Dialog open={!!zoomedImage} onOpenChange={(open) => !open && setZoomedImage(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-sm truncate pr-6">{zoomedImage?.alt || 'Zdjęcie części'}</DialogTitle>
+          </DialogHeader>
+          {zoomedImage && (
+            <div className="flex items-center justify-center bg-muted/30 rounded-md p-4 min-h-[400px]">
+              <img
+                src={zoomedImage.url}
+                alt={zoomedImage.alt}
+                className="max-w-full max-h-[70vh] object-contain"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).src = '';
+                  (e.currentTarget as HTMLImageElement).alt = 'Nie udało się załadować zdjęcia';
+                }}
+              />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Diagnostic Sheet — tylko admin (debugData wypełnia się tylko dla user_roles.role='admin') */}
+      <Sheet open={debugSheetOpen} onOpenChange={setDebugSheetOpen}>
+        <SheetContent className="w-full sm:max-w-[700px] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <Wrench className="h-5 w-5 text-primary" />
+              Diagnostyka wyszukiwania
+            </SheetTitle>
+            <SheetDescription className="text-xs">
+              Pełne dane debugowe — AI prompt/response, użyte strategie per hurtownia, terminy wyszukiwania.
+              Widoczne tylko dla administratorów.
+            </SheetDescription>
+          </SheetHeader>
+          {debugData && (
+            <div className="mt-4 space-y-3">
+              <div className="flex justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1 text-xs"
+                  onClick={() => {
+                    navigator.clipboard.writeText(JSON.stringify(debugData, null, 2));
+                    toast.success('Diagnostyka skopiowana do schowka');
+                  }}
+                >
+                  <Copy className="h-3.5 w-3.5" /> Skopiuj JSON
+                </Button>
+              </div>
+              <pre className="text-[10px] bg-muted/40 rounded-md p-3 overflow-x-auto font-mono whitespace-pre-wrap break-words">
+                {JSON.stringify(debugData, null, 2)}
+              </pre>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </Dialog>
   );
 }

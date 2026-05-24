@@ -17,9 +17,28 @@ interface ResolvedQuery {
   originalQuery: string;
   oeNumbers: string[];
   partDescription: string;
+  searchTermsMultiLang?: { pl: string; en: string; de: string };
   clarificationQuestion: string | null;
   confidence: 'high' | 'medium' | 'low';
   reasoning: string;
+  // Internal debug payload — exposed in _debug ONLY for admin users
+  _aiRaw?: { prompt: string; response: string; timeMs: number };
+}
+
+// Sprawdza czy user ma rolę admin — używane do warunkowego dołączenia _debug w response
+async function isAdminUser(supabase: any, userId: string | null): Promise<boolean> {
+  if (!userId) return false;
+  try {
+    const { data } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', userId)
+      .eq('role', 'admin')
+      .maybeSingle();
+    return !!data;
+  } catch {
+    return false;
+  }
 }
 
 async function resolvePartsQuery(query: string, params: any): Promise<ResolvedQuery> {
@@ -71,11 +90,17 @@ ZASADY:
 3. Jeśli brak danych pojazdu → ustaw clarificationQuestion z prośbą o markę i model
 4. NIE wymyślaj numerów jeśli nie jesteś pewny – lepiej zwróć pustą listę i clarificationQuestion
 5. Numery OE pisz dokładnie tak jak w katalogach (spacje, myślniki są ważne)
+6. ZAWSZE generuj searchTermsMultiLang — nazwy części w 3 językach (pl/en/de). Używane do wyszukiwania tekstowego w hurtowniach które indeksują różnymi językami (Inter Cars często DE, Hart często PL). Każdy z 3 to krótka, techniczna nazwa (2-5 słów), nie tłumaczenie 1:1 ale standardowy termin używany przez katalogi części w danym języku.
 
 FORMAT ODPOWIEDZI – tylko czysty JSON, zero tekstu przed/po:
 {
   "oeNumbers": ["numer1", "numer2"],
   "partDescription": "precyzyjny opis części po polsku",
+  "searchTermsMultiLang": {
+    "pl": "klocki hamulcowe przednie",
+    "en": "front brake pads",
+    "de": "Bremsbeläge vorne"
+  },
   "clarificationQuestion": "pytanie do mechanika lub null",
   "confidence": "high|medium|low",
   "reasoning": "krótkie wyjaśnienie"
@@ -85,6 +110,7 @@ FORMAT ODPOWIEDZI – tylko czysty JSON, zero tekstu przed/po:
 Dane pojazdu: ${vehicleCtx || 'brak danych pojazdu'}`;
 
   try {
+    const aiStart = Date.now();
     const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -101,6 +127,7 @@ Dane pojazdu: ${vehicleCtx || 'brak danych pojazdu'}`;
     });
 
     const aiData = await aiRes.json();
+    const aiTimeMs = Date.now() - aiStart;
     const rawText = aiData?.content?.[0]?.text?.replace(/```json|```/g, '').trim() || '{}';
     const parsed = JSON.parse(rawText);
 
@@ -108,16 +135,32 @@ Dane pojazdu: ${vehicleCtx || 'brak danych pojazdu'}`;
       ? parsed.oeNumbers.filter((n: string) => n && n.length >= 3).slice(0, 8)
       : [];
 
+    // Parsuj searchTermsMultiLang — fallback na partDescription/query jeśli LLM nie zwrócił
+    const mlRaw = parsed.searchTermsMultiLang;
+    const searchTermsMultiLang = (mlRaw && typeof mlRaw === 'object')
+      ? {
+          pl: String(mlRaw.pl || parsed.partDescription || query).trim(),
+          en: String(mlRaw.en || '').trim(),
+          de: String(mlRaw.de || '').trim(),
+        }
+      : undefined;
+
     return {
       mode: 'description',
       originalQuery: query,
       oeNumbers,
       partDescription: parsed.partDescription || query,
+      searchTermsMultiLang,
       clarificationQuestion: typeof parsed.clarificationQuestion === 'string' && parsed.clarificationQuestion.trim()
         ? parsed.clarificationQuestion.trim()
         : null,
       confidence: parsed.confidence || 'medium',
       reasoning: parsed.reasoning || '',
+      _aiRaw: {
+        prompt: `[SYSTEM]\n${systemPrompt}\n\n[USER]\n${userMsg}`,
+        response: rawText,
+        timeMs: aiTimeMs,
+      },
     };
   } catch (err) {
     console.error('[AI] resolvePartsQuery error:', err);
@@ -131,6 +174,53 @@ Dane pojazdu: ${vehicleCtx || 'brak danych pojazdu'}`;
       reasoning: String(err),
     };
   }
+}
+
+// ==================== Multilang search terms helper ====================
+// Zwraca listę unikalnych terminów do wyszukiwania tekstowego — pl/en/de jeśli AI je zwróciło,
+// inaczej fallback na partDescription + originalQuery (deduplikacja po lowercase).
+function buildSearchTerms(resolved: ResolvedQuery, query: string): string[] {
+  const candidates: string[] = [];
+  const ml = resolved.searchTermsMultiLang;
+  if (ml) {
+    if (ml.pl) candidates.push(ml.pl);
+    if (ml.en) candidates.push(ml.en);
+    if (ml.de) candidates.push(ml.de);
+  }
+  if (candidates.length === 0) {
+    candidates.push(resolved.partDescription || query);
+  }
+  // Dedupe (case-insensitive) + odfiltruj zbyt krótkie
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const t of candidates) {
+    const k = t.trim().toLowerCase();
+    if (k.length < 2 || seen.has(k)) continue;
+    seen.add(k);
+    out.push(t.trim());
+  }
+  return out;
+}
+
+// ==================== Pre-resolved helper (centralized AI call) ====================
+// Gdy frontend wywołał `resolve_query` raz i przekazuje wynik do każdej hurtowni jako
+// params.preResolvedQuery — pomijamy ponowny call do Claude.
+function getPreResolved(params: any, query: string): ResolvedQuery | null {
+  const pre = params?.preResolvedQuery;
+  if (!pre || !Array.isArray(pre.oeNumbers)) return null;
+  const ml = pre.searchTermsMultiLang;
+  return {
+    mode: 'description',
+    originalQuery: query,
+    oeNumbers: pre.oeNumbers.filter((n: any) => typeof n === 'string' && n.length >= 3).slice(0, 8),
+    partDescription: pre.partDescription || query,
+    searchTermsMultiLang: (ml && typeof ml === 'object')
+      ? { pl: String(ml.pl || ''), en: String(ml.en || ''), de: String(ml.de || '') }
+      : undefined,
+    clarificationQuestion: pre.clarificationQuestion || null,
+    confidence: pre.confidence || 'medium',
+    reasoning: 'Pre-resolved (centralized AI call from frontend)',
+  };
 }
 
 serve(async (req) => {
@@ -156,6 +246,133 @@ serve(async (req) => {
     const body = await req.json();
     const { action, provider_id, supplier_code = "hart", params = {} } = body;
 
+    // Sprawdź czy user to admin — używamy do warunkowego dołączenia _debug w response
+    const isUserAdmin = await isAdminUser(supabase, user.id);
+
+    // Cross-supplier lookup — szukamy TEJ SAMEJ części (po productCode + manufacturer)
+    // w pozostałych hurtowniach (oprócz excludeSupplier). Reużywa handleHart/AP/IC
+    // z preResolvedQuery=[productCode], dzięki czemu pomija Claude i idzie prosto do
+    // Strategy A (OE numbers) — szybki, deterministyczny lookup.
+    if (action === "find_in_other_wholesalers") {
+      const { productCode, manufacturer, excludeSupplier } = params;
+      if (!productCode) return json({ error: "Brak productCode" }, 400);
+
+      const { data: allIntegrations } = await supabase
+        .from('workshop_parts_integrations')
+        .select('*')
+        .eq('provider_id', provider_id)
+        .eq('is_enabled', true);
+
+      const integrationsToQuery = (allIntegrations || []).filter(
+        (i: any) => isIntegrationConfigured(i) && i.supplier_code !== excludeSupplier
+      );
+
+      if (integrationsToQuery.length === 0) {
+        return json({
+          results: [],
+          productCode,
+          manufacturer,
+          excludeSupplier,
+          message: 'Brak innych skonfigurowanych hurtowni',
+        });
+      }
+
+      // Mock-resolved query — productCode jako OE number, pomija Claude (chunk 1)
+      const crossParams = {
+        query: productCode,
+        preResolvedQuery: {
+          oeNumbers: [productCode],
+          partDescription: manufacturer ? `${manufacturer} ${productCode}` : productCode,
+          confidence: 'high',
+        },
+      };
+
+      const results = await Promise.all(
+        integrationsToQuery.map(async (integration: any) => {
+          try {
+            let response: Response;
+            if (integration.supplier_code === 'auto_partner') {
+              response = await handleAutoPartner(supabase, integration, 'search', crossParams, isUserAdmin);
+            } else if (integration.supplier_code === 'inter_cars') {
+              response = await handleInterCars(supabase, integration, 'search', crossParams, isUserAdmin);
+            } else if (integration.supplier_code === 'hart') {
+              const baseUrl = integration.environment === 'production' ? HART_PROD_URL : HART_SANDBOX_URL;
+              response = await handleHart(supabase, baseUrl, integration, 'search', crossParams, isUserAdmin);
+            } else {
+              return {
+                supplier: integration.supplier_code,
+                supplierName: integration.supplier_name || integration.supplier_code,
+                items: [],
+                status: 'unsupported',
+              };
+            }
+
+            const data = await response.json();
+            const items: any[] = Array.isArray(data?.results) ? data.results : [];
+
+            // Filtruj po producencie (case-insensitive substring match w obie strony)
+            const matching = manufacturer
+              ? items.filter((r: any) => {
+                  const mfg = String(r.manufacturer || r.producer || '').toLowerCase().trim();
+                  const target = String(manufacturer).toLowerCase().trim();
+                  if (!mfg || !target) return false;
+                  return mfg.includes(target) || target.includes(mfg);
+                })
+              : items;
+
+            return {
+              supplier: integration.supplier_code,
+              supplierName: integration.supplier_name || integration.supplier_code,
+              items: matching,
+              status: 'ok',
+              totalUnfiltered: items.length,
+            };
+          } catch (err: any) {
+            console.error(`[find_in_other_wholesalers] ${integration.supplier_code} failed:`, err?.message);
+            return {
+              supplier: integration.supplier_code,
+              supplierName: integration.supplier_name || integration.supplier_code,
+              items: [],
+              status: 'error',
+              error: err?.message || 'Nieznany błąd',
+            };
+          }
+        })
+      );
+
+      return json({ results, productCode, manufacturer, excludeSupplier });
+    }
+
+    // Centralized AI query resolution — jeden call zamiast 3 (per hurtownia).
+    // Frontend wywołuje to RAZ, potem przekazuje wynik jako params.preResolvedQuery
+    // do każdego search'a per hurtownia.
+    if (action === "resolve_query") {
+      const query = String(params?.query || "").trim();
+      if (!query) return json({ error: "Brak frazy wyszukiwania" }, 400);
+      const startMs = Date.now();
+      const resolved = await resolvePartsQuery(query, params);
+      const timeMs = Date.now() - startMs;
+      const baseResponse: any = {
+        oeNumbers: resolved.oeNumbers,
+        partDescription: resolved.partDescription,
+        searchTermsMultiLang: resolved.searchTermsMultiLang,
+        clarificationQuestion: resolved.clarificationQuestion,
+        confidence: resolved.confidence,
+        reasoning: resolved.reasoning,
+        mode: resolved.mode,
+        timeMs,
+      };
+      if (isUserAdmin && resolved._aiRaw) {
+        baseResponse._debug = {
+          aiPrompt: resolved._aiRaw.prompt,
+          aiResponse: resolved._aiRaw.response,
+          aiTimeMs: resolved._aiRaw.timeMs,
+          aiModel: ANTHROPIC_MODEL,
+        };
+      }
+      return json(baseResponse);
+    }
+
     const { data: integration } = await supabase
       .from("workshop_parts_integrations")
       .select("*")
@@ -177,16 +394,16 @@ serve(async (req) => {
     }
 
     if (supplier_code === "auto_partner") {
-      return await handleAutoPartner(supabase, integration, action, params);
+      return await handleAutoPartner(supabase, integration, action, params, isUserAdmin);
     }
 
     if (supplier_code === "inter_cars") {
-      return await handleInterCars(supabase, integration, action, params);
+      return await handleInterCars(supabase, integration, action, params, isUserAdmin);
     }
 
     if (supplier_code === "hart" || !supplier_code) {
       const baseUrl = integration.environment === "production" ? HART_PROD_URL : HART_SANDBOX_URL;
-      return await handleHart(supabase, baseUrl, integration, action, params);
+      return await handleHart(supabase, baseUrl, integration, action, params, isUserAdmin);
     }
 
     return json({ error: "Nieobsługiwany dostawca: " + supplier_code }, 400);
@@ -197,7 +414,7 @@ serve(async (req) => {
 });
 
 // ==================== AUTO PARTNER (REST/JSON) ====================
-async function handleAutoPartner(supabase: any, integration: any, action: string, params: any) {
+async function handleAutoPartner(supabase: any, integration: any, action: string, params: any, isUserAdmin = false) {
   const extra = integration.api_extra_json || {};
   const clientCode = extra.clientCode;
   const wsPassword = extra.wsPassword;
@@ -250,94 +467,110 @@ async function handleAutoPartner(supabase: any, integration: any, action: string
       const query = String(params?.query || "").trim();
       if (!query) return json({ error: "Brak frazy wyszukiwania" }, 400);
 
-      // KROK 1: Rozwiąż przez AI
-      const resolved = await resolvePartsQuery(query, params);
-      console.log(`[AP] resolvePartsQuery:`, JSON.stringify({
+      // KROK 1: Rozwiąż przez AI (lub użyj pre-resolved z frontu)
+      const pre = getPreResolved(params, query);
+      const resolved = pre || await resolvePartsQuery(query, params);
+      console.log(`[AP] ${pre ? 'preResolved' : 'resolvePartsQuery'}:`, JSON.stringify({
         oeNumbers: resolved.oeNumbers,
         clarification: resolved.clarificationQuestion,
         confidence: resolved.confidence,
       }));
 
-      if (resolved.oeNumbers.length === 0) {
-        return json({
-          results: [],
-          clarificationQuestion: resolved.clarificationQuestion
-            || 'Podaj numer katalogowy lub OE części, albo doprecyzuj opis.',
-          searchedTerms: [],
-          aiResolved: true,
-          partDescription: resolved.partDescription,
-        });
+      const usedTextFallback = resolved.oeNumbers.length === 0;
+      if (usedTextFallback) {
+        console.log(`[AP] AI nie zwróciło OE — używam Strategy B (text search) z surowym query`);
       }
 
       // KROK 2: Szukaj w Auto Partner — najpierw po OE, potem tekst
       try {
         let availability: any[] = [];
+        let textSearchTermsUsed: string[] | null = null;
 
-        // Strategy A: Search by OE numbers
-        const products = resolved.oeNumbers.slice(0, 10).map(code => ({
-          productCode: code,
-          quantity: 1,
-        }));
+        // Strategy A: Search by OE numbers (pomijamy gdy brak OE)
+        if (!usedTextFallback) {
+          const products = resolved.oeNumbers.slice(0, 10).map(code => ({
+            productCode: code,
+            quantity: 1,
+          }));
 
-        const endpoint = products.length === 1 ? "ProductAvailabilityV2" : "ProductsAvailabilityV2";
-        const body = products.length === 1
-          ? { ...creds, product: products[0], onlySite: false }
-          : { ...creds, products, onlySite: false };
+          const endpoint = products.length === 1 ? "ProductAvailabilityV2" : "ProductsAvailabilityV2";
+          const body = products.length === 1
+            ? { ...creds, product: products[0], onlySite: false }
+            : { ...creds, products, onlySite: false };
 
-        const res = await fetch(`${baseUrl}/${endpoint}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
+          const res = await fetch(`${baseUrl}/${endpoint}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
 
-        if (res.ok) {
-          const data = await res.json();
-          const result = endpoint === "ProductAvailabilityV2"
-            ? data?.RestProductAvailabilityV2Result || data?.RestProductAvailabilityTecDocResult || data
-            : data?.RestProductsAvailabilityV2Result || data;
+          if (res.ok) {
+            const data = await res.json();
+            const result = endpoint === "ProductAvailabilityV2"
+              ? data?.RestProductAvailabilityV2Result || data?.RestProductAvailabilityTecDocResult || data
+              : data?.RestProductsAvailabilityV2Result || data;
 
-          const errorCode = String(result?.ErrorCode || "").trim();
-          if (errorCode && errorCode !== "03/38") {
-            console.warn(`[AP] Strategy A ErrorCode: ${errorCode}`);
+            const errorCode = String(result?.ErrorCode || "").trim();
+            if (errorCode && errorCode !== "03/38") {
+              console.warn(`[AP] Strategy A ErrorCode: ${errorCode}`);
+            }
+
+            availability = Array.isArray(result?.Availability)
+              ? result.Availability
+              : result?.Availability ? [result.Availability] : [];
+            console.log(`[AP] Strategy A (OE) found ${availability.length} items`);
+          } else {
+            const errText = await res.text();
+            console.warn(`[AP] Strategy A failed: HTTP ${res.status} ${errText.substring(0, 200)}`);
           }
-
-          availability = Array.isArray(result?.Availability)
-            ? result.Availability
-            : result?.Availability ? [result.Availability] : [];
-          console.log(`[AP] Strategy A (OE) found ${availability.length} items`);
-        } else {
-          const errText = await res.text();
-          console.warn(`[AP] Strategy A failed: HTTP ${res.status} ${errText.substring(0, 200)}`);
         }
 
-        // Strategy B: Text search via SearchByPhrase if no OE results
+        // Strategy B: Text search via SearchByPhrase — multilang (pl/en/de) parallel
         if (availability.length === 0) {
-          const descriptionQuery = resolved.partDescription || query;
-          // Try SearchByPhrase endpoint
-          for (const searchEndpoint of ["SearchByPhrase", "ProductsSearchV2", "SearchProducts"]) {
-            try {
-              const searchBody = { ...creds, phrase: descriptionQuery, searchText: descriptionQuery, maxResults: 30 };
-              const searchRes = await fetch(`${baseUrl}/${searchEndpoint}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(searchBody),
-              });
-              if (searchRes.ok) {
-                const searchData = await searchRes.json();
-                const searchResult = Object.values(searchData)?.[0] as any;
-                const products2 = searchResult?.Products || searchResult?.Availability || searchResult?.Items || [];
-                if (Array.isArray(products2) && products2.length > 0) {
-                  availability = products2;
-                  console.log(`[AP] Strategy B (${searchEndpoint}) found ${availability.length} items`);
-                  break;
+          const terms = buildSearchTerms(resolved, query);
+          textSearchTermsUsed = terms;
+          console.log(`[AP] Strategy B — szukam w ${terms.length} językach:`, terms);
+
+          const perLangPromises = terms.map(async (term) => {
+            for (const searchEndpoint of ["SearchByPhrase", "ProductsSearchV2", "SearchProducts"]) {
+              try {
+                const searchBody = { ...creds, phrase: term, searchText: term, maxResults: 30 };
+                const searchRes = await fetch(`${baseUrl}/${searchEndpoint}`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(searchBody),
+                });
+                if (searchRes.ok) {
+                  const searchData = await searchRes.json();
+                  const searchResult = Object.values(searchData)?.[0] as any;
+                  const products2 = searchResult?.Products || searchResult?.Availability || searchResult?.Items || [];
+                  if (Array.isArray(products2) && products2.length > 0) {
+                    console.log(`[AP] Strategy B (${searchEndpoint}, "${term}") found ${products2.length}`);
+                    return products2;
+                  }
+                } else {
+                  await searchRes.text();
                 }
-              } else {
-                await searchRes.text(); // consume body
+              } catch (e: any) {
+                console.warn(`[AP] Strategy B (${searchEndpoint}, "${term}") failed:`, e.message);
               }
-            } catch (e: any) {
-              console.warn(`[AP] Strategy B (${searchEndpoint}) failed:`, e.message);
+            }
+            return [];
+          });
+
+          const perLangResults = await Promise.all(perLangPromises);
+          const seenAp = new Set<string>();
+          const merged: any[] = [];
+          for (const list of perLangResults) {
+            for (const item of list) {
+              const key = item.ProductCode || item.Code || JSON.stringify(item).substring(0, 50);
+              if (seenAp.has(key)) continue;
+              seenAp.add(key);
+              merged.push(item);
             }
           }
+          availability = merged;
+          console.log(`[AP] Strategy B merged ${availability.length} unique items from ${terms.length} languages`);
         }
 
         const mapped = availability.map((item: any) => {
@@ -368,17 +601,36 @@ async function handleAutoPartner(supabase: any, integration: any, action: string
         const deduped = dedupeResults(mapped, (item) => `${item.partNumber || item.productCode}-${item.manufacturer || item.producer}`);
 
         const clarificationQuestion = deduped.length === 0
-          ? (resolved.clarificationQuestion || `Auto Partner nie znalazł części. Spróbuj bardziej precyzyjnego opisu.`)
+          ? (resolved.clarificationQuestion || (usedTextFallback
+              ? `Auto Partner nie znalazł niczego pasującego do opisu. Podaj numer OE lub uściślij opis.`
+              : `Auto Partner nie znalazł części. Spróbuj bardziej precyzyjnego opisu.`))
           : null;
 
-        return json({
+        const apResp: any = {
           results: deduped,
           clarificationQuestion,
           searchedTerms: resolved.oeNumbers,
           aiResolved: true,
           partDescription: resolved.partDescription,
           confidence: resolved.confidence,
-        });
+          usedTextFallback,
+        };
+        if (isUserAdmin) {
+          apResp._debug = {
+            supplier: 'auto_partner',
+            preResolved: !!pre,
+            aiOeNumbers: resolved.oeNumbers,
+            aiPartDescription: resolved.partDescription,
+            aiSearchTermsMultiLang: resolved.searchTermsMultiLang,
+            aiConfidence: resolved.confidence,
+            aiReasoning: resolved.reasoning,
+            usedTextFallback,
+            textSearchTermsUsed,
+            finalItemCount: deduped.length,
+            baseUrl,
+          };
+        }
+        return json(apResp);
       } catch (e) {
         return json({ error: `Błąd wyszukiwania AP: ${e.message}` }, 500);
       }
@@ -409,7 +661,7 @@ async function handleAutoPartner(supabase: any, integration: any, action: string
 }
 
 // ==================== HART (REST/JWT) — per doc v1.5 ====================
-async function handleHart(supabase: any, baseUrl: string, integration: any, action: string, params: any) {
+async function handleHart(supabase: any, baseUrl: string, integration: any, action: string, params: any, isUserAdmin = false) {
   if (!integration?.api_username || !integration?.api_password) {
     return json({ error: "Uzupełnij login i hasło API HART." }, 400);
   }
@@ -464,9 +716,10 @@ async function handleHart(supabase: any, baseUrl: string, integration: any, acti
       const query = String(params?.query || "").trim();
       if (!query) return json({ error: "Brak frazy wyszukiwania" }, 400);
 
-      // KROK 1: Rozwiąż zapytanie przez AI
-      const resolved = await resolvePartsQuery(query, params);
-      console.log(`[HART] resolvePartsQuery result:`, JSON.stringify({
+      // KROK 1: Rozwiąż zapytanie przez AI (lub użyj pre-resolved z frontu)
+      const pre = getPreResolved(params, query);
+      const resolved = pre || await resolvePartsQuery(query, params);
+      console.log(`[HART] ${pre ? 'preResolved' : 'resolvePartsQuery'} result:`, JSON.stringify({
         mode: resolved.mode,
         oeNumbers: resolved.oeNumbers,
         clarification: resolved.clarificationQuestion,
@@ -474,47 +727,44 @@ async function handleHart(supabase: any, baseUrl: string, integration: any, acti
         reasoning: resolved.reasoning,
       }));
 
-      // KROK 2: Jeśli AI nie ma numerów OE → zapytaj mechanika
-      if (resolved.oeNumbers.length === 0) {
-        return json({
-          results: [],
-          clarificationQuestion: resolved.clarificationQuestion
-            || 'Podaj numer katalogowy lub OE części, albo doprecyzuj opis (marka, model, lewa/prawa, przód/tył).',
-          searchedTerms: [],
-          aiResolved: true,
-          partDescription: resolved.partDescription,
-        });
+      // KROK 2: Track czy AI nie ma OE → włączamy text-only fallback (Strategy C)
+      const usedTextFallback = resolved.oeNumbers.length === 0;
+      if (usedTextFallback) {
+        console.log(`[HART] AI nie zwróciło OE — używam Strategy C (text search) z surowym query`);
       }
 
       // KROK 3: Szukaj w Hart — spróbuj OE cross-reference, potem opis
       let data: any = {};
       let items: any[] = [];
+      let textSearchTermsUsed: string[] | null = null; // wypełniane gdy Strategy C uruchomione
 
-      // Strategy A: Search by OE numbers using OriginalNumbers parameter
-      const oeParams = new URLSearchParams();
-      resolved.oeNumbers.slice(0, 10).forEach(code => oeParams.append('OriginalNumbers', code));
-      oeParams.set('Availability', 'true');
-      oeParams.set('Size', '50');
+      // Strategy A: Search by OE numbers using OriginalNumbers parameter (pomijamy gdy brak OE)
+      if (!usedTextFallback) {
+        const oeParams = new URLSearchParams();
+        resolved.oeNumbers.slice(0, 10).forEach(code => oeParams.append('OriginalNumbers', code));
+        oeParams.set('Availability', 'true');
+        oeParams.set('Size', '50');
 
-      const oeUrl = `${baseUrl}/v1/products?${oeParams.toString()}`;
-      console.log(`[HART] Strategy A (OE cross-ref): ${oeUrl}`);
+        const oeUrl = `${baseUrl}/v1/products?${oeParams.toString()}`;
+        console.log(`[HART] Strategy A (OE cross-ref): ${oeUrl}`);
 
-      let oeRes = await fetch(oeUrl, { headers });
-      if (oeRes.ok) {
-        const oeText = await oeRes.text();
-        try {
-          data = JSON.parse(oeText);
-          items = (data.items || [])
-            .filter((i: any) => i.isSuccess && i.value && !i.value.withdrawn);
-          console.log(`[HART] Strategy A found ${items.length} items`);
-        } catch { /* ignore parse errors */ }
-      } else {
-        const errText = await oeRes.text();
-        console.warn(`[HART] Strategy A failed: HTTP ${oeRes.status} ${errText.substring(0, 200)}`);
+        const oeRes = await fetch(oeUrl, { headers });
+        if (oeRes.ok) {
+          const oeText = await oeRes.text();
+          try {
+            data = JSON.parse(oeText);
+            items = (data.items || [])
+              .filter((i: any) => i.isSuccess && i.value && !i.value.withdrawn);
+            console.log(`[HART] Strategy A found ${items.length} items`);
+          } catch { /* ignore parse errors */ }
+        } else {
+          const errText = await oeRes.text();
+          console.warn(`[HART] Strategy A failed: HTTP ${oeRes.status} ${errText.substring(0, 200)}`);
+        }
       }
 
-      // Strategy B: If no results, try HartCodes (in case AI returned Hart codes)
-      if (items.length === 0) {
+      // Strategy B: HartCodes — pomijamy gdy brak OE
+      if (!usedTextFallback && items.length === 0) {
         const hcParams = new URLSearchParams();
         resolved.oeNumbers.slice(0, 10).forEach(code => hcParams.append('HartCodes', code));
         hcParams.set('Availability', 'true');
@@ -537,35 +787,71 @@ async function handleHart(supabase: any, baseUrl: string, integration: any, acti
         }
       }
 
-      // Strategy C: Text/description search as last resort
+      // Strategy C: Text/description search — multilang (pl/en/de) parallel
       if (items.length === 0) {
-        const descriptionQuery = resolved.partDescription || query;
-        const txtParams = new URLSearchParams();
-        txtParams.set('SearchText', descriptionQuery);
-        txtParams.set('Availability', 'true');
-        txtParams.set('Size', '30');
+        const terms = buildSearchTerms(resolved, query);
+        textSearchTermsUsed = terms;
+        console.log(`[HART] Strategy C — szukam w ${terms.length} językach:`, terms);
 
-        const txtUrl = `${baseUrl}/v1/products?${txtParams.toString()}`;
-        console.log(`[HART] Strategy C (SearchText): ${txtUrl}`);
-
-        const txtRes = await fetch(txtUrl, { headers });
-        if (txtRes.ok) {
-          const txtText = await txtRes.text();
+        const perLangPromises = terms.map(async (term) => {
+          const txtParams = new URLSearchParams();
+          txtParams.set('SearchText', term);
+          txtParams.set('Availability', 'true');
+          txtParams.set('Size', '30');
+          const txtUrl = `${baseUrl}/v1/products?${txtParams.toString()}`;
           try {
-            data = JSON.parse(txtText);
-            items = (data.items || [])
-              .filter((i: any) => i.isSuccess && i.value && !i.value.withdrawn);
-            console.log(`[HART] Strategy C found ${items.length} items`);
-          } catch { /* ignore */ }
-        } else {
-          const errText = await txtRes.text();
-          console.warn(`[HART] Strategy C failed: HTTP ${txtRes.status} ${errText.substring(0, 200)}`);
+            const txtRes = await fetch(txtUrl, { headers });
+            if (txtRes.ok) {
+              const txtText = await txtRes.text();
+              const dat = JSON.parse(txtText);
+              const langItems = (dat.items || [])
+                .filter((i: any) => i.isSuccess && i.value && !i.value.withdrawn);
+              console.log(`[HART] Strategy C lang "${term}" → ${langItems.length} items`);
+              return { items: langItems, data: dat };
+            } else {
+              const errText = await txtRes.text();
+              console.warn(`[HART] Strategy C lang "${term}" failed: HTTP ${txtRes.status} ${errText.substring(0, 200)}`);
+            }
+          } catch (err: any) {
+            console.warn(`[HART] Strategy C lang "${term}" exception:`, err?.message);
+          }
+          return { items: [], data: null };
+        });
+
+        const perLangResults = await Promise.all(perLangPromises);
+        // Merge + dedupe by hartCode
+        const seenC = new Set<string>();
+        const merged: any[] = [];
+        for (const r of perLangResults) {
+          if (r.data && !data?.total_pages) data = r.data; // first non-empty for pagination context
+          for (const i of r.items) {
+            const key = i.value?.hartCode || i.value?.partNumber || JSON.stringify(i.value).substring(0, 50);
+            if (seenC.has(key)) continue;
+            seenC.add(key);
+            merged.push(i);
+          }
         }
+        items = merged;
+        console.log(`[HART] Strategy C merged ${items.length} unique items from ${terms.length} languages`);
       }
 
       // KROK 4: Parsuj wyniki
       const mappedItems = items.map((i: any) => {
           const v = i.value;
+          // Image URL — Hart REST API różnie nazywa pole obrazka.
+          // Sprawdzamy wszystkie spotykane warianty + fallback do TecAlliance (jak w Inter Cars).
+          const hartTecdoc = v.tecdocId || v.tecDocId || v.tecdocNumber || v.tecdoc || null;
+          const hartImageUrl =
+            v.imageUrl ||
+            v.pictureUrl ||
+            v.thumbnailUrl ||
+            v.photoUrl ||
+            v.image ||
+            v.photo ||
+            (Array.isArray(v.pictures) && v.pictures.length > 0 ? v.pictures[0] : null) ||
+            (Array.isArray(v.images) && v.images.length > 0 ? v.images[0] : null) ||
+            (hartTecdoc ? `https://webservice.tecalliance.services/pegasus-3-0/img/A/${encodeURIComponent(String(hartTecdoc))}` : null);
+
           return {
             partNumber: v.hartCode || "",
             name: v.name || resolved.partDescription,
@@ -583,29 +869,50 @@ async function handleHart(supabase: any, baseUrl: string, integration: any, acti
             isPatent: v.isPatent || false,
             isPriceForManyPieces: v.isPriceForManyPieces || false,
             numberOfPiecesInPrice: v.numberOfPiecesInPrice || 1,
+            imageUrl: hartImageUrl,
+            tecdocId: hartTecdoc,
           };
         });
 
-      console.log(`[HART] Total ${mappedItems.length} products for query: "${query}"`);
+      console.log(`[HART] Total ${mappedItems.length} products for query: "${query}" (textFallback: ${usedTextFallback})`);
 
       // KROK 5: Zwróć wyniki + ewentualnie clarification obok
       const clarificationQuestion = mappedItems.length === 0
-        ? (resolved.clarificationQuestion || `Nie znaleziono w Hart. Sprawdź numer OE lub spróbuj innego opisu.`)
+        ? (resolved.clarificationQuestion || (usedTextFallback
+            ? 'Hart nie znalazł niczego pasującego do opisu. Podaj numer OE lub uściślij opis (marka, model, strona).'
+            : `Nie znaleziono w Hart. Sprawdź numer OE lub spróbuj innego opisu.`))
         : null;
 
-      return json({
+      const baseResp: any = {
         results: mappedItems,
         clarificationQuestion,
         searchedTerms: resolved.oeNumbers,
         aiResolved: true,
         partDescription: resolved.partDescription,
         confidence: resolved.confidence,
+        usedTextFallback,
         pagination: {
           totalPages: data.total_pages,
           currentPage: data.current_page,
           totalItems: data.total_items_count,
         },
-      });
+      };
+      if (isUserAdmin) {
+        baseResp._debug = {
+          supplier: 'hart',
+          preResolved: !!pre,
+          aiOeNumbers: resolved.oeNumbers,
+          aiPartDescription: resolved.partDescription,
+          aiSearchTermsMultiLang: resolved.searchTermsMultiLang,
+          aiConfidence: resolved.confidence,
+          aiReasoning: resolved.reasoning,
+          usedTextFallback,
+          textSearchTermsUsed,
+          finalItemCount: mappedItems.length,
+          baseUrl,
+        };
+      }
+      return json(baseResp);
     }
 
     case "availability": {
@@ -900,7 +1207,7 @@ async function getICToken(supabase: any, integrationId: string, clientId: string
   return tokenData.access_token;
 }
 
-async function handleInterCars(supabase: any, integration: any, action: string, params: any) {
+async function handleInterCars(supabase: any, integration: any, action: string, params: any, isUserAdmin = false) {
   const extra = integration.api_extra_json || {};
   const clientId = extra.clientId;
   const clientSecret = extra.clientSecret;
@@ -932,23 +1239,18 @@ async function handleInterCars(supabase: any, integration: any, action: string, 
       const query = String(params?.query || "").trim();
       if (!query) return json({ error: "Brak frazy wyszukiwania" }, 400);
 
-      // Step 1: AI resolve OE numbers
-      const resolved = await resolvePartsQuery(query, params);
-      console.log(`[IC] resolvePartsQuery:`, JSON.stringify({
+      // Step 1: AI resolve OE numbers (lub użyj pre-resolved z frontu)
+      const pre = getPreResolved(params, query);
+      const resolved = pre || await resolvePartsQuery(query, params);
+      console.log(`[IC] ${pre ? 'preResolved' : 'resolvePartsQuery'}:`, JSON.stringify({
         oeNumbers: resolved.oeNumbers,
         clarification: resolved.clarificationQuestion,
         confidence: resolved.confidence,
       }));
 
-      if (resolved.oeNumbers.length === 0) {
-        return json({
-          results: [],
-          clarificationQuestion: resolved.clarificationQuestion
-            || 'Podaj numer katalogowy lub OE części, albo doprecyzuj opis.',
-          searchedTerms: [],
-          aiResolved: true,
-          partDescription: resolved.partDescription,
-        });
+      const usedTextFallback = resolved.oeNumbers.length === 0;
+      if (usedTextFallback) {
+        console.log(`[IC] AI nie zwróciło OE — używam Strategy C (text search) z surowym query`);
       }
 
       try {
@@ -964,24 +1266,27 @@ async function handleInterCars(supabase: any, integration: any, action: string, 
         // Step 2: Search catalog — try multiple strategies
         const skus = resolved.oeNumbers.slice(0, 30);
         let products: any[] = [];
+        let textSearchTermsUsed: string[] | null = null;
 
-        // Strategy A: Search by index (OE numbers)
-        const catalogRes = await fetch(
-          `${IC_BASE_URL}/ic/catalog/products?index=${skus.join(",")}`,
-          { headers: icHeaders }
-        );
+        // Strategy A: Search by index (OE numbers) — pomijamy gdy brak OE
+        if (!usedTextFallback) {
+          const catalogRes = await fetch(
+            `${IC_BASE_URL}/ic/catalog/products?index=${skus.join(",")}`,
+            { headers: icHeaders }
+          );
 
-        if (catalogRes.ok) {
-          const catalogData = await catalogRes.json();
-          products = Array.isArray(catalogData) ? catalogData : catalogData?.items || catalogData?.products || [];
-          console.log(`[IC] Strategy A (index) found ${products.length} products`);
-        } else {
-          const errText = await catalogRes.text();
-          console.warn(`[IC] Strategy A failed: HTTP ${catalogRes.status} ${errText.substring(0, 200)}`);
+          if (catalogRes.ok) {
+            const catalogData = await catalogRes.json();
+            products = Array.isArray(catalogData) ? catalogData : catalogData?.items || catalogData?.products || [];
+            console.log(`[IC] Strategy A (index) found ${products.length} products`);
+          } else {
+            const errText = await catalogRes.text();
+            console.warn(`[IC] Strategy A failed: HTTP ${catalogRes.status} ${errText.substring(0, 200)}`);
+          }
         }
 
-        // Strategy B: Try OE cross-reference search
-        if (products.length === 0) {
+        // Strategy B: Try OE cross-reference search — pomijamy gdy brak OE
+        if (!usedTextFallback && products.length === 0) {
           for (const oe of skus.slice(0, 5)) {
             for (const param of ["oeNumber", "oe", "originalNumber", "crossReference"]) {
               try {
@@ -1004,26 +1309,45 @@ async function handleInterCars(supabase: any, integration: any, action: string, 
           }
         }
 
-        // Strategy C: Text search fallback
+        // Strategy C: Text search fallback — multilang (pl/en/de) parallel
         if (products.length === 0) {
-          const descQuery = resolved.partDescription || query;
-          for (const param of ["phrase", "searchText", "text", "name"]) {
-            try {
-              const txtUrl = `${IC_BASE_URL}/ic/catalog/products?${param}=${encodeURIComponent(descQuery)}&pageSize=30`;
-              const txtRes = await fetch(txtUrl, { headers: icHeaders });
-              if (txtRes.ok) {
-                const txtData = await txtRes.json();
-                const txtProducts = Array.isArray(txtData) ? txtData : txtData?.items || txtData?.products || [];
-                if (txtProducts.length > 0) {
-                  products = txtProducts;
-                  console.log(`[IC] Strategy C (${param}) found ${txtProducts.length} products`);
-                  break;
+          const terms = buildSearchTerms(resolved, query);
+          textSearchTermsUsed = terms;
+          console.log(`[IC] Strategy C — szukam w ${terms.length} językach:`, terms);
+
+          const perLangPromises = terms.map(async (term) => {
+            for (const param of ["phrase", "searchText", "text", "name"]) {
+              try {
+                const txtUrl = `${IC_BASE_URL}/ic/catalog/products?${param}=${encodeURIComponent(term)}&pageSize=30`;
+                const txtRes = await fetch(txtUrl, { headers: icHeaders });
+                if (txtRes.ok) {
+                  const txtData = await txtRes.json();
+                  const txtProducts = Array.isArray(txtData) ? txtData : txtData?.items || txtData?.products || [];
+                  if (txtProducts.length > 0) {
+                    console.log(`[IC] Strategy C (${param}, "${term}") found ${txtProducts.length}`);
+                    return txtProducts;
+                  }
+                } else {
+                  await txtRes.text();
                 }
-              } else {
-                await txtRes.text();
-              }
-            } catch { /* continue */ }
+              } catch { /* continue */ }
+            }
+            return [];
+          });
+
+          const perLangResults = await Promise.all(perLangPromises);
+          const seenIc = new Set<string>();
+          const merged: any[] = [];
+          for (const list of perLangResults) {
+            for (const item of list) {
+              const key = item.sku || item.index || item.towkod || JSON.stringify(item).substring(0, 50);
+              if (seenIc.has(key)) continue;
+              seenIc.add(key);
+              merged.push(item);
+            }
           }
+          products = merged;
+          console.log(`[IC] Strategy C merged ${products.length} unique items from ${terms.length} languages`);
         }
 
         console.log(`[IC] Total products found: ${products.length}`);
@@ -1078,17 +1402,36 @@ async function handleInterCars(supabase: any, integration: any, action: string, 
         const deduped = dedupeResults(mapped, (item) => `${item.partNumber}-${item.manufacturer}`);
 
         const clarificationQuestion = deduped.length === 0
-          ? (resolved.clarificationQuestion || `Inter Cars nie znalazł dla numerów: ${resolved.oeNumbers.join(', ')}`)
+          ? (resolved.clarificationQuestion || (usedTextFallback
+              ? `Inter Cars nie znalazł niczego pasującego do opisu. Podaj numer OE lub uściślij opis.`
+              : `Inter Cars nie znalazł dla numerów: ${resolved.oeNumbers.join(', ')}`))
           : null;
 
-        return json({
+        const icResp: any = {
           results: deduped,
           clarificationQuestion,
           searchedTerms: resolved.oeNumbers,
           aiResolved: true,
           partDescription: resolved.partDescription,
           confidence: resolved.confidence,
-        });
+          usedTextFallback,
+        };
+        if (isUserAdmin) {
+          icResp._debug = {
+            supplier: 'inter_cars',
+            preResolved: !!pre,
+            aiOeNumbers: resolved.oeNumbers,
+            aiPartDescription: resolved.partDescription,
+            aiSearchTermsMultiLang: resolved.searchTermsMultiLang,
+            aiConfidence: resolved.confidence,
+            aiReasoning: resolved.reasoning,
+            usedTextFallback,
+            textSearchTermsUsed,
+            finalItemCount: deduped.length,
+            customerNumber,
+          };
+        }
+        return json(icResp);
       } catch (e) {
         return json({ error: `Błąd wyszukiwania Inter Cars: ${e.message}` }, 500);
       }
