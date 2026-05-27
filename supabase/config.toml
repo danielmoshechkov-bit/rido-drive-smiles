@@ -249,3 +249,6 @@ verify_jwt = false
 
 [functions.generate-ad-creative]
 verify_jwt = true
+
+[functions.report-portal-error]
+verify_jwt = false
