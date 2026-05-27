@@ -21,6 +21,8 @@ import {
   Receipt,
   TrendingUp,
   Droplets,
+  Phone,
+  Megaphone,
 } from "lucide-react";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { UniversalHomeButton } from "@/components/UniversalHomeButton";
@@ -49,6 +51,10 @@ export default function WorkshopLanding() {
     { icon: Receipt, title: "Faktury i KSeF", description: "Integracja z modułem księgowym – jednym kliknięciem wystawiasz fakturę FA(3)." },
     { icon: Droplets, title: "Moduł Detailing & PPF", description: "Specjalne workflow dla studiów detailingu, ceramiki i folii ochronnych." },
     { icon: TrendingUp, title: "Analiza rentowności", description: "Marże, czasy pracy mechaników, najlepsi klienci – pełne statystyki biznesu." },
+    { icon: Package, title: "Automatyczne zamówienia z hurtowni", description: "Zamawianie części z wielu hurtowni jednym kliknięciem (Inter Cars, Hart, Auto Partner).", ai: true, soon: true },
+    { icon: MessageSquare, title: "Transkrypcja rozmów AI", description: "Automatyczna transkrypcja i podsumowania rozmów telefonicznych z klientami.", ai: true, soon: true },
+    { icon: Phone, title: "AI asystent telefoniczny", description: "Sztuczna inteligencja odbiera połączenia, umawia wizyty i odpowiada na pytania klientów.", ai: true, soon: true },
+    { icon: Megaphone, title: "AI asystent reklamowy", description: "Generuje kampanie Meta/Google Ads, teksty, kreacje i optymalizuje budżet.", ai: true, soon: true },
   ];
 
   const benefits = [
@@ -62,44 +68,42 @@ export default function WorkshopLanding() {
     {
       id: "start",
       name: "Start",
+      badge: "Darmowy",
+      price: "0",
+      period: "/mies.",
+      description: "Na start, dla małych warsztatów i jednoosobowych studiów detailingu.",
+      features: ["20 zleceń/mc", "Klienci + pojazdy", "Terminarz", "Zdjęcia przy przyjęciu", "10 sprawdzeń VIN", "3 pytania AI/mc"],
+      cta: "Zacznij za darmo",
+    },
+    {
+      id: "warsztat",
+      name: "Warsztat",
+      popular: true,
+      badge: "Najpopularniejszy",
       price: "99",
-      period: "/miesiąc",
-      description: "Idealny dla małych warsztatów i jednoosobowych studiów detailingu.",
-      features: ["Do 50 zleceń/mies.", "Terminarz online", "100 SMS w cenie", "Magazyn części", "1 użytkownik"],
+      period: "netto/mies.",
+      description: "Najczęściej wybierany. Dla rozwijających się warsztatów.",
+      features: ["Zlecenia bez limitu", "Magazyn + przechowalnia", "Sprzedaż + faktury", "Raporty + marża live", "KSeF basic", "20 pytań AI/mc"],
       cta: "Wypróbuj 14 dni za darmo",
     },
     {
       id: "pro",
-      name: "Pro",
-      popular: true,
-      price: "199",
-      period: "/miesiąc",
-      description: "Najczęściej wybierany. Dla rozwijających się warsztatów i detailingów.",
-      features: [
-        "Bez limitu zleceń",
-        "Wyceny AI",
-        "500 SMS w cenie",
-        "OCR faktur magazynowych",
-        "Sprawdzanie aut po nr rej. (50/mies.)",
-        "Do 5 użytkowników",
-        "Faktury i KSeF",
-      ],
+      name: "Warsztat Pro",
+      badge: "Pro",
+      price: "175",
+      period: "netto/mies.",
+      description: "Pełne dane naprawcze, czas pracy mechanika i zaawansowane raporty.",
+      features: ["Dane naprawcze (TecRMI)", "Czas pracy mechanika", "50 pytań AI/mc", "KSeF pełny + wysyłka", "Zaawansowane raporty", "Priorytetowy support"],
       cta: "Wypróbuj 14 dni za darmo",
     },
     {
-      id: "biznes",
-      name: "Biznes",
-      price: "399",
-      period: "/miesiąc",
-      description: "Pełen ekosystem dla większych warsztatów i sieci detailingu.",
-      features: [
-        "Wszystko z Pro",
-        "Bez limitu SMS",
-        "Bez limitu sprawdzeń aut",
-        "Bez limitu użytkowników",
-        "Marketing AI i SEO",
-        "Dedykowane wsparcie",
-      ],
+      id: "ai",
+      name: "GetRido AI",
+      badge: "AI Business",
+      price: "249",
+      period: "netto/mies.",
+      description: "Pełna automatyzacja z księgowością i nieograniczonym AI.",
+      features: ["Księgowość AI", "30 faktur/mc auto-odczyt", "Doradca podatkowy AI", "Nieograniczone AI", "KSeF monitor + alerty", "Dedykowany opiekun"],
       cta: "Wypróbuj 14 dni za darmo",
     },
   ];
@@ -193,11 +197,16 @@ export default function WorkshopLanding() {
                     <Icon className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <h3 className="font-semibold">{feature.title}</h3>
                       {feature.ai && (
                         <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-purple-100 text-purple-700">
                           AI
+                        </Badge>
+                      )}
+                      {(feature as any).soon && (
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-amber-100 text-amber-700">
+                          Wkrótce
                         </Badge>
                       )}
                     </div>

@@ -9751,6 +9751,36 @@ export type Database = {
           },
         ]
       }
+      ic_category_tree: {
+        Row: {
+          category_id: string
+          full_path: string
+          has_children: boolean
+          label: string
+          level: number
+          parent_id: string | null
+          synced_at: string
+        }
+        Insert: {
+          category_id: string
+          full_path: string
+          has_children?: boolean
+          label: string
+          level: number
+          parent_id?: string | null
+          synced_at?: string
+        }
+        Update: {
+          category_id?: string
+          full_path?: string
+          has_children?: boolean
+          label?: string
+          level?: number
+          parent_id?: string | null
+          synced_at?: string
+        }
+        Relationships: []
+      }
       ic_parts_catalog: {
         Row: {
           category_id: string | null
@@ -9805,6 +9835,47 @@ export type Database = {
             foreignKeyName: "ic_parts_catalog_provider_id_fkey"
             columns: ["provider_id"]
             isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ic_vin_endpoint_cache: {
+        Row: {
+          car_id_path: string | null
+          discovered_at: string
+          endpoint_body_template: string | null
+          endpoint_method: string
+          endpoint_template: string
+          provider_id: string
+          updated_at: string
+          vehicle_info_path: string | null
+        }
+        Insert: {
+          car_id_path?: string | null
+          discovered_at?: string
+          endpoint_body_template?: string | null
+          endpoint_method: string
+          endpoint_template: string
+          provider_id: string
+          updated_at?: string
+          vehicle_info_path?: string | null
+        }
+        Update: {
+          car_id_path?: string | null
+          discovered_at?: string
+          endpoint_body_template?: string | null
+          endpoint_method?: string
+          endpoint_template?: string
+          provider_id?: string
+          updated_at?: string
+          vehicle_info_path?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ic_vin_endpoint_cache_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: true
             referencedRelation: "service_providers"
             referencedColumns: ["id"]
           },
@@ -20418,6 +20489,47 @@ export type Database = {
             columns: ["vehicle_id"]
             isOneToOne: false
             referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vehicle_vin_cache: {
+        Row: {
+          created_at: string
+          endpoint_used: string | null
+          expires_at: string
+          ic_car_id: string | null
+          id: string
+          provider_id: string
+          vehicle_info: Json | null
+          vin: string
+        }
+        Insert: {
+          created_at?: string
+          endpoint_used?: string | null
+          expires_at?: string
+          ic_car_id?: string | null
+          id?: string
+          provider_id: string
+          vehicle_info?: Json | null
+          vin: string
+        }
+        Update: {
+          created_at?: string
+          endpoint_used?: string | null
+          expires_at?: string
+          ic_car_id?: string | null
+          id?: string
+          provider_id?: string
+          vehicle_info?: Json | null
+          vin?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_vin_cache_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
             referencedColumns: ["id"]
           },
         ]

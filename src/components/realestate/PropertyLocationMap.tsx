@@ -10,6 +10,7 @@ import {
   Heart, Building2, Pill, RefreshCw
 } from "lucide-react";
 import { RadiusSelector } from "./RadiusSelector";
+import { PortalErrorNotice } from "@/components/common/PortalErrorNotice";
 
 interface PropertyLocationMapProps {
   latitude?: number;
@@ -729,23 +730,18 @@ export function PropertyLocationMap({ latitude, longitude, address, listingId, h
             </div>
           )}
 
-          {/* POI API Warning - Only show if all categories are 0 and not mock data */}
-          {!loading && !isMock && 
-           categoryPoiData.grocery?.count === 0 && categoryPoiData.school?.count === 0 && 
+          {/* Friendly notice — never expose API/infra details to clients */}
+          {!loading && !isMock &&
+           categoryPoiData.grocery?.count === 0 && categoryPoiData.school?.count === 0 &&
            categoryPoiData.pharmacy?.count === 0 && categoryPoiData.restaurant?.count === 0 &&
            categoryPoiData.health?.count === 0 && categoryPoiData.park?.count === 0 && (
-            <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg text-sm text-amber-700 dark:text-amber-300 flex items-start gap-2">
-              <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-              <div>
-                <p className="font-medium">Nie można pobrać danych o okolicy</p>
-                <p className="text-xs mt-1 opacity-80">
-                  Klucz Google API ma ograniczenie "HTTP referrers" które blokuje zapytania z serwera.
-                </p>
-                <p className="text-xs mt-1 opacity-70">
-                  Zmień w Google Cloud Console: Credentials → API Key → Application restrictions → "None" lub "IP addresses"
-                </p>
-              </div>
-            </div>
+            <PortalErrorNotice
+              area="property-location-poi"
+              message="POI Google zwróciło 0 wyników (prawdopodobnie blokada referrer/HTTP key)"
+              url={typeof window !== 'undefined' ? window.location.href : ''}
+              title="Dane o okolicy chwilowo niedostępne"
+              description="Pracujemy nad ulepszeniem tej funkcji — spróbuj ponownie później."
+            />
           )}
 
           {/* POI Categories - Only show when we have a specific address */}
