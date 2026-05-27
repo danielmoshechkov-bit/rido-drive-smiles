@@ -10,6 +10,7 @@ import {
   Heart, Building2, Pill, RefreshCw
 } from "lucide-react";
 import { RadiusSelector } from "./RadiusSelector";
+import { PortalErrorNotice } from "@/components/common/PortalErrorNotice";
 
 interface PropertyLocationMapProps {
   latitude?: number;
