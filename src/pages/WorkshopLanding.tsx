@@ -197,11 +197,16 @@ export default function WorkshopLanding() {
                     <Icon className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <h3 className="font-semibold">{feature.title}</h3>
                       {feature.ai && (
                         <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-purple-100 text-purple-700">
                           AI
+                        </Badge>
+                      )}
+                      {(feature as any).soon && (
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-amber-100 text-amber-700">
+                          Wkrótce
                         </Badge>
                       )}
                     </div>
