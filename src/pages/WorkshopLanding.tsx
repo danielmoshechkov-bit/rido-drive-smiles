@@ -21,6 +21,8 @@ import {
   Receipt,
   TrendingUp,
   Droplets,
+  Phone,
+  Megaphone,
 } from "lucide-react";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { UniversalHomeButton } from "@/components/UniversalHomeButton";
