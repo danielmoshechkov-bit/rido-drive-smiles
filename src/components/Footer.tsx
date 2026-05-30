@@ -34,30 +34,30 @@ const Footer = () => {
           <div>
             <h4 className="font-semibold mb-2 text-sm">{t('footer.menu', 'Menu')}</h4>
             <nav className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-              <button 
-                onClick={() => scrollToSection('home')}
+              <Link
+                to="/"
                 className="text-left text-primary-foreground/80 hover:text-primary-foreground hover:underline transition-colors"
               >
                 {t('footer.home', 'Strona główna')}
-              </button>
-              <button 
-                onClick={() => scrollToSection('cennik')}
+              </Link>
+              <Link
+                to="/cennik"
                 className="text-left text-primary-foreground/80 hover:text-primary-foreground hover:underline transition-colors"
               >
                 {t('footer.pricing', 'Cennik')}
-              </button>
-              <button 
-                onClick={() => scrollToSection('jak-zaczac')}
+              </Link>
+              <Link
+                to="/jak-zaczac"
                 className="text-left text-primary-foreground/80 hover:text-primary-foreground hover:underline transition-colors"
               >
                 {t('footer.howToStart', 'Jak zacząć')}
-              </button>
-              <button 
-                onClick={() => scrollToSection('kontakt')}
+              </Link>
+              <Link
+                to="/kontakt"
                 className="text-left text-primary-foreground/80 hover:text-primary-foreground hover:underline transition-colors"
               >
                 {t('footer.contact', 'Kontakt')}
-              </button>
+              </Link>
             </nav>
           </div>
 

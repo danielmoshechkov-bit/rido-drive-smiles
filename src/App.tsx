@@ -39,6 +39,9 @@ import SettlementSheetView from "./pages/SettlementSheetView";
 import SystemAlerts from "./pages/SystemAlerts";
 import Install from "./pages/Install";
 import NotFound from "./pages/NotFound";
+import CennikPage from "./pages/CennikPage";
+import JakZaczacPage from "./pages/JakZaczacPage";
+import KontaktPage from "./pages/KontaktPage";
 import VehicleMarketplace from "./pages/VehicleMarketplace";
 import VehicleDetailPage from "./pages/VehicleDetailPage";
 import VehicleCompare from "./pages/VehicleCompare";
@@ -193,6 +196,13 @@ const App = () => (
                 <Route path="/sprzedaz" element={<SalesPortal />} />
                 <Route path="/handlowiec" element={<SalesPortal />} />
                 <Route path="/prawne" element={<LegalPage />} />
+                <Route path="/cennik" element={<CennikPage />} />
+                <Route path="/jak-zaczac" element={<JakZaczacPage />} />
+                <Route path="/kontakt" element={<KontaktPage />} />
+                <Route path="/polityka-prywatnosci" element={<Navigate to="/prawne?tab=polityka" replace />} />
+                <Route path="/regulamin" element={<Navigate to="/prawne?tab=regulamin" replace />} />
+                <Route path="/rodo" element={<Navigate to="/prawne?tab=rodo" replace />} />
+                <Route path="/cookies" element={<Navigate to="/prawne?tab=cookies" replace />} />
                 <Route path="/umowa/:rentalId" element={<RentalClientPortal />} />
                 <Route path="/warsztat/klient/:code" element={<WorkshopClientCard />} />
                 <Route path="/r/:token" element={<BookingConfirm />} />
