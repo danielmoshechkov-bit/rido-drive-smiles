@@ -5,277 +5,776 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Check, Sparkles } from "lucide-react";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import {
+  Check,
+  Sparkles,
+  Car,
+  Home,
+  Wrench,
+  Briefcase,
+  ShoppingCart,
+  FileText,
+  Gift,
+  Users,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 type Plan = {
   name: string;
   price: string;
   period?: string;
-  description: string;
+  description?: string;
   features: string[];
   highlighted?: boolean;
   badge?: string;
   cta?: string;
 };
 
-type ServiceSection = {
-  id: string;
-  label: string;
-  title: string;
-  subtitle: string;
+type SubGroup = {
+  heading?: string;
   plans: Plan[];
-  note?: string;
 };
 
-const sections: ServiceSection[] = [
+type Section = {
+  id: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  subtitle: string;
+  topNote?: string;
+  bottomNote?: string;
+  comparison?: string;
+  groups: SubGroup[];
+};
+
+const sections: Section[] = [
   {
-    id: "warsztat",
-    label: "Warsztat / ERP",
-    title: "Cennik GetRido dla Warsztatów",
-    subtitle: "Wybierz plan dopasowany do skali Twojego serwisu.",
-    plans: [
+    id: "auta",
+    label: "Auta",
+    icon: Car,
+    title: "Wystaw auto taniej niż w Otomoto",
+    subtitle: "Trzy plany dla osób prywatnych i komisów. Bez ukrytych opłat.",
+    comparison: "Otomoto: 49,99 zł · GetRido: 25 zł → 50% taniej 💰",
+    groups: [
       {
-        name: "Start",
-        price: "0 zł",
-        period: "/ mies.",
-        description: "Na rozpoczęcie cyfryzacji warsztatu.",
-        features: [
-          "Do 20 zleceń / miesiąc",
-          "Kalendarz wizyt",
-          "Baza klientów i pojazdów",
-          "Wysyłka SMS przypomnień (limit)",
+        plans: [
+          {
+            name: "Podstawowy",
+            price: "25 zł",
+            period: "/ 30 dni",
+            features: [
+              "Standardowe ogłoszenie",
+              "Do 10 zdjęć",
+              "Ocena AI ceny",
+              "Mapa lokalizacji",
+            ],
+            cta: "Wystaw auto",
+          },
+          {
+            name: "Standard",
+            price: "45 zł",
+            period: "/ 30 dni",
+            features: [
+              "Wszystko z Podstawowego",
+              "Do 20 zdjęć",
+              "Podbicie 1x w tygodniu",
+              "Statystyki wyświetleń",
+            ],
+            highlighted: true,
+            badge: "Najpopularniejszy",
+            cta: "Wybieram Standard",
+          },
+          {
+            name: "Premium",
+            price: "79 zł",
+            period: "/ 30 dni",
+            features: [
+              "Wszystko ze Standard",
+              "Do 30 zdjęć",
+              "Codzienne podbicie",
+              "Wyróżnienie kolorem",
+              "Top listy wyników",
+              "AI obróbka zdjęć GRATIS",
+            ],
+            cta: "Wybieram Premium",
+          },
         ],
-        cta: "Zacznij za darmo",
-      },
-      {
-        name: "Warsztat",
-        price: "99 zł",
-        period: "/ mies.",
-        description: "Podstawowy plan dla aktywnych warsztatów.",
-        features: [
-          "Bez limitu zleceń",
-          "Wyszukiwarka części (Inter Cars, Auto Partner)",
-          "Magazyn z FIFO",
-          "Faktury VAT i KSeF",
-          "Portal klienta z podpisem online",
-        ],
-        cta: "Wybieram Warsztat",
-      },
-      {
-        name: "Pro",
-        price: "175 zł",
-        period: "/ mies.",
-        description: "Dla wielostanowiskowych serwisów.",
-        features: [
-          "Wszystko z planu Warsztat",
-          "Wielu pracowników i workstationy",
-          "Śledzenie roboczogodzin (0.25h)",
-          "Checklisty i szablony procesów",
-          "Raporty rentowności",
-        ],
-        highlighted: true,
-        badge: "Najpopularniejszy",
-        cta: "Wybieram Pro",
-      },
-      {
-        name: "GetRido AI",
-        price: "249 zł",
-        period: "/ mies.",
-        description: "Pełna automatyzacja z asystentem AI.",
-        features: [
-          "Wszystko z planu Pro",
-          "RidoAI – wycena i diagnoza",
-          "Automatyczne zamawianie z hurtowni (wkrótce)",
-          "Transkrypcja rozmów (wkrótce)",
-          "AI asystent telefoniczny (wkrótce)",
-        ],
-        badge: "AI",
-        cta: "Wybieram GetRido AI",
       },
     ],
-    note: "14 dni okresu próbnego na każdym planie. Bez karty kredytowej.",
   },
   {
-    id: "flota",
-    label: "Flota / Kierowcy",
-    title: "Cennik dla Flot Uber / Bolt",
-    subtitle: "Dwa proste modele rozliczeń tygodniowych z kierowcą.",
-    plans: [
+    id: "nieruchomosci",
+    label: "Nieruchomości",
+    icon: Home,
+    title: "Nieruchomości — dla prywatnych i agencji",
+    subtitle: "Plany dopasowane do skali ogłoszeń.",
+    comparison: "Otodom Profesjonalny: 2 380 zł/mc · GetRido: 399 zł/mc → 87% taniej 🔥",
+    groups: [
       {
-        name: "Model Pierwszy",
-        price: "159 zł",
-        period: "+ 0% podatku / tyg.",
-        description: "Z aktywną kartą paliwową E100.",
-        features: [
-          "Stała kwota, 0% podatku",
-          "Zniżki na paliwo (karta E100)",
-          "Maksymalna przewidywalność",
-          "Wypłaty co tydzień",
+        heading: "Osoby prywatne",
+        plans: [
+          {
+            name: "Podstawowy",
+            price: "39 zł",
+            period: "/ 30 dni",
+            features: [
+              "Standardowe ogłoszenie",
+              "Do 15 zdjęć",
+              "Plan piętra",
+              "Mapa lokalizacji",
+            ],
+            cta: "Wystaw ogłoszenie",
+          },
+          {
+            name: "Standard",
+            price: "69 zł",
+            period: "/ 30 dni",
+            features: [
+              "Wszystko z Podstawowego",
+              "Do 30 zdjęć",
+              "Podbicia",
+              "Wirtualny spacer",
+              "Statystyki",
+            ],
+            highlighted: true,
+            badge: "Najpopularniejszy",
+            cta: "Wybieram Standard",
+          },
+          {
+            name: "Premium",
+            price: "99 zł",
+            period: "/ 30 dni",
+            features: [
+              "Wszystko ze Standard",
+              "Voice Tour 360° (6 języków)",
+              "AI Wycena nieruchomości",
+              "AI Raport dzielnicy",
+              "Top wyników",
+              "Wyróżnienie kolorem",
+            ],
+            cta: "Wybieram Premium",
+          },
         ],
-        cta: "Wybieram ten model",
       },
       {
-        name: "Model Drugi",
-        price: "50 zł",
-        period: "+ 8% podatku / tyg.",
-        description: "Elastyczny model bez karty paliwowej.",
-        features: [
-          "Pełna obsługa rozliczeń",
-          "Brak ukrytych kosztów",
-          "Wypłaty co tydzień",
-          "Wsparcie 7 dni w tygodniu",
+        heading: "Agencje nieruchomości",
+        plans: [
+          {
+            name: "Starter",
+            price: "199 zł",
+            period: "/ mies.",
+            features: [
+              "Do 20 ogłoszeń",
+              "Dashboard agencji",
+              "Statystyki",
+              "Email support",
+            ],
+            cta: "Wybieram Starter",
+          },
+          {
+            name: "Profesjonalny",
+            price: "399 zł",
+            period: "/ mies.",
+            features: [
+              "Do 100 ogłoszeń",
+              "AI Wycena",
+              "CRM",
+              "Logo agencji",
+              "Priority support",
+            ],
+            highlighted: true,
+            badge: "Najpopularniejszy",
+            cta: "Wybieram Profesjonalny",
+          },
+          {
+            name: "Agencyjny",
+            price: "699 zł",
+            period: "/ mies.",
+            features: [
+              "Unlimited ogłoszeń",
+              "Własna podstrona agencji",
+              "Dostęp API",
+              "Wirtualny agent AI 24/7",
+            ],
+            cta: "Wybieram Agencyjny",
+          },
         ],
-        highlighted: true,
-        cta: "Wybieram ten model",
       },
     ],
-    note: "Model wybierasz przy podpisaniu umowy. Zmiana raz w miesiącu.",
+  },
+  {
+    id: "warsztat",
+    label: "Warsztat ERP",
+    icon: Wrench,
+    title: "Cennik GetRido dla Warsztatów",
+    subtitle: "Wybierz plan dopasowany do skali Twojego serwisu.",
+    topNote:
+      "System ERP dla warsztatu — zarządzaj wszystkimi zleceniami (własnymi i z platformy GetRido) w jednym miejscu.",
+    bottomNote:
+      "💡 Jeśli klient przyszedł do Ciebie przez platformę GetRido, pobieramy dodatkowo 5% prowizji od zarobku (cena minus koszt części/materiałów). Szczegóły w zakładce Usługi.",
+    groups: [
+      {
+        plans: [
+          {
+            name: "Start",
+            price: "0 zł",
+            period: "/ mies.",
+            description: "Na rozpoczęcie cyfryzacji warsztatu.",
+            features: [
+              "Do 20 zleceń / miesiąc",
+              "Kalendarz wizyt",
+              "Baza klientów i pojazdów",
+              "Wysyłka SMS przypomnień (limit)",
+            ],
+            cta: "Zacznij za darmo",
+          },
+          {
+            name: "Warsztat",
+            price: "99 zł",
+            period: "/ mies.",
+            description: "Podstawowy plan dla aktywnych warsztatów.",
+            features: [
+              "Bez limitu zleceń",
+              "Wyszukiwarka części (Inter Cars, Auto Partner)",
+              "Magazyn z FIFO",
+              "Faktury VAT i KSeF",
+              "Portal klienta z podpisem online",
+            ],
+            cta: "Wybieram Warsztat",
+          },
+          {
+            name: "Pro",
+            price: "175 zł",
+            period: "/ mies.",
+            description: "Dla wielostanowiskowych serwisów.",
+            features: [
+              "Wszystko z planu Warsztat",
+              "Wielu pracowników i workstationy",
+              "Śledzenie roboczogodzin (0.25h)",
+              "Checklisty i szablony procesów",
+              "Raporty rentowności",
+            ],
+            highlighted: true,
+            badge: "Najpopularniejszy",
+            cta: "Wybieram Pro",
+          },
+          {
+            name: "GetRido AI",
+            price: "249 zł",
+            period: "/ mies.",
+            description: "Pełna automatyzacja z asystentem AI.",
+            features: [
+              "Wszystko z planu Pro",
+              "RidoAI – wycena i diagnoza",
+              "Automatyczne zamawianie z hurtowni (wkrótce)",
+              "Transkrypcja rozmów (wkrótce)",
+              "AI asystent telefoniczny (wkrótce)",
+            ],
+            badge: "AI",
+            cta: "Wybieram GetRido AI",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "uslugi",
+    label: "Usługi",
+    icon: Briefcase,
+    title: "Wystawiaj usługi — znajdź klientów",
+    subtitle:
+      "Bez abonamentu i bez limitu. Płacisz tylko gdy zrealizujesz zlecenie z platformy.",
+    groups: [],
   },
   {
     id: "marketplace",
     label: "Marketplace",
-    title: "Cennik Marketplace (Auto / Nieruchomości / Usługi)",
-    subtitle: "Wystawiaj ogłoszenia samochodowe, nieruchomości i usługi.",
-    plans: [
+    icon: ShoppingCart,
+    title: "Sprzedaj wszystko — od pralki po rower",
+    subtitle: "Marketplace ogłoszeń lokalnych. Zacznij za darmo.",
+    groups: [
       {
-        name: "Free",
-        price: "0 zł",
-        description: "Dla użytkowników prywatnych.",
-        features: [
-          "Do 3 aktywnych ogłoszeń",
-          "Standardowa widoczność",
-          "Wiadomości w portalu",
-          "Galeria do 10 zdjęć",
+        plans: [
+          {
+            name: "Podstawowe",
+            price: "0 zł",
+            period: "darmowe",
+            features: [
+              "Do 5 ogłoszeń / mies.",
+              "30 dni emisji",
+              "Do 5 zdjęć",
+            ],
+            cta: "Wystaw za darmo",
+          },
+          {
+            name: "Kolejne",
+            price: "5 zł",
+            period: "/ sztuka",
+            features: [
+              "Po przekroczeniu darmowego limitu",
+              "Wszystko jak w Podstawowych",
+            ],
+            cta: "Dodaj ogłoszenie",
+          },
+          {
+            name: "Wyróżnione",
+            price: "9 zł",
+            period: "/ 30 dni",
+            features: [
+              "Top kategorii",
+              "Wyróżnienie kolorem",
+              "Podwójne wyświetlenia",
+            ],
+            cta: "Wyróżnij",
+          },
+          {
+            name: "Promowane",
+            price: "19 zł",
+            period: "/ 30 dni",
+            features: [
+              "Strona główna",
+              "Codzienne podbicia",
+              "Najwyższa widoczność",
+            ],
+            highlighted: true,
+            badge: "Najpopularniejszy",
+            cta: "Promuj",
+          },
+          {
+            name: "Sprzedaj szybko",
+            price: "29 zł",
+            period: "/ 30 dni",
+            features: [
+              "Top + Strona główna",
+              "AI sugestie ceny",
+              "Automatyczne podbicia",
+              'Etykieta „Polecane"',
+            ],
+            cta: "Sprzedaj szybko",
+          },
         ],
-        cta: "Zacznij za darmo",
-      },
-      {
-        name: "Pro Sprzedawca",
-        price: "49 zł",
-        period: "/ mies.",
-        description: "Dla osób sprzedających regularnie.",
-        features: [
-          "Do 20 ogłoszeń",
-          "Wyróżnienia w wyszukiwarce",
-          "Statystyki ogłoszeń",
-          "AI optymalizacja opisów",
-        ],
-        highlighted: true,
-        badge: "Polecane",
-        cta: "Wybieram Pro",
-      },
-      {
-        name: "Biznes",
-        price: "199 zł",
-        period: "/ mies.",
-        description: "Dla komisów, biur i firm usługowych.",
-        features: [
-          "Bez limitu ogłoszeń",
-          "Profil sprzedawcy z logo",
-          "Integracja z CRM",
-          "Priorytetowe wsparcie",
-        ],
-        cta: "Wybieram Biznes",
       },
     ],
   },
   {
     id: "ksiegowosc",
-    label: "Księgowość / Faktury",
+    label: "Księgowość",
+    icon: FileText,
     title: "Cennik modułu Księgowość i KSeF",
     subtitle: "Faktury VAT, KSeF FA(3), automatyczne księgowanie.",
-    plans: [
+    groups: [
       {
-        name: "Faktury Start",
-        price: "0 zł",
-        period: "/ mies.",
-        description: "Do 10 faktur miesięcznie.",
-        features: [
-          "Faktury VAT i pro forma",
-          "Numeracja automatyczna",
-          "Wysyłka e-mail",
-          "Eksport PDF",
+        plans: [
+          {
+            name: "Faktury Start",
+            price: "0 zł",
+            period: "/ mies.",
+            description: "Do 10 faktur miesięcznie.",
+            features: [
+              "Faktury VAT i pro forma",
+              "Numeracja automatyczna",
+              "Wysyłka e-mail",
+              "Eksport PDF",
+            ],
+            cta: "Zacznij za darmo",
+          },
+          {
+            name: "Księgowość Pro",
+            price: "79 zł",
+            period: "/ mies.",
+            description: "Pełna obsługa faktur z KSeF.",
+            features: [
+              "Bez limitu faktur",
+              "Integracja KSeF FA(3)",
+              "Faktury korygujące",
+              "Biała Lista weryfikacja",
+              "AI Asystent Księgowy",
+            ],
+            highlighted: true,
+            badge: "AI",
+            cta: "Wybieram Pro",
+          },
         ],
-        cta: "Zacznij za darmo",
       },
+    ],
+  },
+];
+
+const businessSections: Section[] = [
+  {
+    id: "flota",
+    label: "Flota / Kierowcy",
+    icon: Car,
+    title: "Cennik dla Flot Uber / Bolt",
+    subtitle: "Dwa proste modele rozliczeń tygodniowych z kierowcą.",
+    groups: [
       {
-        name: "Księgowość Pro",
-        price: "79 zł",
-        period: "/ mies.",
-        description: "Pełna obsługa faktur z KSeF.",
-        features: [
-          "Bez limitu faktur",
-          "Integracja KSeF FA(3)",
-          "Faktury korygujące",
-          "Biała Lista weryfikacja",
-          "AI Asystent Księgowy",
+        plans: [
+          {
+            name: "Model Pierwszy",
+            price: "159 zł",
+            period: "+ 0% podatku / tyg.",
+            description: "Z aktywną kartą paliwową E100.",
+            features: [
+              "Stała kwota, 0% podatku",
+              "Zniżki na paliwo (karta E100)",
+              "Maksymalna przewidywalność",
+              "Wypłaty co tydzień",
+            ],
+            cta: "Wybieram",
+          },
+          {
+            name: "Model Drugi",
+            price: "50 zł",
+            period: "+ 8% podatku / tyg.",
+            description: "Elastyczny model bez karty paliwowej.",
+            features: [
+              "Pełna obsługa rozliczeń",
+              "Brak ukrytych kosztów",
+              "Wypłaty co tydzień",
+              "Wsparcie 7 dni w tygodniu",
+            ],
+            highlighted: true,
+            cta: "Wybieram",
+          },
         ],
-        highlighted: true,
-        badge: "AI",
-        cta: "Wybieram Pro",
       },
     ],
   },
   {
     id: "ai",
     label: "AI Pro / Asystenci",
+    icon: Sparkles,
     title: "Cennik AI Pro i Asystentów AI",
     subtitle: "Dodatki AI do każdego planu portalu.",
-    plans: [
+    groups: [
       {
-        name: "RidoAI Lite",
-        price: "29 zł",
-        period: "/ mies.",
-        description: "Podstawowy asystent AI w aplikacji.",
-        features: [
-          "Limit 100 zapytań / mies.",
-          "Wsparcie po polsku",
-          "Wbudowane skróty",
+        plans: [
+          {
+            name: "RidoAI Lite",
+            price: "29 zł",
+            period: "/ mies.",
+            description: "Podstawowy asystent AI w aplikacji.",
+            features: [
+              "Limit 100 zapytań / mies.",
+              "Wsparcie po polsku",
+              "Wbudowane skróty",
+            ],
+            cta: "Aktywuj",
+          },
+          {
+            name: "AI Pro",
+            price: "99 zł",
+            period: "/ mies.",
+            description: "Pełen pakiet AI dla profesjonalistów.",
+            features: [
+              "Bez limitu zapytań",
+              "Generowanie opisów ogłoszeń",
+              "AI SEO Agent",
+              "Marketing ROI Dashboard",
+            ],
+            highlighted: true,
+            cta: "Wybieram AI Pro",
+          },
+          {
+            name: "AI Voice",
+            price: "Wycena",
+            description: "AI asystent telefoniczny + reklamowy.",
+            features: [
+              "Odbieranie połączeń przez AI",
+              "Transkrypcje rozmów",
+              "AI Sales Agent (Meta Ads)",
+              "Indywidualne wdrożenie",
+            ],
+            badge: "Wkrótce",
+            cta: "Zapytaj o ofertę",
+          },
         ],
-        cta: "Aktywuj",
-      },
-      {
-        name: "AI Pro",
-        price: "99 zł",
-        period: "/ mies.",
-        description: "Pełen pakiet AI dla profesjonalistów.",
-        features: [
-          "Bez limitu zapytań",
-          "Generowanie opisów ogłoszeń",
-          "AI SEO Agent",
-          "Marketing ROI Dashboard",
-        ],
-        highlighted: true,
-        cta: "Wybieram AI Pro",
-      },
-      {
-        name: "AI Voice",
-        price: "Wycena",
-        description: "AI asystent telefoniczny + reklamowy.",
-        features: [
-          "Odbieranie połączeń przez AI",
-          "Transkrypcje rozmów",
-          "AI Sales Agent (Meta Ads)",
-          "Indywidualne wdrożenie",
-        ],
-        badge: "Wkrótce",
-        cta: "Zapytaj o ofertę",
       },
     ],
   },
 ];
 
+const faqs = [
+  {
+    q: "Dlaczego jesteście tańsi niż konkurencja?",
+    a: "Bo wierzymy, że rynek ogłoszeń powinien być dostępny dla każdego. Nasze ceny są stałe i przewidywalne.",
+  },
+  {
+    q: "Jak działa prowizja w usługach?",
+    a: "Płacisz tylko gdy klient z platformy zapłaci za zlecenie. System automatycznie liczy 5% od Twojego zarobku (cena minus koszt części/materiałów).",
+  },
+  {
+    q: "Czy mogę zmienić plan w trakcie?",
+    a: "Tak, w dowolnym momencie. Różnica jest doliczana proporcjonalnie.",
+  },
+  {
+    q: "Co jeśli klient nie przyszedł z platformy?",
+    a: "Wtedy nie pobieramy żadnej prowizji. Płacisz tylko za system ERP (plan miesięczny) — który masz tak czy inaczej.",
+  },
+  {
+    q: "Czy dane karty są bezpieczne?",
+    a: "Tak. Szyfrowanie SSL, certyfikowany procesor płatności. Nie przechowujemy danych karty na naszych serwerach.",
+  },
+  {
+    q: "Jak się skontaktować?",
+    a: "Email: kontakt@getrido.pl, formularz: /kontakt",
+  },
+];
+
+const aiExtras = [
+  { icon: "🤖", name: "AI Wycena nieruchomości", price: "19 zł", note: "GRATIS w Premium nieruchomości" },
+  { icon: "📊", name: "AI Raport dzielnicy", price: "25 zł" },
+  { icon: "🎙️", name: "Voice Tour 360° (6 języków)", price: "49 zł" },
+  { icon: "📸", name: "AI obróbka zdjęć", price: "9 zł" },
+  { icon: "🚗", name: "Raport VIN", price: "19 zł" },
+  { icon: "🏦", name: "Kalkulator kredytu", price: "DARMOWY" },
+];
+
+const PlanCard = ({ plan, onCta }: { plan: Plan; onCta: () => void }) => (
+  <Card
+    className={`p-6 flex flex-col relative transition-all duration-300 hover:shadow-purple hover:-translate-y-1 ${
+      plan.highlighted ? "border-2 border-primary shadow-purple" : "border border-border"
+    }`}
+  >
+    {plan.badge && (
+      <Badge
+        className={`absolute -top-3 left-1/2 -translate-x-1/2 ${
+          plan.badge === "AI"
+            ? "bg-gradient-hero text-primary-foreground"
+            : plan.badge === "Wkrótce"
+            ? "bg-muted text-muted-foreground"
+            : "bg-accent text-accent-foreground"
+        }`}
+      >
+        {plan.badge === "Najpopularniejszy" && "⭐ "}
+        {plan.badge}
+      </Badge>
+    )}
+    <div className="mb-4">
+      <h3 className="text-lg font-bold text-primary mb-2">{plan.name}</h3>
+      <div className="flex items-baseline gap-1 mb-2">
+        <span className="text-3xl font-bold text-foreground">{plan.price}</span>
+        {plan.period && <span className="text-sm text-muted-foreground">{plan.period}</span>}
+      </div>
+      {plan.description && (
+        <p className="text-sm text-muted-foreground">{plan.description}</p>
+      )}
+    </div>
+    <ul className="space-y-2 mb-6 flex-1">
+      {plan.features.map((f) => (
+        <li key={f} className="flex items-start gap-2 text-sm">
+          <Check className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
+          <span className="text-foreground">{f}</span>
+        </li>
+      ))}
+    </ul>
+    <Button
+      variant={plan.highlighted ? "default" : "outline"}
+      className="w-full"
+      onClick={onCta}
+    >
+      {plan.cta || "Wybieram"}
+    </Button>
+  </Card>
+);
+
+const SectionContent = ({ section, onCta }: { section: Section; onCta: () => void }) => {
+  if (section.id === "uslugi") return <UslugiContent onCta={onCta} />;
+
+  return (
+    <div>
+      <div className="text-center mb-10">
+        <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-3">{section.title}</h2>
+        <p className="text-muted-foreground max-w-2xl mx-auto">{section.subtitle}</p>
+        {section.topNote && (
+          <p className="mt-4 text-sm text-foreground bg-primary/5 border border-primary/20 rounded-lg p-4 max-w-3xl mx-auto">
+            {section.topNote}
+          </p>
+        )}
+      </div>
+
+      {section.groups.map((group, gi) => (
+        <div key={gi} className="mb-10">
+          {group.heading && (
+            <h3 className="text-xl font-semibold text-foreground text-center mb-6">
+              {group.heading}
+            </h3>
+          )}
+          <div
+            className={`grid gap-6 max-w-6xl mx-auto ${
+              group.plans.length === 2
+                ? "md:grid-cols-2"
+                : group.plans.length === 3
+                ? "md:grid-cols-3"
+                : group.plans.length === 4
+                ? "md:grid-cols-2 lg:grid-cols-4"
+                : "md:grid-cols-2 lg:grid-cols-5"
+            }`}
+          >
+            {group.plans.map((plan) => (
+              <PlanCard key={plan.name} plan={plan} onCta={onCta} />
+            ))}
+          </div>
+        </div>
+      ))}
+
+      {section.comparison && (
+        <div className="text-center mt-6 mb-4">
+          <Badge className="bg-accent/20 text-accent-foreground border border-accent/40 text-sm py-2 px-4">
+            {section.comparison}
+          </Badge>
+        </div>
+      )}
+
+      {section.bottomNote && (
+        <p className="text-center text-sm text-foreground bg-accent/10 border border-accent/30 rounded-lg p-4 max-w-3xl mx-auto mt-6">
+          {section.bottomNote}
+        </p>
+      )}
+    </div>
+  );
+};
+
+const UslugiContent = ({ onCta }: { onCta: () => void }) => (
+  <div>
+    <div className="text-center mb-8">
+      <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-3">
+        Wystawiaj usługi — znajdź klientów
+      </h2>
+      <p className="text-muted-foreground max-w-2xl mx-auto">
+        Bez abonamentu i bez limitu. Płacisz tylko gdy zrealizujesz zlecenie z platformy.
+      </p>
+    </div>
+
+    {/* Big banner */}
+    <Card className="max-w-3xl mx-auto p-8 mb-10 bg-gradient-hero text-primary-foreground text-center border-0">
+      <h3 className="text-2xl md:text-3xl font-bold mb-3">Wystawienie usługi: DARMOWE ✓</h3>
+      <p className="text-primary-foreground/90 mb-3">
+        Bez limitów, bez abonamentu, bez ukrytych kosztów.
+      </p>
+      <p className="text-lg font-semibold">
+        Płacisz tylko <span className="text-accent">5% od zarobku</span> gdy zrealizujesz
+        zlecenie z platformy.
+      </p>
+    </Card>
+
+    {/* How it works */}
+    <div className="max-w-5xl mx-auto mb-10">
+      <h3 className="text-xl font-bold text-center mb-6">Jak to działa</h3>
+      <div className="grid md:grid-cols-3 gap-6">
+        {[
+          {
+            n: "1",
+            t: "Wystawiasz usługę",
+            d: "Dodaj swoją usługę (warsztat, fryzjer, hydraulik, sprzątanie itp.) — całkowicie za darmo.",
+          },
+          {
+            n: "2",
+            t: "Klient rezerwuje",
+            d: "System automatycznie oznacza że klient przyszedł z GetRido. Zlecenie trafia do Twojego kalendarza.",
+          },
+          {
+            n: "3",
+            t: "Rozliczasz zlecenie",
+            d: "Wpisujesz cenę zlecenia + koszty części/materiałów. System liczy Twój zarobek. Pobieramy 5% tylko od zarobku.",
+          },
+        ].map((s) => (
+          <Card key={s.n} className="p-6 text-center">
+            <div className="w-12 h-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xl font-bold mx-auto mb-4">
+              {s.n}
+            </div>
+            <h4 className="font-bold text-foreground mb-2">{s.t}</h4>
+            <p className="text-sm text-muted-foreground">{s.d}</p>
+          </Card>
+        ))}
+      </div>
+    </div>
+
+    {/* Calculation example */}
+    <Card className="max-w-2xl mx-auto p-6 mb-10">
+      <h4 className="font-bold text-foreground mb-4 text-center">Przykład kalkulacji</h4>
+      <div className="space-y-2 text-sm">
+        {[
+          ["Przychód ze zlecenia", "800 zł"],
+          ["Koszt części (opony)", "500 zł"],
+          ["Twój zarobek", "300 zł", true],
+          ["Prowizja GetRido (5% od zarobku)", "15 zł"],
+          ["Twoja czysta wypłata", "285 zł", true, true],
+        ].map(([label, val, bold, highlight], i) => (
+          <div
+            key={i}
+            className={`flex justify-between py-2 border-b border-border last:border-0 ${
+              highlight ? "text-primary font-bold text-base" : bold ? "font-semibold" : ""
+            }`}
+          >
+            <span>{label}</span>
+            <span>{val}</span>
+          </div>
+        ))}
+      </div>
+    </Card>
+
+    {/* Comparison */}
+    <div className="max-w-3xl mx-auto grid md:grid-cols-2 gap-4 mb-10">
+      <Card className="p-5 bg-muted/40">
+        <h4 className="font-bold text-foreground mb-2">Fixly (pay-per-lead)</h4>
+        <p className="text-sm text-muted-foreground">
+          Płacisz 5–15 zł za każdy kontakt — niezależnie czy klient się odezwie czy nie.
+        </p>
+      </Card>
+      <Card className="p-5 border-2 border-primary bg-primary/5">
+        <h4 className="font-bold text-primary mb-2">GetRido ✓</h4>
+        <p className="text-sm text-foreground">
+          Płacisz tylko gdy zrealizujesz zlecenie i faktycznie zarobisz. Bardziej fair.
+        </p>
+      </Card>
+    </div>
+
+    {/* Who can */}
+    <div className="max-w-3xl mx-auto mb-10">
+      <h4 className="font-bold text-center mb-4">Kto może wystawiać usługi</h4>
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+        {[
+          "🛠️ Warsztaty i mechanicy",
+          "🏠 Hydraulicy, elektrycy",
+          "✂️ Fryzjerzy, kosmetyczki",
+          "🧹 Sprzątanie i serwis domowy",
+          "🎨 Projektanci, freelancerzy",
+          "👨‍🔧 Wszystkie inne usługi",
+        ].map((t) => (
+          <div key={t} className="bg-muted/40 rounded-lg p-3 text-center">
+            {t}
+          </div>
+        ))}
+      </div>
+    </div>
+
+    <div className="text-center">
+      <Button size="lg" variant="default" onClick={onCta}>
+        Zarejestruj się i wystaw usługę za darmo
+      </Button>
+    </div>
+  </div>
+);
+
 const CennikPage = () => {
-  const [tab, setTab] = useState("warsztat");
+  const [tab, setTab] = useState("auta");
   const navigate = useNavigate();
+  const goCta = () => navigate("/kontakt");
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
       <main className="flex-1">
         {/* Hero */}
-        <section className="bg-gradient-hero py-16">
+        <section className="bg-gradient-hero py-14">
           <div className="container mx-auto px-4 text-center text-primary-foreground">
             <Badge className="mb-4 bg-white/20 text-white border-white/30 hover:bg-white/30">
               <Sparkles className="h-3 w-3 mr-1" />
@@ -290,112 +789,199 @@ const CennikPage = () => {
           </div>
         </section>
 
+        {/* Promo banner */}
+        <section className="py-6 bg-background">
+          <div className="container mx-auto px-4">
+            <Card className="max-w-5xl mx-auto p-5 md:p-6 bg-gradient-to-r from-primary to-accent text-primary-foreground border-0">
+              <div className="flex items-start gap-4">
+                <Gift className="h-8 w-8 flex-shrink-0 mt-1" />
+                <div>
+                  <h3 className="text-lg md:text-xl font-bold mb-2">
+                    🎁 OFERTA STARTOWA — czerwiec / lipiec / sierpień 2026
+                  </h3>
+                  <ul className="space-y-1 text-sm md:text-base text-primary-foreground/95">
+                    <li>• Pierwsze ogłoszenie ZA DARMO (auta + nieruchomości)</li>
+                    <li>• 50% rabatu na drugie i trzecie (kod: <span className="font-mono font-bold">START50</span>)</li>
+                    <li>• 3 miesiące GRATIS dla pierwszych 100 agencji nieruchomości</li>
+                    <li>• Warsztaty: 5% prowizji do odwołania (zamiast standardowych 10%)</li>
+                    <li>• Marketplace: unlimited darmowe ogłoszenia przez 3 miesiące</li>
+                  </ul>
+                </div>
+              </div>
+            </Card>
+          </div>
+        </section>
+
         {/* Tabs */}
-        <section className="py-12">
+        <section className="py-10">
           <div className="container mx-auto px-4">
             <Tabs value={tab} onValueChange={setTab} className="w-full">
               <div className="overflow-x-auto scrollbar-hide mb-8">
-                <TabsList className="w-max mx-auto flex gap-2 bg-muted p-1">
-                  {sections.map((s) => (
-                    <TabsTrigger key={s.id} value={s.id} className="whitespace-nowrap">
-                      {s.label}
-                    </TabsTrigger>
-                  ))}
+                <TabsList className="w-max mx-auto grid grid-flow-col auto-cols-max gap-2 bg-muted p-1 h-auto">
+                  {sections.map((s) => {
+                    const Icon = s.icon;
+                    return (
+                      <TabsTrigger
+                        key={s.id}
+                        value={s.id}
+                        className="whitespace-nowrap flex items-center gap-2 px-4 py-2"
+                      >
+                        <Icon className="h-4 w-4" />
+                        {s.label}
+                      </TabsTrigger>
+                    );
+                  })}
                 </TabsList>
               </div>
 
               {sections.map((section) => (
                 <TabsContent key={section.id} value={section.id} className="mt-0">
-                  <div className="text-center mb-10">
-                    <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-3">
-                      {section.title}
-                    </h2>
-                    <p className="text-muted-foreground max-w-2xl mx-auto">{section.subtitle}</p>
-                  </div>
-
-                  <div
-                    className={`grid gap-6 max-w-6xl mx-auto ${
-                      section.plans.length === 2
-                        ? "md:grid-cols-2"
-                        : section.plans.length === 3
-                        ? "md:grid-cols-3"
-                        : "md:grid-cols-2 lg:grid-cols-4"
-                    }`}
-                  >
-                    {section.plans.map((plan) => (
-                      <Card
-                        key={plan.name}
-                        className={`p-6 flex flex-col relative transition-all duration-300 hover:shadow-purple ${
-                          plan.highlighted
-                            ? "border-2 border-primary shadow-purple"
-                            : "border border-border"
-                        }`}
-                      >
-                        {plan.badge && (
-                          <Badge
-                            className={`absolute -top-3 left-1/2 -translate-x-1/2 ${
-                              plan.badge === "AI"
-                                ? "bg-gradient-hero text-primary-foreground"
-                                : plan.badge === "Wkrótce"
-                                ? "bg-muted text-muted-foreground"
-                                : "bg-accent text-accent-foreground"
-                            }`}
-                          >
-                            {plan.badge}
-                          </Badge>
-                        )}
-                        <div className="mb-4">
-                          <h3 className="text-lg font-bold text-primary mb-2">{plan.name}</h3>
-                          <div className="flex items-baseline gap-1 mb-2">
-                            <span className="text-3xl font-bold text-foreground">{plan.price}</span>
-                            {plan.period && (
-                              <span className="text-sm text-muted-foreground">{plan.period}</span>
-                            )}
-                          </div>
-                          <p className="text-sm text-muted-foreground">{plan.description}</p>
-                        </div>
-                        <ul className="space-y-2 mb-6 flex-1">
-                          {plan.features.map((f) => (
-                            <li key={f} className="flex items-start gap-2 text-sm">
-                              <Check className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
-                              <span className="text-foreground">{f}</span>
-                            </li>
-                          ))}
-                        </ul>
-                        <Button
-                          variant={plan.highlighted ? "default" : "outline"}
-                          className="w-full"
-                          onClick={() => navigate("/kontakt")}
-                        >
-                          {plan.cta || "Wybieram"}
-                        </Button>
-                      </Card>
-                    ))}
-                  </div>
-
-                  {section.note && (
-                    <p className="text-center text-sm text-muted-foreground mt-8">{section.note}</p>
-                  )}
+                  <SectionContent section={section} onCta={goCta} />
                 </TabsContent>
               ))}
             </Tabs>
           </div>
         </section>
 
+        {/* AI Extras */}
+        <section className="py-10 bg-muted/30">
+          <div className="container mx-auto px-4">
+            <h2 className="text-2xl md:text-3xl font-bold text-center mb-2">
+              Dodatkowe usługi z AI
+            </h2>
+            <p className="text-center text-muted-foreground mb-8">
+              Dokup do każdego planu — wzmocnij ogłoszenie sztuczną inteligencją.
+            </p>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-5xl mx-auto">
+              {aiExtras.map((e) => (
+                <Card key={e.name} className="p-5 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">{e.icon}</span>
+                    <div>
+                      <div className="font-semibold text-foreground">{e.name}</div>
+                      {e.note && <div className="text-xs text-primary">{e.note}</div>}
+                    </div>
+                  </div>
+                  <span className="font-bold text-primary">{e.price}</span>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Dla biznesu */}
+        <section className="py-12">
+          <div className="container mx-auto px-4">
+            <div className="text-center mb-8">
+              <Badge className="mb-3 bg-secondary text-secondary-foreground">Dla biznesu</Badge>
+              <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
+                Rozwiązania dla flot i AI
+              </h2>
+              <p className="text-muted-foreground">
+                Dedykowane plany dla firm transportowych i zaawansowanych użytkowników AI.
+              </p>
+            </div>
+
+            {businessSections.map((section) => (
+              <div key={section.id} className="mb-12">
+                <h3 className="text-xl md:text-2xl font-bold text-foreground text-center mb-2">
+                  {section.title}
+                </h3>
+                <p className="text-center text-muted-foreground mb-6">{section.subtitle}</p>
+                <div
+                  className={`grid gap-6 max-w-5xl mx-auto ${
+                    section.groups[0].plans.length === 2
+                      ? "md:grid-cols-2"
+                      : "md:grid-cols-3"
+                  }`}
+                >
+                  {section.groups[0].plans.map((plan) => (
+                    <PlanCard key={plan.name} plan={plan} onCta={goCta} />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Program poleceń */}
+        <section className="py-12 bg-muted/30">
+          <div className="container mx-auto px-4">
+            <div className="text-center mb-8">
+              <Users className="h-10 w-10 text-primary mx-auto mb-3" />
+              <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
+                🎁 Program poleceń
+              </h2>
+            </div>
+            <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+              <Card className="p-6">
+                <h3 className="font-bold text-foreground mb-3">👥 Poleć znajomego</h3>
+                <p className="text-sm text-muted-foreground mb-2">
+                  <span className="font-semibold text-foreground">Twój znajomy:</span> 30% rabatu na pierwsze ogłoszenie
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  <span className="font-semibold text-foreground">Ty:</span> 50 zł na konto GetRido
+                </p>
+              </Card>
+              <Card className="p-6 border-2 border-primary">
+                <h3 className="font-bold text-primary mb-3">🏆 5 poleceń</h3>
+                <p className="text-sm text-foreground">
+                  = 1 miesiąc <span className="font-bold">Premium gratis</span>
+                </p>
+              </Card>
+              <Card className="p-6">
+                <h3 className="font-bold text-foreground mb-3">🔧 Warsztaty</h3>
+                <p className="text-sm text-muted-foreground">
+                  Warsztat poleca warsztat = <span className="font-semibold text-foreground">-1% prowizji</span> dla obu na rok
+                </p>
+              </Card>
+            </div>
+          </div>
+        </section>
+
+        {/* FAQ */}
+        <section className="py-14">
+          <div className="container mx-auto px-4">
+            <h2 className="text-2xl md:text-3xl font-bold text-foreground text-center mb-8">
+              Najczęściej zadawane pytania
+            </h2>
+            <div className="max-w-3xl mx-auto">
+              <Accordion type="single" collapsible className="space-y-3">
+                {faqs.map((f, i) => (
+                  <AccordionItem
+                    key={i}
+                    value={`faq-${i}`}
+                    className="bg-card rounded-lg border border-border px-4"
+                  >
+                    <AccordionTrigger className="text-left font-semibold hover:no-underline">
+                      {f.q}
+                    </AccordionTrigger>
+                    <AccordionContent className="text-muted-foreground">
+                      {f.a}
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            </div>
+          </div>
+        </section>
+
         {/* CTA bottom */}
         <section className="bg-muted py-12">
           <div className="container mx-auto px-4 text-center">
-            <h3 className="text-2xl font-bold text-foreground mb-3">
-              Masz pytania o cennik?
-            </h3>
+            <h3 className="text-2xl font-bold text-foreground mb-3">Masz pytania o cennik?</h3>
             <p className="text-muted-foreground mb-6">
               Skontaktuj się z nami — przygotujemy ofertę dopasowaną do Twojej firmy.
             </p>
-            <Button variant="accent" size="lg" onClick={() => navigate("/kontakt")}>
+            <Button variant="accent" size="lg" onClick={goCta}>
               Skontaktuj się z nami
             </Button>
           </div>
         </section>
+
+        <p className="text-center text-xs text-muted-foreground py-4">
+          Ceny brutto. Dla planów firmowych z VAT zaznaczamy „netto".
+        </p>
       </main>
       <Footer />
     </div>
