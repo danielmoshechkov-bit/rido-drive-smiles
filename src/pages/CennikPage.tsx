@@ -765,26 +765,20 @@ const PoleceniaContent = () => (
         Polecaj GetRido znajomym i zyskuj realne nagrody.
       </p>
     </div>
-    <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+    <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
       <Card className="p-6">
         <h3 className="font-bold text-foreground mb-3">👥 Poleć znajomego</h3>
         <p className="text-sm text-muted-foreground mb-2">
-          <span className="font-semibold text-foreground">Twój znajomy:</span> 30% rabatu na pierwsze ogłoszenie
+          <span className="font-semibold text-foreground">Twój znajomy:</span> 50 zł salda powitalnego
         </p>
         <p className="text-sm text-muted-foreground">
-          <span className="font-semibold text-foreground">Ty:</span> 50 zł na konto GetRido
+          <span className="font-semibold text-foreground">Ty:</span> 50 zł salda na konto GetRido po pierwszym zakupie znajomego
         </p>
       </Card>
       <Card className="p-6 border-2 border-primary">
-        <h3 className="font-bold text-primary mb-3">🏆 5 poleceń</h3>
+        <h3 className="font-bold text-primary mb-3">🔧 Warsztat poleca warsztat</h3>
         <p className="text-sm text-foreground">
-          = 1 miesiąc <span className="font-bold">Premium gratis</span>
-        </p>
-      </Card>
-      <Card className="p-6">
-        <h3 className="font-bold text-foreground mb-3">🔧 Warsztaty</h3>
-        <p className="text-sm text-muted-foreground">
-          Warsztat poleca warsztat = <span className="font-semibold text-foreground">-1% prowizji</span> dla obu na rok
+          = <span className="font-bold">1 miesiąc systemu GRATIS</span> dla obu stron
         </p>
       </Card>
     </div>
