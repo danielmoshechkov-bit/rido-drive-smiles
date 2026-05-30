@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -7,10 +7,11 @@ import { Separator } from "@/components/ui/separator";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { UniversalHomeButton } from "@/components/UniversalHomeButton";
 import { useCart } from "@/hooks/useCart";
 import { usePayment } from "@/hooks/usePayment";
-import { ShoppingCart, X, ArrowLeft, Truck, Package, MapPin, Loader2 } from "lucide-react";
+import { ShoppingCart, X, ArrowLeft, Truck, Package, MapPin, Loader2, Wallet } from "lucide-react";
 import { toast } from "sonner";
 
 export default function MarketplaceCart() {
@@ -19,10 +20,28 @@ export default function MarketplaceCart() {
   const { initiatePayment, loading: paying } = usePayment();
   const [shipping, setShipping] = useState("inpost");
   const [inpostPoint, setInpostPoint] = useState("");
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [useWallet, setUseWallet] = useState(false);
 
   const shippingCost = shipping === "personal" ? 0 : shipping === "inpost" ? 14.99 : 19.99;
   const subtotal = items.reduce((sum, i) => sum + (i.price || 0), 0);
   const total = subtotal + shippingCost;
+  const maxWalletUse = Math.min(walletBalance, Math.floor(total * 0.8 * 100) / 100);
+  const walletUsed = useWallet ? maxWalletUse : 0;
+  const toPay = Math.max(0, total - walletUsed);
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from("user_wallets")
+        .select("pln_balance")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      setWalletBalance(Number(data?.pln_balance || 0));
+    })();
+  }, []);
 
   const handleCheckout = async () => {
     if (items.length === 0) return;
@@ -34,23 +53,17 @@ export default function MarketplaceCart() {
       return;
     }
 
-    // For now, process first item as a purchase
     const firstItem = items[0];
     const result = await initiatePayment({
       productType: "marketplace_purchase",
       productRefId: firstItem.listing_id,
       amount: total,
+      walletUsed,
       description: `Zakup: ${firstItem.title}`,
-      metadata: {
-        listing_id: firstItem.listing_id,
-        items_count: items.length,
-      },
+      metadata: { listing_id: firstItem.listing_id, items_count: items.length },
       deliveryType: shipping,
       inpostPointId: shipping === "inpost" ? inpostPoint : undefined,
-      onSuccess: () => {
-        clearCart();
-        toast.success("Zamówienie złożone!");
-      },
+      onSuccess: () => { clearCart(); toast.success("Zamówienie złożone!"); },
     });
 
     if (result?.simulated) {
@@ -58,6 +71,7 @@ export default function MarketplaceCart() {
       navigate(`/payment/success?payment_id=${result.paymentId}`);
     }
   };
+
 
   if (loading) {
     return (
