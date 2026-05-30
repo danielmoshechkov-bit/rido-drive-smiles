@@ -126,6 +126,7 @@ export default function MarketplaceRegister() {
         duration: 8000,
         description: response.data?.message || "Możesz się teraz zalogować"
       });
+      clearReferralCode();
       navigate("/gielda/logowanie");
     } catch (error: any) {
       console.error("Registration error:", error);
