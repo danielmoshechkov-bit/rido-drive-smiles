@@ -330,9 +330,86 @@ export function ReferralSystemPanel() {
               <p className="text-[10px] text-muted-foreground">Podejrzane</p>
             </CardContent>
           </Card>
-          </Card>
         </div>
       )}
+
+      {/* Top referrers + Recent uses */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" /> Top polecający
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {topReferrers.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">Brak danych</p>
+            ) : (
+              <div className="space-y-2">
+                {topReferrers.map((r, i) => (
+                  <div key={r.user_id} className="flex items-center justify-between text-sm border-b pb-1.5">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-muted-foreground w-5">{i + 1}.</span>
+                      <code className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{r.code}</code>
+                      <span className="text-muted-foreground truncate text-xs">{r.user_id.slice(0, 8)}…</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-xs">
+                      <span>{r.uses_count} użyć</span>
+                      <span className="font-semibold">{r.total_earnings}{'\u00A0'}zł</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <RefreshCw className="h-4 w-4" /> Ostatnie polecenia
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {recentUses.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">Brak danych</p>
+            ) : (
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {recentUses.map((u) => (
+                  <div key={u.id} className="flex items-center justify-between text-xs border-b pb-1.5">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Badge variant={
+                        u.status === 'completed' ? 'default' :
+                        u.status === 'pending_first_purchase' ? 'secondary' :
+                        u.status === 'suspicious' ? 'destructive' : 'outline'
+                      } className="text-[10px]">
+                        {u.status === 'completed' ? 'OK' :
+                         u.status === 'pending_first_purchase' ? 'Czeka' :
+                         u.status === 'suspicious' ? 'Podejrz.' : u.status}
+                      </Badge>
+                      <span className="text-muted-foreground truncate">
+                        {u.referrer_user_id.slice(0, 6)}…→{u.referred_user_id.slice(0, 6)}…
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {u.reward_amount_pln && Number(u.reward_amount_pln) > 0 && (
+                        <span className="font-semibold">{Number(u.reward_amount_pln).toFixed(0)}{'\u00A0'}zł</span>
+                      )}
+                      {u.reward_type === 'free_month' && (
+                        <Badge variant="outline" className="text-[10px]">1 mies. gratis</Badge>
+                      )}
+                      <span className="text-muted-foreground">
+                        {format(new Date(u.created_at), 'd MMM', { locale: pl })}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
 
       {/* Settings Card */}
       <Card>
