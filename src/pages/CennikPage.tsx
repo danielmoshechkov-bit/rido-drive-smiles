@@ -270,42 +270,9 @@ const sections: Section[] = [
     icon: FileText,
     title: "Cennik modułu Księgowość i KSeF",
     subtitle: "Faktury VAT, KSeF FA(3), automatyczne księgowanie.",
-    groups: [
-      {
-        plans: [
-          {
-            name: "Faktury Start",
-            price: "0 zł",
-            period: "/ mies.",
-            description: "Do 10 faktur miesięcznie.",
-            features: [
-              "Faktury VAT i pro forma",
-              "Numeracja automatyczna",
-              "Wysyłka e-mail",
-              "Eksport PDF",
-            ],
-            cta: "Zacznij za darmo",
-          },
-          {
-            name: "Księgowość Pro",
-            price: "79 zł",
-            period: "/ mies.",
-            description: "Pełna obsługa faktur z KSeF.",
-            features: [
-              "Bez limitu faktur",
-              "Integracja KSeF FA(3)",
-              "Faktury korygujące",
-              "Biała Lista weryfikacja",
-              "AI Asystent Księgowy",
-            ],
-            highlighted: true,
-            badge: "AI",
-            cta: "Wybieram Pro",
-          },
-        ],
-      },
-    ],
+    groups: [],
   },
+
   {
     id: "ai",
     label: "AI Pro",
