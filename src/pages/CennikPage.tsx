@@ -892,7 +892,8 @@ const CennikPage = () => {
         <section className="py-10">
           <div className="container mx-auto px-4">
             <Tabs value={tab} onValueChange={setTab} className="w-full">
-              <div className="overflow-x-auto scrollbar-hide mb-8">
+              <div className="relative mb-8">
+                <div className="overflow-x-auto scrollbar-hide snap-x snap-mandatory">
                 <TabsList className="w-max mx-auto grid grid-flow-col auto-cols-max gap-2 bg-muted p-1 h-auto">
                   {sections.map((s) => {
                     const Icon = s.icon;
