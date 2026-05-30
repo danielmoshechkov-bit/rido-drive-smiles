@@ -408,6 +408,8 @@ const SectionContent = ({ section, onCta }: { section: Section; onCta: () => voi
   if (section.id === "uslugi") return <UslugiContent onCta={onCta} />;
   if (section.id === "ai") return <AiProContent onCta={onCta} />;
   if (section.id === "polecenia") return <PoleceniaContent />;
+  if (section.id === "nieruchomosci") return <NieruchomosciContent onCta={onCta} />;
+  if (section.id === "ksiegowosc") return <KsiegowoscContent onCta={onCta} />;
 
   return (
     <div>
