@@ -1478,6 +1478,11 @@ export default function ClientPortal() {
             </div>
           )}
 
+          {/* Referrals Tab */}
+          {activeTab === 'polecenia' && (
+            <ReferralsTab />
+          )}
+
           {/* Settings Tab */}
           {activeTab === 'ustawienia' && (
             <div className="space-y-6">
