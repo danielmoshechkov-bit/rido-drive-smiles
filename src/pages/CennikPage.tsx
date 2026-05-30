@@ -113,12 +113,13 @@ const sections: Section[] = [
 
   {
     id: "warsztat",
-    label: "Warsztat ERP",
+    label: "Warsztat i Detailing",
     icon: Wrench,
-    title: "Cennik GetRido dla Warsztatów",
-    subtitle: "Wybierz plan dopasowany do skali Twojego serwisu.",
+    title: "Cennik GetRido dla Serwisów Aut",
+    subtitle:
+      "Warsztaty, detailing, wulkanizacja, blacharnia, mechanika. Wybierz plan dopasowany do skali Twojego serwisu.",
     topNote:
-      "System ERP dla warsztatu — zarządzaj wszystkimi zleceniami (własnymi i z platformy GetRido) w jednym miejscu.",
+      "System ERP dla warsztatów, detailingów i każdego serwisu aut – zarządzaj wszystkimi zleceniami (własnymi i z platformy GetRido) w jednym miejscu.",
     bottomNote: "",
     groups: [
       {
