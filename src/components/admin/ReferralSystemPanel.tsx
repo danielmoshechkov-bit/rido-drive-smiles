@@ -109,21 +109,40 @@ export function ReferralSystemPanel() {
 
       const { data: usesData } = await supabase
         .from('referral_uses')
-        .select('status, coins_awarded');
+        .select('id, status, coins_awarded, reward_amount_pln, reward_type, created_at, completed_at, referrer_user_id, referred_user_id')
+        .order('created_at', { ascending: false })
+        .limit(500);
 
       if (codesData && usesData) {
-        const totalCoins = (usesData as any[]).reduce((sum, u) => sum + (u.coins_awarded || 0), 0);
-        const pending = (usesData as any[]).filter(u => u.status === 'pending').length;
-        const suspicious = (usesData as any[]).filter(u => u.status === 'suspicious').length;
+        const uses = usesData as any[];
+        const totalCoins = uses.reduce((sum, u) => sum + (u.coins_awarded || 0), 0);
+        const totalPln = uses.reduce((sum, u) => sum + Number(u.reward_amount_pln || 0), 0);
+        const pending = uses.filter(u => u.status === 'pending').length;
+        const suspicious = uses.filter(u => u.status === 'suspicious').length;
+        const completed = uses.filter(u => u.status === 'completed').length;
+        const pendingFirst = uses.filter(u => u.status === 'pending_first_purchase').length;
 
         setStats({
           total_codes: codesData.length,
-          total_uses: usesData.length,
+          total_uses: uses.length,
           total_coins_awarded: totalCoins,
           pending_uses: pending,
-          suspicious_uses: suspicious
+          suspicious_uses: suspicious,
+          total_pln_awarded: totalPln,
+          completed_uses: completed,
+          pending_first_purchase: pendingFirst,
         });
+
+        setRecentUses(uses.slice(0, 25) as ReferralUseRow[]);
       }
+
+      // Top referrers
+      const { data: topCodes } = await supabase
+        .from('referral_codes')
+        .select('user_id, code, uses_count, total_earnings')
+        .order('total_earnings', { ascending: false })
+        .limit(10);
+      setTopReferrers((topCodes as TopReferrer[]) || []);
     } catch (error) {
       console.error('Error loading referral data:', error);
       toast.error('Błąd ładowania danych');
