@@ -32,6 +32,7 @@ import { useKsefUnreadCount } from '@/hooks/useKsefUnreadCount';
 import { ServiceRegistrationModal } from '@/components/services/ServiceRegistrationModal';
 import { MyViewingsPanel } from '@/components/realestate/MyViewingsPanel';
 import { ClientMyVehicles } from '@/components/client/ClientMyVehicles';
+import { ReferralsTab } from '@/components/referrals/ReferralsTab';
 import { 
   Car,
   Eye,
@@ -59,7 +60,8 @@ import {
   ChevronRight,
   Lock,
   Shield,
-  Sparkles
+  Sparkles,
+  Gift
 } from 'lucide-react';
 import tileCars from '@/assets/tile-cars.jpg';
 import tileRealEstate from '@/assets/tile-realestate.jpg';
@@ -566,6 +568,7 @@ export default function ClientPortal() {
     ...(hasCompanySetup ? [{ id: 'ksiegowosc', label: 'Księgowość', icon: Calculator }] : []),
     { id: 'ogladania', label: 'Oglądania', icon: Eye },
     { id: 'wiadomosci', label: 'Wiadomości', icon: MessageSquare },
+    { id: 'polecenia', label: 'Polecenia', icon: Gift },
     { id: 'ustawienia', label: 'Ustawienia', icon: Settings },
     { id: 'konta', label: 'Wybierz moduł', icon: RefreshCw },
   ];
