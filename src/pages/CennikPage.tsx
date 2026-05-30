@@ -352,7 +352,7 @@ const aiExtras = [
   { icon: "📊", name: "AI Raport dzielnicy", price: "25 zł" },
   { icon: "🎙️", name: "Voice Tour 360° (6 języków)", price: "49 zł" },
   { icon: "📸", name: "AI obróbka zdjęć", price: "9 zł" },
-  { icon: "🚗", name: "Raport VIN", price: "19 zł" },
+  { icon: "🚗", name: "Raport VIN — pełna historia pojazdu", price: "69 zł", note: "Stała cena (u innych 70–90 zł)" },
   { icon: "🏦", name: "Kalkulator kredytu", price: "DARMOWY" },
 ];
 
