@@ -17,7 +17,7 @@ const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Logo and Description */}
           <div>
-            <Link to="/easy" className="flex items-center space-x-2 mb-2">
+            <Link to="/" className="flex items-center space-x-2 mb-2">
               <img 
                 src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
                 alt="Get RIDO Logo" 

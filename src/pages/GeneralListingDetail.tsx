@@ -206,7 +206,7 @@ export default function GeneralListingDetail() {
               <ArrowLeft className="h-4 w-4" />
               <span className="hidden sm:inline">{t('listingDetail.backToList')}</span>
             </Button>
-            <div className="hidden md:flex items-center gap-2 cursor-pointer" onClick={() => navigate("/easy")}>
+            <div className="hidden md:flex items-center gap-2 cursor-pointer" onClick={() => navigate("/")}>
               <img src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" alt="RIDO" className="h-8 w-8" />
               <span className="font-bold text-lg"><span className="text-primary">RIDO</span> Marketplace</span>
             </div>
@@ -565,7 +565,7 @@ export default function GeneralListingDetail() {
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div
               className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
-              onClick={() => navigate('/easy')}
+              onClick={() => navigate('/')}
             >
               <img
                 src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png"

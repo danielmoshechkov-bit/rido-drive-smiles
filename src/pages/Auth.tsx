@@ -139,7 +139,7 @@ const Auth = () => {
 
       {/* Header */}
       <div className="relative z-10 flex justify-between items-center p-6">
-        <Link to="/easy" className="flex items-center space-x-2">
+        <Link to="/" className="flex items-center space-x-2">
           <img 
             src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
             alt="Get RIDO Logo" 

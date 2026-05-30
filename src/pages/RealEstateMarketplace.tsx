@@ -1122,7 +1122,7 @@ export default function RealEstateMarketplace() {
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div 
               className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
-              onClick={() => navigate('/easy')}
+              onClick={() => navigate('/')}
             >
               <img 
                 src="/lovable-uploads/253e522c-702e-4ce9-9429-10ddbde63878.png" 
