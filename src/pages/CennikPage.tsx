@@ -909,7 +909,10 @@ const CennikPage = () => {
                     );
                   })}
                 </TabsList>
+                </div>
+                <div className="pointer-events-none absolute top-0 right-0 h-full w-12 bg-gradient-to-l from-background to-transparent md:hidden" />
               </div>
+
 
               {sections.map((section) => (
                 <TabsContent key={section.id} value={section.id} className="mt-0">
