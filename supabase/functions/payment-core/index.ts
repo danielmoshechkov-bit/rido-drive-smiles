@@ -161,7 +161,7 @@ async function handleInit(supabase: any, body: any) {
     merchantId: parseInt(merchantId),
     posId: parseInt(posId),
     sessionId: payment.id,
-    amount: Math.round(amount * 100),
+    amount: Math.round(_amount * 100),
     currency: "PLN",
     description: description || "Płatność GetRido",
     email: userEmail,
