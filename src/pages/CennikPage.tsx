@@ -6,12 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-import {
   Check,
   Sparkles,
   Car,
@@ -58,9 +52,9 @@ const sections: Section[] = [
     id: "auta",
     label: "Auta",
     icon: Car,
-    title: "Wystaw auto taniej niż w Otomoto",
+    title: "Wystaw auto taniej",
     subtitle: "Trzy plany dla osób prywatnych i komisów. Bez ukrytych opłat.",
-    comparison: "Otomoto: 49,99 zł · GetRido: 25 zł → 50% taniej 💰",
+    comparison: "Już od 25 zł — taniej niż u konkurencji 💰",
     groups: [
       {
         plans: [
@@ -114,7 +108,7 @@ const sections: Section[] = [
     icon: Home,
     title: "Nieruchomości — dla prywatnych i agencji",
     subtitle: "Plany dopasowane do skali ogłoszeń.",
-    comparison: "Otodom Profesjonalny: 2 380 zł/mc · GetRido: 399 zł/mc → 87% taniej 🔥",
+    comparison: "Plany agencyjne już od 399 zł/mc — znacznie taniej niż konkurencja 🔥",
     groups: [
       {
         heading: "Osoby prywatne",
@@ -216,8 +210,7 @@ const sections: Section[] = [
     subtitle: "Wybierz plan dopasowany do skali Twojego serwisu.",
     topNote:
       "System ERP dla warsztatu — zarządzaj wszystkimi zleceniami (własnymi i z platformy GetRido) w jednym miejscu.",
-    bottomNote:
-      "💡 Jeśli klient przyszedł do Ciebie przez platformę GetRido, pobieramy dodatkowo 5% prowizji od zarobku (cena minus koszt części/materiałów). Szczegóły w zakładce Usługi.",
+    bottomNote: "",
     groups: [
       {
         plans: [
@@ -477,32 +470,6 @@ const businessSections: Section[] = [
   },
 ];
 
-const faqs = [
-  {
-    q: "Dlaczego jesteście tańsi niż konkurencja?",
-    a: "Bo wierzymy, że rynek ogłoszeń powinien być dostępny dla każdego. Nasze ceny są stałe i przewidywalne.",
-  },
-  {
-    q: "Jak działa prowizja w usługach?",
-    a: "Płacisz tylko gdy klient z platformy zapłaci za zlecenie. System automatycznie liczy 5% od Twojego zarobku (cena minus koszt części/materiałów).",
-  },
-  {
-    q: "Czy mogę zmienić plan w trakcie?",
-    a: "Tak, w dowolnym momencie. Różnica jest doliczana proporcjonalnie.",
-  },
-  {
-    q: "Co jeśli klient nie przyszedł z platformy?",
-    a: "Wtedy nie pobieramy żadnej prowizji. Płacisz tylko za system ERP (plan miesięczny) — który masz tak czy inaczej.",
-  },
-  {
-    q: "Czy dane karty są bezpieczne?",
-    a: "Tak. Szyfrowanie SSL, certyfikowany procesor płatności. Nie przechowujemy danych karty na naszych serwerach.",
-  },
-  {
-    q: "Jak się skontaktować?",
-    a: "Email: kontakt@getrido.pl, formularz: /kontakt",
-  },
-];
 
 const aiExtras = [
   { icon: "🤖", name: "AI Wycena nieruchomości", price: "19 zł", note: "GRATIS w Premium nieruchomości" },
@@ -881,33 +848,6 @@ const CennikPage = () => {
           </div>
         </section>
 
-
-        {/* FAQ */}
-        <section className="py-14">
-          <div className="container mx-auto px-4">
-            <h2 className="text-2xl md:text-3xl font-bold text-foreground text-center mb-8">
-              Najczęściej zadawane pytania
-            </h2>
-            <div className="max-w-3xl mx-auto">
-              <Accordion type="single" collapsible className="space-y-3">
-                {faqs.map((f, i) => (
-                  <AccordionItem
-                    key={i}
-                    value={`faq-${i}`}
-                    className="bg-card rounded-lg border border-border px-4"
-                  >
-                    <AccordionTrigger className="text-left font-semibold hover:no-underline">
-                      {f.q}
-                    </AccordionTrigger>
-                    <AccordionContent className="text-muted-foreground">
-                      {f.a}
-                    </AccordionContent>
-                  </AccordionItem>
-                ))}
-              </Accordion>
-            </div>
-          </div>
-        </section>
 
         {/* CTA bottom */}
         <section className="bg-muted py-12">

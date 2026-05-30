@@ -76,7 +76,7 @@ const Kontakt = () => {
                     value={formData.phone}
                     onChange={handleChange}
                     required
-                    placeholder="+48 519 474 583"
+                    placeholder="+48 600 000 000"
                   />
                 </div>
               </div>
@@ -138,7 +138,7 @@ const Kontakt = () => {
                   </div>
                   <div>
                     <p className="font-medium text-foreground">Telefon</p>
-                    <p className="text-sm text-muted-foreground">+48 519 474 583</p>
+                    <p className="text-sm text-muted-foreground">+48 600 000 000</p>
                   </div>
                 </div>
                 
@@ -148,7 +148,7 @@ const Kontakt = () => {
                   </div>
                   <div>
                     <p className="font-medium text-foreground">WhatsApp</p>
-                    <p className="text-sm text-muted-foreground">+48 519 474 583</p>
+                    <p className="text-sm text-muted-foreground">+48 600 000 000</p>
                   </div>
                 </div>
 
