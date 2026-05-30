@@ -40,6 +40,28 @@ interface ReferralStats {
   total_coins_awarded: number;
   pending_uses: number;
   suspicious_uses: number;
+  total_pln_awarded: number;
+  completed_uses: number;
+  pending_first_purchase: number;
+}
+
+interface ReferralUseRow {
+  id: string;
+  status: string;
+  reward_amount_pln: number | null;
+  reward_type: string | null;
+  coins_awarded: number | null;
+  created_at: string;
+  completed_at: string | null;
+  referrer_user_id: string;
+  referred_user_id: string;
+}
+
+interface TopReferrer {
+  user_id: string;
+  code: string;
+  uses_count: number;
+  total_earnings: number;
 }
 
 export function ReferralSystemPanel() {
