@@ -1506,7 +1506,14 @@ export const DriverSettlements = ({
                 // Pass dynamic fuel data to normalizeAmounts if available
                 const amounts = normalizeAmounts(rawAmounts, driverFuelData || undefined);
                 const { payout, fee, totalTax, breakdown } = calculatePayout(amounts);
-                
+
+                // Use authoritative actual_payout from DB (matches fleet panel exactly,
+                // already has debt_payment + service_fee + rental subtracted).
+                // Falls back to client-side calculation for legacy rows without actual_payout.
+                const displayPayout = settlement.actual_payout != null
+                  ? Number(settlement.actual_payout)
+                  : payout;
+
                 const platformData = [
                   { name: 'Uber', value: amounts.uber_net || 0, fill: '#000000' },
                   { name: 'Bolt', value: amounts.bolt_net || 0, fill: '#34D399' },
@@ -1608,8 +1615,8 @@ export const DriverSettlements = ({
                       <div className="border-t bg-purple-100 p-4 rounded-b-lg">
                         <div className="flex justify-between">
                           <span className="font-extrabold text-xl text-gray-900">{t('weekly.payout')}:</span>
-                          <span className={`font-extrabold text-xl ${payout > 0 ? 'text-green-600' : payout < 0 ? 'text-red-600' : 'text-gray-900'}`}>
-                            {(typeof payout === 'number' ? payout : 0).toFixed(2)} zł
+                          <span className={`font-extrabold text-xl ${displayPayout > 0 ? 'text-green-600' : displayPayout < 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                            {(typeof displayPayout === 'number' ? displayPayout : 0).toFixed(2)} zł
                           </span>
                         </div>
                         {/* Zleć wypłatę button for non-weekly drivers */}
