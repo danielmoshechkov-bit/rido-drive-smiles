@@ -201,6 +201,41 @@ async function handleWebhook(supabase: any, body: any) {
 
   await processPaymentSuccess(supabase, payment.id, payment.user_id, payment.product_type, payment.product_ref_id, payment.metadata);
 
+  // Trigger referral reward on first qualifying purchase (>=30 PLN)
+  try {
+    const amt = Number(payment.amount || 0);
+    if (amt >= 30) {
+      const { data: refResult, error: refErr } = await supabase.rpc("complete_referral_on_first_purchase", {
+        p_referred_user_id: payment.user_id,
+        p_order_amount_pln: amt,
+        p_order_id: payment.id,
+      });
+      if (refErr) {
+        console.error("Referral completion error:", refErr);
+      } else if (refResult?.completed) {
+        console.log("Referral completed:", refResult);
+        // Notify referrer via in-app email
+        try {
+          await supabase.functions.invoke("rido-mail", {
+            body: {
+              to_user_id: refResult.referrer_id,
+              subject: "🎁 Otrzymałeś nagrodę za polecenie — GetRido",
+              template: "referral_reward",
+              data: {
+                reward_amount: refResult.reward_amount_pln,
+                reward_type: refResult.reward_type,
+              },
+            },
+          });
+        } catch (e) {
+          console.error("Referral email failed:", e);
+        }
+      }
+    }
+  } catch (e) {
+    console.error("Referral hook failed:", e);
+  }
+
   return new Response(JSON.stringify({ status: "ok" }), { headers: CORS });
 }
 
