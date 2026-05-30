@@ -11,6 +11,7 @@ interface InitiatePaymentParams {
   deliveryType?: string;
   inpostPointId?: string;
   deliveryAddress?: Record<string, any>;
+  walletUsed?: number;
   onSuccess?: () => void;
 }
 
@@ -38,6 +39,7 @@ export function usePayment() {
           delivery_type: params.deliveryType || null,
           inpost_point_id: params.inpostPointId || null,
           delivery_address: params.deliveryAddress || null,
+          wallet_used: params.walletUsed || 0,
           return_url: window.location.origin + "/payment/success",
         },
       });

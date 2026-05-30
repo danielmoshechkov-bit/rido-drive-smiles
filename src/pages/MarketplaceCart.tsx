@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -7,10 +7,11 @@ import { Separator } from "@/components/ui/separator";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { UniversalHomeButton } from "@/components/UniversalHomeButton";
 import { useCart } from "@/hooks/useCart";
 import { usePayment } from "@/hooks/usePayment";
-import { ShoppingCart, X, ArrowLeft, Truck, Package, MapPin, Loader2 } from "lucide-react";
+import { ShoppingCart, X, ArrowLeft, Truck, Package, MapPin, Loader2, Wallet } from "lucide-react";
 import { toast } from "sonner";
 
 export default function MarketplaceCart() {
@@ -19,10 +20,28 @@ export default function MarketplaceCart() {
   const { initiatePayment, loading: paying } = usePayment();
   const [shipping, setShipping] = useState("inpost");
   const [inpostPoint, setInpostPoint] = useState("");
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [useWallet, setUseWallet] = useState(false);
 
   const shippingCost = shipping === "personal" ? 0 : shipping === "inpost" ? 14.99 : 19.99;
   const subtotal = items.reduce((sum, i) => sum + (i.price || 0), 0);
   const total = subtotal + shippingCost;
+  const maxWalletUse = Math.min(walletBalance, Math.floor(total * 0.8 * 100) / 100);
+  const walletUsed = useWallet ? maxWalletUse : 0;
+  const toPay = Math.max(0, total - walletUsed);
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from("user_wallets")
+        .select("pln_balance")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      setWalletBalance(Number(data?.pln_balance || 0));
+    })();
+  }, []);
 
   const handleCheckout = async () => {
     if (items.length === 0) return;
@@ -34,23 +53,17 @@ export default function MarketplaceCart() {
       return;
     }
 
-    // For now, process first item as a purchase
     const firstItem = items[0];
     const result = await initiatePayment({
       productType: "marketplace_purchase",
       productRefId: firstItem.listing_id,
       amount: total,
+      walletUsed,
       description: `Zakup: ${firstItem.title}`,
-      metadata: {
-        listing_id: firstItem.listing_id,
-        items_count: items.length,
-      },
+      metadata: { listing_id: firstItem.listing_id, items_count: items.length },
       deliveryType: shipping,
       inpostPointId: shipping === "inpost" ? inpostPoint : undefined,
-      onSuccess: () => {
-        clearCart();
-        toast.success("Zamówienie złożone!");
-      },
+      onSuccess: () => { clearCart(); toast.success("Zamówienie złożone!"); },
     });
 
     if (result?.simulated) {
@@ -58,6 +71,7 @@ export default function MarketplaceCart() {
       navigate(`/payment/success?payment_id=${result.paymentId}`);
     }
   };
+
 
   if (loading) {
     return (
@@ -183,16 +197,45 @@ export default function MarketplaceCart() {
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Produkty</span>
-                    <span>{subtotal.toLocaleString("pl-PL")}\u00A0zł</span>
+                    <span>{subtotal.toLocaleString("pl-PL")}&nbsp;zł</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Dostawa</span>
-                    <span>{shippingCost.toFixed(2)}\u00A0zł</span>
+                    <span>{shippingCost.toFixed(2)}&nbsp;zł</span>
                   </div>
+
+                  {walletBalance > 0 && (
+                    <div className="mt-3 p-3 rounded-lg bg-primary/5 border border-primary/20">
+                      <label className="flex items-start gap-2 cursor-pointer">
+                        <Checkbox
+                          checked={useWallet}
+                          onCheckedChange={(v) => setUseWallet(!!v)}
+                          className="mt-0.5"
+                        />
+                        <div className="flex-1 text-sm">
+                          <div className="flex items-center gap-1.5 font-medium">
+                            <Wallet className="h-4 w-4 text-primary" />
+                            Użyj salda GetRido
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Dostępne: <strong>{walletBalance.toFixed(2).replace(".", ",")}&nbsp;zł</strong>.
+                            Saldem opłacisz do 80% zamówienia (max {maxWalletUse.toFixed(2).replace(".", ",")}&nbsp;zł).
+                          </p>
+                        </div>
+                      </label>
+                      {useWallet && walletUsed > 0 && (
+                        <div className="flex justify-between mt-2 text-sm text-primary font-medium">
+                          <span>Saldo użyte</span>
+                          <span>−{walletUsed.toFixed(2).replace(".", ",")}&nbsp;zł</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <Separator className="my-2" />
                   <div className="flex justify-between text-base font-bold">
-                    <span>Razem</span>
-                    <span className="text-primary">{total.toLocaleString("pl-PL", { minimumFractionDigits: 2 })}\u00A0zł</span>
+                    <span>Do zapłaty</span>
+                    <span className="text-primary">{toPay.toLocaleString("pl-PL", { minimumFractionDigits: 2 })}&nbsp;zł</span>
                   </div>
                 </div>
                 <Button
@@ -202,8 +245,9 @@ export default function MarketplaceCart() {
                   disabled={paying}
                 >
                   {paying ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                  Zapłać {total.toLocaleString("pl-PL", { minimumFractionDigits: 2 })} zł
+                  Zapłać {toPay.toLocaleString("pl-PL", { minimumFractionDigits: 2 })} zł
                 </Button>
+
               </Card>
             </div>
           </div>

@@ -67,15 +67,35 @@ export default function EasyAuth({ mode }: EasyAuthProps) {
 
     setIsLoading(true);
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data: signUpData, error } = await supabase.auth.signUp({
         email,
         password,
       });
 
       if (error) throw error;
 
+      // Wire referral system for users created via direct supabase.auth.signUp
+      const newUserId = signUpData.user?.id;
+      if (newUserId) {
+        try {
+          const { getStoredReferralCode } = await import("@/lib/referralTracking");
+          const refCode = getStoredReferralCode();
+          await supabase.rpc("ensure_referral_code", { p_user_id: newUserId });
+          await supabase.rpc("credit_welcome_bonus", { p_user_id: newUserId, p_amount: 20 });
+          if (refCode) {
+            await supabase.rpc("link_referral_on_signup", {
+              p_referred_user_id: newUserId,
+              p_code: refCode,
+              p_ip: null,
+              p_user_agent: navigator.userAgent,
+            });
+          }
+        } catch (e) { console.error("referral bootstrap failed:", e); }
+      }
+
       toast.success("Konto utworzone! Sprawdź email, aby potwierdzić rejestrację.");
       navigate('/easy/login');
+
     } catch (error: any) {
       console.error("Register error:", error);
       toast.error(error.message || "Błąd rejestracji");
