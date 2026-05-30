@@ -813,10 +813,11 @@ const CennikPage = () => {
             <div className="text-center mb-8">
               <Badge className="mb-3 bg-secondary text-secondary-foreground">Dla biznesu</Badge>
               <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
-                Rozwiązania dla flot i AI
+                Asystenci AI dla biznesu
               </h2>
               <p className="text-muted-foreground">
-                Dedykowane plany dla firm transportowych i zaawansowanych użytkowników AI.
+                Dedykowane plany AI — bez limitu zapytań, generowanie treści, AI Voice.
+
               </p>
             </div>
 
