@@ -408,46 +408,6 @@ const sections: Section[] = [
 
 const businessSections: Section[] = [
   {
-    id: "flota",
-    label: "Flota / Kierowcy",
-    icon: Car,
-    title: "Cennik dla Flot Uber / Bolt",
-    subtitle: "Dwa proste modele rozliczeń tygodniowych z kierowcą.",
-    groups: [
-      {
-        plans: [
-          {
-            name: "Model Pierwszy",
-            price: "159 zł",
-            period: "+ 0% podatku / tyg.",
-            description: "Z aktywną kartą paliwową E100.",
-            features: [
-              "Stała kwota, 0% podatku",
-              "Zniżki na paliwo (karta E100)",
-              "Maksymalna przewidywalność",
-              "Wypłaty co tydzień",
-            ],
-            cta: "Wybieram",
-          },
-          {
-            name: "Model Drugi",
-            price: "50 zł",
-            period: "+ 8% podatku / tyg.",
-            description: "Elastyczny model bez karty paliwowej.",
-            features: [
-              "Pełna obsługa rozliczeń",
-              "Brak ukrytych kosztów",
-              "Wypłaty co tydzień",
-              "Wsparcie 7 dni w tygodniu",
-            ],
-            highlighted: true,
-            cta: "Wybieram",
-          },
-        ],
-      },
-    ],
-  },
-  {
     id: "ai",
     label: "AI Pro / Asystenci",
     icon: Sparkles,
@@ -789,28 +749,6 @@ const CennikPage = () => {
           </div>
         </section>
 
-        {/* Promo banner */}
-        <section className="py-6 bg-background">
-          <div className="container mx-auto px-4">
-            <Card className="max-w-5xl mx-auto p-5 md:p-6 bg-gradient-to-r from-primary to-accent text-primary-foreground border-0">
-              <div className="flex items-start gap-4">
-                <Gift className="h-8 w-8 flex-shrink-0 mt-1" />
-                <div>
-                  <h3 className="text-lg md:text-xl font-bold mb-2">
-                    🎁 OFERTA STARTOWA — czerwiec / lipiec / sierpień 2026
-                  </h3>
-                  <ul className="space-y-1 text-sm md:text-base text-primary-foreground/95">
-                    <li>• Pierwsze ogłoszenie ZA DARMO (auta + nieruchomości)</li>
-                    <li>• 50% rabatu na drugie i trzecie (kod: <span className="font-mono font-bold">START50</span>)</li>
-                    <li>• 3 miesiące GRATIS dla pierwszych 100 agencji nieruchomości</li>
-                    <li>• Warsztaty: 5% prowizji do odwołania (zamiast standardowych 10%)</li>
-                    <li>• Marketplace: unlimited darmowe ogłoszenia przez 3 miesiące</li>
-                  </ul>
-                </div>
-              </div>
-            </Card>
-          </div>
-        </section>
 
         {/* Tabs */}
         <section className="py-10">
@@ -875,10 +813,11 @@ const CennikPage = () => {
             <div className="text-center mb-8">
               <Badge className="mb-3 bg-secondary text-secondary-foreground">Dla biznesu</Badge>
               <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
-                Rozwiązania dla flot i AI
+                Asystenci AI dla biznesu
               </h2>
               <p className="text-muted-foreground">
-                Dedykowane plany dla firm transportowych i zaawansowanych użytkowników AI.
+                Dedykowane plany AI — bez limitu zapytań, generowanie treści, AI Voice.
+
               </p>
             </div>
 
