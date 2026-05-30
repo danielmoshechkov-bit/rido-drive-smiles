@@ -290,7 +290,3 @@ export default function AdminPortal() {
     </div>
   );
 }
-      </div>
-    </div>
-  );
-}
