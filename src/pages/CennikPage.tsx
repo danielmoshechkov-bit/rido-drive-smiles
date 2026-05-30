@@ -547,7 +547,7 @@ const UslugiContent = ({ onCta }: { onCta: () => void }) => (
     {/* Comparison */}
     <div className="max-w-3xl mx-auto grid md:grid-cols-2 gap-4 mb-10">
       <Card className="p-5 bg-muted/40">
-        <h4 className="font-bold text-foreground mb-2">Fixly (pay-per-lead)</h4>
+        <h4 className="font-bold text-foreground mb-2">Konkurencja (pay-per-lead)</h4>
         <p className="text-sm text-muted-foreground">
           Płacisz 5–15 zł za każdy kontakt — niezależnie czy klient się odezwie czy nie.
         </p>
