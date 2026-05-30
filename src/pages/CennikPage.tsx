@@ -476,32 +476,6 @@ const businessSections: Section[] = [
   },
 ];
 
-const faqs = [
-  {
-    q: "Dlaczego jesteście tańsi niż konkurencja?",
-    a: "Bo wierzymy, że rynek ogłoszeń powinien być dostępny dla każdego. Nasze ceny są stałe i przewidywalne.",
-  },
-  {
-    q: "Jak działa prowizja w usługach?",
-    a: "Płacisz tylko gdy klient z platformy zapłaci za zlecenie. System automatycznie liczy 5% od Twojego zarobku (cena minus koszt części/materiałów).",
-  },
-  {
-    q: "Czy mogę zmienić plan w trakcie?",
-    a: "Tak, w dowolnym momencie. Różnica jest doliczana proporcjonalnie.",
-  },
-  {
-    q: "Co jeśli klient nie przyszedł z platformy?",
-    a: "Wtedy nie pobieramy żadnej prowizji. Płacisz tylko za system ERP (plan miesięczny) — który masz tak czy inaczej.",
-  },
-  {
-    q: "Czy dane karty są bezpieczne?",
-    a: "Tak. Szyfrowanie SSL, certyfikowany procesor płatności. Nie przechowujemy danych karty na naszych serwerach.",
-  },
-  {
-    q: "Jak się skontaktować?",
-    a: "Email: kontakt@getrido.pl, formularz: /kontakt",
-  },
-];
 
 const aiExtras = [
   { icon: "🤖", name: "AI Wycena nieruchomości", price: "19 zł", note: "GRATIS w Premium nieruchomości" },
