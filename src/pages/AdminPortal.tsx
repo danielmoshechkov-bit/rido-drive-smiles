@@ -280,7 +280,16 @@ export default function AdminPortal() {
           <TabsContent value="fleet-debt-rebuild">
             <WeeklyDebtRebuildPanel />
           </TabsContent>
+
+          {/* Referrals Tab */}
+          <TabsContent value="referrals">
+            <ReferralSystemPanel />
+          </TabsContent>
         </Tabs>
+      </div>
+    </div>
+  );
+}
       </div>
     </div>
   );
