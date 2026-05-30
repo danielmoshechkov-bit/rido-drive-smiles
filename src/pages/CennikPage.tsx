@@ -547,6 +547,8 @@ const PlanCard = ({ plan, onCta }: { plan: Plan; onCta: () => void }) => (
 
 const SectionContent = ({ section, onCta }: { section: Section; onCta: () => void }) => {
   if (section.id === "uslugi") return <UslugiContent onCta={onCta} />;
+  if (section.id === "ai") return <AiProContent onCta={onCta} />;
+  if (section.id === "polecenia") return <PoleceniaContent />;
 
   return (
     <div>
