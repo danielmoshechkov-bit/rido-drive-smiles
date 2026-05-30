@@ -404,6 +404,22 @@ const sections: Section[] = [
       },
     ],
   },
+  {
+    id: "ai",
+    label: "AI Pro",
+    icon: Sparkles,
+    title: "Cennik AI Pro i Asystentów AI",
+    subtitle: "Dodatki AI do każdego planu portalu — bez limitu zapytań, generowanie treści, AI Voice.",
+    groups: [],
+  },
+  {
+    id: "polecenia",
+    label: "Polecenia",
+    icon: Gift,
+    title: "Program poleceń GetRido",
+    subtitle: "Polecaj GetRido znajomym i zyskuj realne nagrody.",
+    groups: [],
+  },
 ];
 
 const businessSections: Section[] = [
