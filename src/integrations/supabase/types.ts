@@ -15305,34 +15305,49 @@ export type Database = {
       referral_uses: {
         Row: {
           coins_awarded: number | null
+          completed_at: string | null
           created_at: string | null
+          expired_reason: string | null
+          first_purchase_at: string | null
           id: string
           ip_address: string | null
           referral_code_id: string
           referred_user_id: string | null
           referrer_user_id: string
+          reward_amount_pln: number
+          reward_type: string
           status: string | null
           user_agent: string | null
         }
         Insert: {
           coins_awarded?: number | null
+          completed_at?: string | null
           created_at?: string | null
+          expired_reason?: string | null
+          first_purchase_at?: string | null
           id?: string
           ip_address?: string | null
           referral_code_id: string
           referred_user_id?: string | null
           referrer_user_id: string
+          reward_amount_pln?: number
+          reward_type?: string
           status?: string | null
           user_agent?: string | null
         }
         Update: {
           coins_awarded?: number | null
+          completed_at?: string | null
           created_at?: string | null
+          expired_reason?: string | null
+          first_purchase_at?: string | null
           id?: string
           ip_address?: string | null
           referral_code_id?: string
           referred_user_id?: string | null
           referrer_user_id?: string
+          reward_amount_pln?: number
+          reward_type?: string
           status?: string | null
           user_agent?: string | null
         }
@@ -19512,6 +19527,9 @@ export type Database = {
           coins_balance: number | null
           created_at: string | null
           id: string
+          pln_balance: number
+          pln_total_earned: number
+          pln_total_spent: number
           total_earned: number | null
           total_spent: number | null
           updated_at: string | null
@@ -19522,6 +19540,9 @@ export type Database = {
           coins_balance?: number | null
           created_at?: string | null
           id?: string
+          pln_balance?: number
+          pln_total_earned?: number
+          pln_total_spent?: number
           total_earned?: number | null
           total_spent?: number | null
           updated_at?: string | null
@@ -19532,6 +19553,9 @@ export type Database = {
           coins_balance?: number | null
           created_at?: string | null
           id?: string
+          pln_balance?: number
+          pln_total_earned?: number
+          pln_total_spent?: number
           total_earned?: number | null
           total_spent?: number | null
           updated_at?: string | null
@@ -20777,6 +20801,42 @@ export type Database = {
           phrase_text?: string
           provider?: string | null
           voice_name?: string | null
+        }
+        Relationships: []
+      }
+      wallet_pln_transactions: {
+        Row: {
+          amount: number
+          created_at: string
+          description: string | null
+          expires_at: string | null
+          id: string
+          related_order_id: string | null
+          related_user_id: string | null
+          type: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          description?: string | null
+          expires_at?: string | null
+          id?: string
+          related_order_id?: string | null
+          related_user_id?: string | null
+          type: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          description?: string | null
+          expires_at?: string | null
+          id?: string
+          related_order_id?: string | null
+          related_user_id?: string | null
+          type?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -23813,6 +23873,18 @@ export type Database = {
         Returns: Json
       }
       cleanup_expired_workshop_photos: { Args: never; Returns: undefined }
+      complete_referral_on_first_purchase: {
+        Args: {
+          p_order_amount_pln: number
+          p_order_id?: string
+          p_referred_user_id: string
+        }
+        Returns: Json
+      }
+      credit_welcome_bonus: {
+        Args: { p_amount?: number; p_user_id: string }
+        Returns: Json
+      }
       deduct_sms_credit: { Args: { p_provider_id: string }; Returns: undefined }
       deduct_vehicle_lookup_credit: {
         Args: { p_user_id: string }
@@ -23824,6 +23896,7 @@ export type Database = {
         Returns: boolean
       }
       driver_owns_record: { Args: { _driver_id: string }; Returns: boolean }
+      ensure_referral_code: { Args: { p_user_id: string }; Returns: string }
       generate_random_listing_number: { Args: never; Returns: string }
       generate_telegram_token: { Args: never; Returns: Json }
       get_active_commission: {
@@ -23844,6 +23917,7 @@ export type Database = {
       }
       get_product_avg_cost: { Args: { p_product_id: string }; Returns: number }
       get_product_stock: { Args: { p_product_id: string }; Returns: number }
+      get_user_account_type: { Args: { p_user_id: string }; Returns: string }
       get_user_fleet_id: { Args: { _user_id: string }; Returns: string }
       get_user_marketplace_profile_id: {
         Args: { p_user_id: string }
@@ -23899,6 +23973,15 @@ export type Database = {
       link_auth_user_to_driver: {
         Args: { p_driver_id: string; p_user_id: string }
         Returns: undefined
+      }
+      link_referral_on_signup: {
+        Args: {
+          p_code: string
+          p_ip?: string
+          p_referred_user_id: string
+          p_user_agent?: string
+        }
+        Returns: Json
       }
       merge_duplicate_drivers: {
         Args: { p_source: string; p_target: string }
