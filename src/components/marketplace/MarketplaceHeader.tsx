@@ -57,7 +57,7 @@ export function MarketplaceHeader({ user, favoritesCount = 0 }: MarketplaceHeade
         <div className="flex items-center justify-between h-16">
           <div 
             className="flex items-center gap-3 cursor-pointer" 
-            onClick={() => navigate("/gielda")}
+            onClick={() => navigate("/")}
           >
             <img 
               src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
