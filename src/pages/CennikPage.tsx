@@ -58,9 +58,9 @@ const sections: Section[] = [
     id: "auta",
     label: "Auta",
     icon: Car,
-    title: "Wystaw auto taniej niż w Otomoto",
+    title: "Wystaw auto taniej",
     subtitle: "Trzy plany dla osób prywatnych i komisów. Bez ukrytych opłat.",
-    comparison: "Otomoto: 49,99 zł · GetRido: 25 zł → 50% taniej 💰",
+    comparison: "Już od 25 zł — taniej niż u konkurencji 💰",
     groups: [
       {
         plans: [
