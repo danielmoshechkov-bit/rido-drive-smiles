@@ -106,102 +106,11 @@ const sections: Section[] = [
     id: "nieruchomosci",
     label: "Nieruchomości",
     icon: Home,
-    title: "Nieruchomości — dla prywatnych i agencji",
-    subtitle: "Plany dopasowane do skali ogłoszeń.",
-    comparison: "Plany agencyjne już od 399 zł/mc — znacznie taniej niż konkurencja 🔥",
-    groups: [
-      {
-        heading: "Osoby prywatne",
-        plans: [
-          {
-            name: "Podstawowy",
-            price: "39 zł",
-            period: "/ 30 dni",
-            features: [
-              "Standardowe ogłoszenie",
-              "Do 15 zdjęć",
-              "Plan piętra",
-              "Mapa lokalizacji",
-            ],
-            cta: "Wystaw ogłoszenie",
-          },
-          {
-            name: "Standard",
-            price: "69 zł",
-            period: "/ 30 dni",
-            features: [
-              "Wszystko z Podstawowego",
-              "Do 30 zdjęć",
-              "Podbicia",
-              "Wirtualny spacer",
-              "Statystyki",
-            ],
-            highlighted: true,
-            badge: "Najpopularniejszy",
-            cta: "Wybieram Standard",
-          },
-          {
-            name: "Premium",
-            price: "99 zł",
-            period: "/ 30 dni",
-            features: [
-              "Wszystko ze Standard",
-              "Voice Tour 360° (6 języków)",
-              "AI Wycena nieruchomości",
-              "AI Raport dzielnicy",
-              "Top wyników",
-              "Wyróżnienie kolorem",
-            ],
-            cta: "Wybieram Premium",
-          },
-        ],
-      },
-      {
-        heading: "Agencje nieruchomości",
-        plans: [
-          {
-            name: "Starter",
-            price: "199 zł",
-            period: "/ mies.",
-            features: [
-              "Do 20 ogłoszeń",
-              "Dashboard agencji",
-              "Statystyki",
-              "Email support",
-            ],
-            cta: "Wybieram Starter",
-          },
-          {
-            name: "Profesjonalny",
-            price: "399 zł",
-            period: "/ mies.",
-            features: [
-              "Do 100 ogłoszeń",
-              "AI Wycena",
-              "CRM",
-              "Logo agencji",
-              "Priority support",
-            ],
-            highlighted: true,
-            badge: "Najpopularniejszy",
-            cta: "Wybieram Profesjonalny",
-          },
-          {
-            name: "Agencyjny",
-            price: "699 zł",
-            period: "/ mies.",
-            features: [
-              "Unlimited ogłoszeń",
-              "Własna podstrona agencji",
-              "Dostęp API",
-              "Wirtualny agent AI 24/7",
-            ],
-            cta: "Wybieram Agencyjny",
-          },
-        ],
-      },
-    ],
+    title: "Nieruchomości — dla agencji",
+    subtitle: "Plany agencyjne dopasowane do skali Twojego biura.",
+    groups: [],
   },
+
   {
     id: "warsztat",
     label: "Warsztat ERP",
@@ -361,42 +270,9 @@ const sections: Section[] = [
     icon: FileText,
     title: "Cennik modułu Księgowość i KSeF",
     subtitle: "Faktury VAT, KSeF FA(3), automatyczne księgowanie.",
-    groups: [
-      {
-        plans: [
-          {
-            name: "Faktury Start",
-            price: "0 zł",
-            period: "/ mies.",
-            description: "Do 10 faktur miesięcznie.",
-            features: [
-              "Faktury VAT i pro forma",
-              "Numeracja automatyczna",
-              "Wysyłka e-mail",
-              "Eksport PDF",
-            ],
-            cta: "Zacznij za darmo",
-          },
-          {
-            name: "Księgowość Pro",
-            price: "79 zł",
-            period: "/ mies.",
-            description: "Pełna obsługa faktur z KSeF.",
-            features: [
-              "Bez limitu faktur",
-              "Integracja KSeF FA(3)",
-              "Faktury korygujące",
-              "Biała Lista weryfikacja",
-              "AI Asystent Księgowy",
-            ],
-            highlighted: true,
-            badge: "AI",
-            cta: "Wybieram Pro",
-          },
-        ],
-      },
-    ],
+    groups: [],
   },
+
   {
     id: "ai",
     label: "AI Pro",
@@ -476,7 +352,7 @@ const aiExtras = [
   { icon: "📊", name: "AI Raport dzielnicy", price: "25 zł" },
   { icon: "🎙️", name: "Voice Tour 360° (6 języków)", price: "49 zł" },
   { icon: "📸", name: "AI obróbka zdjęć", price: "9 zł" },
-  { icon: "🚗", name: "Raport VIN", price: "19 zł" },
+  { icon: "🚗", name: "Raport VIN — pełna historia pojazdu", price: "69 zł", note: "Stała cena (u innych 70–90 zł)" },
   { icon: "🏦", name: "Kalkulator kredytu", price: "DARMOWY" },
 ];
 
@@ -532,6 +408,8 @@ const SectionContent = ({ section, onCta }: { section: Section; onCta: () => voi
   if (section.id === "uslugi") return <UslugiContent onCta={onCta} />;
   if (section.id === "ai") return <AiProContent onCta={onCta} />;
   if (section.id === "polecenia") return <PoleceniaContent />;
+  if (section.id === "nieruchomosci") return <NieruchomosciContent onCta={onCta} />;
+  if (section.id === "ksiegowosc") return <KsiegowoscContent onCta={onCta} />;
 
   return (
     <div>
@@ -669,7 +547,7 @@ const UslugiContent = ({ onCta }: { onCta: () => void }) => (
     {/* Comparison */}
     <div className="max-w-3xl mx-auto grid md:grid-cols-2 gap-4 mb-10">
       <Card className="p-5 bg-muted/40">
-        <h4 className="font-bold text-foreground mb-2">Fixly (pay-per-lead)</h4>
+        <h4 className="font-bold text-foreground mb-2">Konkurencja (pay-per-lead)</h4>
         <p className="text-sm text-muted-foreground">
           Płacisz 5–15 zł za każdy kontakt — niezależnie czy klient się odezwie czy nie.
         </p>
@@ -754,6 +632,205 @@ const AiProContent = ({ onCta }: { onCta: () => void }) => {
   );
 };
 
+type AgencyPlan = {
+  name: string;
+  oldPrice: string;
+  promoPrice: string;
+  features: string[];
+  highlighted?: boolean;
+  badge?: string;
+};
+
+const agencyPlans: AgencyPlan[] = [
+  {
+    name: "Starter",
+    oldPrice: "399 zł/msc",
+    promoPrice: "199 zł/msc",
+    features: [
+      "Do 20 ogłoszeń",
+      "Dashboard agenta",
+      "Statystyki podstawowe",
+      "Email support",
+    ],
+  },
+  {
+    name: "Profesjonalny",
+    oldPrice: "799 zł/msc",
+    promoPrice: "399 zł/msc",
+    highlighted: true,
+    badge: "⭐ Najpopularniejszy",
+    features: [
+      "Do 100 ogłoszeń",
+      "AI Wycena nieruchomości",
+      "CRM dla agentów",
+      "Zaawansowane statystyki",
+      "Logo agencji na ogłoszeniach",
+      "Priority support",
+    ],
+  },
+  {
+    name: "Agencyjny",
+    oldPrice: "1399 zł/msc",
+    promoPrice: "699 zł/msc",
+    features: [
+      "Unlimited ogłoszenia",
+      "Własna podstrona agencji",
+      "API integration",
+      "Wirtualny agent AI 24/7",
+      "Dedicated support",
+    ],
+  },
+];
+
+const NieruchomosciContent = ({ onCta }: { onCta: () => void }) => (
+  <div>
+    <div className="text-center mb-8">
+      <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-3">
+        Nieruchomości — plany agencyjne
+      </h2>
+      <p className="text-muted-foreground max-w-2xl mx-auto">
+        Plany dopasowane do skali Twojego biura nieruchomości.
+      </p>
+    </div>
+
+    {/* Promo banner */}
+    <Card className="max-w-4xl mx-auto p-8 mb-10 bg-gradient-hero text-primary-foreground text-center border-0">
+      <h3 className="text-2xl md:text-3xl font-bold mb-3">
+        🎁 OFERTA WPROWADZAJĄCA: WSZYSTKIE AGENCJE ZA DARMO
+      </h3>
+      <p className="text-primary-foreground/90 mb-2">
+        Pierwsi agenci dołączają <span className="font-bold">BEZPŁATNIE</span>.
+      </p>
+      <p className="text-primary-foreground/90">
+        Po osiągnięciu masy krytycznej wprowadzimy ceny promocyjne (poniżej),
+        które i tak będą dużo niższe niż u konkurencji.
+      </p>
+    </Card>
+
+    <div className="grid gap-6 max-w-6xl mx-auto md:grid-cols-3 mb-8">
+      {agencyPlans.map((p) => (
+        <Card
+          key={p.name}
+          className={`p-6 flex flex-col relative transition-all duration-300 hover:shadow-purple hover:-translate-y-1 ${
+            p.highlighted ? "border-2 border-primary shadow-purple" : "border border-border"
+          }`}
+        >
+          {p.badge && (
+            <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-accent text-accent-foreground">
+              {p.badge}
+            </Badge>
+          )}
+          <div className="mb-4">
+            <h3 className="text-lg font-bold text-primary mb-2">{p.name}</h3>
+            <div className="flex items-baseline gap-2 mb-1 flex-wrap">
+              <span className="text-sm text-muted-foreground line-through">{p.oldPrice}</span>
+              <span className="text-base font-semibold text-foreground">{p.promoPrice}</span>
+            </div>
+            <p className="text-xs text-muted-foreground mb-2">cena promocyjna do odwołania</p>
+            <div className="flex items-baseline gap-1">
+              <span className="text-3xl font-bold text-primary">Teraz: 0 zł</span>
+            </div>
+          </div>
+          <ul className="space-y-2 mb-6 flex-1">
+            {p.features.map((f) => (
+              <li key={f} className="flex items-start gap-2 text-sm">
+                <Check className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
+                <span className="text-foreground">{f}</span>
+              </li>
+            ))}
+          </ul>
+          <Button
+            variant={p.highlighted ? "default" : "outline"}
+            className="w-full"
+            onClick={onCta}
+          >
+            Dołącz teraz za darmo
+          </Button>
+        </Card>
+      ))}
+    </div>
+
+    <Card className="max-w-3xl mx-auto p-5 bg-accent/10 border-accent/30 text-center">
+      <p className="text-sm text-foreground">
+        U konkurencji plany dla agencji: <span className="font-semibold">2.000–3.000 zł/msc</span>.
+        GetRido docelowo: <span className="font-semibold">199–699 zł/msc</span>.
+        <br />
+        <span className="text-primary font-bold">→ Nawet 87% taniej, a teraz na start ZA DARMO 🎁</span>
+      </p>
+    </Card>
+  </div>
+);
+
+const KsiegowoscContent = ({ onCta }: { onCta: () => void }) => {
+  const plans: Plan[] = [
+    {
+      name: "Basic",
+      price: "29 zł",
+      period: "/ mies.",
+      features: [
+        "Program do faktur",
+        "Bez limitu faktur",
+        "Faktury VAT, pro forma, korygujące",
+        "Numeracja automatyczna",
+        "Wysyłka email",
+        "Eksport PDF",
+        "Integracja KSeF basic",
+      ],
+      cta: "Wypróbuj 14 dni za darmo",
+    },
+    {
+      name: "Pro",
+      price: "59 zł",
+      period: "/ mies.",
+      highlighted: true,
+      badge: "Najpopularniejszy",
+      features: [
+        "Wszystko z Basic",
+        "AI Asystent Księgowy",
+        "Program magazynowy",
+        "Auto-odczyt faktur (zdjęcie → dane)",
+        "Doradca podatkowy AI",
+        "Wykrywanie błędów w fakturach",
+        "KSeF pełny + wysyłka",
+        "Weryfikacja Białej Listy",
+        "Zaawansowane raporty",
+      ],
+      cta: "Wypróbuj 14 dni za darmo",
+    },
+  ];
+
+  return (
+    <div>
+      <div className="text-center mb-10">
+        <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-3">
+          Cennik modułu Księgowość i KSeF
+        </h2>
+        <p className="text-muted-foreground max-w-2xl mx-auto">
+          Faktury VAT, KSeF FA(3), automatyczne księgowanie z AI.
+        </p>
+      </div>
+
+      <div className="grid gap-6 max-w-4xl mx-auto md:grid-cols-2 mb-8">
+        {plans.map((plan) => (
+          <PlanCard key={plan.name} plan={plan} onCta={onCta} />
+        ))}
+      </div>
+
+      <Card className="max-w-3xl mx-auto p-5 bg-accent/10 border-accent/30 text-center">
+        <p className="text-sm text-foreground">
+          U konkurencji programy fakturowe: <span className="font-semibold">49–69 zł/msc</span>.
+          GetRido Basic: <span className="font-semibold">29 zł</span>, Pro z AI:{" "}
+          <span className="font-semibold">59 zł</span>.
+          <br />
+          <span className="text-primary font-bold">→ Taniej i więcej funkcji.</span>
+        </p>
+      </Card>
+    </div>
+  );
+};
+
+
+
 const PoleceniaContent = () => (
   <div>
     <div className="text-center mb-10">
@@ -815,7 +892,8 @@ const CennikPage = () => {
         <section className="py-10">
           <div className="container mx-auto px-4">
             <Tabs value={tab} onValueChange={setTab} className="w-full">
-              <div className="overflow-x-auto scrollbar-hide mb-8">
+              <div className="relative mb-8">
+                <div className="overflow-x-auto scrollbar-hide snap-x snap-mandatory">
                 <TabsList className="w-max mx-auto grid grid-flow-col auto-cols-max gap-2 bg-muted p-1 h-auto">
                   {sections.map((s) => {
                     const Icon = s.icon;
@@ -831,7 +909,10 @@ const CennikPage = () => {
                     );
                   })}
                 </TabsList>
+                </div>
+                <div className="pointer-events-none absolute top-0 right-0 h-full w-12 bg-gradient-to-l from-background to-transparent md:hidden" />
               </div>
+
 
               {sections.map((section) => (
                 <TabsContent key={section.id} value={section.id} className="mt-0">
