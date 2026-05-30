@@ -710,7 +710,7 @@ export default function PropertyDetailPage() {
               ← Wróć do wszystkich ogłoszeń
             </a>
             <p className="text-muted-foreground text-sm">
-              © 2025 get RIDO. Wszystkie prawa zastrzeżone.
+              © 2025 GetRido. Wszystkie prawa zastrzeżone.
             </p>
           </div>
         </div>
