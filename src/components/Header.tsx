@@ -5,14 +5,11 @@ import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { AuthModal } from "@/components/auth/AuthModal";
 
 const navItems = [
-  { label: 'Strona główna', to: '/' },
-  { label: 'Ogłoszenia', to: '/gielda' },
-  { label: 'Nieruchomości', to: '/nieruchomosci' },
-  { label: 'Usługi', to: '/uslugi' },
   { label: 'Cennik', to: '/cennik' },
   { label: 'Jak zacząć', to: '/jak-zaczac' },
   { label: 'Kontakt', to: '/kontakt' },
 ];
+
 
 const Header = () => {
   const [showLoginModal, setShowLoginModal] = useState(false);
