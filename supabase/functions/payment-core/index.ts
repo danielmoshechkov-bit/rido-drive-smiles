@@ -218,11 +218,11 @@ async function handleWebhook(supabase: any, body: any) {
         try {
           await supabase.functions.invoke("rido-mail", {
             body: {
-              to_user_id: refResult.referrer_id,
+              to_user_id: refResult.referrer_user_id,
               subject: "🎁 Otrzymałeś nagrodę za polecenie — GetRido",
               template: "referral_reward",
               data: {
-                reward_amount: refResult.reward_amount_pln,
+                reward_amount: refResult.amount_pln,
                 reward_type: refResult.reward_type,
               },
             },
