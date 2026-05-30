@@ -1737,6 +1737,10 @@ export default function ClientPortal() {
                 </CardContent>
               </Card>
               )}
+
+              {settingsSubTab === 'ksef' && activeEntities.length > 0 && (
+                <KsefUserSettings />
+              )}
             </div>
           )}
 
