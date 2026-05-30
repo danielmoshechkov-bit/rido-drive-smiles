@@ -20,9 +20,10 @@ import { AdminPaymentsTab } from '@/components/admin/AdminPaymentsTab';
 import { AIAgentsPanel } from '@/components/admin/AIAgentsPanel';
 import { SeoAgent } from '@/components/admin/SeoAgent';
 import { WeeklyDebtRebuildPanel } from '@/components/admin/WeeklyDebtRebuildPanel';
+import { ReferralSystemPanel } from '@/components/admin/ReferralSystemPanel';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { UserDropdown } from '@/components/UserDropdown';
-import { Loader2, Palette, Users, Wrench, Calculator, LayoutGrid, Bot, Key, TicketCheck, Briefcase, Plug, Wallet, Shield, Cpu, Globe, RefreshCcw } from 'lucide-react';
+import { Loader2, Palette, Users, Wrench, Calculator, LayoutGrid, Bot, Key, TicketCheck, Briefcase, Plug, Wallet, Shield, Cpu, Globe, RefreshCcw, Gift } from 'lucide-react';
 
 export default function AdminPortal() {
   const navigate = useNavigate();
@@ -106,6 +107,7 @@ export default function AdminPortal() {
     { value: 'ai-agents', label: 'Agenci AI', icon: Cpu },
     { value: 'seo-agent', label: 'Agent SEO', icon: Globe },
     { value: 'fleet-debt-rebuild', label: 'Przebudowa długów', icon: RefreshCcw },
+    { value: 'referrals', label: 'Polecenia', icon: Gift },
   ];
 
   return (
@@ -277,6 +279,11 @@ export default function AdminPortal() {
           {/* Weekly Debt Rebuild Tab */}
           <TabsContent value="fleet-debt-rebuild">
             <WeeklyDebtRebuildPanel />
+          </TabsContent>
+
+          {/* Referrals Tab */}
+          <TabsContent value="referrals">
+            <ReferralSystemPanel />
           </TabsContent>
         </Tabs>
       </div>

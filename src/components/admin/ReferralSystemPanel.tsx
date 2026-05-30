@@ -40,6 +40,28 @@ interface ReferralStats {
   total_coins_awarded: number;
   pending_uses: number;
   suspicious_uses: number;
+  total_pln_awarded: number;
+  completed_uses: number;
+  pending_first_purchase: number;
+}
+
+interface ReferralUseRow {
+  id: string;
+  status: string;
+  reward_amount_pln: number | null;
+  reward_type: string | null;
+  coins_awarded: number | null;
+  created_at: string;
+  completed_at: string | null;
+  referrer_user_id: string;
+  referred_user_id: string;
+}
+
+interface TopReferrer {
+  user_id: string;
+  code: string;
+  uses_count: number;
+  total_earnings: number;
 }
 
 export function ReferralSystemPanel() {
@@ -48,6 +70,9 @@ export function ReferralSystemPanel() {
   const [stats, setStats] = useState<ReferralStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  const [topReferrers, setTopReferrers] = useState<TopReferrer[]>([]);
+  const [recentUses, setRecentUses] = useState<ReferralUseRow[]>([]);
 
   useEffect(() => {
     loadData();
@@ -84,21 +109,40 @@ export function ReferralSystemPanel() {
 
       const { data: usesData } = await supabase
         .from('referral_uses')
-        .select('status, coins_awarded');
+        .select('id, status, coins_awarded, reward_amount_pln, reward_type, created_at, completed_at, referrer_user_id, referred_user_id')
+        .order('created_at', { ascending: false })
+        .limit(500);
 
       if (codesData && usesData) {
-        const totalCoins = (usesData as any[]).reduce((sum, u) => sum + (u.coins_awarded || 0), 0);
-        const pending = (usesData as any[]).filter(u => u.status === 'pending').length;
-        const suspicious = (usesData as any[]).filter(u => u.status === 'suspicious').length;
+        const uses = usesData as any[];
+        const totalCoins = uses.reduce((sum, u) => sum + (u.coins_awarded || 0), 0);
+        const totalPln = uses.reduce((sum, u) => sum + Number(u.reward_amount_pln || 0), 0);
+        const pending = uses.filter(u => u.status === 'pending').length;
+        const suspicious = uses.filter(u => u.status === 'suspicious').length;
+        const completed = uses.filter(u => u.status === 'completed').length;
+        const pendingFirst = uses.filter(u => u.status === 'pending_first_purchase').length;
 
         setStats({
           total_codes: codesData.length,
-          total_uses: usesData.length,
+          total_uses: uses.length,
           total_coins_awarded: totalCoins,
           pending_uses: pending,
-          suspicious_uses: suspicious
+          suspicious_uses: suspicious,
+          total_pln_awarded: totalPln,
+          completed_uses: completed,
+          pending_first_purchase: pendingFirst,
         });
+
+        setRecentUses(uses.slice(0, 25) as ReferralUseRow[]);
       }
+
+      // Top referrers
+      const { data: topCodes } = await supabase
+        .from('referral_codes')
+        .select('user_id, code, uses_count, total_earnings')
+        .order('total_earnings', { ascending: false })
+        .limit(10);
+      setTopReferrers((topCodes as TopReferrer[]) || []);
     } catch (error) {
       console.error('Error loading referral data:', error);
       toast.error('Błąd ładowania danych');
@@ -229,44 +273,143 @@ export function ReferralSystemPanel() {
 
       {/* Stats Grid */}
       {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
           <Card>
-            <CardContent className="p-4 text-center">
-              <Users className="h-6 w-6 mx-auto mb-2 text-primary" />
-              <p className="text-2xl font-bold">{stats.total_codes}</p>
-              <p className="text-xs text-muted-foreground">Aktywne kody</p>
+            <CardContent className="p-3 text-center">
+              <Users className="h-5 w-5 mx-auto mb-1 text-primary" />
+              <p className="text-xl font-bold">{stats.total_codes}</p>
+              <p className="text-[10px] text-muted-foreground">Aktywne kody</p>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4 text-center">
-              <BarChart3 className="h-6 w-6 mx-auto mb-2 text-blue-500" />
-              <p className="text-2xl font-bold">{stats.total_uses}</p>
-              <p className="text-xs text-muted-foreground">Użycia razem</p>
+            <CardContent className="p-3 text-center">
+              <BarChart3 className="h-5 w-5 mx-auto mb-1 text-blue-500" />
+              <p className="text-xl font-bold">{stats.total_uses}</p>
+              <p className="text-[10px] text-muted-foreground">Polecenia razem</p>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4 text-center">
-              <Coins className="h-6 w-6 mx-auto mb-2 text-yellow-500" />
-              <p className="text-2xl font-bold">{stats.total_coins_awarded}</p>
-              <p className="text-xs text-muted-foreground">Rozdane monety</p>
+            <CardContent className="p-3 text-center">
+              <CheckCircle className="h-5 w-5 mx-auto mb-1 text-green-500" />
+              <p className="text-xl font-bold">{stats.completed_uses}</p>
+              <p className="text-[10px] text-muted-foreground">Zakończone</p>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4 text-center">
-              <RefreshCw className="h-6 w-6 mx-auto mb-2 text-orange-500" />
-              <p className="text-2xl font-bold">{stats.pending_uses}</p>
-              <p className="text-xs text-muted-foreground">Oczekujące</p>
+            <CardContent className="p-3 text-center">
+              <RefreshCw className="h-5 w-5 mx-auto mb-1 text-amber-500" />
+              <p className="text-xl font-bold">{stats.pending_first_purchase}</p>
+              <p className="text-[10px] text-muted-foreground">Czeka na 1 zakup</p>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4 text-center">
-              <AlertTriangle className="h-6 w-6 mx-auto mb-2 text-red-500" />
-              <p className="text-2xl font-bold">{stats.suspicious_uses}</p>
-              <p className="text-xs text-muted-foreground">Podejrzane</p>
+            <CardContent className="p-3 text-center">
+              <Coins className="h-5 w-5 mx-auto mb-1 text-yellow-600" />
+              <p className="text-xl font-bold">{stats.total_pln_awarded.toFixed(0)}{'\u00A0'}zł</p>
+              <p className="text-[10px] text-muted-foreground">Wypłacone PLN</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-3 text-center">
+              <Coins className="h-5 w-5 mx-auto mb-1 text-yellow-500" />
+              <p className="text-xl font-bold">{stats.total_coins_awarded}</p>
+              <p className="text-[10px] text-muted-foreground">Monety</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-3 text-center">
+              <RefreshCw className="h-5 w-5 mx-auto mb-1 text-orange-500" />
+              <p className="text-xl font-bold">{stats.pending_uses}</p>
+              <p className="text-[10px] text-muted-foreground">Oczekujące</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-3 text-center">
+              <AlertTriangle className="h-5 w-5 mx-auto mb-1 text-red-500" />
+              <p className="text-xl font-bold">{stats.suspicious_uses}</p>
+              <p className="text-[10px] text-muted-foreground">Podejrzane</p>
             </CardContent>
           </Card>
         </div>
       )}
+
+      {/* Top referrers + Recent uses */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" /> Top polecający
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {topReferrers.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">Brak danych</p>
+            ) : (
+              <div className="space-y-2">
+                {topReferrers.map((r, i) => (
+                  <div key={r.user_id} className="flex items-center justify-between text-sm border-b pb-1.5">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-muted-foreground w-5">{i + 1}.</span>
+                      <code className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{r.code}</code>
+                      <span className="text-muted-foreground truncate text-xs">{r.user_id.slice(0, 8)}…</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-xs">
+                      <span>{r.uses_count} użyć</span>
+                      <span className="font-semibold">{r.total_earnings}{'\u00A0'}zł</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <RefreshCw className="h-4 w-4" /> Ostatnie polecenia
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {recentUses.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">Brak danych</p>
+            ) : (
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {recentUses.map((u) => (
+                  <div key={u.id} className="flex items-center justify-between text-xs border-b pb-1.5">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Badge variant={
+                        u.status === 'completed' ? 'default' :
+                        u.status === 'pending_first_purchase' ? 'secondary' :
+                        u.status === 'suspicious' ? 'destructive' : 'outline'
+                      } className="text-[10px]">
+                        {u.status === 'completed' ? 'OK' :
+                         u.status === 'pending_first_purchase' ? 'Czeka' :
+                         u.status === 'suspicious' ? 'Podejrz.' : u.status}
+                      </Badge>
+                      <span className="text-muted-foreground truncate">
+                        {u.referrer_user_id.slice(0, 6)}…→{u.referred_user_id.slice(0, 6)}…
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {u.reward_amount_pln && Number(u.reward_amount_pln) > 0 && (
+                        <span className="font-semibold">{Number(u.reward_amount_pln).toFixed(0)}{'\u00A0'}zł</span>
+                      )}
+                      {u.reward_type === 'free_month' && (
+                        <Badge variant="outline" className="text-[10px]">1 mies. gratis</Badge>
+                      )}
+                      <span className="text-muted-foreground">
+                        {format(new Date(u.created_at), 'd MMM', { locale: pl })}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
 
       {/* Settings Card */}
       <Card>
