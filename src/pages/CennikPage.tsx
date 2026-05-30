@@ -114,7 +114,7 @@ const sections: Section[] = [
     icon: Home,
     title: "Nieruchomości — dla prywatnych i agencji",
     subtitle: "Plany dopasowane do skali ogłoszeń.",
-    comparison: "Otodom Profesjonalny: 2 380 zł/mc · GetRido: 399 zł/mc → 87% taniej 🔥",
+    comparison: "Plany agencyjne już od 399 zł/mc — znacznie taniej niż konkurencja 🔥",
     groups: [
       {
         heading: "Osoby prywatne",
