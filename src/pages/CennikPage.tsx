@@ -881,33 +881,6 @@ const CennikPage = () => {
         </section>
 
 
-        {/* FAQ */}
-        <section className="py-14">
-          <div className="container mx-auto px-4">
-            <h2 className="text-2xl md:text-3xl font-bold text-foreground text-center mb-8">
-              Najczęściej zadawane pytania
-            </h2>
-            <div className="max-w-3xl mx-auto">
-              <Accordion type="single" collapsible className="space-y-3">
-                {faqs.map((f, i) => (
-                  <AccordionItem
-                    key={i}
-                    value={`faq-${i}`}
-                    className="bg-card rounded-lg border border-border px-4"
-                  >
-                    <AccordionTrigger className="text-left font-semibold hover:no-underline">
-                      {f.q}
-                    </AccordionTrigger>
-                    <AccordionContent className="text-muted-foreground">
-                      {f.a}
-                    </AccordionContent>
-                  </AccordionItem>
-                ))}
-              </Accordion>
-            </div>
-          </div>
-        </section>
-
         {/* CTA bottom */}
         <section className="bg-muted py-12">
           <div className="container mx-auto px-4 text-center">
