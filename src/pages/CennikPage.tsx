@@ -216,8 +216,7 @@ const sections: Section[] = [
     subtitle: "Wybierz plan dopasowany do skali Twojego serwisu.",
     topNote:
       "System ERP dla warsztatu — zarządzaj wszystkimi zleceniami (własnymi i z platformy GetRido) w jednym miejscu.",
-    bottomNote:
-      "💡 Jeśli klient przyszedł do Ciebie przez platformę GetRido, pobieramy dodatkowo 5% prowizji od zarobku (cena minus koszt części/materiałów). Szczegóły w zakładce Usługi.",
+    bottomNote: "",
     groups: [
       {
         plans: [
