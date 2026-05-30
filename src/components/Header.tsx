@@ -1,99 +1,69 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
-import { useTranslation } from 'react-i18next';
 import { AuthModal } from "@/components/auth/AuthModal";
 
+const navItems = [
+  { label: 'Strona główna', to: '/' },
+  { label: 'Ogłoszenia', to: '/gielda' },
+  { label: 'Nieruchomości', to: '/nieruchomosci' },
+  { label: 'Usługi', to: '/uslugi' },
+  { label: 'Cennik', to: '/cennik' },
+  { label: 'Jak zacząć', to: '/jak-zaczac' },
+  { label: 'Kontakt', to: '/kontakt' },
+];
+
 const Header = () => {
-  const { t } = useTranslation();
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const scrollToSection = (sectionId: string) => {
-    const element = document.getElementById(sectionId);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
         {/* Logo */}
-        <a href="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
-          <img 
-            src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
-            alt="Get RIDO Logo" 
+        <Link to="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
+          <img
+            src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png"
+            alt="GetRido Logo"
             className="h-8 w-8"
           />
-          <span className="text-xl font-bold text-primary">Get RIDO</span>
-        </a>
+          <span className="text-xl font-bold text-primary">GetRido</span>
+        </Link>
 
         {/* Navigation */}
-        <nav className="hidden md:flex items-center space-x-6">
-          <button
-            onClick={() => scrollToSection('home')}
-            className="text-sm font-medium text-foreground hover:text-primary transition-colors"
-          >
-            {t('header.home')}
-          </button>
-          <button
-            onClick={() => scrollToSection('cennik')}
-            className="text-sm font-medium text-foreground hover:text-primary transition-colors"
-          >
-            {t('header.pricing')}
-          </button>
-          <button
-            onClick={() => scrollToSection('jak-zaczac')}
-            className="text-sm font-medium text-foreground hover:text-primary transition-colors"
-          >
-            {t('header.howToStart')}
-          </button>
-          <button
-            onClick={() => scrollToSection('wymagania')}
-            className="text-sm font-medium text-foreground hover:text-primary transition-colors"
-          >
-            {t('header.requirements')}
-          </button>
-          <button
-            onClick={() => scrollToSection('karty-paliwowe')}
-            className="text-sm font-medium text-foreground hover:text-primary transition-colors"
-          >
-            {t('header.fuelCards')}
-          </button>
-          <button
-            onClick={() => scrollToSection('faq')}
-            className="text-sm font-medium text-foreground hover:text-primary transition-colors"
-          >
-            {t('header.faq')}
-          </button>
-          <button
-            onClick={() => scrollToSection('kontakt')}
-            className="text-sm font-medium text-foreground hover:text-primary transition-colors"
-          >
-            {t('header.contact')}
-          </button>
+        <nav className="hidden md:flex items-center space-x-5 lg:space-x-6">
+          {navItems.map((item) => (
+            <Link
+              key={item.to}
+              to={item.to}
+              className="text-sm font-medium text-foreground hover:text-primary transition-colors"
+            >
+              {item.label}
+            </Link>
+          ))}
         </nav>
 
         {/* CTA Button and Language Selector */}
         <div className="flex items-center gap-3">
           <LanguageSwitcher />
           <Button variant="accent" size="sm" onClick={() => setShowLoginModal(true)}>
-            {t('header.joinNow')}
+            Zaloguj się
           </Button>
         </div>
       </div>
 
-      {/* Mobile menu - simplified for now */}
-      <div className="md:hidden px-4 pb-4">
-        <nav className="flex flex-wrap gap-4 text-sm">
-          <button onClick={() => scrollToSection('cennik')} className="text-foreground hover:text-primary">
-            {t('header.pricing')}
-          </button>
-          <button onClick={() => scrollToSection('jak-zaczac')} className="text-foreground hover:text-primary">
-            {t('header.howToStart')}
-          </button>
-          <button onClick={() => scrollToSection('kontakt')} className="text-foreground hover:text-primary">
-            {t('header.contact')}
-          </button>
+      {/* Mobile menu */}
+      <div className="md:hidden px-4 pb-3 overflow-x-auto scrollbar-hide">
+        <nav className="flex gap-4 text-sm w-max">
+          {navItems.map((item) => (
+            <Link
+              key={item.to}
+              to={item.to}
+              className="whitespace-nowrap text-foreground hover:text-primary"
+            >
+              {item.label}
+            </Link>
+          ))}
         </nav>
       </div>
 
