@@ -107,6 +107,7 @@ export default function AdminPortal() {
     { value: 'ai-agents', label: 'Agenci AI', icon: Cpu },
     { value: 'seo-agent', label: 'Agent SEO', icon: Globe },
     { value: 'fleet-debt-rebuild', label: 'Przebudowa długów', icon: RefreshCcw },
+    { value: 'referrals', label: 'Polecenia', icon: Gift },
   ];
 
   return (
