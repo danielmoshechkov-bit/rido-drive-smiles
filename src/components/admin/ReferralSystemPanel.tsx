@@ -71,6 +71,9 @@ export function ReferralSystemPanel() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  const [topReferrers, setTopReferrers] = useState<TopReferrer[]>([]);
+  const [recentUses, setRecentUses] = useState<ReferralUseRow[]>([]);
+
   useEffect(() => {
     loadData();
   }, []);
