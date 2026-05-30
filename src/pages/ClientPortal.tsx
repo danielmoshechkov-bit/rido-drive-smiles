@@ -1494,6 +1494,7 @@ export default function ClientPortal() {
                     { id: 'konto', label: '👤 Dane konta' },
                     { id: 'powiadomienia', label: '🔔 Powiadomienia' },
                     { id: 'preferencje', label: '⚙️ Preferencje' },
+                    ...(activeEntities.length > 0 ? [{ id: 'ksef', label: '🛡️ Ustawienia KSeF' }] : []),
                   ].map((t) => (
                     <button
                       key={t.id}
