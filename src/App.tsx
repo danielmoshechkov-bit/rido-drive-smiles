@@ -13,6 +13,7 @@ import { CompareProvider } from "@/contexts/CompareContext";
 import { OnboardingProvider } from "@/contexts/OnboardingContext";
 import { QuotaGuardProvider } from "@/components/quota/QuotaGuardProvider";
 import { GlobalRidoAIButton } from "@/components/ai/GlobalRidoAIButton";
+import { ReferralCapture } from "@/components/ReferralCapture";
 
 import { OnboardingWidget } from "@/components/onboarding";
 import { useUISettings } from "@/hooks/useUISettings";
@@ -216,6 +217,8 @@ const App = () => (
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
+              {/* Global referral tracking + welcome banner */}
+              <ReferralCapture />
               {/* Global RidoAI Button */}
               <GlobalRidoAIButton />
               {/* Global Onboarding Widget */}

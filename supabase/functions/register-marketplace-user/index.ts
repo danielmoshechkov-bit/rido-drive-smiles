@@ -11,6 +11,7 @@ interface RegisterMarketplaceUserRequest {
   phone?: string;
   email: string;
   password: string;
+  referral_code?: string;
 }
 
 Deno.serve(async (req) => {
@@ -27,7 +28,7 @@ Deno.serve(async (req) => {
     });
 
     const body: RegisterMarketplaceUserRequest = await req.json();
-    const { first_name, last_name, phone, email, password } = body;
+    const { first_name, last_name, phone, email, password, referral_code } = body;
 
     console.log("📝 Starting marketplace user registration for:", email);
 
@@ -128,6 +129,50 @@ Deno.serve(async (req) => {
       console.error("❌ user_roles error:", roleError.message);
     } else {
       console.log("✅ Marketplace role assigned");
+    }
+
+    // 3b. Generate referral code for the new user (so they can refer others)
+    try {
+      const { data: codeData, error: codeErr } = await supabaseAdmin.rpc("ensure_referral_code", { p_user_id: userId });
+      if (codeErr) console.error("⚠️ ensure_referral_code error:", codeErr.message);
+      else console.log("✅ Referral code generated:", codeData);
+    } catch (e) {
+      console.error("⚠️ ensure_referral_code threw:", e);
+    }
+
+    // 3c. Link to referrer if a referral code was provided
+    let referralLinked = false;
+    if (referral_code && referral_code.trim()) {
+      try {
+        const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || null;
+        const ua = req.headers.get("user-agent") || null;
+        const { data: linkRes, error: linkErr } = await supabaseAdmin.rpc("link_referral_on_signup", {
+          p_referred_user_id: userId,
+          p_code: referral_code.trim(),
+          p_ip: ip,
+          p_user_agent: ua,
+        });
+        if (linkErr) {
+          console.error("⚠️ link_referral_on_signup error:", linkErr.message);
+        } else {
+          console.log("🔗 Referral link result:", linkRes);
+          referralLinked = (linkRes as any)?.linked === true;
+        }
+      } catch (e) {
+        console.error("⚠️ link_referral_on_signup threw:", e);
+      }
+    }
+
+    // 3d. Credit 20 PLN welcome bonus
+    try {
+      const { data: bonusRes, error: bonusErr } = await supabaseAdmin.rpc("credit_welcome_bonus", {
+        p_user_id: userId,
+        p_amount: 20,
+      });
+      if (bonusErr) console.error("⚠️ credit_welcome_bonus error:", bonusErr.message);
+      else console.log("🎁 Welcome bonus credited:", bonusRes);
+    } catch (e) {
+      console.error("⚠️ credit_welcome_bonus threw:", e);
     }
 
     // 4. Generate activation link and send email ONLY if email confirmation is required

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
+import { getStoredReferralCode, clearReferralCode } from "@/lib/referralTracking";
 import { toast } from "sonner";
 import { Loader2, User, Mail, Lock, ShieldCheck, ArrowLeft, CheckCircle, Phone } from "lucide-react";
 import { PasswordStrengthIndicator, validatePassword } from "./PasswordStrengthIndicator";
@@ -187,6 +188,7 @@ export function AuthModal({
           phone: registerData.phone,
           email: registerData.email,
           password: registerData.password,
+          referral_code: getStoredReferralCode() || undefined,
         },
       });
 
@@ -233,6 +235,7 @@ export function AuthModal({
       // Check for success response
       if (response.data?.success) {
         // Close modal and redirect to success page with download instructions
+        clearReferralCode();
         onOpenChange(false);
         navigate("/register-success");
       } else if (response.data?.error) {
