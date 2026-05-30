@@ -273,41 +273,63 @@ export function ReferralSystemPanel() {
 
       {/* Stats Grid */}
       {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
           <Card>
-            <CardContent className="p-4 text-center">
-              <Users className="h-6 w-6 mx-auto mb-2 text-primary" />
-              <p className="text-2xl font-bold">{stats.total_codes}</p>
-              <p className="text-xs text-muted-foreground">Aktywne kody</p>
+            <CardContent className="p-3 text-center">
+              <Users className="h-5 w-5 mx-auto mb-1 text-primary" />
+              <p className="text-xl font-bold">{stats.total_codes}</p>
+              <p className="text-[10px] text-muted-foreground">Aktywne kody</p>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4 text-center">
-              <BarChart3 className="h-6 w-6 mx-auto mb-2 text-blue-500" />
-              <p className="text-2xl font-bold">{stats.total_uses}</p>
-              <p className="text-xs text-muted-foreground">Użycia razem</p>
+            <CardContent className="p-3 text-center">
+              <BarChart3 className="h-5 w-5 mx-auto mb-1 text-blue-500" />
+              <p className="text-xl font-bold">{stats.total_uses}</p>
+              <p className="text-[10px] text-muted-foreground">Polecenia razem</p>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4 text-center">
-              <Coins className="h-6 w-6 mx-auto mb-2 text-yellow-500" />
-              <p className="text-2xl font-bold">{stats.total_coins_awarded}</p>
-              <p className="text-xs text-muted-foreground">Rozdane monety</p>
+            <CardContent className="p-3 text-center">
+              <CheckCircle className="h-5 w-5 mx-auto mb-1 text-green-500" />
+              <p className="text-xl font-bold">{stats.completed_uses}</p>
+              <p className="text-[10px] text-muted-foreground">Zakończone</p>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4 text-center">
-              <RefreshCw className="h-6 w-6 mx-auto mb-2 text-orange-500" />
-              <p className="text-2xl font-bold">{stats.pending_uses}</p>
-              <p className="text-xs text-muted-foreground">Oczekujące</p>
+            <CardContent className="p-3 text-center">
+              <RefreshCw className="h-5 w-5 mx-auto mb-1 text-amber-500" />
+              <p className="text-xl font-bold">{stats.pending_first_purchase}</p>
+              <p className="text-[10px] text-muted-foreground">Czeka na 1 zakup</p>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4 text-center">
-              <AlertTriangle className="h-6 w-6 mx-auto mb-2 text-red-500" />
-              <p className="text-2xl font-bold">{stats.suspicious_uses}</p>
-              <p className="text-xs text-muted-foreground">Podejrzane</p>
+            <CardContent className="p-3 text-center">
+              <Coins className="h-5 w-5 mx-auto mb-1 text-yellow-600" />
+              <p className="text-xl font-bold">{stats.total_pln_awarded.toFixed(0)}{'\u00A0'}zł</p>
+              <p className="text-[10px] text-muted-foreground">Wypłacone PLN</p>
             </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-3 text-center">
+              <Coins className="h-5 w-5 mx-auto mb-1 text-yellow-500" />
+              <p className="text-xl font-bold">{stats.total_coins_awarded}</p>
+              <p className="text-[10px] text-muted-foreground">Monety</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-3 text-center">
+              <RefreshCw className="h-5 w-5 mx-auto mb-1 text-orange-500" />
+              <p className="text-xl font-bold">{stats.pending_uses}</p>
+              <p className="text-[10px] text-muted-foreground">Oczekujące</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-3 text-center">
+              <AlertTriangle className="h-5 w-5 mx-auto mb-1 text-red-500" />
+              <p className="text-xl font-bold">{stats.suspicious_uses}</p>
+              <p className="text-[10px] text-muted-foreground">Podejrzane</p>
+            </CardContent>
+          </Card>
           </Card>
         </div>
       )}
