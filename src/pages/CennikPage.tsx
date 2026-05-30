@@ -749,28 +749,6 @@ const CennikPage = () => {
           </div>
         </section>
 
-        {/* Promo banner */}
-        <section className="py-6 bg-background">
-          <div className="container mx-auto px-4">
-            <Card className="max-w-5xl mx-auto p-5 md:p-6 bg-gradient-to-r from-primary to-accent text-primary-foreground border-0">
-              <div className="flex items-start gap-4">
-                <Gift className="h-8 w-8 flex-shrink-0 mt-1" />
-                <div>
-                  <h3 className="text-lg md:text-xl font-bold mb-2">
-                    🎁 OFERTA STARTOWA — czerwiec / lipiec / sierpień 2026
-                  </h3>
-                  <ul className="space-y-1 text-sm md:text-base text-primary-foreground/95">
-                    <li>• Pierwsze ogłoszenie ZA DARMO (auta + nieruchomości)</li>
-                    <li>• 50% rabatu na drugie i trzecie (kod: <span className="font-mono font-bold">START50</span>)</li>
-                    <li>• 3 miesiące GRATIS dla pierwszych 100 agencji nieruchomości</li>
-                    <li>• Warsztaty: 5% prowizji do odwołania (zamiast standardowych 10%)</li>
-                    <li>• Marketplace: unlimited darmowe ogłoszenia przez 3 miesiące</li>
-                  </ul>
-                </div>
-              </div>
-            </Card>
-          </div>
-        </section>
 
         {/* Tabs */}
         <section className="py-10">
