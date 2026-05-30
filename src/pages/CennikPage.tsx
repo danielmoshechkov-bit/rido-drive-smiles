@@ -408,46 +408,6 @@ const sections: Section[] = [
 
 const businessSections: Section[] = [
   {
-    id: "flota",
-    label: "Flota / Kierowcy",
-    icon: Car,
-    title: "Cennik dla Flot Uber / Bolt",
-    subtitle: "Dwa proste modele rozliczeń tygodniowych z kierowcą.",
-    groups: [
-      {
-        plans: [
-          {
-            name: "Model Pierwszy",
-            price: "159 zł",
-            period: "+ 0% podatku / tyg.",
-            description: "Z aktywną kartą paliwową E100.",
-            features: [
-              "Stała kwota, 0% podatku",
-              "Zniżki na paliwo (karta E100)",
-              "Maksymalna przewidywalność",
-              "Wypłaty co tydzień",
-            ],
-            cta: "Wybieram",
-          },
-          {
-            name: "Model Drugi",
-            price: "50 zł",
-            period: "+ 8% podatku / tyg.",
-            description: "Elastyczny model bez karty paliwowej.",
-            features: [
-              "Pełna obsługa rozliczeń",
-              "Brak ukrytych kosztów",
-              "Wypłaty co tydzień",
-              "Wsparcie 7 dni w tygodniu",
-            ],
-            highlighted: true,
-            cta: "Wybieram",
-          },
-        ],
-      },
-    ],
-  },
-  {
     id: "ai",
     label: "AI Pro / Asystenci",
     icon: Sparkles,
