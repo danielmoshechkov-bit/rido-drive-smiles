@@ -742,6 +742,88 @@ const UslugiContent = ({ onCta }: { onCta: () => void }) => (
   </div>
 );
 
+const AiProContent = ({ onCta }: { onCta: () => void }) => {
+  const aiPlans = businessSections[0].groups[0].plans;
+  return (
+    <div>
+      <div className="text-center mb-10">
+        <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-3">
+          Cennik AI Pro i Asystentów AI
+        </h2>
+        <p className="text-muted-foreground max-w-2xl mx-auto">
+          Dedykowane plany AI — bez limitu zapytań, generowanie treści, AI Voice.
+        </p>
+      </div>
+
+      <div className="grid gap-6 max-w-5xl mx-auto md:grid-cols-3 mb-14">
+        {aiPlans.map((plan) => (
+          <PlanCard key={plan.name} plan={plan} onCta={onCta} />
+        ))}
+      </div>
+
+      <div className="max-w-5xl mx-auto">
+        <h3 className="text-xl md:text-2xl font-bold text-center mb-2">
+          Dodatkowe usługi z AI
+        </h3>
+        <p className="text-center text-muted-foreground mb-8">
+          Dokup do każdego planu — wzmocnij ogłoszenie sztuczną inteligencją.
+        </p>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {aiExtras.map((e) => (
+            <Card key={e.name} className="p-5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">{e.icon}</span>
+                <div>
+                  <div className="font-semibold text-foreground">{e.name}</div>
+                  {e.note && <div className="text-xs text-primary">{e.note}</div>}
+                </div>
+              </div>
+              <span className="font-bold text-primary">{e.price}</span>
+            </Card>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const PoleceniaContent = () => (
+  <div>
+    <div className="text-center mb-10">
+      <Users className="h-10 w-10 text-primary mx-auto mb-3" />
+      <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-3">
+        Program poleceń GetRido
+      </h2>
+      <p className="text-muted-foreground max-w-2xl mx-auto">
+        Polecaj GetRido znajomym i zyskuj realne nagrody.
+      </p>
+    </div>
+    <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+      <Card className="p-6">
+        <h3 className="font-bold text-foreground mb-3">👥 Poleć znajomego</h3>
+        <p className="text-sm text-muted-foreground mb-2">
+          <span className="font-semibold text-foreground">Twój znajomy:</span> 30% rabatu na pierwsze ogłoszenie
+        </p>
+        <p className="text-sm text-muted-foreground">
+          <span className="font-semibold text-foreground">Ty:</span> 50 zł na konto GetRido
+        </p>
+      </Card>
+      <Card className="p-6 border-2 border-primary">
+        <h3 className="font-bold text-primary mb-3">🏆 5 poleceń</h3>
+        <p className="text-sm text-foreground">
+          = 1 miesiąc <span className="font-bold">Premium gratis</span>
+        </p>
+      </Card>
+      <Card className="p-6">
+        <h3 className="font-bold text-foreground mb-3">🔧 Warsztaty</h3>
+        <p className="text-sm text-muted-foreground">
+          Warsztat poleca warsztat = <span className="font-semibold text-foreground">-1% prowizji</span> dla obu na rok
+        </p>
+      </Card>
+    </div>
+  </div>
+);
+
 const CennikPage = () => {
   const [tab, setTab] = useState("auta");
   const navigate = useNavigate();
