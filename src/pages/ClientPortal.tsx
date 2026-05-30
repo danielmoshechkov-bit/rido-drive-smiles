@@ -120,7 +120,7 @@ export default function ClientPortal() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('start');
   const [accountingSubTab, setAccountingSubTab] = useState('przeglad');
-  const [settingsSubTab, setSettingsSubTab] = useState<'firma' | 'konto' | 'powiadomienia' | 'preferencje'>('firma');
+  const [settingsSubTab, setSettingsSubTab] = useState<'firma' | 'konto' | 'powiadomienia' | 'preferencje' | 'ksef'>('firma');
   const { count: ksefUnread, markAllRead: markKsefRead } = useKsefUnreadCount();
   
   // Account types
