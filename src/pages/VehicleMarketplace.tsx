@@ -695,7 +695,7 @@ export default function VehicleMarketplace() {
               </a>
             </div>
             <p className="text-muted-foreground text-sm">
-              {t('footer.copyright', '© 2025 get RIDO. Wszystkie prawa zastrzeżone.')}
+              {t('footer.copyright', 'GetRido. Wszystkie prawa zastrzeżone.')}
             </p>
           </div>
         </div>

@@ -290,7 +290,7 @@ export default function FleetLanding() {
               Wróć do GetRido Easy
             </Button>
             <p className="text-sm text-muted-foreground">
-              © 2025 RIDO. Wszystkie prawa zastrzeżone.
+              © 2025 GetRido. Wszystkie prawa zastrzeżone.
             </p>
           </div>
         </div>
