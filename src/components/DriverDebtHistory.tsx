@@ -476,21 +476,36 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
           .eq('driver_id', driverId);
       }
 
-      // 3. Wyzeruj debt_after w settlement WYBRANEGO tygodnia, żeby tabliczka długu
-      // natychmiast pokazała 0 dla tego tygodnia (zgodnie z intencją operatora).
-      // Pozostawiamy debt_before/debt_payment/actual_payout bez zmian — historia
-      // tygodnia (ile było długu na start, ile spłacono z netto) jest zachowana
-      // i widoczna obok wpisu "Wyzerowanie przez administratora" w ledgerze.
-      // Kolejne tygodnie i tak czytają saldo z driver_debts/ledger (już wyzerowane).
+      toast.success('Dług wyzerowany — historia zachowana, nowe rozliczenia startują od zera');
+
+      // 3. NAJPIERW recalculate-week (może przeliczyć debt_after z prev_settlement,
+      // ignorując nasz "Wyzerowanie" payment dla bieżącego tygodnia).
+      await recalcWeekIfPossible();
+
+      // 4. PO recalc — wymuszamy debt_after=0 w settlement WYBRANEGO tygodnia,
+      // żeby tabliczka długu natychmiast pokazała 0 (intencja operatora).
+      // Normalizujemy też actual_payout: jeśli był ujemny (= reprezentował dług),
+      // ustawiamy na 0; jeśli był dodatni — zostawiamy.
+      const { data: currentSettlement } = await supabase
+        .from('settlements')
+        .select('actual_payout')
+        .eq('driver_id', driverId)
+        .eq('period_from', zeroPeriodFrom)
+        .eq('period_to', zeroPeriodTo)
+        .maybeSingle();
+
+      const normalizedPayout = Math.max(0, Number(currentSettlement?.actual_payout ?? 0));
+
       await supabase
         .from('settlements')
-        .update({ debt_after: 0, updated_at: new Date().toISOString() })
+        .update({
+          debt_after: 0,
+          actual_payout: normalizedPayout,
+          updated_at: new Date().toISOString(),
+        })
         .eq('driver_id', driverId)
         .eq('period_from', zeroPeriodFrom)
         .eq('period_to', zeroPeriodTo);
-
-      toast.success('Dług wyzerowany — historia zachowana, nowe rozliczenia startują od zera');
-      await recalcWeekIfPossible();
       await fetchDebtData();
       await onDebtChanged?.();
     } catch (err) {
