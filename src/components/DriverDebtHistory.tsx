@@ -476,10 +476,18 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
           .eq('driver_id', driverId);
       }
 
-      // 3. NIE resetujemy settlements od wybranego tygodnia w przód.
-      // Wcześniej powodowało to dwa źródła prawdy (settlements vs DWD) i niszczyło historię.
-      // Snapshot tygodnia ma rekonstruować weekly-debt-rebuild z driver_debt_transactions
-      // (ledger jest jedynym źródłem prawdy dla ręcznych akcji operatora).
+      // 3. Wyzeruj debt_after w settlement WYBRANEGO tygodnia, żeby tabliczka długu
+      // natychmiast pokazała 0 dla tego tygodnia (zgodnie z intencją operatora).
+      // Pozostawiamy debt_before/debt_payment/actual_payout bez zmian — historia
+      // tygodnia (ile było długu na start, ile spłacono z netto) jest zachowana
+      // i widoczna obok wpisu "Wyzerowanie przez administratora" w ledgerze.
+      // Kolejne tygodnie i tak czytają saldo z driver_debts/ledger (już wyzerowane).
+      await supabase
+        .from('settlements')
+        .update({ debt_after: 0, updated_at: new Date().toISOString() })
+        .eq('driver_id', driverId)
+        .eq('period_from', zeroPeriodFrom)
+        .eq('period_to', zeroPeriodTo);
 
       toast.success('Dług wyzerowany — historia zachowana, nowe rozliczenia startują od zera');
       await recalcWeekIfPossible();
