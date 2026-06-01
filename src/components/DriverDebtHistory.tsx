@@ -508,6 +508,14 @@ export const DriverDebtHistory = ({ driverId, weekDebtContext, onDebtChanged, in
         .eq('period_to', zeroPeriodTo);
       await fetchDebtData();
       await onDebtChanged?.();
+
+      // 5. Wymuś hard reload strony, żeby WSZYSTKIE komponenty (DriverSettlements,
+      // FleetSettlementsView, tabliczka długu) pokazały świeży settlement.debt_after=0.
+      // Bez tego niektóre widoki mogą pokazywać stary stan z React state cache.
+      // Krótki timeout, żeby toast.success i fetchDebtData dokończyły render.
+      setTimeout(() => {
+        window.location.reload();
+      }, 600);
     } catch (err) {
       console.error('Error zeroing debts:', err);
       toast.error('Błąd zerowania długów');
