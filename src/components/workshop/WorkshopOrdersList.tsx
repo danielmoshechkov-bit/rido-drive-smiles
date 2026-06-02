@@ -477,7 +477,18 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-xs text-muted-foreground mt-1">
-                    <span>{getClientName(order)}</span>
+                    {getClientName(order) ? (
+                      <span>{getClientName(order)}</span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setAssignClientOrderId(order.id); }}
+                        className="inline-flex items-center gap-1 text-green-600 hover:text-green-700"
+                        title="Dodaj klienta"
+                      >
+                        <Plus className="h-3.5 w-3.5" /> Dodaj klienta
+                      </button>
+                    )}
                     <span>{format(new Date(order.created_at), 'dd.MM.yyyy')}</span>
                   </div>
                 </CardContent>
