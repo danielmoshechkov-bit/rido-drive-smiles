@@ -1021,7 +1021,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     return (
       <button
         type="button"
-        className={`flex h-9 w-full items-center rounded-md px-2 py-1 text-sm transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+        className={`flex h-9 w-full items-center rounded-md border border-input bg-background px-2 py-1 text-sm transition-colors hover:border-primary hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
           align === 'right'
             ? 'justify-end text-right'
             : align === 'center'
@@ -1133,7 +1133,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                       }}
                     >
                       <td className="p-2 text-center text-muted-foreground">{i + 1}</td>
-                      <td className="p-1 font-medium">
+                      <td className="p-1.5 font-medium">
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
@@ -1153,7 +1153,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           <div className="min-w-0 flex-1">{renderEditableCell(t, 'name', t.name)}</div>
                         </div>
                       </td>
-                      <td className="p-1 text-muted-foreground">
+                      <td className="p-1.5 text-muted-foreground">
                         {workshopEmployees.length > 0 ? (
                           <select
                             className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
@@ -1169,10 +1169,10 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           </select>
                         ) : renderEditableCell(t, 'mechanic', t.mechanic || '—')}
                       </td>
-                      <td className="p-1 tabular-nums">
+                      <td className="p-1.5 tabular-nums">
                         {renderEditableCell(t, 'labor_hours', String(safeNumber(t.labor_hours) || '—'), 'tabular-nums', 'center')}
                       </td>
-                      <td className="p-1 tabular-nums border-r border-border/60">{renderEditableCell(t, 'price', fmt(price), 'tabular-nums', 'right')}</td>
+                      <td className="p-1.5 tabular-nums border-r border-border/60">{renderEditableCell(t, 'price', fmt(price), 'tabular-nums', 'right')}</td>
                       <td className="p-1.5 text-center border-l border-border/60 bg-muted/10"><SavedRowDiscountEditor item={t} isGross={isTaskGross} /></td>
                       <td className="p-2 text-right font-semibold tabular-nums">{fmt(total)}</td>
                       <td className="p-2 text-center">
@@ -1461,7 +1461,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                       }}
                     >
                       <td className="p-2 text-center text-muted-foreground">{i + 1}</td>
-                      <td className="p-1 font-medium">
+                      <td className="p-1.5 font-medium">
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
@@ -1483,8 +1483,8 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                       </td>
                       <td className="p-1">{renderEditableCell(g, 'quantity', String(g.quantity), '', 'center')}</td>
                       <td className="p-2 text-center">{g.unit}</td>
-                      <td className="p-1 text-muted-foreground tabular-nums">{renderEditableCell(g, 'cost', fmt(itemCost), 'tabular-nums', 'right')}</td>
-                      <td className="p-1 tabular-nums">{renderEditableCell(g, 'price', fmt(itemPrice), 'tabular-nums', 'right')}</td>
+                      <td className="p-1.5 text-muted-foreground tabular-nums">{renderEditableCell(g, 'cost', fmt(itemCost), 'tabular-nums', 'right')}</td>
+                      <td className="p-1.5 tabular-nums">{renderEditableCell(g, 'price', fmt(itemPrice), 'tabular-nums', 'right')}</td>
                       <td className="p-2 text-right tabular-nums border-r border-border/60">{fmt(rawTotal)}</td>
                       <td className="p-1.5 text-center border-l border-border/60 bg-muted/10"><SavedRowDiscountEditor item={g} isGross={isGoodsGross} /></td>
                       <td className="p-2 text-right font-semibold tabular-nums">{fmt(itemTotal)}</td>
