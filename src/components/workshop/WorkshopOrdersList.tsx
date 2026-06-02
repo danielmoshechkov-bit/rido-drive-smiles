@@ -698,14 +698,25 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                                 </div>
                               )}
                             </div>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="w-full mt-3 h-7 text-xs gap-1"
-                              onClick={() => setEditClient(order.client)}
-                            >
-                              <ExternalLink className="h-3 w-3" /> Otwórz kartę klienta
-                            </Button>
+                            <div className="flex gap-2 mt-3">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex-1 h-7 text-xs gap-1"
+                                onClick={() => setEditClient(order.client)}
+                              >
+                                <ExternalLink className="h-3 w-3" /> Otwórz
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex-1 h-7 text-xs gap-1 border-primary/40 text-primary hover:bg-primary/10"
+                                onClick={() => setAssignClientOrderId(order.id)}
+                                title="Zmień klienta lub dodaj nowego"
+                              >
+                                <Search className="h-3 w-3" /> Zmień
+                              </Button>
+                            </div>
                           </HoverCardContent>
                         )}
                       </HoverCard>
