@@ -57,13 +57,8 @@ function toSmsPhone(raw: string): string {
   return digits.startsWith('48') ? `+${digits}` : raw;
 }
 
-function generateOrderNumber() {
-  const now = new Date();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const year = now.getFullYear();
-  const rand = Math.floor(Math.random() * 900) + 100;
-  return `ZL-${month}/${year}-${rand}`;
-}
+// Order number is generated server-side by trigger generate_workshop_order_number
+// (sequential per provider/month, fills gaps after deletes).
 
 export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props) {
   const qc = useQueryClient();
