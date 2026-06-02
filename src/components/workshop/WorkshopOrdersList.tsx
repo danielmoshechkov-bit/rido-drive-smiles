@@ -307,16 +307,18 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
 
       const html = generateInvoiceHtml(invoiceData);
       const printWindow = window.open('', '_blank');
-      if (printWindow) {
-        printWindow.document.write(html);
-        printWindow.document.close();
-        printWindow.focus();
-        setTimeout(() => printWindow.print(), 400);
+      if (!printWindow) {
+        toast.error('Przeglądarka zablokowała wyskakujące okno. Zezwól na pop-up i spróbuj ponownie.');
+        return;
       }
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => printWindow.print(), 400);
       toast.success('Potwierdzenie wygenerowane');
     } catch (e: any) {
-      console.error(e);
-      toast.error('Błąd generowania potwierdzenia');
+      console.error('[generateServiceConfirmation]', e);
+      toast.error(`Błąd generowania potwierdzenia: ${e?.message || e?.toString() || 'nieznany błąd'}`);
     }
   };
 
