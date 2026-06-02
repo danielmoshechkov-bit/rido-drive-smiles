@@ -628,6 +628,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                       </HoverCard>
                     </TableCell>
                     <TableCell onClick={e => e.stopPropagation()}>
+                      {order.client ? (
                       <HoverCard openDelay={400} closeDelay={200}>
                         <HoverCardTrigger asChild>
                           <span
@@ -694,6 +695,16 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                           </HoverCardContent>
                         )}
                       </HoverCard>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setAssignClientOrderId(order.id)}
+                          className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-green-500/15 text-green-600 hover:bg-green-500 hover:text-white transition-colors"
+                          title="Dodaj klienta do zlecenia"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </button>
+                      )}
                      </TableCell>
                      <TableCell>
                        {order.scheduled_date ? (
