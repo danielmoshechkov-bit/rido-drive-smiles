@@ -762,6 +762,20 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
         client={editClient}
       />
 
+      {/* Assign client to existing order */}
+      {assignClientOrderId && (
+        <WorkshopAssignClientDialog
+          open={!!assignClientOrderId}
+          onOpenChange={(v) => { if (!v) setAssignClientOrderId(null); }}
+          providerId={providerId}
+          orderId={assignClientOrderId}
+          onAssigned={() => {
+            setAssignClientOrderId(null);
+            queryClient.invalidateQueries({ queryKey: ['workshop-orders'] });
+          }}
+        />
+      )}
+
       {/* Vehicle edit dialog */}
       {editVehicle && (
         <VehicleEditDialog
