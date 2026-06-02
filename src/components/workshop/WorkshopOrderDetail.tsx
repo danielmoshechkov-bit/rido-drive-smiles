@@ -57,6 +57,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
   const [smsOpen, setSmsOpen] = useState(false);
   const [smsType, setSmsType] = useState<'reception' | 'quote' | 'ready'>('reception');
   const [editClientOpen, setEditClientOpen] = useState(false);
+  const [pickClientOpen, setPickClientOpen] = useState(false);
   const [editVehicleOpen, setEditVehicleOpen] = useState(false);
   const [estimatePreviewOpen, setEstimatePreviewOpen] = useState(false);
   const [mechanicCardOpen, setMechanicCardOpen] = useState(false);
