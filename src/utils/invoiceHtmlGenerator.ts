@@ -1089,12 +1089,21 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     ` : ''}
 
     <div class="footer">
+      ${isServiceConfirmation ? `
+      <div class="signature">
+        <div class="signature-line">Podpis osoby upoważnionej<br>do wystawienia${invoice.issued_by ? `<br><strong>${invoice.issued_by}</strong>` : ''}</div>
+      </div>
+      <div class="signature">
+        <div class="signature-line">Podpis osoby upoważnionej<br>do odbioru</div>
+      </div>
+      ` : `
       <div class="signature">
         <div class="signature-line">Podpis osoby upoważnionej<br>do odbioru faktury</div>
       </div>
       <div class="signature">
         <div class="signature-line">Podpis osoby upoważnionej<br>do wystawienia faktury${invoice.issued_by ? `<br><strong>${invoice.issued_by}</strong>` : ''}</div>
       </div>
+      `}
     </div>
   </div>
 </body>
