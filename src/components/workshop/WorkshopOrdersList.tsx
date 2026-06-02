@@ -536,7 +536,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Wrench className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium">{order.order_number}</span>
+                        <span className="font-semibold tabular-nums tracking-tight">{order.order_number}</span>
                       </div>
                     </TableCell>
                     <TableCell onClick={e => e.stopPropagation()}>
