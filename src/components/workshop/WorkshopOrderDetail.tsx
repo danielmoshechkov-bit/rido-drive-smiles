@@ -381,9 +381,21 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
             </SelectContent>
           </Select>
         </div>
-        <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
           {order.created_at && <span>{format(new Date(order.created_at), 'dd.MM.yyyy')}</span>}
-          {clientName && <span className="flex items-center gap-1"><Users className="h-3 w-3" /> {clientName}</span>}
+          {clientName ? (
+            <button type="button" onClick={() => setEditClientOpen(true)} className="flex items-center gap-1 hover:text-primary">
+              <Users className="h-3 w-3" /> {clientName}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setPickClientOpen(true)}
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/15 text-green-700 hover:bg-green-500 hover:text-white transition-colors text-[11px] font-medium"
+            >
+              <UserPlus className="h-3 w-3" /> Dodaj klienta
+            </button>
+          )}
           {vehicleName && <span className="flex items-center gap-1"><Car className="h-3 w-3" /> {vehicleName}</span>}
         </div>
         <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
