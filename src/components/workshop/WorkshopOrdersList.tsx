@@ -17,6 +17,7 @@ import { WorkshopNewOrderDialog } from './WorkshopNewOrderDialog';
 import { WorkshopPortalBookings } from './WorkshopPortalBookings';
 import { WorkshopSmsDialog } from './WorkshopSmsDialog';
 import { WorkshopEditClientDialog } from './WorkshopEditClientDialog';
+import { WorkshopAssignClientDialog } from './WorkshopAssignClientDialog';
 import { useVehicleLookup } from '@/hooks/useVehicleLookup';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
