@@ -17,6 +17,7 @@ import { WorkshopNewOrderDialog } from './WorkshopNewOrderDialog';
 import { WorkshopPortalBookings } from './WorkshopPortalBookings';
 import { WorkshopSmsDialog } from './WorkshopSmsDialog';
 import { WorkshopEditClientDialog } from './WorkshopEditClientDialog';
+import { WorkshopAssignClientDialog } from './WorkshopAssignClientDialog';
 import { useVehicleLookup } from '@/hooks/useVehicleLookup';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
@@ -68,6 +69,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
   const [invoiceNotes, setInvoiceNotes] = useState('');
   const [existingInvoice, setExistingInvoice] = useState<any>(null);
   const [existingInvoiceOrder, setExistingInvoiceOrder] = useState<any>(null);
+  const [assignClientOrderId, setAssignClientOrderId] = useState<string | null>(null);
 
   const { data: statuses = [] } = useWorkshopStatuses(providerId);
   const { data: orders = [], isLoading } = useWorkshopOrders(providerId, {
@@ -475,7 +477,18 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-xs text-muted-foreground mt-1">
-                    <span>{getClientName(order)}</span>
+                    {getClientName(order) ? (
+                      <span>{getClientName(order)}</span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setAssignClientOrderId(order.id); }}
+                        className="inline-flex items-center gap-1 text-green-600 hover:text-green-700"
+                        title="Dodaj klienta"
+                      >
+                        <Plus className="h-3.5 w-3.5" /> Dodaj klienta
+                      </button>
+                    )}
                     <span>{format(new Date(order.created_at), 'dd.MM.yyyy')}</span>
                   </div>
                 </CardContent>
@@ -523,7 +536,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Wrench className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium">{order.order_number}</span>
+                        <span className="font-semibold tabular-nums tracking-tight">{order.order_number}</span>
                       </div>
                     </TableCell>
                     <TableCell onClick={e => e.stopPropagation()}>
@@ -549,9 +562,10 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
-                    <TableCell className="text-right font-medium">
+                    <TableCell className="text-right font-medium tabular-nums">
                       {(order.total_gross || 0).toLocaleString('pl-PL', { minimumFractionDigits: 2 })}
                     </TableCell>
+
                     <TableCell onClick={e => e.stopPropagation()}>
                       <HoverCard openDelay={400} closeDelay={200}>
                         <HoverCardTrigger asChild>
@@ -626,6 +640,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                       </HoverCard>
                     </TableCell>
                     <TableCell onClick={e => e.stopPropagation()}>
+                      {order.client ? (
                       <HoverCard openDelay={400} closeDelay={200}>
                         <HoverCardTrigger asChild>
                           <span
@@ -692,6 +707,16 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                           </HoverCardContent>
                         )}
                       </HoverCard>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setAssignClientOrderId(order.id)}
+                          className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-green-500/15 text-green-600 hover:bg-green-500 hover:text-white transition-colors"
+                          title="Dodaj klienta do zlecenia"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </button>
+                      )}
                      </TableCell>
                      <TableCell>
                        {order.scheduled_date ? (
@@ -748,6 +773,20 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
         onOpenChange={(v) => { if (!v) setEditClient(null); }}
         client={editClient}
       />
+
+      {/* Assign client to existing order */}
+      {assignClientOrderId && (
+        <WorkshopAssignClientDialog
+          open={!!assignClientOrderId}
+          onOpenChange={(v) => { if (!v) setAssignClientOrderId(null); }}
+          providerId={providerId}
+          orderId={assignClientOrderId}
+          onAssigned={() => {
+            setAssignClientOrderId(null);
+            queryClient.invalidateQueries({ queryKey: ['workshop-orders'] });
+          }}
+        />
+      )}
 
       {/* Vehicle edit dialog */}
       {editVehicle && (

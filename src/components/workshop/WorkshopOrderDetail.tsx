@@ -11,6 +11,7 @@ import { WorkshopScheduler } from './WorkshopScheduler';
 import { WorkshopOrderSummaryTab } from './tabs/WorkshopOrderSummaryTab';
 import { WorkshopSmsDialog } from './WorkshopSmsDialog';
 import { WorkshopEditClientDialog } from './WorkshopEditClientDialog';
+import { WorkshopAssignClientDialog } from './WorkshopAssignClientDialog';
 import { WorkshopVehicleHoverCard } from './WorkshopVehicleHoverCard';
 import { WorkshopVehicleEditDialog } from './WorkshopVehicleEditDialog';
 import { WorkshopClientHoverCard } from './WorkshopClientHoverCard';
@@ -19,7 +20,7 @@ import { WorkshopMechanicCardDialog } from './WorkshopMechanicCardDialog';
 import { RidoPartsCartButton } from './parts/RidoPartsCartButton';
 import {
   ArrowLeft, FileText, Send, Eye, Link2, MessageSquare, MoreVertical,
-  Printer, Download, ClipboardList, Car, Users, CheckCircle, XCircle, Ban, AlertTriangle, Wrench
+  Printer, Download, ClipboardList, Car, Users, CheckCircle, XCircle, Ban, AlertTriangle, Wrench, UserPlus, Search
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -56,6 +57,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
   const [smsOpen, setSmsOpen] = useState(false);
   const [smsType, setSmsType] = useState<'reception' | 'quote' | 'ready'>('reception');
   const [editClientOpen, setEditClientOpen] = useState(false);
+  const [pickClientOpen, setPickClientOpen] = useState(false);
   const [editVehicleOpen, setEditVehicleOpen] = useState(false);
   const [estimatePreviewOpen, setEstimatePreviewOpen] = useState(false);
   const [mechanicCardOpen, setMechanicCardOpen] = useState(false);
@@ -120,7 +122,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
           {order.created_at && (
             <span className="text-muted-foreground">{format(new Date(order.created_at), 'dd/MM/yyyy')}</span>
           )}
-          {clientName && (
+          {clientName ? (
             <>
               <span className="text-muted-foreground">·</span>
               <WorkshopClientHoverCard client={order.client} onEdit={() => setEditClientOpen(true)}>
@@ -132,6 +134,25 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
                   <Users className="h-3.5 w-3.5" /> {clientName}
                 </button>
               </WorkshopClientHoverCard>
+              <button
+                type="button"
+                onClick={() => setPickClientOpen(true)}
+                title="Zmień klienta – wybierz z bazy"
+                className="flex items-center gap-1 px-1.5 py-0.5 rounded border border-dashed text-xs text-muted-foreground hover:text-primary hover:border-primary transition-colors"
+              >
+                <Search className="h-3 w-3" /> Zmień
+              </button>
+            </>
+          ) : (
+            <>
+              <span className="text-muted-foreground">·</span>
+              <button
+                type="button"
+                onClick={() => setPickClientOpen(true)}
+                className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/15 text-green-700 hover:bg-green-500 hover:text-white transition-colors text-xs font-medium"
+              >
+                <UserPlus className="h-3.5 w-3.5" /> Dodaj klienta
+              </button>
             </>
           )}
           {vehicleName && (
@@ -455,6 +476,12 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
         open={editClientOpen}
         onOpenChange={setEditClientOpen}
         client={order.client}
+      />
+      <WorkshopAssignClientDialog
+        open={pickClientOpen}
+        onOpenChange={setPickClientOpen}
+        providerId={providerId}
+        orderId={order.id}
       />
       {/* Vehicle Edit Dialog */}
       <WorkshopVehicleEditDialog
