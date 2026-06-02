@@ -20,7 +20,7 @@ import { WorkshopMechanicCardDialog } from './WorkshopMechanicCardDialog';
 import { RidoPartsCartButton } from './parts/RidoPartsCartButton';
 import {
   ArrowLeft, FileText, Send, Eye, Link2, MessageSquare, MoreVertical,
-  Printer, Download, ClipboardList, Car, Users, CheckCircle, XCircle, Ban, AlertTriangle, Wrench
+  Printer, Download, ClipboardList, Car, Users, CheckCircle, XCircle, Ban, AlertTriangle, Wrench, UserPlus, Search
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
