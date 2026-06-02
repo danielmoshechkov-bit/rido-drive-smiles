@@ -477,6 +477,12 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
         onOpenChange={setEditClientOpen}
         client={order.client}
       />
+      <WorkshopAssignClientDialog
+        open={pickClientOpen}
+        onOpenChange={setPickClientOpen}
+        providerId={providerId}
+        orderId={order.id}
+      />
       {/* Vehicle Edit Dialog */}
       <WorkshopVehicleEditDialog
         vehicle={order.vehicle}
