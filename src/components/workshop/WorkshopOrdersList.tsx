@@ -562,9 +562,10 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
-                    <TableCell className="text-right font-medium">
+                    <TableCell className="text-right font-medium tabular-nums">
                       {(order.total_gross || 0).toLocaleString('pl-PL', { minimumFractionDigits: 2 })}
                     </TableCell>
+
                     <TableCell onClick={e => e.stopPropagation()}>
                       <HoverCard openDelay={400} closeDelay={200}>
                         <HoverCardTrigger asChild>
