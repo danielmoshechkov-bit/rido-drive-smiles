@@ -1021,7 +1021,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     return (
       <button
         type="button"
-        className={`flex h-9 w-full items-center rounded-md px-2 py-1 text-sm transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+        className={`flex h-9 w-full items-center rounded-md border border-input bg-background px-2 py-1 text-sm transition-colors hover:border-primary hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
           align === 'right'
             ? 'justify-end text-right'
             : align === 'center'
