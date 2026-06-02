@@ -11,6 +11,7 @@ import { WorkshopScheduler } from './WorkshopScheduler';
 import { WorkshopOrderSummaryTab } from './tabs/WorkshopOrderSummaryTab';
 import { WorkshopSmsDialog } from './WorkshopSmsDialog';
 import { WorkshopEditClientDialog } from './WorkshopEditClientDialog';
+import { WorkshopAssignClientDialog } from './WorkshopAssignClientDialog';
 import { WorkshopVehicleHoverCard } from './WorkshopVehicleHoverCard';
 import { WorkshopVehicleEditDialog } from './WorkshopVehicleEditDialog';
 import { WorkshopClientHoverCard } from './WorkshopClientHoverCard';
