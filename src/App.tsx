@@ -94,6 +94,8 @@ import MyViewingsPage from "./pages/MyViewingsPage";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import PaymentCancel from "./pages/PaymentCancel";
 import BuyCredits from "./pages/BuyCredits";
+import WorkshopEmployeePortal from "./pages/WorkshopEmployeePortal";
+import { WorkshopInvitationHandler } from "./components/workshop/WorkshopInvitationHandler";
 const queryClient = new QueryClient();
 
 /**
