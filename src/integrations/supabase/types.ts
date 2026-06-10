@@ -18771,6 +18771,39 @@ export type Database = {
           },
         ]
       }
+      translation_cache_global: {
+        Row: {
+          created_at: string
+          hit_count: number
+          id: string
+          source_lang: string
+          source_text: string
+          source_text_hash: string
+          translations: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          hit_count?: number
+          id?: string
+          source_lang: string
+          source_text: string
+          source_text_hash: string
+          translations?: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          hit_count?: number
+          id?: string
+          source_lang?: string
+          source_text?: string
+          source_text_hash?: string
+          translations?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       translation_queue: {
         Row: {
           attempts: number | null
@@ -21404,6 +21437,137 @@ export type Database = {
           },
         ]
       }
+      workshop_employee_findings: {
+        Row: {
+          action_type: string
+          created_at: string
+          description_original: string
+          description_original_lang: string
+          description_pl: string | null
+          employee_user_id: string
+          estimated_hours: number | null
+          id: string
+          moved_to_order_at: string | null
+          moved_to_order_item_id: string | null
+          order_id: string
+          part_name: string | null
+          part_oe_code: string | null
+          part_supplier: string | null
+          position: number
+          provider_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          action_type?: string
+          created_at?: string
+          description_original: string
+          description_original_lang?: string
+          description_pl?: string | null
+          employee_user_id: string
+          estimated_hours?: number | null
+          id?: string
+          moved_to_order_at?: string | null
+          moved_to_order_item_id?: string | null
+          order_id: string
+          part_name?: string | null
+          part_oe_code?: string | null
+          part_supplier?: string | null
+          position?: number
+          provider_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          action_type?: string
+          created_at?: string
+          description_original?: string
+          description_original_lang?: string
+          description_pl?: string | null
+          employee_user_id?: string
+          estimated_hours?: number | null
+          id?: string
+          moved_to_order_at?: string | null
+          moved_to_order_item_id?: string | null
+          order_id?: string
+          part_name?: string | null
+          part_oe_code?: string | null
+          part_supplier?: string | null
+          position?: number
+          provider_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workshop_employee_findings_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "workshop_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workshop_employee_findings_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workshop_employee_invitations: {
+        Row: {
+          accepted_at: string | null
+          created_at: string
+          id: string
+          invited_by: string | null
+          invited_email: string
+          invited_user_id: string | null
+          language_preference: string | null
+          provider_id: string
+          rejected_at: string | null
+          revoked_at: string | null
+          role: string
+          status: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          created_at?: string
+          id?: string
+          invited_by?: string | null
+          invited_email: string
+          invited_user_id?: string | null
+          language_preference?: string | null
+          provider_id: string
+          rejected_at?: string | null
+          revoked_at?: string | null
+          role?: string
+          status?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          created_at?: string
+          id?: string
+          invited_by?: string | null
+          invited_email?: string
+          invited_user_id?: string | null
+          language_preference?: string | null
+          provider_id?: string
+          rejected_at?: string | null
+          revoked_at?: string | null
+          role?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workshop_employee_invitations_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workshop_employees: {
         Row: {
           created_at: string | null
@@ -21412,14 +21576,18 @@ export type Database = {
           hourly_rate: number | null
           id: string
           is_active: boolean | null
+          language_preference: string
           last_name: string | null
           name: string
           phone: string | null
           pin_code: string | null
           provider_id: string
+          removed_at: string | null
           role: string | null
           salary: number | null
+          status: string
           updated_at: string | null
+          user_id: string | null
         }
         Insert: {
           created_at?: string | null
@@ -21428,14 +21596,18 @@ export type Database = {
           hourly_rate?: number | null
           id?: string
           is_active?: boolean | null
+          language_preference?: string
           last_name?: string | null
           name: string
           phone?: string | null
           pin_code?: string | null
           provider_id: string
+          removed_at?: string | null
           role?: string | null
           salary?: number | null
+          status?: string
           updated_at?: string | null
+          user_id?: string | null
         }
         Update: {
           created_at?: string | null
@@ -21444,14 +21616,18 @@ export type Database = {
           hourly_rate?: number | null
           id?: string
           is_active?: boolean | null
+          language_preference?: string
           last_name?: string | null
           name?: string
           phone?: string | null
           pin_code?: string | null
           provider_id?: string
+          removed_at?: string | null
           role?: string | null
           salary?: number | null
+          status?: string
           updated_at?: string | null
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -21497,6 +21673,54 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "workshop_mechanics_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workshop_order_assignments: {
+        Row: {
+          assigned_at: string
+          assigned_by: string | null
+          employee_user_id: string
+          id: string
+          order_id: string
+          provider_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
+          employee_user_id: string
+          id?: string
+          order_id: string
+          provider_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string | null
+          employee_user_id?: string
+          id?: string
+          order_id?: string
+          provider_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workshop_order_assignments_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "workshop_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workshop_order_assignments_provider_id_fkey"
             columns: ["provider_id"]
             isOneToOne: false
             referencedRelation: "service_providers"

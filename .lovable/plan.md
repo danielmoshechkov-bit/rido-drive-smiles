@@ -1,62 +1,86 @@
-# Plan: Telegram Notifications Module
 
-Dodaję nowy moduł powiadomień Telegram jako równoległy kanał do istniejących SMS/email/app. **Niczego nie zmieniam w istniejących funkcjach** — tylko dodaję infrastrukturę.
+# Plan: Moduł Pracownika Warsztatu + Globalne Auto-Tłumaczenie
 
-## Zakres tej iteracji (frontend + DB + helper)
+Dwa duże, powiązane systemy. Proponuję podzielić wdrożenie na **2 fazy** zamiast robić wszystko w jednej iteracji — to za duży zakres na jeden bezpieczny deploy (4 nowe tabele × 2, 5+ edge functions, ~15 komponentów frontu, nowy moduł użytkownika, hook tłumaczeń, integracje w 5+ miejscach insertów).
 
-### 1. Migracja bazy (Supabase)
-3 nowe tabele + RPC:
+---
 
-- **`telegram_connections`** — powiązanie user ↔ chat Telegram (token startowy 15 min, status aktywne, licznik wiadomości).
-- **`notification_preferences`** — preferencje per user. Zamiast ~60 kolumn boolean per kanał, użyję **`jsonb`** (`prefs jsonb`) z domyślnymi wartościami — łatwiej dodawać nowe typy bez migracji. Dodatkowo: `quiet_hours_enabled`, `quiet_hours_start`, `quiet_hours_end`.
-- **`notification_log`** — log wysyłek (user_id, typ, kanał, status, payload, error, sent_at). Tylko admin czyta.
-- **`app_settings`** — tabela klucz/wartość (jeśli nie istnieje) na `telegram_bot_username`.
-- RLS: user widzi tylko swoje connections/preferences; log — tylko admin (`has_role(auth.uid(),'admin')`).
-- **RPC `generate_telegram_token()`** — tworzy/odświeża token + zwraca link `https://t.me/<bot_username>?start=<token>`.
-- **RPC `disconnect_telegram()`** — set `is_active=false`.
+## FAZA 1 — Moduł Pracownika Warsztatu (1-2 dni)
 
-### 2. Panel admina → Integracje → karta "Telegram Bot"
-Nowy plik `src/components/admin/TelegramBotPanel.tsx`, dodany jako nowa zakładka (`telegram`) w `AdminApiKeysTab`. Karta:
-- Pole **Bot Token** (password) → zapis do Supabase Secrets `TELEGRAM_BOT_TOKEN` (przez `add_secret`/instrukcja dla usera, bo Secrets nie da się zapisać z UI klienta).
-- Pole **Bot Username** → `app_settings.telegram_bot_username`.
-- **Webhook URL** (read-only) wygenerowany z project ref.
-- Statystyki (z `telegram_connections` i `notification_log`).
-- **Log ostatnich 20 powiadomień** z paginacją + filtrami (user/typ/status/data).
+### Baza danych (1 migracja)
+- `workshop_employee_invitations` — zaproszenia (email, status pending/accepted/rejected/revoked)
+- `workshop_order_assignments` — przypisanie zlecenia do pracownika + status workflow
+- `workshop_employee_findings` — punkty protokołu (opis oryginał + PL, akcja, część, czas, status)
+- `workshop_employees` — dodać kolumny: `user_id`, `status`, `language_preference`, `removed_at` (kolumny `role`, `is_active` już są)
+- RLS: pracownik widzi tylko swoje przypisania; pracodawca widzi tylko swoje zlecenia
+- GRANT-y do `authenticated` + `service_role`
 
-Sekret token — w UI tylko status "ustawiony/nieustawiony"; do wpisania używamy `add_secret`.
+### Edge Functions
+- `workshop-invite-employee` — wysyła zaproszenie (in-app notification + email przez istniejący `send-employee-invitation`)
+- `workshop-accept-employee-invitation` — accept/reject, tworzy/aktualizuje `workshop_employees`
+- `workshop-translate` — Kimi AI (KIMI_API_KEY/MOONSHOT_API_KEY już są w secrets), cache w `workshop_translation_cache` (lub od razu w globalnym z Fazy 2)
+- `workshop-employee-submit-findings` — tłumaczy każdy opis na PL, zapisuje findings, powiadamia pracodawcę
+- `workshop-approve-findings` — przenosi zaznaczone findings jako pozycje `workshop_order_items`
 
-### 3. Panel klienta → Ustawienia → nowa zakładka "Powiadomienia"
-Nowy plik `src/components/client-portal/NotificationsSettings.tsx`:
-- **Kanały**: email (z auth), SMS (z profilu), Telegram (CTA połącz), App (push placeholder).
-- **Tabele preferencji per moduł** (Warsztat/Nieruchomości/Giełda/Marketplace/Flota/KSeF) — checkbox per (typ × kanał). Typy zdefiniowane jako stała w `src/config/notificationTypes.ts`.
-- "Zaznacz/odznacz wszystkie" per moduł.
-- Sekcje pokazywane tylko gdy user ma aktywny moduł (sprawdzenie `useUserRole` / istniejące hooki).
-- Cisza nocna (toggle + dwa pola time).
-- "Zapisz" + "Wyślij test" (call do edge fn — zostawiam jako placeholder dispatch).
+### Frontend pracodawcy
+- `WorkshopEmployeesPage.tsx` — dodać zakładki **Zaproszenia / Aktywni**, modal „Zaproś po emailu"
+- `WorkshopOrderDetail.tsx`:
+  - Dropdown „Przydziel pracownika"
+  - Nowa zakładka **„Od pracowników"** z listą findings + checkbox + [Przenieś na kartę]
 
-Dodaję jako nowy tab w istniejącym ustawieniach klienta (znajdę miejsce po przeglądnięciu `RentalClientPortal.tsx` lub odpowiednika).
+### Frontend pracownika (nowy moduł)
+- Nowy hook `useIsWorkshopEmployee()` — sprawdza `workshop_employees.status='active'`
+- Dodać kafel **„Warsztat & Auta"** w `EasyHub` widoczny warunkowo
+- Strony:
+  - `/pracownik-warsztat/zlecenia` — lista przydzielonych
+  - `/pracownik-warsztat/zlecenia/:id` — karta + formularz protokołu (textarea z Web Speech API, dropdown akcji, autocomplete części reużywając `PartsSearchModal`, czas)
+- Mobile-first, duże touch targets (44px+)
 
-### 4. Reusable `<TelegramConnectButton />`
-`src/components/notifications/TelegramConnectButton.tsx`:
-- Props: `variant: 'large' | 'compact' | 'minimal'`, `onConnect?`.
-- Wywołuje RPC `generate_telegram_token`, otwiera deep link + pokazuje QR (`qrcode` lib jeśli zainstalowana, inaczej fallback).
-- Subskrypcja Supabase Realtime na `telegram_connections` filtr `user_id=eq.<uid>`; gdy `is_active=true` → toast + callback.
-- Timeout 5 min, "Rozłącz" button po połączeniu.
+### Notyfikacje
+- In-app via istniejący `workspace_notifications` lub `notification_log`
+- SMS opcjonalnie przez `workshop-send-sms` (już istnieje)
 
-### 5. Helper `sendNotification()` (przygotowany, nie wywoływany)
-`supabase/functions/_shared/notifications.ts`:
-- Czyta preferences, sprawdza quiet hours (z wyjątkiem critical types), routuje na email/sms/telegram/app, loguje w `notification_log`.
-- Stub'y dla telegram-notify (Claude Code dorobi później).
+---
 
-### 6. Lista typów powiadomień
-`src/config/notificationTypes.ts` — pełna lista (warsztat/realestate/vehicle/marketplace/fleet/ksef) z metadanymi: kod, label, moduł, czy krytyczny, domyślne kanały.
+## FAZA 2 — Globalne Auto-Tłumaczenie (1-2 dni, po akceptacji Fazy 1)
 
-## Czego nie robię (zostawione Claude Code)
-- Edge functions `telegram-webhook` i `telegram-notify`.
-- Wywołania `sendNotification()` w istniejących edge functions.
-- Push (PWA) — tylko struktura.
+### Baza
+- `content_translations` (content_type, content_id, source_text, translations jsonb, status)
+- `translation_cache_global` (hash, source_lang, translations jsonb, hit_count)
+- `profiles.preferred_language` (lub `marketplace_user_profiles` — używamy tej tabeli w projekcie)
 
-## Pytanie
-Token bota podaje admin przez **`add_secret` flow** (bezpiecznie), czy chcesz dodatkowo opcję wklejenia w UI (zapis do `app_settings`, mniej bezpieczne)? Domyślnie idę z `add_secret`.
+### Edge Function
+- `auto-translate-content` — batch Kimi AI (PL/EN/RU/UA/DE w 1 callu), cache hash-based, fallback do source przy błędzie, kolejka retry
 
-Czy zatwierdzasz plan? Po akceptacji uruchamiam migrację i tworzę pliki.
+### Frontend
+- Hook `useTranslatedContent(type, id, fallback)` + komponent `<TranslatedText/>`
+- Wykrywanie języka: `marketplace_user_profiles.preferred_language` → `navigator.language` → `pl`
+- Ikonka „🌐 Przetłumaczone przez AI"
+
+### Integracje (triggery DB lub w hookach mutacji)
+- `marketplace_listings`, `real_estate_listings`, `general_listings`, `services`/`provider_services`, `workshop_orders.description`, `workshop_employee_findings` (z Fazy 1 — przepiąć z `workshop-translate` na unified)
+- SMS/email do klienta — wybór języka z profilu klienta
+
+### Spójność z Fazą 1
+- Faza 2 zastępuje `workshop-translate` przez `auto-translate-content`
+- `workshop_translation_cache` migrowana do `translation_cache_global` (lub od razu w Fazie 1 użyjemy globalnego)
+
+---
+
+## Decyzje do potwierdzenia
+
+1. **Robimy obie fazy teraz, czy Faza 1 najpierw + osobny commit dla Fazy 2?**
+   Rekomenduję Faza 1 → test → Faza 2. Mniej ryzyka regresji, łatwiejszy rollback.
+
+2. **Cache tłumaczeń od razu globalny?** Tak — od razu zrobimy `translation_cache_global` w Fazie 1, żeby nie migrować później. `workshop_translation_cache` pomijamy.
+
+3. **Web Speech API dla głosowego dodawania punktów** — działa tylko w Chrome/Safari, bez fallbacku. OK?
+
+4. **Auto-tłumaczenie istniejących treści** (backfill ~tysięcy ogłoszeń) — robimy w Fazie 2 jako jednorazowy cron, czy tylko nowe od momentu wdrożenia? Backfill kosztuje ~20-50 USD jednorazowo.
+
+---
+
+Po Twojej akceptacji startuję **Fazą 1**. Daj znać czy:
+- (a) zatwierdzasz plan w tej formie i jedziemy z Fazą 1,
+- (b) chcesz coś zmienić w zakresie/kolejności,
+- (c) chcesz mimo wszystko obie fazy w jednym podejściu (dłużej, większe ryzyko).
