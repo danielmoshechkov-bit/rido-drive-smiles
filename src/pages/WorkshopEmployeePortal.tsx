@@ -27,6 +27,8 @@ export default function WorkshopEmployeePortal() {
   const [busy, setBusy] = useState<string | null>(null);
   const [dataLoading, setDataLoading] = useState(true);
   const [openOrderId, setOpenOrderId] = useState<string | null>(null);
+  const [openFromPool, setOpenFromPool] = useState(false);
+  const [openProviderId, setOpenProviderId] = useState<string | null>(null);
 
   const providerIds = useMemo(() => records.map(r => r.provider_id), [records]);
   const primaryProvider = records[0];
