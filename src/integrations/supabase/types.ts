@@ -21816,6 +21816,7 @@ export type Database = {
           order_id: string
           quantity: number | null
           sort_order: number | null
+          task_group: string | null
           total_gross: number | null
           total_net: number | null
           unit: string | null
@@ -21837,6 +21838,7 @@ export type Database = {
           order_id: string
           quantity?: number | null
           sort_order?: number | null
+          task_group?: string | null
           total_gross?: number | null
           total_net?: number | null
           unit?: string | null
@@ -21858,6 +21860,7 @@ export type Database = {
           order_id?: string
           quantity?: number | null
           sort_order?: number | null
+          task_group?: string | null
           total_gross?: number | null
           total_net?: number | null
           unit?: string | null

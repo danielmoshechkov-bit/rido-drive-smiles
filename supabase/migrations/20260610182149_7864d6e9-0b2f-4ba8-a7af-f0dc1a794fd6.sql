@@ -1,0 +1,1 @@
+ALTER TABLE public.workshop_order_items ADD COLUMN IF NOT EXISTS task_group TEXT;
