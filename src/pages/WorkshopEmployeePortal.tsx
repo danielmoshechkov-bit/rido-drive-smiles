@@ -224,7 +224,7 @@ export default function WorkshopEmployeePortal() {
                 <div key={a.id} className="p-3 flex items-center gap-3">
                   <button
                     className="flex-1 text-left hover:opacity-80"
-                    onClick={() => navigate(`/warsztat/zlecenie/${a.order_id}`)}
+                    onClick={() => navigate(`/pracownik-warsztat/zlecenia/${a.order_id}`)}
                   >
                     <div className="font-medium text-sm">
                       {a.workshop_orders?.order_number || a.order_id.slice(0, 8)}
