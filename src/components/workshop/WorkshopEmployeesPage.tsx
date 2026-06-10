@@ -34,7 +34,8 @@ interface Employee {
 
 export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | null }) => {
   const [loading, setLoading] = useState(true);
-  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [employees, setEmployees] = useState<any[]>([]);
+  const [invitations, setInvitations] = useState<any[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -50,23 +51,58 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
   const [invitingId, setInvitingId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (providerId) fetchEmployees();
+    if (providerId) fetchAll();
   }, [providerId]);
 
-  const fetchEmployees = async () => {
+  const fetchAll = async () => {
     try {
-      const { data, error } = await (supabase.from('workshop_employees') as any)
-        .select('*')
-        .eq('provider_id', providerId)
-        .order('created_at', { ascending: true });
-      if (error) throw error;
-      setEmployees(data || []);
+      const [empRes, invRes] = await Promise.all([
+        (supabase.from('workshop_employees') as any)
+          .select('*').eq('provider_id', providerId).order('created_at', { ascending: true }),
+        (supabase.from('workshop_employee_invitations') as any)
+          .select('*').eq('provider_id', providerId).order('created_at', { ascending: false }),
+      ]);
+      if (empRes.error) throw empRes.error;
+      setEmployees(empRes.data || []);
+      setInvitations(invRes.data || []);
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
   };
+  const fetchEmployees = fetchAll;
+
+  // Resolve unified status per employee row by matching email against invitations
+  const statusFor = (emp: any): { key: string; label: string; className: string } => {
+    if (emp.is_active === false || emp.status === 'inactive') {
+      return { key: 'inactive', label: 'Nieaktywny', className: 'bg-muted text-muted-foreground' };
+    }
+    if (emp.user_id && emp.status === 'active') {
+      return { key: 'active', label: 'Aktywny', className: 'bg-green-500 text-white hover:bg-green-600' };
+    }
+    const inv = emp.email
+      ? invitations.find(i => (i.invited_email || '').toLowerCase() === emp.email.toLowerCase())
+      : null;
+    if (inv?.status === 'accepted') return { key: 'active', label: 'Aktywny', className: 'bg-green-500 text-white hover:bg-green-600' };
+    if (inv?.status === 'rejected') return { key: 'rejected', label: 'Odrzucony', className: 'bg-destructive text-destructive-foreground' };
+    if (inv?.status === 'pending') return { key: 'pending', label: 'Zaproszony', className: 'bg-yellow-500 text-black hover:bg-yellow-600' };
+    if (emp.email) return { key: 'pending', label: 'Zaproszony', className: 'bg-yellow-500 text-black hover:bg-yellow-600' };
+    return { key: 'inactive', label: 'Bez konta', className: 'bg-muted text-muted-foreground' };
+  };
+
+  const removeEmployee = async (emp: any) => {
+    if (!confirm(`Usunąć pracownika ${emp.name}? Konto zostanie zdezaktywowane.`)) return;
+    try {
+      const { error } = await (supabase.from('workshop_employees') as any)
+        .update({ is_active: false, status: 'inactive', removed_at: new Date().toISOString() })
+        .eq('id', emp.id);
+      if (error) throw error;
+      toast.success('Pracownik usunięty');
+      fetchAll();
+    } catch (e: any) { toast.error(e.message); }
+  };
+
 
   const resetForm = () => {
     setFirstName('');
