@@ -74,6 +74,12 @@ const Auth = () => {
         return;
       }
 
+      // If a redirect param is provided (e.g. invitation acceptance flow), honor it before role routing.
+      if (redirectTo) {
+        navigate(redirectTo);
+        return;
+      }
+
       if (userRoles && userRoles.length > 0) {
         const roles = userRoles.map((r: any) => r.role);
         
@@ -98,8 +104,9 @@ const Auth = () => {
         }
       }
 
-      toast.error(t('auth.noRoles') || 'Twoje konto nie ma przypisanych uprawnień. Skontaktuj się z administratorem.');
-      await supabase.auth.signOut();
+      // No specific role match — fall back to redirect or /klient
+      navigate(redirectTo || '/klient');
+
     } catch (error) {
       console.error('Login error:', error);
       toast.error(t('auth.loginError') || 'Wystąpił błąd podczas logowania!');
