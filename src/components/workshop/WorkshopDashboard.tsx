@@ -13,6 +13,7 @@ import { WorkshopWarehouse } from './WorkshopWarehouse';
 import { WorkshopTireStorage } from './WorkshopTireStorage';
 import { WorkshopRepairData } from './WorkshopRepairData';
 import { WorkshopSettings } from './WorkshopSettings';
+import { WorkshopEmployeesPage } from './WorkshopEmployeesPage';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -29,6 +30,7 @@ import tileMagazyn from '@/assets/workshop/tile-magazyn.jpg';
 import tilePrzechodnia from '@/assets/workshop/tile-przechowalnia.jpg';
 import tileDaneNaprawcze from '@/assets/workshop/tile-dane-naprawcze.jpg';
 import tileUstawienia from '@/assets/workshop/tile-ustawienia.jpg';
+import tilePracownicy from '@/assets/workshop/tile-pracownicy.jpg';
 
 const modules = [
   { key: 'zlecenia', label: 'Zlecenia', img: tileZlecenia, ready: true },
@@ -43,6 +45,7 @@ const modules = [
   { key: 'magazyn', label: 'Magazyn', img: tileMagazyn, ready: true },
   { key: 'przechowalnia', label: 'Przechowalnia', img: tilePrzechodnia, ready: true },
   { key: 'dane-naprawcze', label: 'Dane naprawcze', img: tileDaneNaprawcze, ready: true },
+  { key: 'pracownicy', label: 'Pracownicy', img: tilePracownicy, ready: true },
   { key: 'ustawienia', label: 'Ustawienia', img: tileUstawienia, ready: true },
 ];
 
@@ -252,6 +255,8 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
         return <WorkshopTireStorage providerId={providerId} onBack={() => goTo(null)} />;
       case 'dane-naprawcze':
         return <WorkshopRepairData providerId={providerId} onBack={() => goTo(null)} />;
+      case 'pracownicy':
+        return <WorkshopEmployeesPage providerId={providerId} />;
       case 'ustawienia':
         return <WorkshopSettings providerId={providerId} onBack={() => goTo(null)} />;
       default:
