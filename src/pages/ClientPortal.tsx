@@ -1703,10 +1703,13 @@ export default function ClientPortal() {
 
               {settingsSubTab === 'powiadomienia' && (
                 <NotificationsSettings
-                  visibleModules={['vehicle', 'real_estate', 'marketplace']}
+                  visibleModules={isRealEstateAccount
+                    ? ['vehicle', 'real_estate', 'marketplace']
+                    : ['vehicle', 'marketplace']}
                   userEmail={accountEmail}
                   userPhone={accountPhone}
                 />
+
               )}
 
               {settingsSubTab === 'preferencje' && (
