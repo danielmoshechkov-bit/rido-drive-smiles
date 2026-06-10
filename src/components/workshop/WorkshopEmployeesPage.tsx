@@ -395,16 +395,14 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
                   {roles.map(r => (
                     <div key={r.value} className="flex items-center justify-between pr-1 hover:bg-muted/50 rounded">
                       <SelectItem value={r.value} className="flex-1">{r.label}</SelectItem>
-                      {!DEFAULT_ROLES.some(d => d.value === r.value) && (
-                        <button
-                          type="button"
-                          onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); removeRole(r.value); }}
-                          className="p-1 mr-1 rounded hover:bg-destructive/10 text-destructive"
-                          title="Usuń rolę"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); removeRole(r.value); }}
+                        className="p-1 mr-1 rounded hover:bg-destructive/10 text-destructive"
+                        title="Usuń rolę"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
                     </div>
                   ))}
                 </SelectContent>
