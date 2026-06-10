@@ -336,8 +336,8 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
               </div>
             </div>
             <div className="space-y-2">
-              <Label className="flex items-center gap-1.5"><Mail className="h-4 w-4" /> Email (potrzebny do zaproszenia)</Label>
-              <Input type="email" value={emailAddr} onChange={e => setEmailAddr(e.target.value)} placeholder="pracownik@firma.pl" />
+              <Label className="flex items-center gap-1.5"><Mail className="h-4 w-4" /> Email * <span className="text-xs text-muted-foreground font-normal">(pracownik dostanie zaproszenie)</span></Label>
+              <Input type="email" required value={emailAddr} onChange={e => setEmailAddr(e.target.value)} placeholder="pracownik@firma.pl" />
             </div>
             <div className="space-y-2">
               <Label>PIN (4 cyfry, opcjonalny)</Label>
