@@ -67,7 +67,8 @@ export function AccountSwitcherPanel({
   hideDriverForFleet = false
 }: AccountSwitcherPanelProps) {
   const [showAddAccountDialog, setShowAddAccountDialog] = useState(false);
-  
+  const { isWorkshopEmployee, records: workshopEmpRecords } = useIsWorkshopEmployee();
+
   const hasSalesAccess = isSalesAdmin || isSalesRep;
   const showDriverOption = isDriverAccount && !hideDriverForFleet;
 
