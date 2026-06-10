@@ -10,7 +10,10 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Plus, Edit, UserX, Loader2, Users, Mail, Send } from 'lucide-react';
+import { WorkshopInvitationsList } from './WorkshopInvitationsList';
+import { WorkshopInviteEmployeeDialog } from './WorkshopInviteEmployeeDialog';
 
 const ROLES = [
   { value: 'mechanic', label: 'Mechanik' },
@@ -194,65 +197,78 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Users className="h-5 w-5 text-primary" />
-          <h3 className="text-lg font-semibold">Pracownicy ({employees.length})</h3>
-        </div>
-        <Button onClick={openAdd} size="sm"><Plus className="h-4 w-4 mr-1" />Dodaj pracownika</Button>
-      </div>
+      <Tabs defaultValue="active" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="active"><Users className="h-4 w-4 mr-1.5" /> Aktywni ({employees.length})</TabsTrigger>
+          <TabsTrigger value="invitations"><Mail className="h-4 w-4 mr-1.5" /> Zaproszenia</TabsTrigger>
+        </TabsList>
 
-      <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Imię i nazwisko</TableHead>
-                <TableHead>Rola</TableHead>
-                <TableHead>Telefon</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Stawka/h</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Akcje</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {employees.length === 0 && (
-                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">Brak pracowników</TableCell></TableRow>
-              )}
-              {employees.map(emp => (
-                <TableRow key={emp.id}>
-                  <TableCell className="font-medium">{emp.name}</TableCell>
-                  <TableCell>{roleLabel(emp.role)}</TableCell>
-                  <TableCell>{emp.phone || '—'}</TableCell>
-                  <TableCell className="text-sm">{emp.email || '—'}</TableCell>
-                  <TableCell>{emp.hourly_rate} PLN</TableCell>
-                  <TableCell>
-                    <Badge variant={emp.is_active ? 'default' : 'secondary'}>
-                      {emp.is_active ? 'Aktywny' : 'Nieaktywny'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right space-x-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      title="Wyślij zaproszenie"
-                      onClick={() => handleSendInvite(emp)}
-                      disabled={invitingId === emp.id || !emp.email}
-                    >
-                      {invitingId === emp.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4 text-primary" />}
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => openEdit(emp)}><Edit className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" onClick={() => toggleActive(emp)}>
-                      <UserX className="h-4 w-4 text-muted-foreground" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+        <TabsContent value="active" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-primary" />
+              <h3 className="text-lg font-semibold">Pracownicy ({employees.length})</h3>
+            </div>
+            <Button onClick={openAdd} size="sm"><Plus className="h-4 w-4 mr-1" />Dodaj pracownika</Button>
+          </div>
+
+          <Card>
+            <CardContent className="p-0 overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Imię i nazwisko</TableHead>
+                    <TableHead>Rola</TableHead>
+                    <TableHead>Telefon</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Stawka/h</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Akcje</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {employees.length === 0 && (
+                    <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">Brak pracowników</TableCell></TableRow>
+                  )}
+                  {employees.map(emp => (
+                    <TableRow key={emp.id}>
+                      <TableCell className="font-medium">{emp.name}</TableCell>
+                      <TableCell>{roleLabel(emp.role)}</TableCell>
+                      <TableCell>{emp.phone || '—'}</TableCell>
+                      <TableCell className="text-sm">{emp.email || '—'}</TableCell>
+                      <TableCell>{emp.hourly_rate} PLN</TableCell>
+                      <TableCell>
+                        <Badge variant={emp.is_active ? 'default' : 'secondary'}>
+                          {emp.is_active ? 'Aktywny' : 'Nieaktywny'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right space-x-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="Wyślij zaproszenie"
+                          onClick={() => handleSendInvite(emp)}
+                          disabled={invitingId === emp.id || !emp.email}
+                        >
+                          {invitingId === emp.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4 text-primary" />}
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => openEdit(emp)}><Edit className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" onClick={() => toggleActive(emp)}>
+                          <UserX className="h-4 w-4 text-muted-foreground" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="invitations">
+          <WorkshopInvitationsList providerId={providerId} />
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
@@ -314,3 +330,4 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
     </div>
   );
 };
+

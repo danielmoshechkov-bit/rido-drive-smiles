@@ -18,6 +18,8 @@ import { WorkshopClientHoverCard } from './WorkshopClientHoverCard';
 import { WorkshopEstimatePreviewDialog } from './WorkshopEstimatePreviewDialog';
 import { WorkshopMechanicCardDialog } from './WorkshopMechanicCardDialog';
 import { RidoPartsCartButton } from './parts/RidoPartsCartButton';
+import { WorkshopAssignEmployeeDropdown } from './WorkshopAssignEmployeeDropdown';
+import { WorkshopOrderEmployeeFindingsTab } from './tabs/WorkshopOrderEmployeeFindingsTab';
 import {
   ArrowLeft, FileText, Send, Eye, Link2, MessageSquare, MoreVertical,
   Printer, Download, ClipboardList, Car, Users, CheckCircle, XCircle, Ban, AlertTriangle, Wrench, UserPlus, Search
@@ -346,7 +348,9 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
               <Link2 className="h-4 w-4" />
             </Button>
             <RidoPartsCartButton providerId={providerId} />
+            <WorkshopAssignEmployeeDropdown orderId={order.id} providerId={providerId} />
           </div>
+
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -410,6 +414,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
           <Button variant="ghost" size="sm" className="h-7 w-7 p-0 shrink-0" onClick={copyClientLink}>
             <Link2 className="h-3.5 w-3.5" />
           </Button>
+          <div className="shrink-0"><WorkshopAssignEmployeeDropdown orderId={order.id} providerId={providerId} /></div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="h-7 w-7 p-0 shrink-0"><MoreVertical className="h-3.5 w-3.5" /></Button>
@@ -437,6 +442,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
           {[
             { value: 'tasks', label: 'Wycena zlecenia' },
             { value: 'basic', label: 'Podstawowe' },
+            { value: 'findings', label: 'Od pracowników' },
             { value: 'summary', label: 'Podsumowanie' },
             { value: 'schedule', label: 'Terminarz' },
             { value: 'files', label: 'Pliki' },
@@ -458,6 +464,9 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
         </TabsContent>
         <TabsContent value="tasks">
           <WorkshopOrderTasksTab order={order} providerId={providerId} />
+        </TabsContent>
+        <TabsContent value="findings">
+          <WorkshopOrderEmployeeFindingsTab orderId={order.id} providerId={providerId} />
         </TabsContent>
         <TabsContent value="summary">
           <WorkshopOrderSummaryTab order={order} />
