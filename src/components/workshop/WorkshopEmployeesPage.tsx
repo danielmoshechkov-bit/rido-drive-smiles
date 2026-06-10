@@ -258,21 +258,25 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
           .insert(payload).select('id').single();
         if (error) throw error;
         savedId = ins?.id || null;
-        try {
-          const { data, error: invErr } = await supabase.functions.invoke('workshop-invite-employee', {
-            body: { email: cleanEmail, provider_id: providerId, role, language_preference: 'pl' },
-          });
-          if (invErr) throw invErr;
-          if ((data as any)?.email_sent) {
-            toast.success(`Pracownik dodany. Zaproszenie wysłane na ${cleanEmail}`);
-          } else if ((data as any)?.action_link) {
-            await navigator.clipboard.writeText((data as any).action_link);
-            toast.success('Pracownik dodany. Link zaproszenia skopiowany do schowka');
-          } else {
-            toast.success('Pracownik dodany');
+        if (sendInvite) {
+          try {
+            const { data, error: invErr } = await supabase.functions.invoke('workshop-invite-employee', {
+              body: { email: cleanEmail, provider_id: providerId, role, language_preference: 'pl' },
+            });
+            if (invErr) throw invErr;
+            if ((data as any)?.email_sent) {
+              toast.success(`Pracownik dodany. Zaproszenie wysłane na ${cleanEmail}`);
+            } else if ((data as any)?.action_link) {
+              await navigator.clipboard.writeText((data as any).action_link);
+              toast.success('Pracownik dodany. Link zaproszenia skopiowany do schowka');
+            } else {
+              toast.success('Pracownik dodany');
+            }
+          } catch (invE: any) {
+            toast.warning(`Pracownik dodany, ale zaproszenie nie zostało wysłane: ${invE.message}`);
           }
-        } catch (invE: any) {
-          toast.warning(`Pracownik dodany, ale zaproszenie nie zostało wysłane: ${invE.message}`);
+        } else {
+          toast.success('Pracownik dodany. Zaproszenie nie zostało wysłane — możesz wysłać je później przyciskiem koperty.');
         }
       }
 
