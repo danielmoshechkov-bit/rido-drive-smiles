@@ -318,10 +318,17 @@ export default function WorkshopEmployeePortal() {
 
       <EmployeeOrderCardDialog
         open={!!openOrderId}
-        onOpenChange={(v) => { if (!v) setOpenOrderId(null); }}
+        onOpenChange={(v) => { if (!v) { setOpenOrderId(null); setOpenFromPool(false); } }}
         orderId={openOrderId}
         employeeId={primaryProvider?.id}
         employeeName={userName}
+        readOnly={openFromPool}
+        onClaim={openFromPool && openOrderId && openProviderId ? async () => {
+          await claim(openOrderId, openProviderId);
+          setOpenFromPool(false);
+          setTab('mine');
+          setOpenOrderId(null);
+        } : undefined}
         onSaved={loadAll}
       />
     </div>
