@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
+
 import { useTranslation } from 'react-i18next';
 import i18n from 'i18next';
 import { Button } from "@/components/ui/button";
@@ -15,12 +16,19 @@ import { toast } from "sonner";
 const Auth = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
+  const [searchParams] = useSearchParams();
+  const prefillEmail = searchParams.get('email') || '';
+  const redirectTo = searchParams.get('redirect') || '';
+  const [email, setEmail] = useState(prefillEmail);
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
+
+  useEffect(() => { if (prefillEmail) setEmail(prefillEmail); }, [prefillEmail]);
+
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,6 +74,12 @@ const Auth = () => {
         return;
       }
 
+      // If a redirect param is provided (e.g. invitation acceptance flow), honor it before role routing.
+      if (redirectTo) {
+        navigate(redirectTo);
+        return;
+      }
+
       if (userRoles && userRoles.length > 0) {
         const roles = userRoles.map((r: any) => r.role);
         
@@ -90,8 +104,9 @@ const Auth = () => {
         }
       }
 
-      toast.error(t('auth.noRoles') || 'Twoje konto nie ma przypisanych uprawnień. Skontaktuj się z administratorem.');
-      await supabase.auth.signOut();
+      // No specific role match — fall back to redirect or /klient
+      navigate(redirectTo || '/klient');
+
     } catch (error) {
       console.error('Login error:', error);
       toast.error(t('auth.loginError') || 'Wystąpił błąd podczas logowania!');

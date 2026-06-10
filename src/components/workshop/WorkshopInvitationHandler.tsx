@@ -25,8 +25,22 @@ export function WorkshopInvitationHandler() {
     const { data, error } = await supabase.functions.invoke('workshop-accept-employee-invitation', {
       body: { invitation_id: invId, accept: true },
     });
+    // Detect email_mismatch (FunctionsHttpError carries response context in error.context)
+    const ctx: any = (error as any)?.context;
+    let errorBody: any = (data as any) || null;
+    if (ctx && typeof ctx.json === 'function') {
+      try { errorBody = await ctx.json(); } catch {}
+    }
+    if (errorBody?.error === 'email_mismatch' && errorBody?.invited_email) {
+      toast.error(errorBody.message || 'Zaproszenie jest dla innego adresu e-mail.');
+      // Sign out current user and redirect to login with email pre-filled and invitation redirect
+      await supabase.auth.signOut();
+      const redirect = `/?invitation=${invId}`;
+      navigate(`/auth?email=${encodeURIComponent(errorBody.invited_email)}&redirect=${encodeURIComponent(redirect)}`);
+      return;
+    }
     if (error) throw error;
-    if ((data as any)?.error) throw new Error((data as any).error);
+    if (errorBody?.error) throw new Error(errorBody.error);
 
     try {
       const { data: inv } = await (supabase.from('workshop_employee_invitations') as any)
@@ -37,7 +51,8 @@ export function WorkshopInvitationHandler() {
     } catch { setCompanyName('warsztat'); }
 
     setWelcomeOpen(true);
-  }, []);
+  }, [navigate]);
+
 
   // Process explicit ?invitation=<id>
   useEffect(() => {

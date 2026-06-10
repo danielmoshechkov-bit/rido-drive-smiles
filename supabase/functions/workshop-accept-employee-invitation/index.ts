@@ -29,8 +29,13 @@ serve(async (req) => {
 
     const emailMatches = (user.email || '').toLowerCase() === (inv.invited_email || '').toLowerCase();
     if (!emailMatches && inv.invited_user_id !== user.id) {
-      return json({ error: 'forbidden — invitation is for another email' }, 403);
+      return json({
+        error: 'email_mismatch',
+        message: `To zaproszenie jest dla ${inv.invited_email}. Zaloguj się na ten adres aby je przyjąć.`,
+        invited_email: inv.invited_email,
+      }, 403);
     }
+
 
     if (!accept) {
       await admin.from('workshop_employee_invitations').update({

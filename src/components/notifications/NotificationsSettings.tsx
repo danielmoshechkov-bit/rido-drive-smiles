@@ -158,11 +158,12 @@ export function NotificationsSettings({ visibleModules, userEmail, userPhone }: 
               <MessageSquare className="h-5 w-5 text-muted-foreground" />
               <div>
                 <p className="font-medium text-sm">SMS</p>
-                <p className="text-xs text-muted-foreground">{userPhone || 'Brak numeru'} • płatne 0,10 zł/szt</p>
+                <p className="text-xs text-muted-foreground">{userPhone || 'Brak numeru'} • bezpłatne (wysyłka przez GetRido API)</p>
               </div>
             </div>
             <Badge variant={userPhone ? 'default' : 'secondary'}>{userPhone ? 'Aktywne' : 'Brak numeru'}</Badge>
           </div>
+
           <div className="flex items-center justify-between p-3 border rounded-lg gap-3 flex-wrap">
             <div className="flex items-center gap-3">
               <MessageSquare className="h-5 w-5 text-primary" />
