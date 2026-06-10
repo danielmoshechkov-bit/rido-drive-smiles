@@ -21680,6 +21680,39 @@ export type Database = {
           },
         ]
       }
+      workshop_order_assignment_history: {
+        Row: {
+          action: string
+          created_at: string
+          employee_user_id: string | null
+          id: string
+          note: string | null
+          order_id: string
+          performed_by: string | null
+          provider_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          employee_user_id?: string | null
+          id?: string
+          note?: string | null
+          order_id: string
+          performed_by?: string | null
+          provider_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          employee_user_id?: string | null
+          id?: string
+          note?: string | null
+          order_id?: string
+          performed_by?: string | null
+          provider_id?: string
+        }
+        Relationships: []
+      }
       workshop_order_assignments: {
         Row: {
           assigned_at: string
@@ -22462,6 +22495,7 @@ export type Database = {
           currency: string | null
           discounts_enabled: boolean | null
           email: string | null
+          employees_can_claim_orders: boolean
           firm_name: string | null
           hourly_rate: number | null
           id: string
@@ -22487,6 +22521,7 @@ export type Database = {
           currency?: string | null
           discounts_enabled?: boolean | null
           email?: string | null
+          employees_can_claim_orders?: boolean
           firm_name?: string | null
           hourly_rate?: number | null
           id?: string
@@ -22512,6 +22547,7 @@ export type Database = {
           currency?: string | null
           discounts_enabled?: boolean | null
           email?: string | null
+          employees_can_claim_orders?: boolean
           firm_name?: string | null
           hourly_rate?: number | null
           id?: string

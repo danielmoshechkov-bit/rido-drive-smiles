@@ -47,6 +47,9 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [poolEnabled, setPoolEnabled] = useState(false);
+  const [poolSaving, setPoolSaving] = useState(false);
+  const [ownerUserId, setOwnerUserId] = useState<string | null>(null);
 
   const [roles, setRoles] = useState<{ value: string; label: string }[]>(DEFAULT_ROLES);
   const [newRoleLabel, setNewRoleLabel] = useState('');
@@ -110,21 +113,43 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
 
   const fetchAll = async () => {
     try {
-      const [empRes, invRes] = await Promise.all([
+      const [empRes, invRes, provRes] = await Promise.all([
         (supabase.from('workshop_employees') as any)
           .select('*').eq('provider_id', providerId).eq('is_active', true)
           .order('created_at', { ascending: true }),
         (supabase.from('workshop_employee_invitations') as any)
           .select('*').eq('provider_id', providerId).order('created_at', { ascending: false }),
+        (supabase.from('service_providers') as any)
+          .select('user_id').eq('id', providerId).maybeSingle(),
       ]);
       if (empRes.error) throw empRes.error;
       setEmployees(empRes.data || []);
       setInvitations(invRes.data || []);
+      const ouid = (provRes as any)?.data?.user_id || null;
+      setOwnerUserId(ouid);
+      if (ouid) {
+        const { data: ws } = await (supabase.from('workshop_settings') as any)
+          .select('employees_can_claim_orders').eq('user_id', ouid).maybeSingle();
+        setPoolEnabled(!!ws?.employees_can_claim_orders);
+      }
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
+  };
+
+  const togglePool = async (val: boolean) => {
+    if (!ownerUserId) return;
+    setPoolSaving(true);
+    try {
+      const { error } = await (supabase.from('workshop_settings') as any)
+        .update({ employees_can_claim_orders: val }).eq('user_id', ownerUserId);
+      if (error) throw error;
+      setPoolEnabled(val);
+      toast.success(val ? 'Pula zleceń włączona' : 'Pula zleceń wyłączona');
+    } catch (e: any) { toast.error(e.message); }
+    finally { setPoolSaving(false); }
   };
 
   const statusFor = (emp: any): { key: string; label: string; className: string } => {
@@ -320,6 +345,19 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
         </div>
         <Button onClick={openAdd} size="sm"><Plus className="h-4 w-4 mr-1" />Dodaj pracownika</Button>
       </div>
+
+      <Card>
+        <CardContent className="p-4 flex items-start gap-3">
+          <div className="flex-1">
+            <Label className="text-sm font-semibold">Pula dostępnych zleceń</Label>
+            <p className="text-xs text-muted-foreground mt-1">
+              Gdy włączone, pracownicy widzą nieprzydzielone zlecenia i mogą sami je przyjąć.
+              Każde przyjęcie i zwrot zostaje zapisane w historii.
+            </p>
+          </div>
+          <Switch checked={poolEnabled} disabled={poolSaving || !ownerUserId} onCheckedChange={togglePool} />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardContent className="p-0 overflow-x-auto">
