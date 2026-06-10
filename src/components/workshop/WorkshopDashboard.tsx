@@ -45,6 +45,7 @@ const modules = [
   { key: 'magazyn', label: 'Magazyn', img: tileMagazyn, ready: true },
   { key: 'przechowalnia', label: 'Przechowalnia', img: tilePrzechodnia, ready: true },
   { key: 'dane-naprawcze', label: 'Dane naprawcze', img: tileDaneNaprawcze, ready: true },
+  { key: 'pracownicy', label: 'Pracownicy', img: tilePracownicy, ready: true },
   { key: 'ustawienia', label: 'Ustawienia', img: tileUstawienia, ready: true },
 ];
 
