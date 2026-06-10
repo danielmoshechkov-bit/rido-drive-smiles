@@ -148,6 +148,7 @@ function SettingSectionDetail({ sectionKey, providerId, onBack, onBackToMain }: 
 
   const titles: Record<string, string> = {
     'dane-firmy': 'Dane firmy',
+    'numeracja': 'Numeracja dokumentów',
     'w-statusy': 'Statusy zleceń',
     'w-stanowiska': 'Stanowiska warsztatowe',
     'w-pracownicy': 'Lista pracowników',
@@ -170,6 +171,7 @@ function SettingSectionDetail({ sectionKey, providerId, onBack, onBackToMain }: 
       </div>
 
       {sectionKey === 'dane-firmy' && <CompanyDataSettings />}
+      {sectionKey === 'numeracja' && <DocumentNumberingSettings providerId={providerId} />}
       {sectionKey === 'w-statusy' && <StatusSettings statuses={statuses} />}
       {sectionKey === 'w-stanowiska' && <WorkstationSettings providerId={providerId} />}
       {sectionKey === 'w-pracownicy' && <WorkerSettings providerId={providerId} />}
@@ -177,7 +179,7 @@ function SettingSectionDetail({ sectionKey, providerId, onBack, onBackToMain }: 
       {sectionKey === 'karta-zlecenia' && <OrderCardSettings />}
       {sectionKey === 'i-hurtownie' && <WholesalerIntegrationsSettings providerId={providerId} />}
 
-      {!['dane-firmy', 'w-statusy', 'w-stanowiska', 'w-pracownicy', 'w-godziny', 'karta-zlecenia', 'i-hurtownie'].includes(sectionKey) && (
+      {!['dane-firmy', 'numeracja', 'w-statusy', 'w-stanowiska', 'w-pracownicy', 'w-godziny', 'karta-zlecenia', 'i-hurtownie'].includes(sectionKey) && (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
             Konfiguracja sekcji „{title}" — wkrótce dostępna
@@ -187,6 +189,200 @@ function SettingSectionDetail({ sectionKey, providerId, onBack, onBackToMain }: 
     </div>
   );
 }
+
+// ============================================================
+// Document Numbering Settings
+// ============================================================
+
+type ResetCycle = 'never' | 'yearly' | 'monthly' | 'daily';
+type DateOrder = 'YYYY-MM-DD' | 'DD-MM-YYYY' | 'MM-YYYY' | 'YYYY-MM' | 'YYYY' | 'none';
+
+interface DocFormat {
+  enabled: boolean;
+  prefix: string;
+  reset: ResetCycle;
+  dateOrder: DateOrder;
+  separator: '/' | '-' | '.';
+  padding: number; // e.g. 4 → 0001
+  startNumber: number;
+}
+
+const DEFAULT_FORMATS: Record<string, DocFormat> = {
+  zlecenia: { enabled: true, prefix: 'ZL', reset: 'yearly', dateOrder: 'YYYY', separator: '/', padding: 4, startNumber: 1 },
+  faktury: { enabled: true, prefix: 'FV', reset: 'monthly', dateOrder: 'MM-YYYY', separator: '/', padding: 3, startNumber: 1 },
+  korekty: { enabled: true, prefix: 'KOR', reset: 'monthly', dateOrder: 'MM-YYYY', separator: '/', padding: 3, startNumber: 1 },
+  proformy: { enabled: true, prefix: 'PRO', reset: 'monthly', dateOrder: 'MM-YYYY', separator: '/', padding: 3, startNumber: 1 },
+  paragony: { enabled: false, prefix: 'PAR', reset: 'daily', dateOrder: 'YYYY-MM-DD', separator: '/', padding: 4, startNumber: 1 },
+  wyceny: { enabled: true, prefix: 'WC', reset: 'yearly', dateOrder: 'YYYY', separator: '/', padding: 4, startNumber: 1 },
+  przyjecia: { enabled: false, prefix: 'PZ', reset: 'monthly', dateOrder: 'MM-YYYY', separator: '/', padding: 3, startNumber: 1 },
+  wydania: { enabled: false, prefix: 'WZ', reset: 'monthly', dateOrder: 'MM-YYYY', separator: '/', padding: 3, startNumber: 1 },
+};
+
+const DOC_LABELS: Record<string, string> = {
+  zlecenia: 'Zlecenia warsztatowe',
+  faktury: 'Faktury VAT',
+  korekty: 'Faktury korygujące',
+  proformy: 'Faktury proforma',
+  paragony: 'Paragony',
+  wyceny: 'Wyceny',
+  przyjecia: 'PZ — Przyjęcia magazynowe',
+  wydania: 'WZ — Wydania magazynowe',
+};
+
+const RESET_LABELS: Record<ResetCycle, string> = {
+  never: 'Bez resetu (ciągła)',
+  yearly: 'Co roku',
+  monthly: 'Co miesiąc',
+  daily: 'Codziennie',
+};
+
+const DATE_LABELS: Record<DateOrder, string> = {
+  'YYYY-MM-DD': 'Rok-Miesiąc-Dzień (2026-06-10)',
+  'DD-MM-YYYY': 'Dzień-Miesiąc-Rok (10-06-2026)',
+  'MM-YYYY': 'Miesiąc-Rok (06-2026)',
+  'YYYY-MM': 'Rok-Miesiąc (2026-06)',
+  'YYYY': 'Rok (2026)',
+  'none': 'Bez daty',
+};
+
+function buildPreview(fmt: DocFormat): string {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  const num = String(fmt.startNumber).padStart(fmt.padding, '0');
+  const sep = fmt.separator;
+
+  let datePart = '';
+  switch (fmt.dateOrder) {
+    case 'YYYY-MM-DD': datePart = `${yyyy}${sep}${mm}${sep}${dd}`; break;
+    case 'DD-MM-YYYY': datePart = `${dd}${sep}${mm}${sep}${yyyy}`; break;
+    case 'MM-YYYY': datePart = `${mm}${sep}${yyyy}`; break;
+    case 'YYYY-MM': datePart = `${yyyy}${sep}${mm}`; break;
+    case 'YYYY': datePart = `${yyyy}`; break;
+    case 'none': datePart = ''; break;
+  }
+  const parts = [fmt.prefix, datePart, num].filter(Boolean);
+  return parts.join(sep);
+}
+
+function DocumentNumberingSettings({ providerId }: { providerId: string }) {
+  const storageKey = `workshop_doc_numbering_${providerId}`;
+  const [formats, setFormats] = useState<Record<string, DocFormat>>(DEFAULT_FORMATS);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(storageKey);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        setFormats({ ...DEFAULT_FORMATS, ...parsed });
+      }
+    } catch { /* ignore */ }
+  }, [providerId]);
+
+  const update = (docKey: string, patch: Partial<DocFormat>) => {
+    setFormats(prev => ({ ...prev, [docKey]: { ...prev[docKey], ...patch } }));
+  };
+
+  const save = () => {
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(formats));
+      toast.success('Ustawienia numeracji zapisane');
+    } catch (e: any) {
+      toast.error('Nie udało się zapisać: ' + e.message);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardContent className="py-4">
+          <p className="text-sm text-muted-foreground">
+            Skonfiguruj format numeracji dla każdego rodzaju dokumentu. Ustawienia obowiązują dla nowych dokumentów wystawianych po zapisie.
+            Wybierz prefix, sposób resetowania licznika (miesięcznie/rocznie) i format daty — tak jak w profesjonalnych systemach księgowych.
+          </p>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-3">
+        {Object.entries(formats).map(([key, fmt]) => (
+          <Card key={key}>
+            <CardContent className="py-4 space-y-3">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-3">
+                  <Switch checked={fmt.enabled} onCheckedChange={(v) => update(key, { enabled: v })} />
+                  <div>
+                    <h4 className="font-semibold">{DOC_LABELS[key] || key}</h4>
+                    {fmt.enabled && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Podgląd: <code className="bg-muted px-2 py-0.5 rounded text-foreground">{buildPreview(fmt)}</code>
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {fmt.enabled && (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 pt-2 border-t">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Prefix</Label>
+                    <Input value={fmt.prefix} onChange={e => update(key, { prefix: e.target.value.toUpperCase().slice(0, 8) })} className="h-9" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Resetowanie licznika</Label>
+                    <Select value={fmt.reset} onValueChange={(v) => update(key, { reset: v as ResetCycle })}>
+                      <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(RESET_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Format daty</Label>
+                    <Select value={fmt.dateOrder} onValueChange={(v) => update(key, { dateOrder: v as DateOrder })}>
+                      <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(DATE_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Separator</Label>
+                    <Select value={fmt.separator} onValueChange={(v) => update(key, { separator: v as '/' | '-' | '.' })}>
+                      <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="/">Ukośnik /</SelectItem>
+                        <SelectItem value="-">Myślnik -</SelectItem>
+                        <SelectItem value=".">Kropka .</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Liczba cyfr (np. 4 → 0001)</Label>
+                    <Input type="number" min={1} max={8} value={fmt.padding}
+                      onChange={e => update(key, { padding: Math.max(1, Math.min(8, Number(e.target.value) || 1)) })}
+                      className="h-9" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Numer początkowy</Label>
+                    <Input type="number" min={1} value={fmt.startNumber}
+                      onChange={e => update(key, { startNumber: Math.max(1, Number(e.target.value) || 1) })}
+                      className="h-9" />
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <div className="flex justify-end sticky bottom-4">
+        <Button onClick={save} className="gap-2 shadow-lg"><Save className="h-4 w-4" /> Zapisz numerację</Button>
+      </div>
+    </div>
+  );
+}
+
 
 function CompanyDataSettings() {
   return (
