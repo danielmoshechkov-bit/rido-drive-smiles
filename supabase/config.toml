@@ -250,3 +250,18 @@ verify_jwt = true
 
 [functions.report-portal-error]
 verify_jwt = false
+
+[functions.workshop-translate]
+verify_jwt = false
+
+[functions.workshop-invite-employee]
+verify_jwt = false
+
+[functions.workshop-accept-employee-invitation]
+verify_jwt = false
+
+[functions.workshop-employee-submit-findings]
+verify_jwt = false
+
+[functions.workshop-approve-findings]
+verify_jwt = false
