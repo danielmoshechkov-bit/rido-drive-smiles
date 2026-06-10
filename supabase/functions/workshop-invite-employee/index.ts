@@ -40,21 +40,36 @@ serve(async (req) => {
       console.warn('listUsers failed', e);
     }
 
-    // Insert invitation
-    const { data: invitation, error: invErr } = await admin
+    // Reuse pending invitation if one already exists (prevents duplicate emails on double-click)
+    const { data: existingPending } = await admin
       .from('workshop_employee_invitations')
-      .insert({
-        provider_id,
-        invited_email: email.toLowerCase(),
-        invited_user_id: invitedUserId,
-        invited_by: user.id,
-        role,
-        language_preference,
-        status: 'pending',
-      })
-      .select()
-      .single();
-    if (invErr) return json({ error: invErr.message }, 500);
+      .select('*')
+      .eq('provider_id', provider_id)
+      .eq('invited_email', email.toLowerCase())
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    let invitation: any = existingPending;
+    if (!invitation) {
+      const { data: created, error: invErr } = await admin
+        .from('workshop_employee_invitations')
+        .insert({
+          provider_id,
+          invited_email: email.toLowerCase(),
+          invited_user_id: invitedUserId,
+          invited_by: user.id,
+          role,
+          language_preference,
+          status: 'pending',
+        })
+        .select()
+        .single();
+      if (invErr) return json({ error: invErr.message }, 500);
+      invitation = created;
+    }
+
 
     // Build action link (auth invite link if no account, otherwise direct link)
     let actionLink: string | null = null;
