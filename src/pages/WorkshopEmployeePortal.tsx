@@ -10,6 +10,7 @@ import {
   Loader2, Wrench, ArrowLeft, ClipboardList, Briefcase, Calendar,
   Inbox, History, CheckCircle2, Hourglass, HandHelping, Building2,
 } from 'lucide-react';
+import { EmployeeOrderCardDialog } from '@/components/workshop/EmployeeOrderCardDialog';
 
 type Tab = 'home' | 'mine' | 'pool' | 'history';
 
@@ -18,12 +19,14 @@ export default function WorkshopEmployeePortal() {
   const { loading, isWorkshopEmployee, records } = useIsWorkshopEmployee();
   const [tab, setTab] = useState<Tab>('home');
   const [userId, setUserId] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string>('');
   const [mine, setMine] = useState<any[]>([]);
   const [pool, setPool] = useState<any[]>([]);
   const [history, setHistory] = useState<any[]>([]);
   const [poolEnabled, setPoolEnabled] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [dataLoading, setDataLoading] = useState(true);
+  const [openOrderId, setOpenOrderId] = useState<string | null>(null);
 
   const providerIds = useMemo(() => records.map(r => r.provider_id), [records]);
   const primaryProvider = records[0];
@@ -33,6 +36,7 @@ export default function WorkshopEmployeePortal() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { navigate('/auth'); return; }
     setUserId(user.id);
+    setUserName(user.user_metadata?.full_name || user.email || 'Pracownik');
 
     // Pool toggle — read workshop_settings for the provider's owner
     if (primaryProvider) {
@@ -52,19 +56,19 @@ export default function WorkshopEmployeePortal() {
       .order('assigned_at', { ascending: false });
     setMine(mineData || []);
 
-    // Pool (unassigned in provider) — only if at least one provider has pool enabled
+    // Pool — all ACTIVE provider orders (not completed/cancelled), so employee can pick any to inspect
     if (providerIds.length) {
       const { data: pooledOrders } = await (supabase.from('workshop_orders') as any)
         .select('id, order_number, status_name, scheduled_date, scheduled_start, description, provider_id')
         .in('provider_id', providerIds)
         .order('created_at', { ascending: false })
-        .limit(50);
-      const assignedOrderIds = new Set((mineData || []).map((a: any) => a.order_id));
-      // also exclude orders assigned to anyone
-      const { data: anyAssigns } = await (supabase.from('workshop_order_assignments') as any)
-        .select('order_id').in('provider_id', providerIds);
-      const allAssigned = new Set((anyAssigns || []).map((a: any) => a.order_id));
-      setPool(((pooledOrders || []) as any[]).filter(o => !allAssigned.has(o.id) && !assignedOrderIds.has(o.id)));
+        .limit(100);
+      const assignedToMe = new Set((mineData || []).map((a: any) => a.order_id));
+      setPool(((pooledOrders || []) as any[]).filter(o => {
+        const s = (o.status_name || '').toLowerCase();
+        if (s.includes('zakończ') || s.includes('anulow')) return false;
+        return !assignedToMe.has(o.id);
+      }));
     }
 
     // History
@@ -168,9 +172,8 @@ export default function WorkshopEmployeePortal() {
         <StatTile icon={<Hourglass className="h-5 w-5" />} label="W trakcie" value={stats.inProgress} accent="warning" />
         <StatTile icon={<CheckCircle2 className="h-5 w-5" />} label="Zakończone" value={stats.done} accent="success" />
         <StatTile
-          icon={<Inbox className="h-5 w-5" />} label="Dostępne" value={poolEnabled ? stats.pool : '—'}
-          active={tab === 'pool'} onClick={() => poolEnabled && setTab('pool')}
-          disabled={!poolEnabled}
+          icon={<Inbox className="h-5 w-5" />} label="Dostępne" value={stats.pool}
+          active={tab === 'pool'} onClick={() => setTab('pool')}
         />
       </div>
 
@@ -178,9 +181,7 @@ export default function WorkshopEmployeePortal() {
       <div className="flex gap-1.5 overflow-x-auto scrollbar-hide -mx-1 px-1">
         <NavPill active={tab === 'home'} onClick={() => setTab('home')} icon={<Briefcase className="h-3.5 w-3.5" />} label="Start" />
         <NavPill active={tab === 'mine'} onClick={() => setTab('mine')} icon={<ClipboardList className="h-3.5 w-3.5" />} label={`Moje (${stats.mine})`} />
-        {poolEnabled && (
-          <NavPill active={tab === 'pool'} onClick={() => setTab('pool')} icon={<Inbox className="h-3.5 w-3.5" />} label={`Pula (${stats.pool})`} />
-        )}
+        <NavPill active={tab === 'pool'} onClick={() => setTab('pool')} icon={<Inbox className="h-3.5 w-3.5" />} label={`Pula (${stats.pool})`} />
         <NavPill active={tab === 'history'} onClick={() => setTab('history')} icon={<History className="h-3.5 w-3.5" />} label="Historia" />
       </div>
 
@@ -224,7 +225,7 @@ export default function WorkshopEmployeePortal() {
                 <div key={a.id} className="p-3 flex items-center gap-3">
                   <button
                     className="flex-1 text-left hover:opacity-80"
-                    onClick={() => navigate(`/pracownik-warsztat/zlecenia/${a.order_id}`)}
+                    onClick={() => setOpenOrderId(a.order_id)}
                   >
                     <div className="font-medium text-sm">
                       {a.workshop_orders?.order_number || a.order_id.slice(0, 8)}
@@ -246,27 +247,30 @@ export default function WorkshopEmployeePortal() {
           )}
         </Section>
       ) : tab === 'pool' ? (
-        <Section title={`Dostępne zlecenia (${pool.length})`} icon={<Inbox className="h-4 w-4 text-primary" />}>
-          {!poolEnabled ? (
-            <Empty text="Pracodawca nie włączył puli zleceń." />
-          ) : pool.length === 0 ? (
-            <Empty text="Brak wolnych zleceń w puli." />
+        <Section title={`Aktywne zlecenia warsztatu (${pool.length})`} icon={<Inbox className="h-4 w-4 text-primary" />}>
+          {pool.length === 0 ? (
+            <Empty text="Brak aktywnych zleceń." />
           ) : (
             <div className="divide-y">
               {pool.map(o => (
                 <div key={o.id} className="p-3 flex items-center gap-3">
-                  <div className="flex-1">
+                  <button
+                    className="flex-1 text-left hover:opacity-80"
+                    onClick={() => setOpenOrderId(o.id)}
+                  >
                     <div className="font-medium text-sm">{o.order_number || o.id.slice(0, 8)}</div>
                     <div className="text-xs text-muted-foreground line-clamp-1">
                       {o.description || o.status_name || '—'}
                     </div>
-                  </div>
-                  <Button
-                    size="sm" disabled={busy === o.id}
-                    onClick={() => claim(o.id, o.provider_id)}
-                  >
-                    {busy === o.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <><HandHelping className="h-3.5 w-3.5 mr-1" />Przyjmij</>}
-                  </Button>
+                  </button>
+                  {poolEnabled && (
+                    <Button
+                      size="sm" disabled={busy === o.id}
+                      onClick={() => claim(o.id, o.provider_id)}
+                    >
+                      {busy === o.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <><HandHelping className="h-3.5 w-3.5 mr-1" />Przyjmij</>}
+                    </Button>
+                  )}
                 </div>
               ))}
             </div>
@@ -308,6 +312,15 @@ export default function WorkshopEmployeePortal() {
           </Card>
         ))}
       </div>
+
+      <EmployeeOrderCardDialog
+        open={!!openOrderId}
+        onOpenChange={(v) => { if (!v) setOpenOrderId(null); }}
+        orderId={openOrderId}
+        employeeId={primaryProvider?.id}
+        employeeName={userName}
+        onSaved={loadAll}
+      />
     </div>
   );
 }
