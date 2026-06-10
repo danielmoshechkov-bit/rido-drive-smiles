@@ -61,6 +61,7 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
   const [emailAddr, setEmailAddr] = useState('');
   const [pinCode, setPinCode] = useState('');
   const [isActive, setIsActive] = useState(true);
+  const [sendInvite, setSendInvite] = useState(true);
   const [invitingId, setInvitingId] = useState<string | null>(null);
 
   // Load roles + rate-type map from localStorage (per provider)
