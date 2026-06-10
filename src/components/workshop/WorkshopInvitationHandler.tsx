@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -8,9 +8,9 @@ import { toast } from 'sonner';
 
 /**
  * Global handler mounted in App.tsx.
- * Detects `?invitation=<id>` in the URL after the user clicks the email link
- * and finishes Supabase auth confirmation. Accepts the invitation server-side,
- * then shows a welcome modal with instructions.
+ * - Processes `?invitation=<id>` from the email link.
+ * - Also auto-accepts any pending invitation matching the logged-in user
+ *   (covers the case where the ?invitation= param was lost during auth flow).
  */
 export function WorkshopInvitationHandler() {
   const [params, setParams] = useSearchParams();
@@ -21,6 +21,25 @@ export function WorkshopInvitationHandler() {
   const [welcomeOpen, setWelcomeOpen] = useState(false);
   const [companyName, setCompanyName] = useState<string>('');
 
+  const acceptInvitation = useCallback(async (invId: string) => {
+    const { data, error } = await supabase.functions.invoke('workshop-accept-employee-invitation', {
+      body: { invitation_id: invId, accept: true },
+    });
+    if (error) throw error;
+    if ((data as any)?.error) throw new Error((data as any).error);
+
+    try {
+      const { data: inv } = await (supabase.from('workshop_employee_invitations') as any)
+        .select('provider_id, service_providers(company_name)')
+        .eq('id', invId).maybeSingle();
+      const cn = (inv as any)?.service_providers?.company_name || 'warsztat';
+      setCompanyName(cn);
+    } catch { setCompanyName('warsztat'); }
+
+    setWelcomeOpen(true);
+  }, []);
+
+  // Process explicit ?invitation=<id>
   useEffect(() => {
     if (!invitationId) return;
     let cancelled = false;
@@ -28,7 +47,6 @@ export function WorkshopInvitationHandler() {
     (async () => {
       setProcessing(true);
       try {
-        // Wait for auth session (the email-confirm flow may need a tick)
         let attempts = 0;
         let user = null;
         while (attempts < 10 && !user) {
@@ -37,32 +55,16 @@ export function WorkshopInvitationHandler() {
           if (!user) { await new Promise(r => setTimeout(r, 400)); attempts++; }
         }
         if (!user) {
-          // Not logged in — redirect to auth, keep invitation id in URL
           navigate(`/auth?redirect=${encodeURIComponent(`/klient?invitation=${invitationId}`)}`);
           return;
         }
 
-        const { data, error } = await supabase.functions.invoke('workshop-accept-employee-invitation', {
-          body: { invitation_id: invitationId, accept: true },
-        });
+        await acceptInvitation(invitationId);
         if (cancelled) return;
-        if (error) throw error;
 
-        // Fetch company name for welcome modal
-        try {
-          const { data: inv } = await (supabase.from('workshop_employee_invitations') as any)
-            .select('provider_id, service_providers(company_name)')
-            .eq('id', invitationId).maybeSingle();
-          const cn = (inv as any)?.service_providers?.company_name || 'warsztat';
-          setCompanyName(cn);
-        } catch { setCompanyName('warsztat'); }
-
-        // Strip param + navigate to client portal
         const next = new URLSearchParams(params);
         next.delete('invitation');
         setParams(next, { replace: true });
-        setWelcomeOpen(true);
-        // Force a navigation to /klient so the modules tile updates
         setTimeout(() => navigate('/klient', { replace: false }), 100);
       } catch (e: any) {
         toast.error(`Nie udało się przyjąć zaproszenia: ${e.message || e}`);
@@ -74,6 +76,37 @@ export function WorkshopInvitationHandler() {
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [invitationId]);
+
+  // Auto-accept any pending invitation matching the logged-in user (no URL param needed)
+  useEffect(() => {
+    let cancelled = false;
+
+    const scan = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user || cancelled) return;
+        const email = (user.email || '').toLowerCase();
+        const { data: pendings } = await (supabase.from('workshop_employee_invitations') as any)
+          .select('id')
+          .eq('status', 'pending')
+          .or(`invited_user_id.eq.${user.id},invited_email.eq.${email}`);
+        if (!pendings || pendings.length === 0 || cancelled) return;
+        for (const p of pendings as any[]) {
+          try { await acceptInvitation(p.id); } catch (e) { console.warn('auto-accept failed', e); }
+          if (cancelled) return;
+        }
+      } catch (e) {
+        console.warn('auto-accept scan failed', e);
+      }
+    };
+
+    scan();
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') scan();
+    });
+    return () => { cancelled = true; sub.subscription.unsubscribe(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [acceptInvitation]);
 
   return (
     <>
