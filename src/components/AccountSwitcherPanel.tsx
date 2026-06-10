@@ -18,6 +18,7 @@ import driverImg from "@/assets/modules/driver.jpg";
 import fleetImg from "@/assets/modules/fleet.jpg";
 import salesImg from "@/assets/modules/sales.jpg";
 import adminImg from "@/assets/modules/admin.jpg";
+import workshopEmployeeImg from "@/assets/modules/workshop-employee.jpg";
 
 interface AccountSwitcherPanelProps {
   isDriverAccount: boolean;
@@ -120,7 +121,7 @@ export function AccountSwitcherPanel({
       description: workshopEmpRecords[0]?.provider_name
         ? `${workshopEmpRecords[0].provider_name}`
         : 'Twoje zlecenia i kalendarz',
-      image: fleetImg,
+      image: workshopEmployeeImg,
       route: '/pracownik-warsztat',
       isEnabled: isWorkshopEmployee
     },
