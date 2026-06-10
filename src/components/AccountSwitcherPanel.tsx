@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Plus, Building2, Lock, Wrench } from "lucide-react";
+import { useIsWorkshopEmployee } from "@/hooks/useIsWorkshopEmployee";
 
 // Module images
 import clientPortalImg from "@/assets/modules/client-portal.jpg";
@@ -29,7 +30,7 @@ interface AccountSwitcherPanelProps {
   isSalesRep?: boolean;
   isMarketplaceEnabled?: boolean;
   isServiceProvider?: boolean;
-  currentAccountType: 'driver' | 'fleet' | 'admin' | 'client' | 'sales' | 'service_provider';
+  currentAccountType: 'driver' | 'fleet' | 'admin' | 'client' | 'sales' | 'service_provider' | 'workshop_employee';
   navigate: ReturnType<typeof useNavigate>;
   hideDriverForFleet?: boolean;
 }
