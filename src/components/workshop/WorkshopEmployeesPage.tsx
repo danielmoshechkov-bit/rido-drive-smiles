@@ -10,10 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Plus, Edit, UserX, Loader2, Users, Mail, Send } from 'lucide-react';
-import { WorkshopInvitationsList } from './WorkshopInvitationsList';
-import { WorkshopInviteEmployeeDialog } from './WorkshopInviteEmployeeDialog';
 
 const ROLES = [
   { value: 'mechanic', label: 'Mechanik' },
@@ -37,7 +34,8 @@ interface Employee {
 
 export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | null }) => {
   const [loading, setLoading] = useState(true);
-  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [employees, setEmployees] = useState<any[]>([]);
+  const [invitations, setInvitations] = useState<any[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -53,23 +51,58 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
   const [invitingId, setInvitingId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (providerId) fetchEmployees();
+    if (providerId) fetchAll();
   }, [providerId]);
 
-  const fetchEmployees = async () => {
+  const fetchAll = async () => {
     try {
-      const { data, error } = await (supabase.from('workshop_employees') as any)
-        .select('*')
-        .eq('provider_id', providerId)
-        .order('created_at', { ascending: true });
-      if (error) throw error;
-      setEmployees(data || []);
+      const [empRes, invRes] = await Promise.all([
+        (supabase.from('workshop_employees') as any)
+          .select('*').eq('provider_id', providerId).order('created_at', { ascending: true }),
+        (supabase.from('workshop_employee_invitations') as any)
+          .select('*').eq('provider_id', providerId).order('created_at', { ascending: false }),
+      ]);
+      if (empRes.error) throw empRes.error;
+      setEmployees(empRes.data || []);
+      setInvitations(invRes.data || []);
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
   };
+  const fetchEmployees = fetchAll;
+
+  // Resolve unified status per employee row by matching email against invitations
+  const statusFor = (emp: any): { key: string; label: string; className: string } => {
+    if (emp.is_active === false || emp.status === 'inactive') {
+      return { key: 'inactive', label: 'Nieaktywny', className: 'bg-muted text-muted-foreground' };
+    }
+    if (emp.user_id && emp.status === 'active') {
+      return { key: 'active', label: 'Aktywny', className: 'bg-green-500 text-white hover:bg-green-600' };
+    }
+    const inv = emp.email
+      ? invitations.find(i => (i.invited_email || '').toLowerCase() === emp.email.toLowerCase())
+      : null;
+    if (inv?.status === 'accepted') return { key: 'active', label: 'Aktywny', className: 'bg-green-500 text-white hover:bg-green-600' };
+    if (inv?.status === 'rejected') return { key: 'rejected', label: 'Odrzucony', className: 'bg-destructive text-destructive-foreground' };
+    if (inv?.status === 'pending') return { key: 'pending', label: 'Zaproszony', className: 'bg-yellow-500 text-black hover:bg-yellow-600' };
+    if (emp.email) return { key: 'pending', label: 'Zaproszony', className: 'bg-yellow-500 text-black hover:bg-yellow-600' };
+    return { key: 'inactive', label: 'Bez konta', className: 'bg-muted text-muted-foreground' };
+  };
+
+  const removeEmployee = async (emp: any) => {
+    if (!confirm(`Usunąć pracownika ${emp.name}? Konto zostanie zdezaktywowane.`)) return;
+    try {
+      const { error } = await (supabase.from('workshop_employees') as any)
+        .update({ is_active: false, status: 'inactive', removed_at: new Date().toISOString() })
+        .eq('id', emp.id);
+      if (error) throw error;
+      toast.success('Pracownik usunięty');
+      fetchAll();
+    } catch (e: any) { toast.error(e.message); }
+  };
+
 
   const resetForm = () => {
     setFirstName('');
@@ -109,23 +142,22 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
     }
     setInvitingId(emp.id);
     try {
-      const { data, error } = await supabase.functions.invoke('send-employee-invitation', {
+      const { data, error } = await supabase.functions.invoke('workshop-invite-employee', {
         body: {
-          employee_id: emp.id,
-          email: emp.email,
-          first_name: emp.first_name,
-          last_name: emp.last_name,
+          email: emp.email.toLowerCase(),
+          provider_id: providerId,
+          role: emp.role || 'mechanic',
+          language_preference: 'pl',
         },
       });
       if (error) throw error;
-      if ((data as any)?.email_sent) {
-        toast.success(`Zaproszenie wysłane na ${emp.email}`);
-      } else if ((data as any)?.action_link) {
+      if ((data as any)?.action_link && !(data as any)?.email_sent) {
         await navigator.clipboard.writeText((data as any).action_link);
         toast.success('Link zaproszenia skopiowany do schowka');
       } else {
-        toast.error('Nie udało się wysłać zaproszenia');
+        toast.success(`Zaproszenie wysłane na ${emp.email}`);
       }
+      fetchAll();
     } catch (e: any) {
       toast.error(e.message || 'Błąd wysyłki zaproszenia');
     } finally {
@@ -138,6 +170,11 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
       toast.error('Imię i nazwisko są wymagane');
       return;
     }
+    const cleanEmail = emailAddr.trim().toLowerCase();
+    if (!editingId && (!cleanEmail || !cleanEmail.includes('@'))) {
+      toast.error('Email pracownika jest wymagany — pracownik dostanie zaproszenie');
+      return;
+    }
     setSaving(true);
     try {
       const payload = {
@@ -148,7 +185,7 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
         role,
         hourly_rate: hourlyRate,
         phone,
-        email: emailAddr.trim() || null,
+        email: cleanEmail || null,
         pin_code: pinCode || null,
         is_active: isActive,
       };
@@ -157,16 +194,30 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
         const { error } = await (supabase.from('workshop_employees') as any)
           .update(payload).eq('id', editingId);
         if (error) throw error;
+        toast.success('Pracownik zaktualizowany');
       } else {
-        const { error } = await (supabase.from('workshop_employees') as any)
-          .insert(payload);
+        const { error } = await (supabase.from('workshop_employees') as any).insert(payload);
         if (error) throw error;
+        // Auto-send invitation
+        try {
+          const { data, error: invErr } = await supabase.functions.invoke('workshop-invite-employee', {
+            body: { email: cleanEmail, provider_id: providerId, role, language_preference: 'pl' },
+          });
+          if (invErr) throw invErr;
+          if ((data as any)?.action_link && !(data as any)?.email_sent) {
+            await navigator.clipboard.writeText((data as any).action_link);
+            toast.success('Pracownik dodany. Link zaproszenia skopiowany do schowka');
+          } else {
+            toast.success(`Pracownik dodany. Zaproszenie wysłane na ${cleanEmail}`);
+          }
+        } catch (invE: any) {
+          toast.warning(`Pracownik dodany, ale zaproszenie nie zostało wysłane: ${invE.message}`);
+        }
       }
 
-      toast.success(editingId ? 'Pracownik zaktualizowany' : 'Pracownik dodany');
       setDialogOpen(false);
       resetForm();
-      fetchEmployees();
+      fetchAll();
     } catch (err: any) {
       toast.error(err.message || 'Błąd zapisu');
     } finally {
@@ -174,18 +225,8 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
     }
   };
 
-  const toggleActive = async (emp: Employee) => {
-    try {
-      const { error } = await (supabase.from('workshop_employees') as any)
-        .update({ is_active: !emp.is_active }).eq('id', emp.id);
-      if (error) throw error;
-      fetchEmployees();
-    } catch (err: any) {
-      toast.error(err.message);
-    }
-  };
-
   const roleLabel = (r: string) => ROLES.find(x => x.value === r)?.label || r;
+
 
   if (!providerId) {
     return <p className="text-center text-muted-foreground py-8">Najpierw aktywuj konto usługodawcy.</p>;
@@ -197,78 +238,67 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
 
   return (
     <div className="space-y-4">
-      <Tabs defaultValue="active" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="active"><Users className="h-4 w-4 mr-1.5" /> Aktywni ({employees.length})</TabsTrigger>
-          <TabsTrigger value="invitations"><Mail className="h-4 w-4 mr-1.5" /> Zaproszenia</TabsTrigger>
-        </TabsList>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Users className="h-5 w-5 text-primary" />
+          <h3 className="text-lg font-semibold">Pracownicy ({employees.length})</h3>
+        </div>
+        <Button onClick={openAdd} size="sm"><Plus className="h-4 w-4 mr-1" />Dodaj pracownika</Button>
+      </div>
 
-        <TabsContent value="active" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Users className="h-5 w-5 text-primary" />
-              <h3 className="text-lg font-semibold">Pracownicy ({employees.length})</h3>
-            </div>
-            <Button onClick={openAdd} size="sm"><Plus className="h-4 w-4 mr-1" />Dodaj pracownika</Button>
-          </div>
-
-          <Card>
-            <CardContent className="p-0 overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Imię i nazwisko</TableHead>
-                    <TableHead>Rola</TableHead>
-                    <TableHead>Telefon</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Stawka/h</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Akcje</TableHead>
+      <Card>
+        <CardContent className="p-0 overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Imię i nazwisko</TableHead>
+                <TableHead>Rola</TableHead>
+                <TableHead>Telefon</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Stawka/h</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Akcje</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {employees.length === 0 && (
+                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">Brak pracowników</TableCell></TableRow>
+              )}
+              {employees.map(emp => {
+                const st = statusFor(emp);
+                return (
+                  <TableRow key={emp.id}>
+                    <TableCell className="font-medium">{emp.name}</TableCell>
+                    <TableCell>{roleLabel(emp.role)}</TableCell>
+                    <TableCell>{emp.phone || '—'}</TableCell>
+                    <TableCell className="text-sm">{emp.email || '—'}</TableCell>
+                    <TableCell>{emp.hourly_rate} PLN</TableCell>
+                    <TableCell>
+                      <Badge className={st.className}>{st.label}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right space-x-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title={st.key === 'rejected' ? 'Wyślij ponownie' : 'Wyślij zaproszenie'}
+                        onClick={() => handleSendInvite(emp)}
+                        disabled={invitingId === emp.id || !emp.email}
+                      >
+                        {invitingId === emp.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4 text-primary" />}
+                      </Button>
+                      <Button variant="ghost" size="icon" title="Edytuj" onClick={() => openEdit(emp)}><Edit className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" title="Usuń pracownika" onClick={() => removeEmployee(emp)}>
+                        <UserX className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {employees.length === 0 && (
-                    <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">Brak pracowników</TableCell></TableRow>
-                  )}
-                  {employees.map(emp => (
-                    <TableRow key={emp.id}>
-                      <TableCell className="font-medium">{emp.name}</TableCell>
-                      <TableCell>{roleLabel(emp.role)}</TableCell>
-                      <TableCell>{emp.phone || '—'}</TableCell>
-                      <TableCell className="text-sm">{emp.email || '—'}</TableCell>
-                      <TableCell>{emp.hourly_rate} PLN</TableCell>
-                      <TableCell>
-                        <Badge variant={emp.is_active ? 'default' : 'secondary'}>
-                          {emp.is_active ? 'Aktywny' : 'Nieaktywny'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right space-x-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          title="Wyślij zaproszenie"
-                          onClick={() => handleSendInvite(emp)}
-                          disabled={invitingId === emp.id || !emp.email}
-                        >
-                          {invitingId === emp.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4 text-primary" />}
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => openEdit(emp)}><Edit className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="icon" onClick={() => toggleActive(emp)}>
-                          <UserX className="h-4 w-4 text-muted-foreground" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
-        <TabsContent value="invitations">
-          <WorkshopInvitationsList providerId={providerId} />
-        </TabsContent>
-      </Tabs>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
@@ -306,8 +336,8 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
               </div>
             </div>
             <div className="space-y-2">
-              <Label className="flex items-center gap-1.5"><Mail className="h-4 w-4" /> Email (potrzebny do zaproszenia)</Label>
-              <Input type="email" value={emailAddr} onChange={e => setEmailAddr(e.target.value)} placeholder="pracownik@firma.pl" />
+              <Label className="flex items-center gap-1.5"><Mail className="h-4 w-4" /> Email * <span className="text-xs text-muted-foreground font-normal">(pracownik dostanie zaproszenie)</span></Label>
+              <Input type="email" required value={emailAddr} onChange={e => setEmailAddr(e.target.value)} placeholder="pracownik@firma.pl" />
             </div>
             <div className="space-y-2">
               <Label>PIN (4 cyfry, opcjonalny)</Label>
