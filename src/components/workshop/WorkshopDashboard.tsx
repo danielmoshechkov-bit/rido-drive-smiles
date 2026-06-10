@@ -255,6 +255,8 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
         return <WorkshopTireStorage providerId={providerId} onBack={() => goTo(null)} />;
       case 'dane-naprawcze':
         return <WorkshopRepairData providerId={providerId} onBack={() => goTo(null)} />;
+      case 'pracownicy':
+        return <WorkshopEmployeesPage providerId={providerId} />;
       case 'ustawienia':
         return <WorkshopSettings providerId={providerId} onBack={() => goTo(null)} />;
       default:
