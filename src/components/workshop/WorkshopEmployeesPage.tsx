@@ -113,21 +113,43 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
 
   const fetchAll = async () => {
     try {
-      const [empRes, invRes] = await Promise.all([
+      const [empRes, invRes, provRes] = await Promise.all([
         (supabase.from('workshop_employees') as any)
           .select('*').eq('provider_id', providerId).eq('is_active', true)
           .order('created_at', { ascending: true }),
         (supabase.from('workshop_employee_invitations') as any)
           .select('*').eq('provider_id', providerId).order('created_at', { ascending: false }),
+        (supabase.from('service_providers') as any)
+          .select('user_id').eq('id', providerId).maybeSingle(),
       ]);
       if (empRes.error) throw empRes.error;
       setEmployees(empRes.data || []);
       setInvitations(invRes.data || []);
+      const ouid = (provRes as any)?.data?.user_id || null;
+      setOwnerUserId(ouid);
+      if (ouid) {
+        const { data: ws } = await (supabase.from('workshop_settings') as any)
+          .select('employees_can_claim_orders').eq('user_id', ouid).maybeSingle();
+        setPoolEnabled(!!ws?.employees_can_claim_orders);
+      }
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
+  };
+
+  const togglePool = async (val: boolean) => {
+    if (!ownerUserId) return;
+    setPoolSaving(true);
+    try {
+      const { error } = await (supabase.from('workshop_settings') as any)
+        .update({ employees_can_claim_orders: val }).eq('user_id', ownerUserId);
+      if (error) throw error;
+      setPoolEnabled(val);
+      toast.success(val ? 'Pula zleceń włączona' : 'Pula zleceń wyłączona');
+    } catch (e: any) { toast.error(e.message); }
+    finally { setPoolSaving(false); }
   };
 
   const statusFor = (emp: any): { key: string; label: string; className: string } => {
