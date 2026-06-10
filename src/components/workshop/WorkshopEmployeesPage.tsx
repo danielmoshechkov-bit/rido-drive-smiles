@@ -111,7 +111,8 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
     try {
       const [empRes, invRes] = await Promise.all([
         (supabase.from('workshop_employees') as any)
-          .select('*').eq('provider_id', providerId).order('created_at', { ascending: true }),
+          .select('*').eq('provider_id', providerId).eq('is_active', true)
+          .order('created_at', { ascending: true }),
         (supabase.from('workshop_employee_invitations') as any)
           .select('*').eq('provider_id', providerId).order('created_at', { ascending: false }),
       ]);

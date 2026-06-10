@@ -94,6 +94,8 @@ import MyViewingsPage from "./pages/MyViewingsPage";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import PaymentCancel from "./pages/PaymentCancel";
 import BuyCredits from "./pages/BuyCredits";
+import WorkshopEmployeePortal from "./pages/WorkshopEmployeePortal";
+import { WorkshopInvitationHandler } from "./components/workshop/WorkshopInvitationHandler";
 const queryClient = new QueryClient();
 
 /**
@@ -214,9 +216,13 @@ const App = () => (
                 <Route path="/payment/success" element={<PaymentSuccess />} />
                 <Route path="/payment/cancel" element={<PaymentCancel />} />
                 <Route path="/buy-credits" element={<BuyCredits />} />
+                <Route path="/pracownik-warsztat" element={<WorkshopEmployeePortal />} />
+                <Route path="/pracownik-warsztat/zlecenia/:id" element={<WorkshopEmployeePortal />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
+              {/* Global invitation handler — processes ?invitation=<id> after email confirm */}
+              <WorkshopInvitationHandler />
               {/* Global referral tracking + welcome banner */}
               <ReferralCapture />
               {/* Global RidoAI Button */}
