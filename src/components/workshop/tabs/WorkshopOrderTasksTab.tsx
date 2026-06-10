@@ -644,6 +644,8 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       const emp = workshopEmployees.find((e: any) => e.id === item.employee_id);
       const hourlyRate = emp?.salary ? emp.salary / 160 : (workshopSettings?.hourly_rate || 150);
       updates.labor_cost = Math.round(hours * hourlyRate * 100) / 100;
+    } else if (editingField === 'unit') {
+      updates.unit = (editingValue || '').trim() || 'szt';
     } else if (editingField === 'discount') {
       const disc = Math.max(0, Math.min(100, parseFloat(editingValue.replace(',', '.')) || 0));
       updates.discount_percent = disc;
@@ -982,6 +984,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     const getFieldValue = () => {
       if (field === 'name') return item.name || '';
       if (field === 'mechanic') return item.mechanic || '';
+      if (field === 'unit') return item.unit || '';
       if (field === 'price') {
         const isService = item.item_type === 'service' || item.item_type === 'task';
         return isService
@@ -1174,7 +1177,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                       </td>
                       <td className="p-1.5 tabular-nums border-r border-border/60">{renderEditableCell(t, 'price', fmt(price), 'tabular-nums', 'right')}</td>
                       <td className="p-1.5 text-center border-l border-border/60 bg-muted/10"><SavedRowDiscountEditor item={t} isGross={isTaskGross} /></td>
-                      <td className="p-2 text-right font-semibold tabular-nums">{fmt(total)}</td>
+                      <td className="p-2 text-center font-semibold tabular-nums">{fmt(total)}</td>
                       <td className="p-2 text-center">
                         <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => handleDeleteItem(t.id)}>
                           <Trash2 className="h-4 w-4" />
@@ -1482,12 +1485,12 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                         </div>
                       </td>
                       <td className="p-1">{renderEditableCell(g, 'quantity', String(g.quantity), '', 'center')}</td>
-                      <td className="p-2 text-center">{g.unit}</td>
+                      <td className="p-1.5">{renderEditableCell(g, 'unit', g.unit || 'szt', '', 'center')}</td>
                       <td className="p-1.5 text-muted-foreground tabular-nums">{renderEditableCell(g, 'cost', fmt(itemCost), 'tabular-nums', 'right')}</td>
                       <td className="p-1.5 tabular-nums">{renderEditableCell(g, 'price', fmt(itemPrice), 'tabular-nums', 'right')}</td>
-                      <td className="p-2 text-right tabular-nums border-r border-border/60">{fmt(rawTotal)}</td>
+                      <td className="p-2 text-center tabular-nums border-r border-border/60">{fmt(rawTotal)}</td>
                       <td className="p-1.5 text-center border-l border-border/60 bg-muted/10"><SavedRowDiscountEditor item={g} isGross={isGoodsGross} /></td>
-                      <td className="p-2 text-right font-semibold tabular-nums">{fmt(itemTotal)}</td>
+                      <td className="p-2 text-center font-semibold tabular-nums">{fmt(itemTotal)}</td>
                       <td className="p-2 text-center">
                         <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => handleDeleteItem(g.id)}>
                           <Trash2 className="h-4 w-4" />
