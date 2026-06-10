@@ -145,7 +145,7 @@ export function WorkshopInvitationHandler() {
                   <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
                     <li>Zaloguj się na swoje konto <strong>{invitedEmail}</strong>.</li>
                     <li>W prawym górnym rogu wejdź w <strong>Moje konto</strong>.</li>
-                    <li>Otwórz <strong>„Wybierz moduł"</strong> i kliknij <strong>„Pracownik Warsztatu"</strong> <Users className="inline h-3.5 w-3.5 -mt-0.5" />.</li>
+                    <li>Otwórz <strong>„Wybierz moduł"</strong> i kliknij <strong>„Moja Praca"</strong> <Users className="inline h-3.5 w-3.5 -mt-0.5" />.</li>
                   </ol>
                 </>
               ) : emailMatchesUser ? (
@@ -154,7 +154,7 @@ export function WorkshopInvitationHandler() {
                   <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
                     <li>Wejdź w <strong>Moje konto</strong> w prawym górnym rogu.</li>
                     <li>Otwórz <strong>„Wybierz moduł"</strong>.</li>
-                    <li>Kliknij kafelek <strong>„Pracownik Warsztatu"</strong> <Users className="inline h-3.5 w-3.5 -mt-0.5" />.</li>
+                    <li>Kliknij kafelek <strong>„Moja Praca"</strong> <Users className="inline h-3.5 w-3.5 -mt-0.5" />.</li>
                   </ol>
                 </>
               ) : (
