@@ -16,12 +16,19 @@ import { toast } from "sonner";
 const Auth = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
+  const [searchParams] = useSearchParams();
+  const prefillEmail = searchParams.get('email') || '';
+  const redirectTo = searchParams.get('redirect') || '';
+  const [email, setEmail] = useState(prefillEmail);
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
+
+  useEffect(() => { if (prefillEmail) setEmail(prefillEmail); }, [prefillEmail]);
+
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
