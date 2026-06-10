@@ -348,7 +348,9 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
               <Link2 className="h-4 w-4" />
             </Button>
             <RidoPartsCartButton providerId={providerId} />
+            <WorkshopAssignEmployeeDropdown orderId={order.id} providerId={providerId} />
           </div>
+
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
