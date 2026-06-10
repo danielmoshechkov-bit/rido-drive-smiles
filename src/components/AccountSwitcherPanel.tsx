@@ -115,6 +115,16 @@ export function AccountSwitcherPanel({
       isEnabled: isServiceProvider
     },
     {
+      type: 'workshop_employee',
+      label: 'Pracownik Warsztatu',
+      description: workshopEmpRecords[0]?.provider_name
+        ? `Zlecenia: ${workshopEmpRecords[0].provider_name}`
+        : 'Twoje przydzielone zlecenia',
+      image: fleetImg,
+      route: '/pracownik-warsztat',
+      isEnabled: isWorkshopEmployee
+    },
+    {
       type: 'client',
       label: 'Portal Klienta',
       description: 'Twoje konto i ustawienia',
