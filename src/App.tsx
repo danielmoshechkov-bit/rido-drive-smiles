@@ -221,6 +221,8 @@ const App = () => (
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
+              {/* Global invitation handler — processes ?invitation=<id> after email confirm */}
+              <WorkshopInvitationHandler />
               {/* Global referral tracking + welcome banner */}
               <ReferralCapture />
               {/* Global RidoAI Button */}
