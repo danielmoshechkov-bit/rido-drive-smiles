@@ -468,6 +468,19 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
               <Label>Aktywny</Label>
               <Switch checked={isActive} onCheckedChange={setIsActive} />
             </div>
+            {!editingId && (
+              <label className="flex items-center justify-between gap-2 p-3 rounded-lg border bg-primary/5 cursor-pointer">
+                <div>
+                  <div className="text-sm font-medium flex items-center gap-1.5">
+                    <Mail className="h-4 w-4 text-primary" /> Wyślij zaproszenie e-mail
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Pracownik otrzyma link aktywacyjny od razu po dodaniu
+                  </div>
+                </div>
+                <Switch checked={sendInvite} onCheckedChange={setSendInvite} />
+              </label>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Anuluj</Button>
