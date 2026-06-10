@@ -216,6 +216,8 @@ const App = () => (
                 <Route path="/payment/success" element={<PaymentSuccess />} />
                 <Route path="/payment/cancel" element={<PaymentCancel />} />
                 <Route path="/buy-credits" element={<BuyCredits />} />
+                <Route path="/pracownik-warsztat" element={<WorkshopEmployeePortal />} />
+                <Route path="/pracownik-warsztat/zlecenia/:id" element={<WorkshopEmployeePortal />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
