@@ -10,7 +10,10 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Plus, Edit, UserX, Loader2, Users, Mail, Send } from 'lucide-react';
+import { WorkshopInvitationsList } from './WorkshopInvitationsList';
+import { WorkshopInviteEmployeeDialog } from './WorkshopInviteEmployeeDialog';
 
 const ROLES = [
   { value: 'mechanic', label: 'Mechanik' },
