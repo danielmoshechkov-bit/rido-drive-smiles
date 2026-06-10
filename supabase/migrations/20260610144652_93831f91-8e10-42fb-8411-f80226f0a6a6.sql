@@ -1,0 +1,1 @@
+CREATE POLICY "Employees can read own record" ON public.workshop_employees FOR SELECT TO authenticated USING (user_id = auth.uid());
