@@ -47,6 +47,9 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [poolEnabled, setPoolEnabled] = useState(false);
+  const [poolSaving, setPoolSaving] = useState(false);
+  const [ownerUserId, setOwnerUserId] = useState<string | null>(null);
 
   const [roles, setRoles] = useState<{ value: string; label: string }[]>(DEFAULT_ROLES);
   const [newRoleLabel, setNewRoleLabel] = useState('');
