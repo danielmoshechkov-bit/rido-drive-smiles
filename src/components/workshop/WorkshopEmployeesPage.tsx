@@ -95,12 +95,12 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
     setNewRoleLabel('');
   };
   const removeRole = (value: string) => {
-    if (DEFAULT_ROLES.some(r => r.value === value)) {
-      toast.error('Nie można usunąć roli domyślnej');
+    if (roles.length <= 1) {
+      toast.error('Musi pozostać przynajmniej jedna rola');
       return;
     }
     saveRoles(roles.filter(r => r.value !== value));
-    if (role === value) setRole('mechanic');
+    if (role === value) setRole(roles.find(r => r.value !== value)?.value || '');
   };
 
   useEffect(() => {
