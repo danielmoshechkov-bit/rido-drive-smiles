@@ -61,6 +61,7 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
   const [emailAddr, setEmailAddr] = useState('');
   const [pinCode, setPinCode] = useState('');
   const [isActive, setIsActive] = useState(true);
+  const [sendInvite, setSendInvite] = useState(true);
   const [invitingId, setInvitingId] = useState<string | null>(null);
 
   // Load roles + rate-type map from localStorage (per provider)
@@ -165,6 +166,7 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
     setEmailAddr('');
     setPinCode('');
     setIsActive(true);
+    setSendInvite(true);
     setEditingId(null);
   };
 
@@ -256,21 +258,25 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
           .insert(payload).select('id').single();
         if (error) throw error;
         savedId = ins?.id || null;
-        try {
-          const { data, error: invErr } = await supabase.functions.invoke('workshop-invite-employee', {
-            body: { email: cleanEmail, provider_id: providerId, role, language_preference: 'pl' },
-          });
-          if (invErr) throw invErr;
-          if ((data as any)?.email_sent) {
-            toast.success(`Pracownik dodany. Zaproszenie wysłane na ${cleanEmail}`);
-          } else if ((data as any)?.action_link) {
-            await navigator.clipboard.writeText((data as any).action_link);
-            toast.success('Pracownik dodany. Link zaproszenia skopiowany do schowka');
-          } else {
-            toast.success('Pracownik dodany');
+        if (sendInvite) {
+          try {
+            const { data, error: invErr } = await supabase.functions.invoke('workshop-invite-employee', {
+              body: { email: cleanEmail, provider_id: providerId, role, language_preference: 'pl' },
+            });
+            if (invErr) throw invErr;
+            if ((data as any)?.email_sent) {
+              toast.success(`Pracownik dodany. Zaproszenie wysłane na ${cleanEmail}`);
+            } else if ((data as any)?.action_link) {
+              await navigator.clipboard.writeText((data as any).action_link);
+              toast.success('Pracownik dodany. Link zaproszenia skopiowany do schowka');
+            } else {
+              toast.success('Pracownik dodany');
+            }
+          } catch (invE: any) {
+            toast.warning(`Pracownik dodany, ale zaproszenie nie zostało wysłane: ${invE.message}`);
           }
-        } catch (invE: any) {
-          toast.warning(`Pracownik dodany, ale zaproszenie nie zostało wysłane: ${invE.message}`);
+        } else {
+          toast.success('Pracownik dodany. Zaproszenie nie zostało wysłane — możesz wysłać je później przyciskiem koperty.');
         }
       }
 
@@ -425,7 +431,14 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Stawka netto (PLN)</Label>
-                <Input type="number" value={hourlyRate} onChange={e => setHourlyRate(Number(e.target.value))} />
+                <Input
+                  type="number"
+                  inputMode="decimal"
+                  value={hourlyRate || ''}
+                  onFocus={(e) => e.currentTarget.select()}
+                  onChange={e => setHourlyRate(e.target.value === '' ? 0 : Number(e.target.value))}
+                  placeholder="0"
+                />
               </div>
               <div className="space-y-2">
                 <Label>Rodzaj stawki</Label>
@@ -455,6 +468,19 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
               <Label>Aktywny</Label>
               <Switch checked={isActive} onCheckedChange={setIsActive} />
             </div>
+            {!editingId && (
+              <label className="flex items-center justify-between gap-2 p-3 rounded-lg border bg-primary/5 cursor-pointer">
+                <div>
+                  <div className="text-sm font-medium flex items-center gap-1.5">
+                    <Mail className="h-4 w-4 text-primary" /> Wyślij zaproszenie e-mail
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Pracownik otrzyma link aktywacyjny od razu po dodaniu
+                  </div>
+                </div>
+                <Switch checked={sendInvite} onCheckedChange={setSendInvite} />
+              </label>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Anuluj</Button>

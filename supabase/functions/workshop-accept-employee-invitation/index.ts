@@ -5,78 +5,103 @@ import { corsHeaders } from '../_shared/cors.ts';
 const json = (d: unknown, s = 200) =>
   new Response(JSON.stringify(d), { status: s, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
+/**
+ * Token-based acceptance.
+ * Accepts `invitation_id` (the UUID acts as token) WITHOUT requiring auth.
+ * - Looks up an auth user by invited_email.
+ * - If exists: activates workshop_employees with user_id, marks accepted.
+ * - If not: marks accepted anyway; user will be linked on next login (by email).
+ */
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
-    const { invitation_id, accept } = await req.json();
-    if (!invitation_id || typeof accept !== 'boolean') return json({ error: 'invitation_id + accept required' }, 400);
+    const body = await req.json().catch(() => ({} as any));
+    const invitation_id: string | undefined = body.invitation_id;
+    const accept: boolean = body.accept !== false; // default true
 
-    const authHeader = req.headers.get('Authorization') || '';
+    if (!invitation_id) return json({ error: 'invitation_id required' }, 400);
+
     const supaUrl = Deno.env.get('SUPABASE_URL')!;
-    const userClient = createClient(supaUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: ud } = await userClient.auth.getUser(authHeader.replace('Bearer ', ''));
-    const user = ud?.user;
-    if (!user) return json({ error: 'unauthorized' }, 401);
-
     const admin = createClient(supaUrl, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 
-    const { data: inv } = await admin.from('workshop_employee_invitations').select('*').eq('id', invitation_id).maybeSingle();
-    if (!inv) return json({ error: 'not found' }, 404);
-    if (inv.status !== 'pending') return json({ error: 'already processed' }, 400);
+    const { data: inv } = await admin
+      .from('workshop_employee_invitations')
+      .select('*, service_providers(company_name)')
+      .eq('id', invitation_id)
+      .maybeSingle();
+    if (!inv) return json({ error: 'not_found' }, 404);
 
-    const emailMatches = (user.email || '').toLowerCase() === (inv.invited_email || '').toLowerCase();
-    if (!emailMatches && inv.invited_user_id !== user.id) {
-      return json({
-        error: 'email_mismatch',
-        message: `To zaproszenie jest dla ${inv.invited_email}. Zaloguj się na ten adres aby je przyjąć.`,
-        invited_email: inv.invited_email,
-      }, 403);
+    const companyName = (inv as any).service_providers?.company_name || 'warsztat';
+
+    if (inv.status === 'accepted') {
+      return json({ success: true, status: 'accepted', already: true, company_name: companyName, invited_email: inv.invited_email });
     }
-
+    if (inv.status !== 'pending') {
+      return json({ error: 'already_processed', status: inv.status }, 400);
+    }
 
     if (!accept) {
       await admin.from('workshop_employee_invitations').update({
-        status: 'rejected', rejected_at: new Date().toISOString(), invited_user_id: user.id,
+        status: 'rejected', rejected_at: new Date().toISOString(),
       }).eq('id', invitation_id);
       return json({ success: true, status: 'rejected' });
     }
 
-    // Accept: create/update workshop_employees with user_id
-    const fullName = (user.user_metadata?.full_name || user.email || 'Pracownik') as string;
-    const parts = fullName.split(' ');
-    const firstName = parts[0] || 'Pracownik';
-    const lastName = parts.slice(1).join(' ') || '';
+    // Try to find an auth user by email
+    let foundUser: any = null;
+    try {
+      let page = 1;
+      while (page < 20 && !foundUser) {
+        const { data: list } = await (admin.auth.admin as any).listUsers({ page, perPage: 200 });
+        const users = list?.users || [];
+        foundUser = users.find((u: any) => (u.email || '').toLowerCase() === (inv.invited_email || '').toLowerCase());
+        if (users.length < 200) break;
+        page++;
+      }
+    } catch (e) {
+      console.warn('listUsers failed', e);
+    }
 
-    // Check existing record by provider + email
+    const userId = foundUser?.id || inv.invited_user_id || null;
+
+    // Upsert workshop_employees: if user known, fill user_id and activate; otherwise leave as awaiting-user record
     const { data: existing } = await admin.from('workshop_employees')
       .select('id').eq('provider_id', inv.provider_id)
-      .or(`user_id.eq.${user.id},email.eq.${(user.email || '').toLowerCase()}`).maybeSingle();
+      .or(`email.eq.${(inv.invited_email || '').toLowerCase()}${userId ? `,user_id.eq.${userId}` : ''}`)
+      .maybeSingle();
 
     if (existing) {
       await admin.from('workshop_employees').update({
-        user_id: user.id, status: 'active', is_active: true,
+        user_id: userId, status: 'active', is_active: true,
         language_preference: inv.language_preference || 'pl',
         role: inv.role || 'mechanic', removed_at: null,
-        email: user.email,
+        email: inv.invited_email,
       }).eq('id', existing.id);
     } else {
+      const fullName = foundUser?.user_metadata?.full_name || inv.invited_email || 'Pracownik';
+      const parts = String(fullName).split(' ');
       await admin.from('workshop_employees').insert({
-        provider_id: inv.provider_id, user_id: user.id,
-        name: fullName, first_name: firstName, last_name: lastName,
-        email: user.email, role: inv.role || 'mechanic',
+        provider_id: inv.provider_id, user_id: userId,
+        name: fullName, first_name: parts[0] || 'Pracownik', last_name: parts.slice(1).join(' ') || '',
+        email: inv.invited_email, role: inv.role || 'mechanic',
         language_preference: inv.language_preference || 'pl',
         status: 'active', is_active: true,
       });
     }
 
     await admin.from('workshop_employee_invitations').update({
-      status: 'accepted', accepted_at: new Date().toISOString(), invited_user_id: user.id,
+      status: 'accepted', accepted_at: new Date().toISOString(),
+      invited_user_id: userId,
     }).eq('id', invitation_id);
 
-    return json({ success: true, status: 'accepted' });
+    return json({
+      success: true,
+      status: 'accepted',
+      company_name: companyName,
+      invited_email: inv.invited_email,
+      user_linked: !!userId,
+    });
   } catch (e) {
     console.error('workshop-accept-employee-invitation error:', e);
     return json({ error: String(e) }, 500);
