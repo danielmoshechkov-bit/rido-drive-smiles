@@ -347,6 +347,19 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
       </div>
 
       <Card>
+        <CardContent className="p-4 flex items-start gap-3">
+          <div className="flex-1">
+            <Label className="text-sm font-semibold">Pula dostępnych zleceń</Label>
+            <p className="text-xs text-muted-foreground mt-1">
+              Gdy włączone, pracownicy widzą nieprzydzielone zlecenia i mogą sami je przyjąć.
+              Każde przyjęcie i zwrot zostaje zapisane w historii.
+            </p>
+          </div>
+          <Switch checked={poolEnabled} disabled={poolSaving || !ownerUserId} onCheckedChange={togglePool} />
+        </CardContent>
+      </Card>
+
+      <Card>
         <CardContent className="p-0 overflow-x-auto">
           <Table>
             <TableHeader>
