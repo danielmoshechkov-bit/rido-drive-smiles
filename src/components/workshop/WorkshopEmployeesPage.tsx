@@ -225,19 +225,8 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
     }
   };
 
-
-  const toggleActive = async (emp: Employee) => {
-    try {
-      const { error } = await (supabase.from('workshop_employees') as any)
-        .update({ is_active: !emp.is_active }).eq('id', emp.id);
-      if (error) throw error;
-      fetchEmployees();
-    } catch (err: any) {
-      toast.error(err.message);
-    }
-  };
-
   const roleLabel = (r: string) => ROLES.find(x => x.value === r)?.label || r;
+
 
   if (!providerId) {
     return <p className="text-center text-muted-foreground py-8">Najpierw aktywuj konto usługodawcy.</p>;
