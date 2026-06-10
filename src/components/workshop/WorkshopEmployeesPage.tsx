@@ -431,7 +431,14 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Stawka netto (PLN)</Label>
-                <Input type="number" value={hourlyRate} onChange={e => setHourlyRate(Number(e.target.value))} />
+                <Input
+                  type="number"
+                  inputMode="decimal"
+                  value={hourlyRate || ''}
+                  onFocus={(e) => e.currentTarget.select()}
+                  onChange={e => setHourlyRate(e.target.value === '' ? 0 : Number(e.target.value))}
+                  placeholder="0"
+                />
               </div>
               <div className="space-y-2">
                 <Label>Rodzaj stawki</Label>
