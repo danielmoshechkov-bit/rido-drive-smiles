@@ -30,6 +30,7 @@ import tileMagazyn from '@/assets/workshop/tile-magazyn.jpg';
 import tilePrzechodnia from '@/assets/workshop/tile-przechowalnia.jpg';
 import tileDaneNaprawcze from '@/assets/workshop/tile-dane-naprawcze.jpg';
 import tileUstawienia from '@/assets/workshop/tile-ustawienia.jpg';
+import tilePracownicy from '@/assets/workshop/tile-pracownicy.jpg';
 
 const modules = [
   { key: 'zlecenia', label: 'Zlecenia', img: tileZlecenia, ready: true },
