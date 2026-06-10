@@ -45,24 +45,21 @@ serve(async (req) => {
 
     // Insert workshop_order_items for each finding
     for (const f of findings) {
-      const itemType = f.part_oe_code || f.part_name ? 'part' : 'service';
+      const itemType = (f.part_oe_code || f.part_name) ? 'part' : 'service';
       const description = f.description_pl || f.description_original || '';
+      const name = itemType === 'part'
+        ? `${f.part_name || description}${f.part_oe_code ? ` [${f.part_oe_code}]` : ''}`
+        : description;
       const itemRow: any = {
         order_id: f.order_id,
         item_type: itemType,
-        description,
-        quantity: 1,
+        name,
+        quantity: itemType === 'service' ? (f.estimated_hours || 1) : 1,
         unit: itemType === 'part' ? 'szt' : 'h',
         sort_order: sortMap[f.order_id]++,
-        notes: `Od pracownika: ${f.description_original}`,
       };
-      if (itemType === 'part') {
-        itemRow.name = f.part_name || description;
-        itemRow.oe_code = f.part_oe_code;
-        itemRow.supplier = f.part_supplier;
-      } else {
-        itemRow.name = description;
-        itemRow.quantity = f.estimated_hours || 1;
+      if (itemType === 'service' && f.estimated_hours) {
+        itemRow.labor_hours = f.estimated_hours;
       }
       const { data: ins } = await admin.from('workshop_order_items').insert(itemRow).select('id').maybeSingle();
       await admin.from('workshop_employee_findings').update({
@@ -71,6 +68,7 @@ serve(async (req) => {
         moved_to_order_item_id: ins?.id || null,
       }).eq('id', f.id);
     }
+
 
     // Update assignment status
     for (const oid of orderIds) {
