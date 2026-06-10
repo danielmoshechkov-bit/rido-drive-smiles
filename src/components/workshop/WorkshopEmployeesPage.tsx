@@ -166,6 +166,7 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
     setEmailAddr('');
     setPinCode('');
     setIsActive(true);
+    setSendInvite(true);
     setEditingId(null);
   };
 
