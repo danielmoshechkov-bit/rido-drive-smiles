@@ -644,6 +644,8 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       const emp = workshopEmployees.find((e: any) => e.id === item.employee_id);
       const hourlyRate = emp?.salary ? emp.salary / 160 : (workshopSettings?.hourly_rate || 150);
       updates.labor_cost = Math.round(hours * hourlyRate * 100) / 100;
+    } else if (editingField === 'unit') {
+      updates.unit = (editingValue || '').trim() || 'szt';
     } else if (editingField === 'discount') {
       const disc = Math.max(0, Math.min(100, parseFloat(editingValue.replace(',', '.')) || 0));
       updates.discount_percent = disc;
