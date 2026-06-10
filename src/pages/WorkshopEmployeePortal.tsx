@@ -172,9 +172,8 @@ export default function WorkshopEmployeePortal() {
         <StatTile icon={<Hourglass className="h-5 w-5" />} label="W trakcie" value={stats.inProgress} accent="warning" />
         <StatTile icon={<CheckCircle2 className="h-5 w-5" />} label="Zakończone" value={stats.done} accent="success" />
         <StatTile
-          icon={<Inbox className="h-5 w-5" />} label="Dostępne" value={poolEnabled ? stats.pool : '—'}
-          active={tab === 'pool'} onClick={() => poolEnabled && setTab('pool')}
-          disabled={!poolEnabled}
+          icon={<Inbox className="h-5 w-5" />} label="Dostępne" value={stats.pool}
+          active={tab === 'pool'} onClick={() => setTab('pool')}
         />
       </div>
 
@@ -182,9 +181,7 @@ export default function WorkshopEmployeePortal() {
       <div className="flex gap-1.5 overflow-x-auto scrollbar-hide -mx-1 px-1">
         <NavPill active={tab === 'home'} onClick={() => setTab('home')} icon={<Briefcase className="h-3.5 w-3.5" />} label="Start" />
         <NavPill active={tab === 'mine'} onClick={() => setTab('mine')} icon={<ClipboardList className="h-3.5 w-3.5" />} label={`Moje (${stats.mine})`} />
-        {poolEnabled && (
-          <NavPill active={tab === 'pool'} onClick={() => setTab('pool')} icon={<Inbox className="h-3.5 w-3.5" />} label={`Pula (${stats.pool})`} />
-        )}
+        <NavPill active={tab === 'pool'} onClick={() => setTab('pool')} icon={<Inbox className="h-3.5 w-3.5" />} label={`Pula (${stats.pool})`} />
         <NavPill active={tab === 'history'} onClick={() => setTab('history')} icon={<History className="h-3.5 w-3.5" />} label="Historia" />
       </div>
 
@@ -250,27 +247,30 @@ export default function WorkshopEmployeePortal() {
           )}
         </Section>
       ) : tab === 'pool' ? (
-        <Section title={`Dostępne zlecenia (${pool.length})`} icon={<Inbox className="h-4 w-4 text-primary" />}>
-          {!poolEnabled ? (
-            <Empty text="Pracodawca nie włączył puli zleceń." />
-          ) : pool.length === 0 ? (
-            <Empty text="Brak wolnych zleceń w puli." />
+        <Section title={`Aktywne zlecenia warsztatu (${pool.length})`} icon={<Inbox className="h-4 w-4 text-primary" />}>
+          {pool.length === 0 ? (
+            <Empty text="Brak aktywnych zleceń." />
           ) : (
             <div className="divide-y">
               {pool.map(o => (
                 <div key={o.id} className="p-3 flex items-center gap-3">
-                  <div className="flex-1">
+                  <button
+                    className="flex-1 text-left hover:opacity-80"
+                    onClick={() => setOpenOrderId(o.id)}
+                  >
                     <div className="font-medium text-sm">{o.order_number || o.id.slice(0, 8)}</div>
                     <div className="text-xs text-muted-foreground line-clamp-1">
                       {o.description || o.status_name || '—'}
                     </div>
-                  </div>
-                  <Button
-                    size="sm" disabled={busy === o.id}
-                    onClick={() => claim(o.id, o.provider_id)}
-                  >
-                    {busy === o.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <><HandHelping className="h-3.5 w-3.5 mr-1" />Przyjmij</>}
-                  </Button>
+                  </button>
+                  {poolEnabled && (
+                    <Button
+                      size="sm" disabled={busy === o.id}
+                      onClick={() => claim(o.id, o.provider_id)}
+                    >
+                      {busy === o.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <><HandHelping className="h-3.5 w-3.5 mr-1" />Przyjmij</>}
+                    </Button>
+                  )}
                 </div>
               ))}
             </div>
@@ -312,6 +312,15 @@ export default function WorkshopEmployeePortal() {
           </Card>
         ))}
       </div>
+
+      <EmployeeOrderCardDialog
+        open={!!openOrderId}
+        onOpenChange={(v) => { if (!v) setOpenOrderId(null); }}
+        orderId={openOrderId}
+        employeeId={primaryProvider?.id}
+        employeeName={userName}
+        onSaved={loadAll}
+      />
     </div>
   );
 }
