@@ -982,6 +982,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     const getFieldValue = () => {
       if (field === 'name') return item.name || '';
       if (field === 'mechanic') return item.mechanic || '';
+      if (field === 'unit') return item.unit || '';
       if (field === 'price') {
         const isService = item.item_type === 'service' || item.item_type === 'task';
         return isService
