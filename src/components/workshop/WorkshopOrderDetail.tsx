@@ -414,6 +414,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
           <Button variant="ghost" size="sm" className="h-7 w-7 p-0 shrink-0" onClick={copyClientLink}>
             <Link2 className="h-3.5 w-3.5" />
           </Button>
+          <div className="shrink-0"><WorkshopAssignEmployeeDropdown orderId={order.id} providerId={providerId} /></div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="h-7 w-7 p-0 shrink-0"><MoreVertical className="h-3.5 w-3.5" /></Button>
