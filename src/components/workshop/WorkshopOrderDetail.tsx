@@ -465,6 +465,9 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
         <TabsContent value="tasks">
           <WorkshopOrderTasksTab order={order} providerId={providerId} />
         </TabsContent>
+        <TabsContent value="findings">
+          <WorkshopOrderEmployeeFindingsTab orderId={order.id} providerId={providerId} />
+        </TabsContent>
         <TabsContent value="summary">
           <WorkshopOrderSummaryTab order={order} />
         </TabsContent>
