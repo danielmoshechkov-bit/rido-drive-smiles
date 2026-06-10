@@ -27,6 +27,8 @@ export default function WorkshopEmployeePortal() {
   const [busy, setBusy] = useState<string | null>(null);
   const [dataLoading, setDataLoading] = useState(true);
   const [openOrderId, setOpenOrderId] = useState<string | null>(null);
+  const [openFromPool, setOpenFromPool] = useState(false);
+  const [openProviderId, setOpenProviderId] = useState<string | null>(null);
 
   const providerIds = useMemo(() => records.map(r => r.provider_id), [records]);
   const primaryProvider = records[0];
@@ -222,10 +224,10 @@ export default function WorkshopEmployeePortal() {
           ) : (
             <div className="divide-y">
               {mine.map(a => (
-                <div key={a.id} className="p-3 flex items-center gap-3">
+                <div key={a.id} className="p-3 flex items-center gap-3 bg-green-50/60 border-l-4 border-l-green-500">
                   <button
                     className="flex-1 text-left hover:opacity-80"
-                    onClick={() => setOpenOrderId(a.order_id)}
+                    onClick={() => { setOpenFromPool(false); setOpenProviderId(a.provider_id); setOpenOrderId(a.order_id); }}
                   >
                     <div className="font-medium text-sm">
                       {a.workshop_orders?.order_number || a.order_id.slice(0, 8)}
@@ -234,7 +236,7 @@ export default function WorkshopEmployeePortal() {
                       {a.workshop_orders?.description || a.workshop_orders?.status_name || '—'}
                     </div>
                   </button>
-                  <Badge variant="outline" className="text-xs">{a.status}</Badge>
+                  <Badge className="bg-green-600 hover:bg-green-700 text-white text-xs">Przydzielone</Badge>
                   <Button
                     variant="ghost" size="sm" disabled={busy === a.id}
                     onClick={() => release(a.id, a.order_id, a.provider_id)}
@@ -253,16 +255,17 @@ export default function WorkshopEmployeePortal() {
           ) : (
             <div className="divide-y">
               {pool.map(o => (
-                <div key={o.id} className="p-3 flex items-center gap-3">
+                <div key={o.id} className="p-3 flex items-center gap-3 bg-amber-50/60 border-l-4 border-l-amber-400">
                   <button
                     className="flex-1 text-left hover:opacity-80"
-                    onClick={() => setOpenOrderId(o.id)}
+                    onClick={() => { setOpenFromPool(true); setOpenProviderId(o.provider_id); setOpenOrderId(o.id); }}
                   >
                     <div className="font-medium text-sm">{o.order_number || o.id.slice(0, 8)}</div>
                     <div className="text-xs text-muted-foreground line-clamp-1">
                       {o.description || o.status_name || '—'}
                     </div>
                   </button>
+                  <Badge variant="outline" className="text-xs border-amber-400 text-amber-700 bg-amber-100">W puli</Badge>
                   {poolEnabled && (
                     <Button
                       size="sm" disabled={busy === o.id}
@@ -315,10 +318,17 @@ export default function WorkshopEmployeePortal() {
 
       <EmployeeOrderCardDialog
         open={!!openOrderId}
-        onOpenChange={(v) => { if (!v) setOpenOrderId(null); }}
+        onOpenChange={(v) => { if (!v) { setOpenOrderId(null); setOpenFromPool(false); } }}
         orderId={openOrderId}
         employeeId={primaryProvider?.id}
         employeeName={userName}
+        readOnly={openFromPool}
+        onClaim={openFromPool && openOrderId && openProviderId ? async () => {
+          await claim(openOrderId, openProviderId);
+          setOpenFromPool(false);
+          setTab('mine');
+          setOpenOrderId(null);
+        } : undefined}
         onSaved={loadAll}
       />
     </div>
