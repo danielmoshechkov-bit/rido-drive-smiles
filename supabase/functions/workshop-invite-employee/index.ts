@@ -1,5 +1,6 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
 import { corsHeaders } from '../_shared/cors.ts';
 
 const json = (d: unknown, s = 200) =>
@@ -30,8 +31,6 @@ serve(async (req) => {
     if (!prov || prov.user_id !== user.id) return json({ error: 'forbidden' }, 403);
 
     // Look up user by email
-    const { data: existing } = await admin
-      .from('auth.users' as any).select('id').eq('email', email.toLowerCase()).maybeSingle();
     let invitedUserId: string | null = null;
     try {
       const { data: users } = await (admin.auth.admin as any).listUsers({ page: 1, perPage: 200 });
@@ -57,11 +56,12 @@ serve(async (req) => {
       .single();
     if (invErr) return json({ error: invErr.message }, 500);
 
-    // Send notification + email
+    // Build action link (auth invite link if no account, otherwise direct link)
     let actionLink: string | null = null;
+    const origin = req.headers.get('origin') || 'https://getrido.pl';
     try {
       if (!invitedUserId) {
-        const redirectTo = `${req.headers.get('origin') || 'https://getrido.pl'}/?invitation=${invitation.id}`;
+        const redirectTo = `${origin}/?invitation=${invitation.id}`;
         const { data: linkData } = await (admin.auth.admin as any).generateLink({
           type: 'invite',
           email,
@@ -69,32 +69,93 @@ serve(async (req) => {
         });
         actionLink = (linkData as any)?.properties?.action_link || null;
       }
-
-      const resendKey = Deno.env.get('RESEND_API_KEY');
-      if (resendKey) {
-        const html = `
-          <div style="font-family:Arial;max-width:560px;margin:0 auto;padding:24px">
-            <h2 style="color:#4A3AFF">Zaproszenie do warsztatu</h2>
-            <p>${prov.company_name || 'Warsztat'} zaprasza Cię do współpracy jako pracownika.</p>
-            <p>Zaloguj się do GetRido, aby zaakceptować zaproszenie i otrzymywać przydzielone zlecenia.</p>
-            ${actionLink ? `<p style="margin:24px 0"><a href="${actionLink}" style="background:#4A3AFF;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px">Załóż konto i akceptuj</a></p>` : `<p style="margin:24px 0"><a href="https://getrido.pl/?invitation=${invitation.id}" style="background:#4A3AFF;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px">Otwórz GetRido</a></p>`}
-          </div>`;
-        await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            from: 'GetRido <noreply@getrido.pl>',
-            to: [email],
-            subject: `${prov.company_name || 'Warsztat'} zaprosił Cię do zespołu`,
-            html,
-          }),
-        });
-      }
     } catch (e) {
-      console.error('notify err', e);
+      console.warn('generateLink failed', e);
+    }
+    if (!actionLink) actionLink = `${origin}/?invitation=${invitation.id}`;
+
+    // Send email via SMTP (same path used for registration emails)
+    let emailSent = false;
+    let emailError: string | null = null;
+    try {
+      const smtpPassword = Deno.env.get('SMTP_PASSWORD');
+      if (!smtpPassword) throw new Error('SMTP_PASSWORD not configured');
+
+      const { data: settings, error: settingsErr } = await admin
+        .from('email_settings')
+        .select('*')
+        .eq('id', '00000000-0000-0000-0000-000000000001')
+        .single();
+      if (settingsErr || !settings) throw new Error('email_settings not found');
+
+      const senderName = settings.sender_name || 'GetRido';
+      const senderEmail = settings.sender_email || settings.smtp_user || 'kontakt@getrido.pl';
+      const company = prov.company_name || 'Warsztat';
+
+      const subject = `${company} zaprasza Cię do zespołu w GetRido`;
+      const text = `Witaj!\n\n${company} zaprasza Cię do dołączenia do swojego zespołu w GetRido — będziesz otrzymywać i obsługiwać zlecenia warsztatowe bezpośrednio w aplikacji.\n\nAby potwierdzić zaproszenie, kliknij w poniższy link:\n${actionLink}\n\nJeśli link nie zadziała, skopiuj go i wklej w przeglądarce.\n\nJeśli nie spodziewałeś/aś się tego zaproszenia — zignoruj tę wiadomość.\n\n--\nZespół GetRido\nhttps://getrido.pl`;
+
+      const html = `
+<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#1a1a1a;background:#fff">
+  <div style="text-align:center;margin-bottom:24px">
+    <h1 style="color:#4A3AFF;margin:0;font-size:24px">GetRido</h1>
+  </div>
+  <h2 style="color:#1a1a1a;font-size:20px;margin:0 0 16px">Zaproszenie do zespołu warsztatu</h2>
+  <p>Cześć,</p>
+  <p><strong>${company}</strong> zaprasza Cię do dołączenia do swojego zespołu w GetRido. Po akceptacji będziesz otrzymywać przydzielone zlecenia warsztatowe i obsługiwać je bezpośrednio w aplikacji.</p>
+  <p style="margin:28px 0;text-align:center">
+    <a href="${actionLink}" style="background:#4A3AFF;color:#fff;padding:14px 28px;text-decoration:none;border-radius:8px;display:inline-block;font-weight:600">
+      Potwierdź zaproszenie
+    </a>
+  </p>
+  <p style="color:#666;font-size:13px;margin-top:24px">
+    Jeśli przycisk nie działa, skopiuj i wklej ten link w przeglądarce:<br/>
+    <a href="${actionLink}" style="color:#4A3AFF;word-break:break-all">${actionLink}</a>
+  </p>
+  <hr style="border:none;border-top:1px solid #eee;margin:32px 0"/>
+  <p style="color:#999;font-size:12px;text-align:center">
+    Otrzymujesz tę wiadomość ponieważ ${company} wpisał Twój adres email jako pracownika w panelu GetRido.<br/>
+    Jeśli to pomyłka, zignoruj tę wiadomość.
+  </p>
+</div>`;
+
+      const port = settings.smtp_port || 587;
+      const useTls = port === 465;
+      const client = new SMTPClient({
+        connection: {
+          hostname: settings.smtp_host || 'getrido.pl',
+          port,
+          tls: useTls,
+          auth: {
+            username: settings.smtp_user || 'kontakt@getrido.pl',
+            password: smtpPassword,
+          },
+        },
+      });
+
+      const minifiedHtml = html.replace(/\r\n/g, '\n').replace(/\n\s+/g, ' ').replace(/>\s+</g, '><').replace(/\s{2,}/g, ' ').trim();
+
+      await client.send({
+        from: `${senderName} <${senderEmail}>`,
+        to: [email],
+        replyTo: senderEmail,
+        subject,
+        content: text,
+        html: minifiedHtml,
+        headers: {
+          'List-Unsubscribe': `<mailto:${senderEmail}?subject=Unsubscribe>`,
+          'X-Mailer': 'GetRido Workshop',
+        },
+      });
+      await client.close();
+      emailSent = true;
+      console.log('Workshop invitation email sent to', email);
+    } catch (e: any) {
+      emailError = String(e?.message || e);
+      console.error('SMTP send failed:', emailError);
     }
 
-    return json({ success: true, invitation_id: invitation.id, action_link: actionLink });
+    return json({ success: true, invitation_id: invitation.id, action_link: actionLink, email_sent: emailSent, email_error: emailError });
   } catch (e) {
     console.error('workshop-invite-employee error:', e);
     return json({ error: String(e) }, 500);
