@@ -133,14 +133,19 @@ serve(async (req) => {
         },
       });
 
-      const minifiedHtml = html.replace(/\r\n/g, '\n').replace(/\n\s+/g, ' ').replace(/>\s+</g, '><').replace(/\s{2,}/g, ' ').trim();
+      // qmail/pobox SMTP rejects bare LFs — force CRLF line endings everywhere
+      const toCRLF = (s: string) => s.replace(/\r\n/g, '\n').replace(/\n/g, '\r\n');
+      const minifiedHtml = toCRLF(
+        html.replace(/\r\n/g, '\n').replace(/\n\s+/g, ' ').replace(/>\s+</g, '><').replace(/\s{2,}/g, ' ').trim()
+      );
+      const crlfText = toCRLF(text);
 
       await client.send({
         from: `${senderName} <${senderEmail}>`,
         to: [email],
         replyTo: senderEmail,
         subject,
-        content: text,
+        content: crlfText,
         html: minifiedHtml,
         headers: {
           'List-Unsubscribe': `<mailto:${senderEmail}?subject=Unsubscribe>`,
