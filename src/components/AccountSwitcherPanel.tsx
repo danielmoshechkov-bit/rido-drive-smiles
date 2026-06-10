@@ -36,7 +36,7 @@ interface AccountSwitcherPanelProps {
 }
 
 interface AccountOption {
-  type: 'driver' | 'fleet' | 'admin' | 'client' | 'sales' | 'service_provider';
+  type: 'driver' | 'fleet' | 'admin' | 'client' | 'sales' | 'service_provider' | 'workshop_employee';
   label: string;
   description: string;
   image: string;
