@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,13 +10,18 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Edit, UserX, Loader2, Users, Mail, Send } from 'lucide-react';
+import { Plus, Edit, UserX, Loader2, Users, Mail, Send, X } from 'lucide-react';
 
-const ROLES = [
+const DEFAULT_ROLES = [
   { value: 'mechanic', label: 'Mechanik' },
   { value: 'reception', label: 'Recepcja' },
   { value: 'manager', label: 'Kierownik' },
   { value: 'owner', label: 'Właściciel' },
+];
+
+const RATE_TYPES = [
+  { value: 'hourly', label: 'godzinowa', suffix: '/h' },
+  { value: 'daily', label: 'dobowa', suffix: '/dzień' },
 ];
 
 interface Employee {
@@ -33,6 +38,9 @@ interface Employee {
 }
 
 export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | null }) => {
+  const rolesKey = `workshop_roles_${providerId || 'na'}`;
+  const rateKey = `workshop_rate_types_${providerId || 'na'}`;
+
   const [loading, setLoading] = useState(true);
   const [employees, setEmployees] = useState<any[]>([]);
   const [invitations, setInvitations] = useState<any[]>([]);
@@ -40,15 +48,60 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const [roles, setRoles] = useState<{ value: string; label: string }[]>(DEFAULT_ROLES);
+  const [newRoleLabel, setNewRoleLabel] = useState('');
+  const [rateTypes, setRateTypes] = useState<Record<string, 'hourly' | 'daily'>>({});
+
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [role, setRole] = useState('mechanic');
   const [hourlyRate, setHourlyRate] = useState(0);
+  const [rateType, setRateType] = useState<'hourly' | 'daily'>('hourly');
   const [phone, setPhone] = useState('');
   const [emailAddr, setEmailAddr] = useState('');
   const [pinCode, setPinCode] = useState('');
   const [isActive, setIsActive] = useState(true);
   const [invitingId, setInvitingId] = useState<string | null>(null);
+
+  // Load roles + rate-type map from localStorage (per provider)
+  useEffect(() => {
+    if (!providerId) return;
+    try {
+      const r = localStorage.getItem(rolesKey);
+      if (r) setRoles(JSON.parse(r));
+      const rt = localStorage.getItem(rateKey);
+      if (rt) setRateTypes(JSON.parse(rt));
+    } catch { /* ignore */ }
+  }, [providerId]);
+
+  const saveRoles = (next: { value: string; label: string }[]) => {
+    setRoles(next);
+    try { localStorage.setItem(rolesKey, JSON.stringify(next)); } catch {}
+  };
+  const saveRateTypes = (next: Record<string, 'hourly' | 'daily'>) => {
+    setRateTypes(next);
+    try { localStorage.setItem(rateKey, JSON.stringify(next)); } catch {}
+  };
+
+  const addRole = () => {
+    const label = newRoleLabel.trim();
+    if (!label) return;
+    const value = label.toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 30) || `role_${Date.now()}`;
+    if (roles.some(r => r.value === value)) {
+      toast.error('Taka rola już istnieje');
+      return;
+    }
+    saveRoles([...roles, { value, label }]);
+    setNewRoleLabel('');
+  };
+  const removeRole = (value: string) => {
+    if (DEFAULT_ROLES.some(r => r.value === value)) {
+      toast.error('Nie można usunąć roli domyślnej');
+      return;
+    }
+    saveRoles(roles.filter(r => r.value !== value));
+    if (role === value) setRole('mechanic');
+  };
 
   useEffect(() => {
     if (providerId) fetchAll();
@@ -71,9 +124,7 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
       setLoading(false);
     }
   };
-  const fetchEmployees = fetchAll;
 
-  // Resolve unified status per employee row by matching email against invitations
   const statusFor = (emp: any): { key: string; label: string; className: string } => {
     if (emp.is_active === false || emp.status === 'inactive') {
       return { key: 'inactive', label: 'Nieaktywny', className: 'bg-muted text-muted-foreground' };
@@ -103,12 +154,12 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
     } catch (e: any) { toast.error(e.message); }
   };
 
-
   const resetForm = () => {
     setFirstName('');
     setLastName('');
     setRole('mechanic');
     setHourlyRate(0);
+    setRateType('hourly');
     setPhone('');
     setEmailAddr('');
     setPinCode('');
@@ -127,6 +178,7 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
     setLastName(emp.last_name || parts.slice(1).join(' ') || '');
     setRole(emp.role || 'mechanic');
     setHourlyRate(emp.hourly_rate || 0);
+    setRateType(rateTypes[emp.id] || 'hourly');
     setPhone(emp.phone || '');
     setEmailAddr(emp.email || '');
     setPinCode(emp.pin_code || '');
@@ -151,11 +203,13 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
         },
       });
       if (error) throw error;
-      if ((data as any)?.action_link && !(data as any)?.email_sent) {
+      if ((data as any)?.email_sent) {
+        toast.success(`Zaproszenie wysłane na ${emp.email}`);
+      } else if ((data as any)?.action_link) {
         await navigator.clipboard.writeText((data as any).action_link);
         toast.success('Link zaproszenia skopiowany do schowka');
       } else {
-        toast.success(`Zaproszenie wysłane na ${emp.email}`);
+        toast.success('Zaproszenie zarejestrowane');
       }
       fetchAll();
     } catch (e: any) {
@@ -190,29 +244,39 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
         is_active: isActive,
       };
 
+      let savedId: string | null = editingId;
       if (editingId) {
         const { error } = await (supabase.from('workshop_employees') as any)
           .update(payload).eq('id', editingId);
         if (error) throw error;
         toast.success('Pracownik zaktualizowany');
       } else {
-        const { error } = await (supabase.from('workshop_employees') as any).insert(payload);
+        const { data: ins, error } = await (supabase.from('workshop_employees') as any)
+          .insert(payload).select('id').single();
         if (error) throw error;
-        // Auto-send invitation
+        savedId = ins?.id || null;
         try {
           const { data, error: invErr } = await supabase.functions.invoke('workshop-invite-employee', {
             body: { email: cleanEmail, provider_id: providerId, role, language_preference: 'pl' },
           });
           if (invErr) throw invErr;
-          if ((data as any)?.action_link && !(data as any)?.email_sent) {
+          if ((data as any)?.email_sent) {
+            toast.success(`Pracownik dodany. Zaproszenie wysłane na ${cleanEmail}`);
+          } else if ((data as any)?.action_link) {
             await navigator.clipboard.writeText((data as any).action_link);
             toast.success('Pracownik dodany. Link zaproszenia skopiowany do schowka');
           } else {
-            toast.success(`Pracownik dodany. Zaproszenie wysłane na ${cleanEmail}`);
+            toast.success('Pracownik dodany');
           }
         } catch (invE: any) {
           toast.warning(`Pracownik dodany, ale zaproszenie nie zostało wysłane: ${invE.message}`);
         }
+      }
+
+      // Persist rate type locally
+      if (savedId) {
+        const next = { ...rateTypes, [savedId]: rateType };
+        saveRateTypes(next);
       }
 
       setDialogOpen(false);
@@ -225,8 +289,12 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
     }
   };
 
-  const roleLabel = (r: string) => ROLES.find(x => x.value === r)?.label || r;
-
+  const roleLabel = (r: string) => roles.find(x => x.value === r)?.label || r;
+  const rateLabel = (emp: any) => {
+    const t = rateTypes[emp.id] || 'hourly';
+    const suffix = RATE_TYPES.find(x => x.value === t)?.suffix || '/h';
+    return `${emp.hourly_rate} PLN${suffix}`;
+  };
 
   if (!providerId) {
     return <p className="text-center text-muted-foreground py-8">Najpierw aktywuj konto usługodawcy.</p>;
@@ -238,7 +306,7 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <Users className="h-5 w-5 text-primary" />
           <h3 className="text-lg font-semibold">Pracownicy ({employees.length})</h3>
@@ -255,7 +323,7 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
                 <TableHead>Rola</TableHead>
                 <TableHead>Telefon</TableHead>
                 <TableHead>Email</TableHead>
-                <TableHead>Stawka/h</TableHead>
+                <TableHead>Stawka</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Akcje</TableHead>
               </TableRow>
@@ -272,7 +340,7 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
                     <TableCell>{roleLabel(emp.role)}</TableCell>
                     <TableCell>{emp.phone || '—'}</TableCell>
                     <TableCell className="text-sm">{emp.email || '—'}</TableCell>
-                    <TableCell>{emp.hourly_rate} PLN</TableCell>
+                    <TableCell>{rateLabel(emp)}</TableCell>
                     <TableCell>
                       <Badge className={st.className}>{st.label}</Badge>
                     </TableCell>
@@ -299,9 +367,8 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
         </CardContent>
       </Card>
 
-
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingId ? 'Edytuj pracownika' : 'Dodaj pracownika'}</DialogTitle>
           </DialogHeader>
@@ -316,25 +383,67 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
                 <Input value={lastName} onChange={e => setLastName(e.target.value)} />
               </div>
             </div>
+
             <div className="space-y-2">
-              <Label>Rola</Label>
+              <div className="flex items-center justify-between">
+                <Label>Rola</Label>
+                <span className="text-xs text-muted-foreground">Możesz dodać własną rolę</span>
+              </div>
               <Select value={role} onValueChange={setRole}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {ROLES.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
+                  {roles.map(r => (
+                    <div key={r.value} className="flex items-center justify-between pr-1 hover:bg-muted/50 rounded">
+                      <SelectItem value={r.value} className="flex-1">{r.label}</SelectItem>
+                      {!DEFAULT_ROLES.some(d => d.value === r.value) && (
+                        <button
+                          type="button"
+                          onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); removeRole(r.value); }}
+                          className="p-1 mr-1 rounded hover:bg-destructive/10 text-destructive"
+                          title="Usuń rolę"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
                 </SelectContent>
               </Select>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Nowa rola, np. Lakiernik"
+                  value={newRoleLabel}
+                  onChange={e => setNewRoleLabel(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addRole(); } }}
+                  className="h-9"
+                />
+                <Button type="button" size="sm" variant="outline" onClick={addRole}>
+                  <Plus className="h-4 w-4 mr-1" />Dodaj
+                </Button>
+              </div>
             </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Stawka godzinowa netto (PLN)</Label>
+                <Label>Stawka netto (PLN)</Label>
                 <Input type="number" value={hourlyRate} onChange={e => setHourlyRate(Number(e.target.value))} />
               </div>
               <div className="space-y-2">
-                <Label>Telefon służbowy</Label>
-                <Input value={phone} onChange={e => setPhone(e.target.value)} />
+                <Label>Rodzaj stawki</Label>
+                <Select value={rateType} onValueChange={(v) => setRateType(v as 'hourly' | 'daily')}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {RATE_TYPES.map(rt => <SelectItem key={rt.value} value={rt.value}>{rt.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
+
+            <div className="space-y-2">
+              <Label>Telefon służbowy</Label>
+              <Input value={phone} onChange={e => setPhone(e.target.value)} />
+            </div>
+
             <div className="space-y-2">
               <Label className="flex items-center gap-1.5"><Mail className="h-4 w-4" /> Email * <span className="text-xs text-muted-foreground font-normal">(pracownik dostanie zaproszenie)</span></Label>
               <Input type="email" required value={emailAddr} onChange={e => setEmailAddr(e.target.value)} placeholder="pracownik@firma.pl" />
@@ -360,4 +469,3 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
     </div>
   );
 };
-
