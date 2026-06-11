@@ -25,7 +25,8 @@ interface PartItem { id?: string; name: string; }
 interface TaskBlock {
   key: string;
   index: number;
-  text: string;
+  complaint: string;       // co napisał klient (read-only nagłówek)
+  text: string;            // czynność wykonana przez pracownika
   parts: PartItem[];
   time: string;            // godziny
   cost: string;            // zł
@@ -34,6 +35,7 @@ interface TaskBlock {
   existingPartIds: string[];
   existingServiceId: string | null;
   timeError?: string;
+  isAddon?: boolean;       // dodatek do naprawy (po akceptacji klienta)
 }
 
 const fmtMoney = (n: number) => `${n.toFixed(2).replace('.', ',')}\u00A0zł`;
