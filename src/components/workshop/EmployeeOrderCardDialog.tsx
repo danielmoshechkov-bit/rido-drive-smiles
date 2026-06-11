@@ -474,10 +474,21 @@ export function EmployeeOrderCardDialog({
               </Button>
             )
           ) : (
-            <Button onClick={handleSave} disabled={saving || loading}>
-              {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-              Zapisz do zlecenia
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                onClick={handleMarkRepaired}
+                disabled={marking || saving || loading}
+                className="border-green-500 text-green-700 hover:bg-green-50"
+              >
+                {marking ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+                Oznacz jako naprawione
+              </Button>
+              <Button onClick={handleSave} disabled={saving || loading}>
+                {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                Zapisz do zlecenia
+              </Button>
+            </div>
           )}
         </DialogFooter>
       </DialogContent>
