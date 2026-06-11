@@ -423,11 +423,21 @@ export default function WorkshopEmployeePortal() {
                     className="flex-1 text-left hover:opacity-80"
                     onClick={() => { setOpenFromPool(true); setOpenProviderId(o.provider_id); setOpenOrderId(o.id); }}
                   >
-                    <div className="font-medium text-sm">{o.order_number || o.id.slice(0, 8)}</div>
-                    <div className="text-xs text-muted-foreground line-clamp-1">
-                      {o.description || o.status_name || '—'}
+                    <div className="font-semibold text-sm text-foreground flex items-center gap-2 flex-wrap">
+                      <span>{o.order_number || o.id.slice(0, 8)}</span>
+                      {o.vehicle && (
+                        <span className="text-foreground font-semibold">
+                          · {[o.vehicle.brand, o.vehicle.model, o.vehicle.license_plate].filter(Boolean).join(' · ')}
+                        </span>
+                      )}
                     </div>
+                    {o.description && (
+                      <div className="text-xs text-foreground/90 mt-0.5 line-clamp-2 whitespace-pre-wrap">
+                        {o.description}
+                      </div>
+                    )}
                   </button>
+
                   <Badge variant="outline" className="text-xs border-amber-400 text-amber-700 bg-amber-100">Aktywne</Badge>
 
                   {poolEnabled && (
