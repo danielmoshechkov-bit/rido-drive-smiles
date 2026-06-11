@@ -596,6 +596,23 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                   </div>
                 </div>
 
+                {stations.length > 0 && (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium">Dział warsztatu</Label>
+                    <Select value={stationId || '__none__'} onValueChange={(v) => setStationId(v === '__none__' ? '' : v)}>
+                      <SelectTrigger><SelectValue placeholder="Wybierz dział..." /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">— Bez działu —</SelectItem>
+                        {stations.map((s: any) => (
+                          <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[10px] text-muted-foreground">Domyślnie zaznaczony ostatnio wybrany dział.</p>
+                  </div>
+                )}
+
+
                 {/* Task points */}
                 <div className="space-y-3">
                   <Label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
