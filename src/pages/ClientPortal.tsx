@@ -798,8 +798,8 @@ export default function ClientPortal() {
                         <Users className="h-8 w-8 text-purple-600" />
                       </div>
                       <div>
-                        <h3 className="font-bold text-lg">Wybierz moduł</h3>
-                        <p className="text-sm text-muted-foreground">Przełącz między modułami lub dodaj nowy</p>
+                        <h3 className="font-bold text-lg">{t('cp.start.wybierzModul')}</h3>
+                        <p className="text-sm text-muted-foreground">{t('cp.start.wybierzModulDesc')}</p>
                       </div>
                     </div>
                     <ChevronRight className="h-5 w-5 text-muted-foreground" />
