@@ -424,17 +424,31 @@ export function EmployeeOrderCardDialog({
                             </div>
                           )}
                           {!readOnly && (
-                            <Input
-                              ref={el => { partInputRefs.current[ti] = el; }}
-                              placeholder="Wpisz część i naciśnij Enter…"
-                              className="h-11 text-base"
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  e.preventDefault();
-                                  addPart(ti, (e.target as HTMLInputElement).value);
-                                }
-                              }}
-                            />
+                            <div className="flex gap-2">
+                              <Input
+                                ref={el => { partInputRefs.current[ti] = el; }}
+                                placeholder="Wpisz część…"
+                                className="h-11 text-base flex-1"
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    addPart(ti, (e.target as HTMLInputElement).value);
+                                  }
+                                }}
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="h-11 px-3 shrink-0"
+                                onClick={() => {
+                                  const el = partInputRefs.current[ti];
+                                  if (el) addPart(ti, el.value);
+                                }}
+                                aria-label="Dodaj część"
+                              >
+                                <Plus className="h-4 w-4" />
+                              </Button>
+                            </div>
                           )}
                         </div>
                         {!readOnly && (
