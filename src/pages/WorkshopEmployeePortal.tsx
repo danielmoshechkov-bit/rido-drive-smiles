@@ -304,7 +304,8 @@ export default function WorkshopEmployeePortal() {
                       {o.description || o.status_name || '—'}
                     </div>
                   </button>
-                  <Badge variant="outline" className="text-xs border-amber-400 text-amber-700 bg-amber-100">W puli</Badge>
+                  <Badge variant="outline" className="text-xs border-amber-400 text-amber-700 bg-amber-100">Aktywne</Badge>
+
                   {poolEnabled && (
                     <Button
                       size="sm" disabled={busy === o.id}
