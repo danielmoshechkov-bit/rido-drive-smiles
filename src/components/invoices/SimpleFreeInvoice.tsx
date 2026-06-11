@@ -173,6 +173,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
   
   // Invoice details
   const [invoiceNumber, setInvoiceNumber] = useState(`FV/${format(new Date(), 'yyyy/MM')}/001`);
+  const autoNumberRef = useRef<string>('');
   const [issueDate, setIssueDate] = useState(today);
   const [saleDate, setSaleDate] = useState(today);
   const [dueDate, setDueDate] = useState(defaultDueDate);
