@@ -185,7 +185,7 @@ export default function WorkshopEmployeePortal() {
       <div className="flex gap-1.5 overflow-x-auto scrollbar-hide -mx-1 px-1">
         <NavPill active={tab === 'home'} onClick={() => setTab('home')} icon={<Briefcase className="h-3.5 w-3.5" />} label="Start" />
         <NavPill active={tab === 'mine'} onClick={() => setTab('mine')} icon={<ClipboardList className="h-3.5 w-3.5" />} label={`Moje (${stats.mine})`} />
-        <NavPill active={tab === 'pool'} onClick={() => setTab('pool')} icon={<Inbox className="h-3.5 w-3.5" />} label={`Pula (${stats.pool})`} />
+        <NavPill active={tab === 'pool'} onClick={() => setTab('pool')} icon={<Inbox className="h-3.5 w-3.5" />} label={`Aktywne (${stats.pool})`} />
         <NavPill active={tab === 'history'} onClick={() => setTab('history')} icon={<History className="h-3.5 w-3.5" />} label="Historia" />
       </div>
 
@@ -200,12 +200,14 @@ export default function WorkshopEmployeePortal() {
             onClick={() => setTab('mine')}
           />
           <ActionTile
-            title={poolEnabled ? 'Dostępne zlecenia' : 'Pula zleceń (wyłączona)'}
-            sub={poolEnabled ? `${stats.pool} czeka na pracownika` : 'Pracodawca nie udostępnił puli'}
+            title="Aktywne zlecenia"
+            sub={poolEnabled
+              ? `${stats.pool} w warsztacie — możesz przejąć`
+              : `${stats.pool} w warsztacie (podgląd)`}
             icon={<Inbox className="h-6 w-6 text-primary" />}
-            onClick={() => poolEnabled && setTab('pool')}
-            disabled={!poolEnabled}
+            onClick={() => setTab('pool')}
           />
+
           <ActionTile
             title="Kalendarz"
             sub="Twoje terminy"
