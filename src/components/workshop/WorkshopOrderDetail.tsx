@@ -21,6 +21,7 @@ import { RidoPartsCartButton } from './parts/RidoPartsCartButton';
 import { WorkshopAssignEmployeeDropdown } from './WorkshopAssignEmployeeDropdown';
 import { WorkshopOrderEmployeeFindingsTab } from './tabs/WorkshopOrderEmployeeFindingsTab';
 import { OrderHistoryTimeline } from './OrderHistoryTimeline';
+import { supabase } from '@/integrations/supabase/client';
 import {
   ArrowLeft, FileText, Send, Eye, Link2, MessageSquare, MoreVertical,
   Printer, Download, ClipboardList, Car, Users, CheckCircle, XCircle, Ban, AlertTriangle, Wrench, UserPlus, Search
@@ -75,7 +76,28 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
     : '';
 
   const changeStatus = async (newStatus: string) => {
+    const note = window.prompt(
+      `Status zmieniany na: "${newStatus}"\n\nDodaj notatkę dla historii zdarzeń (opcjonalnie — zostaw puste, aby pominąć):`,
+      ''
+    );
+    if (note === null) return; // Anulowano
     await updateOrder.mutateAsync({ id: order.id, status_name: newStatus });
+    if (note.trim()) {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        await (supabase.from('workshop_order_events') as any).insert({
+          order_id: order.id,
+          event_type: 'note',
+          note: note.trim(),
+          actor_user_id: user?.id || null,
+          actor_role: 'admin',
+          to_status: newStatus,
+        });
+        await (supabase.from('workshop_orders') as any)
+          .update({ has_unread_notes: true })
+          .eq('id', order.id);
+      } catch (e) { console.error('Note insert error:', e); }
+    }
     toast.success(`Status zmieniony na: ${newStatus}`);
     // Auto-open SMS dialog based on status context
     const lower = newStatus.toLowerCase();
@@ -87,6 +109,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
       setSmsOpen(true);
     }
   };
+
 
   const openSms = (type: 'reception' | 'quote' | 'ready') => {
     setSmsType(type);

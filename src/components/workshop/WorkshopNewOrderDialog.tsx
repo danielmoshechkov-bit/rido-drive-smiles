@@ -86,6 +86,25 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
   const [createdVehicleData, setCreatedVehicleData] = useState<any>(null);
   const [createdClientData, setCreatedClientData] = useState<any>(null);
   const [checklist, setChecklist] = useState(DEFAULT_CHECKLIST);
+  const [stations, setStations] = useState<any[]>([]);
+  const STATION_LS_KEY = `workshop:lastStation:${providerId}`;
+  const [stationId, setStationId] = useState<string>('');
+
+  useEffect(() => {
+    if (!open || !providerId) return;
+    (async () => {
+      const { data } = await (supabase.from('workshop_stations') as any)
+        .select('id, name, color, is_active')
+        .eq('provider_id', providerId)
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true });
+      const list = data || [];
+      setStations(list);
+      const last = localStorage.getItem(STATION_LS_KEY) || '';
+      if (last && list.find((s: any) => s.id === last)) setStationId(last);
+      else if (list.length === 1) setStationId(list[0].id);
+    })();
+  }, [open, providerId]);
 
   // SMS/Email
   const [sendMethod, setSendMethod] = useState<'sms' | 'email'>('sms');
@@ -182,12 +201,14 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
       fuel_level: fuelLevel || null,
       internal_notes: clientNotes || null,
       status_name: 'Nowe zlecenie',
+      station_id: stationId || null,
       return_parts_to_client: checklist.return_parts,
       registration_document: checklist.registration_doc,
       test_drive_consent: checklist.test_drive,
       top_up_fluids: checklist.refill_fluids,
       top_up_lights: checklist.refill_lights,
     });
+    if (stationId) localStorage.setItem(STATION_LS_KEY, stationId);
     // Auto-persist owner to vehicle
     if (vehicleId && clientId) {
       try {
@@ -574,6 +595,23 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                     <Input value={clientNotes} onChange={e => setClientNotes(e.target.value)} placeholder="Dodatkowe uwagi..." />
                   </div>
                 </div>
+
+                {stations.length > 0 && (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium">Dział warsztatu</Label>
+                    <Select value={stationId || '__none__'} onValueChange={(v) => setStationId(v === '__none__' ? '' : v)}>
+                      <SelectTrigger><SelectValue placeholder="Wybierz dział..." /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">— Bez działu —</SelectItem>
+                        {stations.map((s: any) => (
+                          <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[10px] text-muted-foreground">Domyślnie zaznaczony ostatnio wybrany dział.</p>
+                  </div>
+                )}
+
 
                 {/* Task points */}
                 <div className="space-y-3">
