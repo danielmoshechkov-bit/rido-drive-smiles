@@ -323,7 +323,7 @@ export function EmployeeWorkListDialog({
               <PackagePlus className="h-4 w-4 mr-1" /> Dodatek do naprawy
             </Button>
             <Button
-              className="h-11 bg-violet-600 hover:bg-violet-700 text-white"
+              className="h-11 bg-emerald-600 hover:bg-emerald-700 text-white"
               onClick={finishRepair}
               disabled={finishing || isWaitingAddon || groups.length === 0}
             >
