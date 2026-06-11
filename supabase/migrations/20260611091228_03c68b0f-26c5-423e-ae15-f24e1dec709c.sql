@@ -1,0 +1,2 @@
+ALTER TABLE public.workshop_order_items ADD COLUMN IF NOT EXISTS is_addon boolean NOT NULL DEFAULT false;
+CREATE INDEX IF NOT EXISTS idx_workshop_order_items_addon ON public.workshop_order_items(order_id) WHERE is_addon = true;
