@@ -71,6 +71,24 @@ export function WorkshopStatusPicker({
         });
       }
       if (st) {
+        // Ensure every employee of this station has an assignment for this order
+        // so it shows up in their "Moje zlecenia" (filtered by the station chip) without a page refresh.
+        const { data: stEmps } = await (supabase.from('workshop_station_employees') as any)
+          .select('employee_user_id').eq('station_id', st.id);
+        const { data: existing } = await (supabase.from('workshop_order_assignments') as any)
+          .select('employee_user_id').eq('order_id', orderId);
+        const have = new Set(((existing || []) as any[]).map(e => e.employee_user_id));
+        const { data: { user } } = await supabase.auth.getUser();
+        const toAdd = ((stEmps || []) as any[])
+          .map(e => e.employee_user_id)
+          .filter(uid => uid && !have.has(uid))
+          .map(uid => ({
+            order_id: orderId, provider_id: providerId, employee_user_id: uid,
+            assigned_by: user?.id || null, status: 'assigned',
+          }));
+        if (toAdd.length) {
+          await (supabase.from('workshop_order_assignments') as any).insert(toAdd);
+        }
         supabase.functions.invoke('workshop-notify-employee', {
           body: { order_id: orderId, event: 'department_changed', station_id: st.id, status_name: name },
         }).catch(() => {});

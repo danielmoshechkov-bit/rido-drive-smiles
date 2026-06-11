@@ -772,9 +772,13 @@ export function EmployeeOrderCardDialog({
                   const hrs = parseFloat(addonHours || '0') || 0;
                   const cost = parseFloat(String(addonCost || '0').replace(',', '.')) || 0;
                   const inserts: any[] = [];
-                  // Negative sort_order so addons appear at TOP of admin pricing
-                  const baseSort = -Date.now();
-                  let s = baseSort;
+                  // Negative sort_order so addons appear at TOP of admin pricing.
+                  // IMPORTANT: must fit in int4 — Date.now() overflows, so derive from existing min.
+                  const { data: minRow } = await (supabase.from('workshop_order_items') as any)
+                    .select('sort_order').eq('order_id', orderId)
+                    .order('sort_order', { ascending: true }).limit(1).maybeSingle();
+                  const minExisting = typeof minRow?.sort_order === 'number' ? minRow.sort_order : 0;
+                  let s = Math.min(minExisting, 0) - 1;
                   addonParts.forEach(name => {
                     inserts.push({
                       order_id: orderId, name, item_type: 'part',
