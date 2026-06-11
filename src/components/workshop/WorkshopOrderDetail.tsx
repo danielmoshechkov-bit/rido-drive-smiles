@@ -21,6 +21,7 @@ import { RidoPartsCartButton } from './parts/RidoPartsCartButton';
 import { WorkshopAssignEmployeeDropdown } from './WorkshopAssignEmployeeDropdown';
 import { WorkshopOrderEmployeeFindingsTab } from './tabs/WorkshopOrderEmployeeFindingsTab';
 import { OrderHistoryTimeline } from './OrderHistoryTimeline';
+import { WorkshopStatusPicker } from './WorkshopStatusPicker';
 import { supabase } from '@/integrations/supabase/client';
 import {
   ArrowLeft, FileText, Send, Eye, Link2, MessageSquare, MoreVertical,
