@@ -395,12 +395,15 @@ export default function WorkshopEmployeePortal() {
                       </Button>
                     </>
                   )}
-                  <Button
-                    variant="ghost" size="sm" disabled={busy === a.id}
-                    onClick={() => release(a.id, a.order_id, a.provider_id)}
-                  >
-                    {busy === a.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Zwróć'}
-                  </Button>
+                  {!isFinished && (
+                    <Button
+                      variant="ghost" size="sm" disabled={busy === a.id}
+                      onClick={() => release(a.id, a.order_id, a.provider_id)}
+                    >
+                      {busy === a.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Zwróć'}
+                    </Button>
+                  )}
+
                 </div>
                 );
               })}
