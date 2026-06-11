@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, CheckCircle2, History, Car, StickyNote } from 'lucide-react';
+import { Loader2, CheckCircle2, History, Car, StickyNote, Play } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Props {
