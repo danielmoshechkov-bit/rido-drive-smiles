@@ -3,7 +3,8 @@
 export type StatusTone =
   | 'blue'      // Nowe zlecenie
   | 'gray'      // Przyjęcie / Przydzielone / Diagnoza
-  | 'yellow'    // Do wyceny / Oczekuje na akceptację
+  | 'red'       // Do wyceny — rzuca się w oczy, wymaga reakcji admina
+  | 'yellow'    // Oczekuje na akceptację klienta
   | 'purple'    // Wycena wysłana / gotowa
   | 'amber'     // Dodatek do naprawy
   | 'green'     // Zaakceptowano / Zgoda / W trakcie
