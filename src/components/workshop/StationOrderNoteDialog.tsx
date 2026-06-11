@@ -1,6 +1,6 @@
 // Simple station view: for non-mechanic stations (e.g. Myjnia, Geometria).
 // Shows vehicle + admin's note + "Historia naprawy" + "Zakończ" button.
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +8,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2, CheckCircle2, History, Car, StickyNote, Play } from 'lucide-react';
 import { toast } from 'sonner';
+import { useWorkshopTranslations, TranslatableField } from '@/hooks/useWorkshopTranslations';
 
 interface Props {
   open: boolean;
