@@ -64,6 +64,7 @@ export function StationOrderNoteDialog({ open, onOpenChange, orderId, stationNam
       const { data: { user } } = await supabase.auth.getUser();
       await (supabase.from('workshop_order_events') as any).insert({
         order_id: orderId,
+        provider_id: order?.provider_id,
         event_type: 'status_change',
         to_status: 'Gotowy do odbioru',
         note: stationName ? `Zakończono na stanowisku: ${stationName}` : null,
