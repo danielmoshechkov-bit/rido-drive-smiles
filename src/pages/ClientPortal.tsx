@@ -858,7 +858,7 @@ export default function ClientPortal() {
                       <Heart className="h-6 w-6 text-primary" />
                     </div>
                     <p className="text-3xl font-bold">{favorites.length}</p>
-                    <p className="text-sm text-muted-foreground">Ulubione</p>
+                    <p className="text-sm text-muted-foreground">{t('cp.stats.ulubione')}</p>
                   </CardContent>
                 </Card>
 
