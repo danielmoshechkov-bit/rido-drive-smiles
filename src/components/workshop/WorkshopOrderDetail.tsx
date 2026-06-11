@@ -129,6 +129,18 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
     }
   };
 
+  const markReceptionSigned = async () => {
+    const newVal = !order.client_acceptance_confirmed;
+    await updateOrder.mutateAsync({
+      id: order.id,
+      client_acceptance_confirmed: newVal,
+      ...(newVal ? { status_name: 'Przyjęcie do serwisu' } : {}),
+    });
+    order.client_acceptance_confirmed = newVal;
+    if (newVal) order.status_name = 'Przyjęcie do serwisu';
+    toast.success(newVal ? 'Protokół podpisany — status: Przyjęcie do serwisu' : 'Oznaczono jako niepodpisany');
+  };
+
 
   const openSms = (type: 'reception' | 'quote' | 'ready') => {
     setSmsType(type);
@@ -275,10 +287,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
                 <DropdownMenuItem onClick={() => toast.info('Podpisany dokument')}>
                   <CheckCircle className="h-4 w-4 mr-2" /> Podpisany dokument
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => {
-                  updateOrder.mutateAsync({ id: order.id, client_acceptance_confirmed: !order.client_acceptance_confirmed });
-                  toast.success(order.client_acceptance_confirmed ? 'Oznaczono jako niepodpisany' : 'Oznaczono jako podpisany');
-                }}>
+                <DropdownMenuItem onClick={markReceptionSigned}>
                   <XCircle className="h-4 w-4 mr-2" /> {order.client_acceptance_confirmed ? 'Oznacz jako niepodpisany' : 'Oznacz jako podpisany'}
                 </DropdownMenuItem>
                 <DropdownMenuItem className="text-destructive" onClick={() => toast.info('Wyłączono protokół')}>
@@ -383,7 +392,15 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
               <Link2 className="h-4 w-4" />
             </Button>
             <RidoPartsCartButton providerId={providerId} />
-            <WorkshopAssignEmployeeDropdown orderId={order.id} providerId={providerId} />
+            <WorkshopAssignEmployeeDropdown
+              orderId={order.id}
+              providerId={providerId}
+              onAssignmentChanged={(assigned) => {
+                if (assigned && ['Nowe zlecenie', 'Przyjęcie do serwisu', 'Do wyceny', ''].includes(order.status_name || '')) {
+                  order.status_name = 'Przydzielone';
+                }
+              }}
+            />
           </div>
 
 
@@ -442,7 +459,9 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
           <Button variant="ghost" size="sm" className="h-7 w-7 p-0 shrink-0" onClick={copyClientLink}>
             <Link2 className="h-3.5 w-3.5" />
           </Button>
-          <div className="shrink-0"><WorkshopAssignEmployeeDropdown orderId={order.id} providerId={providerId} /></div>
+          <div className="shrink-0"><WorkshopAssignEmployeeDropdown orderId={order.id} providerId={providerId} onAssignmentChanged={(assigned) => {
+            if (assigned && ['Nowe zlecenie', 'Przyjęcie do serwisu', 'Do wyceny', ''].includes(order.status_name || '')) order.status_name = 'Przydzielone';
+          }} /></div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="h-7 w-7 p-0 shrink-0"><MoreVertical className="h-3.5 w-3.5" /></Button>
