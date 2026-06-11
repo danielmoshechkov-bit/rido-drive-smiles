@@ -302,12 +302,14 @@ export default function WorkshopEmployeePortal() {
                   : tone === 'red' ? 'bg-red-50/70 border-l-red-500'
                   : 'bg-muted/30 border-l-gray-300';
                 const isApproved = ['Zaakceptowano','Akceptacja klienta','Zgoda na naprawę','W trakcie naprawy','Dodatek do naprawy'].includes(st);
+                const hasNote = !!a.workshop_orders?.has_unread_notes;
                 const openOrder = () => {
-                  if (station) {
+                  // Station-note dialog ONLY when admin sent a note via status change.
+                  // Direct assignments (without note) open the full Karta zlecenia.
+                  if (station && hasNote) {
                     setStationOpenId(a.order_id);
                     setStationOpenName(station.name);
                   } else if (isApproved) {
-                    // approved → default to Lista prac
                     setWorkListOrderId(a.order_id);
                   } else {
                     setOpenPreviewMode(false);
