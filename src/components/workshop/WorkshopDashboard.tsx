@@ -14,6 +14,7 @@ import { WorkshopTireStorage } from './WorkshopTireStorage';
 import { WorkshopRepairData } from './WorkshopRepairData';
 import { WorkshopSettings } from './WorkshopSettings';
 import { WorkshopEmployeesPage } from './WorkshopEmployeesPage';
+import { WorkshopStationsManager } from './WorkshopStationsManager';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
