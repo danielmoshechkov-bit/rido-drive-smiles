@@ -217,21 +217,13 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
         </div>
 
         <div className="flex items-center gap-2">
-          <Select value={order.status_name} onValueChange={changeStatus}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {statuses.map((s: any) => (
-                <SelectItem key={s.id} value={s.name}>
-                  <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: s.color }} />
-                    {s.name}
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <WorkshopStatusPicker
+            providerId={providerId}
+            orderId={order.id}
+            currentStatus={order.status_name}
+            hasUnreadNotes={order.has_unread_notes}
+            onChanged={(name) => { order.status_name = name; order.has_unread_notes = true; }}
+          />
 
           <Button
             variant="outline"
