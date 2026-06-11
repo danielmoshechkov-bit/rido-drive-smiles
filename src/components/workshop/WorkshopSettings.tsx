@@ -175,12 +175,13 @@ function SettingSectionDetail({ sectionKey, providerId, onBack, onBackToMain }: 
       {sectionKey === 'numeracja' && <DocumentNumberingSettings providerId={providerId} />}
       {sectionKey === 'w-statusy' && <StatusSettings statuses={statuses} />}
       {sectionKey === 'w-stanowiska' && <WorkstationSettings providerId={providerId} />}
+      {sectionKey === 'w-dzialy' && <WorkshopStationsManager providerId={providerId} />}
       {sectionKey === 'w-pracownicy' && <WorkerSettings providerId={providerId} />}
       {sectionKey === 'w-godziny' && <WorkingHoursSettings />}
       {sectionKey === 'karta-zlecenia' && <OrderCardSettings />}
       {sectionKey === 'i-hurtownie' && <WholesalerIntegrationsSettings providerId={providerId} />}
 
-      {!['dane-firmy', 'numeracja', 'w-statusy', 'w-stanowiska', 'w-pracownicy', 'w-godziny', 'karta-zlecenia', 'i-hurtownie'].includes(sectionKey) && (
+      {!['dane-firmy', 'numeracja', 'w-statusy', 'w-stanowiska', 'w-dzialy', 'w-pracownicy', 'w-godziny', 'karta-zlecenia', 'i-hurtownie'].includes(sectionKey) && (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
             Konfiguracja sekcji „{title}" — wkrótce dostępna
