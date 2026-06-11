@@ -164,12 +164,12 @@ export function StationOrderNoteDialog({ open, onOpenChange, orderId, stationNam
                 </div>
               </div>
 
-              {note && (
+              {note && orderId && (
                 <div className="rounded-lg border-l-4 border-l-blue-500 bg-blue-50/60 p-3">
                   <div className="text-xs font-semibold text-blue-800 flex items-center gap-1 mb-1">
                     <StickyNote className="h-3.5 w-3.5" /> Notatka od administratora
                   </div>
-                  <p className="text-sm whitespace-pre-wrap">{note}</p>
+                  <p className="text-sm whitespace-pre-wrap">{tr('note', orderId, 'admin_note', note)}</p>
                 </div>
               )}
 
