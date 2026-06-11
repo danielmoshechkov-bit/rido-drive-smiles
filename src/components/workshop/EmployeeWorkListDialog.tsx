@@ -143,7 +143,7 @@ export function EmployeeWorkListDialog({
       const baseSort = -Date.now();
       let s = baseSort;
       const inserts: any[] = [];
-      addonParts.forEach(name => {
+      partsList.forEach(name => {
         inserts.push({
           order_id: orderId, name, item_type: 'part',
           quantity: 1, unit: 'szt', task_group: 'Dodatek do naprawy',
