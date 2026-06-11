@@ -119,7 +119,7 @@ serve(async (req) => {
       });
     }
 
-    const msg = buildMessage(event, order.order_number || order_id.slice(0, 8), status_name);
+    const msg = buildMessage(event, order.order_number || order_id.slice(0, 8), status_name, vehicleStr, link);
 
     // Fetch phone numbers for SMS
     const { data: emps } = await admin.from("workshop_employees")
