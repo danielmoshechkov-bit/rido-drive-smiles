@@ -591,87 +591,24 @@ export function EmployeeOrderCardDialog({
                 } catch (e: any) { toast.error(e.message || 'Błąd'); }
                 finally { setSaving(false); }
               };
-              const addonBlocks = tasks.filter(t => t.isAddon);
-              const addonHasContent = addonBlocks.some(t =>
-                t.parts.some(p => p.name.trim()) ||
-                (parseFloat(t.time || '0') || 0) > 0 ||
-                t.text.trim().length > 0
-              );
               const openAddon = () => {
-                setTasks(ts => {
-                  const nextIdx = ts.length + 1;
-                  const block: TaskBlock = {
-                    key: `addon-${Date.now()}`,
-                    index: nextIdx,
-                    complaint: '',
-                    text: '',
-                    parts: [],
-                    time: '',
-                    cost: '',
-                    confirmed: false,
-                    expanded: true,
-                    existingPartIds: [],
-                    existingServiceId: null,
-                    isAddon: true,
-                  };
-                  return ts.map(t => ({ ...t, expanded: false })).concat(block);
-                });
-                toast.info('Wpisz części i czas dodatkowej naprawy, następnie wyślij do akceptacji');
+                setAddonParts([]);
+                setAddonPartDraft('');
+                setAddonLabor('');
+                setAddonHours('');
+                setAddonCost('');
+                setAddonOpen(true);
               };
-              const submitAddon = async () => {
-                if (!orderId) return;
-                if (!addonHasContent) {
-                  toast.error('Najpierw wpisz części lub robociznę dodatkową');
-                  return;
-                }
-                setSaving(true);
-                try {
-                  await persistAll();
-                  const { data: { user } } = await supabase.auth.getUser();
-                  await (supabase.from('workshop_orders') as any)
-                    .update({ status_name: 'Dodatek do naprawy', estimate_changed_after_send: true })
-                    .eq('id', orderId);
-                  await (supabase.from('workshop_order_events') as any).insert({
-                    order_id: orderId, event_type: 'repair_addon',
-                    actor_user_id: user?.id || null, actor_name: employeeName || null,
-                    actor_role: 'employee', to_status: 'Dodatek do naprawy',
-                  });
-                  supabase.functions.invoke('workshop-notify-employee', {
-                    body: { order_id: orderId, event: 'repair_addon_request' },
-                  }).catch(() => {});
-                  toast.success('Dodatek przekazany do akceptacji administratora');
-                  onSaved?.(); onOpenChange(false);
-                } catch (e: any) { toast.error(e.message || 'Błąd'); }
-                finally { setSaving(false); }
-              };
-              const hasOpenAddon = addonBlocks.length > 0;
               return (
                 <div className="space-y-2">
-                  {hasOpenAddon ? (
-                    <div className="rounded-md bg-yellow-100 border border-yellow-300 text-yellow-900 text-sm text-center py-2 font-medium">
-                      ⏳ Wpisz dodatkowe części i robociznę, następnie wyślij do akceptacji
-                    </div>
-                  ) : (
-                    <div className="rounded-md bg-green-100 border border-green-300 text-green-900 text-sm text-center py-2 font-medium">
-                      ✓ Zgoda na naprawę — możesz pracować
-                    </div>
-                  )}
+                  <div className="rounded-md bg-green-100 border border-green-300 text-green-900 text-sm text-center py-2 font-medium">
+                    ✓ Zgoda na naprawę — możesz pracować
+                  </div>
                   <div className="grid grid-cols-2 gap-2">
-                    {hasOpenAddon ? (
-                      <Button
-                        className="h-11 bg-yellow-500 hover:bg-yellow-600 text-yellow-950"
-                        onClick={submitAddon}
-                        disabled={saving || !addonHasContent}
-                      >
-                        {saving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Check className="h-4 w-4 mr-1" />}
-                        Wyślij dodatek
-                      </Button>
-                    ) : (
-                      <Button variant="outline" className="h-11" onClick={openAddon} disabled={saving}>
-                        <Plus className="h-4 w-4 mr-1" /> Dodatek do naprawy
-                      </Button>
-                    )}
-                    <Button className="h-11 bg-red-600 hover:bg-red-700 text-white" onClick={finishRepair} disabled={saving || hasOpenAddon}>
+                    <Button variant="outline" className="h-11 border-orange-400 text-orange-700 hover:bg-orange-50" onClick={openAddon} disabled={saving}>
+                      <PackagePlus className="h-4 w-4 mr-1" /> Dodatek do naprawy
+                    </Button>
+                    <Button className="h-11 bg-red-600 hover:bg-red-700 text-white" onClick={finishRepair} disabled={saving}>
                       {saving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Check className="h-4 w-4 mr-1" />}
                       Zakończ naprawę
                     </Button>
@@ -680,6 +617,7 @@ export function EmployeeOrderCardDialog({
                 </div>
               );
             }
+
 
             return (
               <>
