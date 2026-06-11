@@ -97,7 +97,7 @@ export function EmployeeOrderCardDialog({
         const getOther = () => {
           if (!other) {
             other = {
-              key: 'Inne', index: parsed.length + 1, text: 'Inne',
+              key: 'Inne', index: parsed.length + 1, complaint: 'Inne', text: '',
               parts: [], time: '', cost: '', confirmed: false, expanded: false,
               existingPartIds: [], existingServiceId: null,
             };
