@@ -64,11 +64,10 @@ export default function WorkshopEmployeePortal() {
     }
 
     // My assignments — include station_id on order + vehicle for richer list display
-    const { data: mineData, error: mineErr } = await (supabase.from('workshop_order_assignments') as any)
-      .select('id, order_id, provider_id, status, assigned_at, workshop_orders(id, order_number, status_name, vehicle_id, client_id, scheduled_date, scheduled_start, acceptance_date, mileage, description, station_id, has_unread_notes, vehicle:workshop_vehicles(brand, model, license_plate))')
+    const { data: mineData } = await (supabase.from('workshop_order_assignments') as any)
+      .select('id, order_id, provider_id, status, assigned_at, workshop_orders(id, order_number, status_name, vehicle_id, client_id, scheduled_date, scheduled_start, acceptance_date, mileage, description, station_id, has_unread_notes, vehicle:workshop_vehicles(brand, model, plate))')
       .eq('employee_user_id', user.id)
       .order('assigned_at', { ascending: false });
-    console.log('[EmployeePortal] auth.user.id=', user.id, 'mineData=', mineData, 'error=', mineErr);
     setMine(mineData || []);
 
 
@@ -84,7 +83,7 @@ export default function WorkshopEmployeePortal() {
     // Pool — all ACTIVE provider orders (not completed/cancelled), so employee can pick any to inspect
     if (providerIds.length) {
       const { data: pooledOrders } = await (supabase.from('workshop_orders') as any)
-        .select('id, order_number, status_name, scheduled_date, scheduled_start, description, provider_id, vehicle:workshop_vehicles(brand, model, license_plate)')
+        .select('id, order_number, status_name, scheduled_date, scheduled_start, description, provider_id, vehicle:workshop_vehicles(brand, model, plate)')
 
         .in('provider_id', providerIds)
         .order('created_at', { ascending: false })
@@ -322,7 +321,7 @@ export default function WorkshopEmployeePortal() {
                 const isFinished = ['Naprawione','Zakończone','Anulowane'].includes(st);
                 const hasNote = !!a.workshop_orders?.has_unread_notes;
                 const veh = a.workshop_orders?.vehicle;
-                const vehLine = veh ? [veh.brand, veh.model, veh.license_plate].filter(Boolean).join(' · ') : '';
+                const vehLine = veh ? [veh.brand, veh.model, veh.plate].filter(Boolean).join(' · ') : '';
                 const openOrder = () => {
                   // Finished orders: read-only preview only; mechanic can't edit history.
                   if (isFinished) {
@@ -450,7 +449,7 @@ export default function WorkshopEmployeePortal() {
                       <span>{o.order_number || o.id.slice(0, 8)}</span>
                       {o.vehicle && (
                         <span className="text-foreground font-semibold">
-                          · {[o.vehicle.brand, o.vehicle.model, o.vehicle.license_plate].filter(Boolean).join(' · ')}
+                          · {[o.vehicle.brand, o.vehicle.model, o.vehicle.plate].filter(Boolean).join(' · ')}
                         </span>
                       )}
                     </div>
