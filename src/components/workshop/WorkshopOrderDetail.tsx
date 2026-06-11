@@ -106,6 +106,18 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
       } catch (e) { console.error('Note insert error:', e); }
     }
     toast.success(`Status zmieniony na: ${newStatus}`);
+
+    // Notify employees if status matches a workshop station name
+    try {
+      const { data: station } = await (supabase.from('workshop_stations') as any)
+        .select('id, name').eq('provider_id', providerId).eq('name', newStatus).maybeSingle();
+      if (station) {
+        supabase.functions.invoke('workshop-notify-employee', {
+          body: { order_id: order.id, event: 'department_changed', station_id: station.id, status_name: newStatus },
+        }).catch(() => {});
+      }
+    } catch {/* best-effort */}
+
     // Auto-open SMS dialog based on status context
     const lower = newStatus.toLowerCase();
     if (lower.includes('gotow') || lower.includes('zakończ') || lower.includes('odbioru')) {
