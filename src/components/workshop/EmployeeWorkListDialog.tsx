@@ -309,7 +309,7 @@ export function EmployeeWorkListDialog({
                 </div>
               ))}
             </div>
-          </ScrollArea>
+          </div>
         )}
 
         <DialogFooter className="border-t p-3 flex-col gap-2 sm:flex-col">
