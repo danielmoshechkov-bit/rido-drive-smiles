@@ -124,17 +124,26 @@ export function EmployeeWorkListDialog({
 
   const submitAddon = async () => {
     if (!orderId) return;
+    // Auto-commit draft part if user typed but forgot to press Enter / "+"
+    let partsList = [...addonParts];
+    const draft = addonPartDraft.trim();
+    if (draft) { partsList.push(draft); setAddonParts(partsList); setAddonPartDraft(''); }
+
     const hrs = parseFloat(addonHours || '0') || 0;
-    if (addonParts.length === 0 && !addonLabor.trim() && hrs === 0) {
+    if (partsList.length === 0 && !addonLabor.trim() && hrs === 0) {
       toast.error('Wpisz część albo robociznę');
       return;
+    }
+    // Warn if parts added but no labor
+    if (partsList.length > 0 && !addonLabor.trim() && hrs === 0) {
+      if (!confirm('Nie wpisano robocizny za wymianę tych części. Wysłać bez uwzględnienia robocizny?')) return;
     }
     setAddonSaving(true);
     try {
       const baseSort = -Date.now();
       let s = baseSort;
       const inserts: any[] = [];
-      addonParts.forEach(name => {
+      partsList.forEach(name => {
         inserts.push({
           order_id: orderId, name, item_type: 'part',
           quantity: 1, unit: 'szt', task_group: 'Dodatek do naprawy',
@@ -163,7 +172,11 @@ export function EmployeeWorkListDialog({
         order_id: orderId, event_type: 'repair_addon',
         actor_user_id: user?.id || null, actor_name: employeeName || null,
         actor_role: 'employee', to_status: 'Dodatek do naprawy',
-        note: `Dodatek z Listy prac: ${addonParts.length} cz., ${hrs}h`,
+        note: `Dodatek z Listy prac: ${partsList.length} cz., ${hrs}h${
+          partsList.length > 0 && !addonLabor.trim() && hrs === 0
+            ? ' (bez robocizny — zaakceptowane przez pracownika)'
+            : ''
+        }`,
       });
       supabase.functions.invoke('workshop-notify-employee', {
         body: { order_id: orderId, event: 'repair_addon_request' },
@@ -227,7 +240,7 @@ export function EmployeeWorkListDialog({
         {loading ? (
           <div className="flex justify-center p-10"><Loader2 className="h-6 w-6 animate-spin" /></div>
         ) : (
-          <ScrollArea className="flex-1">
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
             <div className="p-3 space-y-3 bg-muted/20">
               {isWaitingAddon && (
                 <div className="rounded-md bg-yellow-100 border border-yellow-300 text-yellow-900 text-sm py-2 px-3 font-medium">
@@ -296,7 +309,7 @@ export function EmployeeWorkListDialog({
                 </div>
               ))}
             </div>
-          </ScrollArea>
+          </div>
         )}
 
         <DialogFooter className="border-t p-3 flex-col gap-2 sm:flex-col">
@@ -310,7 +323,7 @@ export function EmployeeWorkListDialog({
               <PackagePlus className="h-4 w-4 mr-1" /> Dodatek do naprawy
             </Button>
             <Button
-              className="h-11 bg-violet-600 hover:bg-violet-700 text-white"
+              className="h-11 bg-emerald-600 hover:bg-emerald-700 text-white"
               onClick={finishRepair}
               disabled={finishing || isWaitingAddon || groups.length === 0}
             >

@@ -32,7 +32,7 @@ export function StationOrderNoteDialog({ open, onOpenChange, orderId, stationNam
       setLoading(true);
       setShowHistory(false);
       const { data: o } = await (supabase.from('workshop_orders') as any)
-        .select('id, order_number, status_name, vehicle_id, description, mileage')
+        .select('id, order_number, status_name, vehicle_id, description, mileage, provider_id')
         .eq('id', orderId).maybeSingle();
       setOrder(o);
       if (o?.vehicle_id) {
@@ -64,6 +64,7 @@ export function StationOrderNoteDialog({ open, onOpenChange, orderId, stationNam
       const { data: { user } } = await supabase.auth.getUser();
       await (supabase.from('workshop_order_events') as any).insert({
         order_id: orderId,
+        provider_id: order?.provider_id,
         event_type: 'status_change',
         to_status: 'Gotowy do odbioru',
         note: stationName ? `Zakończono na stanowisku: ${stationName}` : null,
@@ -115,18 +116,14 @@ export function StationOrderNoteDialog({ open, onOpenChange, orderId, stationNam
                 </div>
               </div>
 
-              <div className="rounded-lg border-l-4 border-l-blue-500 bg-blue-50/60 p-3">
-                <div className="text-xs font-semibold text-blue-800 flex items-center gap-1 mb-1">
-                  <StickyNote className="h-3.5 w-3.5" /> Notatka od administratora
-                </div>
-                {note ? (
+              {note && (
+                <div className="rounded-lg border-l-4 border-l-blue-500 bg-blue-50/60 p-3">
+                  <div className="text-xs font-semibold text-blue-800 flex items-center gap-1 mb-1">
+                    <StickyNote className="h-3.5 w-3.5" /> Notatka od administratora
+                  </div>
                   <p className="text-sm whitespace-pre-wrap">{note}</p>
-                ) : (
-                  <p className="text-sm italic text-muted-foreground">
-                    Brak notatki. Skontaktuj się z administratorem.
-                  </p>
-                )}
-              </div>
+                </div>
+              )}
 
               <div>
                 <Button

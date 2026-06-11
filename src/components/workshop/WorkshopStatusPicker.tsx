@@ -61,6 +61,7 @@ export function WorkshopStatusPicker({
         const { data: { user } } = await supabase.auth.getUser();
         await (supabase.from('workshop_order_events') as any).insert({
           order_id: orderId,
+          provider_id: providerId,
           event_type: 'note',
           note: withNote,
           actor_user_id: user?.id || null,
