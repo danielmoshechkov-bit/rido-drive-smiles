@@ -404,10 +404,11 @@ export default function WorkshopEmployeePortal() {
                     </div>
                     {a.workshop_orders?.description && (
                       <div className="text-xs text-foreground/90 mt-0.5 line-clamp-2 whitespace-pre-wrap">
-                        {a.workshop_orders.description}
+                        {tr('order', a.order_id, 'description', a.workshop_orders.description)}
                       </div>
                     )}
                   </button>
+
 
                   {(() => {
                     const map: Record<string, string> = {
