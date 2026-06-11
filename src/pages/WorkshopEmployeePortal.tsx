@@ -280,7 +280,8 @@ export default function WorkshopEmployeePortal() {
                     {busy === a.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Zwróć'}
                   </Button>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </Section>
