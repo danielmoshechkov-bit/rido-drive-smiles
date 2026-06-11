@@ -43,6 +43,7 @@ export function EmployeeOrderCardDialog({
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [claiming, setClaiming] = useState(false);
+  const [marking, setMarking] = useState(false);
   const [order, setOrder] = useState<any>(null);
   const [vehicle, setVehicle] = useState<any>(null);
   const [tasks, setTasks] = useState<TaskBlock[]>([]);
