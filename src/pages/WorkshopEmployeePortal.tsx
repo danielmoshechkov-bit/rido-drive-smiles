@@ -59,12 +59,21 @@ export default function WorkshopEmployeePortal() {
       }
     }
 
-    // My assignments — FIX: use assigned_at, not created_at
+    // My assignments — include station_id on order
     const { data: mineData } = await (supabase.from('workshop_order_assignments') as any)
-      .select('id, order_id, provider_id, status, assigned_at, workshop_orders(id, order_number, status_name, vehicle_id, client_id, scheduled_date, scheduled_start, acceptance_date, mileage, description)')
+      .select('id, order_id, provider_id, status, assigned_at, workshop_orders(id, order_number, status_name, vehicle_id, client_id, scheduled_date, scheduled_start, acceptance_date, mileage, description, station_id, has_unread_notes)')
       .eq('employee_user_id', user.id)
       .order('assigned_at', { ascending: false });
     setMine(mineData || []);
+
+    // Stations this employee belongs to (across all their providers)
+    const { data: stMaps } = await (supabase.from('workshop_station_employees') as any)
+      .select('station_id, workshop_stations(id, name, color, is_active)')
+      .eq('employee_user_id', user.id);
+    setMyStations(((stMaps || []) as any[])
+      .map(m => m.workshop_stations)
+      .filter((s: any) => s && s.is_active)
+      .map((s: any) => ({ id: s.id, name: s.name, color: s.color })));
 
     // Pool — all ACTIVE provider orders (not completed/cancelled), so employee can pick any to inspect
     if (providerIds.length) {
