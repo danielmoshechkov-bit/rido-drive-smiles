@@ -191,7 +191,7 @@ export function StationOrderNoteDialog({ open, onOpenChange, orderId, stationNam
                           <span>{e.to_status || '—'}</span>
                           <span>{new Date(e.created_at).toLocaleString('pl')}</span>
                         </div>
-                        {e.note && <p className="mt-1 whitespace-pre-wrap">{e.note}</p>}
+                        {e.note && <p className="mt-1 whitespace-pre-wrap">{tr('event', String(e.id), 'note', e.note)}</p>}
                       </div>
                     ))}
                   </div>
