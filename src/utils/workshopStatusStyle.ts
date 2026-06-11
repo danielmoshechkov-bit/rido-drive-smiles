@@ -19,7 +19,7 @@ const TONE_MAP: Record<string, StatusTone> = {
   'Przydzielone': 'blue',
   'Diagnoza': 'blue',
 
-  'Do wyceny': 'yellow',
+  'Do wyceny': 'red',
   'Oczekuje na akceptację': 'yellow',
 
   'Wycena gotowa': 'purple',
