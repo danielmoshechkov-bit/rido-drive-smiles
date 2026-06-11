@@ -686,19 +686,33 @@ export function EmployeeOrderCardDialog({
                   ))}
                 </div>
               )}
-              <Input
-                value={addonPartDraft}
-                onChange={(e) => setAddonPartDraft(e.target.value)}
-                placeholder="Wpisz część i naciśnij Enter…"
-                className="h-11"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
+              <div className="flex gap-2">
+                <Input
+                  value={addonPartDraft}
+                  onChange={(e) => setAddonPartDraft(e.target.value)}
+                  placeholder="Wpisz część…"
+                  className="h-11 flex-1"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      const v = addonPartDraft.trim();
+                      if (v) { setAddonParts(ps => [...ps, v]); setAddonPartDraft(''); }
+                    }
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-11 px-3 shrink-0"
+                  onClick={() => {
                     const v = addonPartDraft.trim();
                     if (v) { setAddonParts(ps => [...ps, v]); setAddonPartDraft(''); }
-                  }
-                }}
-              />
+                  }}
+                  aria-label="Dodaj część"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
 
             <div>
