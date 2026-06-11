@@ -482,23 +482,94 @@ export default function WorkshopEmployeePortal() {
           )}
         </Section>
       ) : (
-        <Section title="Historia" icon={<History className="h-4 w-4 text-primary" />}>
+        <Section title={`Historia (${history.length})`} icon={<History className="h-4 w-4 text-primary" />}>
           {history.length === 0 ? (
-            <Empty text="Brak wpisów." />
-          ) : (
-            <div className="divide-y">
-              {history.map(h => (
-                <div key={h.id} className="p-3 flex items-center gap-3 text-sm">
-                  <Badge variant={h.action === 'released' ? 'outline' : 'secondary'} className="text-[10px] uppercase">
-                    {h.action}
-                  </Badge>
-                  <div className="flex-1 text-xs text-muted-foreground">
-                    {new Date(h.created_at).toLocaleString('pl')} · {h.order_id.slice(0, 8)}
+            <Empty text="Brak wykonanych zleceń." />
+          ) : (() => {
+            // Group by station — "Bez stanowiska" for orders without one
+            const groups: Record<string, { name: string; color: string; items: any[] }> = {};
+            history.forEach((a: any) => {
+              const sid = a.workshop_orders?.station_id || 'none';
+              const st = myStations.find(s => s.id === sid);
+              const key = sid;
+              if (!groups[key]) {
+                groups[key] = {
+                  name: st?.name || 'Bez stanowiska',
+                  color: st?.color || '#94a3b8',
+                  items: [],
+                };
+              }
+              groups[key].items.push(a);
+            });
+            return (
+              <div className="divide-y">
+                {Object.entries(groups).map(([key, g]) => (
+                  <div key={key} className="p-3 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="h-2.5 w-2.5 rounded-full" style={{ background: g.color }} />
+                      <h3 className="font-semibold text-sm">{g.name}</h3>
+                      <Badge variant="outline" className="text-[10px]">{g.items.length}</Badge>
+                    </div>
+                    <div className="space-y-2">
+                      {g.items.map((a: any) => {
+                        const o = a.workshop_orders;
+                        const veh = o?.vehicle;
+                        const vehLine = veh ? [veh.brand, veh.model, veh.plate].filter(Boolean).join(' · ') : '';
+                        const items = (o?.items || []) as any[];
+                        return (
+                          <div
+                            key={a.id}
+                            className="rounded-md border bg-muted/30 p-2.5 cursor-pointer hover:bg-muted/50"
+                            onClick={() => {
+                              setOpenPreviewMode(true);
+                              setOpenFromPool(false);
+                              setOpenProviderId(a.provider_id);
+                              setOpenOrderId(a.order_id);
+                            }}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="text-sm font-semibold">
+                                {o?.order_number || a.order_id.slice(0, 8)}
+                                {vehLine && <span className="text-foreground/80 font-normal"> · {vehLine}</span>}
+                              </div>
+                              <Badge className="bg-gray-700 text-white text-[10px]">
+                                {o?.status_name || 'Zakończone'}
+                              </Badge>
+                            </div>
+                            {o?.description && (
+                              <div className="text-xs text-muted-foreground mt-1 line-clamp-2 whitespace-pre-wrap">
+                                {o.description}
+                              </div>
+                            )}
+                            {items.length > 0 && (
+                              <ul className="mt-1.5 text-xs space-y-0.5">
+                                {items.slice(0, 6).map((it: any) => (
+                                  <li key={it.id} className="flex justify-between gap-2 text-foreground/80">
+                                    <span className="truncate">
+                                      {it.kind === 'part' ? '🔧 ' : '🛠️ '}
+                                      {it.name} {it.quantity ? `× ${it.quantity} ${it.unit || ''}` : ''}
+                                    </span>
+                                  </li>
+                                ))}
+                                {items.length > 6 && (
+                                  <li className="text-[11px] text-muted-foreground">…i {items.length - 6} więcej</li>
+                                )}
+                              </ul>
+                            )}
+                            {o?.completed_at && (
+                              <div className="text-[11px] text-muted-foreground mt-1">
+                                Zakończone: {new Date(o.completed_at).toLocaleString('pl')}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            );
+          })()}
         </Section>
       )}
 
