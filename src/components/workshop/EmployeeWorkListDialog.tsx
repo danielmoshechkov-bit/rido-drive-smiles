@@ -172,7 +172,11 @@ export function EmployeeWorkListDialog({
         order_id: orderId, event_type: 'repair_addon',
         actor_user_id: user?.id || null, actor_name: employeeName || null,
         actor_role: 'employee', to_status: 'Dodatek do naprawy',
-        note: `Dodatek z Listy prac: ${addonParts.length} cz., ${hrs}h`,
+        note: `Dodatek z Listy prac: ${partsList.length} cz., ${hrs}h${
+          partsList.length > 0 && !addonLabor.trim() && hrs === 0
+            ? ' (bez robocizny — zaakceptowane przez pracownika)'
+            : ''
+        }`,
       });
       supabase.functions.invoke('workshop-notify-employee', {
         body: { order_id: orderId, event: 'repair_addon_request' },
