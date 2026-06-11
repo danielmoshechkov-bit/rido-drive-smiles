@@ -284,7 +284,8 @@
     "invalidCredentials": "Invalid email or password!",
     "loginError": "Login error occurred!",
     "rolesError": "Error loading permissions!",
-    "noRoles": "Your account has no assigned permissions. Please contact the administrator."
+    "noRoles": "Your account has no assigned permissions. Please contact the administrator.",
+    "loggingIn": "Signing in..."
   },
   "notifications": {
     "settings": "Notification settings",

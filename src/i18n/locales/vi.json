@@ -71,7 +71,8 @@
     "invalidCredentials": "Email hoặc mật khẩu không hợp lệ!",
     "loginError": "Lỗi khi đăng nhập!",
     "rolesError": "Lỗi khi tải quyền!",
-    "noRoles": "Tài khoản của bạn không có quyền được gán. Liên hệ quản trị viên."
+    "noRoles": "Tài khoản của bạn không có quyền được gán. Liên hệ quản trị viên.",
+    "loggingIn": "Đang đăng nhập..."
   },
   "admin": {
     "dashboard": "Bảng quản trị",

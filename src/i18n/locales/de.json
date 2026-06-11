@@ -71,7 +71,8 @@
     "invalidCredentials": "Ungültige E-Mail oder Passwort!",
     "loginError": "Fehler bei der Anmeldung!",
     "rolesError": "Fehler beim Laden der Berechtigungen!",
-    "noRoles": "Ihr Konto hat keine zugewiesenen Berechtigungen. Kontaktieren Sie den Administrator."
+    "noRoles": "Ihr Konto hat keine zugewiesenen Berechtigungen. Kontaktieren Sie den Administrator.",
+    "loggingIn": "Anmeldung..."
   },
   "admin": {
     "dashboard": "Administrationsbereich",

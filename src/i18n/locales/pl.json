@@ -284,7 +284,8 @@
     "invalidCredentials": "Nieprawidłowy email lub hasło!",
     "loginError": "Wystąpił błąd podczas logowania!",
     "rolesError": "Błąd pobierania uprawnień!",
-    "noRoles": "Twoje konto nie ma przypisanych uprawnień. Skontaktuj się z administratorem."
+    "noRoles": "Twoje konto nie ma przypisanych uprawnień. Skontaktuj się z administratorem.",
+    "loggingIn": "Logowanie..."
   },
   "notifications": {
     "settings": "Ustawienia powiadomień",

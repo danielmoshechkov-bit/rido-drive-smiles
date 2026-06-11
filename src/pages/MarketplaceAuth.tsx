@@ -48,7 +48,7 @@ const MarketplaceAuth = () => {
       if (authError) {
         console.error('Auth error:', authError);
         if (authError.message.includes("Invalid login credentials")) {
-          toast.error("Nieprawidłowy email lub hasło");
+          toast.error(t('auth.invalidCredentials'));
         } else {
           toast.error(authError.message);
         }
@@ -65,7 +65,7 @@ const MarketplaceAuth = () => {
       }
 
       if (!authData.user) {
-        toast.error('Błąd logowania!');
+        toast.error(t('auth.loginError'));
         return;
       }
 
@@ -77,7 +77,7 @@ const MarketplaceAuth = () => {
 
       if (rolesError) {
         console.error('Error fetching roles:', rolesError);
-        toast.error('Błąd pobierania uprawnień!');
+        toast.error(t('auth.rolesError'));
         return;
       }
 
@@ -127,7 +127,7 @@ const MarketplaceAuth = () => {
       navigate("/klient");
     } catch (error) {
       console.error('Login error:', error);
-      toast.error('Wystąpił błąd podczas logowania!');
+      toast.error(t('auth.loginError'));
     } finally {
       setIsLoading(false);
     }
@@ -183,7 +183,7 @@ const MarketplaceAuth = () => {
             <span className="text-xl font-bold text-primary">Get RIDO</span>
           </div>
           <span className="text-muted-foreground">|</span>
-          <span className="text-sm text-muted-foreground">Strona główna</span>
+          <span className="text-sm text-muted-foreground">{t('nav.home')}</span>
         </div>
         <LanguageSelector />
       </div>
@@ -273,7 +273,7 @@ const MarketplaceAuth = () => {
                 className="w-full"
                 disabled={isLoading}
               >
-                {isLoading ? 'Logowanie...' : t('auth.loginButton')}
+                {isLoading ? t('auth.loggingIn') : t('auth.loginButton')}
               </Button>
             </form>
 
