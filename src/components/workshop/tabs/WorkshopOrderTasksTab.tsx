@@ -1470,7 +1470,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                   return (
                     <tr
                       key={g.id}
-                      className={getGoodsRowClasses(g.id, i)}
+                      className={getGoodsRowClasses(g, i)}
                       onDragOver={event => {
                         if (!draggingGoodsId) return;
                         event.preventDefault();
