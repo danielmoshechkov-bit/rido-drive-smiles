@@ -133,12 +133,13 @@ serve(async (req) => {
 
     // Also record in workshop_employee_notifications
     const wNotifRows = Array.from(userIds).map(uid => ({
-      user_id: uid,
+      employee_user_id: uid,
       order_id,
       provider_id: order.provider_id,
       title: msg.title,
       body: msg.body,
-      kind: event,
+      type: `workshop_${event}`,
+      link: `/pracownik-warsztat`,
     }));
     await admin.from("workshop_employee_notifications").insert(wNotifRows);
 
