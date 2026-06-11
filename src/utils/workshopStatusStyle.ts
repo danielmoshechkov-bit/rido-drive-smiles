@@ -51,6 +51,9 @@ export function getStatusStyle(name?: string | null) {
     case 'blue':
       return { tone, badge: 'bg-blue-500 text-white hover:bg-blue-600',
         row: 'bg-blue-50/70 hover:bg-blue-100/70', border: 'border-l-4 border-l-blue-500', dot: 'bg-blue-500' };
+    case 'red':
+      return { tone, badge: 'bg-red-500 text-white hover:bg-red-600 animate-pulse',
+        row: 'bg-red-50/70 hover:bg-red-100/70', border: 'border-l-4 border-l-red-500', dot: 'bg-red-500' };
     case 'yellow':
       return { tone, badge: 'bg-yellow-400 text-yellow-950 hover:bg-yellow-500',
         row: 'bg-yellow-50/70 hover:bg-yellow-100/70', border: 'border-l-4 border-l-yellow-400', dot: 'bg-yellow-400' };
