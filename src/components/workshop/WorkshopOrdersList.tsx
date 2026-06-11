@@ -506,7 +506,8 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                   </div>
                 </CardContent>
               </Card>
-            ))}
+              );
+            })}
             {filteredOrders.length > 0 && (
               <div className="text-right text-sm font-semibold px-2 pt-2 border-t">
                 Suma: {totalSum.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} zł
