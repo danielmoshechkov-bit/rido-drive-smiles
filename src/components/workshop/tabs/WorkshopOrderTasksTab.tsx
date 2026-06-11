@@ -1506,7 +1506,12 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           >
                             <GripVertical className="h-4 w-4" />
                           </button>
-                          <div className="min-w-0 flex-1">{renderEditableCell(g, 'name', g.name)}</div>
+                          <div className="min-w-0 flex-1">
+                            {g.is_addon && (
+                              <Badge className="mr-2 bg-orange-500 text-white text-[9px] uppercase px-1.5 py-0">Dodatek</Badge>
+                            )}
+                            {renderEditableCell(g, 'name', g.name)}
+                          </div>
                         </div>
                       </td>
                       <td className="p-1">{renderEditableCell(g, 'quantity', String(g.quantity), '', 'center')}</td>
