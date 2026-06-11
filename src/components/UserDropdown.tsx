@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ChevronDown, User, Shield, Building, LogOut, Globe } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { PORTAL_LANGS, setLang } from "@/i18n";
 
 interface UserDropdownProps {
   userName: string;
@@ -29,16 +30,8 @@ export const UserDropdown = ({
   const { i18n } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
 
-  const languages = [
-    { code: "pl", name: "Polski", flag: "🇵🇱" },
-    { code: "en", name: "English", flag: "🇬🇧" },
-    { code: "ru", name: "Русский", flag: "🇷🇺" },
-    { code: "ua", name: "Українська", flag: "🇺🇦" },
-    { code: "kz", name: "Қазақша", flag: "🇰🇿" },
-  ];
-
   const handleLanguageChange = (langCode: string) => {
-    i18n.changeLanguage(langCode);
+    setLang(langCode);
     setIsOpen(false);
   };
 
@@ -88,7 +81,7 @@ export const UserDropdown = ({
           <Globe className="h-3 w-3" />
           Język / Language
         </DropdownMenuLabel>
-        {languages.map((language) => (
+        {PORTAL_LANGS.map((language) => (
           <DropdownMenuItem
             key={language.code}
             onClick={() => handleLanguageChange(language.code)}

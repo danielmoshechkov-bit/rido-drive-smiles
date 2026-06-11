@@ -5,15 +5,30 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Globe } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
-export function LanguageSwitcher() {
+interface LanguageSwitcherProps {
+  /** ghost = compact toolbar style (default), outline = standalone button for login/portal headers */
+  variant?: 'ghost' | 'outline';
+  className?: string;
+}
+
+export function LanguageSwitcher({ variant = 'ghost', className }: LanguageSwitcherProps) {
   const { i18n } = useTranslation();
   const current = PORTAL_LANGS.find(l => l.code === i18n.language) || PORTAL_LANGS[0];
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="sm" className="flex items-center gap-1.5 px-2 h-8">
+        <Button
+          variant={variant}
+          size="sm"
+          className={cn(
+            'flex items-center gap-1.5 h-8',
+            variant === 'outline' ? 'min-w-[80px] px-3' : 'px-2',
+            className
+          )}
+        >
           <Globe className="h-3.5 w-3.5" />
           <span className="text-base leading-none">{current.flag}</span>
           <span className="text-xs font-medium uppercase hidden sm:inline">{current.code}</span>

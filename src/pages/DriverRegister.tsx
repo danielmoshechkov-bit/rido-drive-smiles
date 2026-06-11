@@ -11,14 +11,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Eye, EyeOff, Check, X, Banknote, CreditCard, Globe, Building2, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { PasswordStrengthIndicator } from "@/components/auth/PasswordStrengthIndicator";
-
-const languages = [
-  { code: "pl", label: "Polski", flag: "🇵🇱" },
-  { code: "en", label: "English", flag: "🇬🇧" },
-  { code: "ru", label: "Русский", flag: "🇷🇺" },
-  { code: "ua", label: "Українська", flag: "🇺🇦" },
-  { code: "kz", label: "Қазақша", flag: "🇰🇿" },
-];
+import { PORTAL_LANGS, setLang } from "@/i18n";
 
 export default function DriverRegister() {
   const navigate = useNavigate();
@@ -162,7 +155,7 @@ export default function DriverRegister() {
 
   const handleLanguageChange = (langCode: string) => {
     setSelectedLanguage(langCode);
-    i18n.changeLanguage(langCode);
+    setLang(langCode);
   };
 
   const submit = async () => {
@@ -274,7 +267,7 @@ export default function DriverRegister() {
             <div className="flex justify-end mb-4">
               <div className="flex items-center gap-2 bg-muted/50 rounded-lg p-1">
                 <Globe className="h-4 w-4 text-muted-foreground ml-2" />
-                {languages.map((lang) => (
+                {PORTAL_LANGS.map((lang) => (
                   <button
                     key={lang.code}
                     onClick={() => handleLanguageChange(lang.code)}
@@ -283,7 +276,7 @@ export default function DriverRegister() {
                         ? "bg-primary text-primary-foreground"
                         : "hover:bg-muted"
                     }`}
-                    title={lang.label}
+                    title={lang.name}
                   >
                     {lang.flag}
                   </button>

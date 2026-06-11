@@ -43,6 +43,7 @@ export const PORTAL_LANGS = [
   { code: 'ua', name: 'Українська',  flag: '🇺🇦' },
   { code: 'de', name: 'Deutsch',     flag: '🇩🇪' },
   { code: 'vi', name: 'Tiếng Việt',  flag: '🇻🇳' },
+  { code: 'kz', name: 'Қазақша',     flag: '🇰🇿' },
 ];
 
 export const ALL_TRANSLATION_LANGS = [
