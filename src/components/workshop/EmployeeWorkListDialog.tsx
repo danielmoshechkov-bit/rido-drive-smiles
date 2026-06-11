@@ -240,7 +240,7 @@ export function EmployeeWorkListDialog({
         {loading ? (
           <div className="flex justify-center p-10"><Loader2 className="h-6 w-6 animate-spin" /></div>
         ) : (
-          <ScrollArea className="flex-1">
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
             <div className="p-3 space-y-3 bg-muted/20">
               {isWaitingAddon && (
                 <div className="rounded-md bg-yellow-100 border border-yellow-300 text-yellow-900 text-sm py-2 px-3 font-medium">
