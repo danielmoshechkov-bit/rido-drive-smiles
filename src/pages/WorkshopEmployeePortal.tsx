@@ -239,12 +239,52 @@ export default function WorkshopEmployeePortal() {
         </div>
       ) : tab === 'mine' ? (
         <Section title={`Moje zlecenia (${mine.length})`} icon={<ClipboardList className="h-4 w-4 text-primary" />}>
-          {mine.length === 0 ? (
-            <Empty text="Brak przydzielonych zleceń. Gdy warsztat coś przydzieli — pojawi się tutaj." />
-          ) : (
+          {/* Station filter pills — only when employee has any station */}
+          {myStations.length > 0 && (
+            <div className="px-3 py-2 border-b flex gap-1.5 overflow-x-auto scrollbar-hide">
+              <button
+                onClick={() => setStationFilter('all')}
+                className={`shrink-0 px-3 py-1 rounded-full text-xs border ${stationFilter === 'all' ? 'bg-primary text-primary-foreground border-primary' : 'bg-card hover:bg-muted'}`}
+              >Wszystkie ({mine.length})</button>
+              <button
+                onClick={() => setStationFilter('mechanic')}
+                className={`shrink-0 px-3 py-1 rounded-full text-xs border inline-flex items-center gap-1 ${stationFilter === 'mechanic' ? 'bg-primary text-primary-foreground border-primary' : 'bg-card hover:bg-muted'}`}
+              >
+                <Wrench className="h-3 w-3" /> Warsztat
+                ({mine.filter(a => !a.workshop_orders?.station_id || myStations.every(s => s.id !== a.workshop_orders?.station_id)).length})
+              </button>
+              {myStations.map(s => {
+                const n = mine.filter(a => a.workshop_orders?.station_id === s.id).length;
+                return (
+                  <button key={s.id} onClick={() => setStationFilter(s.id)}
+                    className={`shrink-0 px-3 py-1 rounded-full text-xs border inline-flex items-center gap-1.5 ${stationFilter === s.id ? 'bg-primary text-primary-foreground border-primary' : 'bg-card hover:bg-muted'}`}>
+                    <span className="h-2 w-2 rounded-full" style={{ background: s.color }} />
+                    {s.name} ({n})
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {(() => {
+            const filtered = mine.filter(a => {
+              if (stationFilter === 'all') return true;
+              const sid = a.workshop_orders?.station_id;
+              if (stationFilter === 'mechanic') {
+                return !sid || myStations.every(s => s.id !== sid);
+              }
+              return sid === stationFilter;
+            });
+            if (filtered.length === 0) {
+              return <Empty text={mine.length === 0
+                ? 'Brak przydzielonych zleceń. Gdy warsztat coś przydzieli — pojawi się tutaj.'
+                : 'Brak zleceń na tym stanowisku.'} />;
+            }
+            return (
             <div className="divide-y">
-              {mine.map(a => {
+              {filtered.map(a => {
                 const st = String(a.workshop_orders?.status_name || '');
+                const sid = a.workshop_orders?.station_id;
+                const station = sid ? myStations.find(s => s.id === sid) : null;
                 const tone = ['Do wyceny','Wycena gotowa','Wycena wysłana','Oczekuje na akceptację','Dodatek do naprawy'].includes(st)
                   ? 'yellow'
                   : ['Akceptacja klienta','Zaakceptowano','Zgoda na naprawę','W trakcie naprawy','Zadania wykonane','Gotowy do odbioru'].includes(st)
@@ -256,24 +296,36 @@ export default function WorkshopEmployeePortal() {
                   : tone === 'green' ? 'bg-green-50/70 border-l-green-500'
                   : tone === 'red' ? 'bg-red-50/70 border-l-red-500'
                   : 'bg-muted/30 border-l-gray-300';
+                const openOrder = () => {
+                  if (station) {
+                    // simplified station view
+                    setStationOpenId(a.order_id);
+                    setStationOpenName(station.name);
+                  } else {
+                    setOpenFromPool(false);
+                    setOpenProviderId(a.provider_id);
+                    setOpenOrderId(a.order_id);
+                  }
+                };
                 return (
                 <div key={a.id} className={`p-3 flex items-center gap-3 border-l-4 ${toneRow}`}>
                   {a.workshop_orders?.has_unread_notes && (
                     <span title="Nowa notatka od administratora" className="text-amber-500 text-lg leading-none">!</span>
                   )}
-                  <button
-                    className="flex-1 text-left hover:opacity-80"
-                    onClick={() => { setOpenFromPool(false); setOpenProviderId(a.provider_id); setOpenOrderId(a.order_id); }}
-                  >
-                    <div className="font-medium text-sm">
+                  <button className="flex-1 text-left hover:opacity-80" onClick={openOrder}>
+                    <div className="font-medium text-sm flex items-center gap-2">
                       {a.workshop_orders?.order_number || a.order_id.slice(0, 8)}
+                      {station && (
+                        <Badge className="text-[10px] px-1.5 py-0" style={{ background: station.color, color: '#fff' }}>
+                          {station.name}
+                        </Badge>
+                      )}
                     </div>
                     <div className="text-xs text-muted-foreground line-clamp-1">
                       {a.workshop_orders?.description || a.workshop_orders?.status_name || '—'}
                     </div>
                   </button>
                   {(() => {
-                    const st = String(a.workshop_orders?.status_name || '');
                     const map: Record<string, string> = {
                       'Do wyceny': 'bg-yellow-500 text-black hover:bg-yellow-600',
                       'Oczekuje na akceptację': 'bg-yellow-500 text-black hover:bg-yellow-600',
@@ -284,11 +336,12 @@ export default function WorkshopEmployeePortal() {
                       'Zgoda na naprawę': 'bg-green-600 text-white hover:bg-green-700',
                       'W trakcie naprawy': 'bg-amber-400 text-black hover:bg-amber-500',
                       'Dodatek do naprawy': 'bg-yellow-500 text-black hover:bg-yellow-600',
-                      'Naprawione': 'bg-red-600 text-white hover:bg-red-700',
+                      'Naprawione': 'bg-violet-600 text-white hover:bg-violet-700',
+                      'Gotowy do odbioru': 'bg-emerald-600 text-white hover:bg-emerald-700',
                       'Zakończone': 'bg-gray-700 text-white hover:bg-gray-800',
                     };
-                    const cls = map[st] || 'bg-gray-400 text-white hover:bg-gray-500';
-                    const label = st && map[st] ? st : 'Przydzielone';
+                    const cls = map[st] || (station ? 'bg-blue-500 text-white hover:bg-blue-600' : 'bg-gray-400 text-white hover:bg-gray-500');
+                    const label = st && map[st] ? st : (station ? station.name : 'Przydzielone');
                     return <Badge className={`${cls} text-xs`}>{label}</Badge>;
                   })()}
                   <Button
@@ -301,7 +354,8 @@ export default function WorkshopEmployeePortal() {
                 );
               })}
             </div>
-          )}
+            );
+          })()}
         </Section>
       ) : tab === 'pool' ? (
         <Section title={`Aktywne zlecenia warsztatu (${pool.length})`} icon={<Inbox className="h-4 w-4 text-primary" />}>
