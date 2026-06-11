@@ -191,10 +191,17 @@ export function StationOrderNoteDialog({ open, onOpenChange, orderId, stationNam
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
             Zamknij
           </Button>
-          <Button onClick={finish} disabled={busy || loading} className="bg-emerald-600 hover:bg-emerald-700">
-            {busy ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
-            Zakończ — przekaż do administratora
-          </Button>
+          {!inProgress ? (
+            <Button onClick={start} disabled={busy || loading} className="bg-blue-600 hover:bg-blue-700">
+              {busy ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Play className="h-4 w-4 mr-2" />}
+              Przyjmij — rozpocznij {stationName || ''}
+            </Button>
+          ) : (
+            <Button onClick={finish} disabled={busy || loading} className="bg-emerald-600 hover:bg-emerald-700">
+              {busy ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+              Gotowe — {stationName || 'zakończ'}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
