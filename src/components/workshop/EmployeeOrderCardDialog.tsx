@@ -643,6 +643,161 @@ export function EmployeeOrderCardDialog({
           })()}
         </div>
       </DialogContent>
+
+      {/* ADDON DIALOG */}
+      <Dialog open={addonOpen} onOpenChange={(o) => !addonSaving && setAddonOpen(o)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-orange-700">
+              <PackagePlus className="h-5 w-5" />
+              Dodatek do naprawy
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-md bg-orange-50 border border-orange-200 text-orange-900 text-xs p-2">
+              Wpisz dodatkowe części i robociznę, które doszły w trakcie naprawy. Trafią na górę wyceny do akceptacji administratora i klienta.
+            </div>
+
+            <div>
+              <div className="text-[11px] font-bold uppercase tracking-wide text-foreground mb-1.5">Części dodatkowe</div>
+              {addonParts.length > 0 && (
+                <div className="divide-y border rounded-md mb-2 bg-background">
+                  {addonParts.map((p, i) => (
+                    <div key={i} className="flex items-center gap-2 px-3 py-2">
+                      <span className="flex-1 text-sm">{p}</span>
+                      <button type="button" onClick={() => setAddonParts(ps => ps.filter((_, k) => k !== i))} className="text-muted-foreground hover:text-destructive p-1">
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <Input
+                value={addonPartDraft}
+                onChange={(e) => setAddonPartDraft(e.target.value)}
+                placeholder="Wpisz część i naciśnij Enter…"
+                className="h-11"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const v = addonPartDraft.trim();
+                    if (v) { setAddonParts(ps => [...ps, v]); setAddonPartDraft(''); }
+                  }
+                }}
+              />
+            </div>
+
+            <div>
+              <div className="text-[11px] font-bold uppercase tracking-wide text-foreground mb-1.5">Robocizna dodatkowa</div>
+              <Input
+                value={addonLabor}
+                onChange={(e) => setAddonLabor(e.target.value)}
+                placeholder="np. Wymiana wahacza prawego"
+                className="h-11"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-[11px] font-bold uppercase tracking-wide text-foreground">Czas (h)</label>
+                <Input
+                  type="number" step="0.25" min="0" inputMode="decimal"
+                  value={addonHours}
+                  onChange={(e) => setAddonHours(e.target.value)}
+                  placeholder="0.5"
+                  className="h-11"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] font-bold uppercase tracking-wide text-foreground">Koszt (zł)</label>
+                <Input
+                  type="number" step="0.01" min="0" inputMode="decimal"
+                  value={addonCost}
+                  onChange={(e) => setAddonCost(e.target.value)}
+                  placeholder="opcjonalne"
+                  className="h-11"
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddonOpen(false)} disabled={addonSaving}>Anuluj</Button>
+            <Button
+              className="bg-orange-600 hover:bg-orange-700 text-white"
+              disabled={
+                addonSaving ||
+                (addonParts.length === 0 && !addonLabor.trim() && !addonHours && !addonCost)
+              }
+              onClick={async () => {
+                if (!orderId) return;
+                setAddonSaving(true);
+                try {
+                  const hrs = parseFloat(addonHours || '0') || 0;
+                  const cost = parseFloat(String(addonCost || '0').replace(',', '.')) || 0;
+                  const inserts: any[] = [];
+                  // Negative sort_order so addons appear at TOP of admin pricing
+                  const baseSort = -Date.now();
+                  let s = baseSort;
+                  addonParts.forEach(name => {
+                    inserts.push({
+                      order_id: orderId, name, item_type: 'part',
+                      quantity: 1, unit: 'szt', task_group: 'Dodatek do naprawy',
+                      employee_id: employeeId || null, mechanic: employeeName || null,
+                      sort_order: s++, unit_price_net: 0, unit_price_gross: 0,
+                      total_net: 0, total_gross: 0, discount_percent: 0,
+                      is_addon: true,
+                    });
+                  });
+                  if (addonLabor.trim() || hrs > 0 || cost > 0) {
+                    inserts.push({
+                      order_id: orderId, name: addonLabor.trim() || 'Robocizna (dodatek)',
+                      item_type: 'service', quantity: 1, unit: 'usł.',
+                      labor_hours: hrs, task_group: 'Dodatek do naprawy',
+                      employee_id: employeeId || null, mechanic: employeeName || null,
+                      sort_order: s++, unit_price_net: 0, unit_price_gross: cost,
+                      total_net: 0, total_gross: cost, discount_percent: 0,
+                      is_addon: true,
+                    });
+                  }
+                  if (inserts.length === 0) {
+                    toast.error('Wpisz przynajmniej część lub robociznę');
+                    setAddonSaving(false); return;
+                  }
+                  const { error: insErr } = await (supabase.from('workshop_order_items') as any).insert(inserts);
+                  if (insErr) throw insErr;
+
+                  const { data: { user } } = await supabase.auth.getUser();
+                  await (supabase.from('workshop_orders') as any)
+                    .update({ status_name: 'Dodatek do naprawy', estimate_changed_after_send: true })
+                    .eq('id', orderId);
+                  await (supabase.from('workshop_order_events') as any).insert({
+                    order_id: orderId, event_type: 'repair_addon',
+                    actor_user_id: user?.id || null, actor_name: employeeName || null,
+                    actor_role: 'employee', to_status: 'Dodatek do naprawy',
+                    note: `Dodatek: ${addonParts.length} cz., ${hrs}h, ${cost} zł`,
+                  });
+                  supabase.functions.invoke('workshop-notify-employee', {
+                    body: { order_id: orderId, event: 'repair_addon_request' },
+                  }).catch(() => {});
+                  toast.success('Dodatek wysłany do administratora');
+                  setAddonOpen(false);
+                  onSaved?.();
+                  onOpenChange(false);
+                } catch (e: any) {
+                  toast.error(e.message || 'Błąd zapisu dodatku');
+                } finally {
+                  setAddonSaving(false);
+                }
+              }}
+            >
+              {addonSaving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Check className="h-4 w-4 mr-1" />}
+              Wyślij do akceptacji
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }
+
