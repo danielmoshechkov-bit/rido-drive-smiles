@@ -463,7 +463,7 @@ export function EmployeeOrderCardDialog({
                             </div>
                           </div>
                           <div>
-                            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            <label className="text-[11px] font-bold uppercase tracking-wide text-foreground">
                               Koszt naprawy
                             </label>
                             <div className="relative">
