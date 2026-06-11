@@ -140,8 +140,12 @@ export function EmployeeWorkListDialog({
     }
     setAddonSaving(true);
     try {
-      const baseSort = -Date.now();
-      let s = baseSort;
+      // Find lowest existing sort_order so addons sit above everything (negative integers within int4 range).
+      const { data: minRow } = await (supabase.from('workshop_order_items') as any)
+        .select('sort_order').eq('order_id', orderId)
+        .order('sort_order', { ascending: true }).limit(1).maybeSingle();
+      const minExisting = typeof minRow?.sort_order === 'number' ? minRow.sort_order : 0;
+      let s = Math.min(minExisting, 0) - 1;
       const inserts: any[] = [];
       partsList.forEach(name => {
         inserts.push({
