@@ -585,7 +585,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                         orderId={order.id}
                         currentStatus={order.status_name}
                         hasUnreadNotes={order.has_unread_notes}
-                        onChanged={() => queryClient.invalidateQueries({ queryKey: ['workshop-orders'] })}
+                        onChanged={(name) => handleStatusChanged(order.id, name)}
                       />
                     </TableCell>
                     <TableCell className="text-right font-medium tabular-nums">
