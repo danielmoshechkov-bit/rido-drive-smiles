@@ -106,6 +106,18 @@ export default function WorkshopEmployeePortal() {
 
   useEffect(() => { if (!loading && isWorkshopEmployee) loadAll(); /* eslint-disable-next-line */ }, [loading, isWorkshopEmployee, records.length]);
 
+  // Realtime — when admin assigns / changes status, refresh immediately
+  useEffect(() => {
+    if (!userId) return;
+    const ch = supabase
+      .channel(`emp-portal-${userId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'workshop_order_assignments', filter: `employee_user_id=eq.${userId}` }, () => loadAll())
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'workshop_orders' }, () => loadAll())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+    // eslint-disable-next-line
+  }, [userId]);
+
   const claim = async (orderId: string, providerId: string) => {
     if (!userId) return;
     setBusy(orderId);
@@ -250,13 +262,6 @@ export default function WorkshopEmployeePortal() {
                 onClick={() => setStationFilter('all')}
                 className={`shrink-0 px-3 py-1 rounded-full text-xs border ${stationFilter === 'all' ? 'bg-primary text-primary-foreground border-primary' : 'bg-card hover:bg-muted'}`}
               >Wszystkie ({mine.length})</button>
-              <button
-                onClick={() => setStationFilter('mechanic')}
-                className={`shrink-0 px-3 py-1 rounded-full text-xs border inline-flex items-center gap-1 ${stationFilter === 'mechanic' ? 'bg-primary text-primary-foreground border-primary' : 'bg-card hover:bg-muted'}`}
-              >
-                <Wrench className="h-3 w-3" /> Warsztat
-                ({mine.filter(a => !a.workshop_orders?.station_id || myStations.every(s => s.id !== a.workshop_orders?.station_id)).length})
-              </button>
               {myStations.map(s => {
                 const n = mine.filter(a => a.workshop_orders?.station_id === s.id).length;
                 return (
@@ -272,11 +277,7 @@ export default function WorkshopEmployeePortal() {
           {(() => {
             const filtered = mine.filter(a => {
               if (stationFilter === 'all') return true;
-              const sid = a.workshop_orders?.station_id;
-              if (stationFilter === 'mechanic') {
-                return !sid || myStations.every(s => s.id !== sid);
-              }
-              return sid === stationFilter;
+              return a.workshop_orders?.station_id === stationFilter;
             });
             if (filtered.length === 0) {
               return <Empty text={mine.length === 0
@@ -301,12 +302,14 @@ export default function WorkshopEmployeePortal() {
                   : tone === 'red' ? 'bg-red-50/70 border-l-red-500'
                   : 'bg-muted/30 border-l-gray-300';
                 const isApproved = ['Zaakceptowano','Akceptacja klienta','Zgoda na naprawę','W trakcie naprawy','Dodatek do naprawy'].includes(st);
+                const hasNote = !!a.workshop_orders?.has_unread_notes;
                 const openOrder = () => {
-                  if (station) {
+                  // Station-note dialog ONLY when admin sent a note via status change.
+                  // Direct assignments (without note) open the full Karta zlecenia.
+                  if (station && hasNote) {
                     setStationOpenId(a.order_id);
                     setStationOpenName(station.name);
                   } else if (isApproved) {
-                    // approved → default to Lista prac
                     setWorkListOrderId(a.order_id);
                   } else {
                     setOpenPreviewMode(false);
