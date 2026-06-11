@@ -206,6 +206,34 @@ export default function WorkshopEmployeePortal() {
     pool: pool.length,
   };
 
+  // Build translation fields from all visible order descriptions + history items
+  const translationFields = useMemo<TranslatableField[]>(() => {
+    const out: TranslatableField[] = [];
+    const seen = new Set<string>();
+    const pushDesc = (oid: string, desc?: string) => {
+      if (!oid || !desc) return;
+      const key = `order:${oid}:description`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      out.push({ entity_type: 'order', entity_id: oid, field: 'description', text: desc });
+    };
+    mine.forEach((a: any) => pushDesc(a.order_id, a.workshop_orders?.description));
+    pool.forEach((o: any) => pushDesc(o.id, o.description));
+    history.forEach((a: any) => {
+      pushDesc(a.order_id, a.workshop_orders?.description);
+      (a.workshop_orders?.items || []).forEach((it: any) => {
+        if (!it?.id || !it?.name) return;
+        const k = `item:${it.id}:name`;
+        if (seen.has(k)) return;
+        seen.add(k);
+        out.push({ entity_type: 'item', entity_id: String(it.id), field: 'name', text: String(it.name) });
+      });
+    });
+    return out;
+  }, [mine, pool, history]);
+
+  const { t: tr } = useWorkshopTranslations(translationFields, 'pl');
+
   return (
     <div className="container max-w-5xl mx-auto p-3 md:p-6 space-y-5">
       {/* Header */}
