@@ -123,6 +123,11 @@ export default function WorkshopClientCard() {
       if (Object.keys(updates).length > 0) {
         await (supabase as any).from('workshop_orders').update(updates).eq('id', order.id);
       }
+      if (docType === 'cost_estimate') {
+        supabase.functions.invoke('workshop-notify-employee', {
+          body: { order_id: order.id, event: 'quote_accepted' },
+        }).catch(() => {});
+      }
       toast.success('Dokument został podpisany');
       setSigningDoc(null);
       setAccepted(false);
