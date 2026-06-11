@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
@@ -10,9 +11,11 @@ import { toast } from 'sonner';
 interface Props {
   orderId: string;
   providerId: string;
+  onAssignmentChanged?: (assigned: boolean) => void;
 }
 
-export const WorkshopAssignEmployeeDropdown = ({ orderId, providerId }: Props) => {
+export const WorkshopAssignEmployeeDropdown = ({ orderId, providerId, onAssignmentChanged }: Props) => {
+  const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [employees, setEmployees] = useState<any[]>([]);
@@ -49,6 +52,7 @@ export const WorkshopAssignEmployeeDropdown = ({ orderId, providerId }: Props) =
           .delete().eq('order_id', orderId).eq('employee_user_id', emp.user_id);
         if (error) throw error;
         toast.success(`Usunięto przydział: ${emp.name}`);
+        onAssignmentChanged?.(false);
       } else {
         const { data: { user } } = await supabase.auth.getUser();
         const { error } = await (supabase.from('workshop_order_assignments') as any)
@@ -61,6 +65,7 @@ export const WorkshopAssignEmployeeDropdown = ({ orderId, providerId }: Props) =
           });
         if (error) throw error;
         toast.success(`Przydzielono: ${emp.name}`);
+        onAssignmentChanged?.(true);
 
         // Centralized notification + SMS via edge function
         supabase.functions.invoke('workshop-notify-employee', {
@@ -68,6 +73,7 @@ export const WorkshopAssignEmployeeDropdown = ({ orderId, providerId }: Props) =
         }).catch(() => { /* best-effort */ });
 
       }
+      qc.invalidateQueries({ queryKey: ['workshop-orders'] });
       await load();
     } catch (e: any) {
       toast.error(e.message);
