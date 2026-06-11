@@ -486,6 +486,31 @@ export function EmployeeOrderCardDialog({
                 );
               })}
 
+              {!readOnly && (
+                <Button
+                  variant="outline"
+                  className="w-full h-11 border-dashed"
+                  onClick={() => setTasks(ts => {
+                    const nextIdx = ts.length + 1;
+                    const newBlock: TaskBlock = {
+                      key: `${nextIdx}. `,
+                      index: nextIdx,
+                      text: '',
+                      parts: [],
+                      time: '',
+                      cost: '',
+                      confirmed: false,
+                      expanded: true,
+                      existingPartIds: [],
+                      existingServiceId: null,
+                    };
+                    return ts.map(t => ({ ...t, expanded: false })).concat(newBlock);
+                  })}
+                >
+                  <Plus className="h-4 w-4 mr-2" /> Dodaj pozycję
+                </Button>
+              )}
+
               {readOnly && (
                 <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
                   Zlecenie z puli — kliknij <b>Akceptuj zlecenie</b>, aby przejąć je do siebie i zacząć diagnozę.
