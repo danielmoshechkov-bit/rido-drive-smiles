@@ -1196,5 +1196,35 @@
     "find": "Znajdź usługę",
     "chooseCategory": "Wybierz kategorię usługi, której szukasz",
     "searchPlaceholder": "Szukaj usługi, np. wymiana opon, sprzątanie..."
+  },
+  "cp": {
+    "mojeKonto": "Moje konto",
+    "dodajOgloszenie": "Dodaj ogłoszenie",
+    "wyloguj": "Wyloguj",
+    "tabs": {
+      "start": "Start",
+      "ogloszenia": "Ogłoszenia",
+      "mojeauta": "Moje auta",
+      "ksiegowosc": "Księgowość",
+      "ogladania": "Oglądania",
+      "wiadomosci": "Wiadomości",
+      "polecenia": "Polecenia",
+      "ustawienia": "Ustawienia",
+      "konta": "Wybierz moduł"
+    },
+    "start": {
+      "szukam": "Szukam",
+      "szukamDesc": "Przeglądaj oferty pojazdów, nieruchomości i usług",
+      "sprzedaje": "Sprzedaję",
+      "sprzedajeDesc": "Dodaj ogłoszenie w wybranej kategorii",
+      "wybierzModul": "Wybierz moduł",
+      "wybierzModulDesc": "Przełącz między modułami lub dodaj nowy"
+    },
+    "stats": {
+      "ogloszenia": "Ogłoszenia",
+      "wiadomosci": "Wiadomości",
+      "ulubione": "Ulubione",
+      "zapisane": "Zapisane wyszukiwania"
+    }
   }
 }
