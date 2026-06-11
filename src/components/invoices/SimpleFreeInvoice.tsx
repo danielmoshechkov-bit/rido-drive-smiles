@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -449,7 +449,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
           const month = parseInt(format(now, 'MM'));
           const prefix = `FV/${year}/${String(month).padStart(2, '0')}/`;
 
-          const { data: nextNum, error: peekErr } = await supabase
+          const { data: nextNum, error: peekErr } = await (supabase as any)
             .rpc('peek_next_invoice_number', { p_user_id: session.user.id, p_year: year, p_month: month });
 
           const preview = `${prefix}${String(peekErr || !nextNum ? 1 : nextNum).padStart(3, '0')}`;
