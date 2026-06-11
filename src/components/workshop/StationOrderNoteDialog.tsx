@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, CheckCircle2, History, Car, StickyNote } from 'lucide-react';
+import { Loader2, CheckCircle2, History, Car, StickyNote, Play } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Props {
@@ -54,24 +54,56 @@ export function StationOrderNoteDialog({ open, onOpenChange, orderId, stationNam
     })();
   }, [open, orderId, stationName]);
 
-  const finish = async () => {
-    if (!orderId) return;
+  // Worker accepts the handover and starts the work on this station.
+  // Status becomes "<Station> — realizacja".
+  const start = async () => {
+    if (!orderId || !stationName) return;
     setBusy(true);
     try {
+      const newStatus = `${stationName} — realizacja`;
       await (supabase.from('workshop_orders') as any)
-        .update({ status_name: 'Gotowy do odbioru', has_unread_notes: false, station_id: null })
+        .update({ status_name: newStatus, has_unread_notes: false })
         .eq('id', orderId);
       const { data: { user } } = await supabase.auth.getUser();
       await (supabase.from('workshop_order_events') as any).insert({
         order_id: orderId,
         provider_id: order?.provider_id,
         event_type: 'status_change',
-        to_status: 'Gotowy do odbioru',
+        to_status: newStatus,
+        note: `Pracownik przyjął zlecenie na stanowisku: ${stationName}`,
+        actor_user_id: user?.id || null,
+        actor_role: 'employee',
+      });
+      toast.success(`Rozpoczęto: ${stationName}`);
+      onDone?.();
+      onOpenChange(false);
+    } catch (e: any) {
+      toast.error(e.message || 'Błąd');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Worker finishes the work on this station.
+  // Status becomes "<Station> — gotowe" and admin is notified.
+  const finish = async () => {
+    if (!orderId) return;
+    setBusy(true);
+    try {
+      const doneStatus = stationName ? `${stationName} — gotowe` : 'Gotowy do odbioru';
+      await (supabase.from('workshop_orders') as any)
+        .update({ status_name: doneStatus, has_unread_notes: false, station_id: null })
+        .eq('id', orderId);
+      const { data: { user } } = await supabase.auth.getUser();
+      await (supabase.from('workshop_order_events') as any).insert({
+        order_id: orderId,
+        provider_id: order?.provider_id,
+        event_type: 'status_change',
+        to_status: doneStatus,
         note: stationName ? `Zakończono na stanowisku: ${stationName}` : null,
         actor_user_id: user?.id || null,
         actor_role: 'employee',
       });
-      // notify admin
       supabase.functions.invoke('workshop-notify-employee', {
         body: { order_id: orderId, event: 'order_ready' },
       }).catch(() => {});
@@ -84,6 +116,8 @@ export function StationOrderNoteDialog({ open, onOpenChange, orderId, stationNam
       setBusy(false);
     }
   };
+
+  const inProgress = (order?.status_name || '').toLowerCase().includes('realizacj');
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -157,10 +191,17 @@ export function StationOrderNoteDialog({ open, onOpenChange, orderId, stationNam
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
             Zamknij
           </Button>
-          <Button onClick={finish} disabled={busy || loading} className="bg-emerald-600 hover:bg-emerald-700">
-            {busy ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
-            Zakończ — przekaż do administratora
-          </Button>
+          {!inProgress ? (
+            <Button onClick={start} disabled={busy || loading} className="bg-blue-600 hover:bg-blue-700">
+              {busy ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Play className="h-4 w-4 mr-2" />}
+              Przyjmij — rozpocznij {stationName || ''}
+            </Button>
+          ) : (
+            <Button onClick={finish} disabled={busy || loading} className="bg-emerald-600 hover:bg-emerald-700">
+              {busy ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+              Gotowe — {stationName || 'zakończ'}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
