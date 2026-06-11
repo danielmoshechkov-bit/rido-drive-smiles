@@ -405,21 +405,14 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
       <div className="md:hidden space-y-3">
         <div className="flex items-center justify-between">
           <span className="font-bold text-lg">{order.order_number}</span>
-          <Select value={order.status_name} onValueChange={changeStatus}>
-            <SelectTrigger className="w-auto h-8 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {statuses.map((s: any) => (
-                <SelectItem key={s.id} value={s.name}>
-                  <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: s.color }} />
-                    {s.name}
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <WorkshopStatusPicker
+            providerId={providerId}
+            orderId={order.id}
+            currentStatus={order.status_name}
+            hasUnreadNotes={order.has_unread_notes}
+            onChanged={(name) => { order.status_name = name; order.has_unread_notes = true; }}
+            size="xs"
+          />
         </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
           {order.created_at && <span>{format(new Date(order.created_at), 'dd.MM.yyyy')}</span>}
