@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { ArrowLeft, Shield, Building, Phone, Mail, FileText, MapPin } from "lucide-react";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { useTranslation } from "react-i18next";
 
 interface FormData {
   email: string;
@@ -38,6 +39,7 @@ const INITIAL_FORM: FormData = {
 
 export default function InsuranceAgentRegister() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [formData, setFormData] = useState<FormData>(INITIAL_FORM);
@@ -75,24 +77,24 @@ export default function InsuranceAgentRegister() {
   const validate = (): boolean => {
     const newErrors: Partial<Record<keyof FormData, string>> = {};
 
-    if (!formData.email) newErrors.email = "Email jest wymagany";
+    if (!formData.email) newErrors.email = t('register.emailRequired');
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = "Nieprawidłowy format email";
+      newErrors.email = t('insAgentRegister.emailInvalid');
     }
 
-    if (!formData.password) newErrors.password = "Hasło jest wymagane";
+    if (!formData.password) newErrors.password = t('insAgentRegister.passwordRequired');
     else if (formData.password.length < 6) {
-      newErrors.password = "Hasło musi mieć minimum 6 znaków";
+      newErrors.password = t('register.passwordMinLength');
     }
 
     if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = "Hasła muszą być identyczne";
+      newErrors.confirmPassword = t('insAgentRegister.passwordsMismatch');
     }
 
-    if (!formData.companyName) newErrors.companyName = "Nazwa firmy jest wymagana";
-    if (!formData.phone) newErrors.phone = "Telefon jest wymagany";
-    if (!formData.acceptTerms) newErrors.acceptTerms = "Musisz zaakceptować regulamin";
-    if (!formData.acceptRodo) newErrors.acceptRodo = "Musisz wyrazić zgodę RODO";
+    if (!formData.companyName) newErrors.companyName = t('fleetRegister.companyNameRequired');
+    if (!formData.phone) newErrors.phone = t('fleetRegister.phoneRequired');
+    if (!formData.acceptTerms) newErrors.acceptTerms = t('insAgentRegister.termsRequired');
+    if (!formData.acceptRodo) newErrors.acceptRodo = t('insAgentRegister.rodoRequired');
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -117,7 +119,7 @@ export default function InsuranceAgentRegister() {
       });
 
       if (authError) throw authError;
-      if (!authData.user) throw new Error("Nie udało się utworzyć konta");
+      if (!authData.user) throw new Error(t('insAgentRegister.accountCreateFailed'));
 
       // 2. Create insurance agent profile
       const { error: agentError } = await supabase
@@ -151,11 +153,11 @@ export default function InsuranceAgentRegister() {
         console.warn("Role assignment skipped:", roleErr);
       }
 
-      toast.success("Konto utworzone! Sprawdź email, aby potwierdzić rejestrację.");
+      toast.success(t('insAgentRegister.accountCreated'));
       navigate("/register-success");
     } catch (error: any) {
       console.error("Registration error:", error);
-      toast.error(error?.message || "Błąd podczas rejestracji");
+      toast.error(error?.message || t('insAgentRegister.registrationError'));
     } finally {
       setLoading(false);
     }
@@ -181,7 +183,7 @@ export default function InsuranceAgentRegister() {
           className="mb-6"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Wróć
+          {t('common.goBack')}
         </Button>
 
         <Card>
@@ -189,9 +191,9 @@ export default function InsuranceAgentRegister() {
             <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
               <Shield className="h-8 w-8 text-primary" />
             </div>
-            <CardTitle className="text-2xl">Rejestracja Agenta Ubezpieczeń</CardTitle>
+            <CardTitle className="text-2xl">{t('insAgentRegister.title')}</CardTitle>
             <CardDescription>
-              Dołącz do sieci agentów GetRido i otrzymuj powiadomienia o kończących się polisach
+              {t('insAgentRegister.subtitle')}
             </CardDescription>
           </CardHeader>
 
@@ -201,18 +203,18 @@ export default function InsuranceAgentRegister() {
               <div className="space-y-4">
                 <h3 className="text-lg font-medium flex items-center gap-2">
                   <Mail className="h-5 w-5 text-muted-foreground" />
-                  Dane logowania
+                  {t('insAgentRegister.loginData')}
                 </h3>
                 
                 <div className="grid gap-4">
                   <div>
-                    <Label htmlFor="email">Email *</Label>
+                    <Label htmlFor="email">{t('insAgentRegister.email')} *</Label>
                     <Input
                       id="email"
                       type="email"
                       value={formData.email}
                       onChange={(e) => updateField("email", e.target.value)}
-                      placeholder="agent@firma.pl"
+                      placeholder={t('insAgentRegister.emailPlaceholder')}
                       className={errors.email ? "border-destructive" : ""}
                     />
                     {errors.email && <p className="text-sm text-destructive mt-1">{errors.email}</p>}
@@ -220,19 +222,19 @@ export default function InsuranceAgentRegister() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="password">Hasło *</Label>
+                      <Label htmlFor="password">{t('register.password')} *</Label>
                       <Input
                         id="password"
                         type="password"
                         value={formData.password}
                         onChange={(e) => updateField("password", e.target.value)}
-                        placeholder="Min. 6 znaków"
+                        placeholder={t('insAgentRegister.passwordPlaceholder')}
                         className={errors.password ? "border-destructive" : ""}
                       />
                       {errors.password && <p className="text-sm text-destructive mt-1">{errors.password}</p>}
                     </div>
                     <div>
-                      <Label htmlFor="confirmPassword">Powtórz hasło *</Label>
+                      <Label htmlFor="confirmPassword">{t('register.confirmPassword')} *</Label>
                       <Input
                         id="confirmPassword"
                         type="password"
@@ -250,17 +252,17 @@ export default function InsuranceAgentRegister() {
               <div className="space-y-4 border-t pt-6">
                 <h3 className="text-lg font-medium flex items-center gap-2">
                   <Building className="h-5 w-5 text-muted-foreground" />
-                  Dane firmy
+                  {t('fleetRegister.companyData')}
                 </h3>
                 
                 <div className="grid gap-4">
                   <div>
-                    <Label htmlFor="companyName">Nazwa firmy / agencji *</Label>
+                    <Label htmlFor="companyName">{t('insAgentRegister.companyNameLabel')} *</Label>
                     <Input
                       id="companyName"
                       value={formData.companyName}
                       onChange={(e) => updateField("companyName", e.target.value)}
-                      placeholder="ABC Ubezpieczenia Sp. z o.o."
+                      placeholder={t('insAgentRegister.companyNamePlaceholder')}
                       className={errors.companyName ? "border-destructive" : ""}
                     />
                     {errors.companyName && <p className="text-sm text-destructive mt-1">{errors.companyName}</p>}
@@ -268,7 +270,7 @@ export default function InsuranceAgentRegister() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="nip">NIP</Label>
+                      <Label htmlFor="nip">{t('fleetRegister.nip')}</Label>
                       <Input
                         id="nip"
                         value={formData.nip}
@@ -277,12 +279,12 @@ export default function InsuranceAgentRegister() {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="licenseNumber">Nr licencji agenta</Label>
+                      <Label htmlFor="licenseNumber">{t('insAgentRegister.licenseNumber')}</Label>
                       <Input
                         id="licenseNumber"
                         value={formData.licenseNumber}
                         onChange={(e) => updateField("licenseNumber", e.target.value)}
-                        placeholder="Opcjonalnie"
+                        placeholder={t('insAgentRegister.optional')}
                       />
                     </div>
                   </div>
@@ -293,30 +295,30 @@ export default function InsuranceAgentRegister() {
               <div className="space-y-4 border-t pt-6">
                 <h3 className="text-lg font-medium flex items-center gap-2">
                   <Phone className="h-5 w-5 text-muted-foreground" />
-                  Dane kontaktowe
+                  {t('insAgentRegister.contactData')}
                 </h3>
                 
                 <div className="grid gap-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="phone">Telefon *</Label>
+                      <Label htmlFor="phone">{t('register.phone')} *</Label>
                       <Input
                         id="phone"
                         type="tel"
                         value={formData.phone}
                         onChange={(e) => updateField("phone", e.target.value)}
-                        placeholder="+48 123 456 789"
+                        placeholder={t('register.phonePlaceholder')}
                         className={errors.phone ? "border-destructive" : ""}
                       />
                       {errors.phone && <p className="text-sm text-destructive mt-1">{errors.phone}</p>}
                     </div>
                     <div>
-                      <Label htmlFor="address">Adres biura</Label>
+                      <Label htmlFor="address">{t('insAgentRegister.officeAddress')}</Label>
                       <Input
                         id="address"
                         value={formData.address}
                         onChange={(e) => updateField("address", e.target.value)}
-                        placeholder="ul. Przykładowa 1, 00-000 Miasto"
+                        placeholder={t('insAgentRegister.officeAddressPlaceholder')}
                       />
                     </div>
                   </div>
@@ -327,7 +329,7 @@ export default function InsuranceAgentRegister() {
               <div className="space-y-4 border-t pt-6">
                 <h3 className="text-lg font-medium flex items-center gap-2">
                   <FileText className="h-5 w-5 text-muted-foreground" />
-                  Zgody
+                  {t('insAgentRegister.consents')}
                 </h3>
 
                 <div className="space-y-3">
@@ -339,11 +341,11 @@ export default function InsuranceAgentRegister() {
                       className={errors.acceptTerms ? "border-destructive" : ""}
                     />
                     <label htmlFor="acceptTerms" className="text-sm leading-relaxed cursor-pointer">
-                      Akceptuję{" "}
+                      {t('register.acceptPrefix')}{" "}
                       <a href="/prawne?tab=regulamin" target="_blank" className="text-primary hover:underline">
-                        regulamin
+                        {t('register.termsLink')}
                       </a>{" "}
-                      serwisu GetRido dla agentów ubezpieczeń *
+                      {t('insAgentRegister.termsSuffix')} *
                     </label>
                   </div>
                   {errors.acceptTerms && <p className="text-sm text-destructive ml-6">{errors.acceptTerms}</p>}
@@ -356,11 +358,11 @@ export default function InsuranceAgentRegister() {
                       className={errors.acceptRodo ? "border-destructive" : ""}
                     />
                     <label htmlFor="acceptRodo" className="text-sm leading-relaxed cursor-pointer">
-                      Wyrażam zgodę na przetwarzanie moich danych osobowych zgodnie z{" "}
+                      {t('insAgentRegister.rodoPrefix')}{" "}
                       <a href="/prawne?tab=polityka" target="_blank" className="text-primary hover:underline">
-                        polityką prywatności
+                        {t('insAgentRegister.privacyLink')}
                       </a>{" "}
-                      w celu otrzymywania powiadomień o kończących się polisach *
+                      {t('insAgentRegister.rodoSuffix')} *
                     </label>
                   </div>
                   {errors.acceptRodo && <p className="text-sm text-destructive ml-6">{errors.acceptRodo}</p>}
@@ -368,7 +370,7 @@ export default function InsuranceAgentRegister() {
               </div>
 
               <Button type="submit" className="w-full" size="lg" disabled={loading}>
-                {loading ? "Rejestracja..." : "Zarejestruj się jako Agent"}
+                {loading ? t('register.registering') : t('insAgentRegister.submitButton')}
               </Button>
             </form>
           </CardContent>

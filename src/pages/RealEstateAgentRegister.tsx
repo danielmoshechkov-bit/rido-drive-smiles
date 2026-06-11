@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { useTranslation } from "react-i18next";
 
 interface FormData {
   // Company
@@ -63,14 +64,15 @@ const INITIAL_FORM_DATA: FormData = {
 };
 
 const STEPS = [
-  { title: "Dane firmy", icon: Building2 },
-  { title: "Właściciel", icon: User },
-  { title: "Opiekun", icon: Users },
-  { title: "Potwierdzenie", icon: FileCheck },
+  { titleKey: "fleetRegister.companyData", icon: Building2 },
+  { titleKey: "reAgentRegister.stepOwner", icon: User },
+  { titleKey: "common.supervisor", icon: Users },
+  { titleKey: "reAgentRegister.stepConfirmation", icon: FileCheck },
 ];
 
 export default function RealEstateAgentRegister() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<FormData>(INITIAL_FORM_DATA);
   const [loading, setLoading] = useState(false);
@@ -85,7 +87,7 @@ export default function RealEstateAgentRegister() {
       const { data: { session }, error } = await supabase.auth.getSession();
       
       if (error || !session) {
-        toast.error("Musisz być zalogowany, aby zarejestrować agencję.");
+        toast.error(t('reAgentRegister.mustBeLoggedIn'));
         navigate("/auth");
         return;
       }
@@ -98,7 +100,7 @@ export default function RealEstateAgentRegister() {
         .maybeSingle();
 
       if (existingAgent) {
-        toast.info("Masz już zarejestrowaną agencję.");
+        toast.info(t('reAgentRegister.alreadyRegistered'));
         navigate("/nieruchomosci/agent/panel");
         return;
       }
@@ -147,29 +149,29 @@ export default function RealEstateAgentRegister() {
     const newErrors: Partial<Record<keyof FormData, string>> = {};
 
     if (step === 1) {
-      if (!formData.companyName.trim()) newErrors.companyName = "Nazwa firmy jest wymagana";
+      if (!formData.companyName.trim()) newErrors.companyName = t('fleetRegister.companyNameRequired');
       if (!formData.companyNip.trim()) {
-        newErrors.companyNip = "NIP jest wymagany";
+        newErrors.companyNip = t('fleetRegister.nipRequired');
       } else {
         const nipClean = formData.companyNip.replace(/[- ]/g, "");
         if (!/^\d{10}$/.test(nipClean)) {
-          newErrors.companyNip = "NIP musi mieć 10 cyfr";
+          newErrors.companyNip = t('fleetRegister.nipFormat');
         }
       }
-      if (!formData.companyStreet.trim()) newErrors.companyStreet = "Ulica jest wymagana";
-      if (!formData.companyBuildingNumber.trim()) newErrors.companyBuildingNumber = "Nr budynku jest wymagany";
-      if (!formData.companyCity.trim()) newErrors.companyCity = "Miasto jest wymagane";
+      if (!formData.companyStreet.trim()) newErrors.companyStreet = t('fleetRegister.streetRequired');
+      if (!formData.companyBuildingNumber.trim()) newErrors.companyBuildingNumber = t('reAgentRegister.buildingNumberRequired');
+      if (!formData.companyCity.trim()) newErrors.companyCity = t('fleetRegister.cityRequired');
       if (!formData.companyPostalCode.trim()) {
-        newErrors.companyPostalCode = "Kod pocztowy jest wymagany";
+        newErrors.companyPostalCode = t('reAgentRegister.postalCodeRequired');
       } else if (!/^\d{2}-\d{3}$/.test(formData.companyPostalCode)) {
-        newErrors.companyPostalCode = "Format: XX-XXX";
+        newErrors.companyPostalCode = t('reAgentRegister.postalCodeFormat');
       }
     }
 
     if (step === 2) {
-      if (!formData.ownerFirstName.trim()) newErrors.ownerFirstName = "Imię jest wymagane";
-      if (!formData.ownerLastName.trim()) newErrors.ownerLastName = "Nazwisko jest wymagane";
-      if (!formData.ownerPhone.trim()) newErrors.ownerPhone = "Telefon jest wymagany";
+      if (!formData.ownerFirstName.trim()) newErrors.ownerFirstName = t('register.firstNameRequired');
+      if (!formData.ownerLastName.trim()) newErrors.ownerLastName = t('reAgentRegister.lastNameRequired');
+      if (!formData.ownerPhone.trim()) newErrors.ownerPhone = t('fleetRegister.phoneRequired');
     }
 
     // Step 3 - guardian is optional, only validate if any field is filled
@@ -178,14 +180,14 @@ export default function RealEstateAgentRegister() {
                                   formData.guardianPhone || formData.guardianEmail;
       if (hasAnyGuardianData) {
         if (formData.guardianEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.guardianEmail)) {
-          newErrors.guardianEmail = "Nieprawidłowy format email";
+          newErrors.guardianEmail = t('reAgentRegister.emailInvalid');
         }
       }
     }
 
     if (step === 4) {
-      if (!formData.termsAccepted) newErrors.termsAccepted = "Musisz zaakceptować regulamin";
-      if (!formData.exclusivityAccepted) newErrors.exclusivityAccepted = "Musisz zaakceptować oświadczenie o wyłączności";
+      if (!formData.termsAccepted) newErrors.termsAccepted = t('reAgentRegister.termsRequired');
+      if (!formData.exclusivityAccepted) newErrors.exclusivityAccepted = t('reAgentRegister.exclusivityRequired');
     }
 
     setErrors(newErrors);
@@ -218,7 +220,7 @@ export default function RealEstateAgentRegister() {
     for (let i = 1; i < stepNumber; i++) {
       if (!validateStep(i)) {
         setCurrentStep(i);
-        toast.error(`Uzupełnij wymagane pola w kroku: ${STEPS[i - 1].title}`);
+        toast.error(t('reAgentRegister.fillRequiredInStep', { step: t(STEPS[i - 1].titleKey) }));
         return;
       }
     }
@@ -235,7 +237,7 @@ export default function RealEstateAgentRegister() {
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
       if (sessionError || !session) {
-        toast.error("Sesja wygasła. Zaloguj się ponownie.");
+        toast.error(t('reAgentRegister.sessionExpired'));
         navigate("/auth");
         return;
       }
@@ -256,7 +258,7 @@ export default function RealEstateAgentRegister() {
         .maybeSingle();
 
       if (existingAgent) {
-        toast.error("Masz już zarejestrowaną agencję.");
+        toast.error(t('reAgentRegister.alreadyRegistered'));
         navigate("/nieruchomosci/agent/panel");
         return;
       }
@@ -304,15 +306,15 @@ export default function RealEstateAgentRegister() {
           .from("real_estate_agents")
           .delete()
           .eq("user_id", user.id);
-        throw new Error("Nie udało się dodać uprawnień. Spróbuj ponownie.");
+        throw new Error(t('reAgentRegister.rolePermissionFailed'));
       }
 
-      toast.success("Agencja została zarejestrowana! Oczekuj na weryfikację.");
+      toast.success(t('reAgentRegister.registrationSuccess'));
       navigate("/nieruchomosci/agent/panel");
-      
+
     } catch (error: any) {
       console.error("Registration error:", error);
-      toast.error(error.message || "Błąd rejestracji. Spróbuj ponownie.");
+      toast.error(error.message || t('register.errorRetry'));
     } finally {
       setLoading(false);
     }
@@ -325,7 +327,7 @@ export default function RealEstateAgentRegister() {
           <div className="space-y-4">
             {/* NIP Lookup - auto-fills all company fields */}
             <NipLookupField
-              label="Wyszukaj firmę po NIP"
+              label={t('reAgentRegister.nipLookupLabel')}
               onCompanyFound={(data: CompanyData) => {
                 updateField("companyNip", data.nip);
                 updateField("companyName", data.name);
@@ -339,12 +341,12 @@ export default function RealEstateAgentRegister() {
             />
 
             <div>
-              <Label htmlFor="companyName">Nazwa firmy *</Label>
+              <Label htmlFor="companyName">{t('fleetRegister.companyName')} *</Label>
               <Input
                 id="companyName"
                 value={formData.companyName}
                 onChange={(e) => updateField("companyName", e.target.value)}
-                placeholder="Pełna nazwa firmy"
+                placeholder={t('reAgentRegister.companyNamePlaceholder')}
                 className={errors.companyName ? "border-destructive" : ""}
               />
               {errors.companyName && (
@@ -353,21 +355,21 @@ export default function RealEstateAgentRegister() {
             </div>
 
             <div>
-              <Label htmlFor="companyShortName">Nazwa skrócona</Label>
+              <Label htmlFor="companyShortName">{t('fleetRegister.companyShortName')}</Label>
               <Input
                 id="companyShortName"
                 value={formData.companyShortName}
                 onChange={(e) => updateField("companyShortName", e.target.value)}
-                placeholder="Np. ABC Nieruchomości"
+                placeholder={t('reAgentRegister.companyShortNamePlaceholder')}
               />
               <p className="text-muted-foreground text-xs mt-1">
-                Widoczna dla użytkowników portalu
+                {t('reAgentRegister.companyShortNameHint')}
               </p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="companyNip">NIP *</Label>
+                <Label htmlFor="companyNip">{t('fleetRegister.nip')} *</Label>
                 <Input
                   id="companyNip"
                   value={formData.companyNip}
@@ -394,12 +396,12 @@ export default function RealEstateAgentRegister() {
             </div>
 
             <div>
-              <Label htmlFor="companyStreet">Ulica *</Label>
+              <Label htmlFor="companyStreet">{t('fleetRegister.street')} *</Label>
               <Input
                 id="companyStreet"
                 value={formData.companyStreet}
                 onChange={(e) => updateField("companyStreet", e.target.value)}
-                placeholder="Nazwa ulicy"
+                placeholder={t('reAgentRegister.streetPlaceholder')}
                 className={errors.companyStreet ? "border-destructive" : ""}
               />
               {errors.companyStreet && (
@@ -409,7 +411,7 @@ export default function RealEstateAgentRegister() {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="companyBuildingNumber">Nr budynku *</Label>
+                <Label htmlFor="companyBuildingNumber">{t('reAgentRegister.buildingNumber')} *</Label>
                 <Input
                   id="companyBuildingNumber"
                   value={formData.companyBuildingNumber}
@@ -422,7 +424,7 @@ export default function RealEstateAgentRegister() {
                 )}
               </div>
               <div>
-                <Label htmlFor="companyApartmentNumber">Nr lokalu</Label>
+                <Label htmlFor="companyApartmentNumber">{t('fleetRegister.apartmentNumber')}</Label>
                 <Input
                   id="companyApartmentNumber"
                   value={formData.companyApartmentNumber}
@@ -434,7 +436,7 @@ export default function RealEstateAgentRegister() {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="companyCity">Miasto *</Label>
+                <Label htmlFor="companyCity">{t('register.city')} *</Label>
                 <Input
                   id="companyCity"
                   value={formData.companyCity}
@@ -447,7 +449,7 @@ export default function RealEstateAgentRegister() {
                 )}
               </div>
               <div>
-                <Label htmlFor="companyPostalCode">Kod pocztowy *</Label>
+                <Label htmlFor="companyPostalCode">{t('fleetRegister.postalCode')} *</Label>
                 <Input
                   id="companyPostalCode"
                   value={formData.companyPostalCode}
@@ -471,10 +473,10 @@ export default function RealEstateAgentRegister() {
               <Mail className="h-4 w-4" />
               <AlertDescription className="flex items-center justify-between gap-2 flex-wrap">
                 <div>
-                  Email właściciela: <strong>{loggedInEmail}</strong>
+                  {t('reAgentRegister.ownerEmailLabel')} <strong>{loggedInEmail}</strong>
                   <br />
                   <span className="text-muted-foreground text-xs">
-                    (pobrane z Twojego zalogowanego konta)
+                    {t('reAgentRegister.emailFromAccount')}
                   </span>
                 </div>
                 <Button 
@@ -486,19 +488,19 @@ export default function RealEstateAgentRegister() {
                     navigate("/auth");
                   }}
                 >
-                  Zmień konto
+                  {t('reAgentRegister.changeAccount')}
                 </Button>
               </AlertDescription>
             </Alert>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="ownerFirstName">Imię *</Label>
+                <Label htmlFor="ownerFirstName">{t('register.firstName')} *</Label>
                 <Input
                   id="ownerFirstName"
                   value={formData.ownerFirstName}
                   onChange={(e) => updateField("ownerFirstName", e.target.value)}
-                  placeholder="Jan"
+                  placeholder={t('register.firstNameExample')}
                   className={errors.ownerFirstName ? "border-destructive" : ""}
                 />
                 {errors.ownerFirstName && (
@@ -506,12 +508,12 @@ export default function RealEstateAgentRegister() {
                 )}
               </div>
               <div>
-                <Label htmlFor="ownerLastName">Nazwisko *</Label>
+                <Label htmlFor="ownerLastName">{t('register.lastName')} *</Label>
                 <Input
                   id="ownerLastName"
                   value={formData.ownerLastName}
                   onChange={(e) => updateField("ownerLastName", e.target.value)}
-                  placeholder="Kowalski"
+                  placeholder={t('register.lastNameExample')}
                   className={errors.ownerLastName ? "border-destructive" : ""}
                 />
                 {errors.ownerLastName && (
@@ -521,12 +523,12 @@ export default function RealEstateAgentRegister() {
             </div>
 
             <div>
-              <Label htmlFor="ownerPhone">Telefon *</Label>
+              <Label htmlFor="ownerPhone">{t('register.phone')} *</Label>
               <Input
                 id="ownerPhone"
                 value={formData.ownerPhone}
                 onChange={(e) => updateField("ownerPhone", e.target.value)}
-                placeholder="+48 123 456 789"
+                placeholder={t('register.phonePlaceholder')}
                 className={errors.ownerPhone ? "border-destructive" : ""}
               />
               {errors.ownerPhone && (
@@ -542,49 +544,49 @@ export default function RealEstateAgentRegister() {
             <Alert>
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                Dane opiekuna są opcjonalne. Opiekun to osoba, którą możemy kontaktować w sprawach technicznych.
+                {t('reAgentRegister.guardianOptionalInfo')}
               </AlertDescription>
             </Alert>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="guardianFirstName">Imię</Label>
+                <Label htmlFor="guardianFirstName">{t('register.firstName')}</Label>
                 <Input
                   id="guardianFirstName"
                   value={formData.guardianFirstName}
                   onChange={(e) => updateField("guardianFirstName", e.target.value)}
-                  placeholder="Anna"
+                  placeholder={t('fleetRegister.driverNameExample')}
                 />
               </div>
               <div>
-                <Label htmlFor="guardianLastName">Nazwisko</Label>
+                <Label htmlFor="guardianLastName">{t('register.lastName')}</Label>
                 <Input
                   id="guardianLastName"
                   value={formData.guardianLastName}
                   onChange={(e) => updateField("guardianLastName", e.target.value)}
-                  placeholder="Nowak"
+                  placeholder={t('reAgentRegister.guardianLastNameExample')}
                 />
               </div>
             </div>
 
             <div>
-              <Label htmlFor="guardianPhone">Telefon</Label>
+              <Label htmlFor="guardianPhone">{t('register.phone')}</Label>
               <Input
                 id="guardianPhone"
                 value={formData.guardianPhone}
                 onChange={(e) => updateField("guardianPhone", e.target.value)}
-                placeholder="+48 987 654 321"
+                placeholder={t('reAgentRegister.guardianPhoneExample')}
               />
             </div>
 
             <div>
-              <Label htmlFor="guardianEmail">Email</Label>
+              <Label htmlFor="guardianEmail">{t('reAgentRegister.emailLabel')}</Label>
               <Input
                 id="guardianEmail"
                 type="email"
                 value={formData.guardianEmail}
                 onChange={(e) => updateField("guardianEmail", e.target.value)}
-                placeholder="anna.nowak@firma.pl"
+                placeholder={t('reAgentRegister.guardianEmailExample')}
                 className={errors.guardianEmail ? "border-destructive" : ""}
               />
               {errors.guardianEmail && (
@@ -599,14 +601,14 @@ export default function RealEstateAgentRegister() {
           <div className="space-y-6">
             {/* Summary */}
             <div className="space-y-4">
-              <h3 className="font-semibold text-lg">Podsumowanie</h3>
+              <h3 className="font-semibold text-lg">{t('reAgentRegister.summary')}</h3>
               
               <div className="bg-muted/50 rounded-lg p-4 space-y-2">
                 <p className="font-medium">{formData.companyName}</p>
                 {formData.companyShortName && (
                   <p className="text-sm text-muted-foreground">({formData.companyShortName})</p>
                 )}
-                <p className="text-sm">NIP: {formData.companyNip}</p>
+                <p className="text-sm">{t('fleetRegister.nip')}: {formData.companyNip}</p>
                 <p className="text-sm">
                   {formData.companyStreet} {formData.companyBuildingNumber}
                   {formData.companyApartmentNumber && `/${formData.companyApartmentNumber}`}
@@ -615,7 +617,7 @@ export default function RealEstateAgentRegister() {
               </div>
 
               <div className="bg-muted/50 rounded-lg p-4 space-y-1">
-                <p className="font-medium">Właściciel</p>
+                <p className="font-medium">{t('reAgentRegister.stepOwner')}</p>
                 <p className="text-sm">{formData.ownerFirstName} {formData.ownerLastName}</p>
                 <p className="text-sm">{loggedInEmail}</p>
                 <p className="text-sm">{formData.ownerPhone}</p>
@@ -623,7 +625,7 @@ export default function RealEstateAgentRegister() {
 
               {(formData.guardianFirstName || formData.guardianLastName) && (
                 <div className="bg-muted/50 rounded-lg p-4 space-y-1">
-                  <p className="font-medium">Opiekun</p>
+                  <p className="font-medium">{t('common.supervisor')}</p>
                   <p className="text-sm">{formData.guardianFirstName} {formData.guardianLastName}</p>
                   {formData.guardianEmail && <p className="text-sm">{formData.guardianEmail}</p>}
                   {formData.guardianPhone && <p className="text-sm">{formData.guardianPhone}</p>}
@@ -635,9 +637,7 @@ export default function RealEstateAgentRegister() {
             <Alert variant="destructive" className="border-orange-500/50 bg-orange-500/10">
               <AlertTriangle className="h-4 w-4 text-orange-500" />
               <AlertDescription className="text-orange-700">
-                <strong>Ważne!</strong> Na portalu RIDO Nieruchomości możesz dodawać 
-                tylko ogłoszenia na wyłączność Twojej agencji. Złamanie tej zasady 
-                skutkuje blokadą konta.
+                <strong>{t('reAgentRegister.importantLabel')}</strong> {t('reAgentRegister.exclusivityWarning')}
               </AlertDescription>
             </Alert>
 
@@ -654,10 +654,10 @@ export default function RealEstateAgentRegister() {
                     htmlFor="termsAccepted"
                     className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                   >
-                    Akceptuję regulamin serwisu *
+                    {t('reAgentRegister.acceptTermsLabel')} *
                   </label>
                   <p className="text-xs text-muted-foreground">
-                    Zapoznałem się z regulaminem i akceptuję jego postanowienia.
+                    {t('reAgentRegister.acceptTermsHint')}
                   </p>
                   {errors.termsAccepted && (
                     <p className="text-destructive text-xs">{errors.termsAccepted}</p>
@@ -676,12 +676,10 @@ export default function RealEstateAgentRegister() {
                     htmlFor="exclusivityAccepted"
                     className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                   >
-                    Oświadczenie o wyłączności *
+                    {t('reAgentRegister.exclusivityLabel')} *
                   </label>
                   <p className="text-xs text-muted-foreground">
-                    Oświadczam, że publikowane przeze mnie oferty będą dotyczyć nieruchomości,
-                    do których posiadam wyłączne prawo prezentacji (umowa na wyłączność lub
-                    własność).
+                    {t('reAgentRegister.exclusivityHint')}
                   </p>
                   {errors.exclusivityAccepted && (
                     <p className="text-destructive text-xs">{errors.exclusivityAccepted}</p>
@@ -715,7 +713,7 @@ export default function RealEstateAgentRegister() {
             onClick={() => navigate("/nieruchomosci")}
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Wróć do giełdy
+            {t('reAgentRegister.backToMarketplace')}
           </Button>
           <LanguageSwitcher variant="outline" />
         </div>
@@ -734,7 +732,7 @@ export default function RealEstateAgentRegister() {
                   type="button"
                   onClick={() => goToStep(stepNumber)}
                   className="flex flex-col items-center group cursor-pointer"
-                  aria-label={`Przejdź do kroku: ${step.title}`}
+                  aria-label={t('reAgentRegister.goToStep', { step: t(step.titleKey) })}
                 >
                   <div
                     className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
@@ -750,7 +748,7 @@ export default function RealEstateAgentRegister() {
                   <span className={`text-xs mt-1 text-center hidden sm:block transition-colors ${
                     isCompleted ? "text-primary group-hover:underline" : ""
                   }`}>
-                    {step.title}
+                    {t(step.titleKey)}
                   </span>
                 </button>
                 {index < STEPS.length - 1 && (
@@ -770,7 +768,7 @@ export default function RealEstateAgentRegister() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               {React.createElement(STEPS[currentStep - 1].icon, { className: "h-5 w-5" })}
-              {STEPS[currentStep - 1].title}
+              {t(STEPS[currentStep - 1].titleKey)}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -783,16 +781,16 @@ export default function RealEstateAgentRegister() {
                 onClick={prevStep}
                 disabled={currentStep === 1}
               >
-                Wstecz
+                {t('fleetRegister.previous')}
               </Button>
 
               {currentStep < STEPS.length ? (
                 <Button onClick={nextStep}>
-                  Dalej
+                  {t('fleetRegister.next')}
                 </Button>
               ) : (
                 <Button onClick={handleSubmit} disabled={loading}>
-                  {loading ? "Rejestruję..." : "Zarejestruj agencję"}
+                  {loading ? t('reAgentRegister.registering') : t('reAgentRegister.submitButton')}
                 </Button>
               )}
             </div>
