@@ -365,18 +365,27 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
 
         {selectedIds.size > 0 && (
           <Button variant="destructive" size="sm" className="gap-1" onClick={async () => {
-            if (!confirm(`Czy na pewno chcesz usunąć ${selectedIds.size} zleceń?`)) return;
+            const count = selectedIds.size;
+            if (!confirm(`Czy na pewno chcesz usunąć ${count} zleceń?`)) return;
+            const ids = Array.from(selectedIds);
+            // Optimistic: remove from cache + clear selection immediately
+            queryClient.setQueriesData({ queryKey: ['workshop-orders'] }, (old: any) =>
+              Array.isArray(old) ? old.filter((o: any) => !ids.includes(o.id)) : old
+            );
+            setSelectedIds(new Set());
+            toast.success(`Usunięto ${count} zleceń`);
             try {
-              for (const id of selectedIds) {
-                await (supabase as any).from('workshop_order_items').delete().eq('order_id', id);
-                await (supabase as any).from('workshop_order_signatures').delete().eq('order_id', id);
+              await Promise.all(ids.map(async (id) => {
+                await Promise.all([
+                  (supabase as any).from('workshop_order_items').delete().eq('order_id', id),
+                  (supabase as any).from('workshop_order_signatures').delete().eq('order_id', id),
+                ]);
                 await (supabase as any).from('workshop_orders').delete().eq('id', id);
-              }
-              setSelectedIds(new Set());
-              toast.success(`Usunięto ${selectedIds.size} zleceń`);
-              queryClient.invalidateQueries({ queryKey: ['workshop-orders'] });
+              }));
             } catch (e: any) {
               toast.error(e.message || 'Błąd usuwania');
+            } finally {
+              queryClient.invalidateQueries({ queryKey: ['workshop-orders'] });
             }
           }}>
             <Trash2 className="h-4 w-4" /> Usuń
