@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { EmployeeOrderCardDialog } from '@/components/workshop/EmployeeOrderCardDialog';
 import { EmployeeNotificationsBell } from '@/components/workshop/EmployeeNotificationsBell';
+import { StationOrderNoteDialog } from '@/components/workshop/StationOrderNoteDialog';
 
 type Tab = 'home' | 'mine' | 'pool' | 'history';
 
