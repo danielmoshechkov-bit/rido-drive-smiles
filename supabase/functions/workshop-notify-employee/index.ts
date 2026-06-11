@@ -68,12 +68,17 @@ serve(async (req) => {
     );
 
     const { data: order } = await admin.from("workshop_orders")
-      .select("id, order_number, provider_id, status_name").eq("id", order_id).maybeSingle();
+      .select("id, order_number, provider_id, status_name, vehicle:workshop_vehicles(brand, model, license_plate)")
+      .eq("id", order_id).maybeSingle();
     if (!order) {
       return new Response(JSON.stringify({ error: "Order not found" }), {
         status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    const v: any = (order as any).vehicle;
+    const vehicleStr = v ? [v.brand, v.model, v.license_plate].filter(Boolean).join(' ') : '';
+    const appOrigin = Deno.env.get("APP_ORIGIN") || "https://getrido.pl";
+    const link = `${appOrigin}/pracownik-warsztat?order=${order_id}`;
 
     // Resolve targets
     const userIds = new Set<string>();
