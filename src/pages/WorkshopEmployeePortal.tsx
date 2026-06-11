@@ -491,10 +491,11 @@ export default function WorkshopEmployeePortal() {
                     </div>
                     {o.description && (
                       <div className="text-xs text-foreground/90 mt-0.5 line-clamp-2 whitespace-pre-wrap">
-                        {o.description}
+                        {tr('order', o.id, 'description', o.description)}
                       </div>
                     )}
                   </button>
+
 
                   <Badge variant="outline" className="text-xs border-amber-400 text-amber-700 bg-amber-100">Aktywne</Badge>
 
