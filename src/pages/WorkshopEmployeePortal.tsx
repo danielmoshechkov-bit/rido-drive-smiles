@@ -13,6 +13,7 @@ import {
 import { EmployeeOrderCardDialog } from '@/components/workshop/EmployeeOrderCardDialog';
 import { EmployeeNotificationsBell } from '@/components/workshop/EmployeeNotificationsBell';
 import { StationOrderNoteDialog } from '@/components/workshop/StationOrderNoteDialog';
+import { EmployeeWorkListDialog } from '@/components/workshop/EmployeeWorkListDialog';
 
 type Tab = 'home' | 'mine' | 'pool' | 'history';
 
