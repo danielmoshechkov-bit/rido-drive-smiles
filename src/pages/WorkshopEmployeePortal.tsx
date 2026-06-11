@@ -11,6 +11,7 @@ import {
   Inbox, History, CheckCircle2, Hourglass, HandHelping, Building2,
 } from 'lucide-react';
 import { EmployeeOrderCardDialog } from '@/components/workshop/EmployeeOrderCardDialog';
+import { EmployeeNotificationsBell } from '@/components/workshop/EmployeeNotificationsBell';
 
 type Tab = 'home' | 'mine' | 'pool' | 'history';
 
@@ -165,6 +166,7 @@ export default function WorkshopEmployeePortal() {
             {primaryProvider?.provider_name || 'Twój warsztat'} · {primaryProvider?.role?.toUpperCase()}
           </p>
         </div>
+        <EmployeeNotificationsBell />
       </div>
 
       {/* Quick stat tiles */}

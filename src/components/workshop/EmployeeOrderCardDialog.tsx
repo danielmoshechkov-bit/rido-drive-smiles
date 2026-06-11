@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import {
-  Loader2, X, Wrench, Package, Car, Save, ChevronDown, ChevronRight, HandHelping, Lock,
+  Loader2, X, Wrench, Package, Car, Save, ChevronDown, ChevronRight, HandHelping, Lock, CheckCircle2,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -43,6 +43,7 @@ export function EmployeeOrderCardDialog({
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [claiming, setClaiming] = useState(false);
+  const [marking, setMarking] = useState(false);
   const [order, setOrder] = useState<any>(null);
   const [vehicle, setVehicle] = useState<any>(null);
   const [tasks, setTasks] = useState<TaskBlock[]>([]);
@@ -184,6 +185,38 @@ export function EmployeeOrderCardDialog({
     setClaiming(true);
     try { await onClaim(); }
     finally { setClaiming(false); }
+  };
+
+  const handleMarkRepaired = async () => {
+    if (!orderId || readOnly) return;
+    if (!confirm('Oznaczyć zlecenie jako naprawione? Administrator otrzyma powiadomienie.')) return;
+    setMarking(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error } = await (supabase.from('workshop_orders') as any)
+        .update({
+          status_name: 'Naprawione',
+          repaired_at: new Date().toISOString(),
+          repaired_by_user_id: user?.id || null,
+        })
+        .eq('id', orderId);
+      if (error) throw error;
+      await (supabase.from('workshop_order_events') as any).insert({
+        order_id: orderId,
+        event_type: 'repaired',
+        actor_user_id: user?.id || null,
+        actor_name: employeeName || null,
+        actor_role: 'employee',
+        to_status: 'Naprawione',
+      });
+      toast.success('Oznaczono jako naprawione');
+      onSaved?.();
+      onOpenChange(false);
+    } catch (e: any) {
+      toast.error(e.message || 'Błąd');
+    } finally {
+      setMarking(false);
+    }
   };
 
   const handleSave = async () => {
@@ -441,10 +474,21 @@ export function EmployeeOrderCardDialog({
               </Button>
             )
           ) : (
-            <Button onClick={handleSave} disabled={saving || loading}>
-              {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-              Zapisz do zlecenia
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                onClick={handleMarkRepaired}
+                disabled={marking || saving || loading}
+                className="border-green-500 text-green-700 hover:bg-green-50"
+              >
+                {marking ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+                Oznacz jako naprawione
+              </Button>
+              <Button onClick={handleSave} disabled={saving || loading}>
+                {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                Zapisz do zlecenia
+              </Button>
+            </div>
           )}
         </DialogFooter>
       </DialogContent>
