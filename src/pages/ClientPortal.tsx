@@ -848,7 +848,7 @@ export default function ClientPortal() {
                       <MessageSquare className="h-6 w-6 text-primary" />
                     </div>
                     <p className="text-3xl font-bold">0</p>
-                    <p className="text-sm text-muted-foreground">Wiadomości</p>
+                    <p className="text-sm text-muted-foreground">{t('cp.stats.wiadomosci')}</p>
                   </CardContent>
                 </Card>
 
