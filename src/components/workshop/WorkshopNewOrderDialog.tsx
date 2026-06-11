@@ -518,25 +518,38 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                             <div className="text-sm font-semibold truncate">{clientLabel}</div>
                             {selectedClient.phone && <div className="text-xs text-muted-foreground">{selectedClient.phone}</div>}
                           </div>
-                          <Button variant="ghost" size="sm" onClick={() => { setShowClientList(v => !v); qc.invalidateQueries({ queryKey: ['workshop-clients'] }); }}>Zmień</Button>
+                          <Button variant="ghost" size="sm" onClick={() => { setShowClientList(v => !v); setClientSearch(''); qc.invalidateQueries({ queryKey: ['workshop-clients'] }); }}>Zmień</Button>
                         </div>
                         {showClientList && (
-                          <div className="absolute z-50 w-full mt-1 border-2 border-border rounded-lg bg-background shadow-xl max-h-60 overflow-y-auto">
-                            <button className="w-full text-left px-3 py-2.5 hover:bg-accent text-sm flex items-center gap-2 border-b font-medium" onClick={() => { setShowClientList(false); setShowAddClient(true); }}>
-                              <Plus className="h-4 w-4 text-primary" /> Utwórz nowego klienta
-                            </button>
-                            {filteredClients.map((c: any) => (
-                              <button key={c.id} className="w-full text-left px-3 py-2.5 hover:bg-accent text-sm transition-colors" onClick={() => { setClientId(c.id); setCreatedClientData(null); setShowClientList(false); setClientSearch(''); }}>
-                                <div className="flex items-center gap-2">
-                                  <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                                  <div>
-                                    <div className="font-medium">{c.client_type === 'company' ? c.company_name : `${c.first_name || ''} ${c.last_name || ''}`}</div>
-                                    {c.nip && <div className="text-xs text-muted-foreground">NIP: {c.nip}</div>}
-                                  </div>
-                                </div>
+                          <div className="absolute z-50 w-full mt-1 border-2 border-border rounded-lg bg-background shadow-xl max-h-72 overflow-hidden flex flex-col">
+                            <div className="p-2 border-b bg-muted/40">
+                              <Input
+                                autoFocus
+                                value={clientSearch}
+                                onChange={e => setClientSearch(e.target.value)}
+                                placeholder="Szukaj po imieniu, nazwisku, telefonie lub NIP…"
+                                className="h-9"
+                              />
+                            </div>
+                            <div className="overflow-y-auto">
+                              <button className="w-full text-left px-3 py-2.5 hover:bg-accent text-sm flex items-center gap-2 border-b font-medium" onClick={() => { setShowClientList(false); setShowAddClient(true); }}>
+                                <Plus className="h-4 w-4 text-primary" /> Utwórz nowego klienta
                               </button>
-                            ))}
-                            {filteredClients.length === 0 && <div className="px-3 py-3 text-sm text-muted-foreground text-center">Brak wyników</div>}
+                              {filteredClients.map((c: any) => (
+                                <button key={c.id} className="w-full text-left px-3 py-2.5 hover:bg-accent text-sm transition-colors" onClick={() => { setClientId(c.id); setCreatedClientData(null); setShowClientList(false); setClientSearch(''); }}>
+                                  <div className="flex items-center gap-2">
+                                    <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                                    <div className="min-w-0">
+                                      <div className="font-medium truncate">{c.client_type === 'company' ? c.company_name : `${c.first_name || ''} ${c.last_name || ''}`}</div>
+                                      <div className="text-xs text-muted-foreground truncate">
+                                        {c.phone || ''}{c.nip ? ` · NIP: ${c.nip}` : ''}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </button>
+                              ))}
+                              {filteredClients.length === 0 && <div className="px-3 py-3 text-sm text-muted-foreground text-center">Brak wyników</div>}
+                            </div>
                           </div>
                         )}
                       </div>
