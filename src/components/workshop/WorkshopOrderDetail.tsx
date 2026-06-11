@@ -443,7 +443,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
           {[
             { value: 'tasks', label: 'Wycena zlecenia' },
             { value: 'basic', label: 'Podstawowe' },
-            { value: 'findings', label: 'Od pracowników' },
+            { value: 'findings', label: 'Uwagi i historia' },
             { value: 'summary', label: 'Podsumowanie' },
             { value: 'schedule', label: 'Terminarz' },
             { value: 'files', label: 'Pliki' },
