@@ -764,8 +764,8 @@ export default function ClientPortal() {
                         <Search className="h-8 w-8 text-primary" />
                       </div>
                       <div>
-                        <h3 className="font-bold text-lg">Szukam</h3>
-                        <p className="text-sm text-muted-foreground">Przeglądaj oferty pojazdów, nieruchomości i usług</p>
+                        <h3 className="font-bold text-lg">{t('cp.start.szukam')}</h3>
+                        <p className="text-sm text-muted-foreground">{t('cp.start.szukamDesc')}</p>
                       </div>
                     </div>
                     <ChevronRight className="h-5 w-5 text-muted-foreground" />
