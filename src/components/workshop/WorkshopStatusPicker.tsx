@@ -26,6 +26,7 @@ export function WorkshopStatusPicker({
 }: Props) {
   const { data: statuses = [] } = useWorkshopStatuses(providerId);
   const [stations, setStations] = useState<any[]>([]);
+  const [open, setOpen] = useState(false);
   const [noteDialog, setNoteDialog] = useState<{ name: string } | null>(null);
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
@@ -50,8 +51,11 @@ export function WorkshopStatusPicker({
   const apply = async (name: string, withNote?: string) => {
     setBusy(true);
     try {
+      const st = stations.find(s => s.name === name);
       const payload: any = { status_name: name };
       if (withNote) payload.has_unread_notes = true;
+      // when moving to a station — persist station_id so employees of that station see it
+      if (st) payload.station_id = st.id;
       await (supabase.from('workshop_orders') as any).update(payload).eq('id', orderId);
       if (withNote) {
         const { data: { user } } = await supabase.auth.getUser();
@@ -62,10 +66,9 @@ export function WorkshopStatusPicker({
           actor_user_id: user?.id || null,
           actor_role: 'admin',
           to_status: name,
+          station_id: st?.id || null,
         });
       }
-      // notify station employees if status is a station name
-      const st = stations.find(s => s.name === name);
       if (st) {
         supabase.functions.invoke('workshop-notify-employee', {
           body: { order_id: orderId, event: 'department_changed', station_id: st.id, status_name: name },
