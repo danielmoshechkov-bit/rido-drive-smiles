@@ -92,6 +92,11 @@ const getLineCost = (item: any, gross: boolean) => {
 
 const sortItemsBySortOrder = (items: any[]) => {
   return [...items].sort((a, b) => {
+    // Addon items always pinned to the top
+    const aAddon = a?.is_addon ? 1 : 0;
+    const bAddon = b?.is_addon ? 1 : 0;
+    if (aAddon !== bAddon) return bAddon - aAddon;
+
     const aSortOrder = typeof a?.sort_order === 'number' ? a.sort_order : Number.MAX_SAFE_INTEGER;
     const bSortOrder = typeof b?.sort_order === 'number' ? b.sort_order : Number.MAX_SAFE_INTEGER;
 
