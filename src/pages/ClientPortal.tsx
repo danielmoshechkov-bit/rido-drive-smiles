@@ -592,7 +592,7 @@ export default function ClientPortal() {
               <UniversalHomeButton />
               <div className="flex items-center gap-2 text-sm">
                 <User className="h-5 w-5 text-primary" />
-                <span className="font-semibold text-primary">Moje konto</span>
+                <span className="font-semibold text-primary">{t('cp.mojeKonto')}</span>
                 <span className="text-muted-foreground">-</span>
                 <span className="font-medium text-foreground">
                   {formatUserDisplayName(user)}
