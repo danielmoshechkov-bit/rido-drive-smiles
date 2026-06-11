@@ -394,21 +394,8 @@ export function EmployeeOrderCardDialog({
                             <div className="text-sm text-foreground">{t.complaint}</div>
                           </div>
                         )}
-                        {!readOnly && (
-                          <div>
-                            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
-                              Czynność wykonana
-                            </div>
-                            <Input
-                              value={t.text}
-                              onChange={(e) => setTasks(ts => ts.map((x, idx) => idx === ti ? { ...x, text: e.target.value } : x))}
-                              placeholder="np. Wymiana wachacza prawego"
-                              className="h-11 text-base"
-                            />
-                          </div>
-                        )}
                         <div>
-                          <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
+                          <div className="text-[11px] font-bold uppercase tracking-wide text-foreground mb-1.5">
                             Części
                           </div>
                           {t.parts.length > 0 && (
@@ -442,6 +429,19 @@ export function EmployeeOrderCardDialog({
                             />
                           )}
                         </div>
+                        {!readOnly && (
+                          <div>
+                            <div className="text-[11px] font-bold uppercase tracking-wide text-foreground mb-1.5">
+                              Czynność wykonana / Robocizna
+                            </div>
+                            <Input
+                              value={t.text}
+                              onChange={(e) => setTasks(ts => ts.map((x, idx) => idx === ti ? { ...x, text: e.target.value } : x))}
+                              placeholder="np. Wymiana wahacza prawego"
+                              className="h-11 text-base"
+                            />
+                          </div>
+                        )}
 
                         {/* Czas + koszt */}
                         <div className="grid grid-cols-2 gap-2">
