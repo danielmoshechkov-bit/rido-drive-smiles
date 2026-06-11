@@ -52,6 +52,14 @@ export function EmployeeOrderCardDialog({
   const [tasks, setTasks] = useState<TaskBlock[]>([]);
   const partInputRefs = useRef<Record<number, HTMLInputElement | null>>({});
   const timeInputRefs = useRef<Record<number, HTMLInputElement | null>>({});
+  // Addon dialog state
+  const [addonOpen, setAddonOpen] = useState(false);
+  const [addonParts, setAddonParts] = useState<string[]>([]);
+  const [addonPartDraft, setAddonPartDraft] = useState('');
+  const [addonLabor, setAddonLabor] = useState('');
+  const [addonHours, setAddonHours] = useState('');
+  const [addonCost, setAddonCost] = useState('');
+  const [addonSaving, setAddonSaving] = useState(false);
 
   useEffect(() => {
     if (!open || !orderId) return;
