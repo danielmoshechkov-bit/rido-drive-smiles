@@ -943,6 +943,20 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
         
         // Generate correction invoice number if needed
         let finalInvoiceNumber = asDraft ? null : invoiceData.invoice_number;
+
+        // Claim the atomic sequence number ONLY at the moment of actual issuance,
+        // and only if the user did not manually edit the preview number.
+        if (!asDraft && !isCorrection && invoiceData.invoice_number === autoNumberRef.current) {
+          const nowD = new Date();
+          const y = parseInt(format(nowD, 'yyyy'));
+          const m = parseInt(format(nowD, 'MM'));
+          const { data: claimedNum, error: claimErr } = await supabase
+            .rpc('get_next_invoice_number', { p_user_id: user.id, p_year: y, p_month: m });
+          if (!claimErr && claimedNum) {
+            finalInvoiceNumber = `FV/${y}/${String(m).padStart(2, '0')}/${String(claimedNum).padStart(3, '0')}`;
+          }
+        }
+
         if (isCorrection && !asDraft) {
           const now = new Date();
           const year = format(now, 'yyyy');
