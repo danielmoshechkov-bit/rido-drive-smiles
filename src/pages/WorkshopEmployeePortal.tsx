@@ -460,11 +460,11 @@ export default function WorkshopEmployeePortal() {
 
       <EmployeeOrderCardDialog
         open={!!openOrderId}
-        onOpenChange={(v) => { if (!v) { setOpenOrderId(null); setOpenFromPool(false); } }}
+        onOpenChange={(v) => { if (!v) { setOpenOrderId(null); setOpenFromPool(false); setOpenPreviewMode(false); } }}
         orderId={openOrderId}
         employeeId={primaryProvider?.id}
         employeeName={userName}
-        readOnly={openFromPool}
+        readOnly={openFromPool || openPreviewMode}
         onClaim={openFromPool && openOrderId && openProviderId ? async () => {
           await claim(openOrderId, openProviderId);
           setOpenFromPool(false);
@@ -480,6 +480,15 @@ export default function WorkshopEmployeePortal() {
         orderId={stationOpenId}
         stationName={stationOpenName}
         onDone={loadAll}
+      />
+
+      <EmployeeWorkListDialog
+        open={!!workListOrderId}
+        onOpenChange={(v) => { if (!v) setWorkListOrderId(null); }}
+        orderId={workListOrderId}
+        employeeId={primaryProvider?.id}
+        employeeName={userName}
+        onSaved={loadAll}
       />
     </div>
   );
