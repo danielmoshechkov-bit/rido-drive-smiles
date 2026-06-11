@@ -54,7 +54,6 @@ export function WorkshopStatusPicker({
       const st = stations.find(s => s.name === name);
       const payload: any = { status_name: name };
       if (withNote) payload.has_unread_notes = true;
-      // when moving to a station — persist station_id so employees of that station see it
       if (st) payload.station_id = st.id;
       await (supabase.from('workshop_orders') as any).update(payload).eq('id', orderId);
       if (withNote) {
@@ -70,29 +69,12 @@ export function WorkshopStatusPicker({
           station_id: st?.id || null,
         });
       }
-      if (st) {
-        // Ensure every employee of this station has an assignment for this order
-        // so it shows up in their "Moje zlecenia" (filtered by the station chip) without a page refresh.
-        const { data: stEmps } = await (supabase.from('workshop_station_employees') as any)
-          .select('employee_user_id').eq('station_id', st.id);
-        const { data: existing } = await (supabase.from('workshop_order_assignments') as any)
-          .select('employee_user_id').eq('order_id', orderId);
-        const have = new Set(((existing || []) as any[]).map(e => e.employee_user_id));
-        const { data: { user } } = await supabase.auth.getUser();
-        const toAdd = ((stEmps || []) as any[])
-          .map(e => e.employee_user_id)
-          .filter(uid => uid && !have.has(uid))
-          .map(uid => ({
-            order_id: orderId, provider_id: providerId, employee_user_id: uid,
-            assigned_by: user?.id || null, status: 'assigned',
-          }));
-        if (toAdd.length) {
-          await (supabase.from('workshop_order_assignments') as any).insert(toAdd);
-        }
-        supabase.functions.invoke('workshop-notify-employee', {
-          body: { order_id: orderId, event: 'department_changed', station_id: st.id, status_name: name },
-        }).catch(() => {});
-      }
+      // Single source of truth for station handover (assignments + SMS)
+      try {
+        const { applyStationHandover } = await import('@/utils/workshopStationHandover');
+        const baseName = name.replace(/\s*[—-]\s*(realizacja|gotowe|w trakcie|w realizacji)\s*$/i, '').trim();
+        await applyStationHandover({ orderId, providerId, newStatus: baseName });
+      } catch {/* best-effort */}
       onChanged(name, withNote);
       toast.success(`Status: ${name}`);
     } catch (e: any) {
