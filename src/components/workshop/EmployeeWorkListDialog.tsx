@@ -67,7 +67,7 @@ export function EmployeeWorkListDialog({
     setOrder(o);
     if (o?.vehicle_id) {
       const { data: v } = await (supabase.from('workshop_vehicles') as any)
-        .select('id, brand, model, license_plate, year').eq('id', o.vehicle_id).maybeSingle();
+        .select('id, brand, model, plate, year').eq('id', o.vehicle_id).maybeSingle();
       setVehicle(v);
     } else setVehicle(null);
 
@@ -226,7 +226,7 @@ export function EmployeeWorkListDialog({
   const status = String(order?.status_name || '');
   const isWaitingAddon = status === 'Dodatek do naprawy';
   const veh = vehicle ? `${vehicle.brand || ''} ${vehicle.model || ''}`.trim() : 'Pojazd';
-  const plate = vehicle?.license_plate || '';
+  const plate = vehicle?.plate || '';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

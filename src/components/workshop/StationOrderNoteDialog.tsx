@@ -37,7 +37,7 @@ export function StationOrderNoteDialog({ open, onOpenChange, orderId, stationNam
       setOrder(o);
       if (o?.vehicle_id) {
         const { data: v } = await (supabase.from('workshop_vehicles') as any)
-          .select('id, brand, model, license_plate, year').eq('id', o.vehicle_id).maybeSingle();
+          .select('id, brand, model, plate, year').eq('id', o.vehicle_id).maybeSingle();
         setVehicle(v);
       }
       // latest admin note targeting this station / status
@@ -144,7 +144,7 @@ export function StationOrderNoteDialog({ open, onOpenChange, orderId, stationNam
                     {vehicle?.year && <span className="text-muted-foreground"> · {vehicle.year}</span>}
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    {vehicle?.license_plate || '—'}
+                    {vehicle?.plate || '—'}
                     {order?.mileage ? ` · ${order.mileage} km` : ''}
                   </div>
                 </div>
