@@ -183,25 +183,33 @@ export function EmployeeOrderCardDialog({
     idx === ti ? { ...t, cost: v } : t));
 
   const confirmTask = (ti: number) => {
-    const t = tasks[ti];
+    // Auto-commit any unsaved part draft so the typed text doesn't get lost.
+    const draftEl = partInputRefs.current[ti];
+    const draftVal = draftEl?.value?.trim();
+    let workingTasks = tasks;
+    if (draftVal) {
+      workingTasks = tasks.map((t, idx) => idx === ti
+        ? { ...t, parts: [...t.parts, { name: draftVal }] }
+        : t);
+      if (draftEl) draftEl.value = '';
+    }
+    const t = workingTasks[ti];
     const hrs = parseFloat(t.time || '0');
     if (!hrs || hrs <= 0) {
-      setTasks(ts => ts.map((x, idx) => idx === ti ? { ...x, timeError: 'Czas naprawy jest obowiązkowy — wpisz zanim zatwierdzisz punkt' } : x));
+      setTasks(workingTasks.map((x, idx) => idx === ti ? { ...x, timeError: 'Czas naprawy jest obowiązkowy — wpisz zanim zatwierdzisz punkt' } : x));
       timeInputRefs.current[ti]?.focus();
       return;
     }
-    setTasks(ts => {
-      const next = ts.map((x, idx) => idx === ti
-        ? { ...x, confirmed: true, expanded: false, timeError: undefined }
-        : x);
-      // znajdź następny niewypełniony i otwórz
-      const nextEmpty = next.findIndex((x, idx) => idx > ti && !x.confirmed);
-      const fallback = nextEmpty >= 0 ? nextEmpty : next.findIndex(x => !x.confirmed);
-      if (fallback >= 0) {
-        return next.map((x, idx) => idx === fallback ? { ...x, expanded: true } : x);
-      }
-      return next;
-    });
+    const confirmed = workingTasks.map((x, idx) => idx === ti
+      ? { ...x, confirmed: true, expanded: false, timeError: undefined }
+      : x);
+    const nextEmpty = confirmed.findIndex((x, idx) => idx > ti && !x.confirmed);
+    const fallback = nextEmpty >= 0 ? nextEmpty : confirmed.findIndex(x => !x.confirmed);
+    if (fallback >= 0) {
+      setTasks(confirmed.map((x, idx) => idx === fallback ? { ...x, expanded: true } : x));
+    } else {
+      setTasks(confirmed);
+    }
   };
 
   const handleClaim = async () => {
