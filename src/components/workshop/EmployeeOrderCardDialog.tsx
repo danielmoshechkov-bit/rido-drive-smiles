@@ -446,7 +446,7 @@ export function EmployeeOrderCardDialog({
                         {/* Czas + koszt */}
                         <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            <label className="text-[11px] font-bold uppercase tracking-wide text-foreground">
                               Czas naprawy <span className="text-destructive">*</span>
                             </label>
                             <div className="relative">
