@@ -24502,6 +24502,10 @@ export type Database = {
         Args: { p_kind?: string; p_provider_id: string }
         Returns: string
       }
+      peek_next_invoice_number: {
+        Args: { p_month: number; p_user_id: string; p_year: number }
+        Returns: number
+      }
       telegram_bot_token_is_set: { Args: never; Returns: boolean }
       user_can_access_driver: {
         Args: { _driver_id: string; _user_id: string }

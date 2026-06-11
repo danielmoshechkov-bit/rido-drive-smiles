@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -173,6 +173,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
   
   // Invoice details
   const [invoiceNumber, setInvoiceNumber] = useState(`FV/${format(new Date(), 'yyyy/MM')}/001`);
+  const autoNumberRef = useRef<string>('');
   const [issueDate, setIssueDate] = useState(today);
   const [saleDate, setSaleDate] = useState(today);
   const [dueDate, setDueDate] = useState(defaultDueDate);
@@ -440,25 +441,20 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
       if (session?.user) {
         await loadUserCompanyData(session.user.id);
         
-        // Auto-generate next invoice number based on last invoice in DB
+        // Preview next invoice number WITHOUT consuming the sequence.
+        // The atomic number is claimed only at actual issuance (see save flow).
         if (!editInvoiceId) {
           const now = new Date();
           const year = parseInt(format(now, 'yyyy'));
           const month = parseInt(format(now, 'MM'));
-          
-          // Use atomic sequence to prevent duplicate numbers
-          const { data: nextNum, error: seqErr } = await supabase
-            .rpc('get_next_invoice_number', { p_user_id: session.user.id, p_year: year, p_month: month });
-          
-          if (seqErr) {
-            console.error('Error getting next invoice number:', seqErr);
-            // Fallback to old logic
-            const prefix = `FV/${year}/${String(month).padStart(2, '0')}/`;
-            setInvoiceNumber(`${prefix}001`);
-          } else {
-            const prefix = `FV/${year}/${String(month).padStart(2, '0')}/`;
-            setInvoiceNumber(`${prefix}${String(nextNum).padStart(3, '0')}`);
-          }
+          const prefix = `FV/${year}/${String(month).padStart(2, '0')}/`;
+
+          const { data: nextNum, error: peekErr } = await (supabase as any)
+            .rpc('peek_next_invoice_number', { p_user_id: session.user.id, p_year: year, p_month: month });
+
+          const preview = `${prefix}${String(peekErr || !nextNum ? 1 : nextNum).padStart(3, '0')}`;
+          setInvoiceNumber(preview);
+          autoNumberRef.current = preview;
         }
         
         // Check KSeF: token + master switch (send_invoices_enabled) + auto-send toggle
@@ -947,6 +943,20 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
         
         // Generate correction invoice number if needed
         let finalInvoiceNumber = asDraft ? null : invoiceData.invoice_number;
+
+        // Claim the atomic sequence number ONLY at the moment of actual issuance,
+        // and only if the user did not manually edit the preview number.
+        if (!asDraft && !isCorrection && invoiceData.invoice_number === autoNumberRef.current) {
+          const nowD = new Date();
+          const y = parseInt(format(nowD, 'yyyy'));
+          const m = parseInt(format(nowD, 'MM'));
+          const { data: claimedNum, error: claimErr } = await supabase
+            .rpc('get_next_invoice_number', { p_user_id: user.id, p_year: y, p_month: m });
+          if (!claimErr && claimedNum) {
+            finalInvoiceNumber = `FV/${y}/${String(m).padStart(2, '0')}/${String(claimedNum).padStart(3, '0')}`;
+          }
+        }
+
         if (isCorrection && !asDraft) {
           const now = new Date();
           const year = format(now, 'yyyy');
