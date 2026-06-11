@@ -31,6 +31,12 @@ export default function WorkshopEmployeePortal() {
   const [openOrderId, setOpenOrderId] = useState<string | null>(null);
   const [openFromPool, setOpenFromPool] = useState(false);
   const [openProviderId, setOpenProviderId] = useState<string | null>(null);
+  // station-mode (e.g. Myjnia) — simplified note + finish dialog
+  const [stationOpenId, setStationOpenId] = useState<string | null>(null);
+  const [stationOpenName, setStationOpenName] = useState<string | null>(null);
+  // employee's stations (for filter pills)
+  const [myStations, setMyStations] = useState<{ id: string; name: string; color: string }[]>([]);
+  const [stationFilter, setStationFilter] = useState<string>('all');
 
   const providerIds = useMemo(() => records.map(r => r.provider_id), [records]);
   const primaryProvider = records[0];
