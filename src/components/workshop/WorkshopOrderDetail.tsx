@@ -44,11 +44,18 @@ interface Props {
 const statusColors: Record<string, string> = {
   'Nowe zlecenie': 'bg-red-500 text-white',
   'Przyjęcie do serwisu': 'bg-orange-500 text-white',
+  'Przydzielone': 'bg-gray-400 text-white',
+  'Diagnoza': 'bg-gray-500 text-white',
+  'Do wyceny': 'bg-yellow-500 text-black',
+  'Oczekuje na akceptację': 'bg-yellow-500 text-black',
   'Wycena gotowa': 'bg-yellow-500 text-black',
   'Wycena wysłana': 'bg-orange-400 text-black',
   'Zaakceptowano': 'bg-green-500 text-white',
   'Akceptacja klienta': 'bg-green-500 text-white',
+  'Zgoda na naprawę': 'bg-green-500 text-white',
   'W trakcie naprawy': 'bg-amber-400 text-black',
+  'Dodatek do naprawy': 'bg-yellow-500 text-black',
+  'Naprawione': 'bg-red-600 text-white',
   'Zadania wykonane': 'bg-green-500 text-white',
   'Gotowy do odbioru': 'bg-gray-500 text-white',
   'Zakończone': 'bg-gray-800 text-white',
@@ -99,6 +106,18 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
       } catch (e) { console.error('Note insert error:', e); }
     }
     toast.success(`Status zmieniony na: ${newStatus}`);
+
+    // Notify employees if status matches a workshop station name
+    try {
+      const { data: station } = await (supabase.from('workshop_stations') as any)
+        .select('id, name').eq('provider_id', providerId).eq('name', newStatus).maybeSingle();
+      if (station) {
+        supabase.functions.invoke('workshop-notify-employee', {
+          body: { order_id: order.id, event: 'department_changed', station_id: station.id, status_name: newStatus },
+        }).catch(() => {});
+      }
+    } catch {/* best-effort */}
+
     // Auto-open SMS dialog based on status context
     const lower = newStatus.toLowerCase();
     if (lower.includes('gotow') || lower.includes('zakończ') || lower.includes('odbioru')) {

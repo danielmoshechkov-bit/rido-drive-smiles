@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import {
-  Loader2, X, Wrench, Check, ChevronDown, ChevronUp, HandHelping, Lock, ArrowRight,
+  Loader2, X, Wrench, Check, ChevronDown, ChevronUp, HandHelping, Lock, ArrowRight, Plus,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -382,7 +382,19 @@ export function EmployeeOrderCardDialog({
 
                     {isOpen && (
                       <div className="px-3 pb-3 space-y-3 border-t border-border/60 pt-3">
-                        {/* Części */}
+                        {!readOnly && (
+                          <div>
+                            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
+                              Usterka / zakres
+                            </div>
+                            <Input
+                              value={t.text}
+                              onChange={(e) => setTasks(ts => ts.map((x, idx) => idx === ti ? { ...x, text: e.target.value, key: `${x.index}. ${e.target.value}` } : x))}
+                              placeholder="Opisz usterkę (np. wymiana klocków)"
+                              className="h-11 text-base"
+                            />
+                          </div>
+                        )}
                         <div>
                           <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
                             Części
@@ -474,6 +486,31 @@ export function EmployeeOrderCardDialog({
                 );
               })}
 
+              {!readOnly && (
+                <Button
+                  variant="outline"
+                  className="w-full h-11 border-dashed"
+                  onClick={() => setTasks(ts => {
+                    const nextIdx = ts.length + 1;
+                    const newBlock: TaskBlock = {
+                      key: `${nextIdx}. `,
+                      index: nextIdx,
+                      text: '',
+                      parts: [],
+                      time: '',
+                      cost: '',
+                      confirmed: false,
+                      expanded: true,
+                      existingPartIds: [],
+                      existingServiceId: null,
+                    };
+                    return ts.map(t => ({ ...t, expanded: false })).concat(newBlock);
+                  })}
+                >
+                  <Plus className="h-4 w-4 mr-2" /> Dodaj pozycję
+                </Button>
+              )}
+
               {readOnly && (
                 <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
                   Zlecenie z puli — kliknij <b>Akceptuj zlecenie</b>, aby przejąć je do siebie i zacząć diagnozę.
@@ -495,27 +532,107 @@ export function EmployeeOrderCardDialog({
                 </Button>
               )}
             </div>
-          ) : (
-            <>
-              <Button
-                onClick={handleFinishDiagnosis}
-                disabled={!allConfirmed || saving || loading}
-                className="w-full h-12 text-base"
-              >
-                {saving ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : (
-                  <>Zakończ diagnozę <ArrowRight className="h-4 w-4 mx-1" /> Do wyceny</>
-                )}
-              </Button>
-              <p className="text-center text-[11px] text-muted-foreground">
-                {allConfirmed
-                  ? 'Wszystkie punkty wypełnione — możesz zakończyć diagnozę'
-                  : 'Aktywne po wypełnieniu wszystkich punktów'}
-              </p>
-              <Button variant="ghost" size="sm" className="w-full" onClick={() => onOpenChange(false)}>
-                <Wrench className="h-3.5 w-3.5 mr-1" /> Zamknij bez zakończenia
-              </Button>
-            </>
-          )}
+          ) : (() => {
+            const status = String(order?.status_name || '');
+            const isAwaitingQuote = ['Do wyceny', 'Oczekuje na akceptację', 'Wycena gotowa', 'Wycena wysłana'].includes(status);
+            const isApproved = ['Zaakceptowano', 'Akceptacja klienta', 'Zgoda na naprawę', 'W trakcie naprawy', 'Dodatek do naprawy'].includes(status);
+
+            if (isAwaitingQuote) {
+              return (
+                <div className="space-y-2">
+                  <div className="rounded-md bg-yellow-100 border border-yellow-300 text-yellow-900 text-sm text-center py-3 font-medium">
+                    ⏳ Oczekuje na akceptację klienta
+                  </div>
+                  <Button variant="ghost" size="sm" className="w-full" onClick={() => onOpenChange(false)}>Zamknij</Button>
+                </div>
+              );
+            }
+
+            if (isApproved) {
+              const finishRepair = async () => {
+                if (!orderId) return;
+                setSaving(true);
+                try {
+                  await persistAll();
+                  const { data: { user } } = await supabase.auth.getUser();
+                  await (supabase.from('workshop_orders') as any)
+                    .update({ status_name: 'Naprawione' }).eq('id', orderId);
+                  await (supabase.from('workshop_order_events') as any).insert({
+                    order_id: orderId, event_type: 'repair_done',
+                    actor_user_id: user?.id || null, actor_name: employeeName || null,
+                    actor_role: 'employee', to_status: 'Naprawione',
+                  });
+                  supabase.functions.invoke('workshop-notify-employee', {
+                    body: { order_id: orderId, event: 'order_ready' },
+                  }).catch(() => {});
+                  toast.success('Naprawa zakończona');
+                  onSaved?.(); onOpenChange(false);
+                } catch (e: any) { toast.error(e.message || 'Błąd'); }
+                finally { setSaving(false); }
+              };
+              const submitAddon = async () => {
+                if (!orderId) return;
+                setSaving(true);
+                try {
+                  await persistAll();
+                  const { data: { user } } = await supabase.auth.getUser();
+                  await (supabase.from('workshop_orders') as any)
+                    .update({ status_name: 'Dodatek do naprawy', estimate_changed_after_send: true })
+                    .eq('id', orderId);
+                  await (supabase.from('workshop_order_events') as any).insert({
+                    order_id: orderId, event_type: 'repair_addon',
+                    actor_user_id: user?.id || null, actor_name: employeeName || null,
+                    actor_role: 'employee', to_status: 'Dodatek do naprawy',
+                  });
+                  supabase.functions.invoke('workshop-notify-employee', {
+                    body: { order_id: orderId, event: 'repair_addon_request' },
+                  }).catch(() => {});
+                  toast.success('Dodatek przekazany do akceptacji');
+                  onSaved?.(); onOpenChange(false);
+                } catch (e: any) { toast.error(e.message || 'Błąd'); }
+                finally { setSaving(false); }
+              };
+              return (
+                <div className="space-y-2">
+                  <div className="rounded-md bg-green-100 border border-green-300 text-green-900 text-sm text-center py-2 font-medium">
+                    ✓ Zgoda na naprawę — możesz pracować
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button variant="outline" className="h-11" onClick={submitAddon} disabled={saving}>
+                      <Plus className="h-4 w-4 mr-1" /> Dodatek do naprawy
+                    </Button>
+                    <Button className="h-11 bg-red-600 hover:bg-red-700 text-white" onClick={finishRepair} disabled={saving}>
+                      {saving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Check className="h-4 w-4 mr-1" />}
+                      Zakończ naprawę
+                    </Button>
+                  </div>
+                  <Button variant="ghost" size="sm" className="w-full" onClick={() => onOpenChange(false)}>Zamknij</Button>
+                </div>
+              );
+            }
+
+            return (
+              <>
+                <Button
+                  onClick={handleFinishDiagnosis}
+                  disabled={!allConfirmed || saving || loading}
+                  className="w-full h-12 text-base"
+                >
+                  {saving ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : (
+                    <>Zakończ diagnozę <ArrowRight className="h-4 w-4 mx-1" /> Do wyceny</>
+                  )}
+                </Button>
+                <p className="text-center text-[11px] text-muted-foreground">
+                  {allConfirmed
+                    ? 'Wszystkie punkty wypełnione — możesz zakończyć diagnozę'
+                    : 'Aktywne po wypełnieniu wszystkich punktów'}
+                </p>
+                <Button variant="ghost" size="sm" className="w-full" onClick={() => onOpenChange(false)}>
+                  <Wrench className="h-3.5 w-3.5 mr-1" /> Zamknij bez zakończenia
+                </Button>
+              </>
+            );
+          })()}
         </div>
       </DialogContent>
     </Dialog>

@@ -238,7 +238,25 @@ export default function WorkshopEmployeePortal() {
                       {a.workshop_orders?.description || a.workshop_orders?.status_name || '—'}
                     </div>
                   </button>
-                  <Badge className="bg-green-600 hover:bg-green-700 text-white text-xs">Przydzielone</Badge>
+                  {(() => {
+                    const st = String(a.workshop_orders?.status_name || '');
+                    const map: Record<string, string> = {
+                      'Do wyceny': 'bg-yellow-500 text-black hover:bg-yellow-600',
+                      'Oczekuje na akceptację': 'bg-yellow-500 text-black hover:bg-yellow-600',
+                      'Wycena gotowa': 'bg-yellow-500 text-black hover:bg-yellow-600',
+                      'Wycena wysłana': 'bg-yellow-500 text-black hover:bg-yellow-600',
+                      'Zaakceptowano': 'bg-green-600 text-white hover:bg-green-700',
+                      'Akceptacja klienta': 'bg-green-600 text-white hover:bg-green-700',
+                      'Zgoda na naprawę': 'bg-green-600 text-white hover:bg-green-700',
+                      'W trakcie naprawy': 'bg-amber-400 text-black hover:bg-amber-500',
+                      'Dodatek do naprawy': 'bg-yellow-500 text-black hover:bg-yellow-600',
+                      'Naprawione': 'bg-red-600 text-white hover:bg-red-700',
+                      'Zakończone': 'bg-gray-700 text-white hover:bg-gray-800',
+                    };
+                    const cls = map[st] || 'bg-gray-400 text-white hover:bg-gray-500';
+                    const label = st && map[st] ? st : 'Przydzielone';
+                    return <Badge className={`${cls} text-xs`}>{label}</Badge>;
+                  })()}
                   <Button
                     variant="ghost" size="sm" disabled={busy === a.id}
                     onClick={() => release(a.id, a.order_id, a.provider_id)}

@@ -62,27 +62,11 @@ export const WorkshopAssignEmployeeDropdown = ({ orderId, providerId }: Props) =
         if (error) throw error;
         toast.success(`Przydzielono: ${emp.name}`);
 
-        // Fire-and-forget notification + SMS (if phone present)
-        try {
-          await (supabase.from('workspace_notifications') as any).insert({
-            user_id: emp.user_id,
-            title: 'Nowe zlecenie warsztatowe',
-            body: 'Zostało Ci przydzielone nowe zlecenie do wykonania.',
-            type: 'workshop_assignment',
-            link: `/pracownik-warsztat/zlecenia/${orderId}`,
-          });
-        } catch { /* notifications optional */ }
-        if (emp.phone) {
-          supabase.functions.invoke('workshop-send-sms', {
-            body: {
-              phone: emp.phone,
-              message: `GetRido: Masz nowe zlecenie warsztatowe. Sprawdź w aplikacji.`,
-              order_id: orderId,
-              provider_id: providerId,
-              sms_type: 'employee_assignment',
-            },
-          }).catch(() => { /* silent — SMS is best-effort */ });
-        }
+        // Centralized notification + SMS via edge function
+        supabase.functions.invoke('workshop-notify-employee', {
+          body: { order_id: orderId, event: 'assigned', employee_user_id: emp.user_id },
+        }).catch(() => { /* best-effort */ });
+
       }
       await load();
     } catch (e: any) {

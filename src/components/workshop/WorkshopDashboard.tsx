@@ -14,6 +14,7 @@ import { WorkshopTireStorage } from './WorkshopTireStorage';
 import { WorkshopRepairData } from './WorkshopRepairData';
 import { WorkshopSettings } from './WorkshopSettings';
 import { WorkshopEmployeesPage } from './WorkshopEmployeesPage';
+import { WorkshopStationsManager } from './WorkshopStationsManager';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -46,6 +47,7 @@ const modules = [
   { key: 'przechowalnia', label: 'Przechowalnia', img: tilePrzechodnia, ready: true },
   { key: 'dane-naprawcze', label: 'Dane naprawcze', img: tileDaneNaprawcze, ready: true },
   { key: 'pracownicy', label: 'Pracownicy', img: tilePracownicy, ready: true },
+  { key: 'stanowiska', label: 'Stanowiska', img: tilePracownicy, ready: true },
   { key: 'ustawienia', label: 'Ustawienia', img: tileUstawienia, ready: true },
 ];
 
@@ -257,6 +259,17 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
         return <WorkshopRepairData providerId={providerId} onBack={() => goTo(null)} />;
       case 'pracownicy':
         return <WorkshopEmployeesPage providerId={providerId} />;
+      case 'stanowiska':
+        return (
+          <div className="max-w-3xl mx-auto py-2">
+            <h2 className="text-xl font-semibold mb-3">Stanowiska warsztatowe</h2>
+            <p className="text-sm text-muted-foreground mb-4">
+              Stanowiska (np. Myjnia, Geometria, Wulkanizacja) działają jak statusy zleceń.
+              Przypisz pracowników — gdy zlecenie trafi na stanowisko, otrzymają powiadomienie i SMS.
+            </p>
+            <WorkshopStationsManager providerId={providerId} />
+          </div>
+        );
       case 'ustawienia':
         return <WorkshopSettings providerId={providerId} onBack={() => goTo(null)} />;
       default:
