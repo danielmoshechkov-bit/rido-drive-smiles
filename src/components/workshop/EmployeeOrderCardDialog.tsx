@@ -382,7 +382,19 @@ export function EmployeeOrderCardDialog({
 
                     {isOpen && (
                       <div className="px-3 pb-3 space-y-3 border-t border-border/60 pt-3">
-                        {/* Części */}
+                        {!readOnly && (
+                          <div>
+                            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
+                              Usterka / zakres
+                            </div>
+                            <Input
+                              value={t.text}
+                              onChange={(e) => setTasks(ts => ts.map((x, idx) => idx === ti ? { ...x, text: e.target.value, key: `${x.index}. ${e.target.value}` } : x))}
+                              placeholder="Opisz usterkę (np. wymiana klocków)"
+                              className="h-11 text-base"
+                            />
+                          </div>
+                        )}
                         <div>
                           <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
                             Części
