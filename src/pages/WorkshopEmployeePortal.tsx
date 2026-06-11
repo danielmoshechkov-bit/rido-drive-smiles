@@ -96,12 +96,18 @@ export default function WorkshopEmployeePortal() {
       }));
     }
 
-    // History
-    const { data: hist } = await (supabase.from('workshop_order_assignment_history') as any)
-      .select('id, order_id, action, note, created_at')
+    // History — orders the employee was assigned to AND that are finished.
+    // We show the full order (items list + station + vehicle) grouped by station.
+    const { data: histAssigns } = await (supabase.from('workshop_order_assignments') as any)
+      .select('id, order_id, provider_id, assigned_at, workshop_orders(id, order_number, status_name, station_id, description, has_unread_notes, completed_at, vehicle:workshop_vehicles(brand, model, plate), items:workshop_order_items(id, name, quantity, unit, unit_price_gross, kind))')
       .eq('employee_user_id', user.id)
-      .order('created_at', { ascending: false }).limit(30);
-    setHistory(hist || []);
+      .order('assigned_at', { ascending: false })
+      .limit(80);
+    const finished = ((histAssigns || []) as any[]).filter(a => {
+      const s = (a.workshop_orders?.status_name || '').toLowerCase();
+      return s.includes('zakończ') || s.includes('naprawione') || s.includes('gotow') || s.includes('odbioru');
+    });
+    setHistory(finished);
 
     setDataLoading(false);
   };
