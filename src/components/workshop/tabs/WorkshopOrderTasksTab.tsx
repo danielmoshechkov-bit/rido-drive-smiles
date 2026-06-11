@@ -386,27 +386,35 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     }
   };
 
-  const getTaskRowClasses = (itemId: string, index: number) => {
+  const getTaskRowClasses = (item: any, index: number) => {
+    const itemId = item?.id;
     const isDragging = draggingTaskId === itemId;
     const isDropBefore = taskDropIndicator?.index === index && taskDropIndicator.position === 'before';
     const isDropAfter = taskDropIndicator?.index === index && taskDropIndicator.position === 'after';
+    const isAddon = !!item?.is_addon;
 
     return [
       'border-b text-sm transition-colors',
-      isDragging ? 'bg-accent/40 opacity-60' : 'hover:bg-accent/30',
+      isAddon
+        ? 'bg-orange-50 ring-1 ring-orange-300 hover:bg-orange-100'
+        : (isDragging ? 'bg-accent/40 opacity-60' : 'hover:bg-accent/30'),
       isDropBefore ? 'border-t-2 border-t-primary' : '',
       isDropAfter ? 'border-b-2 border-b-primary' : '',
     ].filter(Boolean).join(' ');
   };
 
-  const getGoodsRowClasses = (itemId: string, index: number) => {
+  const getGoodsRowClasses = (item: any, index: number) => {
+    const itemId = item?.id;
     const isDragging = draggingGoodsId === itemId;
     const isDropBefore = goodsDropIndicator?.index === index && goodsDropIndicator.position === 'before';
     const isDropAfter = goodsDropIndicator?.index === index && goodsDropIndicator.position === 'after';
+    const isAddon = !!item?.is_addon;
 
     return [
       'border-b text-sm transition-colors',
-      isDragging ? 'bg-accent/40 opacity-60' : 'hover:bg-accent/30',
+      isAddon
+        ? 'bg-orange-50 ring-1 ring-orange-300 hover:bg-orange-100'
+        : (isDragging ? 'bg-accent/40 opacity-60' : 'hover:bg-accent/30'),
       isDropBefore ? 'border-t-2 border-t-primary' : '',
       isDropAfter ? 'border-b-2 border-b-primary' : '',
     ].filter(Boolean).join(' ');
