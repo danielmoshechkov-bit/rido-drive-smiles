@@ -324,7 +324,7 @@ export default function WorkshopEmployeePortal() {
                   : tone === 'red' ? 'bg-red-50/70 border-l-red-500'
                   : 'bg-muted/30 border-l-gray-300';
                 const isApproved = ['Zaakceptowano','Akceptacja klienta','Zgoda na naprawę','W trakcie naprawy','Dodatek do naprawy','Poprawka'].includes(st);
-                const isFinished = ['Naprawione','Zakończone','Anulowane'].includes(st);
+                const isFinished = ['Naprawione','Zakończone','Anulowane','Gotowy do odbioru'].includes(st);
                 const hasNote = !!a.workshop_orders?.has_unread_notes;
                 const veh = a.workshop_orders?.vehicle;
                 const vehLine = veh ? [veh.brand, veh.model, veh.plate].filter(Boolean).join(' · ') : '';
