@@ -46,6 +46,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { ResponsiveTable } from '@/components/ui/responsive-table';
 
 interface Agency {
   id: string;
@@ -551,6 +552,7 @@ const AdminRealEstate = () => {
                     Brak zarejestrowanych agencji
                   </p>
                 ) : (
+                  <ResponsiveTable minWidth="min-w-[900px]">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -610,6 +612,7 @@ const AdminRealEstate = () => {
                       ))}
                     </TableBody>
                   </Table>
+                  </ResponsiveTable>
                 )}
               </CardContent>
             </Card>

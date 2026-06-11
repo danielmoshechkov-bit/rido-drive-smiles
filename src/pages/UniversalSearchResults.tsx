@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Search, Sparkles, Loader2, Car, Home, Wrench, LayoutGrid, Rows3, List, ArrowLeft } from 'lucide-react';
+import { Search, Sparkles, Loader2, Car, Home, Wrench, Package, LayoutGrid, Rows3, List, ArrowLeft } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,15 +12,17 @@ import { MyGetRidoButton } from '@/components/MyGetRidoButton';
 import { ListingCard } from '@/components/marketplace/ListingCard';
 import { PropertyListingCard } from '@/components/realestate/PropertyListingCard';
 import { ServiceListingCard } from '@/components/services/ServiceListingCard';
+import { GeneralListingCard } from '@/components/marketplace/GeneralListingCard';
 import { cn } from '@/lib/utils';
 
 type ViewMode = 'grid' | 'compact' | 'list';
-type CategoryFilter = 'all' | 'vehicles' | 'realEstate' | 'services';
+type CategoryFilter = 'all' | 'vehicles' | 'realEstate' | 'services' | 'general';
 
 interface SearchResults {
   vehicles?: { items: any[]; count: number; filters: any; explanation: string };
   realEstate?: { items: any[]; count: number; filters: any; explanation: string };
   services?: { items: any[]; count: number; filters: any; explanation: string };
+  general?: { items: any[]; count: number; filters: any; explanation: string };
 }
 
 export default function UniversalSearchResults() {
@@ -82,9 +84,10 @@ export default function UniversalSearchResults() {
       setResults(data.results || {});
       setExplanation(data.explanation || '');
       
-      const totalResults = (data.results?.vehicles?.count || 0) + 
-                          (data.results?.realEstate?.count || 0) + 
-                          (data.results?.services?.count || 0);
+      const totalResults = (data.results?.vehicles?.count || 0) +
+                          (data.results?.realEstate?.count || 0) +
+                          (data.results?.services?.count || 0) +
+                          (data.results?.general?.count || 0);
       toast.success(`Znaleziono ${totalResults} wyników`);
     } catch (err) {
       console.error('Universal search error:', err);
@@ -104,12 +107,14 @@ export default function UniversalSearchResults() {
     vehicles: results.vehicles?.count || 0,
     realEstate: results.realEstate?.count || 0,
     services: results.services?.count || 0,
-    all: (results.vehicles?.count || 0) + (results.realEstate?.count || 0) + (results.services?.count || 0)
+    general: results.general?.count || 0,
+    all: (results.vehicles?.count || 0) + (results.realEstate?.count || 0) + (results.services?.count || 0) + (results.general?.count || 0)
   }), [results]);
 
   const showVehicles = categoryFilter === 'all' || categoryFilter === 'vehicles';
   const showRealEstate = categoryFilter === 'all' || categoryFilter === 'realEstate';
   const showServices = categoryFilter === 'all' || categoryFilter === 'services';
+  const showGeneral = categoryFilter === 'all' || categoryFilter === 'general';
 
   const getGridClass = () => {
     if (viewMode === 'list') return 'flex flex-col gap-3';
@@ -230,6 +235,20 @@ export default function UniversalSearchResults() {
                   <Wrench className="h-4 w-4" />
                   <span>Usługi</span>
                   {totalCounts.services > 0 && <Badge variant="secondary" className="ml-1 bg-white/20 text-white">{totalCounts.services}</Badge>}
+                </TabsTrigger>
+                <TabsTrigger
+                  value="general"
+                  className={cn(
+                    "px-4 py-2 rounded-full text-sm whitespace-nowrap transition-all duration-150 flex items-center gap-2",
+                    "data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:font-semibold",
+                    "hover:bg-white/20 focus-visible:outline-none",
+                    "disabled:opacity-40"
+                  )}
+                  disabled={totalCounts.general === 0}
+                >
+                  <Package className="h-4 w-4" />
+                  <span>Inne</span>
+                  {totalCounts.general > 0 && <Badge variant="secondary" className="ml-1 bg-white/20 text-white">{totalCounts.general}</Badge>}
                 </TabsTrigger>
               </TabsList>
             </Tabs>
@@ -354,6 +373,33 @@ export default function UniversalSearchResults() {
                       key={provider.id}
                       provider={provider}
                       isLoggedIn={!!user}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* General Section */}
+            {showGeneral && results.general && results.general.count > 0 && (
+              <section>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-semibold flex items-center gap-2">
+                    <Package className="h-5 w-5 text-primary" />
+                    Inne ogłoszenia ({results.general.count})
+                  </h2>
+                  <Button variant="link" onClick={() => navigate(`/marketplace?query=${encodeURIComponent(query)}`)}>
+                    Zobacz więcej →
+                  </Button>
+                </div>
+                {results.general.explanation && (
+                  <p className="text-sm text-muted-foreground mb-3">{results.general.explanation}</p>
+                )}
+                <div className={getGridClass()}>
+                  {results.general.items.slice(0, 4).map((listing: any) => (
+                    <GeneralListingCard
+                      key={listing.id}
+                      listing={listing}
+                      variant={viewMode}
                     />
                   ))}
                 </div>

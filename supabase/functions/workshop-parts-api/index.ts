@@ -18,11 +18,95 @@ interface ResolvedQuery {
   oeNumbers: string[];
   partDescription: string;
   searchTermsMultiLang?: { pl: string; en: string; de: string };
+  // NOWE — z FAZA 2 Plan A+B
+  categoryId?: string | null;            // IC categoryId (np. GenericArticle_402)
+  categoryPath?: string | null;          // "Układ hamulcowy > Hamulce tarczowe > Klocki hamulcowe"
+  expectedManufacturers?: string[];      // typowi producenci dla brand+category (Brembo/Textar/ATE)
   clarificationQuestion: string | null;
   confidence: 'high' | 'medium' | 'low';
   reasoning: string;
   // Internal debug payload — exposed in _debug ONLY for admin users
   _aiRaw?: { prompt: string; response: string; timeMs: number };
+}
+
+// Pobiera najbliższe ~30 leaf categories z ic_category_tree pasujących do query keywords.
+// JS scoring po liczbie matches (label > path) — żeby najlepsze pojawiły się jako pierwsze.
+async function getCandidateCategoriesForAI(supabase: any, query: string): Promise<Array<{ category_id: string; full_path: string }>> {
+  const words = (query || '').toLowerCase().split(/\s+/).filter(w => w.length > 2).slice(0, 5);
+  if (words.length === 0) return [];
+  const orFilter = words.map(w => `full_path.ilike.%${w}%,label.ilike.%${w}%`).join(',');
+  const { data } = await supabase
+    .from('ic_category_tree')
+    .select('category_id, full_path, label, has_children, level')
+    .or(orFilter)
+    .eq('has_children', false)
+    .limit(200); // szerzej, posortujemy w JS
+  // Scoring: label match (+10), path match (+3), shorter label bonus
+  const scored = (data || []).map((r: any) => {
+    const labelLower = String(r.label || '').toLowerCase();
+    const pathLower = String(r.full_path || '').toLowerCase();
+    let score = 0;
+    for (const w of words) {
+      if (labelLower.includes(w)) score += 10;
+      if (pathLower.includes(w)) score += 3;
+    }
+    // Bonus: krótsze label = bardziej szczegółowa
+    score -= (r.label?.length || 0) * 0.02;
+    // Bonus: leaves bardziej szczegółowe niż wyższe level
+    score += (r.level || 1) * 0.5;
+    return { category_id: r.category_id, full_path: r.full_path, label: r.label, _score: score };
+  });
+  scored.sort((a, b) => b._score - a._score);
+  return scored.slice(0, 30).map((r: any) => ({ category_id: r.category_id, full_path: r.full_path }));
+}
+
+// Wyciąga carId/vehicleId/linkageId z dowolnego shape'u response z IC API.
+// IC może zwracać różne klucze zależnie od endpoint'u — sprawdzamy wszystkie typowe.
+function extractCarId(data: any): string | null {
+  if (!data) return null;
+  const direct = [
+    data.carId, data.car_id,
+    data.vehicleId, data.vehicle_id,
+    data.linkageId, data.linkage_id, data.linkageTargetId,
+    data.tecdocVehicleId, data.tecdoc_vehicle_id, data.tecDocVehicleId,
+    data.id,
+    data.vehicle?.id, data.vehicle?.carId, data.vehicle?.linkageId, data.vehicle?.tecdocId,
+    data.data?.id, data.data?.carId, data.data?.vehicleId, data.data?.linkageId,
+    Array.isArray(data) ? data[0]?.id || data[0]?.carId || data[0]?.linkageId : null,
+    Array.isArray(data?.items) ? data.items[0]?.id || data.items[0]?.carId || data.items[0]?.linkageId : null,
+    Array.isArray(data?.vehicles) ? data.vehicles[0]?.id || data.vehicles[0]?.carId : null,
+    Array.isArray(data?.results) ? data.results[0]?.id || data.results[0]?.carId : null,
+    Array.isArray(data?.cars) ? data.cars[0]?.id || data.cars[0]?.carId : null,
+  ];
+  for (const v of direct) {
+    if (v !== null && v !== undefined && v !== '') return String(v);
+  }
+  return null;
+}
+
+// Wyciąga descriptive vehicle info (brand/model/year/...) z różnych shape'ów IC response.
+function extractVehicleInfo(data: any): any {
+  if (!data) return null;
+  const v = data.vehicle
+    || (Array.isArray(data) ? data[0] : null)
+    || (Array.isArray(data?.items) ? data.items[0] : null)
+    || (Array.isArray(data?.vehicles) ? data.vehicles[0] : null)
+    || (Array.isArray(data?.results) ? data.results[0] : null)
+    || (Array.isArray(data?.cars) ? data.cars[0] : null)
+    || data.data
+    || data;
+  if (!v || typeof v !== 'object') return null;
+  return {
+    brand: v.brand || v.make || v.manufacturer || v.brandName || null,
+    model: v.model || v.modelName || null,
+    year: v.year || v.productionYear || v.modelYear || null,
+    bodyType: v.bodyType || v.body || null,
+    engineType: v.engine || v.engineType || v.engineCode || null,
+    fuelType: v.fuelType || v.fuel || null,
+    powerKw: v.powerKw || v.enginePowerKw || null,
+    capacityCm3: v.capacityCm3 || v.engineCapacityCm3 || v.engineCapacity || null,
+    raw: v, // dla debug, jeśli powyższe nie wykryły — admin zobaczy całość w _debug
+  };
 }
 
 // Sprawdza czy user ma rolę admin — używane do warunkowego dołączenia _debug w response
@@ -41,7 +125,7 @@ async function isAdminUser(supabase: any, userId: string | null): Promise<boolea
   }
 }
 
-async function resolvePartsQuery(query: string, params: any): Promise<ResolvedQuery> {
+async function resolvePartsQuery(query: string, params: any, candidateCategories?: Array<{ category_id: string; full_path: string }>): Promise<ResolvedQuery> {
   const vehicle = params?.vehicle || {};
   const vin = params?.vin || '';
 
@@ -81,27 +165,40 @@ async function resolvePartsQuery(query: string, params: any): Promise<ResolvedQu
     };
   }
 
-  const systemPrompt = `Jesteś ekspertem od części samochodowych w Polsce z dostępem do wiedzy o numerach OE/katalogowych.
-Twoje zadanie: na podstawie opisu części i danych pojazdu wygenerować numery OE (Original Equipment) lub katalogowe, które mechanik może wpisać do systemu hurtowni.
+  // Lista dostępnych IC kategorii pre-filtered po keyword match z query (max 30 najbliższych)
+  const catList = (candidateCategories || []).slice(0, 30);
+  const catBlock = catList.length > 0
+    ? `\n\nDOSTĘPNE KATEGORIE Inter Cars (wybierz dokładnie JEDNĄ — najbardziej szczegółową dla query):\n${catList.map(c => `  ${c.category_id}  |  ${c.full_path}`).join('\n')}`
+    : '\n\nUWAGA: brak dopasowanych kategorii IC dla tego query — zwróć categoryId=null.';
+
+  const systemPrompt = `Jesteś ekspertem od części samochodowych w Polsce z dostępem do wiedzy o katalogach TecDoc, numerach OE i typowych producentach.
+
+Twoje zadanie:
+1. Sklasyfikuj zapytanie do najbardziej pasującej KATEGORII Inter Cars z listy poniżej (najlepiej liścia drzewa, np. "GenericArticle_402 = Klocki hamulcowe kpl.")
+2. Wygeneruj LISTĘ 5-10 TYPOWYCH PRODUCENTÓW dla tej kategorii + tego pojazdu (np. dla BMW + klocki hamulcowe: Brembo, Textar, ATE, Ferodo, TRW, Bosch, Pagid, ZF)
+3. Wygeneruj do 8 realnych numerów OE (jeśli pewny — inaczej pusta lista)
+4. Wygeneruj nazwy w 3 językach (pl/en/de) do text search w hurtowniach
 
 ZASADY:
-1. Jeśli opis jest precyzyjny + masz dane pojazdu → wygeneruj do 8 realnych numerów OE popularnych producentów (Bosch, Brembo, TRW, Febi, Lemförder, ATE, Ferodo, LuK, Sachs, Monroe, Bilstein, NGK, Denso, Mann, Mahle, Valeo, Delphi, Hella, ZF, SKF, FAG)
-2. Jeśli opis jest nieprecyzyjny (brak strony L/P, brak przód/tył) → ustaw clarificationQuestion po polsku
-3. Jeśli brak danych pojazdu → ustaw clarificationQuestion z prośbą o markę i model
-4. NIE wymyślaj numerów jeśli nie jesteś pewny – lepiej zwróć pustą listę i clarificationQuestion
-5. Numery OE pisz dokładnie tak jak w katalogach (spacje, myślniki są ważne)
-6. ZAWSZE generuj searchTermsMultiLang — nazwy części w 3 językach (pl/en/de). Używane do wyszukiwania tekstowego w hurtowniach które indeksują różnymi językami (Inter Cars często DE, Hart często PL). Każdy z 3 to krótka, techniczna nazwa (2-5 słów), nie tłumaczenie 1:1 ale standardowy termin używany przez katalogi części w danym języku.
+- Jeśli opis nieprecyzyjny (brak L/P, przód/tył) → clarificationQuestion po polsku
+- Jeśli brak danych pojazdu → clarificationQuestion z prośbą o markę/model
+- NIE wymyślaj OE jeśli niepewny — pusta lista lepsze niż halucynacja
+- expectedManufacturers to producenci CZĘŚCI (Brembo, TRW...), NIE marka pojazdu (BMW)
+- categoryId MUSI być z listy poniżej (lub null gdy brak dopasowania)${catBlock}
 
 FORMAT ODPOWIEDZI – tylko czysty JSON, zero tekstu przed/po:
 {
-  "oeNumbers": ["numer1", "numer2"],
+  "categoryId": "GenericArticle_402" | null,
+  "categoryPath": "Układ hamulcowy > Hamulce tarczowe > Klocki hamulcowe > Klocki hamulcowe kpl." | null,
+  "expectedManufacturers": ["Brembo", "Textar", "ATE", "Ferodo", "TRW"],
+  "oeNumbers": ["34116855000", "34116858652"],
   "partDescription": "precyzyjny opis części po polsku",
   "searchTermsMultiLang": {
     "pl": "klocki hamulcowe przednie",
     "en": "front brake pads",
     "de": "Bremsbeläge vorne"
   },
-  "clarificationQuestion": "pytanie do mechanika lub null",
+  "clarificationQuestion": "pytanie lub null",
   "confidence": "high|medium|low",
   "reasoning": "krótkie wyjaśnienie"
 }`;
@@ -120,7 +217,7 @@ Dane pojazdu: ${vehicleCtx || 'brak danych pojazdu'}`;
       },
       body: JSON.stringify({
         model: ANTHROPIC_MODEL,
-        max_tokens: 400,
+        max_tokens: 1500,
         system: systemPrompt,
         messages: [{ role: 'user', content: userMsg }],
       }),
@@ -145,12 +242,27 @@ Dane pojazdu: ${vehicleCtx || 'brak danych pojazdu'}`;
         }
       : undefined;
 
+    // Parsuj nowe pola (Plan A+B)
+    const categoryId = typeof parsed.categoryId === 'string' && parsed.categoryId.trim()
+      ? parsed.categoryId.trim() : null;
+    const categoryPath = typeof parsed.categoryPath === 'string' && parsed.categoryPath.trim()
+      ? parsed.categoryPath.trim() : null;
+    const expectedManufacturers = Array.isArray(parsed.expectedManufacturers)
+      ? parsed.expectedManufacturers
+          .filter((m: any) => typeof m === 'string' && m.length >= 2)
+          .map((m: string) => m.trim())
+          .slice(0, 10)
+      : [];
+
     return {
       mode: 'description',
       originalQuery: query,
       oeNumbers,
       partDescription: parsed.partDescription || query,
       searchTermsMultiLang,
+      categoryId,
+      categoryPath,
+      expectedManufacturers,
       clarificationQuestion: typeof parsed.clarificationQuestion === 'string' && parsed.clarificationQuestion.trim()
         ? parsed.clarificationQuestion.trim()
         : null,
@@ -179,7 +291,9 @@ Dane pojazdu: ${vehicleCtx || 'brak danych pojazdu'}`;
 // ==================== Multilang search terms helper ====================
 // Zwraca listę unikalnych terminów do wyszukiwania tekstowego — pl/en/de jeśli AI je zwróciło,
 // inaczej fallback na partDescription + originalQuery (deduplikacja po lowercase).
-function buildSearchTerms(resolved: ResolvedQuery, query: string): string[] {
+// Plan A+B: jeśli vehicle podany → DOpisuje brand+model+year do każdego terminu
+// (np. "klocki hamulcowe BMW X5 2023") — daje hurtowni kontekst pojazdu w text search.
+function buildSearchTerms(resolved: ResolvedQuery, query: string, vehicle?: any): string[] {
   const candidates: string[] = [];
   const ml = resolved.searchTermsMultiLang;
   if (ml) {
@@ -190,16 +304,23 @@ function buildSearchTerms(resolved: ResolvedQuery, query: string): string[] {
   if (candidates.length === 0) {
     candidates.push(resolved.partDescription || query);
   }
+  // Optional vehicle suffix — dla każdego terminu osobno (Hart/AP/IC text search lepiej zawęży)
+  const vehSuffix = vehicle
+    ? [vehicle.brand, vehicle.model, vehicle.year].filter(Boolean).join(' ').trim()
+    : '';
+  const withVehicle = vehSuffix
+    ? candidates.flatMap(t => [`${t} ${vehSuffix}`, t]) // wersja z pojazdem + bez (fallback)
+    : candidates;
   // Dedupe (case-insensitive) + odfiltruj zbyt krótkie
   const seen = new Set<string>();
   const out: string[] = [];
-  for (const t of candidates) {
+  for (const t of withVehicle) {
     const k = t.trim().toLowerCase();
     if (k.length < 2 || seen.has(k)) continue;
     seen.add(k);
     out.push(t.trim());
   }
-  return out;
+  return out.slice(0, 6); // max 6 terms (3 lang × 2 wariants = 6)
 }
 
 // ==================== Pre-resolved helper (centralized AI call) ====================
@@ -217,6 +338,11 @@ function getPreResolved(params: any, query: string): ResolvedQuery | null {
     searchTermsMultiLang: (ml && typeof ml === 'object')
       ? { pl: String(ml.pl || ''), en: String(ml.en || ''), de: String(ml.de || '') }
       : undefined,
+    categoryId: pre.categoryId || null,
+    categoryPath: pre.categoryPath || null,
+    expectedManufacturers: Array.isArray(pre.expectedManufacturers)
+      ? pre.expectedManufacturers.filter((m: any) => typeof m === 'string').slice(0, 10)
+      : [],
     clarificationQuestion: pre.clarificationQuestion || null,
     confidence: pre.confidence || 'medium',
     reasoning: 'Pre-resolved (centralized AI call from frontend)',
@@ -236,18 +362,397 @@ serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("Missing authorization header");
 
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const userClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user }, error: authErr } = await userClient.auth.getUser();
-    if (authErr || !user) throw new Error("Unauthorized");
+    // Service role bypass — pozwala wywołać funkcję z service_role key (admin)
+    // bez user JWT. Używane do diagnostyki/testów z terminala.
+    const isServiceRoleCall = authHeader === `Bearer ${supabaseServiceKey}`;
+
+    let user: any = null;
+    if (!isServiceRoleCall) {
+      const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+      const userClient = createClient(supabaseUrl, anonKey, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const result = await userClient.auth.getUser();
+      if (result.error || !result.data?.user) throw new Error("Unauthorized");
+      user = result.data.user;
+    }
 
     const body = await req.json();
     const { action, provider_id, supplier_code = "hart", params = {} } = body;
 
-    // Sprawdź czy user to admin — używamy do warunkowego dołączenia _debug w response
-    const isUserAdmin = await isAdminUser(supabase, user.id);
+    // Sprawdź czy user to admin — używamy do warunkowego dołączenia _debug w response.
+    // Service role calls (bez user context) traktujemy jako admin.
+    const isUserAdmin = isServiceRoleCall ? true : await isAdminUser(supabase, user?.id || null);
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Sync IC catalog category tree — rekurencyjny BFS od top-45 do leaves.
+    // Wywołaj raz (lub cron raz/tydz). Buduje globalną tabelę ic_category_tree.
+    // Daniel uruchamia z service_role: action='sync_ic_categories', params:{maxLevel: 4}
+    if (action === "sync_ic_categories") {
+      if (!provider_id) return json({ error: 'Brak provider_id' }, 400);
+      const { data: icInt } = await supabase
+        .from('workshop_parts_integrations')
+        .select('id, api_extra_json')
+        .eq('provider_id', provider_id)
+        .eq('supplier_code', 'inter_cars')
+        .eq('is_enabled', true)
+        .maybeSingle();
+      if (!icInt) return json({ error: 'IC nie skonfigurowane' }, 400);
+
+      const exIc = icInt.api_extra_json || {};
+      const tokIc = await getICToken(supabase, icInt.id, exIc.clientId, exIc.clientSecret);
+      const hdrIc = {
+        'Authorization': `Bearer ${tokIc}`,
+        'Accept': 'application/json',
+        'Accept-Language': 'pl',
+        'User-Agent': 'GetRido/1.0',
+      };
+
+      const maxLevel = Math.max(1, Math.min(6, Number(params?.maxLevel) || 3));
+      const batchSize = Math.max(1, Math.min(20, Number(params?.batchSize) || 8));
+      const startMs = Date.now();
+      const counter = { count: 0, requests: 0 };
+
+      // Krok 1: top-45 (parentId=null) — daje set "root" do detekcji "no children = same as root"
+      console.log(`[sync_ic_cat] Fetching root level...`);
+      const rootRes = await fetch(`${IC_BASE_URL}/ic/catalog/category`, { headers: hdrIc });
+      counter.requests++;
+      const rootData = await rootRes.json();
+      if (!Array.isArray(rootData)) {
+        return json({ error: 'Root not array', body: rootData }, 500);
+      }
+      const rootIds = new Set<string>();
+      for (const c of rootData) if (c.categoryId) rootIds.add(c.categoryId);
+
+      // Save root
+      for (const c of rootData) {
+        if (!c.categoryId || !c.label) continue;
+        await supabase.from('ic_category_tree').upsert({
+          category_id: c.categoryId, parent_id: null, label: c.label,
+          level: 1, full_path: c.label, has_children: false,
+          synced_at: new Date().toISOString(),
+        }, { onConflict: 'category_id' });
+        counter.count++;
+      }
+
+      // Rekurencyjny BFS z PARALLEL BATCHES per level (żeby zmieścić się w timeout 60s)
+      async function syncChildren(parentId: string, parentPath: string, parentLevel: number): Promise<boolean> {
+        if (parentLevel >= maxLevel) return false;
+        const r = await fetch(`${IC_BASE_URL}/ic/catalog/category?categoryId=${encodeURIComponent(parentId)}`, { headers: hdrIc });
+        counter.requests++;
+        if (!r.ok) return false;
+        const d = await r.json();
+        if (!Array.isArray(d) || d.length === 0) return false;
+        // Detect "no real children" = response = same set as root
+        if (d.length === rootIds.size && d.every((c: any) => rootIds.has(c.categoryId))) {
+          return false;
+        }
+        // Step 1: Insert wszystkie children (sequential, ale tylko DB writes — szybkie)
+        const toRecurse: Array<{ cid: string; fullPath: string; lvl: number }> = [];
+        for (const child of d) {
+          if (!child.categoryId || !child.label || child.categoryId === parentId) continue;
+          const fullPath = `${parentPath} > ${child.label}`;
+          const lvl = parentLevel + 1;
+          await supabase.from('ic_category_tree').upsert({
+            category_id: child.categoryId, parent_id: parentId, label: child.label,
+            level: lvl, full_path: fullPath, has_children: false,
+            synced_at: new Date().toISOString(),
+          }, { onConflict: 'category_id' });
+          counter.count++;
+          toRecurse.push({ cid: child.categoryId, fullPath, lvl });
+        }
+        // Step 2: Recurse children w PARALLEL BATCHES (po batchSize naraz)
+        for (let i = 0; i < toRecurse.length; i += batchSize) {
+          const batch = toRecurse.slice(i, i + batchSize);
+          const results = await Promise.all(batch.map(c => syncChildren(c.cid, c.fullPath, c.lvl)));
+          // Update has_children flags
+          for (let j = 0; j < batch.length; j++) {
+            if (results[j]) {
+              await supabase.from('ic_category_tree').update({ has_children: true }).eq('category_id', batch[j].cid);
+            }
+          }
+        }
+        return toRecurse.length > 0;
+      }
+
+      // Recurse from each root w PARALLEL BATCHES
+      console.log(`[sync_ic_cat] Recursing ${rootIds.size} roots (batchSize=${batchSize}, maxLevel=${maxLevel})...`);
+      const rootArr = Array.from(rootIds);
+      let rootsProcessed = 0;
+      for (let i = 0; i < rootArr.length; i += batchSize) {
+        const batch = rootArr.slice(i, i + batchSize);
+        const results = await Promise.all(batch.map(async (rootId) => {
+          const rootRow = rootData.find((c: any) => c.categoryId === rootId);
+          if (!rootRow) return false;
+          return syncChildren(rootId, rootRow.label, 1);
+        }));
+        for (let j = 0; j < batch.length; j++) {
+          if (results[j]) {
+            await supabase.from('ic_category_tree').update({ has_children: true }).eq('category_id', batch[j]);
+          }
+          rootsProcessed++;
+        }
+        console.log(`[sync_ic_cat] Batch ${Math.floor(i/batchSize)+1}: ${rootsProcessed}/${rootArr.length} roots done, ${counter.count} categories total`);
+      }
+
+      const timeMs = Date.now() - startMs;
+      console.log(`[sync_ic_cat] Done: ${counter.count} categories from ${counter.requests} requests in ${timeMs}ms`);
+      return json({
+        success: true,
+        totalCategories: counter.count,
+        rootsProcessed,
+        maxLevelReached: maxLevel,
+        apiRequests: counter.requests,
+        timeMs,
+      });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // TEMPORARY discovery — wywołaj dowolny IC endpoint i zwróć raw response.
+    // Dostępne tylko z service_role (bypass auth → isServiceRoleCall=true).
+    // Usuń po zakończeniu discovery faz.
+    if (action === "ic_raw_get") {
+      if (!isServiceRoleCall) return json({ error: 'service_role only' }, 403);
+      const path = String(params?.path || "");
+      if (!path.startsWith('/')) return json({ error: 'path must start with /' }, 400);
+      if (!provider_id) return json({ error: 'Brak provider_id' }, 400);
+      const { data: ic } = await supabase.from('workshop_parts_integrations').select('id, api_extra_json').eq('provider_id', provider_id).eq('supplier_code', 'inter_cars').eq('is_enabled', true).maybeSingle();
+      if (!ic) return json({ error: 'IC niesconfigurowane' }, 400);
+      const ex = ic.api_extra_json || {};
+      const tok = await getICToken(supabase, ic.id, ex.clientId, ex.clientSecret);
+      const r = await fetch(`${IC_BASE_URL}${path}`, {
+        headers: { 'Authorization': `Bearer ${tok}`, 'Accept': 'application/json', 'Accept-Language': 'pl', 'User-Agent': 'GetRido/1.0' }
+      });
+      const txt = await r.text();
+      let body: any = null;
+      try { body = JSON.parse(txt); } catch { body = txt; }
+      return json({ status: r.status, url: `${IC_BASE_URL}${path}`, body });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // VIN decode via Inter Cars — probe-first with caching
+    // IC docs są za partner login'em, więc próbujemy 12 kandydat URL'i.
+    // Pierwszy 200 OK z extractable carId/vehicleId/linkageId = używamy + cache.
+    // Cache:
+    //   - vehicle_vin_cache (per VIN+provider, 15d TTL) — pełne decode result
+    //   - ic_vin_endpoint_cache (per provider) — discovered URL template
+    // Edge case: jeśli wszystkie 12 fail → {success:false, fallbackToOEFlow:true}
+    if (action === "decode_vin") {
+      const vin = String(params?.vin || "").trim();
+      if (!vin || vin.length < 11) {
+        return json({ error: "Brak lub niepoprawny VIN (min 11 znaków)" }, 400);
+      }
+      if (!provider_id) return json({ error: "Brak provider_id" }, 400);
+
+      // 1) Cache check — per-VIN
+      const { data: cachedVin } = await supabase
+        .from('vehicle_vin_cache')
+        .select('ic_car_id, vehicle_info, endpoint_used')
+        .eq('vin', vin)
+        .eq('provider_id', provider_id)
+        .gt('expires_at', new Date().toISOString())
+        .maybeSingle();
+
+      if (cachedVin?.ic_car_id) {
+        console.log(`[VIN-probe] Cache HIT vin=${vin} carId=${cachedVin.ic_car_id} endpoint=${cachedVin.endpoint_used}`);
+        return json({
+          success: true,
+          carId: cachedVin.ic_car_id,
+          vehicleInfo: cachedVin.vehicle_info,
+          cached: true,
+          endpointUsed: cachedVin.endpoint_used,
+        });
+      }
+
+      // 2) Get IC integration
+      const { data: icIntegration } = await supabase
+        .from('workshop_parts_integrations')
+        .select('id, api_extra_json')
+        .eq('provider_id', provider_id)
+        .eq('supplier_code', 'inter_cars')
+        .eq('is_enabled', true)
+        .maybeSingle();
+
+      if (!icIntegration) {
+        return json({ success: false, error: 'IC nie skonfigurowane', fallbackToOEFlow: true });
+      }
+
+      const icExtra = icIntegration.api_extra_json || {};
+      const icClientId = icExtra.clientId;
+      const icClientSecret = icExtra.clientSecret;
+      if (!icClientId || !icClientSecret) {
+        return json({ success: false, error: 'IC credentials niepełne (clientId/clientSecret)', fallbackToOEFlow: true });
+      }
+
+      // 3) IC OAuth token
+      let icToken: string;
+      try {
+        icToken = await getICToken(supabase, icIntegration.id, icClientId, icClientSecret);
+      } catch (e: any) {
+        console.error(`[VIN-probe] IC OAuth failed:`, e?.message);
+        return json({ success: false, error: `IC OAuth failed: ${e?.message}`, fallbackToOEFlow: true });
+      }
+
+      const icHeaders = {
+        "Authorization": `Bearer ${icToken}`,
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "Accept-Language": "pl",
+        "User-Agent": "GetRido/1.0",
+      };
+
+      // 4) Check endpoint template cache (per provider)
+      const { data: tplCache } = await supabase
+        .from('ic_vin_endpoint_cache')
+        .select('endpoint_method, endpoint_template, endpoint_body_template')
+        .eq('provider_id', provider_id)
+        .maybeSingle();
+
+      // 5) Build candidate list — 20 kandydatów + cached template (jeśli jest) na początku
+      const allCandidates: Array<{ method: 'GET' | 'POST'; template: string; bodyTpl?: string; absolute?: string }> = [
+        // — Round 1 (typowe wzorce)
+        { method: 'GET',  template: `/ic/catalog/vehicles?vin={VIN}` },
+        { method: 'GET',  template: `/ic/catalog/vehicles/by-vin/{VIN}` },
+        { method: 'GET',  template: `/ic/catalog/vin/{VIN}` },
+        { method: 'GET',  template: `/ic/catalog/vehicles/identify?vin={VIN}` },
+        { method: 'POST', template: `/ic/catalog/vehicles/decode`, bodyTpl: `{"vin":"{VIN}"}` },
+        { method: 'GET',  template: `/ic/catalog/vehicleByVin/{VIN}` },
+        { method: 'GET',  template: `/ic/vehicles?vin={VIN}` },
+        { method: 'GET',  template: `/ic/catalog/vin-decoder/{VIN}` },
+        { method: 'GET',  template: `/ic/catalog/decode-vin?vin={VIN}` },
+        { method: 'GET',  template: `/ic/catalog/cars?vin={VIN}` },
+        { method: 'GET',  template: `/ic/tecdoc/vin/{VIN}` },
+        { method: 'POST', template: `/ic/catalog/vin/decode`, bodyTpl: `{"vin":"{VIN}"}` },
+        // — Round 2 (alternatywne ścieżki — single resource, alternative spelling)
+        { method: 'GET',  template: `/ic/catalog/vehicle?vin={VIN}` },                       // singular
+        { method: 'GET',  template: `/ic/catalog/vehicles/{VIN}` },                          // VIN jako path ID
+        { method: 'GET',  template: `/ic/catalog/vehicleByCriteria?vin={VIN}` },
+        { method: 'GET',  template: `/ic/catalog/searchVehicle?vin={VIN}` },
+        { method: 'GET',  template: `/ic/catalog/lookup-vehicle?vin={VIN}` },
+        { method: 'GET',  template: `/ic/catalog/getVehicleByVin?vin={VIN}` },               // TecDoc-style
+        { method: 'POST', template: `/ic/catalog/vehicleSearch`, bodyTpl: `{"vin":"{VIN}"}` },
+        // — Round 3 (bez /ic/ prefix lub inny namespace)
+        { method: 'GET',  template: `/catalog/vehicles?vin={VIN}` },
+        { method: 'GET',  template: `/ic/tecalliance/vehicles?vin={VIN}` },
+        { method: 'GET',  template: `/ic/catalog/tecdoc/vehicles?vin={VIN}` },
+        // — Round 4 (alternative host — webapi bez api. subdomain)
+        { method: 'GET',  template: ``, absolute: `https://webapi.intercars.eu/ic/catalog/vehicles?vin={VIN}` },
+      ];
+
+      // Cached template jako PIERWSZY kandydat (skraca latency dla znanego providera)
+      const orderedCandidates: typeof allCandidates = [];
+      if (tplCache) {
+        orderedCandidates.push({
+          method: tplCache.endpoint_method as 'GET' | 'POST',
+          template: tplCache.endpoint_template,
+          bodyTpl: tplCache.endpoint_body_template || undefined,
+        });
+      }
+      for (const c of allCandidates) {
+        const dup = tplCache && tplCache.endpoint_method === c.method && tplCache.endpoint_template === c.template;
+        if (!dup) orderedCandidates.push(c);
+      }
+
+      // 6) Probe loop
+      const attemptLog: any[] = [];
+      let attempts = 0;
+      for (const c of orderedCandidates) {
+        attempts++;
+        const path = c.template ? c.template.replace(/\{VIN\}/g, encodeURIComponent(vin)) : '';
+        const url = c.absolute
+          ? c.absolute.replace(/\{VIN\}/g, encodeURIComponent(vin))
+          : `${IC_BASE_URL}${path}`;
+        const isCached = tplCache && tplCache.endpoint_method === c.method && tplCache.endpoint_template === c.template;
+        console.log(`[VIN-probe] Trying #${attempts}: ${c.method} ${url}${isCached ? ' (cached)' : ''}`);
+
+        try {
+          const opts: RequestInit = { method: c.method, headers: icHeaders };
+          if (c.method === 'POST' && c.bodyTpl) {
+            opts.body = c.bodyTpl.replace(/\{VIN\}/g, vin);
+          }
+          const res = await fetch(url, opts);
+          const text = await res.text();
+          let body: any = null;
+          try { body = JSON.parse(text); } catch { body = text; }
+
+          const bodyPreview = typeof body === 'string'
+            ? body.substring(0, 200)
+            : JSON.stringify(body).substring(0, 300);
+          console.log(`[VIN-probe] Response #${attempts}: HTTP ${res.status} ${bodyPreview}`);
+
+          attemptLog.push({
+            attempt: attempts,
+            method: c.method,
+            path,
+            status: res.status,
+            bodyPreview,
+            isCached: !!isCached,
+          });
+
+          if (!res.ok) continue;
+          if (typeof body !== 'object' || body === null) continue;
+
+          const carId = extractCarId(body);
+          if (!carId) {
+            console.log(`[VIN-probe] #${attempts} 200 OK ale brak carId/vehicleId — kolejny kandydat`);
+            continue;
+          }
+
+          const vehicleInfo = extractVehicleInfo(body);
+          const endpointUsed = `${c.method} ${path}`;
+          console.log(`[VIN-probe] SUCCESS #${attempts}: ${endpointUsed} → carId=${carId}`);
+
+          // Save endpoint template cache
+          if (!isCached) {
+            await supabase.from('ic_vin_endpoint_cache').upsert({
+              provider_id,
+              endpoint_method: c.method,
+              endpoint_template: c.template,
+              endpoint_body_template: c.bodyTpl || null,
+              updated_at: new Date().toISOString(),
+            }, { onConflict: 'provider_id' });
+          }
+
+          // Save VIN→carId cache (15d TTL)
+          await supabase.from('vehicle_vin_cache').upsert({
+            vin,
+            provider_id,
+            ic_car_id: carId,
+            vehicle_info: vehicleInfo,
+            endpoint_used: endpointUsed,
+            expires_at: new Date(Date.now() + 15 * 86400 * 1000).toISOString(),
+          }, { onConflict: 'vin,provider_id' });
+
+          return json({
+            success: true,
+            carId,
+            vehicleInfo,
+            cached: false,
+            endpointUsed,
+            probeAttempts: attempts,
+          });
+        } catch (err: any) {
+          console.warn(`[VIN-probe] Exception #${attempts} ${c.method} ${url}:`, err?.message);
+          attemptLog.push({
+            attempt: attempts,
+            method: c.method,
+            path,
+            status: 'EXCEPTION',
+            bodyPreview: err?.message || String(err),
+            isCached: !!isCached,
+          });
+        }
+      }
+
+      console.error(`[VIN-probe] ALL ${orderedCandidates.length} candidates FAILED for VIN ${vin}`);
+      return json({
+        success: false,
+        error: `IC API nie wspiera VIN decode dla tego konta — żaden z ${orderedCandidates.length} kandydatów nie zadziałał`,
+        fallbackToOEFlow: true,
+        candidatesAttempted: orderedCandidates.length,
+        attempts: attemptLog,
+      });
+    }
 
     // Cross-supplier lookup — szukamy TEJ SAMEJ części (po productCode + manufacturer)
     // w pozostałych hurtowniach (oprócz excludeSupplier). Reużywa handleHart/AP/IC
@@ -350,17 +855,23 @@ serve(async (req) => {
       const query = String(params?.query || "").trim();
       if (!query) return json({ error: "Brak frazy wyszukiwania" }, 400);
       const startMs = Date.now();
-      const resolved = await resolvePartsQuery(query, params);
+      // Pre-filter candidate categories z drzewa IC żeby Claude miał kontekst
+      const candidateCategories = await getCandidateCategoriesForAI(supabase, query);
+      const resolved = await resolvePartsQuery(query, params, candidateCategories);
       const timeMs = Date.now() - startMs;
       const baseResponse: any = {
         oeNumbers: resolved.oeNumbers,
         partDescription: resolved.partDescription,
         searchTermsMultiLang: resolved.searchTermsMultiLang,
+        categoryId: resolved.categoryId,
+        categoryPath: resolved.categoryPath,
+        expectedManufacturers: resolved.expectedManufacturers,
         clarificationQuestion: resolved.clarificationQuestion,
         confidence: resolved.confidence,
         reasoning: resolved.reasoning,
         mode: resolved.mode,
         timeMs,
+        candidateCategoriesCount: candidateCategories.length,
       };
       if (isUserAdmin && resolved._aiRaw) {
         baseResponse._debug = {
@@ -527,7 +1038,7 @@ async function handleAutoPartner(supabase: any, integration: any, action: string
 
         // Strategy B: Text search via SearchByPhrase — multilang (pl/en/de) parallel
         if (availability.length === 0) {
-          const terms = buildSearchTerms(resolved, query);
+          const terms = buildSearchTerms(resolved, query, params?.vehicle);
           textSearchTermsUsed = terms;
           console.log(`[AP] Strategy B — szukam w ${terms.length} językach:`, terms);
 
@@ -789,7 +1300,7 @@ async function handleHart(supabase: any, baseUrl: string, integration: any, acti
 
       // Strategy C: Text/description search — multilang (pl/en/de) parallel
       if (items.length === 0) {
-        const terms = buildSearchTerms(resolved, query);
+        const terms = buildSearchTerms(resolved, query, params?.vehicle);
         textSearchTermsUsed = terms;
         console.log(`[HART] Strategy C — szukam w ${terms.length} językach:`, terms);
 
@@ -1309,45 +1820,47 @@ async function handleInterCars(supabase: any, integration: any, action: string, 
           }
         }
 
-        // Strategy C: Text search fallback — multilang (pl/en/de) parallel
-        if (products.length === 0) {
-          const terms = buildSearchTerms(resolved, query);
-          textSearchTermsUsed = terms;
-          console.log(`[IC] Strategy C — szukam w ${terms.length} językach:`, terms);
+        // Strategy V_Cat — per-manufacturer parallel calls (Daniel's suggestion)
+        // IC API REQUIRES categoryId/sku/index. Loop: dla każdego expectedManufacturer
+        // ?categoryId=X&brand=MFG&pageSize=10 — Promise.all, merge results.
+        if (products.length < 5 && resolved.categoryId && (resolved.expectedManufacturers || []).length > 0) {
+          textSearchTermsUsed = [`category:${resolved.categoryId}`];
+          const mfgs = (resolved.expectedManufacturers || []).slice(0, 10);
+          const vehBrand = String(params?.vehicle?.brand || '').toLowerCase().trim();
+          const vehModelTokens = String(params?.vehicle?.model || '').toLowerCase().split(/\s+/).filter(s => s.length > 1);
+          console.log(`[IC] V_Cat per-mfg: categoryId=${resolved.categoryId}, mfgs=[${mfgs.join(',')}]`);
 
-          const perLangPromises = terms.map(async (term) => {
-            for (const param of ["phrase", "searchText", "text", "name"]) {
-              try {
-                const txtUrl = `${IC_BASE_URL}/ic/catalog/products?${param}=${encodeURIComponent(term)}&pageSize=30`;
-                const txtRes = await fetch(txtUrl, { headers: icHeaders });
-                if (txtRes.ok) {
-                  const txtData = await txtRes.json();
-                  const txtProducts = Array.isArray(txtData) ? txtData : txtData?.items || txtData?.products || [];
-                  if (txtProducts.length > 0) {
-                    console.log(`[IC] Strategy C (${param}, "${term}") found ${txtProducts.length}`);
-                    return txtProducts;
-                  }
-                } else {
-                  await txtRes.text();
-                }
-              } catch { /* continue */ }
+          // Promise.all dla każdego producent — ?categoryId=X&brand=MFG
+          const perMfgResults = await Promise.all(mfgs.map(async (mfg) => {
+            const url = `${IC_BASE_URL}/ic/catalog/products?categoryId=${encodeURIComponent(resolved.categoryId)}&brand=${encodeURIComponent(mfg)}&pageSize=10`;
+            try {
+              const r = await fetch(url, { headers: icHeaders });
+              if (!r.ok) return { mfg, items: [], status: r.status };
+              const d = await r.json();
+              const items = Array.isArray(d) ? d : (d?.products || []);
+              return { mfg, items, status: 200 };
+            } catch (e: any) {
+              return { mfg, items: [], status: 'ERR' };
             }
-            return [];
-          });
+          }));
 
-          const perLangResults = await Promise.all(perLangPromises);
-          const seenIc = new Set<string>();
-          const merged: any[] = [];
-          for (const list of perLangResults) {
-            for (const item of list) {
-              const key = item.sku || item.index || item.towkod || JSON.stringify(item).substring(0, 50);
-              if (seenIc.has(key)) continue;
-              seenIc.add(key);
-              merged.push(item);
+          const seenSku = new Set<string>();
+          const collected: any[] = [];
+          for (const r of perMfgResults) {
+            console.log(`[IC] V_Cat mfg "${r.mfg}": ${r.items.length} items (status: ${r.status})`);
+            for (const it of r.items) {
+              const sku = it.sku || it.index || it.towkod;
+              if (!sku || seenSku.has(sku)) continue;
+              // Optional vehicle filter — keep produkty z BMW/X5 w description, ale nie wymagaj
+              const desc = `${it.shortDescription || ''} ${it.description || ''}`.toLowerCase();
+              const vehMatch = !vehBrand || desc.includes(vehBrand) || vehModelTokens.some(p => desc.includes(p));
+              seenSku.add(sku);
+              if (vehMatch) collected.unshift(it); // priorytet
+              else collected.push(it);
             }
           }
-          products = merged;
-          console.log(`[IC] Strategy C merged ${products.length} unique items from ${terms.length} languages`);
+          products = [...products, ...collected];
+          console.log(`[IC] V_Cat final: ${collected.length} unique products from ${mfgs.length} mfgs`);
         }
 
         console.log(`[IC] Total products found: ${products.length}`);
@@ -1384,7 +1897,7 @@ async function handleInterCars(supabase: any, integration: any, action: string, 
             partNumber: sku,
             productCode: sku,
             name: product.name || product.description || resolved.partDescription || sku,
-            manufacturer: product.brandReference?.name || product.manufacturer || product.producerName || "",
+            manufacturer: product.brandReference?.name || product.manufacturer || product.brand || product.producerName || "",
             price: Number(avail?.unitPriceNet || product.unitPriceNet || product.priceNet || 0),
             retailPrice: Number(avail?.unitPriceGross || product.unitPriceGross || 0),
             availability: qty > 10 ? 10 : qty,

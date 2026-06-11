@@ -545,40 +545,30 @@ export default function EasyHub() {
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <Input
               type="text"
-              placeholder={hasServicesAccess ? t('home.searchPlaceholder') : t('home.searchPlaceholderDisabled')}
+              placeholder={t('home.searchPlaceholder')}
               value={searchQuery}
-              onChange={(e) => hasServicesAccess && setSearchQuery(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && hasServicesAccess && handleSearch()}
-              disabled={!hasServicesAccess}
-              className="pl-12 pr-24 h-12 md:h-14 text-base md:text-lg rounded-full border-2 border-primary/20 focus:border-primary shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              className="pl-12 pr-24 h-12 md:h-14 text-base md:text-lg rounded-full border-2 border-primary/20 focus:border-primary shadow-lg"
             />
-            {hasServicesAccess ? (
-              searchQuery.trim() ? (
-                <Button
-                  onClick={handleSearch}
-                  disabled={isSearching}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full h-8 md:h-10 px-4 md:px-6"
-                >
-                  {isSearching ? "..." : t('home.searchBtn')}
-                </Button>
-              ) : (
-                <SearchCategoryModal
-                  trigger={
-                    <Button
-                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full h-8 md:h-10 px-4 md:px-6"
-                    >
-                      {t('home.searchBtn')}
-                    </Button>
-                  }
-                />
-              )
-            ) : (
+            {searchQuery.trim() ? (
               <Button
-                disabled
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full h-8 md:h-10 px-4 md:px-6 opacity-60"
+                onClick={handleSearch}
+                disabled={isSearching}
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full h-8 md:h-10 px-4 md:px-6"
               >
-                {t('home.soon')}
+                {isSearching ? "..." : t('home.searchBtn')}
               </Button>
+            ) : (
+              <SearchCategoryModal
+                trigger={
+                  <Button
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full h-8 md:h-10 px-4 md:px-6"
+                  >
+                    {t('home.searchBtn')}
+                  </Button>
+                }
+              />
             )}
           </div>
           <p className="text-center text-xs text-muted-foreground mt-2">
