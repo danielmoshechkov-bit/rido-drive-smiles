@@ -441,6 +441,14 @@ export default function WorkshopEmployeePortal() {
         } : undefined}
         onSaved={loadAll}
       />
+
+      <StationOrderNoteDialog
+        open={!!stationOpenId}
+        onOpenChange={(v) => { if (!v) { setStationOpenId(null); setStationOpenName(null); } }}
+        orderId={stationOpenId}
+        stationName={stationOpenName}
+        onDone={loadAll}
+      />
     </div>
   );
 }
