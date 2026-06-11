@@ -86,6 +86,25 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
   const [createdVehicleData, setCreatedVehicleData] = useState<any>(null);
   const [createdClientData, setCreatedClientData] = useState<any>(null);
   const [checklist, setChecklist] = useState(DEFAULT_CHECKLIST);
+  const [stations, setStations] = useState<any[]>([]);
+  const STATION_LS_KEY = `workshop:lastStation:${providerId}`;
+  const [stationId, setStationId] = useState<string>('');
+
+  useEffect(() => {
+    if (!open || !providerId) return;
+    (async () => {
+      const { data } = await (supabase.from('workshop_stations') as any)
+        .select('id, name, color, is_active')
+        .eq('provider_id', providerId)
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true });
+      const list = data || [];
+      setStations(list);
+      const last = localStorage.getItem(STATION_LS_KEY) || '';
+      if (last && list.find((s: any) => s.id === last)) setStationId(last);
+      else if (list.length === 1) setStationId(list[0].id);
+    })();
+  }, [open, providerId]);
 
   // SMS/Email
   const [sendMethod, setSendMethod] = useState<'sms' | 'email'>('sms');
