@@ -613,7 +613,7 @@ export default function ClientPortal() {
               </div>
               <Button variant="outline" onClick={handleLogout} size="sm" className="rounded-lg text-sm">
                 <LogOut className="h-4 w-4 sm:mr-1" />
-                <span className="hidden sm:inline">Wyloguj</span>
+                <span className="hidden sm:inline">{t('cp.wyloguj')}</span>
               </Button>
             </div>
           </div>
