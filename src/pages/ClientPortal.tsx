@@ -838,7 +838,7 @@ export default function ClientPortal() {
                       <Package className="h-6 w-6 text-primary" />
                     </div>
                     <p className="text-3xl font-bold">{totalListings}</p>
-                    <p className="text-sm text-muted-foreground">Ogłoszenia</p>
+                    <p className="text-sm text-muted-foreground">{t('cp.stats.ogloszenia')}</p>
                   </CardContent>
                 </Card>
 
