@@ -750,7 +750,8 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                        {format(new Date(order.created_at), 'yyyy-MM-dd')}
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
                 {filteredOrders.length === 0 && !isLoading && (
                   <TableRow>
                     <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
