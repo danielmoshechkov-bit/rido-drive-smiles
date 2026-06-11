@@ -83,7 +83,8 @@ export default function WorkshopEmployeePortal() {
     // Pool — all ACTIVE provider orders (not completed/cancelled), so employee can pick any to inspect
     if (providerIds.length) {
       const { data: pooledOrders } = await (supabase.from('workshop_orders') as any)
-        .select('id, order_number, status_name, scheduled_date, scheduled_start, description, provider_id')
+        .select('id, order_number, status_name, scheduled_date, scheduled_start, description, provider_id, vehicle:workshop_vehicles(brand, model, license_plate)')
+
         .in('provider_id', providerIds)
         .order('created_at', { ascending: false })
         .limit(100);
