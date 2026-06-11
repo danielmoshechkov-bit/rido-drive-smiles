@@ -225,8 +225,24 @@ export default function WorkshopEmployeePortal() {
             <Empty text="Brak przydzielonych zleceń. Gdy warsztat coś przydzieli — pojawi się tutaj." />
           ) : (
             <div className="divide-y">
-              {mine.map(a => (
-                <div key={a.id} className="p-3 flex items-center gap-3 bg-green-50/60 border-l-4 border-l-green-500">
+              {mine.map(a => {
+                const st = String(a.workshop_orders?.status_name || '');
+                const tone = ['Do wyceny','Wycena gotowa','Wycena wysłana','Oczekuje na akceptację','Dodatek do naprawy'].includes(st)
+                  ? 'yellow'
+                  : ['Akceptacja klienta','Zaakceptowano','Zgoda na naprawę','W trakcie naprawy','Zadania wykonane','Gotowy do odbioru'].includes(st)
+                    ? 'green'
+                    : ['Naprawione','Zakończone'].includes(st)
+                      ? 'red'
+                      : 'gray';
+                const toneRow = tone === 'yellow' ? 'bg-yellow-50/70 border-l-yellow-400'
+                  : tone === 'green' ? 'bg-green-50/70 border-l-green-500'
+                  : tone === 'red' ? 'bg-red-50/70 border-l-red-500'
+                  : 'bg-muted/30 border-l-gray-300';
+                return (
+                <div key={a.id} className={`p-3 flex items-center gap-3 border-l-4 ${toneRow}`}>
+                  {a.workshop_orders?.has_unread_notes && (
+                    <span title="Nowa notatka od administratora" className="text-amber-500 text-lg leading-none">!</span>
+                  )}
                   <button
                     className="flex-1 text-left hover:opacity-80"
                     onClick={() => { setOpenFromPool(false); setOpenProviderId(a.provider_id); setOpenOrderId(a.order_id); }}
