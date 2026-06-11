@@ -374,7 +374,10 @@ export function EmployeeOrderCardDialog({
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-semibold truncate">
-                          {t.index}. {t.text || 'Zadanie'}
+                          {t.index}. {t.complaint || t.text || 'Zadanie'}
+                          {t.isAddon && (
+                            <Badge className="ml-2 bg-yellow-400 text-yellow-950 text-[10px]">Dodatek</Badge>
+                          )}
                         </div>
                         <div className={`text-xs truncate ${filled ? 'text-green-600' : 'text-muted-foreground'}`}>
                           {summary}
@@ -385,15 +388,21 @@ export function EmployeeOrderCardDialog({
 
                     {isOpen && (
                       <div className="px-3 pb-3 space-y-3 border-t border-border/60 pt-3">
+                        {t.complaint && (
+                          <div className="rounded-md bg-muted/60 border px-3 py-2">
+                            <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Zgłoszenie klienta</div>
+                            <div className="text-sm text-foreground">{t.complaint}</div>
+                          </div>
+                        )}
                         {!readOnly && (
                           <div>
                             <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
-                              Usterka / zakres
+                              Czynność wykonana
                             </div>
                             <Input
                               value={t.text}
-                              onChange={(e) => setTasks(ts => ts.map((x, idx) => idx === ti ? { ...x, text: e.target.value, key: `${x.index}. ${e.target.value}` } : x))}
-                              placeholder="Opisz usterkę (np. wymiana klocków)"
+                              onChange={(e) => setTasks(ts => ts.map((x, idx) => idx === ti ? { ...x, text: e.target.value } : x))}
+                              placeholder="np. Wymiana wachacza prawego"
                               className="h-11 text-base"
                             />
                           </div>
