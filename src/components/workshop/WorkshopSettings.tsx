@@ -153,6 +153,7 @@ function SettingSectionDetail({ sectionKey, providerId, onBack, onBackToMain }: 
     'numeracja': 'Numeracja dokumentów',
     'w-statusy': 'Statusy zleceń',
     'w-stanowiska': 'Stanowiska warsztatowe',
+    'w-dzialy': 'Działy warsztatu (Myjnia, Geometria, Wulkanizacja...)',
     'w-pracownicy': 'Lista pracowników',
     'w-godziny': 'Godziny pracy',
     'karta-zlecenia': 'Elektroniczna karta zlecenia',
