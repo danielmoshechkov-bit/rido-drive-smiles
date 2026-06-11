@@ -14,6 +14,7 @@ import { EmployeeOrderCardDialog } from '@/components/workshop/EmployeeOrderCard
 import { EmployeeNotificationsBell } from '@/components/workshop/EmployeeNotificationsBell';
 import { StationOrderNoteDialog } from '@/components/workshop/StationOrderNoteDialog';
 import { EmployeeWorkListDialog } from '@/components/workshop/EmployeeWorkListDialog';
+import { useWorkshopTranslations, TranslatableField } from '@/hooks/useWorkshopTranslations';
 
 type Tab = 'home' | 'mine' | 'pool' | 'history';
 
