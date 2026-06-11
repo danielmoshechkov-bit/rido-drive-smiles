@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import {
-  Loader2, X, Wrench, Package, Car, Save, ChevronDown, ChevronRight, HandHelping, Lock, CheckCircle2,
+  Loader2, X, Wrench, Check, ChevronDown, ChevronUp, HandHelping, Lock, ArrowRight,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -21,20 +21,22 @@ interface Props {
   onSaved?: () => void;
 }
 
-interface PartLine { id?: string; name: string; qty: string; }
-interface ServiceLine { id?: string; name: string; hours: string; }
+interface PartItem { id?: string; name: string; }
 interface TaskBlock {
-  key: string;          // group key — usually "<index>. <text>"
+  key: string;
   index: number;
   text: string;
+  parts: PartItem[];
+  time: string;            // godziny
+  cost: string;            // zł
+  confirmed: boolean;
   expanded: boolean;
-  parts: PartLine[];
-  services: ServiceLine[];
-  existingIds: string[]; // ids loaded from DB for this group (to update/delete)
+  existingPartIds: string[];
+  existingServiceId: string | null;
+  timeError?: string;
 }
 
-const emptyPart = (): PartLine => ({ name: '', qty: '1' });
-const emptyService = (): ServiceLine => ({ name: '', hours: '' });
+const fmtMoney = (n: number) => `${n.toFixed(2).replace('.', ',')}\u00A0zł`;
 
 export function EmployeeOrderCardDialog({
   open, onOpenChange, orderId, employeeName, employeeId,
@@ -43,13 +45,11 @@ export function EmployeeOrderCardDialog({
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [claiming, setClaiming] = useState(false);
-  const [marking, setMarking] = useState(false);
   const [order, setOrder] = useState<any>(null);
   const [vehicle, setVehicle] = useState<any>(null);
   const [tasks, setTasks] = useState<TaskBlock[]>([]);
-  // refs for autofocus on Enter
-  const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
-  const focusKeyRef = useRef<string | null>(null);
+  const partInputRefs = useRef<Record<number, HTMLInputElement | null>>({});
+  const timeInputRefs = useRef<Record<number, HTMLInputElement | null>>({});
 
   useEffect(() => {
     if (!open || !orderId) return;
@@ -65,71 +65,79 @@ export function EmployeeOrderCardDialog({
           setVehicle(v);
         } else setVehicle(null);
 
-        // Parse task list from description: lines like "1. xxx"
         const rawLines: string[] = String(o?.description || '')
           .split(/\n|(?=\d+\.\s)/).map(s => s.trim()).filter(Boolean);
-        const parsedTasks: TaskBlock[] = (rawLines.length ? rawLines : ['Zakres prac']).map((l, i) => {
+        const parsed: TaskBlock[] = (rawLines.length ? rawLines : ['Zakres prac']).map((l, i) => {
           const idx = i + 1;
           const text = l.replace(/^\d+\.\s*/, '');
           return {
             key: `${idx}. ${text}`,
             index: idx,
             text,
-            expanded: true,
             parts: [],
-            services: [],
-            existingIds: [],
+            time: '',
+            cost: '',
+            confirmed: false,
+            expanded: false,
+            existingPartIds: [],
+            existingServiceId: null,
           };
         });
 
-        // Load existing items
         const { data: items } = await (supabase.from('workshop_order_items') as any)
-          .select('id, name, item_type, quantity, labor_hours, task_group, sort_order')
+          .select('id, name, item_type, quantity, labor_hours, task_group, sort_order, total_gross, unit_price_gross')
           .eq('order_id', orderId)
           .order('sort_order', { ascending: true });
 
-        const byKey = new Map(parsedTasks.map(t => [t.key, t]));
-        // Bucket "Inne" for items without matching task
+        const byKey = new Map(parsed.map(t => [t.key, t]));
         let other: TaskBlock | null = null;
         const getOther = () => {
           if (!other) {
             other = {
-              key: 'Inne',
-              index: parsedTasks.length + 1,
-              text: 'Inne',
-              expanded: true,
-              parts: [],
-              services: [],
-              existingIds: [],
+              key: 'Inne', index: parsed.length + 1, text: 'Inne',
+              parts: [], time: '', cost: '', confirmed: false, expanded: false,
+              existingPartIds: [], existingServiceId: null,
             };
           }
           return other;
         };
 
         for (const it of (items || [])) {
-          // Strip legacy "[N. text] " prefix from name
           const cleanName = String(it.name || '').replace(/^\s*\[[^\]]+\]\s*/, '');
           const groupKey = it.task_group || (() => {
-            // try to recover from prefix
             const m = String(it.name || '').match(/^\s*\[([^\]]+)\]/);
             return m ? m[1] : null;
           })();
           const block = (groupKey && byKey.get(groupKey)) || getOther();
-          block.existingIds.push(it.id);
           if (it.item_type === 'part') {
-            block.parts.push({ id: it.id, name: cleanName, qty: String(it.quantity ?? 1) });
+            block.parts.push({ id: it.id, name: cleanName });
+            block.existingPartIds.push(it.id);
           } else {
-            block.services.push({ id: it.id, name: cleanName, hours: String(it.labor_hours ?? '') });
+            // Pierwszy service = źródło czasu/kosztu punktu
+            if (!block.existingServiceId) {
+              block.existingServiceId = it.id;
+              block.time = it.labor_hours != null ? String(it.labor_hours) : '';
+              const cost = Number(it.total_gross || it.unit_price_gross || 0);
+              block.cost = cost ? String(cost) : '';
+            } else {
+              // dodatkowe service jako "część" pomocnicza
+              block.parts.push({ id: it.id, name: cleanName });
+              block.existingPartIds.push(it.id);
+            }
           }
         }
 
-        const final = [...parsedTasks];
+        const final = [...parsed];
         if (other) final.push(other);
-        // ensure each block has at least one empty row of each kind
+        // confirmed = ma czas (najważniejszy znacznik)
         final.forEach(b => {
-          if (b.parts.length === 0) b.parts.push(emptyPart());
-          if (b.services.length === 0) b.services.push(emptyService());
+          if (parseFloat(b.time || '0') > 0) b.confirmed = true;
         });
+        // otwórz pierwszy niewypełniony
+        const firstEmpty = final.findIndex(b => !b.confirmed);
+        if (firstEmpty >= 0) final[firstEmpty].expanded = true;
+        else if (final.length) final[0].expanded = true;
+
         setTasks(final);
       } finally {
         setLoading(false);
@@ -137,162 +145,151 @@ export function EmployeeOrderCardDialog({
     })();
   }, [open, orderId]);
 
-  // Auto-focus newly created input after re-render
-  useEffect(() => {
-    if (focusKeyRef.current) {
-      const el = inputRefs.current[focusKeyRef.current];
-      el?.focus();
-      focusKeyRef.current = null;
+  const confirmedCount = useMemo(() => tasks.filter(t => t.confirmed).length, [tasks]);
+  const allConfirmed = tasks.length > 0 && confirmedCount === tasks.length;
+  const progressPct = tasks.length ? (confirmedCount / tasks.length) * 100 : 0;
+
+  const expandOnly = (i: number) => {
+    setTasks(ts => ts.map((t, idx) => ({ ...t, expanded: idx === i ? !t.expanded : false })));
+    setTimeout(() => partInputRefs.current[i]?.focus(), 50);
+  };
+
+  const addPart = (ti: number, name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    setTasks(ts => ts.map((t, idx) => idx === ti ? { ...t, parts: [...t.parts, { name: trimmed }] } : t));
+    const el = partInputRefs.current[ti];
+    if (el) { el.value = ''; el.focus(); }
+  };
+
+  const removePart = (ti: number, pi: number) => {
+    setTasks(ts => ts.map((t, idx) => idx === ti ? { ...t, parts: t.parts.filter((_, k) => k !== pi) } : t));
+  };
+
+  const setTime = (ti: number, v: string) => setTasks(ts => ts.map((t, idx) =>
+    idx === ti ? { ...t, time: v, timeError: undefined } : t));
+  const setCost = (ti: number, v: string) => setTasks(ts => ts.map((t, idx) =>
+    idx === ti ? { ...t, cost: v } : t));
+
+  const confirmTask = (ti: number) => {
+    const t = tasks[ti];
+    const hrs = parseFloat(t.time || '0');
+    if (!hrs || hrs <= 0) {
+      setTasks(ts => ts.map((x, idx) => idx === ti ? { ...x, timeError: 'Czas naprawy jest obowiązkowy — wpisz zanim zatwierdzisz punkt' } : x));
+      timeInputRefs.current[ti]?.focus();
+      return;
     }
-  });
-
-  const toggleTask = (i: number) => setTasks(ts => ts.map((t, idx) => idx === i ? { ...t, expanded: !t.expanded } : t));
-
-  const addPart = (ti: number) => {
     setTasks(ts => {
-      const next = ts.map((t, idx) => idx === ti ? { ...t, parts: [...t.parts, emptyPart()] } : t);
-      focusKeyRef.current = `p-${ti}-${next[ti].parts.length - 1}`;
+      const next = ts.map((x, idx) => idx === ti
+        ? { ...x, confirmed: true, expanded: false, timeError: undefined }
+        : x);
+      // znajdź następny niewypełniony i otwórz
+      const nextEmpty = next.findIndex((x, idx) => idx > ti && !x.confirmed);
+      const fallback = nextEmpty >= 0 ? nextEmpty : next.findIndex(x => !x.confirmed);
+      if (fallback >= 0) {
+        return next.map((x, idx) => idx === fallback ? { ...x, expanded: true } : x);
+      }
       return next;
     });
   };
-  const addService = (ti: number) => {
-    setTasks(ts => {
-      const next = ts.map((t, idx) => idx === ti ? { ...t, services: [...t.services, emptyService()] } : t);
-      focusKeyRef.current = `s-${ti}-${next[ti].services.length - 1}`;
-      return next;
-    });
-  };
-  const updatePart = (ti: number, li: number, patch: Partial<PartLine>) => setTasks(ts =>
-    ts.map((t, idx) => idx === ti ? { ...t, parts: t.parts.map((p, k) => k === li ? { ...p, ...patch } : p) } : t));
-  const updateService = (ti: number, li: number, patch: Partial<ServiceLine>) => setTasks(ts =>
-    ts.map((t, idx) => idx === ti ? { ...t, services: t.services.map((s, k) => k === li ? { ...s, ...patch } : s) } : t));
-  const removePart = (ti: number, li: number) => setTasks(ts =>
-    ts.map((t, idx) => idx === ti ? { ...t, parts: t.parts.filter((_, k) => k !== li) } : t));
-  const removeService = (ti: number, li: number) => setTasks(ts =>
-    ts.map((t, idx) => idx === ti ? { ...t, services: t.services.filter((_, k) => k !== li) } : t));
-
-  const totals = useMemo(() => {
-    let services = 0, parts = 0, hours = 0;
-    tasks.forEach(t => {
-      t.parts.forEach(p => { if (p.name.trim()) parts++; });
-      t.services.forEach(s => { if (s.name.trim()) { services++; hours += parseFloat(s.hours || '0') || 0; } });
-    });
-    return { services, parts, hours };
-  }, [tasks]);
 
   const handleClaim = async () => {
     if (!onClaim) return;
     setClaiming(true);
-    try { await onClaim(); }
-    finally { setClaiming(false); }
+    try { await onClaim(); } finally { setClaiming(false); }
   };
 
-  const handleMarkRepaired = async () => {
-    if (!orderId || readOnly) return;
-    if (!confirm('Oznaczyć zlecenie jako naprawione? Administrator otrzyma powiadomienie.')) return;
-    setMarking(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      const { error } = await (supabase.from('workshop_orders') as any)
-        .update({
-          status_name: 'Naprawione',
-          repaired_at: new Date().toISOString(),
-          repaired_by_user_id: user?.id || null,
-        })
-        .eq('id', orderId);
+  const persistAll = async () => {
+    if (!orderId) return false;
+    const keepIds = new Set<string>();
+    const updates: { id: string; patch: any }[] = [];
+    const inserts: any[] = [];
+    const deletes: string[] = [];
+    let sort = 1000;
+
+    tasks.forEach(t => {
+      const group = t.key;
+      // PARTS
+      t.parts.forEach(p => {
+        if (!p.name.trim()) return;
+        if (p.id) {
+          keepIds.add(p.id);
+          updates.push({ id: p.id, patch: { name: p.name.trim(), quantity: 1, task_group: group } });
+        } else {
+          inserts.push({
+            order_id: orderId, name: p.name.trim(), item_type: 'part',
+            quantity: 1, unit: 'szt', task_group: group,
+            employee_id: employeeId || null, mechanic: employeeName || null,
+            sort_order: sort++, unit_price_net: 0, unit_price_gross: 0,
+            total_net: 0, total_gross: 0, discount_percent: 0,
+          });
+        }
+      });
+      // SERVICE (czas + koszt)
+      const hrs = parseFloat(t.time || '0') || 0;
+      const cost = parseFloat(String(t.cost || '0').replace(',', '.')) || 0;
+      const hasService = hrs > 0 || cost > 0;
+      if (t.existingServiceId && hasService) {
+        keepIds.add(t.existingServiceId);
+        updates.push({
+          id: t.existingServiceId,
+          patch: {
+            name: t.text || 'Robocizna', labor_hours: hrs, task_group: group,
+            unit_price_gross: cost, total_gross: cost,
+          },
+        });
+      } else if (!t.existingServiceId && hasService) {
+        inserts.push({
+          order_id: orderId, name: t.text || 'Robocizna', item_type: 'service',
+          quantity: 1, unit: 'usł.', labor_hours: hrs, task_group: group,
+          employee_id: employeeId || null, mechanic: employeeName || null,
+          sort_order: sort++, unit_price_net: 0, unit_price_gross: cost,
+          total_net: 0, total_gross: cost, discount_percent: 0,
+        });
+      } else if (t.existingServiceId && !hasService) {
+        deletes.push(t.existingServiceId);
+      }
+    });
+
+    // delete: istniejące not in keep i not w deletes
+    const allExisting = tasks.flatMap(t => [...t.existingPartIds, t.existingServiceId].filter(Boolean) as string[]);
+    const toDelete = Array.from(new Set([...deletes, ...allExisting.filter(id => !keepIds.has(id))]));
+
+    if (toDelete.length) {
+      const { error } = await (supabase.from('workshop_order_items') as any).delete().in('id', toDelete);
       if (error) throw error;
+    }
+    for (const u of updates) {
+      const { error } = await (supabase.from('workshop_order_items') as any).update(u.patch).eq('id', u.id);
+      if (error) throw error;
+    }
+    if (inserts.length) {
+      const { error } = await (supabase.from('workshop_order_items') as any).insert(inserts);
+      if (error) throw error;
+    }
+    return true;
+  };
+
+  const handleFinishDiagnosis = async () => {
+    if (!orderId || readOnly) return;
+    if (!allConfirmed) return;
+    setSaving(true);
+    try {
+      await persistAll();
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error: stErr } = await (supabase.from('workshop_orders') as any)
+        .update({ status_name: 'Do wyceny' })
+        .eq('id', orderId);
+      if (stErr) throw stErr;
       await (supabase.from('workshop_order_events') as any).insert({
         order_id: orderId,
-        event_type: 'repaired',
+        event_type: 'diagnosis_done',
         actor_user_id: user?.id || null,
         actor_name: employeeName || null,
         actor_role: 'employee',
-        to_status: 'Naprawione',
+        to_status: 'Do wyceny',
       });
-      toast.success('Oznaczono jako naprawione');
-      onSaved?.();
-      onOpenChange(false);
-    } catch (e: any) {
-      toast.error(e.message || 'Błąd');
-    } finally {
-      setMarking(false);
-    }
-  };
-
-  const handleSave = async () => {
-    if (!orderId || readOnly) return;
-    setSaving(true);
-    try {
-      // Build rows to insert (only items without id; updates not handled to keep it simple)
-      const inserts: any[] = [];
-      const updates: { id: string; patch: any }[] = [];
-      const keepIds = new Set<string>();
-      let sort = 1000;
-
-      tasks.forEach(t => {
-        const group = t.key;
-        // parts first
-        t.parts.forEach(p => {
-          const name = p.name.trim();
-          if (!name) return;
-          const qty = parseFloat(p.qty || '1') || 1;
-          if (p.id) {
-            keepIds.add(p.id);
-            updates.push({ id: p.id, patch: { name, quantity: qty, task_group: group } });
-          } else {
-            inserts.push({
-              order_id: orderId, name, item_type: 'part',
-              quantity: qty, unit: 'szt', task_group: group,
-              employee_id: employeeId || null, mechanic: employeeName || null,
-              sort_order: sort++, unit_price_net: 0, unit_price_gross: 0,
-              total_net: 0, total_gross: 0, discount_percent: 0,
-            });
-          }
-        });
-        t.services.forEach(s => {
-          const name = s.name.trim();
-          if (!name) return;
-          const hours = parseFloat(s.hours || '0') || 0;
-          if (s.id) {
-            keepIds.add(s.id);
-            updates.push({ id: s.id, patch: { name, labor_hours: hours, task_group: group } });
-          } else {
-            inserts.push({
-              order_id: orderId, name, item_type: 'service',
-              quantity: 1, unit: 'usł.', labor_hours: hours, task_group: group,
-              employee_id: employeeId || null, mechanic: employeeName || null,
-              sort_order: sort++, unit_price_net: 0, unit_price_gross: 0,
-              total_net: 0, total_gross: 0, discount_percent: 0,
-            });
-          }
-        });
-      });
-
-      // Determine deletions: existing ids no longer kept
-      const allExisting = tasks.flatMap(t => t.existingIds);
-      const toDelete = allExisting.filter(id => !keepIds.has(id));
-
-      if (toDelete.length) {
-        const { error } = await (supabase.from('workshop_order_items') as any).delete().in('id', toDelete);
-        if (error) throw error;
-      }
-      for (const u of updates) {
-        const { error } = await (supabase.from('workshop_order_items') as any)
-          .update(u.patch).eq('id', u.id);
-        if (error) throw error;
-      }
-      if (inserts.length) {
-        const { error } = await (supabase.from('workshop_order_items') as any).insert(inserts);
-        if (error) throw error;
-      }
-
-      const total = inserts.length + updates.length;
-      if (total === 0 && toDelete.length === 0) {
-        toast.error('Dodaj co najmniej jedną pozycję');
-        setSaving(false);
-        return;
-      }
-      toast.success(`Zapisano: ${inserts.length} nowych, ${updates.length} zaktualizowanych${toDelete.length ? `, ${toDelete.length} usuniętych` : ''}`);
+      toast.success('Diagnoza zakończona — zlecenie trafiło do wyceny');
       onSaved?.();
       onOpenChange(false);
     } catch (e: any) {
@@ -302,195 +299,224 @@ export function EmployeeOrderCardDialog({
     }
   };
 
+  const headerTitle = order?.order_number || (orderId ? orderId.slice(0, 8) : '');
+  const vehicleHeader = [
+    [vehicle?.brand, vehicle?.model].filter(Boolean).join(' '),
+    vehicle?.year || '',
+  ].filter(Boolean).join(' · ');
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Wrench className="h-5 w-5 text-primary" />
-            Karta zlecenia — {order?.order_number || ''}
+      <DialogContent className="max-w-2xl max-h-[94vh] overflow-y-auto p-0 gap-0">
+        {/* HEADER */}
+        <div className="sticky top-0 z-10 bg-card border-b px-4 py-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="font-semibold text-base truncate">{headerTitle}</div>
+              <div className="text-xs text-muted-foreground truncate">
+                {vehicleHeader || 'Pojazd —'}
+                {vehicle?.plate ? ` · ${vehicle.plate}` : ''}
+              </div>
+            </div>
             {readOnly && (
-              <Badge variant="outline" className="ml-2 gap-1 text-amber-700 border-amber-300 bg-amber-50">
-                <Lock className="h-3 w-3" /> Tylko podgląd
+              <Badge variant="outline" className="gap-1 text-amber-700 border-amber-300 bg-amber-50 shrink-0">
+                <Lock className="h-3 w-3" /> Podgląd
               </Badge>
             )}
-          </DialogTitle>
-        </DialogHeader>
+          </div>
+          <div className="mt-2 flex items-center gap-3">
+            <Progress value={progressPct} className="h-2 flex-1" />
+            <span className="text-xs font-medium text-muted-foreground shrink-0">
+              {confirmedCount} / {tasks.length} punktów
+            </span>
+          </div>
+        </div>
 
-        {loading ? (
-          <div className="flex justify-center p-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
-        ) : (
-          <>
-            <div className="rounded-lg border bg-muted/30 p-3">
-              <div className="flex items-center gap-2 mb-2 text-sm font-semibold">
-                <Car className="h-4 w-4 text-primary" /> Pojazd
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-1.5 text-sm">
-                <div><span className="text-muted-foreground">Marka/Model: </span><b>{[vehicle?.brand, vehicle?.model].filter(Boolean).join(' ') || '—'}</b></div>
-                <div><span className="text-muted-foreground">Nr rej.: </span><b>{vehicle?.plate || '—'}</b></div>
-                <div><span className="text-muted-foreground">Rok: </span><b>{vehicle?.year || '—'}</b></div>
-                <div className="col-span-2"><span className="text-muted-foreground">VIN: </span><b className="font-mono text-xs">{vehicle?.vin || '—'}</b></div>
-                <div><span className="text-muted-foreground">Silnik: </span><b>{vehicle?.engine_capacity_cm3 ? `${vehicle.engine_capacity_cm3} cm³` : '—'}{vehicle?.fuel_type ? ` · ${vehicle.fuel_type}` : ''}</b></div>
-                <div><span className="text-muted-foreground">Przebieg: </span><b>{order?.mileage ? `${order.mileage} km` : '—'}</b></div>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label className="text-sm font-semibold">Zakres prac</Label>
-                <div className="text-xs text-muted-foreground">
-                  Części: {totals.parts} · Usługi: {totals.services} · {totals.hours.toFixed(2)} h
-                </div>
-              </div>
-
-              {tasks.map((t, ti) => (
-                <div key={t.key} className="rounded-lg border">
-                  <button
-                    type="button"
-                    className="w-full flex items-center gap-2 px-3 py-2 bg-muted/40 hover:bg-muted text-left"
-                    onClick={() => toggleTask(ti)}
-                  >
-                    {t.expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                    <Badge variant="secondary" className="text-xs">{t.index}</Badge>
-                    <span className="font-medium text-sm flex-1">{t.text || 'Zadanie'}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {t.parts.filter(p => p.name.trim()).length}cz · {t.services.filter(s => s.name.trim()).length}usł
-                    </span>
-                  </button>
-
-                  {t.expanded && (
-                    <div className="p-3 space-y-3">
-                      {/* PARTS first */}
-                      <div>
-                        <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground mb-1">
-                          <Package className="h-3.5 w-3.5" /> Części do wymiany
-                        </div>
-                        <div className="space-y-1.5">
-                          {t.parts.map((p, li) => (
-                            <div key={li} className="grid grid-cols-[1fr_70px_36px] gap-2 items-center">
-                              <Input
-                                ref={el => { inputRefs.current[`p-${ti}-${li}`] = el; }}
-                                value={p.name}
-                                disabled={readOnly}
-                                onChange={e => updatePart(ti, li, { name: e.target.value })}
-                                onKeyDown={e => {
-                                  if (e.key === 'Enter' && p.name.trim()) {
-                                    e.preventDefault();
-                                    addPart(ti);
-                                  }
-                                }}
-                                placeholder="np. wahacz przedni prawy dolny"
-                                className="h-9"
-                              />
-                              <Input
-                                type="number" step="1" min="1"
-                                value={p.qty} disabled={readOnly}
-                                onFocus={e => e.currentTarget.select()}
-                                onChange={e => updatePart(ti, li, { qty: e.target.value })}
-                                placeholder="szt" className="h-9 text-center"
-                              />
-                              <Button
-                                variant="ghost" size="icon" className="h-8 w-8"
-                                disabled={readOnly || t.parts.length === 1}
-                                onClick={() => removePart(ti, li)}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                        {!readOnly && (
-                          <Button variant="ghost" size="sm" onClick={() => addPart(ti)} className="mt-1">
-                            <Package className="h-3.5 w-3.5 mr-1" /> Dodaj część
-                          </Button>
-                        )}
-                      </div>
-
-                      {/* SERVICES below */}
-                      <div className="border-t pt-2">
-                        <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground mb-1">
-                          <Wrench className="h-3.5 w-3.5" /> Robocizna
-                        </div>
-                        <div className="space-y-1.5">
-                          {t.services.map((s, li) => (
-                            <div key={li} className="grid grid-cols-[1fr_70px_36px] gap-2 items-center">
-                              <Input
-                                ref={el => { inputRefs.current[`s-${ti}-${li}`] = el; }}
-                                value={s.name} disabled={readOnly}
-                                onChange={e => updateService(ti, li, { name: e.target.value })}
-                                onKeyDown={e => {
-                                  if (e.key === 'Enter' && s.name.trim()) {
-                                    e.preventDefault();
-                                    addService(ti);
-                                  }
-                                }}
-                                placeholder="np. wymiana wahacza"
-                                className="h-9"
-                              />
-                              <Input
-                                type="number" step="0.25" min="0"
-                                value={s.hours} disabled={readOnly}
-                                onFocus={e => e.currentTarget.select()}
-                                onChange={e => updateService(ti, li, { hours: e.target.value })}
-                                placeholder="h" className="h-9 text-center"
-                              />
-                              <Button
-                                variant="ghost" size="icon" className="h-8 w-8"
-                                disabled={readOnly || t.services.length === 1}
-                                onClick={() => removeService(ti, li)}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                        {!readOnly && (
-                          <Button variant="ghost" size="sm" onClick={() => addService(ti)} className="mt-1">
-                            <Wrench className="h-3.5 w-3.5 mr-1" /> Dodaj robociznę
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {readOnly && (
-              <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-                To zlecenie jest w puli. Aby wpisywać części i robociznę, najpierw kliknij <b>Akceptuj zlecenie</b> — zostanie przypisane do Ciebie.
-              </div>
-            )}
-          </>
-        )}
-
-        <DialogFooter className="flex flex-row justify-between sm:justify-between gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Zamknij</Button>
-          {readOnly ? (
-            onClaim && (
-              <Button onClick={handleClaim} disabled={claiming || loading}>
-                {claiming ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <HandHelping className="h-4 w-4 mr-2" />}
-                Akceptuj zlecenie
-              </Button>
-            )
+        {/* BODY */}
+        <div className="p-3 space-y-2 bg-muted/20">
+          {loading ? (
+            <div className="flex justify-center p-10"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
           ) : (
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant="outline"
-                onClick={handleMarkRepaired}
-                disabled={marking || saving || loading}
-                className="border-green-500 text-green-700 hover:bg-green-50"
-              >
-                {marking ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
-                Oznacz jako naprawione
-              </Button>
-              <Button onClick={handleSave} disabled={saving || loading}>
-                {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-                Zapisz do zlecenia
-              </Button>
-            </div>
+            <>
+              {tasks.map((t, ti) => {
+                const filled = t.confirmed;
+                const isOpen = t.expanded;
+                const partsCount = t.parts.filter(p => p.name.trim()).length;
+                const hrsNum = parseFloat(t.time || '0') || 0;
+                const costNum = parseFloat(String(t.cost || '0').replace(',', '.')) || 0;
+                const summary = filled
+                  ? [
+                      partsCount ? `${partsCount} ${partsCount === 1 ? 'część' : 'części'}` : null,
+                      hrsNum ? `${hrsNum} h` : null,
+                      costNum ? fmtMoney(costNum) : null,
+                    ].filter(Boolean).join(' · ')
+                  : 'Pusty — dotknij aby wypełnić';
+
+                return (
+                  <div
+                    key={t.key}
+                    className={`rounded-xl bg-card border transition-all ${
+                      isOpen ? 'border-primary shadow-sm ring-1 ring-primary/20' : 'border-border'
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => expandOnly(ti)}
+                      className="w-full flex items-center gap-3 px-3 py-3 text-left"
+                    >
+                      <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 text-sm font-semibold ${
+                        filled ? 'bg-green-100 text-green-700' : 'bg-muted text-muted-foreground'
+                      }`}>
+                        {filled ? <Check className="h-4 w-4" /> : t.index}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-semibold truncate">
+                          {t.index}. {t.text || 'Zadanie'}
+                        </div>
+                        <div className={`text-xs truncate ${filled ? 'text-green-600' : 'text-muted-foreground'}`}>
+                          {summary}
+                        </div>
+                      </div>
+                      {isOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                    </button>
+
+                    {isOpen && (
+                      <div className="px-3 pb-3 space-y-3 border-t border-border/60 pt-3">
+                        {/* Części */}
+                        <div>
+                          <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
+                            Części
+                          </div>
+                          {t.parts.length > 0 && (
+                            <div className="divide-y border rounded-md mb-2 bg-background">
+                              {t.parts.map((p, pi) => (
+                                <div key={pi} className="flex items-center gap-2 px-3 py-2">
+                                  <span className="flex-1 text-sm">{p.name}</span>
+                                  {!readOnly && (
+                                    <button
+                                      type="button" onClick={() => removePart(ti, pi)}
+                                      className="text-muted-foreground hover:text-destructive p-1"
+                                    >
+                                      <X className="h-4 w-4" />
+                                    </button>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {!readOnly && (
+                            <Input
+                              ref={el => { partInputRefs.current[ti] = el; }}
+                              placeholder="Wpisz część i naciśnij Enter…"
+                              className="h-11 text-base"
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  addPart(ti, (e.target as HTMLInputElement).value);
+                                }
+                              }}
+                            />
+                          )}
+                        </div>
+
+                        {/* Czas + koszt */}
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                              Czas naprawy <span className="text-destructive">*</span>
+                            </label>
+                            <div className="relative">
+                              <Input
+                                ref={el => { timeInputRefs.current[ti] = el; }}
+                                type="number" step="0.25" min="0" inputMode="decimal"
+                                value={t.time} disabled={readOnly}
+                                onFocus={e => e.currentTarget.select()}
+                                onChange={e => setTime(ti, e.target.value)}
+                                placeholder="0.5"
+                                className={`h-11 text-base pr-8 ${t.timeError ? 'border-destructive focus-visible:ring-destructive' : ''}`}
+                              />
+                              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">h</span>
+                            </div>
+                          </div>
+                          <div>
+                            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                              Koszt naprawy
+                            </label>
+                            <div className="relative">
+                              <Input
+                                type="number" step="0.01" min="0" inputMode="decimal"
+                                value={t.cost} disabled={readOnly}
+                                onFocus={e => e.currentTarget.select()}
+                                onChange={e => setCost(ti, e.target.value)}
+                                placeholder="opcjonalne"
+                                className="h-11 text-base pr-10"
+                              />
+                              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">zł</span>
+                            </div>
+                          </div>
+                        </div>
+                        {t.timeError && (
+                          <p className="text-xs text-destructive">{t.timeError}</p>
+                        )}
+
+                        {!readOnly && (
+                          <Button
+                            onClick={() => confirmTask(ti)}
+                            className="w-full h-11"
+                          >
+                            <Check className="h-4 w-4 mr-2" />
+                            Zatwierdź punkt
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              {readOnly && (
+                <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+                  Zlecenie z puli — kliknij <b>Akceptuj zlecenie</b>, aby przejąć je do siebie i zacząć diagnozę.
+                </div>
+              )}
+            </>
           )}
-        </DialogFooter>
+        </div>
+
+        {/* FOOTER */}
+        <div className="sticky bottom-0 bg-card border-t p-3 space-y-2">
+          {readOnly ? (
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1 h-11" onClick={() => onOpenChange(false)}>Zamknij</Button>
+              {onClaim && (
+                <Button className="flex-1 h-11" onClick={handleClaim} disabled={claiming || loading}>
+                  {claiming ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <HandHelping className="h-4 w-4 mr-2" />}
+                  Akceptuj zlecenie
+                </Button>
+              )}
+            </div>
+          ) : (
+            <>
+              <Button
+                onClick={handleFinishDiagnosis}
+                disabled={!allConfirmed || saving || loading}
+                className="w-full h-12 text-base"
+              >
+                {saving ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : (
+                  <>Zakończ diagnozę <ArrowRight className="h-4 w-4 mx-1" /> Do wyceny</>
+                )}
+              </Button>
+              <p className="text-center text-[11px] text-muted-foreground">
+                {allConfirmed
+                  ? 'Wszystkie punkty wypełnione — możesz zakończyć diagnozę'
+                  : 'Aktywne po wypełnieniu wszystkich punktów'}
+              </p>
+              <Button variant="ghost" size="sm" className="w-full" onClick={() => onOpenChange(false)}>
+                <Wrench className="h-3.5 w-3.5 mr-1" /> Zamknij bez zakończenia
+              </Button>
+            </>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );
