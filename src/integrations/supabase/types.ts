@@ -21568,6 +21568,53 @@ export type Database = {
           },
         ]
       }
+      workshop_employee_notifications: {
+        Row: {
+          body: string | null
+          created_at: string | null
+          employee_user_id: string
+          id: string
+          is_read: boolean | null
+          link: string | null
+          order_id: string | null
+          provider_id: string
+          title: string
+          type: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string | null
+          employee_user_id: string
+          id?: string
+          is_read?: boolean | null
+          link?: string | null
+          order_id?: string | null
+          provider_id: string
+          title: string
+          type: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string | null
+          employee_user_id?: string
+          id?: string
+          is_read?: boolean | null
+          link?: string | null
+          order_id?: string | null
+          provider_id?: string
+          title?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workshop_employee_notifications_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "workshop_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workshop_employees: {
         Row: {
           created_at: string | null
@@ -21757,6 +21804,66 @@ export type Database = {
             columns: ["provider_id"]
             isOneToOne: false
             referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workshop_order_events: {
+        Row: {
+          actor_name: string | null
+          actor_role: string | null
+          actor_user_id: string | null
+          created_at: string | null
+          event_type: string
+          from_status: string | null
+          id: string
+          note: string | null
+          order_id: string
+          provider_id: string
+          station_id: string | null
+          to_status: string | null
+        }
+        Insert: {
+          actor_name?: string | null
+          actor_role?: string | null
+          actor_user_id?: string | null
+          created_at?: string | null
+          event_type: string
+          from_status?: string | null
+          id?: string
+          note?: string | null
+          order_id: string
+          provider_id: string
+          station_id?: string | null
+          to_status?: string | null
+        }
+        Update: {
+          actor_name?: string | null
+          actor_role?: string | null
+          actor_user_id?: string | null
+          created_at?: string | null
+          event_type?: string
+          from_status?: string | null
+          id?: string
+          note?: string | null
+          order_id?: string
+          provider_id?: string
+          station_id?: string | null
+          to_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workshop_order_events_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "workshop_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workshop_order_events_station_id_fkey"
+            columns: ["station_id"]
+            isOneToOne: false
+            referencedRelation: "workshop_stations"
             referencedColumns: ["id"]
           },
         ]
@@ -22091,6 +22198,7 @@ export type Database = {
           estimate_changed_after_send: boolean | null
           estimate_sent_to_client: boolean | null
           fuel_level: string | null
+          has_unread_notes: boolean | null
           id: string
           internal_notes: string | null
           last_sms_sent_at: string | null
@@ -22104,9 +22212,14 @@ export type Database = {
           price_mode: string | null
           provider_id: string
           quote_accepted: boolean | null
+          quote_done_at: string | null
+          quote_done_by_user_id: string | null
           ready_notification_sent: boolean | null
           reception_protocol: boolean | null
           registration_document: boolean | null
+          repair_started_at: string | null
+          repaired_at: string | null
+          repaired_by_user_id: string | null
           return_parts_to_client: boolean | null
           scheduled_date: string | null
           scheduled_end: string | null
@@ -22118,6 +22231,7 @@ export type Database = {
           sms_reminder_2h: boolean | null
           sms_sent_count: number | null
           start_date: string | null
+          station_id: string | null
           status_id: string | null
           status_name: string | null
           test_drive_consent: boolean | null
@@ -22143,6 +22257,7 @@ export type Database = {
           estimate_changed_after_send?: boolean | null
           estimate_sent_to_client?: boolean | null
           fuel_level?: string | null
+          has_unread_notes?: boolean | null
           id?: string
           internal_notes?: string | null
           last_sms_sent_at?: string | null
@@ -22156,9 +22271,14 @@ export type Database = {
           price_mode?: string | null
           provider_id: string
           quote_accepted?: boolean | null
+          quote_done_at?: string | null
+          quote_done_by_user_id?: string | null
           ready_notification_sent?: boolean | null
           reception_protocol?: boolean | null
           registration_document?: boolean | null
+          repair_started_at?: string | null
+          repaired_at?: string | null
+          repaired_by_user_id?: string | null
           return_parts_to_client?: boolean | null
           scheduled_date?: string | null
           scheduled_end?: string | null
@@ -22170,6 +22290,7 @@ export type Database = {
           sms_reminder_2h?: boolean | null
           sms_sent_count?: number | null
           start_date?: string | null
+          station_id?: string | null
           status_id?: string | null
           status_name?: string | null
           test_drive_consent?: boolean | null
@@ -22195,6 +22316,7 @@ export type Database = {
           estimate_changed_after_send?: boolean | null
           estimate_sent_to_client?: boolean | null
           fuel_level?: string | null
+          has_unread_notes?: boolean | null
           id?: string
           internal_notes?: string | null
           last_sms_sent_at?: string | null
@@ -22208,9 +22330,14 @@ export type Database = {
           price_mode?: string | null
           provider_id?: string
           quote_accepted?: boolean | null
+          quote_done_at?: string | null
+          quote_done_by_user_id?: string | null
           ready_notification_sent?: boolean | null
           reception_protocol?: boolean | null
           registration_document?: boolean | null
+          repair_started_at?: string | null
+          repaired_at?: string | null
+          repaired_by_user_id?: string | null
           return_parts_to_client?: boolean | null
           scheduled_date?: string | null
           scheduled_end?: string | null
@@ -22222,6 +22349,7 @@ export type Database = {
           sms_reminder_2h?: boolean | null
           sms_sent_count?: number | null
           start_date?: string | null
+          station_id?: string | null
           status_id?: string | null
           status_name?: string | null
           test_drive_consent?: boolean | null
@@ -22254,6 +22382,13 @@ export type Database = {
             columns: ["provider_id"]
             isOneToOne: false
             referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workshop_orders_station_id_fkey"
+            columns: ["station_id"]
+            isOneToOne: false
+            referencedRelation: "workshop_stations"
             referencedColumns: ["id"]
           },
           {
@@ -22629,6 +22764,89 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      workshop_station_employees: {
+        Row: {
+          created_at: string | null
+          employee_user_id: string
+          id: string
+          provider_id: string
+          station_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          employee_user_id: string
+          id?: string
+          provider_id: string
+          station_id: string
+        }
+        Update: {
+          created_at?: string | null
+          employee_user_id?: string
+          id?: string
+          provider_id?: string
+          station_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workshop_station_employees_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workshop_station_employees_station_id_fkey"
+            columns: ["station_id"]
+            isOneToOne: false
+            referencedRelation: "workshop_stations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workshop_stations: {
+        Row: {
+          color: string | null
+          created_at: string | null
+          icon: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          provider_id: string
+          sort_order: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          provider_id: string
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          color?: string | null
+          created_at?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          provider_id?: string
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workshop_stations_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       workshop_status_settings: {
         Row: {
