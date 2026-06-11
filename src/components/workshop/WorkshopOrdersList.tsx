@@ -129,20 +129,34 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
     });
   };
 
+  // Called by the status-picker when an admin changes status from the list.
+  // - Optimistically patches the cached order so the badge updates instantly
+  // - Auto-opens the SMS dialog for "Gotowy do odbioru" / "Wycena wysłana"
+  const handleStatusChanged = (orderId: string, newStatus: string) => {
+    queryClient.setQueriesData({ queryKey: ['workshop-orders'] }, (old: any) =>
+      Array.isArray(old)
+        ? old.map((o: any) => (o.id === orderId ? { ...o, status_name: newStatus } : o))
+        : old
+    );
+    const order = orders.find((o: any) => o.id === orderId);
+    if (!order) return;
+    const lower = (newStatus || '').toLowerCase();
+    if (lower.includes('gotow') || lower.includes('odbioru')) {
+      setSmsDialogType('ready');
+      setSmsDialogOrder({ ...order, status_name: newStatus });
+    } else if (lower.includes('wycena wysłana') || lower.includes('kosztorys')) {
+      setSmsDialogType('quote');
+      setSmsDialogOrder({ ...order, status_name: newStatus });
+    }
+    // Refresh in background to get any server-side derived fields
+    queryClient.invalidateQueries({ queryKey: ['workshop-orders'] });
+  };
+
   const changeStatus = async (orderId: string, newStatus: string) => {
     await updateOrder.mutateAsync({ id: orderId, status_name: newStatus });
     setStatusDropdownId(null);
     toast.success(`Status zmieniony na: ${newStatus}`);
-    const order = orders.find((o: any) => o.id === orderId);
-    if (!order) return;
-    const lower = newStatus.toLowerCase();
-    if (lower.includes('gotow') || lower.includes('zakończ') || lower.includes('odbioru')) {
-      setSmsDialogType('ready');
-      setSmsDialogOrder(order);
-    } else if (lower.includes('wycena wysłana') || lower.includes('kosztorys')) {
-      setSmsDialogType('quote');
-      setSmsDialogOrder(order);
-    }
+    handleStatusChanged(orderId, newStatus);
   };
 
   const openInvoiceForOrder = async (order: any, docType: 'invoice' | 'receipt' = 'invoice') => {
