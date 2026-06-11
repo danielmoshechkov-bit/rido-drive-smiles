@@ -124,10 +124,19 @@ export function EmployeeWorkListDialog({
 
   const submitAddon = async () => {
     if (!orderId) return;
+    // Auto-commit draft part if user typed but forgot to press Enter / "+"
+    let partsList = [...addonParts];
+    const draft = addonPartDraft.trim();
+    if (draft) { partsList.push(draft); setAddonParts(partsList); setAddonPartDraft(''); }
+
     const hrs = parseFloat(addonHours || '0') || 0;
-    if (addonParts.length === 0 && !addonLabor.trim() && hrs === 0) {
+    if (partsList.length === 0 && !addonLabor.trim() && hrs === 0) {
       toast.error('Wpisz część albo robociznę');
       return;
+    }
+    // Warn if parts added but no labor
+    if (partsList.length > 0 && !addonLabor.trim() && hrs === 0) {
+      if (!confirm('Nie wpisano robocizny za wymianę tych części. Wysłać bez uwzględnienia robocizny?')) return;
     }
     setAddonSaving(true);
     try {
