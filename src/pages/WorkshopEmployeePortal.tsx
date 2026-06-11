@@ -262,13 +262,6 @@ export default function WorkshopEmployeePortal() {
                 onClick={() => setStationFilter('all')}
                 className={`shrink-0 px-3 py-1 rounded-full text-xs border ${stationFilter === 'all' ? 'bg-primary text-primary-foreground border-primary' : 'bg-card hover:bg-muted'}`}
               >Wszystkie ({mine.length})</button>
-              <button
-                onClick={() => setStationFilter('mechanic')}
-                className={`shrink-0 px-3 py-1 rounded-full text-xs border inline-flex items-center gap-1 ${stationFilter === 'mechanic' ? 'bg-primary text-primary-foreground border-primary' : 'bg-card hover:bg-muted'}`}
-              >
-                <Wrench className="h-3 w-3" /> Warsztat
-                ({mine.filter(a => !a.workshop_orders?.station_id || myStations.every(s => s.id !== a.workshop_orders?.station_id)).length})
-              </button>
               {myStations.map(s => {
                 const n = mine.filter(a => a.workshop_orders?.station_id === s.id).length;
                 return (
@@ -284,11 +277,7 @@ export default function WorkshopEmployeePortal() {
           {(() => {
             const filtered = mine.filter(a => {
               if (stationFilter === 'all') return true;
-              const sid = a.workshop_orders?.station_id;
-              if (stationFilter === 'mechanic') {
-                return !sid || myStations.every(s => s.id !== sid);
-              }
-              return sid === stationFilter;
+              return a.workshop_orders?.station_id === stationFilter;
             });
             if (filtered.length === 0) {
               return <Empty text={mine.length === 0
