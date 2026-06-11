@@ -25,7 +25,8 @@ interface PartItem { id?: string; name: string; }
 interface TaskBlock {
   key: string;
   index: number;
-  text: string;
+  complaint: string;       // co napisał klient (read-only nagłówek)
+  text: string;            // czynność wykonana przez pracownika
   parts: PartItem[];
   time: string;            // godziny
   cost: string;            // zł
@@ -34,6 +35,7 @@ interface TaskBlock {
   existingPartIds: string[];
   existingServiceId: string | null;
   timeError?: string;
+  isAddon?: boolean;       // dodatek do naprawy (po akceptacji klienta)
 }
 
 const fmtMoney = (n: number) => `${n.toFixed(2).replace('.', ',')}\u00A0zł`;
@@ -69,11 +71,12 @@ export function EmployeeOrderCardDialog({
           .split(/\n|(?=\d+\.\s)/).map(s => s.trim()).filter(Boolean);
         const parsed: TaskBlock[] = (rawLines.length ? rawLines : ['Zakres prac']).map((l, i) => {
           const idx = i + 1;
-          const text = l.replace(/^\d+\.\s*/, '');
+          const complaint = l.replace(/^\d+\.\s*/, '');
           return {
-            key: `${idx}. ${text}`,
+            key: `${idx}. ${complaint}`,
             index: idx,
-            text,
+            complaint,
+            text: '',
             parts: [],
             time: '',
             cost: '',
@@ -94,7 +97,7 @@ export function EmployeeOrderCardDialog({
         const getOther = () => {
           if (!other) {
             other = {
-              key: 'Inne', index: parsed.length + 1, text: 'Inne',
+              key: 'Inne', index: parsed.length + 1, complaint: 'Inne', text: '',
               parts: [], time: '', cost: '', confirmed: false, expanded: false,
               existingPartIds: [], existingServiceId: null,
             };
@@ -371,7 +374,10 @@ export function EmployeeOrderCardDialog({
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-semibold truncate">
-                          {t.index}. {t.text || 'Zadanie'}
+                          {t.index}. {t.complaint || t.text || 'Zadanie'}
+                          {t.isAddon && (
+                            <Badge className="ml-2 bg-yellow-400 text-yellow-950 text-[10px]">Dodatek</Badge>
+                          )}
                         </div>
                         <div className={`text-xs truncate ${filled ? 'text-green-600' : 'text-muted-foreground'}`}>
                           {summary}
@@ -382,15 +388,21 @@ export function EmployeeOrderCardDialog({
 
                     {isOpen && (
                       <div className="px-3 pb-3 space-y-3 border-t border-border/60 pt-3">
+                        {t.complaint && (
+                          <div className="rounded-md bg-muted/60 border px-3 py-2">
+                            <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Zgłoszenie klienta</div>
+                            <div className="text-sm text-foreground">{t.complaint}</div>
+                          </div>
+                        )}
                         {!readOnly && (
                           <div>
                             <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
-                              Usterka / zakres
+                              Czynność wykonana
                             </div>
                             <Input
                               value={t.text}
-                              onChange={(e) => setTasks(ts => ts.map((x, idx) => idx === ti ? { ...x, text: e.target.value, key: `${x.index}. ${e.target.value}` } : x))}
-                              placeholder="Opisz usterkę (np. wymiana klocków)"
+                              onChange={(e) => setTasks(ts => ts.map((x, idx) => idx === ti ? { ...x, text: e.target.value } : x))}
+                              placeholder="np. Wymiana wachacza prawego"
                               className="h-11 text-base"
                             />
                           </div>
@@ -495,6 +507,7 @@ export function EmployeeOrderCardDialog({
                     const newBlock: TaskBlock = {
                       key: `${nextIdx}. `,
                       index: nextIdx,
+                      complaint: '',
                       text: '',
                       parts: [],
                       time: '',
@@ -570,8 +583,39 @@ export function EmployeeOrderCardDialog({
                 } catch (e: any) { toast.error(e.message || 'Błąd'); }
                 finally { setSaving(false); }
               };
+              const addonBlocks = tasks.filter(t => t.isAddon);
+              const addonHasContent = addonBlocks.some(t =>
+                t.parts.some(p => p.name.trim()) ||
+                (parseFloat(t.time || '0') || 0) > 0 ||
+                t.text.trim().length > 0
+              );
+              const openAddon = () => {
+                setTasks(ts => {
+                  const nextIdx = ts.length + 1;
+                  const block: TaskBlock = {
+                    key: `addon-${Date.now()}`,
+                    index: nextIdx,
+                    complaint: '',
+                    text: '',
+                    parts: [],
+                    time: '',
+                    cost: '',
+                    confirmed: false,
+                    expanded: true,
+                    existingPartIds: [],
+                    existingServiceId: null,
+                    isAddon: true,
+                  };
+                  return ts.map(t => ({ ...t, expanded: false })).concat(block);
+                });
+                toast.info('Wpisz części i czas dodatkowej naprawy, następnie wyślij do akceptacji');
+              };
               const submitAddon = async () => {
                 if (!orderId) return;
+                if (!addonHasContent) {
+                  toast.error('Najpierw wpisz części lub robociznę dodatkową');
+                  return;
+                }
                 setSaving(true);
                 try {
                   await persistAll();
@@ -587,21 +631,39 @@ export function EmployeeOrderCardDialog({
                   supabase.functions.invoke('workshop-notify-employee', {
                     body: { order_id: orderId, event: 'repair_addon_request' },
                   }).catch(() => {});
-                  toast.success('Dodatek przekazany do akceptacji');
+                  toast.success('Dodatek przekazany do akceptacji administratora');
                   onSaved?.(); onOpenChange(false);
                 } catch (e: any) { toast.error(e.message || 'Błąd'); }
                 finally { setSaving(false); }
               };
+              const hasOpenAddon = addonBlocks.length > 0;
               return (
                 <div className="space-y-2">
-                  <div className="rounded-md bg-green-100 border border-green-300 text-green-900 text-sm text-center py-2 font-medium">
-                    ✓ Zgoda na naprawę — możesz pracować
-                  </div>
+                  {hasOpenAddon ? (
+                    <div className="rounded-md bg-yellow-100 border border-yellow-300 text-yellow-900 text-sm text-center py-2 font-medium">
+                      ⏳ Wpisz dodatkowe części i robociznę, następnie wyślij do akceptacji
+                    </div>
+                  ) : (
+                    <div className="rounded-md bg-green-100 border border-green-300 text-green-900 text-sm text-center py-2 font-medium">
+                      ✓ Zgoda na naprawę — możesz pracować
+                    </div>
+                  )}
                   <div className="grid grid-cols-2 gap-2">
-                    <Button variant="outline" className="h-11" onClick={submitAddon} disabled={saving}>
-                      <Plus className="h-4 w-4 mr-1" /> Dodatek do naprawy
-                    </Button>
-                    <Button className="h-11 bg-red-600 hover:bg-red-700 text-white" onClick={finishRepair} disabled={saving}>
+                    {hasOpenAddon ? (
+                      <Button
+                        className="h-11 bg-yellow-500 hover:bg-yellow-600 text-yellow-950"
+                        onClick={submitAddon}
+                        disabled={saving || !addonHasContent}
+                      >
+                        {saving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Check className="h-4 w-4 mr-1" />}
+                        Wyślij dodatek
+                      </Button>
+                    ) : (
+                      <Button variant="outline" className="h-11" onClick={openAddon} disabled={saving}>
+                        <Plus className="h-4 w-4 mr-1" /> Dodatek do naprawy
+                      </Button>
+                    )}
+                    <Button className="h-11 bg-red-600 hover:bg-red-700 text-white" onClick={finishRepair} disabled={saving || hasOpenAddon}>
                       {saving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Check className="h-4 w-4 mr-1" />}
                       Zakończ naprawę
                     </Button>

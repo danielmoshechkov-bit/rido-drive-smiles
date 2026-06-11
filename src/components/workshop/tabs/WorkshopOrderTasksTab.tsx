@@ -605,14 +605,24 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
 
   const saveEdit = async (item: any) => {
     if (!editingItemId || !editingField) return;
+    // Snapshot edit state and clear it BEFORE awaiting the mutation. Otherwise the
+    // post-await reset can clobber a NEW edit the user started by clicking another
+    // input (causing the previous edit to appear unsaved / reset to 0,00).
+    const myId = editingItemId;
+    const myField = editingField;
+    const myValue = editingValue;
+    setEditingItemId(null);
+    setEditingField(null);
+    setEditingValue('');
+
     const updates: any = {};
     const isService = item.item_type === 'service' || item.item_type === 'task';
     const gross = isService ? isTaskGross : isGoodsGross;
 
-    if (editingField === 'name') {
-      updates.name = editingValue;
-    } else if (editingField === 'quantity') {
-      const newQty = Math.max(1, parseInt(editingValue) || 1);
+    if (myField === 'name') {
+      updates.name = myValue;
+    } else if (myField === 'quantity') {
+      const newQty = Math.max(1, parseInt(myValue) || 1);
       updates.quantity = newQty;
       const unitPrice = gross ? safeNumber(item.unit_price_gross) : safeNumber(item.unit_price_net);
       const rawTotal = newQty * unitPrice;
@@ -620,8 +630,8 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       const afterDiscount = rawTotal - (rawTotal * disc / 100);
       updates.total_gross = gross ? afterDiscount : afterDiscount * VAT_RATE;
       updates.total_net = gross ? afterDiscount / VAT_RATE : afterDiscount;
-    } else if (editingField === 'price') {
-      const val = parseFloat(editingValue.replace(',', '.')) || 0;
+    } else if (myField === 'price') {
+      const val = parseFloat(myValue.replace(',', '.')) || 0;
       const synced = syncPrice(val, gross ? 'gross' : 'net');
       updates.unit_price_net = synced.net;
       updates.unit_price_gross = synced.gross;
@@ -630,24 +640,23 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       const afterDiscount = rawTotal - (rawTotal * disc / 100);
       updates.total_gross = gross ? afterDiscount : afterDiscount * VAT_RATE;
       updates.total_net = gross ? afterDiscount / VAT_RATE : afterDiscount;
-    } else if (editingField === 'cost') {
-      const val = parseFloat(editingValue.replace(',', '.')) || 0;
+    } else if (myField === 'cost') {
+      const val = parseFloat(myValue.replace(',', '.')) || 0;
       const synced = syncPrice(val, gross ? 'gross' : 'net');
       updates.unit_cost_net = synced.net;
       updates.unit_cost_gross = synced.gross;
-    } else if (editingField === 'mechanic') {
-      updates.mechanic = editingValue || null;
-    } else if (editingField === 'labor_hours') {
-      const hours = parseFloat(editingValue.replace(',', '.')) || 0;
+    } else if (myField === 'mechanic') {
+      updates.mechanic = myValue || null;
+    } else if (myField === 'labor_hours') {
+      const hours = parseFloat(myValue.replace(',', '.')) || 0;
       updates.labor_hours = hours;
-      // Calculate labor cost: hours × employee rate or default rate
       const emp = workshopEmployees.find((e: any) => e.id === item.employee_id);
       const hourlyRate = emp?.salary ? emp.salary / 160 : (workshopSettings?.hourly_rate || 150);
       updates.labor_cost = Math.round(hours * hourlyRate * 100) / 100;
-    } else if (editingField === 'unit') {
-      updates.unit = (editingValue || '').trim() || 'szt';
-    } else if (editingField === 'discount') {
-      const disc = Math.max(0, Math.min(100, parseFloat(editingValue.replace(',', '.')) || 0));
+    } else if (myField === 'unit') {
+      updates.unit = (myValue || '').trim() || 'szt';
+    } else if (myField === 'discount') {
+      const disc = Math.max(0, Math.min(100, parseFloat(myValue.replace(',', '.')) || 0));
       updates.discount_percent = disc;
       const qty = safeNumber(item.quantity) || 1;
       const unitPrice = gross ? safeNumber(item.unit_price_gross) : safeNumber(item.unit_price_net);
@@ -657,9 +666,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       updates.total_net = gross ? afterDiscount / VAT_RATE : afterDiscount;
     }
 
-    await updateItem.mutateAsync({ id: editingItemId, ...updates });
-    setEditingItemId(null);
-    setEditingField(null);
+    await updateItem.mutateAsync({ id: myId, ...updates });
   };
 
   const cancelEdit = () => {
