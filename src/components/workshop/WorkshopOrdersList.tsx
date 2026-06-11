@@ -32,6 +32,8 @@ import {
 import { format, isFuture, isPast } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { toast } from 'sonner';
+import { WorkshopStatusPicker } from './WorkshopStatusPicker';
+import { getStatusStyle } from '@/utils/workshopStatusStyle';
 
 interface Props {
   providerId: string;
