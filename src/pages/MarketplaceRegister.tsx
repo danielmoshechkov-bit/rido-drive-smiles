@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { Loader2, ArrowLeft, User, Mail, Lock, ShieldCheck } from "lucide-react";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 interface FieldErrors {
   email?: string;
@@ -150,6 +151,7 @@ export default function MarketplaceRegister() {
           <span className="text-muted-foreground">|</span>
           <span className="text-sm text-muted-foreground">Strona główna</span>
         </div>
+        <LanguageSwitcher variant="outline" />
       </div>
       
       <div className="flex items-center justify-center p-4 py-8">

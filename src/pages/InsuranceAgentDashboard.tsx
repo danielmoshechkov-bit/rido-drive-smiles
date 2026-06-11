@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { InsuranceNotificationCard } from "@/components/insurance/InsuranceNotificationCard";
 import { InsuranceOfferModal } from "@/components/insurance/InsuranceOfferModal";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 interface AgentProfile {
   id: string;
@@ -198,6 +199,7 @@ export default function InsuranceAgentDashboard() {
           </div>
           
           <div className="flex items-center gap-2">
+            <LanguageSwitcher variant="ghost" />
             <Button variant="ghost" size="sm" onClick={handleLogout}>
               <LogOut className="h-4 w-4 mr-2" />
               Wyloguj

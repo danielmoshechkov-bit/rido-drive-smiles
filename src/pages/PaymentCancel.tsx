@@ -2,12 +2,14 @@ import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { XCircle, ArrowLeft, ShoppingCart } from "lucide-react";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 export default function PaymentCancel() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/30 flex items-center justify-center p-4">
+    <div className="relative min-h-screen bg-gradient-to-b from-background to-muted/30 flex items-center justify-center p-4">
+      <LanguageSwitcher variant="outline" className="absolute top-4 right-4" />
       <Card className="max-w-md w-full shadow-xl">
         <CardContent className="pt-8 pb-6 text-center space-y-4">
           <XCircle className="h-16 w-16 text-muted-foreground mx-auto" />

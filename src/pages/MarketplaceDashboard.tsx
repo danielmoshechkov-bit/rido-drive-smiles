@@ -28,6 +28,7 @@ import { AccountSwitcherPanel } from "@/components/AccountSwitcherPanel";
 import { AddListingModal } from "@/components/AddListingModal";
 import { UniversalHomeButton } from "@/components/UniversalHomeButton";
 import { GeneralListingsTab } from "@/components/marketplace/GeneralListingsTab";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { MyListingsTab } from "@/components/marketplace/MyListingsTab";
 import { MyPurchasesTab } from "@/components/marketplace/MyPurchasesTab";
 import { ShoppingBag, Store } from "lucide-react";
@@ -367,6 +368,8 @@ export default function MarketplaceDashboard() {
 
               {/* Add Listing Modal with category selection */}
               <AddListingModal user={user} />
+
+              <LanguageSwitcher />
 
               <Button variant="ghost" size="icon" onClick={handleLogout}>
                 <LogOut className="h-5 w-5" />

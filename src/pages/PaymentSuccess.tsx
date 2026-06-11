@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2, CheckCircle, XCircle, ArrowLeft } from "lucide-react";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 
 const productMessages: Record<string, { title: string; desc: string; back: string; backUrl: string }> = {
@@ -56,7 +57,8 @@ export default function PaymentSuccess() {
   const msg = payment ? productMessages[payment.product_type] || productMessages.marketplace_purchase : productMessages.marketplace_purchase;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/30 flex items-center justify-center p-4">
+    <div className="relative min-h-screen bg-gradient-to-b from-background to-muted/30 flex items-center justify-center p-4">
+      <LanguageSwitcher variant="outline" className="absolute top-4 right-4" />
       <Card className="max-w-md w-full shadow-xl">
         <CardContent className="pt-8 pb-6 text-center space-y-4">
           {status === "loading" && (

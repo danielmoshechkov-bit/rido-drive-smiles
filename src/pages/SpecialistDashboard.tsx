@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { Target, TrendingUp, MessageCircle, User, DollarSign, MapPin, Users, CheckCircle } from 'lucide-react';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 
 export default function SpecialistDashboard() {
   const navigate = useNavigate();
@@ -81,6 +82,9 @@ export default function SpecialistDashboard() {
       <header className="border-b bg-background/95 backdrop-blur sticky top-0 z-40">
         <div className="container mx-auto px-4 h-16 flex items-center gap-4">
           <h1 className="font-bold text-lg">📣 Panel Specjalisty Marketingu</h1>
+          <div className="ml-auto">
+            <LanguageSwitcher variant="ghost" />
+          </div>
         </div>
       </header>
 

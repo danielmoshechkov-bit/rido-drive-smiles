@@ -9,6 +9,7 @@ import { UniversalHomeButton } from "@/components/UniversalHomeButton";
 import { usePayment, useCredits } from "@/hooks/usePayment";
 import { Loader2, MessageSquare, Sparkles, Star, ArrowLeft, Wallet, Tag, Check } from "lucide-react";
 import { toast } from "sonner";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 const typeConfig: Record<string, { label: string; icon: any; color: string }> = {
   sms: { label: "Kredyty SMS", icon: MessageSquare, color: "bg-blue-500/10 text-blue-600" },
@@ -112,6 +113,7 @@ export default function BuyCredits() {
           <UniversalHomeButton />
           <span className="font-bold text-lg text-primary">Kup kredyty</span>
           <div className="flex-1" />
+          <LanguageSwitcher variant="outline" />
           <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
             <ArrowLeft className="h-4 w-4 mr-2" /> Wróć
           </Button>

@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { ArrowLeft, Shield, Building, Phone, Mail, FileText, MapPin } from "lucide-react";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 interface FormData {
   email: string;
@@ -171,9 +172,12 @@ export default function InsuranceAgentRegister() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/30 py-8 px-4">
       <div className="max-w-2xl mx-auto">
-        <Button 
-          variant="ghost" 
-          onClick={() => navigate(-1)} 
+        <div className="flex justify-end mb-4">
+          <LanguageSwitcher variant="outline" />
+        </div>
+        <Button
+          variant="ghost"
+          onClick={() => navigate(-1)}
           className="mb-6"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />

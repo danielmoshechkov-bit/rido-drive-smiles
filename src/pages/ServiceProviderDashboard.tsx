@@ -53,6 +53,7 @@ import {
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { UniversalSubTabBar } from '@/components/UniversalSubTabBar';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { toast } from 'sonner';
 
 interface ServiceItem {
@@ -616,6 +617,7 @@ export default function ServiceProviderDashboard() {
             </Button>
             <ServiceProviderNotificationBell onOpenSettings={openNotificationsSettings} />
             <TopBarCredits />
+            <LanguageSwitcher />
             <MyGetRidoButton user={user} />
           </div>
         </div>

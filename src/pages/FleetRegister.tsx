@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { Loader2, ArrowLeft, Building2, User, Mail, Phone, MapPin, FileText, ShieldCheck } from "lucide-react";
 import { Step3Account } from "@/components/fleet/Step3Account";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 interface FieldErrors {
   [key: string]: string | undefined;
@@ -293,14 +294,16 @@ export default function FleetRegister() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-background flex items-center justify-center p-4">
       <div className="w-full max-w-lg">
-        <Button 
-          variant="ghost" 
-          onClick={() => isExistingUser ? navigate("/klient") : navigate("/fleet")}
-          className="mb-4"
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Powrót
-        </Button>
+        <div className="flex items-center justify-between mb-4">
+          <Button
+            variant="ghost"
+            onClick={() => isExistingUser ? navigate("/klient") : navigate("/fleet")}
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Powrót
+          </Button>
+          <LanguageSwitcher variant="outline" />
+        </div>
 
         <Card className="shadow-xl">
           <CardHeader className="text-center">

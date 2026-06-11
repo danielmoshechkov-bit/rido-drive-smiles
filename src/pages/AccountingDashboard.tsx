@@ -6,6 +6,7 @@ import { useFeatureToggles } from '@/hooks/useFeatureToggles';
 import { UniversalHomeButton } from '@/components/UniversalHomeButton';
 import { MyGetRidoButton } from '@/components/MyGetRidoButton';
 import { AdminPortalSwitcher } from '@/components/admin/AdminPortalSwitcher';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -246,6 +247,7 @@ export default function AccountingDashboard() {
               </select>
             )}
             
+            <LanguageSwitcher variant="ghost" />
             <MyGetRidoButton user={user} />
           </div>
         </div>

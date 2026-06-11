@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { Loader2, AlertCircle, ChevronDown } from "lucide-react";
 import { RentalContractViewer } from "@/components/fleet/RentalContractViewer";
 import { SignaturePad } from "@/components/fleet/SignaturePad";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import logoSrc from "@/assets/logo.svg";
 
 type PortalStep = "loading" | "error" | "contract" | "signature" | "complete";
@@ -206,8 +207,11 @@ export default function RentalClientPortal() {
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/30">
       {/* Header */}
       <header className="border-b bg-background/95 backdrop-blur-md sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-center">
+        <div className="container mx-auto px-4 py-4 relative flex items-center justify-center">
           <img src={logoSrc} alt="GetRido" className="h-8" />
+          <div className="absolute right-4">
+            <LanguageSwitcher />
+          </div>
         </div>
       </header>
 

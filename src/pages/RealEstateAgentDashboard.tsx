@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { AccountSwitcherPanel } from "@/components/AccountSwitcherPanel";
 import { UniversalHomeButton } from "@/components/UniversalHomeButton";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 interface AgentProfile {
   id: string;
@@ -279,6 +280,7 @@ export default function RealEstateAgentDashboard() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <LanguageSwitcher variant="ghost" />
             {getStatusBadge(agent.status)}
             <Button 
               size="sm"

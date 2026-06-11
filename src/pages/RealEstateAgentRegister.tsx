@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 interface FormData {
   // Company
@@ -708,14 +709,16 @@ export default function RealEstateAgentRegister() {
     <div className="min-h-screen bg-background py-8 px-4">
       <div className="max-w-2xl mx-auto">
         {/* Back button */}
-        <Button
-          variant="ghost"
-          className="mb-6"
-          onClick={() => navigate("/nieruchomosci")}
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Wróć do giełdy
-        </Button>
+        <div className="flex items-center justify-between mb-6">
+          <Button
+            variant="ghost"
+            onClick={() => navigate("/nieruchomosci")}
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Wróć do giełdy
+          </Button>
+          <LanguageSwitcher variant="outline" />
+        </div>
 
         {/* Progress steps - clickable */}
         <div className="flex items-center justify-between mb-8">

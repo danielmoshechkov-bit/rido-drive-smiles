@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { CheckCircle2, XCircle, Clock, MapPin, Wrench, Loader2, Calendar as CalendarIcon, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 
 type Mode = 'view' | 'cancel' | 'reschedule';
 
@@ -145,7 +146,8 @@ export default function BookingConfirm() {
   const maxDate = new Date(today.getTime() + 30 * 86400000).toISOString().slice(0, 10);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <div className="relative min-h-screen flex items-center justify-center bg-background p-4">
+      <LanguageSwitcher variant="outline" className="absolute top-4 right-4" />
       <div className="max-w-md w-full bg-card border border-border rounded-2xl shadow-lg p-6 space-y-5">
         <div className="text-center space-y-1">
           <h1 className="text-xl font-bold text-foreground">{provider?.short_name || provider?.company_name || 'Warsztat'}</h1>

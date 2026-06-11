@@ -15,6 +15,7 @@ import { EmployeeNotificationsBell } from '@/components/workshop/EmployeeNotific
 import { StationOrderNoteDialog } from '@/components/workshop/StationOrderNoteDialog';
 import { EmployeeWorkListDialog } from '@/components/workshop/EmployeeWorkListDialog';
 import { useWorkshopTranslations, TranslatableField } from '@/hooks/useWorkshopTranslations';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 
 type Tab = 'home' | 'mine' | 'pool' | 'history';
 
@@ -249,6 +250,7 @@ export default function WorkshopEmployeePortal() {
             {primaryProvider?.provider_name || 'Twój warsztat'} · {primaryProvider?.role?.toUpperCase()}
           </p>
         </div>
+        <LanguageSwitcher />
         <EmployeeNotificationsBell />
       </div>
 
