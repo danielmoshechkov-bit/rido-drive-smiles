@@ -114,9 +114,26 @@ export default function WorkshopEmployeePortal() {
     const ch = supabase
       .channel(`emp-portal-${userId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'workshop_order_assignments', filter: `employee_user_id=eq.${userId}` }, () => loadAll())
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'workshop_order_assignments' }, () => loadAll())
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'workshop_orders' }, () => loadAll())
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
+
+    // Safety net: refetch when tab regains focus or visibility (realtime can miss events
+    // after the browser throttles background tabs).
+    const onFocus = () => loadAll();
+    const onVis = () => { if (document.visibilityState === 'visible') loadAll(); };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVis);
+
+    // Periodic poll as a last resort (every 30s)
+    const interval = window.setInterval(() => loadAll(), 30000);
+
+    return () => {
+      supabase.removeChannel(ch);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVis);
+      window.clearInterval(interval);
+    };
     // eslint-disable-next-line
   }, [userId]);
 
