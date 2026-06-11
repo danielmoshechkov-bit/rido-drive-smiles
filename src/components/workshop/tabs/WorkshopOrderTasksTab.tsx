@@ -92,6 +92,11 @@ const getLineCost = (item: any, gross: boolean) => {
 
 const sortItemsBySortOrder = (items: any[]) => {
   return [...items].sort((a, b) => {
+    // Addon items always pinned to the top
+    const aAddon = a?.is_addon ? 1 : 0;
+    const bAddon = b?.is_addon ? 1 : 0;
+    if (aAddon !== bAddon) return bAddon - aAddon;
+
     const aSortOrder = typeof a?.sort_order === 'number' ? a.sort_order : Number.MAX_SAFE_INTEGER;
     const bSortOrder = typeof b?.sort_order === 'number' ? b.sort_order : Number.MAX_SAFE_INTEGER;
 
@@ -381,27 +386,35 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     }
   };
 
-  const getTaskRowClasses = (itemId: string, index: number) => {
+  const getTaskRowClasses = (item: any, index: number) => {
+    const itemId = item?.id;
     const isDragging = draggingTaskId === itemId;
     const isDropBefore = taskDropIndicator?.index === index && taskDropIndicator.position === 'before';
     const isDropAfter = taskDropIndicator?.index === index && taskDropIndicator.position === 'after';
+    const isAddon = !!item?.is_addon;
 
     return [
       'border-b text-sm transition-colors',
-      isDragging ? 'bg-accent/40 opacity-60' : 'hover:bg-accent/30',
+      isAddon
+        ? 'bg-orange-50 ring-1 ring-orange-300 hover:bg-orange-100'
+        : (isDragging ? 'bg-accent/40 opacity-60' : 'hover:bg-accent/30'),
       isDropBefore ? 'border-t-2 border-t-primary' : '',
       isDropAfter ? 'border-b-2 border-b-primary' : '',
     ].filter(Boolean).join(' ');
   };
 
-  const getGoodsRowClasses = (itemId: string, index: number) => {
+  const getGoodsRowClasses = (item: any, index: number) => {
+    const itemId = item?.id;
     const isDragging = draggingGoodsId === itemId;
     const isDropBefore = goodsDropIndicator?.index === index && goodsDropIndicator.position === 'before';
     const isDropAfter = goodsDropIndicator?.index === index && goodsDropIndicator.position === 'after';
+    const isAddon = !!item?.is_addon;
 
     return [
       'border-b text-sm transition-colors',
-      isDragging ? 'bg-accent/40 opacity-60' : 'hover:bg-accent/30',
+      isAddon
+        ? 'bg-orange-50 ring-1 ring-orange-300 hover:bg-orange-100'
+        : (isDragging ? 'bg-accent/40 opacity-60' : 'hover:bg-accent/30'),
       isDropBefore ? 'border-t-2 border-t-primary' : '',
       isDropAfter ? 'border-b-2 border-b-primary' : '',
     ].filter(Boolean).join(' ');
@@ -1129,7 +1142,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                   return (
                     <tr
                       key={t.id}
-                      className={getTaskRowClasses(t.id, i)}
+                      className={getTaskRowClasses(t, i)}
                       onDragOver={event => {
                         if (!draggingTaskId) return;
                         event.preventDefault();
@@ -1160,7 +1173,12 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           >
                             <GripVertical className="h-4 w-4" />
                           </button>
-                          <div className="min-w-0 flex-1">{renderEditableCell(t, 'name', t.name)}</div>
+                          <div className="min-w-0 flex-1">
+                            {t.is_addon && (
+                              <Badge className="mr-2 bg-orange-500 text-white text-[9px] uppercase px-1.5 py-0">Dodatek</Badge>
+                            )}
+                            {renderEditableCell(t, 'name', t.name)}
+                          </div>
                         </div>
                       </td>
                       <td className="p-1.5 text-muted-foreground">
@@ -1457,7 +1475,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                   return (
                     <tr
                       key={g.id}
-                      className={getGoodsRowClasses(g.id, i)}
+                      className={getGoodsRowClasses(g, i)}
                       onDragOver={event => {
                         if (!draggingGoodsId) return;
                         event.preventDefault();
@@ -1488,7 +1506,12 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           >
                             <GripVertical className="h-4 w-4" />
                           </button>
-                          <div className="min-w-0 flex-1">{renderEditableCell(g, 'name', g.name)}</div>
+                          <div className="min-w-0 flex-1">
+                            {g.is_addon && (
+                              <Badge className="mr-2 bg-orange-500 text-white text-[9px] uppercase px-1.5 py-0">Dodatek</Badge>
+                            )}
+                            {renderEditableCell(g, 'name', g.name)}
+                          </div>
                         </div>
                       </td>
                       <td className="p-1">{renderEditableCell(g, 'quantity', String(g.quantity), '', 'center')}</td>

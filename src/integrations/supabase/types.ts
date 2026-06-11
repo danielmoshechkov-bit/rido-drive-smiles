@@ -21915,6 +21915,7 @@ export type Database = {
           discount_percent: number | null
           employee_id: string | null
           id: string
+          is_addon: boolean
           item_type: string | null
           labor_cost: number | null
           labor_hours: number | null
@@ -21937,6 +21938,7 @@ export type Database = {
           discount_percent?: number | null
           employee_id?: string | null
           id?: string
+          is_addon?: boolean
           item_type?: string | null
           labor_cost?: number | null
           labor_hours?: number | null
@@ -21959,6 +21961,7 @@ export type Database = {
           discount_percent?: number | null
           employee_id?: string | null
           id?: string
+          is_addon?: boolean
           item_type?: string | null
           labor_cost?: number | null
           labor_hours?: number | null
