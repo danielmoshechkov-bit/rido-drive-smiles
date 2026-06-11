@@ -8,7 +8,7 @@ export type StatusTone =
   | 'amber'     // Dodatek do naprawy
   | 'green'     // Zaakceptowano / Zgoda / W trakcie
   | 'emerald'   // Gotowy do odbioru / Zadania wykonane
-  | 'red'       // Naprawione
+  | 'violet'    // Naprawione (brand GetRido)
   | 'slate';    // Zakończone
 
 const TONE_MAP: Record<string, StatusTone> = {
