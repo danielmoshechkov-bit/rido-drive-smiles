@@ -32,7 +32,7 @@ export function StationOrderNoteDialog({ open, onOpenChange, orderId, stationNam
       setLoading(true);
       setShowHistory(false);
       const { data: o } = await (supabase.from('workshop_orders') as any)
-        .select('id, order_number, status_name, vehicle_id, description, mileage')
+        .select('id, order_number, status_name, vehicle_id, description, mileage, provider_id')
         .eq('id', orderId).maybeSingle();
       setOrder(o);
       if (o?.vehicle_id) {
