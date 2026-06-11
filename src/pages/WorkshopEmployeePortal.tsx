@@ -569,7 +569,7 @@ export default function WorkshopEmployeePortal() {
                             </div>
                             {o?.description && (
                               <div className="text-xs text-muted-foreground mt-1 line-clamp-2 whitespace-pre-wrap">
-                                {o.description}
+                                {tr('order', a.order_id, 'description', o.description)}
                               </div>
                             )}
                             {items.length > 0 && (
@@ -578,7 +578,7 @@ export default function WorkshopEmployeePortal() {
                                   <li key={it.id} className="flex justify-between gap-2 text-foreground/80">
                                     <span className="truncate">
                                       {it.kind === 'part' ? '🔧 ' : '🛠️ '}
-                                      {it.name} {it.quantity ? `× ${it.quantity} ${it.unit || ''}` : ''}
+                                      {tr('item', String(it.id), 'name', it.name)} {it.quantity ? `× ${it.quantity} ${it.unit || ''}` : ''}
                                     </span>
                                   </li>
                                 ))}
