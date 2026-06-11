@@ -498,6 +498,7 @@ export function EmployeeOrderCardDialog({
                     const newBlock: TaskBlock = {
                       key: `${nextIdx}. `,
                       index: nextIdx,
+                      complaint: '',
                       text: '',
                       parts: [],
                       time: '',
