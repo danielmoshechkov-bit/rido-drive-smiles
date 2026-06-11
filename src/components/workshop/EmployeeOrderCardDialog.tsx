@@ -187,6 +187,38 @@ export function EmployeeOrderCardDialog({
     finally { setClaiming(false); }
   };
 
+  const handleMarkRepaired = async () => {
+    if (!orderId || readOnly) return;
+    if (!confirm('Oznaczyć zlecenie jako naprawione? Administrator otrzyma powiadomienie.')) return;
+    setMarking(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error } = await (supabase.from('workshop_orders') as any)
+        .update({
+          status_name: 'Naprawione',
+          repaired_at: new Date().toISOString(),
+          repaired_by_user_id: user?.id || null,
+        })
+        .eq('id', orderId);
+      if (error) throw error;
+      await (supabase.from('workshop_order_events') as any).insert({
+        order_id: orderId,
+        event_type: 'repaired',
+        actor_user_id: user?.id || null,
+        actor_name: employeeName || null,
+        actor_role: 'employee',
+        to_status: 'Naprawione',
+      });
+      toast.success('Oznaczono jako naprawione');
+      onSaved?.();
+      onOpenChange(false);
+    } catch (e: any) {
+      toast.error(e.message || 'Błąd');
+    } finally {
+      setMarking(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!orderId || readOnly) return;
     setSaving(true);
