@@ -5,7 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, Plus, Trash2, Users, Building2, X } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Loader2, Plus, Trash2, Users, Building2, CheckCircle2, Circle } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Props { providerId: string; }
@@ -74,74 +76,120 @@ export function WorkshopStationsManager({ providerId }: Props) {
   };
 
   const empName = (e: Employee) => [e.first_name, e.last_name].filter(Boolean).join(' ') || e.email || '—';
+  const initials = (e: Employee) => {
+    const n = empName(e);
+    return n.split(/\s+/).map(p => p[0]).slice(0, 2).join('').toUpperCase() || '?';
+  };
 
   if (loading) return <div className="flex justify-center p-8"><Loader2 className="h-6 w-6 animate-spin" /></div>;
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader><CardTitle className="text-base flex items-center gap-2"><Building2 className="h-4 w-4" /> Stanowiska warsztatowe</CardTitle></CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex gap-2 flex-wrap items-center">
-            <Input value={newName} onChange={e => setNewName(e.target.value)}
-              placeholder="Np. Myjnia, Geometria, Wulkanizacja, Mechanika"
-              onKeyDown={e => e.key === 'Enter' && add()} className="flex-1 min-w-[200px]" />
-            <div className="flex gap-1">
-              {PALETTE.map(c => (
-                <button key={c} onClick={() => setColor(c)}
-                  className={`h-7 w-7 rounded-full border-2 ${color === c ? 'border-foreground' : 'border-transparent'}`}
-                  style={{ background: c }} />
-              ))}
-            </div>
-            <Button size="sm" onClick={add}><Plus className="h-4 w-4 mr-1" /> Dodaj</Button>
-          </div>
-
-          {stations.length === 0 && (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              Brak stanowisk. Dodaj pierwsze (np. „Myjnia", „Geometria"). Każde stanowisko automatycznie staje się statusem zlecenia — pracownicy przypisani do stanowiska widzą zlecenia na tym statusie.
+    <TooltipProvider delayDuration={200}>
+      <div className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Building2 className="h-4 w-4" /> Stanowiska warsztatowe
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Każde aktywne stanowisko staje się <b>statusem zlecenia</b> — możesz przekierować zlecenie na np. „Myjnia", a pracownicy przypisani do tego stanowiska dostaną powiadomienie.
             </p>
-          )}
-
-          {stations.map(s => {
-            const assignedIds = new Set(mappings.filter(m => m.station_id === s.id).map(m => m.employee_user_id));
-            return (
-              <div key={s.id} className="rounded-lg border p-3 space-y-2">
-                <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-full" style={{ background: s.color }} />
-                  <span className={`font-medium ${s.is_active ? '' : 'line-through text-muted-foreground'}`}>{s.name}</span>
-                  <Badge variant="outline" className="text-[10px]">{assignedIds.size} {assignedIds.size === 1 ? 'pracownik' : 'pracowników'}</Badge>
-                  <div className="ml-auto flex items-center gap-2">
-                    <Switch checked={s.is_active} onCheckedChange={() => toggleActive(s)} />
-                    <Button variant="ghost" size="icon" onClick={() => remove(s.id)}>
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-                </div>
-                <div className="border-t pt-2">
-                  <div className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
-                    <Users className="h-3 w-3" /> Pracownicy stanowiska
-                  </div>
-                  {employees.length === 0 ? (
-                    <div className="text-xs text-muted-foreground">Brak pracowników w warsztacie.</div>
-                  ) : (
-                    <div className="flex flex-wrap gap-1.5">
-                      {employees.map(e => {
-                        const on = assignedIds.has(e.user_id);
-                        return (
-                          <button key={e.user_id} onClick={() => toggleAssign(s.id, e.user_id)}
-                            className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${on ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted/40 hover:bg-muted'}`}>
-                            {empName(e)} {on && <X className="h-3 w-3 inline ml-1" />}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex gap-2 flex-wrap items-center">
+              <Input value={newName} onChange={e => setNewName(e.target.value)}
+                placeholder="Np. Myjnia, Geometria, Wulkanizacja, Mechanika"
+                onKeyDown={e => e.key === 'Enter' && add()} className="flex-1 min-w-[200px]" />
+              <div className="flex gap-1">
+                {PALETTE.map(c => (
+                  <button key={c} onClick={() => setColor(c)}
+                    className={`h-7 w-7 rounded-full border-2 ${color === c ? 'border-foreground' : 'border-transparent'}`}
+                    style={{ background: c }} />
+                ))}
               </div>
-            );
-          })}
-        </CardContent>
-      </Card>
-    </div>
+              <Button size="sm" onClick={add}><Plus className="h-4 w-4 mr-1" /> Dodaj</Button>
+            </div>
+
+            {stations.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                Brak stanowisk. Dodaj pierwsze (np. „Myjnia", „Geometria").
+              </p>
+            )}
+
+            {stations.map(s => {
+              const assignedIds = new Set(mappings.filter(m => m.station_id === s.id).map(m => m.employee_user_id));
+              return (
+                <div key={s.id} className="rounded-lg border bg-card p-3 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <div className="h-3 w-3 rounded-full shrink-0" style={{ background: s.color }} />
+                    <span className={`font-medium ${s.is_active ? '' : 'line-through text-muted-foreground'}`}>{s.name}</span>
+                    <Badge variant="outline" className="text-[10px]">
+                      {assignedIds.size} {assignedIds.size === 1 ? 'pracownik' : 'pracowników'}
+                    </Badge>
+                    <div className="ml-auto flex items-center gap-3">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center gap-2">
+                            <Label htmlFor={`act-${s.id}`} className="text-xs text-muted-foreground cursor-pointer">
+                              Status zlecenia
+                            </Label>
+                            <Switch id={`act-${s.id}`} checked={s.is_active} onCheckedChange={() => toggleActive(s)} />
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {s.is_active
+                            ? 'Aktywne — to stanowisko pojawia się jako status w liście zleceń.'
+                            : 'Wyłączone — nie pojawia się jako status zlecenia.'}
+                        </TooltipContent>
+                      </Tooltip>
+                      <Button variant="ghost" size="icon" onClick={() => remove(s.id)}>
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="border-t pt-2">
+                    <div className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
+                      <Users className="h-3 w-3" /> Pracownicy przypisani do stanowiska
+                    </div>
+                    {employees.length === 0 ? (
+                      <div className="text-xs text-muted-foreground">Brak pracowników w warsztacie.</div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                        {employees.map(e => {
+                          const on = assignedIds.has(e.user_id);
+                          return (
+                            <button
+                              key={e.user_id}
+                              onClick={() => toggleAssign(s.id, e.user_id)}
+                              className={`flex items-center gap-2 px-2.5 py-1.5 rounded-md border text-left transition-colors ${
+                                on
+                                  ? 'bg-primary/5 border-primary/40'
+                                  : 'bg-muted/30 border-transparent hover:bg-muted/60'
+                              }`}
+                            >
+                              <div
+                                className="h-7 w-7 rounded-full flex items-center justify-center text-[11px] font-semibold text-white shrink-0"
+                                style={{ background: s.color }}
+                              >
+                                {initials(e)}
+                              </div>
+                              <span className="flex-1 text-sm truncate">{empName(e)}</span>
+                              {on
+                                ? <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
+                                : <Circle className="h-4 w-4 text-muted-foreground/40 shrink-0" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      </div>
+    </TooltipProvider>
   );
 }
