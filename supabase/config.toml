@@ -254,6 +254,9 @@ verify_jwt = false
 [functions.workshop-translate]
 verify_jwt = false
 
+[functions.workshop-translate-batch]
+verify_jwt = false
+
 [functions.workshop-invite-employee]
 verify_jwt = false
 
