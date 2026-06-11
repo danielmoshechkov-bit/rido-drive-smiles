@@ -300,12 +300,16 @@ export default function WorkshopEmployeePortal() {
                   : tone === 'green' ? 'bg-green-50/70 border-l-green-500'
                   : tone === 'red' ? 'bg-red-50/70 border-l-red-500'
                   : 'bg-muted/30 border-l-gray-300';
+                const isApproved = ['Zaakceptowano','Akceptacja klienta','Zgoda na naprawę','W trakcie naprawy','Dodatek do naprawy'].includes(st);
                 const openOrder = () => {
                   if (station) {
-                    // simplified station view
                     setStationOpenId(a.order_id);
                     setStationOpenName(station.name);
+                  } else if (isApproved) {
+                    // approved → default to Lista prac
+                    setWorkListOrderId(a.order_id);
                   } else {
+                    setOpenPreviewMode(false);
                     setOpenFromPool(false);
                     setOpenProviderId(a.provider_id);
                     setOpenOrderId(a.order_id);
@@ -348,6 +352,30 @@ export default function WorkshopEmployeePortal() {
                     const label = st && map[st] ? st : (station ? station.name : 'Przydzielone');
                     return <Badge className={`${cls} text-xs`}>{label}</Badge>;
                   })()}
+                  {/* Action buttons */}
+                  {isApproved && !station && (
+                    <>
+                      <Button
+                        size="sm" variant="outline"
+                        onClick={() => {
+                          setOpenPreviewMode(true);
+                          setOpenFromPool(false);
+                          setOpenProviderId(a.provider_id);
+                          setOpenOrderId(a.order_id);
+                        }}
+                        title="Karta zlecenia — podgląd diagnozy"
+                      >
+                        Karta
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="bg-primary text-primary-foreground"
+                        onClick={() => setWorkListOrderId(a.order_id)}
+                      >
+                        Lista prac
+                      </Button>
+                    </>
+                  )}
                   <Button
                     variant="ghost" size="sm" disabled={busy === a.id}
                     onClick={() => release(a.id, a.order_id, a.provider_id)}
