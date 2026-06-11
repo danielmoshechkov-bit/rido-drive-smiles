@@ -120,6 +120,19 @@ export function StationOrderNoteDialog({ open, onOpenChange, orderId, stationNam
 
   const inProgress = (order?.status_name || '').toLowerCase().includes('realizacj');
 
+  // Translate note + events into the employee's language
+  const fields = useMemo<TranslatableField[]>(() => {
+    const out: TranslatableField[] = [];
+    if (note && orderId) {
+      out.push({ entity_type: 'note', entity_id: orderId, field: 'admin_note', text: note });
+    }
+    allEvents.forEach(e => {
+      if (e.note) out.push({ entity_type: 'event', entity_id: String(e.id), field: 'note', text: String(e.note) });
+    });
+    return out;
+  }, [note, allEvents, orderId]);
+  const { t: tr } = useWorkshopTranslations(fields, 'pl');
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
