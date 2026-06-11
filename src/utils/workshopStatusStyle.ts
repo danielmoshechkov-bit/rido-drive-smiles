@@ -35,7 +35,7 @@ const TONE_MAP: Record<string, StatusTone> = {
   'Zadania wykonane': 'emerald',
   'Gotowy do odbioru': 'emerald',
 
-  'Naprawione': 'violet',
+  'Naprawione': 'emerald',
 
   'Zakończone': 'slate',
 };
