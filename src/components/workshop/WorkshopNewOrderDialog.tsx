@@ -144,7 +144,8 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
     const s = clientSearch.toLowerCase();
     return clients.filter((c: any) =>
       c.first_name?.toLowerCase().includes(s) || c.last_name?.toLowerCase().includes(s) ||
-      c.company_name?.toLowerCase().includes(s) || c.nip?.includes(s)
+      c.company_name?.toLowerCase().includes(s) || c.nip?.includes(s) ||
+      c.phone?.toLowerCase().includes(s) || c.email?.toLowerCase().includes(s)
     );
   }, [clients, clientSearch]);
 
