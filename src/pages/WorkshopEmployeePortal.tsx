@@ -63,12 +63,13 @@ export default function WorkshopEmployeePortal() {
       }
     }
 
-    // My assignments — include station_id on order
+    // My assignments — include station_id on order + vehicle for richer list display
     const { data: mineData } = await (supabase.from('workshop_order_assignments') as any)
-      .select('id, order_id, provider_id, status, assigned_at, workshop_orders(id, order_number, status_name, vehicle_id, client_id, scheduled_date, scheduled_start, acceptance_date, mileage, description, station_id, has_unread_notes)')
+      .select('id, order_id, provider_id, status, assigned_at, workshop_orders(id, order_number, status_name, vehicle_id, client_id, scheduled_date, scheduled_start, acceptance_date, mileage, description, station_id, has_unread_notes, vehicle:workshop_vehicles(brand, model, license_plate))')
       .eq('employee_user_id', user.id)
       .order('assigned_at', { ascending: false });
     setMine(mineData || []);
+
 
     // Stations this employee belongs to (across all their providers)
     const { data: stMaps } = await (supabase.from('workshop_station_employees') as any)
