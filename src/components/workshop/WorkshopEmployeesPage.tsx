@@ -143,8 +143,10 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
     if (!ownerUserId) return;
     setPoolSaving(true);
     try {
+      // Upsert — older accounts may not have a workshop_settings row yet, in which
+      // case .update().eq() updates 0 rows silently and the toggle never persists.
       const { error } = await (supabase.from('workshop_settings') as any)
-        .update({ employees_can_claim_orders: val }).eq('user_id', ownerUserId);
+        .upsert({ user_id: ownerUserId, employees_can_claim_orders: val }, { onConflict: 'user_id' });
       if (error) throw error;
       setPoolEnabled(val);
       toast.success(val ? 'Pula zleceń włączona' : 'Pula zleceń wyłączona');
