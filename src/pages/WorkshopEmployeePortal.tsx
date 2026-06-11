@@ -120,6 +120,16 @@ export default function WorkshopEmployeePortal() {
     // eslint-disable-next-line
   }, [userId]);
 
+  // Deep-link: open ?order=<id> after first load
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const oid = params.get('order');
+    if (oid && !dataLoading) {
+      setOpenOrderId(oid);
+    }
+    // eslint-disable-next-line
+  }, [dataLoading]);
+
   const claim = async (orderId: string, providerId: string) => {
     if (!userId) return;
     setBusy(orderId);
