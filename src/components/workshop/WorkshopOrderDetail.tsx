@@ -108,15 +108,14 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
     }
     toast.success(`Status zmieniony na: ${newStatus}`);
 
-    // Notify employees if status matches a workshop station name
+    // If the new status matches a station (Myjnia, Wulkanizacja, Geometria, ...),
+    // attach the order to it and create assignments so the station's
+    // employees immediately see the order in their "Moje zlecenia".
     try {
-      const { data: station } = await (supabase.from('workshop_stations') as any)
-        .select('id, name').eq('provider_id', providerId).eq('name', newStatus).maybeSingle();
-      if (station) {
-        supabase.functions.invoke('workshop-notify-employee', {
-          body: { order_id: order.id, event: 'department_changed', station_id: station.id, status_name: newStatus },
-        }).catch(() => {});
-      }
+      const { applyStationHandover } = await import('@/utils/workshopStationHandover');
+      // Strip workflow suffixes like " — realizacja" / " — gotowe" before matching to a station.
+      const baseName = newStatus.replace(/\s*[—-]\s*(realizacja|gotowe|w trakcie|w realizacji)\s*$/i, '').trim();
+      await applyStationHandover({ orderId: order.id, providerId, newStatus: baseName });
     } catch {/* best-effort */}
 
     // Auto-open SMS dialog based on status context
