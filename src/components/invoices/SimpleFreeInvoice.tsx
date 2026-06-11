@@ -440,25 +440,20 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
       if (session?.user) {
         await loadUserCompanyData(session.user.id);
         
-        // Auto-generate next invoice number based on last invoice in DB
+        // Preview next invoice number WITHOUT consuming the sequence.
+        // The atomic number is claimed only at actual issuance (see save flow).
         if (!editInvoiceId) {
           const now = new Date();
           const year = parseInt(format(now, 'yyyy'));
           const month = parseInt(format(now, 'MM'));
-          
-          // Use atomic sequence to prevent duplicate numbers
-          const { data: nextNum, error: seqErr } = await supabase
-            .rpc('get_next_invoice_number', { p_user_id: session.user.id, p_year: year, p_month: month });
-          
-          if (seqErr) {
-            console.error('Error getting next invoice number:', seqErr);
-            // Fallback to old logic
-            const prefix = `FV/${year}/${String(month).padStart(2, '0')}/`;
-            setInvoiceNumber(`${prefix}001`);
-          } else {
-            const prefix = `FV/${year}/${String(month).padStart(2, '0')}/`;
-            setInvoiceNumber(`${prefix}${String(nextNum).padStart(3, '0')}`);
-          }
+          const prefix = `FV/${year}/${String(month).padStart(2, '0')}/`;
+
+          const { data: nextNum, error: peekErr } = await supabase
+            .rpc('peek_next_invoice_number', { p_user_id: session.user.id, p_year: year, p_month: month });
+
+          const preview = `${prefix}${String(peekErr || !nextNum ? 1 : nextNum).padStart(3, '0')}`;
+          setInvoiceNumber(preview);
+          autoNumberRef.current = preview;
         }
         
         // Check KSeF: token + master switch (send_invoices_enabled) + auto-send toggle
