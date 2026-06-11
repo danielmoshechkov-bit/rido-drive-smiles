@@ -10,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { Loader2, ArrowLeft, User, Mail, Lock, ShieldCheck } from "lucide-react";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { useTranslation } from "react-i18next";
 
 interface FieldErrors {
   email?: string;
@@ -21,6 +22,7 @@ interface FieldErrors {
 
 export default function MarketplaceRegister() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [isHuman, setIsHuman] = useState(false);
@@ -49,21 +51,21 @@ export default function MarketplaceRegister() {
     const errors: FieldErrors = {};
     
     if (!formData.first_name.trim()) {
-      errors.first_name = "Imię jest wymagane";
+      errors.first_name = t("register.firstNameRequired");
     }
-    
+
     if (!formData.email.trim()) {
-      errors.email = "Email jest wymagany";
+      errors.email = t("register.emailRequired");
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      errors.email = "Niepoprawny format email";
+      errors.email = t("register.emailInvalid");
     }
-    
+
     if (formData.password.length < 6) {
-      errors.password = "Hasło musi mieć minimum 6 znaków";
+      errors.password = t("register.passwordMinLength");
     }
-    
+
     if (formData.password !== formData.confirmPassword) {
-      errors.confirmPassword = "Hasła nie są takie same";
+      errors.confirmPassword = t("register.passwordsMismatch");
     }
     
     setFieldErrors(errors);
@@ -81,16 +83,16 @@ export default function MarketplaceRegister() {
     }
     
     if (!isHuman) {
-      toast.error("Potwierdź, że nie jesteś robotem");
+      toast.error(t("register.confirmNotRobot"));
       return;
     }
-    
+
     if (!validateForm()) {
       return;
     }
 
     if (!formData.acceptTerms || !formData.acceptRodo) {
-      toast.error("Musisz zaakceptować regulamin i politykę prywatności");
+      toast.error(t("register.mustAcceptTermsAndPrivacy"));
       return;
     }
 
@@ -123,15 +125,15 @@ export default function MarketplaceRegister() {
         throw new Error(response.error.message);
       }
 
-      toast.success("Rejestracja zakończona!", {
+      toast.success(t("register.successShort"), {
         duration: 8000,
-        description: response.data?.message || "Możesz się teraz zalogować"
+        description: response.data?.message || t("register.canLoginNow")
       });
       clearReferralCode();
       navigate("/gielda/logowanie");
     } catch (error: any) {
       console.error("Registration error:", error);
-      setFieldErrors({ general: error.message || "Błąd rejestracji. Spróbuj ponownie." });
+      setFieldErrors({ general: error.message || t("register.errorRetry") });
     } finally {
       setLoading(false);
     }
@@ -149,7 +151,7 @@ export default function MarketplaceRegister() {
           />
           <span className="text-xl font-bold text-primary">Get RIDO</span>
           <span className="text-muted-foreground">|</span>
-          <span className="text-sm text-muted-foreground">Strona główna</span>
+          <span className="text-sm text-muted-foreground">{t("header.home")}</span>
         </div>
         <LanguageSwitcher variant="outline" />
       </div>
@@ -162,7 +164,7 @@ export default function MarketplaceRegister() {
             className="mb-4"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Powrót do giełdy
+            {t("register.backToMarketplace")}
           </Button>
 
         <Card className="shadow-xl">
@@ -174,9 +176,9 @@ export default function MarketplaceRegister() {
                 className="h-12 w-12"
               />
             </div>
-            <CardTitle className="text-2xl">Dołącz do RIDO</CardTitle>
+            <CardTitle className="text-2xl">{t("register.joinRido")}</CardTitle>
             <CardDescription>
-              Jedno konto – kupuj, sprzedawaj, zarządzaj
+              {t("register.joinRidoSubtitle")}
             </CardDescription>
           </CardHeader>
           
@@ -201,14 +203,14 @@ export default function MarketplaceRegister() {
               
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="first_name">Imię *</Label>
+                  <Label htmlFor="first_name">{t("register.firstName")} *</Label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="first_name"
                       value={formData.first_name}
                       onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
-                      placeholder="Jan"
+                      placeholder={t("register.firstNameExample")}
                       className={`pl-10 ${fieldErrors.first_name ? 'border-destructive ring-1 ring-destructive' : ''}`}
                       required
                     />
@@ -218,18 +220,18 @@ export default function MarketplaceRegister() {
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="last_name">Nazwisko</Label>
+                  <Label htmlFor="last_name">{t("register.lastName")}</Label>
                   <Input
                     id="last_name"
                     value={formData.last_name}
                     onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
-                    placeholder="Kowalski"
+                    placeholder={t("register.lastNameExample")}
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="email">Email *</Label>
+                <Label htmlFor="email">{t("register.email")} *</Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -240,7 +242,7 @@ export default function MarketplaceRegister() {
                       setFormData({ ...formData, email: e.target.value });
                       if (fieldErrors.email) setFieldErrors({ ...fieldErrors, email: undefined });
                     }}
-                    placeholder="jan@example.com"
+                    placeholder={t("register.emailExample")}
                     className={`pl-10 ${fieldErrors.email ? 'border-destructive ring-1 ring-destructive' : ''}`}
                     required
                   />
@@ -251,7 +253,7 @@ export default function MarketplaceRegister() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password">Hasło *</Label>
+                <Label htmlFor="password">{t("register.password")} *</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -262,7 +264,7 @@ export default function MarketplaceRegister() {
                       setFormData({ ...formData, password: e.target.value });
                       if (fieldErrors.password) setFieldErrors({ ...fieldErrors, password: undefined });
                     }}
-                    placeholder="Minimum 6 znaków"
+                    placeholder={t("register.passwordMinPlaceholder")}
                     className={`pl-10 ${fieldErrors.password ? 'border-destructive ring-1 ring-destructive' : ''}`}
                     required
                     minLength={6}
@@ -274,7 +276,7 @@ export default function MarketplaceRegister() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Potwierdź hasło *</Label>
+                <Label htmlFor="confirmPassword">{t("auth.confirmPassword")} *</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -285,7 +287,7 @@ export default function MarketplaceRegister() {
                       setFormData({ ...formData, confirmPassword: e.target.value });
                       if (fieldErrors.confirmPassword) setFieldErrors({ ...fieldErrors, confirmPassword: undefined });
                     }}
-                    placeholder="Powtórz hasło"
+                    placeholder={t("register.confirmPasswordPlaceholder")}
                     className={`pl-10 ${fieldErrors.confirmPassword ? 'border-destructive ring-1 ring-destructive' : ''}`}
                     required
                   />
@@ -306,7 +308,7 @@ export default function MarketplaceRegister() {
                   <div className="flex items-center gap-2">
                     <ShieldCheck className="h-4 w-4 text-green-600" />
                     <label htmlFor="human" className="text-sm font-medium leading-tight">
-                      Nie jestem robotem
+                      {t("register.notRobot")}
                     </label>
                   </div>
                 </div>
@@ -320,7 +322,7 @@ export default function MarketplaceRegister() {
                     }
                   />
                   <label htmlFor="terms" className="text-sm text-muted-foreground leading-tight">
-                    Akceptuję <a href="/prawne?tab=regulamin" className="text-primary hover:underline">regulamin</a> serwisu *
+                    {t("register.acceptPrefix")} <a href="/prawne?tab=regulamin" className="text-primary hover:underline">{t("register.termsLink")}</a> {t("register.serviceSuffix")} *
                   </label>
                 </div>
 
@@ -333,7 +335,7 @@ export default function MarketplaceRegister() {
                     }
                   />
                   <label htmlFor="rodo" className="text-sm text-muted-foreground leading-tight">
-                    Akceptuję <a href="/prawne?tab=prywatnosc" className="text-primary hover:underline">politykę prywatności</a> (RODO) *
+                    {t("register.acceptPrefix")} <a href="/prawne?tab=prywatnosc" className="text-primary hover:underline">{t("register.privacyLink")}</a> (RODO) *
                   </label>
                 </div>
               </div>
@@ -342,17 +344,17 @@ export default function MarketplaceRegister() {
                 {loading ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Rejestracja...
+                    {t("register.registering")}
                   </>
                 ) : (
-                  "Zarejestruj się"
+                  t("register.submit")
                 )}
               </Button>
 
               <p className="text-center text-sm text-muted-foreground">
-                Masz już konto?{" "}
+                {t("register.hasAccount")}{" "}
                 <Button variant="link" className="p-0 h-auto" onClick={() => navigate("/gielda/logowanie")}>
-                  Zaloguj się
+                  {t("register.login")}
                 </Button>
               </p>
             </form>

@@ -75,7 +75,7 @@ export default function DriverRegister() {
           .maybeSingle();
         
         if (existingDriver?.driver_id) {
-          toast.info("Masz już konto kierowcy");
+          toast.info(t("register.alreadyDriver"));
           navigate("/driver");
           return;
         }
@@ -225,7 +225,7 @@ export default function DriverRegister() {
       }
 
       if (isLoggedIn) {
-        toast.success("Konto kierowcy zostało utworzone!");
+        toast.success(t("register.driverAccountCreated"));
         navigate("/driver");
       } else {
         toast.success(t("register.success"));
@@ -258,7 +258,7 @@ export default function DriverRegister() {
             onClick={() => navigate('/klient')}
             className="mb-4"
           >
-            ← Powrót
+            ← {t("common.back")}
           </Button>
         )}
         <Card>
@@ -286,8 +286,8 @@ export default function DriverRegister() {
             
             <CardTitle className="text-3xl">{t("register.title")}</CardTitle>
             <p className="text-muted-foreground">
-              {isLoggedIn 
-                ? "Uzupełnij dane, aby aktywować konto kierowcy" 
+              {isLoggedIn
+                ? t("register.completeDataToActivate")
                 : t("register.subtitle")
               }
             </p>
@@ -360,7 +360,7 @@ export default function DriverRegister() {
             <div className="space-y-2 p-4 bg-blue-50/50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
               <Label htmlFor="fleetNip" className="flex items-center gap-2">
                 <Building2 className="h-4 w-4" />
-                NIP partnera flotowego (opcjonalnie)
+                {t("register.fleetPartnerNip")}
               </Label>
               <Input
                 id="fleetNip"
@@ -370,13 +370,13 @@ export default function DriverRegister() {
                 maxLength={13}
               />
               <p className="text-xs text-muted-foreground">
-                Jeśli masz NIP od partnera flotowego, wprowadź go tutaj aby dołączyć do jego floty
+                {t("register.fleetPartnerNipHint")}
               </p>
               
               {fleetLoading && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Sprawdzanie NIP...
+                  {t("register.checkingNip")}
                 </div>
               )}
               
@@ -384,12 +384,12 @@ export default function DriverRegister() {
                 fleetInfo ? (
                   <div className="flex items-center gap-2 p-2 bg-green-100 dark:bg-green-900/30 rounded text-green-800 dark:text-green-200">
                     <Check className="h-4 w-4" />
-                    <span className="text-sm">Dołączysz do floty: <strong>{fleetInfo.name}</strong></span>
+                    <span className="text-sm">{t("register.willJoinFleet")} <strong>{fleetInfo.name}</strong></span>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 p-2 bg-amber-100 dark:bg-amber-900/30 rounded text-amber-800 dark:text-amber-200">
                     <X className="h-4 w-4" />
-                    <span className="text-sm">Nie znaleziono floty o podanym NIP</span>
+                    <span className="text-sm">{t("register.fleetNotFound")}</span>
                   </div>
                 )
               )}
@@ -501,7 +501,7 @@ export default function DriverRegister() {
                 
                 {confirmPassword && password !== confirmPassword && (
                   <p className="text-sm text-destructive flex items-center gap-1">
-                    <X size={14} /> Hasła nie są takie same
+                    <X size={14} /> {t("register.passwordsMismatch")}
                   </p>
                 )}
               </div>
@@ -539,7 +539,7 @@ export default function DriverRegister() {
                   {t("register.loading")}
                 </>
               ) : isLoggedIn ? (
-                "Aktywuj konto kierowcy"
+                t("register.activateDriverAccount")
               ) : (
                 t("register.submit")
               )}

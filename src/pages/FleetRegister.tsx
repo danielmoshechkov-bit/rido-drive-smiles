@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { Loader2, ArrowLeft, Building2, User, Mail, Phone, MapPin, FileText, ShieldCheck } from "lucide-react";
 import { Step3Account } from "@/components/fleet/Step3Account";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { useTranslation } from "react-i18next";
 
 interface FieldErrors {
   [key: string]: string | undefined;
@@ -17,6 +18,7 @@ interface FieldErrors {
 
 export default function FleetRegister() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [isHuman, setIsHuman] = useState(false);
@@ -96,36 +98,36 @@ export default function FleetRegister() {
     const errors: FieldErrors = {};
     
     if (currentStep === 1) {
-      if (!formData.company_name.trim()) errors.company_name = "Nazwa firmy jest wymagana";
+      if (!formData.company_name.trim()) errors.company_name = t("fleetRegister.companyNameRequired");
       if (!formData.nip.trim()) {
-        errors.nip = "NIP jest wymagany";
+        errors.nip = t("fleetRegister.nipRequired");
       } else if (!/^\d{10}$/.test(formData.nip.replace(/[\s-]/g, ""))) {
-        errors.nip = "NIP musi mieć 10 cyfr";
+        errors.nip = t("fleetRegister.nipFormat");
       }
-      if (!formData.address_street.trim()) errors.address_street = "Ulica jest wymagana";
-      if (!formData.address_number.trim()) errors.address_number = "Nr domu jest wymagany";
-      if (!formData.address_city.trim()) errors.address_city = "Miasto jest wymagane";
+      if (!formData.address_street.trim()) errors.address_street = t("fleetRegister.streetRequired");
+      if (!formData.address_number.trim()) errors.address_number = t("fleetRegister.houseNumberRequired");
+      if (!formData.address_city.trim()) errors.address_city = t("fleetRegister.cityRequired");
     }
     
     if (currentStep === 2) {
-      if (!formData.contact_name.trim()) errors.contact_name = "Imię i nazwisko jest wymagane";
+      if (!formData.contact_name.trim()) errors.contact_name = t("fleetRegister.fullNameRequired");
       if (!formData.contact_email.trim()) {
-        errors.contact_email = "Email jest wymagany";
+        errors.contact_email = t("register.emailRequired");
       } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.contact_email)) {
-        errors.contact_email = "Niepoprawny format email";
+        errors.contact_email = t("register.emailInvalid");
       }
-      if (!formData.contact_phone.trim()) errors.contact_phone = "Telefon jest wymagany";
+      if (!formData.contact_phone.trim()) errors.contact_phone = t("fleetRegister.phoneRequired");
     }
     
     // Step 3 validation only for new users
     if (currentStep === 3 && !isExistingUser) {
       if (!formData.email.trim()) {
-        errors.email = "Email do logowania jest wymagany";
+        errors.email = t("fleetRegister.loginEmailRequired");
       } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-        errors.email = "Niepoprawny format email";
+        errors.email = t("register.emailInvalid");
       }
-      if (formData.password.length < 6) errors.password = "Hasło musi mieć minimum 6 znaków";
-      if (formData.password !== formData.confirmPassword) errors.confirmPassword = "Hasła nie są takie same";
+      if (formData.password.length < 6) errors.password = t("register.passwordMinLength");
+      if (formData.password !== formData.confirmPassword) errors.confirmPassword = t("register.passwordsMismatch");
     }
     
     setFieldErrors(errors);
@@ -146,7 +148,7 @@ export default function FleetRegister() {
   
   const handleSubmitExistingUser = async () => {
     if (!isHuman) {
-      toast.error("Potwierdź, że nie jesteś robotem");
+      toast.error(t("register.confirmNotRobot"));
       return;
     }
     
@@ -184,11 +186,11 @@ export default function FleetRegister() {
       
       if (response.error) throw new Error(response.error.message);
       
-      toast.success("Flota została zarejestrowana!");
+      toast.success(t("fleetRegister.fleetRegistered"));
       navigate("/fleet/dashboard");
     } catch (error: any) {
       console.error("Fleet registration error:", error);
-      toast.error(error.message || "Błąd rejestracji. Spróbuj ponownie.");
+      toast.error(error.message || t("register.errorRetry"));
     } finally {
       setLoading(false);
     }
@@ -198,14 +200,14 @@ export default function FleetRegister() {
     e.preventDefault();
     
     if (!isHuman) {
-      toast.error("Potwierdź, że nie jesteś robotem");
+      toast.error(t("register.confirmNotRobot"));
       return;
     }
     
     if (!validateStep(3)) return;
     
     if (!formData.acceptTerms || !formData.acceptRodo) {
-      toast.error("Musisz zaakceptować regulamin i politykę prywatności");
+      toast.error(t("register.mustAcceptTermsAndPrivacy"));
       return;
     }
 
@@ -245,14 +247,14 @@ export default function FleetRegister() {
 
       if (response.error) {
         console.error("Fleet registration invoke error:", response.error);
-        throw new Error(typeof response.error === 'string' ? response.error : response.error.message || "Błąd rejestracji");
+        throw new Error(typeof response.error === 'string' ? response.error : response.error.message || t("register.error"));
       }
 
       // Redirect to success page
       navigate("/fleet/rejestracja-sukces");
     } catch (error: any) {
       console.error("Fleet registration error:", error);
-      toast.error(error.message || "Błąd rejestracji. Spróbuj ponownie.");
+      toast.error(error.message || t("register.errorRetry"));
     } finally {
       setLoading(false);
     }
@@ -300,7 +302,7 @@ export default function FleetRegister() {
             onClick={() => isExistingUser ? navigate("/klient") : navigate("/fleet")}
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Powrót
+            {t("common.back")}
           </Button>
           <LanguageSwitcher variant="outline" />
         </div>
@@ -312,12 +314,12 @@ export default function FleetRegister() {
                 <Building2 className="h-8 w-8 text-primary-foreground" />
               </div>
             </div>
-            <CardTitle className="text-2xl">Zarejestruj flotę</CardTitle>
+            <CardTitle className="text-2xl">{t("fleetRegister.title")}</CardTitle>
             <CardDescription>
               {isExistingUser ? (
-                <>Krok {step} z 2: {step === 1 && "Dane firmy"}{step === 2 && "Osoba kontaktowa"}</>
+                <>{t("fleetRegister.stepOf", { step, total: 2 })} {step === 1 && t("fleetRegister.companyData")}{step === 2 && t("fleetRegister.contactPerson")}</>
               ) : (
-                <>Krok {step} z 3: {step === 1 && "Dane firmy"}{step === 2 && "Osoba kontaktowa"}{step === 3 && "Konto administratora"}</>
+                <>{t("fleetRegister.stepOf", { step, total: 3 })} {step === 1 && t("fleetRegister.companyData")}{step === 2 && t("fleetRegister.contactPerson")}{step === 3 && t("fleetRegister.adminAccount")}</>
               )}
             </CardDescription>
             
@@ -337,22 +339,22 @@ export default function FleetRegister() {
               {/* Step 1: Company Data */}
               {step === 1 && (
                 <>
-                  {renderField("company_name", "Nazwa firmy", <Building2 className="h-4 w-4" />, "text", "Taxi Partner Sp. z o.o.")}
-                  {renderField("company_short_name", "Nazwa skrócona", <FileText className="h-4 w-4" />, "text", "TaxiPartner", false)}
-                  {renderField("nip", "NIP", <FileText className="h-4 w-4" />, "text", "1234567890")}
-                  
-                  {renderField("address_street", "Ulica", <MapPin className="h-4 w-4" />, "text", "ul. Główna")}
-                  
+                  {renderField("company_name", t("fleetRegister.companyName"), <Building2 className="h-4 w-4" />, "text", "Taxi Partner Sp. z o.o.")}
+                  {renderField("company_short_name", t("fleetRegister.companyShortName"), <FileText className="h-4 w-4" />, "text", "TaxiPartner", false)}
+                  {renderField("nip", t("fleetRegister.nip"), <FileText className="h-4 w-4" />, "text", "1234567890")}
+
+                  {renderField("address_street", t("fleetRegister.street"), <MapPin className="h-4 w-4" />, "text", t("fleetRegister.streetExample"))}
+
                   <div className="grid grid-cols-3 gap-3">
                     <div>
-                      {renderField("address_number", "Nr domu", <MapPin className="h-4 w-4" />, "text", "10")}
+                      {renderField("address_number", t("fleetRegister.houseNumber"), <MapPin className="h-4 w-4" />, "text", "10")}
                     </div>
                     <div>
-                      {renderField("address_apartment", "Nr lokalu", <MapPin className="h-4 w-4" />, "text", "5", false)}
+                      {renderField("address_apartment", t("fleetRegister.apartmentNumber"), <MapPin className="h-4 w-4" />, "text", "5", false)}
                     </div>
                     <div>
                       <div className="space-y-2">
-                        <Label htmlFor="address_postal_code">Kod pocztowy *</Label>
+                        <Label htmlFor="address_postal_code">{t("fleetRegister.postalCode")} *</Label>
                         <div className="relative">
                           <div className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground">
                             <MapPin className="h-4 w-4" />
@@ -374,7 +376,7 @@ export default function FleetRegister() {
                     </div>
                   </div>
                   
-                  {renderField("address_city", "Miasto", <MapPin className="h-4 w-4" />, "text", "Warszawa")}
+                  {renderField("address_city", t("register.city"), <MapPin className="h-4 w-4" />, "text", t("contact.placeholders.city"))}
                 </>
               )}
 
@@ -382,21 +384,21 @@ export default function FleetRegister() {
               {step === 2 && (
                 <>
                   <div className="p-4 bg-muted rounded-lg mb-4">
-                    <h4 className="font-medium mb-1">Osoba kontaktowa</h4>
-                    <p className="text-sm text-muted-foreground">Główny kontakt do spraw administracyjnych floty</p>
+                    <h4 className="font-medium mb-1">{t("fleetRegister.contactPerson")}</h4>
+                    <p className="text-sm text-muted-foreground">{t("fleetRegister.contactPersonDesc")}</p>
                   </div>
-                  
-                  {renderField("contact_name", "Imię i nazwisko", <User className="h-4 w-4" />, "text", "Jan Kowalski")}
-                  {renderField("contact_email", "Email", <Mail className="h-4 w-4" />, "email", "jan@firma.pl")}
-                  {renderField("contact_phone", "Telefon", <Phone className="h-4 w-4" />, "tel", "+48 123 456 789")}
-                  
+
+                  {renderField("contact_name", t("contact.name"), <User className="h-4 w-4" />, "text", t("contact.placeholders.name"))}
+                  {renderField("contact_email", t("register.email"), <Mail className="h-4 w-4" />, "email", t("fleetRegister.companyEmailExample"))}
+                  {renderField("contact_phone", t("register.phone"), <Phone className="h-4 w-4" />, "tel", t("register.phonePlaceholder"))}
+
                   <div className="p-4 bg-muted rounded-lg mt-6 mb-4">
-                    <h4 className="font-medium mb-1">Kontakt dla kierowców</h4>
-                    <p className="text-sm text-muted-foreground">Osoba do bezpośredniego kontaktu z kierowcami (opcjonalnie)</p>
+                    <h4 className="font-medium mb-1">{t("fleetRegister.driverContact")}</h4>
+                    <p className="text-sm text-muted-foreground">{t("fleetRegister.driverContactDesc")}</p>
                   </div>
-                  
-                  {renderField("driver_contact_name", "Imię", <User className="h-4 w-4" />, "text", "Anna", false)}
-                  {renderField("driver_contact_phone", "Telefon", <Phone className="h-4 w-4" />, "tel", "+48 987 654 321", false)}
+
+                  {renderField("driver_contact_name", t("register.firstName"), <User className="h-4 w-4" />, "text", t("fleetRegister.driverNameExample"), false)}
+                  {renderField("driver_contact_phone", t("register.phone"), <Phone className="h-4 w-4" />, "tel", "+48 987 654 321", false)}
                   
                   {/* For existing users - show human check on step 2 */}
                   {isExistingUser && (
@@ -409,7 +411,7 @@ export default function FleetRegister() {
                         />
                         <div className="flex items-center gap-2">
                           <ShieldCheck className="h-4 w-4 text-green-600 dark:text-green-500" />
-                          <label htmlFor="human" className="text-sm font-medium">Nie jestem robotem</label>
+                          <label htmlFor="human" className="text-sm font-medium">{t("register.notRobot")}</label>
                         </div>
                       </div>
                     </div>
@@ -434,7 +436,7 @@ export default function FleetRegister() {
               <div className="flex gap-3 pt-4">
                 {step > 1 && (
                   <Button type="button" variant="outline" onClick={() => setStep(step - 1)} className="flex-1">
-                    Wstecz
+                    {t("fleetRegister.previous")}
                   </Button>
                 )}
                 
@@ -445,32 +447,32 @@ export default function FleetRegister() {
                       {loading ? (
                         <>
                           <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Rejestracja...
+                          {t("register.registering")}
                         </>
                       ) : (
-                        "Zarejestruj flotę"
+                        t("fleetRegister.registerFleet")
                       )}
                     </Button>
                   ) : (
                     <Button type="button" onClick={handleNext} className="flex-1">
-                      Dalej
+                      {t("fleetRegister.next")}
                     </Button>
                   )
                 ) : (
                   // For new users: step 3 is the last step
                   step < 3 ? (
                     <Button type="button" onClick={handleNext} className="flex-1">
-                      Dalej
+                      {t("fleetRegister.next")}
                     </Button>
                   ) : (
                     <Button type="submit" className="flex-1" disabled={loading}>
                       {loading ? (
                         <>
                           <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Rejestracja...
+                          {t("register.registering")}
                         </>
                       ) : (
-                        "Zarejestruj flotę"
+                        t("fleetRegister.registerFleet")
                       )}
                     </Button>
                   )
@@ -479,9 +481,9 @@ export default function FleetRegister() {
 
               {!isExistingUser && (
                 <p className="text-center text-sm text-muted-foreground pt-2">
-                  Masz już konto?{" "}
+                  {t("register.hasAccount")}{" "}
                   <Button variant="link" className="p-0 h-auto" onClick={() => navigate("/auth")}>
-                    Zaloguj się
+                    {t("register.login")}
                   </Button>
                 </p>
               )}
