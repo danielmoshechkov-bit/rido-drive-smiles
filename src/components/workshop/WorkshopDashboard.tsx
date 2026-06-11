@@ -259,6 +259,17 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
         return <WorkshopRepairData providerId={providerId} onBack={() => goTo(null)} />;
       case 'pracownicy':
         return <WorkshopEmployeesPage providerId={providerId} />;
+      case 'stanowiska':
+        return (
+          <div className="max-w-3xl mx-auto py-2">
+            <h2 className="text-xl font-semibold mb-3">Stanowiska warsztatowe</h2>
+            <p className="text-sm text-muted-foreground mb-4">
+              Stanowiska (np. Myjnia, Geometria, Wulkanizacja) działają jak statusy zleceń.
+              Przypisz pracowników — gdy zlecenie trafi na stanowisko, otrzymają powiadomienie i SMS.
+            </p>
+            <WorkshopStationsManager providerId={providerId} />
+          </div>
+        );
       case 'ustawienia':
         return <WorkshopSettings providerId={providerId} onBack={() => goTo(null)} />;
       default:
