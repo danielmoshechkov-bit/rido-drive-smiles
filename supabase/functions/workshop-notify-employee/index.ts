@@ -134,7 +134,7 @@ serve(async (req) => {
       title: msg.title,
       body: msg.body,
       type: `workshop_${event}`,
-      link: `/pracownik-warsztat`,
+      link: `/pracownik-warsztat?order=${order_id}`,
     }));
     await admin.from("workspace_notifications").insert(notifRows);
 
@@ -146,7 +146,7 @@ serve(async (req) => {
       title: msg.title,
       body: msg.body,
       type: `workshop_${event}`,
-      link: `/pracownik-warsztat`,
+      link: `/pracownik-warsztat?order=${order_id}`,
     }));
     await admin.from("workshop_employee_notifications").insert(wNotifRows);
 
