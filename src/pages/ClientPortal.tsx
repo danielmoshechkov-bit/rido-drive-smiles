@@ -783,8 +783,8 @@ export default function ClientPortal() {
                         <Plus className="h-8 w-8 text-amber-600" />
                       </div>
                       <div>
-                        <h3 className="font-bold text-lg">Sprzedaję</h3>
-                        <p className="text-sm text-muted-foreground">Dodaj ogłoszenie w wybranej kategorii</p>
+                        <h3 className="font-bold text-lg">{t('cp.start.sprzedaje')}</h3>
+                        <p className="text-sm text-muted-foreground">{t('cp.start.sprzedajeDesc')}</p>
                       </div>
                     </div>
                     <ChevronRight className="h-5 w-5 text-muted-foreground" />
