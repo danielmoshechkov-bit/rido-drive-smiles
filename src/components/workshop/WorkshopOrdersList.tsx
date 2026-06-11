@@ -453,21 +453,30 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
           <div className="text-center py-8 text-muted-foreground">Brak zleceń</div>
         ) : (
           <>
-            {filteredOrders.map((order: any) => (
-              <Card key={order.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => onSelectOrder?.(order)}>
+            {filteredOrders.map((order: any) => {
+              const ss = getStatusStyle(order.status_name);
+              return (
+              <Card key={order.id} className={`cursor-pointer hover:shadow-md transition-shadow ${ss.row} ${ss.border}`} onClick={() => onSelectOrder?.(order)}>
                 <CardContent className="p-3">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <div className="flex items-center gap-2">
-                      <Wrench className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span className="font-semibold text-sm">{order.order_number}</span>
+                  <div className="flex items-center justify-between mb-1.5 gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Wrench className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      <span className="font-semibold text-sm truncate">{order.order_number}</span>
                     </div>
-                     <Badge className={`${statusColors[order.status_name] || 'bg-gray-200 text-black'} text-[10px] px-1.5 py-0.5`}>
-                       {order.status_name || 'Brak'}
-                     </Badge>
-                     {order.scheduled_date && isFuture(new Date(order.scheduled_date)) && (
-                       <div className="text-[10px] text-primary mt-0.5">📅 {format(new Date(order.scheduled_date), 'd MMM HH:mm', { locale: pl })}</div>
-                     )}
+                    <div onClick={e => e.stopPropagation()}>
+                      <WorkshopStatusPicker
+                        providerId={providerId}
+                        orderId={order.id}
+                        currentStatus={order.status_name}
+                        hasUnreadNotes={order.has_unread_notes}
+                        onChanged={() => queryClient.invalidateQueries({ queryKey: ['workshop-orders'] })}
+                        size="xs"
+                      />
+                    </div>
                   </div>
+                  {order.scheduled_date && isFuture(new Date(order.scheduled_date)) && (
+                    <div className="text-[10px] text-primary mb-1">📅 {format(new Date(order.scheduled_date), 'd MMM HH:mm', { locale: pl })}</div>
+                  )}
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <div className="flex items-center gap-2 min-w-0 flex-1">
                       {getVehicleName(order) && (
