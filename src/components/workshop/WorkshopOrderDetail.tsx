@@ -21,6 +21,7 @@ import { RidoPartsCartButton } from './parts/RidoPartsCartButton';
 import { WorkshopAssignEmployeeDropdown } from './WorkshopAssignEmployeeDropdown';
 import { WorkshopOrderEmployeeFindingsTab } from './tabs/WorkshopOrderEmployeeFindingsTab';
 import { OrderHistoryTimeline } from './OrderHistoryTimeline';
+import { supabase } from '@/integrations/supabase/client';
 import {
   ArrowLeft, FileText, Send, Eye, Link2, MessageSquare, MoreVertical,
   Printer, Download, ClipboardList, Car, Users, CheckCircle, XCircle, Ban, AlertTriangle, Wrench, UserPlus, Search
