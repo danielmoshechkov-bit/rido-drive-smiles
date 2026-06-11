@@ -129,20 +129,34 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
     });
   };
 
+  // Called by the status-picker when an admin changes status from the list.
+  // - Optimistically patches the cached order so the badge updates instantly
+  // - Auto-opens the SMS dialog for "Gotowy do odbioru" / "Wycena wysłana"
+  const handleStatusChanged = (orderId: string, newStatus: string) => {
+    queryClient.setQueriesData({ queryKey: ['workshop-orders'] }, (old: any) =>
+      Array.isArray(old)
+        ? old.map((o: any) => (o.id === orderId ? { ...o, status_name: newStatus } : o))
+        : old
+    );
+    const order = orders.find((o: any) => o.id === orderId);
+    if (!order) return;
+    const lower = (newStatus || '').toLowerCase();
+    if (lower.includes('gotow') || lower.includes('odbioru')) {
+      setSmsDialogType('ready');
+      setSmsDialogOrder({ ...order, status_name: newStatus });
+    } else if (lower.includes('wycena wysłana') || lower.includes('kosztorys')) {
+      setSmsDialogType('quote');
+      setSmsDialogOrder({ ...order, status_name: newStatus });
+    }
+    // Refresh in background to get any server-side derived fields
+    queryClient.invalidateQueries({ queryKey: ['workshop-orders'] });
+  };
+
   const changeStatus = async (orderId: string, newStatus: string) => {
     await updateOrder.mutateAsync({ id: orderId, status_name: newStatus });
     setStatusDropdownId(null);
     toast.success(`Status zmieniony na: ${newStatus}`);
-    const order = orders.find((o: any) => o.id === orderId);
-    if (!order) return;
-    const lower = newStatus.toLowerCase();
-    if (lower.includes('gotow') || lower.includes('zakończ') || lower.includes('odbioru')) {
-      setSmsDialogType('ready');
-      setSmsDialogOrder(order);
-    } else if (lower.includes('wycena wysłana') || lower.includes('kosztorys')) {
-      setSmsDialogType('quote');
-      setSmsDialogOrder(order);
-    }
+    handleStatusChanged(orderId, newStatus);
   };
 
   const openInvoiceForOrder = async (order: any, docType: 'invoice' | 'receipt' = 'invoice') => {
@@ -365,18 +379,27 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
 
         {selectedIds.size > 0 && (
           <Button variant="destructive" size="sm" className="gap-1" onClick={async () => {
-            if (!confirm(`Czy na pewno chcesz usunąć ${selectedIds.size} zleceń?`)) return;
+            const count = selectedIds.size;
+            if (!confirm(`Czy na pewno chcesz usunąć ${count} zleceń?`)) return;
+            const ids = Array.from(selectedIds);
+            // Optimistic: remove from cache + clear selection immediately
+            queryClient.setQueriesData({ queryKey: ['workshop-orders'] }, (old: any) =>
+              Array.isArray(old) ? old.filter((o: any) => !ids.includes(o.id)) : old
+            );
+            setSelectedIds(new Set());
+            toast.success(`Usunięto ${count} zleceń`);
             try {
-              for (const id of selectedIds) {
-                await (supabase as any).from('workshop_order_items').delete().eq('order_id', id);
-                await (supabase as any).from('workshop_order_signatures').delete().eq('order_id', id);
+              await Promise.all(ids.map(async (id) => {
+                await Promise.all([
+                  (supabase as any).from('workshop_order_items').delete().eq('order_id', id),
+                  (supabase as any).from('workshop_order_signatures').delete().eq('order_id', id),
+                ]);
                 await (supabase as any).from('workshop_orders').delete().eq('id', id);
-              }
-              setSelectedIds(new Set());
-              toast.success(`Usunięto ${selectedIds.size} zleceń`);
-              queryClient.invalidateQueries({ queryKey: ['workshop-orders'] });
+              }));
             } catch (e: any) {
               toast.error(e.message || 'Błąd usuwania');
+            } finally {
+              queryClient.invalidateQueries({ queryKey: ['workshop-orders'] });
             }
           }}>
             <Trash2 className="h-4 w-4" /> Usuń
@@ -469,7 +492,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                         orderId={order.id}
                         currentStatus={order.status_name}
                         hasUnreadNotes={order.has_unread_notes}
-                        onChanged={() => queryClient.invalidateQueries({ queryKey: ['workshop-orders'] })}
+                        onChanged={(name) => handleStatusChanged(order.id, name)}
                         size="xs"
                       />
                     </div>
@@ -562,7 +585,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                         orderId={order.id}
                         currentStatus={order.status_name}
                         hasUnreadNotes={order.has_unread_notes}
-                        onChanged={() => queryClient.invalidateQueries({ queryKey: ['workshop-orders'] })}
+                        onChanged={(name) => handleStatusChanged(order.id, name)}
                       />
                     </TableCell>
                     <TableCell className="text-right font-medium tabular-nums">

@@ -50,39 +50,46 @@ export function WorkshopStatusPicker({
 
   const apply = async (name: string, withNote?: string) => {
     setBusy(true);
+    const st = stations.find(s => s.name === name);
     try {
-      const st = stations.find(s => s.name === name);
       const payload: any = { status_name: name };
       if (withNote) payload.has_unread_notes = true;
       if (st) payload.station_id = st.id;
+      // Fire the main DB update and surface the change immediately so the
+      // caller can update its UI / open the ready-SMS dialog without waiting
+      // on event logging + station handover (which run in the background).
       await (supabase.from('workshop_orders') as any).update(payload).eq('id', orderId);
-      if (withNote) {
-        const { data: { user } } = await supabase.auth.getUser();
-        await (supabase.from('workshop_order_events') as any).insert({
-          order_id: orderId,
-          provider_id: providerId,
-          event_type: 'note',
-          note: withNote,
-          actor_user_id: user?.id || null,
-          actor_role: 'admin',
-          to_status: name,
-          station_id: st?.id || null,
-        });
-      }
-      // Single source of truth for station handover (assignments + SMS)
-      try {
-        const { applyStationHandover } = await import('@/utils/workshopStationHandover');
-        const baseName = name.replace(/\s*[—-]\s*(realizacja|gotowe|w trakcie|w realizacji)\s*$/i, '').trim();
-        await applyStationHandover({ orderId, providerId, newStatus: baseName });
-      } catch {/* best-effort */}
       onChanged(name, withNote);
       toast.success(`Status: ${name}`);
+      setOpen(false);
+      setNoteDialog(null);
+      setNote('');
+
+      // Background: write event log and run station handover (non-blocking)
+      (async () => {
+        try {
+          if (withNote) {
+            const { data: { user } } = await supabase.auth.getUser();
+            await (supabase.from('workshop_order_events') as any).insert({
+              order_id: orderId,
+              provider_id: providerId,
+              event_type: 'note',
+              note: withNote,
+              actor_user_id: user?.id || null,
+              actor_role: 'admin',
+              to_status: name,
+              station_id: st?.id || null,
+            });
+          }
+          const { applyStationHandover } = await import('@/utils/workshopStationHandover');
+          const baseName = name.replace(/\s*[—-]\s*(realizacja|gotowe|w trakcie|w realizacji)\s*$/i, '').trim();
+          await applyStationHandover({ orderId, providerId, newStatus: baseName });
+        } catch {/* best-effort */}
+      })();
     } catch (e: any) {
       toast.error(e.message);
     } finally {
       setBusy(false);
-      setNoteDialog(null);
-      setNote('');
     }
   };
 
