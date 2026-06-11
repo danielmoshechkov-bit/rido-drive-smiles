@@ -34,7 +34,7 @@ const TONE_MAP: Record<string, StatusTone> = {
   'Zadania wykonane': 'emerald',
   'Gotowy do odbioru': 'emerald',
 
-  'Naprawione': 'red',
+  'Naprawione': 'violet',
 
   'Zakończone': 'slate',
 };
@@ -65,9 +65,9 @@ export function getStatusStyle(name?: string | null) {
     case 'emerald':
       return { tone, badge: 'bg-emerald-600 text-white hover:bg-emerald-700',
         row: 'bg-emerald-50/70 hover:bg-emerald-100/70', border: 'border-l-4 border-l-emerald-600', dot: 'bg-emerald-600' };
-    case 'red':
-      return { tone, badge: 'bg-red-500 text-white hover:bg-red-600',
-        row: 'bg-red-50/70 hover:bg-red-100/70', border: 'border-l-4 border-l-red-500', dot: 'bg-red-500' };
+    case 'violet':
+      return { tone, badge: 'bg-violet-600 text-white hover:bg-violet-700',
+        row: 'bg-violet-50/70 hover:bg-violet-100/70', border: 'border-l-4 border-l-violet-600', dot: 'bg-violet-600' };
     case 'slate':
       return { tone, badge: 'bg-slate-700 text-white hover:bg-slate-800',
         row: 'bg-slate-100/70 hover:bg-slate-200/70', border: 'border-l-4 border-l-slate-700', dot: 'bg-slate-700' };
