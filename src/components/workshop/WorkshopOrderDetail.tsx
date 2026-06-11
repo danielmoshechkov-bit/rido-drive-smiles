@@ -437,7 +437,18 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
             orderId={order.id}
             currentStatus={order.status_name}
             hasUnreadNotes={order.has_unread_notes}
-            onChanged={(name) => { order.status_name = name; order.has_unread_notes = true; }}
+            onChanged={(name) => {
+              order.status_name = name;
+              order.has_unread_notes = true;
+              const lower = (name || '').toLowerCase();
+              if (lower.includes('gotow') || lower.includes('odbioru')) {
+                setSmsType('ready');
+                setSmsOpen(true);
+              } else if (lower.includes('wycena wysłana') || lower.includes('kosztorys')) {
+                setSmsType('quote');
+                setSmsOpen(true);
+              }
+            }}
             size="xs"
           />
         </div>
