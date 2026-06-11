@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import {
-  Loader2, X, Wrench, Check, ChevronDown, ChevronUp, HandHelping, Lock, ArrowRight,
+  Loader2, X, Wrench, Check, ChevronDown, ChevronUp, HandHelping, Lock, ArrowRight, Plus,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
