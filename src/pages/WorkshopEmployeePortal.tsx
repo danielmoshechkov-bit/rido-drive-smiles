@@ -166,6 +166,7 @@ export default function WorkshopEmployeePortal() {
             {primaryProvider?.provider_name || 'Twój warsztat'} · {primaryProvider?.role?.toUpperCase()}
           </p>
         </div>
+        <EmployeeNotificationsBell />
       </div>
 
       {/* Quick stat tiles */}
