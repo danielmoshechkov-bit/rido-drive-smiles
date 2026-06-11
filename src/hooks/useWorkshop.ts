@@ -305,10 +305,32 @@ export function useUpdateWorkshopOrderItem() {
       }
       return data;
     },
-    onSuccess: () => {
+    // Optimistic update: patch the item inside every cached orders query so the new
+    // price/quantity/discount appears instantly (avoids the "ciągle pokazuje 0" lag).
+    onMutate: async ({ id, ...updates }: any) => {
+      await qc.cancelQueries({ queryKey: ['workshop-orders'] });
+      const snapshots: { key: any; data: any }[] = [];
+      qc.getQueriesData({ queryKey: ['workshop-orders'] }).forEach(([key, data]: any) => {
+        snapshots.push({ key, data });
+        if (!Array.isArray(data)) return;
+        const next = data.map((order: any) => {
+          if (!order?.items?.some((i: any) => i.id === id)) return order;
+          return {
+            ...order,
+            items: order.items.map((i: any) => i.id === id ? { ...i, ...updates } : i),
+          };
+        });
+        qc.setQueryData(key, next);
+      });
+      return { snapshots };
+    },
+    onError: (e: any, _vars, ctx: any) => {
+      if (ctx?.snapshots) ctx.snapshots.forEach(({ key, data }: any) => qc.setQueryData(key, data));
+      toast.error(e.message);
+    },
+    onSettled: () => {
       qc.invalidateQueries({ queryKey: ['workshop-orders'] });
     },
-    onError: (e: any) => toast.error(e.message),
   });
 }
 
