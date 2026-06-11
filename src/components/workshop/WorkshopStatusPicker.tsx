@@ -89,7 +89,7 @@ export function WorkshopStatusPicker({
 
   return (
     <>
-      <DropdownMenu>
+      <DropdownMenu open={open} onOpenChange={setOpen}>
         <DropdownMenuTrigger asChild>
           <button className="cursor-pointer inline-flex items-center gap-1">
             <Badge className={`${style.badge} ${size === 'xs' ? 'text-[10px] px-1.5 py-0.5' : 'text-xs'} whitespace-nowrap transition-opacity`}>
@@ -100,7 +100,7 @@ export function WorkshopStatusPicker({
             )}
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" side="bottom" sideOffset={4} className="min-w-[260px] max-h-[80vh] overflow-y-auto z-[60] p-1">
+        <DropdownMenuContent align="start" side="bottom" sideOffset={4} className="min-w-[260px] max-h-[80vh] overflow-y-auto z-40 p-1">
           {items.map(it => {
             const active = it.name === currentStatus;
             return (
@@ -116,7 +116,11 @@ export function WorkshopStatusPicker({
                 )}
                 <button
                   type="button"
-                  onClick={e => { e.stopPropagation(); setNoteDialog({ name: it.name }); setNote(''); }}
+                  onClick={e => {
+                    e.stopPropagation();
+                    setOpen(false);
+                    setTimeout(() => { setNoteDialog({ name: it.name }); setNote(''); }, 60);
+                  }}
                   className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 inline-flex items-center justify-center rounded hover:bg-background border"
                   title="Zmień status z notatką dla pracownika"
                 >
