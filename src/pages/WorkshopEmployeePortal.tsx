@@ -64,10 +64,11 @@ export default function WorkshopEmployeePortal() {
     }
 
     // My assignments — include station_id on order + vehicle for richer list display
-    const { data: mineData } = await (supabase.from('workshop_order_assignments') as any)
+    const { data: mineData, error: mineErr } = await (supabase.from('workshop_order_assignments') as any)
       .select('id, order_id, provider_id, status, assigned_at, workshop_orders(id, order_number, status_name, vehicle_id, client_id, scheduled_date, scheduled_start, acceptance_date, mileage, description, station_id, has_unread_notes, vehicle:workshop_vehicles(brand, model, license_plate))')
       .eq('employee_user_id', user.id)
       .order('assigned_at', { ascending: false });
+    console.log('[EmployeePortal] auth.user.id=', user.id, 'mineData=', mineData, 'error=', mineErr);
     setMine(mineData || []);
 
 
@@ -108,32 +109,19 @@ export default function WorkshopEmployeePortal() {
 
   useEffect(() => { if (!loading && isWorkshopEmployee) loadAll(); /* eslint-disable-next-line */ }, [loading, isWorkshopEmployee, records.length]);
 
-  // Realtime — when admin assigns / changes status, refresh immediately
+  // Realtime — when admin assigns / changes status, refresh immediately.
+  // We listen to INSERT/DELETE on assignments (without server-side filter, so
+  // we don't depend on the row matching us — we just refetch and let RLS decide)
+  // and to UPDATEs on workshop_orders (status changes).
   useEffect(() => {
     if (!userId) return;
     const ch = supabase
       .channel(`emp-portal-${userId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'workshop_order_assignments', filter: `employee_user_id=eq.${userId}` }, () => loadAll())
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'workshop_order_assignments' }, () => loadAll())
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'workshop_order_assignments' }, () => loadAll())
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'workshop_orders' }, () => loadAll())
       .subscribe();
-
-    // Safety net: refetch when tab regains focus or visibility (realtime can miss events
-    // after the browser throttles background tabs).
-    const onFocus = () => loadAll();
-    const onVis = () => { if (document.visibilityState === 'visible') loadAll(); };
-    window.addEventListener('focus', onFocus);
-    document.addEventListener('visibilitychange', onVis);
-
-    // Periodic poll as a last resort (every 30s)
-    const interval = window.setInterval(() => loadAll(), 30000);
-
-    return () => {
-      supabase.removeChannel(ch);
-      window.removeEventListener('focus', onFocus);
-      document.removeEventListener('visibilitychange', onVis);
-      window.clearInterval(interval);
-    };
+    return () => { supabase.removeChannel(ch); };
     // eslint-disable-next-line
   }, [userId]);
 
