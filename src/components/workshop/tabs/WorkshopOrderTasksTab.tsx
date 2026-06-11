@@ -1142,7 +1142,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                   return (
                     <tr
                       key={t.id}
-                      className={getTaskRowClasses(t.id, i)}
+                      className={getTaskRowClasses(t, i)}
                       onDragOver={event => {
                         if (!draggingTaskId) return;
                         event.preventDefault();
