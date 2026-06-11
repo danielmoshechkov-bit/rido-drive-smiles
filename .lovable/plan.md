@@ -1,86 +1,139 @@
-
-# Plan: Moduł Pracownika Warsztatu + Globalne Auto-Tłumaczenie
-
-Dwa duże, powiązane systemy. Proponuję podzielić wdrożenie na **2 fazy** zamiast robić wszystko w jednej iteracji — to za duży zakres na jeden bezpieczny deploy (4 nowe tabele × 2, 5+ edge functions, ~15 komponentów frontu, nowy moduł użytkownika, hook tłumaczeń, integracje w 5+ miejscach insertów).
+## Cel
+Rozbudowa modułu warsztatowego o: historię zdarzeń (audit log), notatki wewnętrzne, stanowiska jako statusy, status "Naprawione" dla mechanika, wybór stanowiska przy nowym zleceniu oraz powiadomienia (in-app + SMS).
 
 ---
 
-## FAZA 1 — Moduł Pracownika Warsztatu (1-2 dni)
+## 1. Historia zdarzeń + notatki (zakładka "Uwagi i historia")
 
-### Baza danych (1 migracja)
-- `workshop_employee_invitations` — zaproszenia (email, status pending/accepted/rejected/revoked)
-- `workshop_order_assignments` — przypisanie zlecenia do pracownika + status workflow
-- `workshop_employee_findings` — punkty protokołu (opis oryginał + PL, akcja, część, czas, status)
-- `workshop_employees` — dodać kolumny: `user_id`, `status`, `language_preference`, `removed_at` (kolumny `role`, `is_active` już są)
-- RLS: pracownik widzi tylko swoje przypisania; pracodawca widzi tylko swoje zlecenia
-- GRANT-y do `authenticated` + `service_role`
+**Zmiana nazwy:** Zakładka „Od pracowników" → **„Uwagi i historia"**.
 
-### Edge Functions
-- `workshop-invite-employee` — wysyła zaproszenie (in-app notification + email przez istniejący `send-employee-invitation`)
-- `workshop-accept-employee-invitation` — accept/reject, tworzy/aktualizuje `workshop_employees`
-- `workshop-translate` — Kimi AI (KIMI_API_KEY/MOONSHOT_API_KEY już są w secrets), cache w `workshop_translation_cache` (lub od razu w globalnym z Fazy 2)
-- `workshop-employee-submit-findings` — tłumaczy każdy opis na PL, zapisuje findings, powiadamia pracodawcę
-- `workshop-approve-findings` — przenosi zaznaczone findings jako pozycje `workshop_order_items`
+**Nowa tabela `workshop_order_events`:**
+- `order_id`, `event_type` (status_change / claimed / released / quote_done / repair_started / repair_done / note_added / workshop_assigned)
+- `from_status`, `to_status`, `workshop_id`, `note`, `actor_user_id`, `actor_name`, `actor_role` (admin/employee), `created_at`
 
-### Frontend pracodawcy
-- `WorkshopEmployeesPage.tsx` — dodać zakładki **Zaproszenia / Aktywni**, modal „Zaproś po emailu"
-- `WorkshopOrderDetail.tsx`:
-  - Dropdown „Przydziel pracownika"
-  - Nowa zakładka **„Od pracowników"** z listą findings + checkbox + [Przenieś na kartę]
+**Co się loguje automatycznie:**
+- Przydzielenie pracownika (admin → kto, komu, kiedy)
+- Wzięcie zlecenia z puli (pracownik claim)
+- Zwrot zlecenia do puli
+- Zmiana statusu (każda) z poprzedniego na nowy
+- Wykonanie wyceny (przy zapisie findings)
+- Rozpoczęcie naprawy (klient zaakceptował → status "W naprawie")
+- Zakończenie naprawy (mechanik klika "Naprawione")
+- Zmiana stanowiska
+- Dodanie notatki
 
-### Frontend pracownika (nowy moduł)
-- Nowy hook `useIsWorkshopEmployee()` — sprawdza `workshop_employees.status='active'`
-- Dodać kafel **„Warsztat & Auta"** w `EasyHub` widoczny warunkowo
-- Strony:
-  - `/pracownik-warsztat/zlecenia` — lista przydzielonych
-  - `/pracownik-warsztat/zlecenia/:id` — karta + formularz protokołu (textarea z Web Speech API, dropdown akcji, autocomplete części reużywając `PartsSearchModal`, czas)
-- Mobile-first, duże touch targets (44px+)
-
-### Notyfikacje
-- In-app via istniejący `workspace_notifications` lub `notification_log`
-- SMS opcjonalnie przez `workshop-send-sms` (już istnieje)
+**UI zakładki:**
+- Timeline chronologiczny (kto, co, kiedy, notatka jeśli była)
+- Przycisk **„Dodaj uwagę"** u dołu — pracownik wpisuje notatkę wewnętrzną
+- Notatki = wewnętrzne, klient nie widzi
+- Jeśli są nieprzeczytane notatki → na karcie zlecenia w liście pulsuje **żółty wykrzyknik** ⚠️ obok numeru
+- Pole `has_unread_notes` na zleceniu, czyszczone gdy admin otworzy zakładkę
 
 ---
 
-## FAZA 2 — Globalne Auto-Tłumaczenie (1-2 dni, po akceptacji Fazy 1)
+## 2. Status „Naprawione" przez mechanika
 
-### Baza
-- `content_translations` (content_type, content_id, source_text, translations jsonb, status)
-- `translation_cache_global` (hash, source_lang, translations jsonb, hit_count)
-- `profiles.preferred_language` (lub `marketplace_user_profiles` — używamy tej tabeli w projekcie)
-
-### Edge Function
-- `auto-translate-content` — batch Kimi AI (PL/EN/RU/UA/DE w 1 callu), cache hash-based, fallback do source przy błędzie, kolejka retry
-
-### Frontend
-- Hook `useTranslatedContent(type, id, fallback)` + komponent `<TranslatedText/>`
-- Wykrywanie języka: `marketplace_user_profiles.preferred_language` → `navigator.language` → `pl`
-- Ikonka „🌐 Przetłumaczone przez AI"
-
-### Integracje (triggery DB lub w hookach mutacji)
-- `marketplace_listings`, `real_estate_listings`, `general_listings`, `services`/`provider_services`, `workshop_orders.description`, `workshop_employee_findings` (z Fazy 1 — przepiąć z `workshop-translate` na unified)
-- SMS/email do klienta — wybór języka z profilu klienta
-
-### Spójność z Fazą 1
-- Faza 2 zastępuje `workshop-translate` przez `auto-translate-content`
-- `workshop_translation_cache` migrowana do `translation_cache_global` (lub od razu w Fazie 1 użyjemy globalnego)
+- W karcie zlecenia pracownika (`EmployeeOrderCardDialog`) dodać przycisk **„Oznacz jako naprawione"** widoczny po akceptacji wyceny przez klienta.
+- Klik → status zlecenia: `naprawione`, log w historii, powiadomienie do admina (in-app + opcjonalnie SMS).
+- Admin widzi w liście zlecenia oznaczone jako naprawione (zielona plakietka „Gotowe do odbioru").
 
 ---
 
-## Decyzje do potwierdzenia
+## 3. Stanowiska jako statusy + notatki przy zmianie statusu
 
-1. **Robimy obie fazy teraz, czy Faza 1 najpierw + osobny commit dla Fazy 2?**
-   Rekomenduję Faza 1 → test → Faza 2. Mniej ryzyka regresji, łatwiejszy rollback.
+**Nowa tabela `workshop_stations`** (per provider):
+- `name` (np. „Myjnia", „Geometria", „Wulkanizacja", „Mechanika")
+- `color`, `icon`, `is_active`, `sort_order`
 
-2. **Cache tłumaczeń od razu globalny?** Tak — od razu zrobimy `translation_cache_global` w Fazie 1, żeby nie migrować później. `workshop_translation_cache` pomijamy.
+**Tabela `workshop_station_employees`:** mapowanie pracownik ↔ stanowisko (n:m).
 
-3. **Web Speech API dla głosowego dodawania punktów** — działa tylko w Chrome/Safari, bez fallbacku. OK?
+**Integracja ze statusami:**
+- Każde stanowisko = automatyczny status do wyboru w dropdown statusów zlecenia.
+- Zmiana statusu na nazwę stanowiska → zlecenie pojawia się w portalu pracowników tego stanowiska.
+- Pracownik widzi te zlecenia w „Pula" (filtr po stanowiskach do których jest przypisany).
+- Po wykonaniu pracy: pracownik klika „Zakończ" → status wraca do `do_odbioru` lub na poprzedni, log w historii.
 
-4. **Auto-tłumaczenie istniejących treści** (backfill ~tysięcy ogłoszeń) — robimy w Fazie 2 jako jednorazowy cron, czy tylko nowe od momentu wdrożenia? Backfill kosztuje ~20-50 USD jednorazowo.
+**Notatka przy zmianie statusu:**
+- Obok dropdown statusu mały **przycisk „+"** → modal „Notatka do zmiany statusu".
+- Notatka zapisywana w `workshop_order_events` razem z eventem `status_change`.
+- W liście zleceń dla danego stanowiska wyświetla się ikona notatki — klik pokazuje treść.
+- Przykład: admin zmienia status na „Myjnia" + notatka „mycie po naprawie" → pracownicy myjni widzą zlecenie + notatkę.
 
 ---
 
-Po Twojej akceptacji startuję **Fazą 1**. Daj znać czy:
-- (a) zatwierdzasz plan w tej formie i jedziemy z Fazą 1,
-- (b) chcesz coś zmienić w zakresie/kolejności,
-- (c) chcesz mimo wszystko obie fazy w jednym podejściu (dłużej, większe ryzyko).
+## 4. Wybór stanowiska przy nowym zleceniu (foto 2)
+
+W formularzu „Przyjęcie pojazdu" dodać sekcję na początku (obok Przebieg / Poziom paliwa / Uwagi klienta):
+- **Pole „Stanowisko"** — select z listy aktywnych stanowisk warsztatu.
+- Domyślnie zaznaczone **ostatnio użyte stanowisko** (zapisywane w `localStorage` per user lub w `user_preferences`).
+- Wartość zapisywana jako początkowy `station_id` zlecenia i pierwszy status.
+
+Układ: Pojazd | Klient (rząd 1) → Stanowisko | Przebieg | Paliwo | Uwagi (rząd 2).
+
+---
+
+## 5. „Akceptacja klienta" — bez zmian nazwy
+
+Zostaje jak jest. Dodajemy tylko logikę:
+- Gdy klient zaakceptuje wycenę → log eventu + powiadomienie do pracownika przypisanego (mechanika, który zrobił wycenę): „Możesz rozpocząć naprawę zlecenia #XXX" + link do karty zlecenia w jego portalu.
+
+---
+
+## 6. Powiadomienia (in-app + SMS)
+
+**Nowa tabela `workshop_employee_notifications`:**
+- `employee_user_id`, `order_id`, `type` (assigned / quote_accepted / station_assigned / note_added), `title`, `body`, `link`, `is_read`, `created_at`
+
+**UI:** dzwoneczek 🔔 w nagłówku portalu pracownika z licznikiem nieprzeczytanych, dropdown z listą.
+
+**Triggery (in-app + SMS równolegle):**
+1. Admin przydziela zlecenie pracownikowi → powiadomienie + SMS: „GetRido: Przydzielono nowe zlecenie #XXX. Link: <portal>"
+2. Klient akceptuje wycenę → powiadomienie + SMS do mechanika: „GetRido: Klient zaakceptował wycenę zlecenia #XXX, możesz rozpocząć naprawę. Link: <portal>"
+3. Admin zmienia status na stanowisko (np. „Myjnia") → powiadomienie + SMS do wszystkich pracowników tego stanowiska
+4. Pracownik dodaje notatkę → powiadomienie in-app do admina (bez SMS)
+
+SMS używa istniejącego `workshop-send-sms` edge function.
+
+---
+
+## Szczegóły techniczne
+
+**Migracje SQL (1 plik):**
+- `workshop_order_events` (audit log) + RLS (provider widzi swoje, employee widzi przypisane)
+- `workshop_stations` + RLS
+- `workshop_station_employees` (junction) + RLS
+- `workshop_employee_notifications` + RLS
+- Dodać do `workshop_orders`: `station_id`, `has_unread_notes` (bool), `repaired_at`, `repaired_by_user_id`
+- Triggery: po INSERT na findings → event `quote_done`; po UPDATE status → event `status_change`
+- GRANTy dla każdej nowej tabeli
+
+**Frontend:**
+- Rename "Od pracowników" → "Uwagi i historia" w komponencie zakładek zlecenia (admin view)
+- Nowy komponent `OrderHistoryTimeline.tsx` — timeline + dodawanie notatek
+- `EmployeeOrderCardDialog.tsx` — przycisk „Oznacz jako naprawione"
+- `WorkshopSettingsStations.tsx` — CRUD stanowisk + przypisywanie pracowników
+- Form nowego zlecenia — dodać select „Stanowisko" + persist last choice
+- Dropdown statusu — mały „+" obok do dodania notatki przy zmianie
+- `EmployeeNotificationsBell.tsx` — dzwoneczek w portalu pracownika
+- Lista zleceń admin — wykrzyknik dla nieprzeczytanych notatek
+
+**Edge functions:**
+- `workshop-notify-employee` — wspólny entry-point, wysyła in-app + SMS
+- Hooki istniejących triggerów (assignment, quote acceptance, status change) wywołują tę funkcję
+
+**Co zostaje nietknięte:**
+- Istniejące statusy `nowe`, `przyjete`, `wycena`, `akceptacja_klienta`, `gotowe`, `zakonczone` — bez zmian w nazwie i logice
+- Protokoły, linki klienta, SMS o wycenie i gotowości — bez zmian
+- Logika `EmployeeOrderCardDialog` poza dodaniem przycisku „Naprawione"
+
+---
+
+## Kolejność implementacji
+
+1. Migracja SQL (wszystkie tabele + triggery + grants)
+2. Stanowiska — CRUD w ustawieniach + select w formularzu nowego zlecenia
+3. Historia zdarzeń + notatki (timeline + przycisk dodaj uwagę + wykrzyknik)
+4. Status „Naprawione" w karcie pracownika
+5. Notatki przy zmianie statusu („+" obok dropdown)
+6. Powiadomienia in-app (dzwoneczek) + edge function
+7. Integracja SMS z istniejącymi triggerami
