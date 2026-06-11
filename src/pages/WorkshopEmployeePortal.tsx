@@ -106,6 +106,18 @@ export default function WorkshopEmployeePortal() {
 
   useEffect(() => { if (!loading && isWorkshopEmployee) loadAll(); /* eslint-disable-next-line */ }, [loading, isWorkshopEmployee, records.length]);
 
+  // Realtime — when admin assigns / changes status, refresh immediately
+  useEffect(() => {
+    if (!userId) return;
+    const ch = supabase
+      .channel(`emp-portal-${userId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'workshop_order_assignments', filter: `employee_user_id=eq.${userId}` }, () => loadAll())
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'workshop_orders' }, () => loadAll())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+    // eslint-disable-next-line
+  }, [userId]);
+
   const claim = async (orderId: string, providerId: string) => {
     if (!userId) return;
     setBusy(orderId);
