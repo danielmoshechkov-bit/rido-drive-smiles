@@ -563,16 +563,16 @@ export default function ClientPortal() {
 
   // Build tabs dynamically - Księgowość only for users with company setup, Ulubione moved to Ogłoszenia
   const mainTabs = [
-    { id: 'start', label: 'Start', icon: Home },
-    { id: 'ogloszenia', label: 'Ogłoszenia', icon: Package },
-    { id: 'mojeauta', label: 'Moje auta', icon: Car },
+    { id: 'start', label: t('cp.tabs.start'), icon: Home },
+    { id: 'ogloszenia', label: t('cp.tabs.ogloszenia'), icon: Package },
+    { id: 'mojeauta', label: t('cp.tabs.mojeauta'), icon: Car },
     // Księgowość - tylko dla użytkowników z firmą
-    ...(hasCompanySetup ? [{ id: 'ksiegowosc', label: 'Księgowość', icon: Calculator }] : []),
-    { id: 'ogladania', label: 'Oglądania', icon: Eye },
-    { id: 'wiadomosci', label: 'Wiadomości', icon: MessageSquare },
-    { id: 'polecenia', label: 'Polecenia', icon: Gift },
-    { id: 'ustawienia', label: 'Ustawienia', icon: Settings },
-    { id: 'konta', label: 'Wybierz moduł', icon: RefreshCw },
+    ...(hasCompanySetup ? [{ id: 'ksiegowosc', label: t('cp.tabs.ksiegowosc'), icon: Calculator }] : []),
+    { id: 'ogladania', label: t('cp.tabs.ogladania'), icon: Eye },
+    { id: 'wiadomosci', label: t('cp.tabs.wiadomosci'), icon: MessageSquare },
+    { id: 'polecenia', label: t('cp.tabs.polecenia'), icon: Gift },
+    { id: 'ustawienia', label: t('cp.tabs.ustawienia'), icon: Settings },
+    { id: 'konta', label: t('cp.tabs.konta'), icon: RefreshCw },
   ];
 
   // Redirect away from ksiegowosc tab if user loses company access (in render, not useEffect)
