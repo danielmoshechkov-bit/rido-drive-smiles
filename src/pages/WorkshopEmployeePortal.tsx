@@ -32,6 +32,9 @@ export default function WorkshopEmployeePortal() {
   const [openOrderId, setOpenOrderId] = useState<string | null>(null);
   const [openFromPool, setOpenFromPool] = useState(false);
   const [openProviderId, setOpenProviderId] = useState<string | null>(null);
+  const [openPreviewMode, setOpenPreviewMode] = useState(false);
+  // Lista prac dialog
+  const [workListOrderId, setWorkListOrderId] = useState<string | null>(null);
   // station-mode (e.g. Myjnia) — simplified note + finish dialog
   const [stationOpenId, setStationOpenId] = useState<string | null>(null);
   const [stationOpenName, setStationOpenName] = useState<string | null>(null);
