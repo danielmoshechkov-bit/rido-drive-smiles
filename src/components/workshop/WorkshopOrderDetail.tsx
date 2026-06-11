@@ -20,6 +20,7 @@ import { WorkshopMechanicCardDialog } from './WorkshopMechanicCardDialog';
 import { RidoPartsCartButton } from './parts/RidoPartsCartButton';
 import { WorkshopAssignEmployeeDropdown } from './WorkshopAssignEmployeeDropdown';
 import { WorkshopOrderEmployeeFindingsTab } from './tabs/WorkshopOrderEmployeeFindingsTab';
+import { OrderHistoryTimeline } from './OrderHistoryTimeline';
 import {
   ArrowLeft, FileText, Send, Eye, Link2, MessageSquare, MoreVertical,
   Printer, Download, ClipboardList, Car, Users, CheckCircle, XCircle, Ban, AlertTriangle, Wrench, UserPlus, Search
@@ -442,7 +443,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
           {[
             { value: 'tasks', label: 'Wycena zlecenia' },
             { value: 'basic', label: 'Podstawowe' },
-            { value: 'findings', label: 'Od pracowników' },
+            { value: 'findings', label: 'Uwagi i historia' },
             { value: 'summary', label: 'Podsumowanie' },
             { value: 'schedule', label: 'Terminarz' },
             { value: 'files', label: 'Pliki' },
@@ -466,7 +467,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
           <WorkshopOrderTasksTab order={order} providerId={providerId} />
         </TabsContent>
         <TabsContent value="findings">
-          <WorkshopOrderEmployeeFindingsTab orderId={order.id} providerId={providerId} />
+          <OrderHistoryTimeline orderId={order.id} providerId={providerId} />
         </TabsContent>
         <TabsContent value="summary">
           <WorkshopOrderSummaryTab order={order} />
