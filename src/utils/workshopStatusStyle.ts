@@ -20,10 +20,12 @@ const TONE_MAP: Record<string, StatusTone> = {
   'Diagnoza': 'blue',
 
   'Do wyceny': 'red',
+  'Poprawka': 'red',
   'Oczekuje na akceptację': 'yellow',
 
   'Wycena gotowa': 'purple',
   'Wycena wysłana': 'purple',
+
 
   'Dodatek do naprawy': 'amber',
 
