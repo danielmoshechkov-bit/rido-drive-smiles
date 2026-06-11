@@ -14,6 +14,7 @@ import { EmployeeOrderCardDialog } from '@/components/workshop/EmployeeOrderCard
 import { EmployeeNotificationsBell } from '@/components/workshop/EmployeeNotificationsBell';
 import { StationOrderNoteDialog } from '@/components/workshop/StationOrderNoteDialog';
 import { EmployeeWorkListDialog } from '@/components/workshop/EmployeeWorkListDialog';
+import { useWorkshopTranslations, TranslatableField } from '@/hooks/useWorkshopTranslations';
 
 type Tab = 'home' | 'mine' | 'pool' | 'history';
 
@@ -205,6 +206,34 @@ export default function WorkshopEmployeePortal() {
     pool: pool.length,
   };
 
+  // Build translation fields from all visible order descriptions + history items
+  const translationFields = useMemo<TranslatableField[]>(() => {
+    const out: TranslatableField[] = [];
+    const seen = new Set<string>();
+    const pushDesc = (oid: string, desc?: string) => {
+      if (!oid || !desc) return;
+      const key = `order:${oid}:description`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      out.push({ entity_type: 'order', entity_id: oid, field: 'description', text: desc });
+    };
+    mine.forEach((a: any) => pushDesc(a.order_id, a.workshop_orders?.description));
+    pool.forEach((o: any) => pushDesc(o.id, o.description));
+    history.forEach((a: any) => {
+      pushDesc(a.order_id, a.workshop_orders?.description);
+      (a.workshop_orders?.items || []).forEach((it: any) => {
+        if (!it?.id || !it?.name) return;
+        const k = `item:${it.id}:name`;
+        if (seen.has(k)) return;
+        seen.add(k);
+        out.push({ entity_type: 'item', entity_id: String(it.id), field: 'name', text: String(it.name) });
+      });
+    });
+    return out;
+  }, [mine, pool, history]);
+
+  const { t: tr } = useWorkshopTranslations(translationFields, 'pl');
+
   return (
     <div className="container max-w-5xl mx-auto p-3 md:p-6 space-y-5">
       {/* Header */}
@@ -375,10 +404,11 @@ export default function WorkshopEmployeePortal() {
                     </div>
                     {a.workshop_orders?.description && (
                       <div className="text-xs text-foreground/90 mt-0.5 line-clamp-2 whitespace-pre-wrap">
-                        {a.workshop_orders.description}
+                        {tr('order', a.order_id, 'description', a.workshop_orders.description)}
                       </div>
                     )}
                   </button>
+
 
                   {(() => {
                     const map: Record<string, string> = {
@@ -461,10 +491,11 @@ export default function WorkshopEmployeePortal() {
                     </div>
                     {o.description && (
                       <div className="text-xs text-foreground/90 mt-0.5 line-clamp-2 whitespace-pre-wrap">
-                        {o.description}
+                        {tr('order', o.id, 'description', o.description)}
                       </div>
                     )}
                   </button>
+
 
                   <Badge variant="outline" className="text-xs border-amber-400 text-amber-700 bg-amber-100">Aktywne</Badge>
 
@@ -538,7 +569,7 @@ export default function WorkshopEmployeePortal() {
                             </div>
                             {o?.description && (
                               <div className="text-xs text-muted-foreground mt-1 line-clamp-2 whitespace-pre-wrap">
-                                {o.description}
+                                {tr('order', a.order_id, 'description', o.description)}
                               </div>
                             )}
                             {items.length > 0 && (
@@ -547,7 +578,7 @@ export default function WorkshopEmployeePortal() {
                                   <li key={it.id} className="flex justify-between gap-2 text-foreground/80">
                                     <span className="truncate">
                                       {it.kind === 'part' ? '🔧 ' : '🛠️ '}
-                                      {it.name} {it.quantity ? `× ${it.quantity} ${it.unit || ''}` : ''}
+                                      {tr('item', String(it.id), 'name', it.name)} {it.quantity ? `× ${it.quantity} ${it.unit || ''}` : ''}
                                     </span>
                                   </li>
                                 ))}

@@ -21628,6 +21628,7 @@ export type Database = {
           name: string
           phone: string | null
           pin_code: string | null
+          preferred_language: string
           provider_id: string
           removed_at: string | null
           role: string | null
@@ -21648,6 +21649,7 @@ export type Database = {
           name: string
           phone?: string | null
           pin_code?: string | null
+          preferred_language?: string
           provider_id: string
           removed_at?: string | null
           role?: string | null
@@ -21668,6 +21670,7 @@ export type Database = {
           name?: string
           phone?: string | null
           pin_code?: string | null
+          preferred_language?: string
           provider_id?: string
           removed_at?: string | null
           role?: string | null
@@ -23036,6 +23039,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      workshop_translations_cache: {
+        Row: {
+          created_at: string
+          entity_id: string
+          entity_type: string
+          field: string
+          id: string
+          source_hash: string
+          source_lang: string
+          source_text: string
+          target_lang: string
+          translated_by: string | null
+          translated_text: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          field: string
+          id?: string
+          source_hash: string
+          source_lang?: string
+          source_text: string
+          target_lang: string
+          translated_by?: string | null
+          translated_text: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          field?: string
+          id?: string
+          source_hash?: string
+          source_lang?: string
+          source_text?: string
+          target_lang?: string
+          translated_by?: string | null
+          translated_text?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       workshop_vehicles: {
         Row: {

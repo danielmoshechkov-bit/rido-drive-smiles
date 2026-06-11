@@ -1,6 +1,6 @@
 // Simple station view: for non-mechanic stations (e.g. Myjnia, Geometria).
 // Shows vehicle + admin's note + "Historia naprawy" + "Zakończ" button.
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +8,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2, CheckCircle2, History, Car, StickyNote, Play } from 'lucide-react';
 import { toast } from 'sonner';
+import { useWorkshopTranslations, TranslatableField } from '@/hooks/useWorkshopTranslations';
 
 interface Props {
   open: boolean;
@@ -119,6 +120,19 @@ export function StationOrderNoteDialog({ open, onOpenChange, orderId, stationNam
 
   const inProgress = (order?.status_name || '').toLowerCase().includes('realizacj');
 
+  // Translate note + events into the employee's language
+  const fields = useMemo<TranslatableField[]>(() => {
+    const out: TranslatableField[] = [];
+    if (note && orderId) {
+      out.push({ entity_type: 'note', entity_id: orderId, field: 'admin_note', text: note });
+    }
+    allEvents.forEach(e => {
+      if (e.note) out.push({ entity_type: 'event', entity_id: String(e.id), field: 'note', text: String(e.note) });
+    });
+    return out;
+  }, [note, allEvents, orderId]);
+  const { t: tr } = useWorkshopTranslations(fields, 'pl');
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
@@ -150,12 +164,12 @@ export function StationOrderNoteDialog({ open, onOpenChange, orderId, stationNam
                 </div>
               </div>
 
-              {note && (
+              {note && orderId && (
                 <div className="rounded-lg border-l-4 border-l-blue-500 bg-blue-50/60 p-3">
                   <div className="text-xs font-semibold text-blue-800 flex items-center gap-1 mb-1">
                     <StickyNote className="h-3.5 w-3.5" /> Notatka od administratora
                   </div>
-                  <p className="text-sm whitespace-pre-wrap">{note}</p>
+                  <p className="text-sm whitespace-pre-wrap">{tr('note', orderId, 'admin_note', note)}</p>
                 </div>
               )}
 
@@ -177,7 +191,7 @@ export function StationOrderNoteDialog({ open, onOpenChange, orderId, stationNam
                           <span>{e.to_status || '—'}</span>
                           <span>{new Date(e.created_at).toLocaleString('pl')}</span>
                         </div>
-                        {e.note && <p className="mt-1 whitespace-pre-wrap">{e.note}</p>}
+                        {e.note && <p className="mt-1 whitespace-pre-wrap">{tr('event', String(e.id), 'note', e.note)}</p>}
                       </div>
                     ))}
                   </div>
