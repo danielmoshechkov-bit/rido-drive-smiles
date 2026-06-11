@@ -327,10 +327,18 @@ export default function WorkshopEmployeePortal() {
                     setOpenOrderId(a.order_id);
                     return;
                   }
-                  // Station-note dialog ONLY when admin sent a note via status change.
-                  if (station && hasNote) {
+                  // Station-mode dialog: when this order belongs to one of the
+                  // employee's stations — either because admin sent a note
+                  // (hasNote) OR because the status is the station name /
+                  // "<station> — realizacja" (worker still active there).
+                  const stOnStation = !!station && (
+                    hasNote ||
+                    st === station.name ||
+                    st.toLowerCase().startsWith(station.name.toLowerCase())
+                  );
+                  if (stOnStation) {
                     setStationOpenId(a.order_id);
-                    setStationOpenName(station.name);
+                    setStationOpenName(station!.name);
                   } else if (isApproved) {
                     setWorkListOrderId(a.order_id);
                   } else {
