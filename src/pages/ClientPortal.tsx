@@ -868,7 +868,7 @@ export default function ClientPortal() {
                       <Search className="h-6 w-6 text-primary" />
                     </div>
                     <p className="text-3xl font-bold">0</p>
-                    <p className="text-sm text-muted-foreground">Zapisane wyszukiwania</p>
+                    <p className="text-sm text-muted-foreground">{t('cp.stats.zapisane')}</p>
                   </CardContent>
                 </Card>
               </div>
