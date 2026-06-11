@@ -71,11 +71,12 @@ export function EmployeeOrderCardDialog({
           .split(/\n|(?=\d+\.\s)/).map(s => s.trim()).filter(Boolean);
         const parsed: TaskBlock[] = (rawLines.length ? rawLines : ['Zakres prac']).map((l, i) => {
           const idx = i + 1;
-          const text = l.replace(/^\d+\.\s*/, '');
+          const complaint = l.replace(/^\d+\.\s*/, '');
           return {
-            key: `${idx}. ${text}`,
+            key: `${idx}. ${complaint}`,
             index: idx,
-            text,
+            complaint,
+            text: '',
             parts: [],
             time: '',
             cost: '',
