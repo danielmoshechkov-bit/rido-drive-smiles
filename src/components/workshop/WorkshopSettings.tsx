@@ -55,6 +55,7 @@ export function WorkshopSettings({ providerId, onBack }: Props) {
         { key: 'w-szablony-zadan', label: 'Szablony zadań', icon: ClipboardList },
         { key: 'w-szablony-tworzenia', label: 'Szablony tworzenia zleceń', icon: FileText },
         { key: 'w-stanowiska', label: 'Stanowiska warsztatowe', icon: Wrench },
+        { key: 'w-dzialy', label: 'Działy (Myjnia, Geometria...)', icon: Building2 },
         { key: 'w-pracownicy', label: 'Lista pracowników', icon: Users },
         { key: 'w-listy-kontrolne', label: 'Listy kontrolne', icon: ClipboardList },
         { key: 'w-pojazdy', label: 'Pojazdy', icon: Wrench },
