@@ -26,6 +26,7 @@ export function WorkshopStatusPicker({
 }: Props) {
   const { data: statuses = [] } = useWorkshopStatuses(providerId);
   const [stations, setStations] = useState<any[]>([]);
+  const [open, setOpen] = useState(false);
   const [noteDialog, setNoteDialog] = useState<{ name: string } | null>(null);
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
@@ -50,8 +51,11 @@ export function WorkshopStatusPicker({
   const apply = async (name: string, withNote?: string) => {
     setBusy(true);
     try {
+      const st = stations.find(s => s.name === name);
       const payload: any = { status_name: name };
       if (withNote) payload.has_unread_notes = true;
+      // when moving to a station — persist station_id so employees of that station see it
+      if (st) payload.station_id = st.id;
       await (supabase.from('workshop_orders') as any).update(payload).eq('id', orderId);
       if (withNote) {
         const { data: { user } } = await supabase.auth.getUser();
@@ -62,10 +66,9 @@ export function WorkshopStatusPicker({
           actor_user_id: user?.id || null,
           actor_role: 'admin',
           to_status: name,
+          station_id: st?.id || null,
         });
       }
-      // notify station employees if status is a station name
-      const st = stations.find(s => s.name === name);
       if (st) {
         supabase.functions.invoke('workshop-notify-employee', {
           body: { order_id: orderId, event: 'department_changed', station_id: st.id, status_name: name },
@@ -86,7 +89,7 @@ export function WorkshopStatusPicker({
 
   return (
     <>
-      <DropdownMenu>
+      <DropdownMenu open={open} onOpenChange={setOpen}>
         <DropdownMenuTrigger asChild>
           <button className="cursor-pointer inline-flex items-center gap-1">
             <Badge className={`${style.badge} ${size === 'xs' ? 'text-[10px] px-1.5 py-0.5' : 'text-xs'} whitespace-nowrap transition-opacity`}>
@@ -97,7 +100,7 @@ export function WorkshopStatusPicker({
             )}
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" side="bottom" sideOffset={4} className="min-w-[260px] max-h-[80vh] overflow-y-auto z-[60] p-1">
+        <DropdownMenuContent align="start" side="bottom" sideOffset={4} className="min-w-[260px] max-h-[80vh] overflow-y-auto z-40 p-1">
           {items.map(it => {
             const active = it.name === currentStatus;
             return (
@@ -113,7 +116,11 @@ export function WorkshopStatusPicker({
                 )}
                 <button
                   type="button"
-                  onClick={e => { e.stopPropagation(); setNoteDialog({ name: it.name }); setNote(''); }}
+                  onClick={e => {
+                    e.stopPropagation();
+                    setOpen(false);
+                    setTimeout(() => { setNoteDialog({ name: it.name }); setNote(''); }, 60);
+                  }}
                   className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 inline-flex items-center justify-center rounded hover:bg-background border"
                   title="Zmień status z notatką dla pracownika"
                 >
