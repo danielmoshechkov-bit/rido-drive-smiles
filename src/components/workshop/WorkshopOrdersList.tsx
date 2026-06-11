@@ -539,8 +539,10 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredOrders.map((order: any) => (
-                  <TableRow key={order.id} className="group cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => onSelectOrder?.(order)}>
+                {filteredOrders.map((order: any) => {
+                  const ss = getStatusStyle(order.status_name);
+                  return (
+                  <TableRow key={order.id} className={`group cursor-pointer transition-colors ${ss.row}`} onClick={() => onSelectOrder?.(order)}>
                     <TableCell onClick={e => e.stopPropagation()}>
                       <Checkbox
                         checked={selectedIds.has(order.id)}
@@ -549,32 +551,19 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
+                        <span className={`w-1 h-6 rounded-full ${ss.dot}`} />
                         <Wrench className="h-4 w-4 text-muted-foreground" />
                         <span className="font-semibold tabular-nums tracking-tight">{order.order_number}</span>
                       </div>
                     </TableCell>
                     <TableCell onClick={e => e.stopPropagation()}>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button className="cursor-pointer">
-                            <Badge className={`${statusColors[order.status_name] || 'bg-gray-200 text-black'} text-xs whitespace-nowrap hover:opacity-80 transition-opacity`}>
-                              {order.status_name || 'Brak'}
-                            </Badge>
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start" side="bottom" sideOffset={4} className="min-w-[200px] max-h-[80vh] overflow-y-auto z-[60]">
-                          {statuses.map((s: any) => (
-                            <DropdownMenuItem
-                              key={s.id}
-                              onClick={() => changeStatus(order.id, s.name)}
-                              className={`gap-2 ${s.name === order.status_name ? 'bg-accent font-medium' : ''}`}
-                            >
-                              <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
-                              <span>{s.name}</span>
-                            </DropdownMenuItem>
-                          ))}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <WorkshopStatusPicker
+                        providerId={providerId}
+                        orderId={order.id}
+                        currentStatus={order.status_name}
+                        hasUnreadNotes={order.has_unread_notes}
+                        onChanged={() => queryClient.invalidateQueries({ queryKey: ['workshop-orders'] })}
+                      />
                     </TableCell>
                     <TableCell className="text-right font-medium tabular-nums">
                       {(order.total_gross || 0).toLocaleString('pl-PL', { minimumFractionDigits: 2 })}
