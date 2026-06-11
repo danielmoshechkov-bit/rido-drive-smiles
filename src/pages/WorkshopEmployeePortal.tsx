@@ -63,12 +63,13 @@ export default function WorkshopEmployeePortal() {
       }
     }
 
-    // My assignments — include station_id on order
+    // My assignments — include station_id on order + vehicle for richer list display
     const { data: mineData } = await (supabase.from('workshop_order_assignments') as any)
-      .select('id, order_id, provider_id, status, assigned_at, workshop_orders(id, order_number, status_name, vehicle_id, client_id, scheduled_date, scheduled_start, acceptance_date, mileage, description, station_id, has_unread_notes)')
+      .select('id, order_id, provider_id, status, assigned_at, workshop_orders(id, order_number, status_name, vehicle_id, client_id, scheduled_date, scheduled_start, acceptance_date, mileage, description, station_id, has_unread_notes, vehicle:workshop_vehicles(brand, model, license_plate))')
       .eq('employee_user_id', user.id)
       .order('assigned_at', { ascending: false });
     setMine(mineData || []);
+
 
     // Stations this employee belongs to (across all their providers)
     const { data: stMaps } = await (supabase.from('workshop_station_employees') as any)
@@ -82,7 +83,8 @@ export default function WorkshopEmployeePortal() {
     // Pool — all ACTIVE provider orders (not completed/cancelled), so employee can pick any to inspect
     if (providerIds.length) {
       const { data: pooledOrders } = await (supabase.from('workshop_orders') as any)
-        .select('id, order_number, status_name, scheduled_date, scheduled_start, description, provider_id')
+        .select('id, order_number, status_name, scheduled_date, scheduled_start, description, provider_id, vehicle:workshop_vehicles(brand, model, license_plate)')
+
         .in('provider_id', providerIds)
         .order('created_at', { ascending: false })
         .limit(100);
@@ -301,11 +303,21 @@ export default function WorkshopEmployeePortal() {
                   : tone === 'green' ? 'bg-green-50/70 border-l-green-500'
                   : tone === 'red' ? 'bg-red-50/70 border-l-red-500'
                   : 'bg-muted/30 border-l-gray-300';
-                const isApproved = ['Zaakceptowano','Akceptacja klienta','Zgoda na naprawę','W trakcie naprawy','Dodatek do naprawy'].includes(st);
+                const isApproved = ['Zaakceptowano','Akceptacja klienta','Zgoda na naprawę','W trakcie naprawy','Dodatek do naprawy','Poprawka'].includes(st);
+                const isFinished = ['Naprawione','Zakończone','Anulowane'].includes(st);
                 const hasNote = !!a.workshop_orders?.has_unread_notes;
+                const veh = a.workshop_orders?.vehicle;
+                const vehLine = veh ? [veh.brand, veh.model, veh.license_plate].filter(Boolean).join(' · ') : '';
                 const openOrder = () => {
+                  // Finished orders: read-only preview only; mechanic can't edit history.
+                  if (isFinished) {
+                    setOpenPreviewMode(true);
+                    setOpenFromPool(false);
+                    setOpenProviderId(a.provider_id);
+                    setOpenOrderId(a.order_id);
+                    return;
+                  }
                   // Station-note dialog ONLY when admin sent a note via status change.
-                  // Direct assignments (without note) open the full Karta zlecenia.
                   if (station && hasNote) {
                     setStationOpenId(a.order_id);
                     setStationOpenName(station.name);
@@ -324,18 +336,22 @@ export default function WorkshopEmployeePortal() {
                     <span title="Nowa notatka od administratora" className="text-amber-500 text-lg leading-none">!</span>
                   )}
                   <button className="flex-1 text-left hover:opacity-80" onClick={openOrder}>
-                    <div className="font-medium text-sm flex items-center gap-2">
-                      {a.workshop_orders?.order_number || a.order_id.slice(0, 8)}
+                    <div className="font-semibold text-sm flex items-center gap-2 text-foreground">
+                      <span>{a.workshop_orders?.order_number || a.order_id.slice(0, 8)}</span>
+                      {vehLine && <span className="text-foreground font-semibold">· {vehLine}</span>}
                       {station && (
                         <Badge className="text-[10px] px-1.5 py-0" style={{ background: station.color, color: '#fff' }}>
                           {station.name}
                         </Badge>
                       )}
                     </div>
-                    <div className="text-xs text-muted-foreground line-clamp-1">
-                      {a.workshop_orders?.description || a.workshop_orders?.status_name || '—'}
-                    </div>
+                    {a.workshop_orders?.description && (
+                      <div className="text-xs text-foreground/90 mt-0.5 line-clamp-2 whitespace-pre-wrap">
+                        {a.workshop_orders.description}
+                      </div>
+                    )}
                   </button>
+
                   {(() => {
                     const map: Record<string, string> = {
                       'Do wyceny': 'bg-yellow-500 text-black hover:bg-yellow-600',
@@ -379,12 +395,15 @@ export default function WorkshopEmployeePortal() {
                       </Button>
                     </>
                   )}
-                  <Button
-                    variant="ghost" size="sm" disabled={busy === a.id}
-                    onClick={() => release(a.id, a.order_id, a.provider_id)}
-                  >
-                    {busy === a.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Zwróć'}
-                  </Button>
+                  {!isFinished && (
+                    <Button
+                      variant="ghost" size="sm" disabled={busy === a.id}
+                      onClick={() => release(a.id, a.order_id, a.provider_id)}
+                    >
+                      {busy === a.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Zwróć'}
+                    </Button>
+                  )}
+
                 </div>
                 );
               })}
@@ -404,11 +423,21 @@ export default function WorkshopEmployeePortal() {
                     className="flex-1 text-left hover:opacity-80"
                     onClick={() => { setOpenFromPool(true); setOpenProviderId(o.provider_id); setOpenOrderId(o.id); }}
                   >
-                    <div className="font-medium text-sm">{o.order_number || o.id.slice(0, 8)}</div>
-                    <div className="text-xs text-muted-foreground line-clamp-1">
-                      {o.description || o.status_name || '—'}
+                    <div className="font-semibold text-sm text-foreground flex items-center gap-2 flex-wrap">
+                      <span>{o.order_number || o.id.slice(0, 8)}</span>
+                      {o.vehicle && (
+                        <span className="text-foreground font-semibold">
+                          · {[o.vehicle.brand, o.vehicle.model, o.vehicle.license_plate].filter(Boolean).join(' · ')}
+                        </span>
+                      )}
                     </div>
+                    {o.description && (
+                      <div className="text-xs text-foreground/90 mt-0.5 line-clamp-2 whitespace-pre-wrap">
+                        {o.description}
+                      </div>
+                    )}
                   </button>
+
                   <Badge variant="outline" className="text-xs border-amber-400 text-amber-700 bg-amber-100">Aktywne</Badge>
 
                   {poolEnabled && (

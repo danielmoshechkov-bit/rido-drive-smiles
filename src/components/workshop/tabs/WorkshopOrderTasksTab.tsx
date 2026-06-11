@@ -396,7 +396,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     return [
       'border-b text-sm transition-colors',
       isAddon
-        ? 'bg-orange-50 ring-1 ring-orange-300 hover:bg-orange-100'
+        ? 'bg-red-50 ring-1 ring-red-400 hover:bg-red-100'
         : (isDragging ? 'bg-accent/40 opacity-60' : 'hover:bg-accent/30'),
       isDropBefore ? 'border-t-2 border-t-primary' : '',
       isDropAfter ? 'border-b-2 border-b-primary' : '',
@@ -413,7 +413,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     return [
       'border-b text-sm transition-colors',
       isAddon
-        ? 'bg-orange-50 ring-1 ring-orange-300 hover:bg-orange-100'
+        ? 'bg-red-50 ring-1 ring-red-400 hover:bg-red-100'
         : (isDragging ? 'bg-accent/40 opacity-60' : 'hover:bg-accent/30'),
       isDropBefore ? 'border-t-2 border-t-primary' : '',
       isDropAfter ? 'border-b-2 border-b-primary' : '',
@@ -1175,7 +1175,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           </button>
                           <div className="min-w-0 flex-1">
                             {t.is_addon && (
-                              <Badge className="mr-2 bg-orange-500 text-white text-[9px] uppercase px-1.5 py-0">Dodatek</Badge>
+                              <Badge className="mr-2 bg-red-600 text-white text-[9px] uppercase px-1.5 py-0 animate-pulse">Dodatek</Badge>
                             )}
                             {renderEditableCell(t, 'name', t.name)}
                           </div>
@@ -1508,7 +1508,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           </button>
                           <div className="min-w-0 flex-1">
                             {g.is_addon && (
-                              <Badge className="mr-2 bg-orange-500 text-white text-[9px] uppercase px-1.5 py-0">Dodatek</Badge>
+                              <Badge className="mr-2 bg-red-600 text-white text-[9px] uppercase px-1.5 py-0 animate-pulse">Dodatek</Badge>
                             )}
                             {renderEditableCell(g, 'name', g.name)}
                           </div>
