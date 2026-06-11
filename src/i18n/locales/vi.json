@@ -1050,5 +1050,35 @@
     "title": "Dịch vụ",
     "find": "Tìm dịch vụ",
     "chooseCategory": "Chọn loại dịch vụ"
+  },
+  "cp": {
+    "mojeKonto": "Tài khoản của tôi",
+    "dodajOgloszenie": "Thêm tin đăng",
+    "wyloguj": "Đăng xuất",
+    "tabs": {
+      "start": "Trang đầu",
+      "ogloszenia": "Tin đăng",
+      "mojeauta": "Xe của tôi",
+      "ksiegowosc": "Kế toán",
+      "ogladania": "Lượt xem",
+      "wiadomosci": "Tin nhắn",
+      "polecenia": "Đề xuất",
+      "ustawienia": "Cài đặt",
+      "konta": "Chọn mô-đun"
+    },
+    "start": {
+      "szukam": "Tôi đang tìm",
+      "szukamDesc": "Duyệt xe, bất động sản và dịch vụ",
+      "sprzedaje": "Tôi đang bán",
+      "sprzedajeDesc": "Thêm tin đăng trong danh mục đã chọn",
+      "wybierzModul": "Chọn mô-đun",
+      "wybierzModulDesc": "Chuyển giữa các mô-đun hoặc thêm mới"
+    },
+    "stats": {
+      "ogloszenia": "Tin đăng",
+      "wiadomosci": "Tin nhắn",
+      "ulubione": "Yêu thích",
+      "zapisane": "Tìm kiếm đã lưu"
+    }
   }
 }

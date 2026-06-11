@@ -1103,5 +1103,35 @@
     "find": "Dienst finden",
     "chooseCategory": "Wählen Sie die Dienstkategorie",
     "searchPlaceholder": "Dienst suchen, z.B. Reifenwechsel, Reinigung..."
+  },
+  "cp": {
+    "mojeKonto": "Mein Konto",
+    "dodajOgloszenie": "Inserat hinzufügen",
+    "wyloguj": "Abmelden",
+    "tabs": {
+      "start": "Start",
+      "ogloszenia": "Inserate",
+      "mojeauta": "Meine Autos",
+      "ksiegowosc": "Buchhaltung",
+      "ogladania": "Aufrufe",
+      "wiadomosci": "Nachrichten",
+      "polecenia": "Empfehlungen",
+      "ustawienia": "Einstellungen",
+      "konta": "Modul wählen"
+    },
+    "start": {
+      "szukam": "Ich suche",
+      "szukamDesc": "Durchstöbern Sie Fahrzeuge, Immobilien und Dienstleistungen",
+      "sprzedaje": "Ich verkaufe",
+      "sprzedajeDesc": "Inserat in gewählter Kategorie hinzufügen",
+      "wybierzModul": "Modul wählen",
+      "wybierzModulDesc": "Zwischen Modulen wechseln oder neues hinzufügen"
+    },
+    "stats": {
+      "ogloszenia": "Inserate",
+      "wiadomosci": "Nachrichten",
+      "ulubione": "Favoriten",
+      "zapisane": "Gespeicherte Suchen"
+    }
   }
 }

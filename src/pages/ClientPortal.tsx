@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -113,6 +114,7 @@ import { MandatoryReviewModal } from '@/components/services/MandatoryReviewModal
 import { usePendingReviewsBlock } from '@/hooks/usePendingReviewsBlock';
 
 export default function ClientPortal() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { hasPending, refresh: refreshPendingReviews } = usePendingReviewsBlock();
@@ -561,16 +563,16 @@ export default function ClientPortal() {
 
   // Build tabs dynamically - Księgowość only for users with company setup, Ulubione moved to Ogłoszenia
   const mainTabs = [
-    { id: 'start', label: 'Start', icon: Home },
-    { id: 'ogloszenia', label: 'Ogłoszenia', icon: Package },
-    { id: 'mojeauta', label: 'Moje auta', icon: Car },
+    { id: 'start', label: t('cp.tabs.start'), icon: Home },
+    { id: 'ogloszenia', label: t('cp.tabs.ogloszenia'), icon: Package },
+    { id: 'mojeauta', label: t('cp.tabs.mojeauta'), icon: Car },
     // Księgowość - tylko dla użytkowników z firmą
-    ...(hasCompanySetup ? [{ id: 'ksiegowosc', label: 'Księgowość', icon: Calculator }] : []),
-    { id: 'ogladania', label: 'Oglądania', icon: Eye },
-    { id: 'wiadomosci', label: 'Wiadomości', icon: MessageSquare },
-    { id: 'polecenia', label: 'Polecenia', icon: Gift },
-    { id: 'ustawienia', label: 'Ustawienia', icon: Settings },
-    { id: 'konta', label: 'Wybierz moduł', icon: RefreshCw },
+    ...(hasCompanySetup ? [{ id: 'ksiegowosc', label: t('cp.tabs.ksiegowosc'), icon: Calculator }] : []),
+    { id: 'ogladania', label: t('cp.tabs.ogladania'), icon: Eye },
+    { id: 'wiadomosci', label: t('cp.tabs.wiadomosci'), icon: MessageSquare },
+    { id: 'polecenia', label: t('cp.tabs.polecenia'), icon: Gift },
+    { id: 'ustawienia', label: t('cp.tabs.ustawienia'), icon: Settings },
+    { id: 'konta', label: t('cp.tabs.konta'), icon: RefreshCw },
   ];
 
   // Redirect away from ksiegowosc tab if user loses company access (in render, not useEffect)
@@ -590,7 +592,7 @@ export default function ClientPortal() {
               <UniversalHomeButton />
               <div className="flex items-center gap-2 text-sm">
                 <User className="h-5 w-5 text-primary" />
-                <span className="font-semibold text-primary">Moje konto</span>
+                <span className="font-semibold text-primary">{t('cp.mojeKonto')}</span>
                 <span className="text-muted-foreground">-</span>
                 <span className="font-medium text-foreground">
                   {formatUserDisplayName(user)}
@@ -604,14 +606,14 @@ export default function ClientPortal() {
                 onClick={() => setShowSellModal(true)}
               >
                 <Plus className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Dodaj ogłoszenie</span>
+                <span className="hidden sm:inline">{t('cp.dodajOgloszenie')}</span>
               </Button>
               <div className="hidden sm:block scale-90">
                 <LanguageSelector />
               </div>
               <Button variant="outline" onClick={handleLogout} size="sm" className="rounded-lg text-sm">
                 <LogOut className="h-4 w-4 sm:mr-1" />
-                <span className="hidden sm:inline">Wyloguj</span>
+                <span className="hidden sm:inline">{t('cp.wyloguj')}</span>
               </Button>
             </div>
           </div>
@@ -762,8 +764,8 @@ export default function ClientPortal() {
                         <Search className="h-8 w-8 text-primary" />
                       </div>
                       <div>
-                        <h3 className="font-bold text-lg">Szukam</h3>
-                        <p className="text-sm text-muted-foreground">Przeglądaj oferty pojazdów, nieruchomości i usług</p>
+                        <h3 className="font-bold text-lg">{t('cp.start.szukam')}</h3>
+                        <p className="text-sm text-muted-foreground">{t('cp.start.szukamDesc')}</p>
                       </div>
                     </div>
                     <ChevronRight className="h-5 w-5 text-muted-foreground" />
@@ -781,8 +783,8 @@ export default function ClientPortal() {
                         <Plus className="h-8 w-8 text-amber-600" />
                       </div>
                       <div>
-                        <h3 className="font-bold text-lg">Sprzedaję</h3>
-                        <p className="text-sm text-muted-foreground">Dodaj ogłoszenie w wybranej kategorii</p>
+                        <h3 className="font-bold text-lg">{t('cp.start.sprzedaje')}</h3>
+                        <p className="text-sm text-muted-foreground">{t('cp.start.sprzedajeDesc')}</p>
                       </div>
                     </div>
                     <ChevronRight className="h-5 w-5 text-muted-foreground" />
@@ -796,8 +798,8 @@ export default function ClientPortal() {
                         <Users className="h-8 w-8 text-purple-600" />
                       </div>
                       <div>
-                        <h3 className="font-bold text-lg">Wybierz moduł</h3>
-                        <p className="text-sm text-muted-foreground">Przełącz między modułami lub dodaj nowy</p>
+                        <h3 className="font-bold text-lg">{t('cp.start.wybierzModul')}</h3>
+                        <p className="text-sm text-muted-foreground">{t('cp.start.wybierzModulDesc')}</p>
                       </div>
                     </div>
                     <ChevronRight className="h-5 w-5 text-muted-foreground" />
@@ -836,7 +838,7 @@ export default function ClientPortal() {
                       <Package className="h-6 w-6 text-primary" />
                     </div>
                     <p className="text-3xl font-bold">{totalListings}</p>
-                    <p className="text-sm text-muted-foreground">Ogłoszenia</p>
+                    <p className="text-sm text-muted-foreground">{t('cp.stats.ogloszenia')}</p>
                   </CardContent>
                 </Card>
 
@@ -846,7 +848,7 @@ export default function ClientPortal() {
                       <MessageSquare className="h-6 w-6 text-primary" />
                     </div>
                     <p className="text-3xl font-bold">0</p>
-                    <p className="text-sm text-muted-foreground">Wiadomości</p>
+                    <p className="text-sm text-muted-foreground">{t('cp.stats.wiadomosci')}</p>
                   </CardContent>
                 </Card>
 
@@ -856,7 +858,7 @@ export default function ClientPortal() {
                       <Heart className="h-6 w-6 text-primary" />
                     </div>
                     <p className="text-3xl font-bold">{favorites.length}</p>
-                    <p className="text-sm text-muted-foreground">Ulubione</p>
+                    <p className="text-sm text-muted-foreground">{t('cp.stats.ulubione')}</p>
                   </CardContent>
                 </Card>
 
@@ -866,7 +868,7 @@ export default function ClientPortal() {
                       <Search className="h-6 w-6 text-primary" />
                     </div>
                     <p className="text-3xl font-bold">0</p>
-                    <p className="text-sm text-muted-foreground">Zapisane wyszukiwania</p>
+                    <p className="text-sm text-muted-foreground">{t('cp.stats.zapisane')}</p>
                   </CardContent>
                 </Card>
               </div>

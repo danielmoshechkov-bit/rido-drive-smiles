@@ -1180,5 +1180,35 @@
     "title": "Послуги",
     "find": "Знайти послугу",
     "chooseCategory": "Оберіть категорію послуги"
+  },
+  "cp": {
+    "mojeKonto": "Мій акаунт",
+    "dodajOgloszenie": "Додати оголошення",
+    "wyloguj": "Вийти",
+    "tabs": {
+      "start": "Головна",
+      "ogloszenia": "Оголошення",
+      "mojeauta": "Мої авто",
+      "ksiegowosc": "Бухгалтерія",
+      "ogladania": "Перегляди",
+      "wiadomosci": "Повідомлення",
+      "polecenia": "Рекомендації",
+      "ustawienia": "Налаштування",
+      "konta": "Вибрати модуль"
+    },
+    "start": {
+      "szukam": "Шукаю",
+      "szukamDesc": "Переглядайте оголошення авто, нерухомості та послуг",
+      "sprzedaje": "Продаю",
+      "sprzedajeDesc": "Додайте оголошення у вибраній категорії",
+      "wybierzModul": "Вибрати модуль",
+      "wybierzModulDesc": "Перемикайтеся між модулями або додайте новий"
+    },
+    "stats": {
+      "ogloszenia": "Оголошення",
+      "wiadomosci": "Повідомлення",
+      "ulubione": "Обране",
+      "zapisane": "Збережені пошуки"
+    }
   }
 }

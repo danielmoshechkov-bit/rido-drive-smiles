@@ -1196,5 +1196,35 @@
     "find": "Найти услугу",
     "chooseCategory": "Выберите категорию услуги",
     "searchPlaceholder": "Поиск услуги, напр. замена шин, уборка..."
+  },
+  "cp": {
+    "mojeKonto": "Мой аккаунт",
+    "dodajOgloszenie": "Добавить объявление",
+    "wyloguj": "Выйти",
+    "tabs": {
+      "start": "Главная",
+      "ogloszenia": "Объявления",
+      "mojeauta": "Мои авто",
+      "ksiegowosc": "Бухгалтерия",
+      "ogladania": "Просмотры",
+      "wiadomosci": "Сообщения",
+      "polecenia": "Рекомендации",
+      "ustawienia": "Настройки",
+      "konta": "Выбрать модуль"
+    },
+    "start": {
+      "szukam": "Ищу",
+      "szukamDesc": "Просматривайте предложения авто, недвижимости и услуг",
+      "sprzedaje": "Продаю",
+      "sprzedajeDesc": "Добавьте объявление в выбранной категории",
+      "wybierzModul": "Выбрать модуль",
+      "wybierzModulDesc": "Переключайтесь между модулями или добавьте новый"
+    },
+    "stats": {
+      "ogloszenia": "Объявления",
+      "wiadomosci": "Сообщения",
+      "ulubione": "Избранное",
+      "zapisane": "Сохранённые поиски"
+    }
   }
 }

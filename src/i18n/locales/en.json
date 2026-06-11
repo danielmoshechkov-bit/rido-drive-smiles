@@ -1196,5 +1196,35 @@
     "find": "Find a service",
     "chooseCategory": "Choose the service category you need",
     "searchPlaceholder": "Search service, e.g. tire change, cleaning..."
+  },
+  "cp": {
+    "mojeKonto": "My account",
+    "dodajOgloszenie": "Add listing",
+    "wyloguj": "Log out",
+    "tabs": {
+      "start": "Start",
+      "ogloszenia": "Listings",
+      "mojeauta": "My cars",
+      "ksiegowosc": "Accounting",
+      "ogladania": "Views",
+      "wiadomosci": "Messages",
+      "polecenia": "Referrals",
+      "ustawienia": "Settings",
+      "konta": "Choose module"
+    },
+    "start": {
+      "szukam": "I'm looking",
+      "szukamDesc": "Browse offers of vehicles, real estate and services",
+      "sprzedaje": "I'm selling",
+      "sprzedajeDesc": "Add a listing in the chosen category",
+      "wybierzModul": "Choose module",
+      "wybierzModulDesc": "Switch between modules or add new"
+    },
+    "stats": {
+      "ogloszenia": "Listings",
+      "wiadomosci": "Messages",
+      "ulubione": "Favorites",
+      "zapisane": "Saved searches"
+    }
   }
 }
