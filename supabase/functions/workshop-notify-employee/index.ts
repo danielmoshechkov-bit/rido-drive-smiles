@@ -14,37 +14,39 @@ const corsHeaders = {
 
 type Event = 'assigned' | 'quote_accepted' | 'department_changed' | 'repair_addon_request' | 'order_ready';
 
-function buildMessage(event: Event, orderNumber: string, statusName?: string): { title: string; body: string; sms: string } {
+function buildMessage(event: Event, orderNumber: string, statusName?: string, vehicleStr?: string, link?: string): { title: string; body: string; sms: string } {
+  const veh = vehicleStr ? ` ${vehicleStr}` : '';
+  const lnk = link ? ` ${link}` : '';
   switch (event) {
     case 'assigned':
       return {
         title: 'Nowe zlecenie warsztatowe',
-        body: `Otrzymujesz zlecenie ${orderNumber}.`,
-        sms: `GetRido: Masz nowe zlecenie ${orderNumber}. Sprawdz w aplikacji.`,
+        body: `Otrzymujesz zlecenie ${orderNumber}${veh ? ' —' + veh : ''}.`,
+        sms: `GetRido: Nowe zlecenie ${orderNumber}${veh}.${lnk}`,
       };
     case 'quote_accepted':
       return {
         title: 'Klient zaakceptował wycenę',
         body: `Zlecenie ${orderNumber} — możesz rozpocząć naprawę.`,
-        sms: `GetRido: Klient zaakceptowal wycene ${orderNumber}. Mozna rozpoczac naprawe.`,
+        sms: `GetRido: Klient zaakceptowal wycene ${orderNumber}${veh}. Mozna rozpoczac naprawe.${lnk}`,
       };
     case 'department_changed':
       return {
         title: `Zlecenie na stanowisku ${statusName || ''}`.trim(),
         body: `Zlecenie ${orderNumber} przekazane do działu ${statusName || ''}.`,
-        sms: `GetRido: Zlecenie ${orderNumber} trafilo do dzialu ${statusName || ''}.`,
+        sms: `GetRido: Zlecenie ${orderNumber}${veh} trafilo do dzialu ${statusName || ''}.${lnk}`,
       };
     case 'repair_addon_request':
       return {
         title: 'Dodatek do naprawy — do akceptacji',
         body: `Mechanik zgłosił dodatkowe prace do zlecenia ${orderNumber}.`,
-        sms: `GetRido: Dodatek do naprawy w zleceniu ${orderNumber} — wyceń i wyślij do klienta.`,
+        sms: `GetRido: Dodatek do naprawy w zleceniu ${orderNumber}${veh} — wycen i wyslij do klienta.${lnk}`,
       };
     case 'order_ready':
       return {
         title: 'Naprawa zakończona',
         body: `Mechanik zakończył naprawę zlecenia ${orderNumber}.`,
-        sms: `GetRido: Naprawa zlecenia ${orderNumber} zakonczona.`,
+        sms: `GetRido: Naprawa zlecenia ${orderNumber}${veh} zakonczona.${lnk}`,
       };
   }
 }
