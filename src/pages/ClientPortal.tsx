@@ -606,7 +606,7 @@ export default function ClientPortal() {
                 onClick={() => setShowSellModal(true)}
               >
                 <Plus className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Dodaj ogłoszenie</span>
+                <span className="hidden sm:inline">{t('cp.dodajOgloszenie')}</span>
               </Button>
               <div className="hidden sm:block scale-90">
                 <LanguageSelector />
