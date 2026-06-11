@@ -12,11 +12,11 @@ export type StatusTone =
   | 'slate';    // Zakończone
 
 const TONE_MAP: Record<string, StatusTone> = {
-  'Nowe zlecenie': 'blue',
+  'Nowe zlecenie': 'gray',
 
-  'Przyjęcie do serwisu': 'gray',
-  'Przydzielone': 'gray',
-  'Diagnoza': 'gray',
+  'Przyjęcie do serwisu': 'blue',
+  'Przydzielone': 'blue',
+  'Diagnoza': 'blue',
 
   'Do wyceny': 'yellow',
   'Oczekuje na akceptację': 'yellow',
