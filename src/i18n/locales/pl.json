@@ -702,12 +702,81 @@
         "opony": "Opony / Wulkanizacja",
         "diagnostyka": "Diagnostyka",
         "inne": "Inne"
-      }
+      },
+      "durationLabel": "Czas trwania usługi (min, opcjonalnie)",
+      "durationPlaceholder": "np. 60",
+      "durationHint": "Pozostaw puste, jeśli nie chcesz pokazywać czasu na karcie usługi.",
+      "photoDeleted": "Usunięto zdjęcie",
+      "photoSetMain": "Ustawiono jako główne",
+      "firstPhotoMain": "Pierwsze zdjęcie jest <strong>główne</strong> (widoczne jako miniatura).",
+      "photoAlt": "Zdjęcie {{index}}",
+      "mainBadge": "GŁÓWNE",
+      "setAsMain": "Ustaw jako główne",
+      "moveLeft": "W lewo",
+      "moveRight": "W prawo"
     },
     "calendar": {
       "calendar": "Kalendarz",
       "bookings": "Rezerwacje",
       "noBookings": "Brak aktywnych rezerwacji"
+    },
+    "smsCenter": "Centrum SMS",
+    "visibility": {
+      "title": "Widoczność karty na portalu usług",
+      "desc": "Zarządzaj kiedy Twoja karta jest widoczna w wyszukiwarce usług oraz w jakiej kategorii się pojawia.",
+      "cardActive": "Karta aktywna w portalu",
+      "cardVisibleDesc": "Karta jest publicznie widoczna w portalu usług.",
+      "cardHiddenDesc": "Karta jest ukryta — klienci nie zobaczą Twoich usług.",
+      "toastVisible": "Karta widoczna w portalu",
+      "toastHidden": "Karta ukryta",
+      "mainCategory": "Kategoria główna na portalu",
+      "categoryUpdated": "Kategoria zaktualizowana",
+      "categoryHint": "Decyduje w której grupie i kategorii pojawi się Twoja karta (np. Auto → Warsztaty samochodowe).",
+      "editCompanyData": "Edytuj opis i dane firmy",
+      "logoAndCover": "Logo i zdjęcie tła",
+      "viewMyCard": "Zobacz moją kartę",
+      "profileActive": "Profil aktywny — Twoje usługi są widoczne w portalu"
+    },
+    "activation": {
+      "writeFirst": "Najpierw napisz krótko czym się zajmujesz",
+      "descGenError": "Błąd generowania opisu",
+      "descGenerated": "Opis wygenerowany przez AI",
+      "aiNoDesc": "AI nie zwróciło opisu",
+      "genTimeout": "Generowanie trwało zbyt długo. Spróbuj ponownie za chwilę.",
+      "aiConnError": "Błąd połączenia z AI",
+      "fillRequired": "Uzupełnij wszystkie wymagane pola: nazwa firmy, opis, telefon, miasto i kategoria",
+      "logoUploadError": "Błąd wgrywania logo",
+      "profileActivated": "Profil aktywowany! Twoje usługi są teraz widoczne w portalu.",
+      "activationError": "Błąd aktywacji",
+      "bannerTitle": "Twój profil nie jest jeszcze aktywny w portalu",
+      "bannerDesc": "Uzupełnij dane firmy, opis i zdjęcie — Twoje usługi będą wtedy widoczne publicznie w odpowiedniej kategorii.",
+      "activateAccount": "Aktywuj konto",
+      "dialogTitle": "Aktywuj profil usługodawcy",
+      "dialogDesc": "Uzupełnij dane — po aktywacji Twoja firma i usługi będą widoczne publicznie w portalu.",
+      "companyName": "Nazwa firmy *",
+      "companyNameHint": "(pełna, prawna)",
+      "companyNamePlaceholder": "Np. Auto Serwis Kowalski sp. z o.o.",
+      "shortName": "Nazwa skrócona",
+      "shortNameHint": "(wyświetlana na karcie publicznej)",
+      "shortNamePlaceholder": "Np. Auto Kowalski",
+      "mainCategoryRequired": "Kategoria główna *",
+      "selectCategory": "Wybierz kategorię",
+      "companyDescRequired": "Opis firmy *",
+      "generateRidoAi": "Generuj Rido AI",
+      "descPlaceholder": "Opisz krótko czym się zajmujesz (np. 'warsztat BMW + detailing + folie ppf'), a Rido AI przygotuje atrakcyjny opis...",
+      "descHint": "Wpisz kilka słów o swojej działalności i kliknij <strong>Generuj Rido AI</strong> — AI stworzy gotowy opis.",
+      "phoneRequired": "Telefon *",
+      "email": "E-mail",
+      "cityRequired": "Miasto *",
+      "postalCode": "Kod pocztowy",
+      "address": "Adres",
+      "addressPlaceholder": "ul. Przykładowa 1",
+      "nip": "NIP",
+      "companyLogo": "Logo firmy",
+      "logoPreviewAlt": "Podgląd logo",
+      "logoDropzone": "Przeciągnij i upuść lub kliknij aby wybrać",
+      "logoFormats": "PNG, JPG do 5 MB",
+      "activateProfile": "Aktywuj profil"
     }
   },
   "leads": {
@@ -1783,6 +1852,104 @@
       "partsCount_few": "{{count}} części",
       "partsCount_many": "{{count}} części",
       "partsCount_other": "{{count}} części"
+    },
+    "dashboard": {
+      "home": "Pulpit",
+      "comingSoon": "Wkrótce",
+      "tiles": {
+        "zlecenia": "Zlecenia",
+        "zadania": "Zadania",
+        "terminarz": "Terminarz",
+        "zakupy": "Zakupy",
+        "sprzedaz": "Sprzedaż",
+        "towary": "Towary",
+        "klienci": "Klienci",
+        "pojazdy": "Pojazdy",
+        "raporty": "Raporty",
+        "magazyn": "Magazyn",
+        "przechowalnia": "Przechowalnia",
+        "daneNaprawcze": "Dane naprawcze",
+        "pracownicy": "Pracownicy",
+        "stanowiska": "Stanowiska",
+        "ustawienia": "Ustawienia"
+      },
+      "freeTrialBadge": "14 dni za darmo — bez zobowiązań",
+      "heroTitle": "Warsztat & Auto — wszystko w jednym miejscu",
+      "heroSubtitle": "Zarządzaj zleceniami, klientami, pojazdami, magazynem i fakturami. Oszczędzaj czas i zwiększ zyski dzięki automatyzacji i AI.",
+      "features": {
+        "orders": {
+          "title": "Zlecenia i harmonogram",
+          "desc": "Twórz zlecenia, przypisuj mechaników, śledź postęp napraw w czasie rzeczywistym."
+        },
+        "warehouse": {
+          "title": "Magazyn i zakupy",
+          "desc": "Kontroluj stany magazynowe, zamawiaj części, automatycznie aktualizuj ilości z faktur."
+        },
+        "invoices": {
+          "title": "Faktury i KSeF",
+          "desc": "Wystawiaj faktury VAT, wysyłaj do KSeF, automatyczny odczyt faktur zakupowych AI."
+        },
+        "clients": {
+          "title": "Klienci i pojazdy",
+          "desc": "Baza klientów z historią napraw i powiązanymi pojazdami. Szybkie wyszukiwanie."
+        },
+        "reports": {
+          "title": "Raporty i marża",
+          "desc": "Analiza przychodów, kosztów i marży na żywo. Wykresy i eksport do PDF."
+        },
+        "ai": {
+          "title": "AI doradca",
+          "desc": "Sztuczna inteligencja pomaga w wycenach, odczytuje faktury i sugeruje optymalizacje."
+        }
+      },
+      "pricing": {
+        "title": "Wybierz plan dla siebie",
+        "startFree": "Zacznij za darmo",
+        "choosePlan": "Wybierz plan",
+        "plans": {
+          "start": {
+            "badge": "Darmowy",
+            "f1": "20 zleceń/mc",
+            "f2": "Klienci + pojazdy",
+            "f3": "Terminarz",
+            "f4": "Zdjęcia przy przyjęciu",
+            "f5": "10 sprawdzeń VIN",
+            "f6": "3 pytania AI/mc"
+          },
+          "warsztat": {
+            "badge": "Najpopularniejszy",
+            "f1": "Zlecenia bez limitu",
+            "f2": "Magazyn + przechowalnia",
+            "f3": "Sprzedaż + faktury",
+            "f4": "Raporty + marża live",
+            "f5": "KSeF basic",
+            "f6": "20 pytań AI/mc"
+          },
+          "pro": {
+            "badge": "Pro",
+            "f1": "Dane naprawcze (TecRMI)",
+            "f2": "Czas pracy mechanika",
+            "f3": "50 pytań AI/mc",
+            "f4": "KSeF pełny + wysyłka",
+            "f5": "Zaawansowane raporty",
+            "f6": "Priorytetowy support"
+          },
+          "ai": {
+            "badge": "AI Business",
+            "f1": "Księgowość AI",
+            "f2": "30 faktur/mc auto-odczyt",
+            "f3": "Doradca podatkowy AI",
+            "f4": "Nieograniczone AI",
+            "f5": "KSeF monitor + alerty",
+            "f6": "Dedykowany opiekun"
+          }
+        }
+      },
+      "error": "Błąd: {{message}}",
+      "stations": {
+        "title": "Stanowiska warsztatowe",
+        "desc": "Stanowiska (np. Myjnia, Geometria, Wulkanizacja) działają jak statusy zleceń. Przypisz pracowników — gdy zlecenie trafi na stanowisko, otrzymają powiadomienie i SMS."
+      }
     }
   }
 }

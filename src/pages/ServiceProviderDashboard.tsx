@@ -179,7 +179,7 @@ export default function ServiceProviderDashboard() {
   const generateProviderDescription = useCallback(async () => {
     const input = activationForm.description.trim();
     if (!input) {
-      toast.error('Najpierw napisz krótko czym się zajmujesz');
+      toast.error(t('sp.activation.writeFirst'));
       return;
     }
 
@@ -207,27 +207,27 @@ export default function ServiceProviderDashboard() {
 
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || payload?.error) {
-        throw new Error(payload?.error || 'Błąd generowania opisu');
+        throw new Error(payload?.error || t('sp.activation.descGenError'));
       }
 
       if (payload?.description) {
         setActivationForm(prev => ({ ...prev, description: payload.description }));
-        toast.success('Opis wygenerowany przez AI');
+        toast.success(t('sp.activation.descGenerated'));
         return;
       }
 
-      throw new Error('AI nie zwróciło opisu');
+      throw new Error(t('sp.activation.aiNoDesc'));
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
-        toast.error('Generowanie trwało zbyt długo. Spróbuj ponownie za chwilę.');
+        toast.error(t('sp.activation.genTimeout'));
       } else {
-        toast.error(error instanceof Error ? error.message : 'Błąd połączenia z AI');
+        toast.error(error instanceof Error ? error.message : t('sp.activation.aiConnError'));
       }
     } finally {
       window.clearTimeout(timeoutId);
       setGeneratingDescription(false);
     }
-  }, [activationForm, serviceCategories]);
+  }, [activationForm, serviceCategories, t]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -518,7 +518,7 @@ export default function ServiceProviderDashboard() {
     if (!editingService?.photos) return;
     const next = editingService.photos.filter((_, i) => i !== idx);
     updateExistingPhotos(next);
-    toast.success('Usunięto zdjęcie');
+    toast.success(t('sp.services.photoDeleted'));
   };
 
   const moveExistingPhoto = (idx: number, dir: -1 | 1) => {
@@ -534,14 +534,14 @@ export default function ServiceProviderDashboard() {
     if (!editingService?.photos || idx === 0) return;
     const next = [editingService.photos[idx], ...editingService.photos.filter((_, i) => i !== idx)];
     updateExistingPhotos(next);
-    toast.success('Ustawiono jako główne');
+    toast.success(t('sp.services.photoSetMain'));
   };
 
   const handleActivateProfile = async () => {
     if (!providerId) return;
     const { company_name, description, company_phone, company_city, category_id } = activationForm;
     if (!company_name.trim() || !description.trim() || !company_phone.trim() || !company_city.trim() || !category_id) {
-      toast.error('Uzupełnij wszystkie wymagane pola: nazwa firmy, opis, telefon, miasto i kategoria');
+      toast.error(t('sp.activation.fillRequired'));
       return;
     }
     setActivationSaving(true);
@@ -551,7 +551,7 @@ export default function ServiceProviderDashboard() {
         const ext = coverImageFile.name.split('.').pop();
         const path = `providers/${providerId}/logo-${Date.now()}.${ext}`;
         const { error: uploadError } = await supabase.storage.from('documents').upload(path, coverImageFile, { upsert: true });
-        if (uploadError) throw new Error('Błąd wgrywania logo: ' + uploadError.message);
+        if (uploadError) throw new Error(t('sp.activation.logoUploadError') + ': ' + uploadError.message);
         const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path);
         coverUrl = urlData.publicUrl;
       }
@@ -574,9 +574,9 @@ export default function ServiceProviderDashboard() {
       setProviderStatus('active');
       clearActivationDraft();
       setActivationDialog(false);
-      toast.success('Profil aktywowany! Twoje usługi są teraz widoczne w portalu.');
+      toast.success(t('sp.activation.profileActivated'));
     } catch (err: any) {
-      toast.error('Błąd aktywacji: ' + (err?.message || ''));
+      toast.error(t('sp.activation.activationError') + ': ' + (err?.message || ''));
     } finally {
       setActivationSaving(false);
     }
@@ -610,7 +610,7 @@ export default function ServiceProviderDashboard() {
               variant="ghost"
               size="icon"
               onClick={() => navigate('/warsztat/sms')}
-              title="Centrum SMS"
+              title={t('sp.smsCenter')}
               className="text-primary hover:bg-primary/10 relative"
             >
               <MessageSquare className="h-5 w-5" />
@@ -682,7 +682,7 @@ export default function ServiceProviderDashboard() {
           {primaryTabs.includes('workspace') && (
             <TabsTrigger value="workspace">
               <Briefcase className="h-4 w-4 mr-1.5" />
-              Workspace
+              {t('sp.tabs.workspace')}
             </TabsTrigger>
           )}
           {features.website_builder_enabled && primaryTabs.includes('website') && (
@@ -701,9 +701,9 @@ export default function ServiceProviderDashboard() {
             const TAB_LABELS: Record<string, string> = {
               dashboard: t('sp.tabs.dashboard'), services: t('sp.tabs.services'),
               workshop: t('sp.tabs.workshop'), accounting: t('sp.tabs.accounting'),
-              calendar: t('sp.tabs.calendar'), leads: 'Leady',
-              ads: 'Reklamy', 'ai-agent': t('sp.tabs.aiAgent'),
-              account: t('sp.tabs.selectModule'), workspace: 'Workspace',
+              calendar: t('sp.tabs.calendar'), leads: t('sp.tabs.leads'),
+              ads: t('sp.tabs.ads'), 'ai-agent': t('sp.tabs.aiAgent'),
+              account: t('sp.tabs.selectModule'), workspace: t('sp.tabs.workspace'),
               website: t('sp.tabs.website'), settings: t('sp.tabs.settings'),
             };
             const nonPrimaryTabs = SERVICE_PROVIDER_TAB_ORDER.filter(
@@ -775,12 +775,12 @@ export default function ServiceProviderDashboard() {
                   <div className="flex items-center gap-3 flex-1">
                     <AlertCircle className="h-8 w-8 text-primary flex-shrink-0" />
                     <div>
-                      <p className="font-semibold text-foreground">Twój profil nie jest jeszcze aktywny w portalu</p>
-                      <p className="text-sm text-muted-foreground">Uzupełnij dane firmy, opis i zdjęcie — Twoje usługi będą wtedy widoczne publicznie w odpowiedniej kategorii.</p>
+                      <p className="font-semibold text-foreground">{t('sp.activation.bannerTitle')}</p>
+                      <p className="text-sm text-muted-foreground">{t('sp.activation.bannerDesc')}</p>
                     </div>
                   </div>
                   <Button onClick={() => setActivationDialog(true)} className="gap-2 flex-shrink-0">
-                    <ShieldCheck className="h-4 w-4" /> Aktywuj konto
+                    <ShieldCheck className="h-4 w-4" /> {t('sp.activation.activateAccount')}
                   </Button>
                 </CardContent>
               </Card>
@@ -791,20 +791,20 @@ export default function ServiceProviderDashboard() {
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-2">
                     <Globe className="h-4 w-4 text-primary" />
-                    Widoczność karty na portalu usług
+                    {t('sp.visibility.title')}
                   </CardTitle>
                   <CardDescription>
-                    Zarządzaj kiedy Twoja karta jest widoczna w wyszukiwarce usług oraz w jakiej kategorii się pojawia.
+                    {t('sp.visibility.desc')}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex items-center justify-between gap-4 p-3 rounded-lg border bg-muted/30">
                     <div className="flex-1">
-                      <Label className="text-sm font-medium">Karta aktywna w portalu</Label>
+                      <Label className="text-sm font-medium">{t('sp.visibility.cardActive')}</Label>
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {isProfileActive
-                          ? 'Karta jest publicznie widoczna w portalu usług.'
-                          : 'Karta jest ukryta — klienci nie zobaczą Twoich usług.'}
+                          ? t('sp.visibility.cardVisibleDesc')
+                          : t('sp.visibility.cardHiddenDesc')}
                       </p>
                     </div>
                     <Switch
@@ -817,13 +817,13 @@ export default function ServiceProviderDashboard() {
                           .eq('id', providerId);
                         if (error) { toast.error(error.message); return; }
                         setProviderStatus(newStatus);
-                        toast.success(checked ? 'Karta widoczna w portalu' : 'Karta ukryta');
+                        toast.success(checked ? t('sp.visibility.toastVisible') : t('sp.visibility.toastHidden'));
                       }}
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-sm">Kategoria główna na portalu</Label>
+                    <Label className="text-sm">{t('sp.visibility.mainCategory')}</Label>
                     <Select
                       value={activationForm.category_id || ''}
                       onValueChange={async (val) => {
@@ -833,11 +833,11 @@ export default function ServiceProviderDashboard() {
                           .eq('id', providerId);
                         if (error) { toast.error(error.message); return; }
                         setActivationForm(p => ({ ...p, category_id: val }));
-                        toast.success('Kategoria zaktualizowana');
+                        toast.success(t('sp.visibility.categoryUpdated'));
                       }}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Wybierz kategorię" />
+                        <SelectValue placeholder={t('sp.activation.selectCategory')} />
                       </SelectTrigger>
                       <SelectContent>
                         {serviceCategories.map((c: any) => (
@@ -846,20 +846,20 @@ export default function ServiceProviderDashboard() {
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-muted-foreground">
-                      Decyduje w której grupie i kategorii pojawi się Twoja karta (np. Auto → Warsztaty samochodowe).
+                      {t('sp.visibility.categoryHint')}
                     </p>
                   </div>
 
                   <div className="flex flex-wrap gap-2 pt-2">
                     <Button variant="outline" size="sm" onClick={() => setActivationDialog(true)} className="gap-2">
-                      <Edit className="h-3.5 w-3.5" /> Edytuj opis i dane firmy
+                      <Edit className="h-3.5 w-3.5" /> {t('sp.visibility.editCompanyData')}
                     </Button>
                     <Button variant="outline" size="sm" onClick={() => { setMediaModalTab('logo'); setMediaModalOpen(true); }} className="gap-2">
-                      <ImageIcon className="h-3.5 w-3.5" /> Logo i zdjęcie tła
+                      <ImageIcon className="h-3.5 w-3.5" /> {t('sp.visibility.logoAndCover')}
                     </Button>
                     {isProfileActive && (
                       <Button variant="outline" size="sm" onClick={() => window.open(`/uslugi/uslugodawca/${providerId}`, '_blank')} className="gap-2">
-                        <Globe className="h-3.5 w-3.5" /> Zobacz moją kartę
+                        <Globe className="h-3.5 w-3.5" /> {t('sp.visibility.viewMyCard')}
                       </Button>
                     )}
                   </div>
@@ -870,7 +870,7 @@ export default function ServiceProviderDashboard() {
             {isProfileActive && (
               <div className="flex items-center gap-2 text-sm text-green-600">
                 <CheckCircle2 className="h-4 w-4" />
-                <span>Profil aktywny — Twoje usługi są widoczne w portalu</span>
+                <span>{t('sp.visibility.profileActive')}</span>
               </div>
             )}
             <div className="flex items-center justify-start">
@@ -963,16 +963,16 @@ export default function ServiceProviderDashboard() {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label>Czas trwania usługi (min, opcjonalnie)</Label>
+                    <Label>{t('sp.services.durationLabel')}</Label>
                     <Input
                       type="number"
                       min="0"
                       step="15"
                       value={serviceForm.duration_minutes}
                       onChange={e => setServiceForm(p => ({ ...p, duration_minutes: e.target.value }))}
-                      placeholder="np. 60"
+                      placeholder={t('sp.services.durationPlaceholder')}
                     />
-                    <p className="text-xs text-muted-foreground">Pozostaw puste, jeśli nie chcesz pokazywać czasu na karcie usługi.</p>
+                    <p className="text-xs text-muted-foreground">{t('sp.services.durationHint')}</p>
                   </div>
                   <div className="space-y-2">
                     <Label>{t('sp.services.category')}</Label>
@@ -1006,26 +1006,26 @@ export default function ServiceProviderDashboard() {
                     {/* Istniejące zdjęcia — usuwanie / przesuwanie / ustawianie głównego */}
                     {editingService?.photos && editingService.photos.length > 0 && (
                       <div className="space-y-1">
-                        <p className="text-xs text-muted-foreground">Pierwsze zdjęcie jest <strong>główne</strong> (widoczne jako miniatura).</p>
+                        <p className="text-xs text-muted-foreground" dangerouslySetInnerHTML={{ __html: t('sp.services.firstPhotoMain') }} />
                         <div className="flex gap-2 flex-wrap">
                           {editingService.photos.map((url, i) => (
                             <div key={url + i} className="relative group h-20 w-20">
-                              <img src={url} className="h-20 w-20 object-cover rounded border" alt={`Zdjęcie ${i + 1}`} />
+                              <img src={url} className="h-20 w-20 object-cover rounded border" alt={t('sp.services.photoAlt', { index: i + 1 })} />
                               {i === 0 && (
-                                <span className="absolute top-0 left-0 bg-primary text-primary-foreground text-[9px] px-1 rounded-tl rounded-br">GŁÓWNE</span>
+                                <span className="absolute top-0 left-0 bg-primary text-primary-foreground text-[9px] px-1 rounded-tl rounded-br">{t('sp.services.mainBadge')}</span>
                               )}
                               <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-0.5 rounded">
                                 {i !== 0 && (
-                                  <button onClick={() => setMainExistingPhoto(i)} title="Ustaw jako główne"
+                                  <button onClick={() => setMainExistingPhoto(i)} title={t('sp.services.setAsMain')}
                                     className="bg-white/90 text-foreground rounded p-0.5 hover:bg-white">
                                     <Star className="h-3 w-3" />
                                   </button>
                                 )}
-                                <button onClick={() => moveExistingPhoto(i, -1)} disabled={i === 0} title="W lewo"
+                                <button onClick={() => moveExistingPhoto(i, -1)} disabled={i === 0} title={t('sp.services.moveLeft')}
                                   className="bg-white/90 text-foreground rounded px-1 text-xs hover:bg-white disabled:opacity-30">←</button>
-                                <button onClick={() => moveExistingPhoto(i, 1)} disabled={i === editingService.photos.length - 1} title="W prawo"
+                                <button onClick={() => moveExistingPhoto(i, 1)} disabled={i === editingService.photos.length - 1} title={t('sp.services.moveRight')}
                                   className="bg-white/90 text-foreground rounded px-1 text-xs hover:bg-white disabled:opacity-30">→</button>
-                                <button onClick={() => removeExistingPhoto(i)} title="Usuń"
+                                <button onClick={() => removeExistingPhoto(i)} title={t('common.delete')}
                                   className="bg-destructive text-destructive-foreground rounded p-0.5 hover:opacity-80">
                                   <Trash2 className="h-3 w-3" />
                                 </button>
@@ -1072,23 +1072,23 @@ export default function ServiceProviderDashboard() {
                 <DialogHeader>
                   <DialogTitle className="flex items-center gap-2">
                     <ShieldCheck className="h-5 w-5 text-primary" />
-                    Aktywuj profil usługodawcy
+                    {t('sp.activation.dialogTitle')}
                   </DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
-                  <p className="text-sm text-muted-foreground">Uzupełnij dane — po aktywacji Twoja firma i usługi będą widoczne publicznie w portalu.</p>
+                  <p className="text-sm text-muted-foreground">{t('sp.activation.dialogDesc')}</p>
                   <div className="space-y-2">
-                    <Label>Nazwa firmy * <span className="text-xs text-muted-foreground">(pełna, prawna)</span></Label>
-                    <Input value={activationForm.company_name} onChange={e => setActivationForm(p => ({ ...p, company_name: e.target.value }))} placeholder="Np. Auto Serwis Kowalski sp. z o.o." />
+                    <Label>{t('sp.activation.companyName')} <span className="text-xs text-muted-foreground">{t('sp.activation.companyNameHint')}</span></Label>
+                    <Input value={activationForm.company_name} onChange={e => setActivationForm(p => ({ ...p, company_name: e.target.value }))} placeholder={t('sp.activation.companyNamePlaceholder')} />
                   </div>
                   <div className="space-y-2">
-                    <Label>Nazwa skrócona <span className="text-xs text-muted-foreground">(wyświetlana na karcie publicznej)</span></Label>
-                    <Input value={activationForm.short_name} onChange={e => setActivationForm(p => ({ ...p, short_name: e.target.value }))} placeholder="Np. Auto Kowalski" />
+                    <Label>{t('sp.activation.shortName')} <span className="text-xs text-muted-foreground">{t('sp.activation.shortNameHint')}</span></Label>
+                    <Input value={activationForm.short_name} onChange={e => setActivationForm(p => ({ ...p, short_name: e.target.value }))} placeholder={t('sp.activation.shortNamePlaceholder')} />
                   </div>
                   <div className="space-y-2">
-                    <Label>Kategoria główna *</Label>
+                    <Label>{t('sp.activation.mainCategoryRequired')}</Label>
                     <Select value={activationForm.category_id} onValueChange={v => setActivationForm(p => ({ ...p, category_id: v }))}>
-                      <SelectTrigger><SelectValue placeholder="Wybierz kategorię" /></SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder={t('sp.activation.selectCategory')} /></SelectTrigger>
                       <SelectContent>
                         {serviceCategories.map(cat => (
                           <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
@@ -1098,7 +1098,7 @@ export default function ServiceProviderDashboard() {
                   </div>
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <Label>Opis firmy *</Label>
+                      <Label>{t('sp.activation.companyDescRequired')}</Label>
                       <Button
                         type="button"
                         variant="outline"
@@ -1110,49 +1110,47 @@ export default function ServiceProviderDashboard() {
                         {generatingDescription
                           ? <div className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
                           : <span>✨</span>}
-                        Generuj Rido AI
+                        {t('sp.activation.generateRidoAi')}
                       </Button>
                     </div>
                     <Textarea
                       rows={4}
                       value={activationForm.description}
                       onChange={e => setActivationForm(p => ({ ...p, description: e.target.value }))}
-                      placeholder="Opisz krótko czym się zajmujesz (np. 'warsztat BMW + detailing + folie ppf'), a Rido AI przygotuje atrakcyjny opis..."
+                      placeholder={t('sp.activation.descPlaceholder')}
                     />
-                    <p className="text-xs text-muted-foreground">
-                      Wpisz kilka słów o swojej działalności i kliknij <strong>Generuj Rido AI</strong> — AI stworzy gotowy opis.
-                    </p>
+                    <p className="text-xs text-muted-foreground" dangerouslySetInnerHTML={{ __html: t('sp.activation.descHint') }} />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Telefon *</Label>
+                      <Label>{t('sp.activation.phoneRequired')}</Label>
                       <Input value={activationForm.company_phone} onChange={e => setActivationForm(p => ({ ...p, company_phone: e.target.value }))} placeholder="+48..." />
                     </div>
                     <div className="space-y-2">
-                      <Label>E-mail</Label>
+                      <Label>{t('sp.activation.email')}</Label>
                       <Input value={activationForm.company_email} onChange={e => setActivationForm(p => ({ ...p, company_email: e.target.value }))} placeholder="kontakt@firma.pl" />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Miasto *</Label>
+                      <Label>{t('sp.activation.cityRequired')}</Label>
                       <Input value={activationForm.company_city} onChange={e => setActivationForm(p => ({ ...p, company_city: e.target.value }))} placeholder="Warszawa" />
                     </div>
                     <div className="space-y-2">
-                      <Label>Kod pocztowy</Label>
+                      <Label>{t('sp.activation.postalCode')}</Label>
                       <Input value={activationForm.company_postal_code} onChange={e => setActivationForm(p => ({ ...p, company_postal_code: e.target.value }))} placeholder="00-000" />
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label>Adres</Label>
-                    <Input value={activationForm.company_address} onChange={e => setActivationForm(p => ({ ...p, company_address: e.target.value }))} placeholder="ul. Przykładowa 1" />
+                    <Label>{t('sp.activation.address')}</Label>
+                    <Input value={activationForm.company_address} onChange={e => setActivationForm(p => ({ ...p, company_address: e.target.value }))} placeholder={t('sp.activation.addressPlaceholder')} />
                   </div>
                   <div className="space-y-2">
-                    <Label>NIP</Label>
+                    <Label>{t('sp.activation.nip')}</Label>
                     <Input value={activationForm.company_nip} onChange={e => setActivationForm(p => ({ ...p, company_nip: e.target.value }))} placeholder="1234567890" />
                   </div>
                   <div className="space-y-2">
-                    <Label>Logo firmy</Label>
+                    <Label>{t('sp.activation.companyLogo')}</Label>
                     <div
                       className={`relative border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${
                         coverImageFile ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50 hover:bg-muted/50'
@@ -1179,7 +1177,7 @@ export default function ServiceProviderDashboard() {
                         <div className="flex items-center gap-3">
                           <img
                             src={URL.createObjectURL(coverImageFile)}
-                            alt="Logo preview"
+                            alt={t('sp.activation.logoPreviewAlt')}
                             className="h-12 w-12 object-contain rounded border"
                           />
                           <div className="text-left flex-1 min-w-0">
@@ -1198,18 +1196,18 @@ export default function ServiceProviderDashboard() {
                         </div>
                       ) : (
                         <div className="py-2">
-                          <p className="text-sm text-muted-foreground">Przeciągnij i upuść lub kliknij aby wybrać</p>
-                          <p className="text-xs text-muted-foreground mt-1">PNG, JPG do 5 MB</p>
+                          <p className="text-sm text-muted-foreground">{t('sp.activation.logoDropzone')}</p>
+                          <p className="text-xs text-muted-foreground mt-1">{t('sp.activation.logoFormats')}</p>
                         </div>
                       )}
                     </div>
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setActivationDialog(false)}>Anuluj</Button>
+                  <Button variant="outline" onClick={() => setActivationDialog(false)}>{t('sp.services.cancel')}</Button>
                   <Button onClick={handleActivateProfile} disabled={activationSaving} className="gap-2">
                     {activationSaving ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" /> : <ShieldCheck className="h-4 w-4" />}
-                    Aktywuj profil
+                    {t('sp.activation.activateProfile')}
                   </Button>
                 </DialogFooter>
               </DialogContent>

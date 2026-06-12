@@ -910,12 +910,81 @@
         "opony": "Lốp / Vá lốp",
         "diagnostyka": "Chẩn đoán",
         "inne": "Khác"
-      }
+      },
+      "durationLabel": "Thời lượng dịch vụ (phút, tùy chọn)",
+      "durationPlaceholder": "vd: 60",
+      "durationHint": "Để trống nếu bạn không muốn hiển thị thời lượng trên thẻ dịch vụ.",
+      "photoDeleted": "Đã xóa ảnh",
+      "photoSetMain": "Đã đặt làm ảnh chính",
+      "firstPhotoMain": "Ảnh đầu tiên là ảnh <strong>chính</strong> (hiển thị làm hình thu nhỏ).",
+      "photoAlt": "Ảnh {{index}}",
+      "mainBadge": "CHÍNH",
+      "setAsMain": "Đặt làm ảnh chính",
+      "moveLeft": "Sang trái",
+      "moveRight": "Sang phải"
     },
     "calendar": {
       "calendar": "Lịch",
       "bookings": "Đặt chỗ",
       "noBookings": "Không có đặt chỗ nào đang hoạt động"
+    },
+    "smsCenter": "Trung tâm SMS",
+    "visibility": {
+      "title": "Hiển thị thẻ trên cổng dịch vụ",
+      "desc": "Quản lý thời điểm thẻ của bạn hiển thị trong tìm kiếm dịch vụ và xuất hiện ở danh mục nào.",
+      "cardActive": "Thẻ đang hoạt động trên cổng",
+      "cardVisibleDesc": "Thẻ hiển thị công khai trên cổng dịch vụ.",
+      "cardHiddenDesc": "Thẻ đang ẩn — khách hàng sẽ không thấy dịch vụ của bạn.",
+      "toastVisible": "Thẻ hiển thị trên cổng",
+      "toastHidden": "Thẻ đã ẩn",
+      "mainCategory": "Danh mục chính trên cổng",
+      "categoryUpdated": "Đã cập nhật danh mục",
+      "categoryHint": "Quyết định thẻ của bạn xuất hiện ở nhóm và danh mục nào (vd: Ô tô → Xưởng sửa xe).",
+      "editCompanyData": "Chỉnh sửa mô tả và thông tin công ty",
+      "logoAndCover": "Logo và ảnh bìa",
+      "viewMyCard": "Xem thẻ của tôi",
+      "profileActive": "Hồ sơ đang hoạt động — dịch vụ của bạn hiển thị trên cổng"
+    },
+    "activation": {
+      "writeFirst": "Trước tiên hãy viết ngắn gọn bạn làm gì",
+      "descGenError": "Lỗi tạo mô tả",
+      "descGenerated": "Mô tả được tạo bởi AI",
+      "aiNoDesc": "AI không trả về mô tả",
+      "genTimeout": "Quá trình tạo mất quá lâu. Vui lòng thử lại sau giây lát.",
+      "aiConnError": "Lỗi kết nối AI",
+      "fillRequired": "Điền tất cả các trường bắt buộc: tên công ty, mô tả, điện thoại, thành phố và danh mục",
+      "logoUploadError": "Lỗi tải lên logo",
+      "profileActivated": "Đã kích hoạt hồ sơ! Dịch vụ của bạn hiện hiển thị trên cổng.",
+      "activationError": "Lỗi kích hoạt",
+      "bannerTitle": "Hồ sơ của bạn chưa hoạt động trên cổng",
+      "bannerDesc": "Hoàn tất thông tin công ty, mô tả và ảnh — dịch vụ của bạn sẽ hiển thị công khai ở đúng danh mục.",
+      "activateAccount": "Kích hoạt tài khoản",
+      "dialogTitle": "Kích hoạt hồ sơ nhà cung cấp dịch vụ",
+      "dialogDesc": "Hoàn tất thông tin — sau khi kích hoạt, công ty và dịch vụ của bạn sẽ hiển thị công khai trên cổng.",
+      "companyName": "Tên công ty *",
+      "companyNameHint": "(đầy đủ, pháp lý)",
+      "companyNamePlaceholder": "Vd: Công ty Dịch vụ Ô tô ABC",
+      "shortName": "Tên viết tắt",
+      "shortNameHint": "(hiển thị trên thẻ công khai)",
+      "shortNamePlaceholder": "Vd: Auto ABC",
+      "mainCategoryRequired": "Danh mục chính *",
+      "selectCategory": "Chọn danh mục",
+      "companyDescRequired": "Mô tả công ty *",
+      "generateRidoAi": "Tạo bằng Rido AI",
+      "descPlaceholder": "Mô tả ngắn gọn bạn làm gì (vd: 'xưởng BMW + detailing + phim ppf') và Rido AI sẽ tạo mô tả hấp dẫn...",
+      "descHint": "Nhập vài từ về hoạt động của bạn và nhấp <strong>Tạo bằng Rido AI</strong> — AI sẽ tạo mô tả hoàn chỉnh.",
+      "phoneRequired": "Điện thoại *",
+      "email": "Email",
+      "cityRequired": "Thành phố *",
+      "postalCode": "Mã bưu điện",
+      "address": "Địa chỉ",
+      "addressPlaceholder": "Số 1 Phố Ví Dụ",
+      "nip": "NIP",
+      "companyLogo": "Logo công ty",
+      "logoPreviewAlt": "Xem trước logo",
+      "logoDropzone": "Kéo và thả hoặc nhấp để chọn",
+      "logoFormats": "PNG, JPG tối đa 5 MB",
+      "activateProfile": "Kích hoạt hồ sơ"
     }
   },
   "featured": {
@@ -1651,6 +1720,104 @@
       "sendForAcceptance": "Gửi để duyệt",
       "pointsProgress": "{{done}} / {{total}} điểm",
       "partsCount_other": "{{count}} phụ tùng"
+    },
+    "dashboard": {
+      "home": "Bảng điều khiển",
+      "comingSoon": "Sắp ra mắt",
+      "tiles": {
+        "zlecenia": "Đơn hàng",
+        "zadania": "Công việc",
+        "terminarz": "Lịch",
+        "zakupy": "Mua hàng",
+        "sprzedaz": "Bán hàng",
+        "towary": "Hàng hóa",
+        "klienci": "Khách hàng",
+        "pojazdy": "Phương tiện",
+        "raporty": "Báo cáo",
+        "magazyn": "Kho",
+        "przechowalnia": "Lưu kho",
+        "daneNaprawcze": "Dữ liệu sửa chữa",
+        "pracownicy": "Nhân viên",
+        "stanowiska": "Vị trí làm việc",
+        "ustawienia": "Cài đặt"
+      },
+      "freeTrialBadge": "14 ngày miễn phí — không ràng buộc",
+      "heroTitle": "Xưởng & Ô tô — tất cả trong một nơi",
+      "heroSubtitle": "Quản lý đơn hàng, khách hàng, phương tiện, kho và hóa đơn. Tiết kiệm thời gian và tăng lợi nhuận nhờ tự động hóa và AI.",
+      "features": {
+        "orders": {
+          "title": "Đơn hàng và lịch trình",
+          "desc": "Tạo đơn hàng, phân công thợ máy, theo dõi tiến độ sửa chữa theo thời gian thực."
+        },
+        "warehouse": {
+          "title": "Kho và mua hàng",
+          "desc": "Kiểm soát tồn kho, đặt phụ tùng, tự động cập nhật số lượng từ hóa đơn."
+        },
+        "invoices": {
+          "title": "Hóa đơn và KSeF",
+          "desc": "Xuất hóa đơn VAT, gửi đến KSeF, AI tự động đọc hóa đơn mua hàng."
+        },
+        "clients": {
+          "title": "Khách hàng và phương tiện",
+          "desc": "Cơ sở dữ liệu khách hàng kèm lịch sử sửa chữa và phương tiện liên kết. Tìm kiếm nhanh."
+        },
+        "reports": {
+          "title": "Báo cáo và biên lợi nhuận",
+          "desc": "Phân tích doanh thu, chi phí và biên lợi nhuận trực tiếp. Biểu đồ và xuất PDF."
+        },
+        "ai": {
+          "title": "Cố vấn AI",
+          "desc": "Trí tuệ nhân tạo hỗ trợ báo giá, đọc hóa đơn và đề xuất tối ưu hóa."
+        }
+      },
+      "pricing": {
+        "title": "Chọn gói phù hợp với bạn",
+        "startFree": "Bắt đầu miễn phí",
+        "choosePlan": "Chọn gói",
+        "plans": {
+          "start": {
+            "badge": "Miễn phí",
+            "f1": "20 đơn/tháng",
+            "f2": "Khách hàng + phương tiện",
+            "f3": "Lịch",
+            "f4": "Ảnh khi tiếp nhận",
+            "f5": "10 lần kiểm tra VIN",
+            "f6": "3 câu hỏi AI/tháng"
+          },
+          "warsztat": {
+            "badge": "Phổ biến nhất",
+            "f1": "Đơn hàng không giới hạn",
+            "f2": "Kho + lưu kho",
+            "f3": "Bán hàng + hóa đơn",
+            "f4": "Báo cáo + biên lợi nhuận trực tiếp",
+            "f5": "KSeF cơ bản",
+            "f6": "20 câu hỏi AI/tháng"
+          },
+          "pro": {
+            "badge": "Pro",
+            "f1": "Dữ liệu sửa chữa (TecRMI)",
+            "f2": "Thời gian làm việc của thợ máy",
+            "f3": "50 câu hỏi AI/tháng",
+            "f4": "KSeF đầy đủ + gửi",
+            "f5": "Báo cáo nâng cao",
+            "f6": "Hỗ trợ ưu tiên"
+          },
+          "ai": {
+            "badge": "AI Business",
+            "f1": "Kế toán AI",
+            "f2": "30 hóa đơn/tháng tự động đọc",
+            "f3": "Cố vấn thuế AI",
+            "f4": "AI không giới hạn",
+            "f5": "Giám sát KSeF + cảnh báo",
+            "f6": "Quản lý chuyên trách"
+          }
+        }
+      },
+      "error": "Lỗi: {{message}}",
+      "stations": {
+        "title": "Vị trí làm việc của xưởng",
+        "desc": "Vị trí (vd: Rửa xe, Cân chỉnh góc lái, Dịch vụ lốp) hoạt động như trạng thái đơn hàng. Phân công nhân viên — khi đơn hàng đến một vị trí, họ nhận được thông báo và SMS."
+      }
     }
   }
 }
