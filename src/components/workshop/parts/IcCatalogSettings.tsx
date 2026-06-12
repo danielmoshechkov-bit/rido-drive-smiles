@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, CheckCircle2, XCircle, TestTube, Info, RefreshCw, Save } from 'lucide-react';
 import { useIcCatalogIntegration, useUpsertIcCatalogIntegration, useIcCatalogSync } from '@/hooks/useWorkshopParts';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 import { formatDistanceToNow } from 'date-fns';
 import { pl } from 'date-fns/locale';
 
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export function IcCatalogSettings({ providerId }: Props) {
+  const { t } = useTranslation();
   const { data: integration, isLoading } = useIcCatalogIntegration(providerId);
   const upsert = useUpsertIcCatalogIntegration();
   const icSync = useIcCatalogSync();
@@ -32,7 +34,7 @@ export function IcCatalogSettings({ providerId }: Props) {
 
   const handleSave = async () => {
     if (!clientId.trim() || !clientSecret.trim()) {
-      toast.error('Podaj Client ID i Client Secret');
+      toast.error(t('workshop.parts.icCatalog.provideCredentials'));
       return;
     }
     await upsert.mutateAsync({
@@ -44,7 +46,7 @@ export function IcCatalogSettings({ providerId }: Props) {
 
   const handleTest = async () => {
     if (!clientId.trim() || !clientSecret.trim()) {
-      toast.error('Najpierw zapisz dane dostępowe');
+      toast.error(t('workshop.parts.icCatalog.saveCredentialsFirst'));
       return;
     }
     setIsTesting(true);
@@ -59,9 +61,9 @@ export function IcCatalogSettings({ providerId }: Props) {
         action: 'test_connection',
         provider_id: providerId,
       });
-      toast.success(res.message || 'Połączenie OK!');
+      toast.success(res.message || t('workshop.parts.icCatalog.connectionOk'));
     } catch (err: any) {
-      toast.error(err.message || 'Błąd połączenia');
+      toast.error(err.message || t('workshop.parts.icCatalog.connectionError'));
     } finally {
       setIsTesting(false);
     }
@@ -74,9 +76,9 @@ export function IcCatalogSettings({ providerId }: Props) {
         action: 'sync_catalog',
         provider_id: providerId,
       });
-      toast.success(`Zsynchronizowano ${res.synced || 0} produktów`);
+      toast.success(t('workshop.parts.icCatalog.syncedProducts', { count: res.synced || 0 }));
     } catch (err: any) {
-      toast.error(err.message || 'Błąd synchronizacji');
+      toast.error(err.message || t('workshop.parts.icCatalog.syncError'));
     } finally {
       setIsSyncing(false);
     }
@@ -86,7 +88,7 @@ export function IcCatalogSettings({ providerId }: Props) {
     return (
       <div className="flex items-center gap-2 py-4">
         <Loader2 className="h-4 w-4 animate-spin" />
-        <span className="text-sm text-muted-foreground">Ładowanie ustawień IC...</span>
+        <span className="text-sm text-muted-foreground">{t('workshop.parts.icCatalog.loading')}</span>
       </div>
     );
   }
@@ -96,13 +98,13 @@ export function IcCatalogSettings({ providerId }: Props) {
   return (
     <div className="space-y-4 border rounded-lg p-4">
       <h3 className="text-sm font-semibold flex items-center gap-2">
-        🔧 Inter Cars — katalog do wyszukiwania po nazwie
+        🔧 {t('workshop.parts.icCatalog.title')}
       </h3>
 
       <div className="flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-800 px-3 py-2">
         <Info className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
         <p className="text-xs text-blue-700 dark:text-blue-300">
-          Każdy warsztat łączy się własnym kontem Inter Cars. Twoje dane dostępowe są bezpieczne i używane tylko do pobierania katalogu części.
+          {t('workshop.parts.icCatalog.privacyNote')}
         </p>
       </div>
 
@@ -112,7 +114,7 @@ export function IcCatalogSettings({ providerId }: Props) {
           <Input
             value={clientId}
             onChange={e => setClientId(e.target.value)}
-            placeholder="Uzyskasz od opiekuna handlowego IC lub icapi@intercars.eu"
+            placeholder={t('workshop.parts.icCatalog.clientIdPlaceholder')}
             className="text-xs"
           />
         </div>
@@ -122,7 +124,7 @@ export function IcCatalogSettings({ providerId }: Props) {
             type="password"
             value={clientSecret}
             onChange={e => setClientSecret(e.target.value)}
-            placeholder="Tajny klucz OAuth2"
+            placeholder={t('workshop.parts.icCatalog.clientSecretPlaceholder')}
             className="text-xs"
           />
         </div>
@@ -131,16 +133,16 @@ export function IcCatalogSettings({ providerId }: Props) {
       <div className="flex flex-wrap gap-2">
         <Button variant="outline" size="sm" onClick={handleTest} disabled={isTesting}>
           {isTesting ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <TestTube className="h-3 w-3 mr-1" />}
-          Testuj połączenie
+          {t('workshop.parts.wholesaler.testConnection')}
         </Button>
         <Button size="sm" onClick={handleSave} disabled={upsert.isPending}>
           {upsert.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Save className="h-3 w-3 mr-1" />}
-          Zapisz
+          {t('common.save')}
         </Button>
         {status === 'ok' && (
           <Button variant="outline" size="sm" onClick={handleSyncCatalog} disabled={isSyncing}>
             {isSyncing ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}
-            Synchronizuj katalog
+            {t('workshop.parts.icCatalog.syncCatalog')}
           </Button>
         )}
       </div>
@@ -150,25 +152,25 @@ export function IcCatalogSettings({ providerId }: Props) {
         {status === 'ok' && (
           <>
             <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-              <CheckCircle2 className="h-3 w-3 mr-1" /> Połączono
+              <CheckCircle2 className="h-3 w-3 mr-1" /> {t('workshop.parts.wholesaler.connected')}
             </Badge>
             <span className="text-muted-foreground">
-              Katalog: {integration?.catalog_size || 0} produktów
+              {t('workshop.parts.icCatalog.catalogCount', { count: integration?.catalog_size || 0 })}
               {integration?.last_sync_at && (
-                <> · Ostatnia sync: {formatDistanceToNow(new Date(integration.last_sync_at), { addSuffix: true, locale: pl })}</>
+                <> · {t('workshop.parts.icCatalog.lastSync')}: {formatDistanceToNow(new Date(integration.last_sync_at), { addSuffix: true, locale: pl })}</>
               )}
             </span>
           </>
         )}
         {status === 'syncing' && (
           <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-            <Loader2 className="h-3 w-3 mr-1 animate-spin" /> Synchronizacja w toku...
+            <Loader2 className="h-3 w-3 mr-1 animate-spin" /> {t('workshop.parts.icCatalog.syncing')}
           </Badge>
         )}
         {status === 'error' && (
           <>
             <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
-              <XCircle className="h-3 w-3 mr-1" /> Błąd
+              <XCircle className="h-3 w-3 mr-1" /> {t('workshop.parts.wholesaler.error')}
             </Badge>
             {integration?.last_sync_error && (
               <span className="text-red-600 text-[10px]">{integration.last_sync_error}</span>
@@ -177,7 +179,7 @@ export function IcCatalogSettings({ providerId }: Props) {
         )}
         {status === 'pending' && (
           <Badge variant="outline" className="bg-muted text-muted-foreground">
-            Nie skonfigurowano
+            {t('workshop.parts.icCatalog.notConfigured')}
           </Badge>
         )}
       </div>

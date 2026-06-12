@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2, CheckCircle2, XCircle, TestTube, Settings2, Lock, Info } from 'lucide-react';
 import { usePartsIntegrations, useUpsertPartsIntegration, usePartsApi } from '@/hooks/useWorkshopParts';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   providerId: string;
@@ -28,7 +29,7 @@ interface IntegrationForm {
 }
 
 const HART_BRANCHES = [
-  { id: '', label: 'Domyślny (przypisany do konta)' },
+  { id: '', labelKey: 'workshop.parts.wholesaler.branchDefault' },
   { id: '1', label: 'Centrala Opole - HUB' },
   { id: '2', label: 'Wrocław' },
   { id: '3', label: 'Bytom' },
@@ -55,19 +56,20 @@ const HART_BRANCHES = [
 ];
 
 const WHOLESALERS = [
-  { code: 'hart', name: 'Hart', logo: '🟡', url: 'hartphp.com.pl', active: true, helpText: 'Skontaktuj się z przedstawicielem handlowym Hart aby uzyskać login i hasło API.' },
-  { code: 'auto_partner', name: 'Auto Partner', logo: '🔵', url: 'autopartner.dev', active: true, helpText: 'Skontaktuj się z opiekunem Auto Partner aby uzyskać Client Code, WS Password i Client Password.' },
-  { code: 'inter_cars', name: 'Inter Cars', logo: '🔴', url: 'intercars.com.pl', active: true, helpText: 'Skontaktuj się z przedstawicielem Inter Cars aby uzyskać Client ID, Client Secret oraz numer odbiorcy (kh_kod).' },
-  { code: 'gordon', name: 'Gordon', logo: '🟢', url: 'gordon.com.pl', active: false, helpText: '' },
-  { code: 'motorro', name: 'Motorro', logo: '🟠', url: 'motorro.eu', active: false, helpText: '' },
-  { code: 'feber', name: 'Feber', logo: '🟣', url: 'feber.com.pl', active: false, helpText: '' },
-  { code: 'elit', name: 'Elit Polska', logo: '🔷', url: 'elit.pl', active: false, helpText: '' },
-  { code: 'autos', name: 'Autos', logo: '⬛', url: 'autos.pl', active: false, helpText: '' },
-  { code: 'stahlgruber', name: 'Stahlgruber', logo: '⚪', url: 'stahlgruber.pl', active: false, helpText: '' },
-  { code: 'autodoc_pro', name: 'Autodoc Pro', logo: '🔘', url: 'autodoc-pro.com', active: false, helpText: '' },
+  { code: 'hart', name: 'Hart', logo: '🟡', url: 'hartphp.com.pl', active: true, helpKey: 'workshop.parts.wholesaler.hart.help' },
+  { code: 'auto_partner', name: 'Auto Partner', logo: '🔵', url: 'autopartner.dev', active: true, helpKey: 'workshop.parts.wholesaler.autoPartner.help' },
+  { code: 'inter_cars', name: 'Inter Cars', logo: '🔴', url: 'intercars.com.pl', active: true, helpKey: 'workshop.parts.wholesaler.interCars.help' },
+  { code: 'gordon', name: 'Gordon', logo: '🟢', url: 'gordon.com.pl', active: false, helpKey: '' },
+  { code: 'motorro', name: 'Motorro', logo: '🟠', url: 'motorro.eu', active: false, helpKey: '' },
+  { code: 'feber', name: 'Feber', logo: '🟣', url: 'feber.com.pl', active: false, helpKey: '' },
+  { code: 'elit', name: 'Elit Polska', logo: '🔷', url: 'elit.pl', active: false, helpKey: '' },
+  { code: 'autos', name: 'Autos', logo: '⬛', url: 'autos.pl', active: false, helpKey: '' },
+  { code: 'stahlgruber', name: 'Stahlgruber', logo: '⚪', url: 'stahlgruber.pl', active: false, helpKey: '' },
+  { code: 'autodoc_pro', name: 'Autodoc Pro', logo: '🔘', url: 'autodoc-pro.com', active: false, helpKey: '' },
 ];
 
 export function WholesalerIntegrationsSettings({ providerId }: Props) {
+  const { t } = useTranslation();
   const { data: integrations = [], isLoading } = usePartsIntegrations(providerId);
   const upsertIntegration = useUpsertPartsIntegration();
   const partsApi = usePartsApi();
@@ -137,10 +139,10 @@ export function WholesalerIntegrationsSettings({ providerId }: Props) {
         supplier_code: code,
       });
       setTestResults(prev => ({ ...prev, [code]: 'ok' }));
-      toast.success(`Połączenie z ${forms[code]?.supplier_name || code} działa!`);
+      toast.success(t('workshop.parts.wholesaler.connectionWorks', { supplier: forms[code]?.supplier_name || code }));
     } catch (err: any) {
       setTestResults(prev => ({ ...prev, [code]: 'error' }));
-      toast.error(`Błąd: ${err.message || 'Sprawdź dane API'}`);
+      toast.error(t('workshop.parts.wholesaler.errorPrefix', { error: err.message || t('workshop.parts.wholesaler.checkApiData') }));
     } finally {
       setTestingSupplier(null);
     }
@@ -153,9 +155,9 @@ export function WholesalerIntegrationsSettings({ providerId }: Props) {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold text-foreground">Hurtownie motoryzacyjne</h3>
+        <h3 className="text-lg font-semibold text-foreground">{t('workshop.parts.wholesaler.title')}</h3>
         <p className="text-sm text-muted-foreground mt-1">
-          Kliknij na kafelek aby skonfigurować połączenie z hurtownią.
+          {t('workshop.parts.wholesaler.subtitle')}
         </p>
       </div>
 
@@ -189,23 +191,23 @@ export function WholesalerIntegrationsSettings({ providerId }: Props) {
 
               {isComingSoon && (
                 <Badge variant="secondary" className="text-[9px] px-2 py-0.5 gap-0.5">
-                  <Lock className="h-2.5 w-2.5" /> Wkrótce
+                  <Lock className="h-2.5 w-2.5" /> {t('workshop.dashboard.comingSoon')}
                 </Badge>
               )}
 
               {!isComingSoon && status === 'ok' && (
                 <Badge className="bg-green-500/90 hover:bg-green-500 text-white text-[9px] px-2 py-0.5 gap-0.5">
-                  <CheckCircle2 className="h-2.5 w-2.5" /> Połączono
+                  <CheckCircle2 className="h-2.5 w-2.5" /> {t('workshop.parts.wholesaler.connected')}
                 </Badge>
               )}
               {!isComingSoon && status === 'error' && (
                 <Badge variant="destructive" className="text-[9px] px-2 py-0.5 gap-0.5">
-                  <XCircle className="h-2.5 w-2.5" /> Błąd
+                  <XCircle className="h-2.5 w-2.5" /> {t('workshop.parts.wholesaler.error')}
                 </Badge>
               )}
               {!isComingSoon && !status && (
                 <Badge variant="outline" className="text-[9px] px-2 py-0.5 gap-0.5">
-                  <Settings2 className="h-2.5 w-2.5" /> Konfiguruj
+                  <Settings2 className="h-2.5 w-2.5" /> {t('workshop.parts.wholesaler.configure')}
                 </Badge>
               )}
             </div>
@@ -218,10 +220,10 @@ export function WholesalerIntegrationsSettings({ providerId }: Props) {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-lg">
-              <span className="text-2xl">🟡</span> Hart — Konfiguracja API
+              <span className="text-2xl">🟡</span> {t('workshop.parts.wholesaler.apiConfigTitle', { name: 'Hart' })}
             </DialogTitle>
             <DialogDescription className="text-xs">
-              {WHOLESALERS[0].helpText}
+              {t(WHOLESALERS[0].helpKey)}
             </DialogDescription>
           </DialogHeader>
           {forms.hart && (
@@ -231,106 +233,106 @@ export function WholesalerIntegrationsSettings({ providerId }: Props) {
                 <div className="flex items-start gap-1.5">
                   <Info className="h-3.5 w-3.5 mt-0.5 shrink-0 text-primary" />
                   <div>
-                    <p className="font-medium text-foreground">Dane dostępowe Hart REST API</p>
-                    <p className="mt-1">Od Hart otrzymujesz 4 dane:</p>
+                    <p className="font-medium text-foreground">{t('workshop.parts.wholesaler.hart.infoTitle')}</p>
+                    <p className="mt-1">{t('workshop.parts.wholesaler.hart.infoIntro')}</p>
                     <ul className="list-disc ml-4 mt-1 space-y-0.5">
-                      <li><strong>username</strong> (np. IK59) → wpisz w pole <em>Username</em></li>
-                      <li><strong>password</strong> → wpisz w pole <em>Hasło API</em></li>
-                      <li><strong>identyfikator</strong> (np. 78430) — zapamiętaj, nie jest potrzebny do API</li>
-                      <li><strong>kode</strong> — to Twój kod klienta, nie jest wymagany w API</li>
+                      <li><strong>username</strong> {t('workshop.parts.wholesaler.hart.itemUsername')} <em>Username</em></li>
+                      <li><strong>password</strong> {t('workshop.parts.wholesaler.hart.itemPassword')} <em>{t('workshop.parts.wholesaler.apiPassword')}</em></li>
+                      <li><strong>{t('workshop.parts.wholesaler.hart.identifier')}</strong> {t('workshop.parts.wholesaler.hart.itemIdentifier')}</li>
+                      <li><strong>kode</strong> {t('workshop.parts.wholesaler.hart.itemKode')}</li>
                     </ul>
                     <p className="mt-1.5">
-                      Produkcja: <code className="text-[10px] bg-muted px-1 rounded">restapi.hartphp.com.pl</code><br />
-                      Sandbox: <code className="text-[10px] bg-muted px-1 rounded">sandbox.restapi.hartphp.com.pl</code>
+                      {t('workshop.parts.wholesaler.production')}: <code className="text-[10px] bg-muted px-1 rounded">restapi.hartphp.com.pl</code><br />
+                      {t('workshop.parts.wholesaler.sandbox')}: <code className="text-[10px] bg-muted px-1 rounded">sandbox.restapi.hartphp.com.pl</code>
                     </p>
-                    <p className="mt-1 text-amber-600">⚠️ Sandbox i produkcja mają <strong>oddzielne</strong> username/hasło!</p>
+                    <p className="mt-1 text-amber-600">⚠️ {t('workshop.parts.wholesaler.hart.separateCredsPrefix')} <strong>{t('workshop.parts.wholesaler.hart.separateWord')}</strong> {t('workshop.parts.wholesaler.hart.separateCredsSuffix')}</p>
                   </div>
                 </div>
               </div>
 
               <div className="flex items-center justify-between">
-                <Label className="text-sm font-medium">Integracja aktywna</Label>
+                <Label className="text-sm font-medium">{t('workshop.parts.wholesaler.integrationActive')}</Label>
                 <Switch checked={forms.hart.is_enabled} onCheckedChange={(v) => updateForm('hart', { is_enabled: v })} />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs">Username (login) <span className="text-destructive">*</span></Label>
+                  <Label className="text-xs">{t('workshop.parts.wholesaler.usernameLogin')} <span className="text-destructive">*</span></Label>
                   <Input
                     value={forms.hart.api_username}
                     onChange={(e) => updateForm('hart', { api_username: e.target.value })}
-                    placeholder="np. IK59"
+                    placeholder={t('workshop.parts.wholesaler.hart.usernamePlaceholder')}
                   />
-                  <p className="text-[10px] text-muted-foreground">Username otrzymany od Hart</p>
+                  <p className="text-[10px] text-muted-foreground">{t('workshop.parts.wholesaler.hart.usernameHint')}</p>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Hasło API <span className="text-destructive">*</span></Label>
+                  <Label className="text-xs">{t('workshop.parts.wholesaler.apiPassword')} <span className="text-destructive">*</span></Label>
                   <Input
                     type="password"
                     value={forms.hart.api_password}
                     onChange={(e) => updateForm('hart', { api_password: e.target.value })}
                     placeholder="••••••••"
                   />
-                  <p className="text-[10px] text-muted-foreground">Password otrzymany od Hart</p>
+                  <p className="text-[10px] text-muted-foreground">{t('workshop.parts.wholesaler.hart.passwordHint')}</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs">Środowisko</Label>
+                  <Label className="text-xs">{t('workshop.parts.wholesaler.environment')}</Label>
                   <Select value={forms.hart.environment} onValueChange={(v) => updateForm('hart', { environment: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="sandbox">🧪 Sandbox (test)</SelectItem>
-                      <SelectItem value="production">🚀 Produkcja</SelectItem>
+                      <SelectItem value="sandbox">🧪 {t('workshop.parts.wholesaler.envSandbox')}</SelectItem>
+                      <SelectItem value="production">🚀 {t('workshop.parts.wholesaler.envProduction')}</SelectItem>
                     </SelectContent>
                   </Select>
-                  <p className="text-[10px] text-muted-foreground">Zacznij od sandbox</p>
+                  <p className="text-[10px] text-muted-foreground">{t('workshop.parts.wholesaler.startWithSandbox')}</p>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Magazyn (BranchId)</Label>
+                  <Label className="text-xs">{t('workshop.parts.wholesaler.warehouseBranchId')}</Label>
                   <Select
                     value={forms.hart.default_branch_id || ''}
                     onValueChange={(v) => updateForm('hart', { default_branch_id: v })}
                   >
-                    <SelectTrigger><SelectValue placeholder="Domyślny" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={t('workshop.parts.wholesaler.branchDefaultShort')} /></SelectTrigger>
                     <SelectContent className="max-h-[300px]">
                       {HART_BRANCHES.map((b) => (
                         <SelectItem key={b.id} value={b.id || 'default'}>
-                          {b.id ? `${b.id} — ${b.label}` : b.label}
+                          {b.id ? `${b.id} — ${b.label}` : t(b.labelKey)}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  <p className="text-[10px] text-muted-foreground">Najbliższy magazyn Hart</p>
+                  <p className="text-[10px] text-muted-foreground">{t('workshop.parts.wholesaler.hart.nearestWarehouse')}</p>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Marża sprzedaży %</Label>
+                  <Label className="text-xs">{t('workshop.parts.wholesaler.salesMargin')}</Label>
                   <Input
                     type="number"
                     value={forms.hart.sales_margin_percent}
                     onChange={(e) => updateForm('hart', { sales_margin_percent: Number(e.target.value) })}
                   />
-                  <p className="text-[10px] text-muted-foreground">Narzut na cenę hurtową</p>
+                  <p className="text-[10px] text-muted-foreground">{t('workshop.parts.wholesaler.marginHint')}</p>
                 </div>
               </div>
 
               <div className="flex gap-2 pt-3 border-t">
                 <Button variant="outline" size="sm" onClick={() => testConnection('hart')} disabled={testingSupplier === 'hart' || !forms.hart.api_username || !forms.hart.api_password} className="gap-1.5">
                   {testingSupplier === 'hart' ? <Loader2 className="h-4 w-4 animate-spin" /> : <TestTube className="h-4 w-4" />}
-                  Testuj połączenie
+                  {t('workshop.parts.wholesaler.testConnection')}
                 </Button>
-                <Button size="sm" onClick={async () => { await saveIntegration('hart'); toast.success('Hart zapisany'); setOpenDialog(null); }} disabled={!forms.hart.api_username || !forms.hart.api_password}>
-                  Zapisz
+                <Button size="sm" onClick={async () => { await saveIntegration('hart'); toast.success(t('workshop.parts.wholesaler.savedToast', { name: 'Hart' })); setOpenDialog(null); }} disabled={!forms.hart.api_username || !forms.hart.api_password}>
+                  {t('common.save')}
                 </Button>
                 {testResults.hart === 'ok' && (
                   <span className="flex items-center gap-1 text-xs text-green-600 ml-auto">
-                    <CheckCircle2 className="h-3.5 w-3.5" /> Połączenie aktywne
+                    <CheckCircle2 className="h-3.5 w-3.5" /> {t('workshop.parts.wholesaler.connectionActive')}
                   </span>
                 )}
                 {testResults.hart === 'error' && (
                   <span className="flex items-center gap-1 text-xs text-destructive ml-auto">
-                    <XCircle className="h-3.5 w-3.5" /> Sprawdź dane
+                    <XCircle className="h-3.5 w-3.5" /> {t('workshop.parts.wholesaler.checkData')}
                   </span>
                 )}
               </div>
@@ -344,10 +346,10 @@ export function WholesalerIntegrationsSettings({ providerId }: Props) {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-lg">
-              <span className="text-2xl">🔵</span> Auto Partner — Konfiguracja API
+              <span className="text-2xl">🔵</span> {t('workshop.parts.wholesaler.apiConfigTitle', { name: 'Auto Partner' })}
             </DialogTitle>
             <DialogDescription className="text-xs">
-              {WHOLESALERS[1].helpText}
+              {t(WHOLESALERS[1].helpKey)}
             </DialogDescription>
           </DialogHeader>
           {forms.auto_partner && (
@@ -357,11 +359,11 @@ export function WholesalerIntegrationsSettings({ providerId }: Props) {
                 <div className="flex items-start gap-1.5">
                   <Info className="h-3.5 w-3.5 mt-0.5 shrink-0 text-primary" />
                   <div>
-                    <p className="font-medium text-foreground">Jak uzyskać dane dostępowe?</p>
+                    <p className="font-medium text-foreground">{t('workshop.parts.wholesaler.howToGetCreds')}</p>
                     <ol className="list-decimal ml-4 mt-1 space-y-0.5">
-                      <li>Skontaktuj się z opiekunem handlowym Auto Partner</li>
-                      <li>Poproś o <strong>Client Code, WS Password i Client Password</strong></li>
-                      <li>Client Password podaj jako <strong>hash MD5</strong> (małe litery)</li>
+                      <li>{t('workshop.parts.wholesaler.autoPartner.step1')}</li>
+                      <li>{t('workshop.parts.wholesaler.autoPartner.step2Prefix')} <strong>Client Code, WS Password {t('workshop.parts.wholesaler.and')} Client Password</strong></li>
+                      <li>{t('workshop.parts.wholesaler.autoPartner.step3Prefix')} <strong>{t('workshop.parts.wholesaler.autoPartner.md5Hash')}</strong> {t('workshop.parts.wholesaler.autoPartner.step3Suffix')}</li>
                     </ol>
                     <p className="mt-1.5">
                       API: <code className="text-[10px] bg-muted px-1 rounded">customerapi.autopartner.dev</code>
@@ -371,58 +373,58 @@ export function WholesalerIntegrationsSettings({ providerId }: Props) {
               </div>
 
               <div className="flex items-center justify-between">
-                <Label className="text-sm font-medium">Integracja aktywna</Label>
+                <Label className="text-sm font-medium">{t('workshop.parts.wholesaler.integrationActive')}</Label>
                 <Switch checked={forms.auto_partner.is_enabled} onCheckedChange={(v) => updateForm('auto_partner', { is_enabled: v })} />
               </div>
               <div className="space-y-3">
                 <div className="space-y-1">
                   <Label className="text-xs">Client Code <span className="text-destructive">*</span></Label>
-                  <Input value={getExtraField('auto_partner', 'clientCode')} onChange={(e) => setExtraField('auto_partner', 'clientCode', e.target.value)} placeholder="np. 3282058" />
-                  <p className="text-[10px] text-muted-foreground">Numer klienta w systemie Auto Partner</p>
+                  <Input value={getExtraField('auto_partner', 'clientCode')} onChange={(e) => setExtraField('auto_partner', 'clientCode', e.target.value)} placeholder={t('workshop.parts.wholesaler.autoPartner.clientCodePlaceholder')} />
+                  <p className="text-[10px] text-muted-foreground">{t('workshop.parts.wholesaler.autoPartner.clientCodeHint')}</p>
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">WS Password <span className="text-destructive">*</span></Label>
                   <Input type="password" value={getExtraField('auto_partner', 'wsPassword')} onChange={(e) => setExtraField('auto_partner', 'wsPassword', e.target.value)} placeholder="••••••••" />
-                  <p className="text-[10px] text-muted-foreground">Hasło WebService od Auto Partner</p>
+                  <p className="text-[10px] text-muted-foreground">{t('workshop.parts.wholesaler.autoPartner.wsPasswordHint')}</p>
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Client Password (MD5) <span className="text-destructive">*</span></Label>
                   <Input type="password" value={getExtraField('auto_partner', 'clientPassword')} onChange={(e) => setExtraField('auto_partner', 'clientPassword', e.target.value)} placeholder="np. e10adc3949ba59abbe56..." />
-                  <p className="text-[10px] text-muted-foreground">Hash MD5 hasła klienta (małe litery, 32 znaki)</p>
+                  <p className="text-[10px] text-muted-foreground">{t('workshop.parts.wholesaler.autoPartner.clientPasswordHint')}</p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs">Środowisko</Label>
+                  <Label className="text-xs">{t('workshop.parts.wholesaler.environment')}</Label>
                   <Select value={forms.auto_partner.environment} onValueChange={(v) => updateForm('auto_partner', { environment: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="sandbox">🧪 Sandbox (test)</SelectItem>
-                      <SelectItem value="production">🚀 Produkcja</SelectItem>
+                      <SelectItem value="sandbox">🧪 {t('workshop.parts.wholesaler.envSandbox')}</SelectItem>
+                      <SelectItem value="production">🚀 {t('workshop.parts.wholesaler.envProduction')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Marża sprzedaży %</Label>
+                  <Label className="text-xs">{t('workshop.parts.wholesaler.salesMargin')}</Label>
                   <Input type="number" value={forms.auto_partner.sales_margin_percent} onChange={(e) => updateForm('auto_partner', { sales_margin_percent: Number(e.target.value) })} />
                 </div>
               </div>
               <div className="flex gap-2 pt-3 border-t">
                 <Button variant="outline" size="sm" onClick={() => testConnection('auto_partner')} disabled={testingSupplier === 'auto_partner' || !getExtraField('auto_partner', 'clientCode')} className="gap-1.5">
                   {testingSupplier === 'auto_partner' ? <Loader2 className="h-4 w-4 animate-spin" /> : <TestTube className="h-4 w-4" />}
-                  Testuj połączenie
+                  {t('workshop.parts.wholesaler.testConnection')}
                 </Button>
-                <Button size="sm" onClick={async () => { await saveIntegration('auto_partner'); toast.success('Auto Partner zapisany'); setOpenDialog(null); }} disabled={!getExtraField('auto_partner', 'clientCode')}>
-                  Zapisz
+                <Button size="sm" onClick={async () => { await saveIntegration('auto_partner'); toast.success(t('workshop.parts.wholesaler.savedToast', { name: 'Auto Partner' })); setOpenDialog(null); }} disabled={!getExtraField('auto_partner', 'clientCode')}>
+                  {t('common.save')}
                 </Button>
                 {testResults.auto_partner === 'ok' && (
                   <span className="flex items-center gap-1 text-xs text-green-600 ml-auto">
-                    <CheckCircle2 className="h-3.5 w-3.5" /> Połączenie aktywne
+                    <CheckCircle2 className="h-3.5 w-3.5" /> {t('workshop.parts.wholesaler.connectionActive')}
                   </span>
                 )}
                 {testResults.auto_partner === 'error' && (
                   <span className="flex items-center gap-1 text-xs text-destructive ml-auto">
-                    <XCircle className="h-3.5 w-3.5" /> Sprawdź dane
+                    <XCircle className="h-3.5 w-3.5" /> {t('workshop.parts.wholesaler.checkData')}
                   </span>
                 )}
               </div>
@@ -436,10 +438,10 @@ export function WholesalerIntegrationsSettings({ providerId }: Props) {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-lg">
-              <span className="text-2xl">🔴</span> Inter Cars — Konfiguracja API
+              <span className="text-2xl">🔴</span> {t('workshop.parts.wholesaler.apiConfigTitle', { name: 'Inter Cars' })}
             </DialogTitle>
             <DialogDescription className="text-xs">
-              {WHOLESALERS.find(w => w.code === 'inter_cars')?.helpText}
+              {t(WHOLESALERS.find(w => w.code === 'inter_cars')?.helpKey || '')}
             </DialogDescription>
           </DialogHeader>
           {forms.inter_cars && (
@@ -448,12 +450,12 @@ export function WholesalerIntegrationsSettings({ providerId }: Props) {
                 <div className="flex items-start gap-1.5">
                   <Info className="h-3.5 w-3.5 mt-0.5 shrink-0 text-primary" />
                   <div>
-                    <p className="font-medium text-foreground">Jak uzyskać dane dostępowe?</p>
+                    <p className="font-medium text-foreground">{t('workshop.parts.wholesaler.howToGetCreds')}</p>
                     <ol className="list-decimal ml-4 mt-1 space-y-0.5">
-                      <li>Skontaktuj się z przedstawicielem Inter Cars</li>
-                      <li>Poproś o <strong>Client ID</strong> i <strong>Client Secret</strong> do WebAPI</li>
-                      <li>Podaj swój <strong>numer odbiorcy (kh_kod)</strong> np. 9AE06V</li>
-                      <li>Opcjonalnie podaj <strong>oddział</strong></li>
+                      <li>{t('workshop.parts.wholesaler.interCars.step1')}</li>
+                      <li>{t('workshop.parts.wholesaler.interCars.step2Prefix')} <strong>Client ID</strong> {t('workshop.parts.wholesaler.and')} <strong>Client Secret</strong> {t('workshop.parts.wholesaler.interCars.step2Suffix')}</li>
+                      <li>{t('workshop.parts.wholesaler.interCars.step3Prefix')} <strong>{t('workshop.parts.wholesaler.interCars.customerNumber')}</strong> {t('workshop.parts.wholesaler.interCars.step3Suffix')}</li>
+                      <li>{t('workshop.parts.wholesaler.interCars.step4Prefix')} <strong>{t('workshop.parts.wholesaler.interCars.branch')}</strong></li>
                     </ol>
                     <p className="mt-1.5">
                       API: <code className="text-[10px] bg-muted px-1 rounded">webapi.intercars.eu</code>
@@ -463,7 +465,7 @@ export function WholesalerIntegrationsSettings({ providerId }: Props) {
               </div>
 
               <div className="flex items-center justify-between">
-                <Label className="text-sm font-medium">Integracja aktywna</Label>
+                <Label className="text-sm font-medium">{t('workshop.parts.wholesaler.integrationActive')}</Label>
                 <Switch checked={forms.inter_cars.is_enabled} onCheckedChange={(v) => updateForm('inter_cars', { is_enabled: v })} />
               </div>
 
@@ -472,7 +474,7 @@ export function WholesalerIntegrationsSettings({ providerId }: Props) {
                   <div className="space-y-1">
                     <Label className="text-xs">Client ID <span className="text-destructive">*</span></Label>
                     <Input value={getExtraField('inter_cars', 'clientId')} onChange={(e) => setExtraField('inter_cars', 'clientId', e.target.value)} placeholder="np. isMb4_2m..." />
-                    <p className="text-[10px] text-muted-foreground">OAuth2 Client ID od Inter Cars</p>
+                    <p className="text-[10px] text-muted-foreground">{t('workshop.parts.wholesaler.interCars.clientIdHint')}</p>
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">Client Secret <span className="text-destructive">*</span></Label>
@@ -482,30 +484,30 @@ export function WholesalerIntegrationsSettings({ providerId }: Props) {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <Label className="text-xs">Nr odbiorcy (kh_kod) <span className="text-destructive">*</span></Label>
+                    <Label className="text-xs">{t('workshop.parts.wholesaler.interCars.customerNumberLabel')} <span className="text-destructive">*</span></Label>
                     <Input value={getExtraField('inter_cars', 'customerNumber')} onChange={(e) => setExtraField('inter_cars', 'customerNumber', e.target.value)} placeholder="np. 9AE06V" />
-                    <p className="text-[10px] text-muted-foreground">ID klienta w systemie IC</p>
+                    <p className="text-[10px] text-muted-foreground">{t('workshop.parts.wholesaler.interCars.customerNumberHint')}</p>
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Oddział</Label>
+                    <Label className="text-xs">{t('workshop.parts.wholesaler.interCars.branchLabel')}</Label>
                     <Input value={getExtraField('inter_cars', 'branch')} onChange={(e) => setExtraField('inter_cars', 'branch', e.target.value)} placeholder="np. MAT" />
-                    <p className="text-[10px] text-muted-foreground">Kod oddziału (opcjonalnie)</p>
+                    <p className="text-[10px] text-muted-foreground">{t('workshop.parts.wholesaler.interCars.branchHint')}</p>
                   </div>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs">Środowisko</Label>
+                  <Label className="text-xs">{t('workshop.parts.wholesaler.environment')}</Label>
                   <Select value={forms.inter_cars.environment} onValueChange={(v) => updateForm('inter_cars', { environment: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="production">🚀 Produkcja</SelectItem>
+                      <SelectItem value="production">🚀 {t('workshop.parts.wholesaler.envProduction')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Marża sprzedaży %</Label>
+                  <Label className="text-xs">{t('workshop.parts.wholesaler.salesMargin')}</Label>
                   <Input type="number" value={forms.inter_cars.sales_margin_percent} onChange={(e) => updateForm('inter_cars', { sales_margin_percent: Number(e.target.value) })} />
                 </div>
               </div>
@@ -513,19 +515,19 @@ export function WholesalerIntegrationsSettings({ providerId }: Props) {
               <div className="flex gap-2 pt-3 border-t">
                 <Button variant="outline" size="sm" onClick={() => testConnection('inter_cars')} disabled={testingSupplier === 'inter_cars' || !getExtraField('inter_cars', 'clientId') || !getExtraField('inter_cars', 'clientSecret')} className="gap-1.5">
                   {testingSupplier === 'inter_cars' ? <Loader2 className="h-4 w-4 animate-spin" /> : <TestTube className="h-4 w-4" />}
-                  Testuj połączenie
+                  {t('workshop.parts.wholesaler.testConnection')}
                 </Button>
-                <Button size="sm" onClick={async () => { await saveIntegration('inter_cars'); toast.success('Inter Cars zapisany'); setOpenDialog(null); }} disabled={!getExtraField('inter_cars', 'clientId') || !getExtraField('inter_cars', 'clientSecret')}>
-                  Zapisz
+                <Button size="sm" onClick={async () => { await saveIntegration('inter_cars'); toast.success(t('workshop.parts.wholesaler.savedToast', { name: 'Inter Cars' })); setOpenDialog(null); }} disabled={!getExtraField('inter_cars', 'clientId') || !getExtraField('inter_cars', 'clientSecret')}>
+                  {t('common.save')}
                 </Button>
                 {testResults.inter_cars === 'ok' && (
                   <span className="flex items-center gap-1 text-xs text-green-600 ml-auto">
-                    <CheckCircle2 className="h-3.5 w-3.5" /> Połączenie aktywne
+                    <CheckCircle2 className="h-3.5 w-3.5" /> {t('workshop.parts.wholesaler.connectionActive')}
                   </span>
                 )}
                 {testResults.inter_cars === 'error' && (
                   <span className="flex items-center gap-1 text-xs text-destructive ml-auto">
-                    <XCircle className="h-3.5 w-3.5" /> Sprawdź dane
+                    <XCircle className="h-3.5 w-3.5" /> {t('workshop.parts.wholesaler.checkData')}
                   </span>
                 )}
               </div>
