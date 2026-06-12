@@ -13,6 +13,7 @@ import { Plus, ClipboardList, Loader2, Car, Users, Camera, X, MessageSquare, Ale
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   open: boolean;
@@ -23,15 +24,23 @@ interface Props {
 interface TaskPoint { text: string; }
 
 const PHOTO_SLOTS = [
-  { key: 'front', label: 'Przód' },
-  { key: 'back', label: 'Tył' },
-  { key: 'left', label: 'Lewy bok' },
-  { key: 'right', label: 'Prawy bok' },
-  { key: 'interior_front', label: 'Wnętrze przód' },
-  { key: 'interior_back', label: 'Wnętrze tył' },
+  { key: 'front', labelKey: 'workshop.newOrder.photoFront' },
+  { key: 'back', labelKey: 'workshop.newOrder.photoBack' },
+  { key: 'left', labelKey: 'workshop.newOrder.photoLeft' },
+  { key: 'right', labelKey: 'workshop.newOrder.photoRight' },
+  { key: 'interior_front', labelKey: 'workshop.newOrder.photoInteriorFront' },
+  { key: 'interior_back', labelKey: 'workshop.newOrder.photoInteriorBack' },
 ];
 
+// Fuel-level values are stored in DB (fuel_level) — keep literals stable; translate only for display.
 const fuelLevels = ['Rezerwa', '1/4', '1/2', '3/4', 'Pełny'];
+const FUEL_LEVEL_KEYS: Record<string, string> = {
+  'Rezerwa': 'workshop.newOrder.fuelReserve',
+  '1/4': 'workshop.newOrder.fuelQuarter',
+  '1/2': 'workshop.newOrder.fuelHalf',
+  '3/4': 'workshop.newOrder.fuelThreeQuarter',
+  'Pełny': 'workshop.newOrder.fuelFull',
+};
 
 const DEFAULT_CHECKLIST = {
   return_parts: false,
@@ -61,6 +70,7 @@ function toSmsPhone(raw: string): string {
 // (sequential per provider/month, fills gaps after deletes).
 
 export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const { data: clients = [] } = useWorkshopClients(providerId);
   const { data: vehicles = [] } = useWorkshopVehicles(providerId);
@@ -182,8 +192,8 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
 
   const validate = () => {
     const errs: Record<string, string> = {};
-    if (!vehicleId) errs.vehicle = 'Wybierz lub dodaj pojazd';
-    if (!taskPoints.some(p => p.text.trim())) errs.description = 'Dodaj przynajmniej jedno zadanie';
+    if (!vehicleId) errs.vehicle = t('workshop.newOrder.errorSelectVehicle');
+    if (!taskPoints.some(p => p.text.trim())) errs.description = t('workshop.newOrder.errorAddTask');
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -235,7 +245,8 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
         supabase.storage
           .from('workshop-order-photos')
           .getPublicUrl(storagePath);
-        const slotLabel = PHOTO_SLOTS.find(s => s.key === key)?.label || key;
+        const slotDef = PHOTO_SLOTS.find(s => s.key === key);
+        const slotLabel = slotDef ? t(slotDef.labelKey) : key;
         await (supabase as any).from('workshop_order_files').insert({
           order_id: order.id,
           file_name: `${slotLabel}.${ext}`,
@@ -269,7 +280,7 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
       if (sendMethod === 'sms' && phone) {
         const smsPhone = toSmsPhone(phone);
         if (!smsPhone || smsPhone === phone) {
-          throw new Error('Nieprawidłowy numer telefonu');
+          throw new Error(t('workshop.newOrder.invalidPhone'));
         }
 
         const veh = selectedVehicle;
@@ -297,16 +308,16 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
         });
         if (error) throw error;
         await qc.invalidateQueries({ queryKey: ['sms-credits'] });
-        toast.success(`SMS potwierdzenia wysłany na ${phone}`);
+        toast.success(t('workshop.newOrder.smsSentTo', { phone }));
       } else if (sendMethod === 'email' && email) {
-        toast.success(`E-mail potwierdzenia wysłany na ${email}`);
+        toast.success(t('workshop.newOrder.emailSentTo', { email }));
       } else {
-        toast.info('Brak danych kontaktowych — pomijam wysyłkę');
+        toast.info(t('workshop.newOrder.noContactData'));
       }
 
       resetForm(); onOpenChange(false);
     } catch (e: any) {
-      toast.error(`Błąd wysyłania SMS: ${e.message}`);
+      toast.error(t('workshop.newOrder.smsSendError', { error: e.message }));
     }
   };
 
@@ -334,29 +345,29 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                 <div className="mx-auto w-16 h-16 rounded-full bg-accent flex items-center justify-center">
                   <ClipboardList className="h-8 w-8 text-primary" />
                 </div>
-                <h3 className="text-xl font-bold">Zlecenie utworzone!</h3>
-                <p className="text-muted-foreground">Czy chcesz wysłać potwierdzenie przyjęcia pojazdu do klienta?</p>
+                <h3 className="text-xl font-bold">{t('workshop.newOrder.orderCreated')}</h3>
+                <p className="text-muted-foreground">{t('workshop.newOrder.sendConfirmationQuestion')}</p>
               </div>
               <div className="space-y-4">
-                <Label className="text-sm font-semibold">Sposób wysyłki</Label>
+                <Label className="text-sm font-semibold">{t('workshop.newOrder.sendMethod')}</Label>
                 <div className="flex gap-2 justify-center">
                   <Button variant={sendMethod === 'sms' ? 'default' : 'outline'} size="sm" onClick={() => setSendMethod('sms')} className="gap-2">
                     <Phone className="h-4 w-4" /> SMS
                   </Button>
                   <Button variant={sendMethod === 'email' ? 'default' : 'outline'} size="sm" onClick={() => setSendMethod('email')} className="gap-2">
-                    <Mail className="h-4 w-4" /> E-mail
+                    <Mail className="h-4 w-4" /> {t('workshop.newOrder.email')}
                   </Button>
                 </div>
                 {sendMethod === 'sms' && (
                   <div className="space-y-2">
                     {clientPhone ? (
-                      <p className="text-sm text-center">Na numer: <span className="font-semibold text-foreground">{clientPhone}</span></p>
+                      <p className="text-sm text-center">{t('workshop.newOrder.toNumber')} <span className="font-semibold text-foreground">{clientPhone}</span></p>
                     ) : (
                       <div className="space-y-1.5 max-w-sm mx-auto">
-                        <Label className="text-xs text-destructive font-medium">Brak numeru — wpisz ręcznie</Label>
+                        <Label className="text-xs text-destructive font-medium">{t('workshop.newOrder.noPhoneEnterManually')}</Label>
                         <div className="flex gap-2">
                           <span className="flex items-center px-3 border rounded-md bg-muted text-sm">+48</span>
-                          <Input value={manualPhone} onChange={e => setManualPhone(e.target.value)} placeholder="Numer telefonu" />
+                          <Input value={manualPhone} onChange={e => setManualPhone(e.target.value)} placeholder={t('workshop.newOrder.phonePlaceholder')} />
                         </div>
                       </div>
                     )}
@@ -365,21 +376,21 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                 {sendMethod === 'email' && (
                   <div className="space-y-2">
                     {clientEmail ? (
-                      <p className="text-sm text-center">Na adres: <span className="font-semibold text-foreground">{clientEmail}</span></p>
+                      <p className="text-sm text-center">{t('workshop.newOrder.toAddress')} <span className="font-semibold text-foreground">{clientEmail}</span></p>
                     ) : (
                       <div className="space-y-1.5 max-w-sm mx-auto">
-                        <Label className="text-xs text-destructive font-medium">Brak e-mail — wpisz ręcznie</Label>
-                        <Input type="email" value={manualEmail} onChange={e => setManualEmail(e.target.value)} placeholder="E-mail" />
+                        <Label className="text-xs text-destructive font-medium">{t('workshop.newOrder.noEmailEnterManually')}</Label>
+                        <Input type="email" value={manualEmail} onChange={e => setManualEmail(e.target.value)} placeholder={t('workshop.newOrder.email')} />
                       </div>
                     )}
                   </div>
                 )}
               </div>
               <div className="flex justify-center gap-3">
-                <Button variant="outline" onClick={handleSkip}>Nie, pomiń</Button>
+                <Button variant="outline" onClick={handleSkip}>{t('workshop.newOrder.noSkip')}</Button>
                 <Button onClick={handleSendConfirmation} className="gap-2" disabled={!currentContact}>
                   {sendMethod === 'sms' ? <MessageSquare className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
-                  {sendMethod === 'sms' ? 'Wyślij SMS' : 'Wyślij e-mail'}
+                  {sendMethod === 'sms' ? t('workshop.newOrder.sendSms') : t('workshop.newOrder.sendEmail')}
                 </Button>
               </div>
             </div>
@@ -387,7 +398,7 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
             <>
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
-                  <ClipboardList className="h-5 w-5" /> Przyjęcie pojazdu
+                  <ClipboardList className="h-5 w-5" /> {t('workshop.newOrder.title')}
                 </DialogTitle>
               </DialogHeader>
               <div className="space-y-6">
@@ -396,7 +407,7 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                   {/* Vehicle */}
                   <div className="space-y-2" ref={vehicleDropdownRef}>
                     <Label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                      Pojazd <span className="text-destructive">*</span>
+                      {t('workshop.newOrder.vehicle')} <span className="text-destructive">*</span>
                     </Label>
                     {vehicleId && selectedVehicle ? (
                       <div className="relative">
@@ -404,14 +415,14 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                           <Car className="h-4 w-4 text-primary flex-shrink-0" />
                           <div className="flex-1 min-w-0">
                             <div className="text-sm font-semibold truncate">{selectedVehicle.brand} {selectedVehicle.model}</div>
-                            <div className="text-xs text-muted-foreground">{selectedVehicle.plate || 'brak nr rej.'} {selectedVehicle.vin ? `• VIN: ${selectedVehicle.vin}` : ''}</div>
+                            <div className="text-xs text-muted-foreground">{selectedVehicle.plate || t('workshop.newOrder.noPlate')} {selectedVehicle.vin ? `• VIN: ${selectedVehicle.vin}` : ''}</div>
                           </div>
-                          <Button variant="ghost" size="sm" onClick={() => { setShowVehicleList(v => !v); qc.invalidateQueries({ queryKey: ['workshop-vehicles'] }); }}>Zmień</Button>
+                          <Button variant="ghost" size="sm" onClick={() => { setShowVehicleList(v => !v); qc.invalidateQueries({ queryKey: ['workshop-vehicles'] }); }}>{t('workshop.newOrder.change')}</Button>
                         </div>
                         {showVehicleList && (
                           <div className="absolute z-50 w-full mt-1 border-2 border-border rounded-lg bg-background shadow-xl max-h-60 overflow-y-auto">
                             <button className="w-full text-left px-3 py-2.5 hover:bg-accent text-sm flex items-center gap-2 border-b font-medium" onClick={() => { setShowVehicleList(false); setShowAddVehicle(true); }}>
-                              <Plus className="h-4 w-4 text-primary" /> Utwórz nowy pojazd
+                              <Plus className="h-4 w-4 text-primary" /> {t('workshop.newOrder.createNewVehicle')}
                             </button>
                             {filteredVehicles.map((v: any) => (
                               <button key={v.id} className="w-full text-left px-3 py-2.5 hover:bg-accent text-sm transition-colors" onClick={() => {
@@ -428,7 +439,7 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                                 </div>
                               </button>
                             ))}
-                            {filteredVehicles.length === 0 && <div className="px-3 py-3 text-sm text-muted-foreground text-center">Brak wyników</div>}
+                            {filteredVehicles.length === 0 && <div className="px-3 py-3 text-sm text-muted-foreground text-center">{t('workshop.newOrder.noResults')}</div>}
                           </div>
                         )}
                       </div>
@@ -438,14 +449,14 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                           value={vehicleSearch}
                           onChange={e => { setVehicleSearch(e.target.value); setShowVehicleList(true); }}
                           onClick={() => setShowVehicleList(true)}
-                          placeholder="Pojazd (np. rejestracja, marka...)"
+                          placeholder={t('workshop.newOrder.vehiclePlaceholder')}
                           className={errors.vehicle ? 'border-destructive' : ''}
                         />
                         {errors.vehicle && <p className="text-xs text-destructive mt-1 flex items-center gap-1"><AlertCircle className="h-3 w-3" /> {errors.vehicle}</p>}
                         {showVehicleList && (
                           <div className="absolute z-50 w-full mt-1 border-2 border-border rounded-lg bg-background shadow-xl max-h-60 overflow-y-auto">
                             <button className="w-full text-left px-3 py-2.5 hover:bg-accent text-sm flex items-center gap-2 border-b font-medium" onClick={() => { setShowVehicleList(false); setShowAddVehicle(true); }}>
-                              <Plus className="h-4 w-4 text-primary" /> Utwórz nowy pojazd
+                              <Plus className="h-4 w-4 text-primary" /> {t('workshop.newOrder.createNewVehicle')}
                             </button>
                             {filteredVehicles.map((v: any) => (
                               <button key={v.id} className="w-full text-left px-3 py-2.5 hover:bg-accent text-sm transition-colors" onClick={() => {
@@ -464,7 +475,7 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                             ))}
                             {filteredVehicles.length === 0 && (
                               <div className="px-3 py-3 text-sm text-muted-foreground text-center">
-                                Brak wyników
+                                {t('workshop.newOrder.noResults')}
                                 {vehicleSearch.trim().length >= 2 && (
                                   <button
                                     className="block w-full mt-2 px-3 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 text-sm"
@@ -491,13 +502,13 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                                         setVehicleSearch('');
                                         setErrors(e => { const { vehicle, ...rest } = e; return rest; });
                                         qc.invalidateQueries({ queryKey: ['workshop-vehicles'] });
-                                        toast.success('Pojazd dodany ręcznie');
+                                        toast.success(t('workshop.newOrder.vehicleAddedManually'));
                                       } catch (e: any) {
-                                        toast.error('Nie udało się dodać pojazdu: ' + e.message);
+                                        toast.error(t('workshop.newOrder.vehicleAddError', { error: e.message }));
                                       }
                                     }}
                                   >
-                                    + Dodaj „{vehicleSearch.trim()}" jako nowy pojazd
+                                    {t('workshop.newOrder.addAsNewVehicle', { name: vehicleSearch.trim() })}
                                   </button>
                                 )}
                               </div>
@@ -510,7 +521,7 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
 
                   {/* Client */}
                   <div className="space-y-2" ref={clientDropdownRef}>
-                    <Label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Klient</Label>
+                    <Label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">{t('workshop.newOrder.client')}</Label>
                     {clientId && selectedClient ? (
                       <div className="relative">
                         <div className="flex items-center gap-2 p-2.5 border-2 border-primary/30 rounded-lg bg-primary/5">
@@ -519,7 +530,7 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                             <div className="text-sm font-semibold truncate">{clientLabel}</div>
                             {selectedClient.phone && <div className="text-xs text-muted-foreground">{selectedClient.phone}</div>}
                           </div>
-                          <Button variant="ghost" size="sm" onClick={() => { setShowClientList(v => !v); setClientSearch(''); qc.invalidateQueries({ queryKey: ['workshop-clients'] }); }}>Zmień</Button>
+                          <Button variant="ghost" size="sm" onClick={() => { setShowClientList(v => !v); setClientSearch(''); qc.invalidateQueries({ queryKey: ['workshop-clients'] }); }}>{t('workshop.newOrder.change')}</Button>
                         </div>
                         {showClientList && (
                           <div className="absolute z-50 w-full mt-1 border-2 border-border rounded-lg bg-background shadow-xl max-h-72 overflow-hidden flex flex-col">
@@ -528,13 +539,13 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                                 autoFocus
                                 value={clientSearch}
                                 onChange={e => setClientSearch(e.target.value)}
-                                placeholder="Szukaj po imieniu, nazwisku, telefonie lub NIP…"
+                                placeholder={t('workshop.newOrder.clientSearchPlaceholder')}
                                 className="h-9"
                               />
                             </div>
                             <div className="overflow-y-auto">
                               <button className="w-full text-left px-3 py-2.5 hover:bg-accent text-sm flex items-center gap-2 border-b font-medium" onClick={() => { setShowClientList(false); setShowAddClient(true); }}>
-                                <Plus className="h-4 w-4 text-primary" /> Utwórz nowego klienta
+                                <Plus className="h-4 w-4 text-primary" /> {t('workshop.newOrder.createNewClient')}
                               </button>
                               {filteredClients.map((c: any) => (
                                 <button key={c.id} className="w-full text-left px-3 py-2.5 hover:bg-accent text-sm transition-colors" onClick={() => { setClientId(c.id); setCreatedClientData(null); setShowClientList(false); setClientSearch(''); }}>
@@ -543,13 +554,13 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                                     <div className="min-w-0">
                                       <div className="font-medium truncate">{c.client_type === 'company' ? c.company_name : `${c.first_name || ''} ${c.last_name || ''}`}</div>
                                       <div className="text-xs text-muted-foreground truncate">
-                                        {c.phone || ''}{c.nip ? ` · NIP: ${c.nip}` : ''}
+                                        {c.phone || ''}{c.nip ? ` · ${t('workshop.newOrder.nipLabel', { nip: c.nip })}` : ''}
                                       </div>
                                     </div>
                                   </div>
                                 </button>
                               ))}
-                              {filteredClients.length === 0 && <div className="px-3 py-3 text-sm text-muted-foreground text-center">Brak wyników</div>}
+                              {filteredClients.length === 0 && <div className="px-3 py-3 text-sm text-muted-foreground text-center">{t('workshop.newOrder.noResults')}</div>}
                             </div>
                           </div>
                         )}
@@ -560,12 +571,12 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                           value={clientSearch}
                           onChange={e => { setClientSearch(e.target.value); setShowClientList(true); }}
                           onFocus={() => setShowClientList(true)}
-                          placeholder="Wyszukaj klienta..."
+                          placeholder={t('workshop.newOrder.clientPlaceholder')}
                         />
                         {showClientList && (
                           <div className="absolute z-50 w-full mt-1 border-2 border-border rounded-lg bg-background shadow-xl max-h-60 overflow-y-auto">
                             <button className="w-full text-left px-3 py-2.5 hover:bg-accent text-sm flex items-center gap-2 border-b font-medium" onClick={() => { setShowClientList(false); setShowAddClient(true); }}>
-                              <Plus className="h-4 w-4 text-primary" /> Utwórz nowego klienta
+                              <Plus className="h-4 w-4 text-primary" /> {t('workshop.newOrder.createNewClient')}
                             </button>
                             {filteredClients.map((c: any) => (
                               <button key={c.id} className="w-full text-left px-3 py-2.5 hover:bg-accent text-sm transition-colors" onClick={() => { setClientId(c.id); setCreatedClientData(null); setShowClientList(false); setClientSearch(''); }}>
@@ -573,12 +584,12 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                                   <Users className="h-3.5 w-3.5 text-muted-foreground" />
                                   <div>
                                     <div className="font-medium">{c.client_type === 'company' ? c.company_name : `${c.first_name || ''} ${c.last_name || ''}`}</div>
-                                    {c.nip && <div className="text-xs text-muted-foreground">NIP: {c.nip}</div>}
+                                    {c.nip && <div className="text-xs text-muted-foreground">{t('workshop.newOrder.nipLabel', { nip: c.nip })}</div>}
                                   </div>
                                 </div>
                               </button>
                             ))}
-                            {filteredClients.length === 0 && <div className="px-3 py-3 text-sm text-muted-foreground text-center">Brak wyników</div>}
+                            {filteredClients.length === 0 && <div className="px-3 py-3 text-sm text-muted-foreground text-center">{t('workshop.newOrder.noResults')}</div>}
                           </div>
                         )}
                       </div>
@@ -589,40 +600,40 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                 {/* Mileage, Fuel, Notes */}
                 <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-medium">Przebieg</Label>
+                    <Label className="text-xs font-medium">{t('workshop.newOrder.mileage')}</Label>
                     <div className="flex gap-1">
                       <Input type="number" value={mileage} onChange={e => setMileage(e.target.value)} placeholder="km" />
                       <span className="flex items-center px-2 text-xs text-muted-foreground border rounded-md bg-muted">km</span>
                     </div>
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-medium">Poziom paliwa</Label>
+                    <Label className="text-xs font-medium">{t('workshop.newOrder.fuelLevel')}</Label>
                     <Select value={fuelLevel} onValueChange={setFuelLevel}>
-                      <SelectTrigger><SelectValue placeholder="Wybierz..." /></SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder={t('workshop.newOrder.selectPlaceholder')} /></SelectTrigger>
                       <SelectContent>
-                        {fuelLevels.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+                        {fuelLevels.map(f => <SelectItem key={f} value={f}>{t(FUEL_LEVEL_KEYS[f], { defaultValue: f })}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-medium">Uwagi klienta</Label>
-                    <Input value={clientNotes} onChange={e => setClientNotes(e.target.value)} placeholder="Dodatkowe uwagi..." />
+                    <Label className="text-xs font-medium">{t('workshop.newOrder.clientNotes')}</Label>
+                    <Input value={clientNotes} onChange={e => setClientNotes(e.target.value)} placeholder={t('workshop.newOrder.additionalNotesPlaceholder')} />
                   </div>
                 </div>
 
                 {stations.length > 0 && (
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-medium">Dział warsztatu</Label>
+                    <Label className="text-xs font-medium">{t('workshop.newOrder.department')}</Label>
                     <Select value={stationId || '__none__'} onValueChange={(v) => setStationId(v === '__none__' ? '' : v)}>
-                      <SelectTrigger><SelectValue placeholder="Wybierz dział..." /></SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder={t('workshop.newOrder.selectDepartment')} /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="__none__">— Bez działu —</SelectItem>
+                        <SelectItem value="__none__">{t('workshop.newOrder.noDepartment')}</SelectItem>
                         {stations.map((s: any) => (
                           <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    <p className="text-[10px] text-muted-foreground">Domyślnie zaznaczony ostatnio wybrany dział.</p>
+                    <p className="text-[10px] text-muted-foreground">{t('workshop.newOrder.departmentHint')}</p>
                   </div>
                 )}
 
@@ -630,7 +641,7 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                 {/* Task points */}
                 <div className="space-y-3">
                   <Label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                    Lista zadań do wykonania <span className="text-destructive">*</span>
+                    {t('workshop.newOrder.taskList')} <span className="text-destructive">*</span>
                   </Label>
                   <div className="space-y-2">
                     {taskPoints.map((point, index) => (
@@ -641,7 +652,7 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                           value={point.text}
                           onChange={e => { updateTaskPoint(index, e.target.value); if (errors.description) setErrors(e2 => { const { description, ...rest } = e2; return rest; }); }}
                           onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addTaskPoint(); } }}
-                          placeholder="Opisz co klient chce zrobić..."
+                          placeholder={t('workshop.newOrder.taskPlaceholder')}
                           className={`flex-1 ${errors.description && index === 0 ? 'border-destructive' : ''}`}
                         />
                         {taskPoints.length > 1 && (
@@ -654,23 +665,23 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                   </div>
                   {errors.description && <p className="text-xs text-destructive flex items-center gap-1"><AlertCircle className="h-3 w-3" /> {errors.description}</p>}
                   <Button variant="outline" size="sm" onClick={addTaskPoint} className="gap-1">
-                    <Plus className="h-4 w-4" /> Dodaj pozycję
+                    <Plus className="h-4 w-4" /> {t('workshop.newOrder.addItem')}
                   </Button>
                 </div>
 
                 {/* Damage + photos */}
                 <div className="space-y-3 border-t pt-4">
-                  <Label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Uszkodzenia pojazdu</Label>
-                  <Textarea value={damageDescription} onChange={e => setDamageDescription(e.target.value)} placeholder="Ogólny opis uszkodzeń pojazdu..." rows={3} />
+                  <Label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">{t('workshop.newOrder.vehicleDamage')}</Label>
+                  <Textarea value={damageDescription} onChange={e => setDamageDescription(e.target.value)} placeholder={t('workshop.newOrder.damagePlaceholder')} rows={3} />
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium">Zdjęcia pojazdu przy przyjęciu</Label>
+                    <Label className="text-sm font-medium">{t('workshop.newOrder.intakePhotos')}</Label>
                     <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
                       {PHOTO_SLOTS.map(slot => (
                         <label key={slot.key} className="cursor-pointer group">
                           <div className={`aspect-square rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-1 transition-all ${photos[slot.key] ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50 hover:bg-accent/30'}`}>
                             {photos[slot.key] ? (
                               <div className="relative w-full h-full">
-                                <img src={URL.createObjectURL(photos[slot.key]!)} alt={slot.label} className="w-full h-full object-cover rounded-lg" />
+                                <img src={URL.createObjectURL(photos[slot.key]!)} alt={t(slot.labelKey)} className="w-full h-full object-cover rounded-lg" />
                                 <button className="absolute top-0.5 right-0.5 bg-destructive text-destructive-foreground rounded-full p-0.5" onClick={(e) => { e.preventDefault(); handlePhotoChange(slot.key, null); }}>
                                   <X className="h-3 w-3" />
                                 </button>
@@ -678,7 +689,7 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                             ) : (
                               <>
                                 <Camera className="h-6 w-6 text-muted-foreground group-hover:text-primary transition-colors" />
-                                <span className="text-[10px] text-muted-foreground text-center leading-tight">{slot.label}</span>
+                                <span className="text-[10px] text-muted-foreground text-center leading-tight">{t(slot.labelKey)}</span>
                               </>
                             )}
                           </div>
@@ -691,21 +702,21 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
 
                 {/* Checklist */}
                 <div className="space-y-3 border-t pt-4">
-                  <Label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Protokół przyjęcia</Label>
+                  <Label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">{t('workshop.newOrder.receptionProtocol')}</Label>
                   <div className="flex flex-wrap gap-x-6 gap-y-3 border rounded-md p-4">
                     {[
-                      { key: 'return_parts', label: 'Zwrot części do klienta' },
-                      { key: 'registration_doc', label: 'Dowód rejestracyjny' },
-                      { key: 'test_drive', label: 'Zgoda na jazdę próbną' },
-                      { key: 'refill_fluids', label: 'Uzupełnić płyny eksploatacyjne' },
-                      { key: 'refill_lights', label: 'Uzupełnić oświetlenie' },
+                      { key: 'return_parts', labelKey: 'workshop.newOrder.checkReturnParts' },
+                      { key: 'registration_doc', labelKey: 'workshop.newOrder.checkRegistrationDoc' },
+                      { key: 'test_drive', labelKey: 'workshop.newOrder.checkTestDrive' },
+                      { key: 'refill_fluids', labelKey: 'workshop.newOrder.checkRefillFluids' },
+                      { key: 'refill_lights', labelKey: 'workshop.newOrder.checkRefillLights' },
                     ].map(item => (
                       <label key={item.key} className="flex items-center gap-2 text-sm cursor-pointer">
                         <Switch
                           checked={(checklist as any)[item.key]}
                           onCheckedChange={v => setChecklist(prev => ({ ...prev, [item.key]: v }))}
                         />
-                        {item.label}
+                        {t(item.labelKey)}
                       </label>
                     ))}
                   </div>
@@ -713,10 +724,10 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
 
                 {/* Submit */}
                 <div className="flex justify-end gap-2 pt-4 border-t">
-                  <Button variant="outline" onClick={resetAndClose}>Anuluj</Button>
+                  <Button variant="outline" onClick={resetAndClose}>{t('common.cancel')}</Button>
                   <Button onClick={handleSubmit} disabled={createOrder.isPending}>
                     {createOrder.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                    Utwórz zlecenie
+                    {t('workshop.newOrder.createOrder')}
                   </Button>
                 </div>
               </div>

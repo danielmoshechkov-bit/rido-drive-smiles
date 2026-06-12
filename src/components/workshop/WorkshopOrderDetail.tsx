@@ -29,6 +29,8 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
+import { translateWorkshopStatus } from '@/utils/workshopStatusStyle';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
@@ -63,6 +65,7 @@ const statusColors: Record<string, string> = {
 };
 
 export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
+  const { t } = useTranslation();
   const { data: statuses = [] } = useWorkshopStatuses(providerId);
   const updateOrder = useUpdateWorkshopOrder();
   const [activeTab, setActiveTab] = useState('tasks');
@@ -85,7 +88,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
 
   const changeStatus = async (newStatus: string) => {
     const note = window.prompt(
-      `Status zmieniany na: "${newStatus}"\n\nDodaj notatkę dla historii zdarzeń (opcjonalnie — zostaw puste, aby pominąć):`,
+      t('workshop.orderDetail.statusChangePrompt', { status: translateWorkshopStatus(newStatus, t) }),
       ''
     );
     if (note === null) return; // Anulowano
@@ -106,7 +109,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
           .eq('id', order.id);
       } catch (e) { console.error('Note insert error:', e); }
     }
-    toast.success(`Status zmieniony na: ${newStatus}`);
+    toast.success(t('workshop.orderDetail.statusChangedTo', { status: translateWorkshopStatus(newStatus, t) }));
 
     // If the new status matches a station (Myjnia, Wulkanizacja, Geometria, ...),
     // attach the order to it and create assignments so the station's
@@ -138,7 +141,9 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
     });
     order.client_acceptance_confirmed = newVal;
     if (newVal) order.status_name = 'Przyjęcie do serwisu';
-    toast.success(newVal ? 'Protokół podpisany — status: Przyjęcie do serwisu' : 'Oznaczono jako niepodpisany');
+    toast.success(newVal
+      ? t('workshop.orderDetail.protocolSigned', { status: translateWorkshopStatus('Przyjęcie do serwisu', t) })
+      : t('workshop.orderDetail.markedUnsigned'));
   };
 
 
@@ -150,7 +155,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
   const copyClientLink = () => {
     if (order.client_code) {
       navigator.clipboard.writeText(`${window.location.origin}/warsztat/klient/${order.client_code}`);
-      toast.success('Link do zlecenia skopiowany');
+      toast.success(t('workshop.orderDetail.orderLinkCopied'));
     }
   };
 
@@ -162,8 +167,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
         <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm text-amber-900 dark:text-amber-100">
           <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
           <div>
-            <strong>Uwaga: zlecenie zakończone.</strong> Każda zmiana w pozycjach, cenach lub zakresie prac
-            wymaga ponownego podpisu klienta na karcie zlecenia. Zmiana zostanie odnotowana z datą i godziną.
+            <strong>{t('workshop.orderDetail.completedWarningTitle')}</strong> {t('workshop.orderDetail.completedWarningBody')}
           </div>
         </div>
       )}
@@ -171,7 +175,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
       <div className="hidden md:flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2 text-sm">
           <button onClick={onBack} className="text-primary hover:underline flex items-center gap-1">
-            <ArrowLeft className="h-4 w-4" /> Zlecenia
+            <ArrowLeft className="h-4 w-4" /> {t('workshop.orderDetail.orders')}
           </button>
           <span className="text-muted-foreground">·</span>
           <span className="font-semibold">{order.order_number}</span>
@@ -194,10 +198,10 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
               <button
                 type="button"
                 onClick={() => setPickClientOpen(true)}
-                title="Zmień klienta – wybierz z bazy"
+                title={t('workshop.orderDetail.changeClientTitle')}
                 className="flex items-center gap-1 px-1.5 py-0.5 rounded border border-dashed text-xs text-muted-foreground hover:text-primary hover:border-primary transition-colors"
               >
-                <Search className="h-3 w-3" /> Zmień
+                <Search className="h-3 w-3" /> {t('workshop.orderDetail.change')}
               </button>
             </>
           ) : (
@@ -208,7 +212,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
                 onClick={() => setPickClientOpen(true)}
                 className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/15 text-green-700 hover:bg-green-500 hover:text-white transition-colors text-xs font-medium"
               >
-                <UserPlus className="h-3.5 w-3.5" /> Dodaj klienta
+                <UserPlus className="h-3.5 w-3.5" /> {t('workshop.orderDetail.addClient')}
               </button>
             </>
           )}
@@ -256,11 +260,11 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
               if (order.client_code) {
                 window.open(`/warsztat/klient/${order.client_code}?admin=1`, '_blank');
               } else {
-                toast.info('Brak kodu klienta — utwórz zlecenie ponownie');
+                toast.info(t('workshop.orderDetail.noClientCode'));
               }
             }}
           >
-            <FileText className="h-4 w-4" /> Karta zlecenia
+            <FileText className="h-4 w-4" /> {t('workshop.orderDetail.orderCard')}
           </Button>
 
           <Button
@@ -268,9 +272,9 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
             size="sm"
             className="gap-1"
             onClick={() => setMechanicCardOpen(true)}
-            title="Karta mechanika — zakres prac, lista części, notatki"
+            title={t('workshop.orderDetail.mechanicCardTitle')}
           >
-            <Wrench className="h-4 w-4" /> Karta mechanika
+            <Wrench className="h-4 w-4" /> {t('workshop.orderDetail.mechanicCard')}
           </Button>
 
           {/* Action icons with dropdowns */}
@@ -279,30 +283,30 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
-                  variant="ghost" size="icon" title="Protokół przyjęcia"
+                  variant="ghost" size="icon" title={t('workshop.orderDetail.receptionProtocol')}
                   className={order.client_acceptance_confirmed ? 'text-green-500' : 'text-amber-500'}
                 >
                   <Eye className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-52">
-                <DropdownMenuItem onClick={() => toast.info('Podgląd protokołu przyjęcia')}>
-                  <Eye className="h-4 w-4 mr-2" /> Podgląd
+                <DropdownMenuItem onClick={() => toast.info(t('workshop.orderDetail.protocolPreviewToast'))}>
+                  <Eye className="h-4 w-4 mr-2" /> {t('workshop.orderDetail.preview')}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => toast.info('Drukowanie protokołu...')}>
-                  <Printer className="h-4 w-4 mr-2" /> Drukuj
+                <DropdownMenuItem onClick={() => toast.info(t('workshop.orderDetail.protocolPrinting'))}>
+                  <Printer className="h-4 w-4 mr-2" /> {t('workshop.orderDetail.print')}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => toast.info('Pobieranie protokołu...')}>
-                  <Download className="h-4 w-4 mr-2" /> Pobierz
+                <DropdownMenuItem onClick={() => toast.info(t('workshop.orderDetail.protocolDownloading'))}>
+                  <Download className="h-4 w-4 mr-2" /> {t('workshop.orderDetail.download')}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => toast.info('Podpisany dokument')}>
-                  <CheckCircle className="h-4 w-4 mr-2" /> Podpisany dokument
+                <DropdownMenuItem onClick={() => toast.info(t('workshop.orderDetail.signedDocument'))}>
+                  <CheckCircle className="h-4 w-4 mr-2" /> {t('workshop.orderDetail.signedDocument')}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={markReceptionSigned}>
-                  <XCircle className="h-4 w-4 mr-2" /> {order.client_acceptance_confirmed ? 'Oznacz jako niepodpisany' : 'Oznacz jako podpisany'}
+                  <XCircle className="h-4 w-4 mr-2" /> {order.client_acceptance_confirmed ? t('workshop.orderDetail.markAsUnsigned') : t('workshop.orderDetail.markAsSigned')}
                 </DropdownMenuItem>
-                <DropdownMenuItem className="text-destructive" onClick={() => toast.info('Wyłączono protokół')}>
-                  <Ban className="h-4 w-4 mr-2" /> Wyłącz
+                <DropdownMenuItem className="text-destructive" onClick={() => toast.info(t('workshop.orderDetail.protocolDisabled'))}>
+                  <Ban className="h-4 w-4 mr-2" /> {t('workshop.orderDetail.disable')}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -311,7 +315,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
-                  variant="ghost" size="icon" title="Wycena"
+                  variant="ghost" size="icon" title={t('workshop.orderDetail.estimate')}
                   className={`relative ${order.quote_accepted ? 'text-green-500' : 'text-amber-500'}`}
                 >
                   <ClipboardList className="h-4 w-4" />
@@ -323,33 +327,35 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
               <DropdownMenuContent align="start" className="w-52">
                 {order.estimate_changed_after_send && (
                   <div className="px-3 py-2 text-xs text-destructive bg-destructive/10 border-b">
-                    ⚠️ Kosztorys zmieniony po wysłaniu — wyślij ponownie do klienta
+                    {t('workshop.orderDetail.estimateChangedWarning')}
                   </div>
                 )}
                 <DropdownMenuItem onClick={() => openSms('quote')}>
-                  <Send className="h-4 w-4 mr-2" /> Wyślij kosztorys SMS
+                  <Send className="h-4 w-4 mr-2" /> {t('workshop.orderDetail.sendEstimateSms')}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setEstimatePreviewOpen(true)}>
-                  <Eye className="h-4 w-4 mr-2" /> Podgląd
+                  <Eye className="h-4 w-4 mr-2" /> {t('workshop.orderDetail.preview')}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => toast.info('Drukowanie kosztorysu...')}>
-                  <Printer className="h-4 w-4 mr-2" /> Drukuj
+                <DropdownMenuItem onClick={() => toast.info(t('workshop.orderDetail.estimatePrinting'))}>
+                  <Printer className="h-4 w-4 mr-2" /> {t('workshop.orderDetail.print')}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => toast.info('Pobieranie kosztorysu...')}>
-                  <Download className="h-4 w-4 mr-2" /> Pobierz
+                <DropdownMenuItem onClick={() => toast.info(t('workshop.orderDetail.estimateDownloading'))}>
+                  <Download className="h-4 w-4 mr-2" /> {t('workshop.orderDetail.download')}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => toast.info('Podpisany dokument')}>
-                  <CheckCircle className="h-4 w-4 mr-2" /> Podpisany dokument
+                <DropdownMenuItem onClick={() => toast.info(t('workshop.orderDetail.signedDocument'))}>
+                  <CheckCircle className="h-4 w-4 mr-2" /> {t('workshop.orderDetail.signedDocument')}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => {
                   const newVal = !order.quote_accepted;
                   updateOrder.mutateAsync({ id: order.id, quote_accepted: newVal, ...(newVal ? { status_name: 'Akceptacja klienta' } : {}) });
-                  toast.success(newVal ? 'Zaakceptowano — status: Akceptacja klienta' : 'Oznaczono jako niepodpisany');
+                  toast.success(newVal
+                    ? t('workshop.orderDetail.quoteAccepted', { status: translateWorkshopStatus('Akceptacja klienta', t) })
+                    : t('workshop.orderDetail.markedUnsigned'));
                 }}>
-                  <XCircle className="h-4 w-4 mr-2" /> {order.quote_accepted ? 'Oznacz jako niepodpisany' : 'Oznacz jako podpisany'}
+                  <XCircle className="h-4 w-4 mr-2" /> {order.quote_accepted ? t('workshop.orderDetail.markAsUnsigned') : t('workshop.orderDetail.markAsSigned')}
                 </DropdownMenuItem>
-                <DropdownMenuItem className="text-destructive" onClick={() => toast.info('Wyłączono kosztorys')}>
-                  <Ban className="h-4 w-4 mr-2" /> Wyłącz
+                <DropdownMenuItem className="text-destructive" onClick={() => toast.info(t('workshop.orderDetail.estimateDisabled'))}>
+                  <Ban className="h-4 w-4 mr-2" /> {t('workshop.orderDetail.disable')}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -358,7 +364,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
-                  variant="ghost" size="icon" title="Gotowość potwierdzona"
+                  variant="ghost" size="icon" title={t('workshop.orderDetail.readinessConfirmed')}
                   className={order.ready_notification_sent ? 'text-green-500' : 'text-amber-500'}
                 >
                   <Send className="h-4 w-4" />
@@ -366,24 +372,24 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-52">
                 <DropdownMenuItem onClick={() => openSms('ready')}>
-                  <Send className="h-4 w-4 mr-2" /> Wyślij powiadomienie
+                  <Send className="h-4 w-4 mr-2" /> {t('workshop.orderDetail.sendNotification')}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => toast.info('Podgląd powiadomienia')}>
-                  <Eye className="h-4 w-4 mr-2" /> Podgląd
+                <DropdownMenuItem onClick={() => toast.info(t('workshop.orderDetail.notificationPreview'))}>
+                  <Eye className="h-4 w-4 mr-2" /> {t('workshop.orderDetail.preview')}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => {
                   updateOrder.mutateAsync({ id: order.id, ready_notification_sent: !order.ready_notification_sent });
-                  toast.success(order.ready_notification_sent ? 'Oznaczono jako niewysłane' : 'Oznaczono jako wysłane');
+                  toast.success(order.ready_notification_sent ? t('workshop.orderDetail.markedNotSent') : t('workshop.orderDetail.markedSent'));
                 }}>
-                  <XCircle className="h-4 w-4 mr-2" /> {order.ready_notification_sent ? 'Oznacz jako niewysłane' : 'Oznacz jako wysłane'}
+                  <XCircle className="h-4 w-4 mr-2" /> {order.ready_notification_sent ? t('workshop.orderDetail.markAsNotSent') : t('workshop.orderDetail.markAsSent')}
                 </DropdownMenuItem>
-                <DropdownMenuItem className="text-destructive" onClick={() => toast.info('Wyłączono')}>
-                  <Ban className="h-4 w-4 mr-2" /> Wyłącz
+                <DropdownMenuItem className="text-destructive" onClick={() => toast.info(t('workshop.orderDetail.disabledToast'))}>
+                  <Ban className="h-4 w-4 mr-2" /> {t('workshop.orderDetail.disable')}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <Button variant="ghost" size="icon" title="Wyślij SMS" onClick={() => {
+            <Button variant="ghost" size="icon" title={t('workshop.orderDetail.sendSms')} onClick={() => {
               // Auto-detect SMS type based on order state
               const hasQuoteItems = (order.total_gross || 0) > 0;
               const protocolSigned = order.client_acceptance_confirmed;
@@ -399,7 +405,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
             }}>
               <MessageSquare className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon" title="Link do zlecenia" onClick={copyClientLink}>
+            <Button variant="ghost" size="icon" title={t('workshop.orderDetail.orderLink')} onClick={copyClientLink}>
               <Link2 className="h-4 w-4" />
             </Button>
             <RidoPartsCartButton providerId={providerId} />
@@ -420,9 +426,9 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
               <Button variant="ghost" size="icon"><MoreVertical className="h-4 w-4" /></Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem><Eye className="h-4 w-4 mr-2" /> Podgląd</DropdownMenuItem>
-              <DropdownMenuItem><Printer className="h-4 w-4 mr-2" /> Drukuj</DropdownMenuItem>
-              <DropdownMenuItem><Download className="h-4 w-4 mr-2" /> Pobierz</DropdownMenuItem>
+              <DropdownMenuItem><Eye className="h-4 w-4 mr-2" /> {t('workshop.orderDetail.preview')}</DropdownMenuItem>
+              <DropdownMenuItem><Printer className="h-4 w-4 mr-2" /> {t('workshop.orderDetail.print')}</DropdownMenuItem>
+              <DropdownMenuItem><Download className="h-4 w-4 mr-2" /> {t('workshop.orderDetail.download')}</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -473,7 +479,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
           <Button variant="outline" size="sm" className="h-7 text-xs gap-1 shrink-0" onClick={() => {
             if (order.client_code) window.open(`/warsztat/klient/${order.client_code}?admin=1`, '_blank');
           }}>
-            <FileText className="h-3.5 w-3.5" /> Karta
+            <FileText className="h-3.5 w-3.5" /> {t('workshop.orderDetail.card')}
           </Button>
           <Button variant="ghost" size="sm" className="h-7 w-7 p-0 shrink-0" onClick={() => openSms('reception')}>
             <MessageSquare className="h-3.5 w-3.5" />
@@ -489,17 +495,17 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
               <Button variant="ghost" size="sm" className="h-7 w-7 p-0 shrink-0"><MoreVertical className="h-3.5 w-3.5" /></Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => toast.info('Podgląd protokołu przyjęcia')}>
-                <Eye className="h-4 w-4 mr-2" /> Protokół przyjęcia
+              <DropdownMenuItem onClick={() => toast.info(t('workshop.orderDetail.protocolPreviewToast'))}>
+                <Eye className="h-4 w-4 mr-2" /> {t('workshop.orderDetail.receptionProtocol')}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setEstimatePreviewOpen(true)}>
-                <ClipboardList className="h-4 w-4 mr-2" /> Wycena
+                <ClipboardList className="h-4 w-4 mr-2" /> {t('workshop.orderDetail.estimate')}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => openSms('ready')}>
-                <Send className="h-4 w-4 mr-2" /> Powiadomienie
+                <Send className="h-4 w-4 mr-2" /> {t('workshop.orderDetail.notification')}
               </DropdownMenuItem>
-              <DropdownMenuItem><Printer className="h-4 w-4 mr-2" /> Drukuj</DropdownMenuItem>
-              <DropdownMenuItem><Download className="h-4 w-4 mr-2" /> Pobierz</DropdownMenuItem>
+              <DropdownMenuItem><Printer className="h-4 w-4 mr-2" /> {t('workshop.orderDetail.print')}</DropdownMenuItem>
+              <DropdownMenuItem><Download className="h-4 w-4 mr-2" /> {t('workshop.orderDetail.download')}</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -509,13 +515,13 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="bg-transparent w-full justify-start gap-1.5 h-auto p-0 overflow-x-auto scrollbar-hide flex-nowrap mb-4">
           {[
-            { value: 'tasks', label: 'Wycena zlecenia' },
-            { value: 'basic', label: 'Podstawowe' },
-            { value: 'findings', label: 'Uwagi i historia' },
-            { value: 'summary', label: 'Podsumowanie' },
-            { value: 'schedule', label: 'Terminarz' },
-            { value: 'files', label: 'Pliki' },
-            { value: 'repair-data', label: 'Dane naprawcze' },
+            { value: 'tasks', labelKey: 'workshop.orderDetail.tabTasks' },
+            { value: 'basic', labelKey: 'workshop.orderDetail.tabBasic' },
+            { value: 'findings', labelKey: 'workshop.orderDetail.tabFindings' },
+            { value: 'summary', labelKey: 'workshop.orderDetail.tabSummary' },
+            { value: 'schedule', labelKey: 'workshop.orderDetail.tabSchedule' },
+            { value: 'files', labelKey: 'workshop.orderDetail.tabFiles' },
+            { value: 'repair-data', labelKey: 'workshop.orderDetail.tabRepairData' },
           ].map((tab) => (
             <TabsTrigger
               key={tab.value}
@@ -523,7 +529,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
               className="px-4 md:px-5 py-2 rounded-full text-xs md:text-sm font-medium shrink-0 transition-all duration-200 data-[state=active]:text-white data-[state=active]:shadow-sm data-[state=inactive]:text-foreground/70 data-[state=inactive]:bg-transparent data-[state=inactive]:hover:bg-[#F5C842] data-[state=inactive]:hover:text-[#1a1a1a]"
               style={activeTab === tab.value ? { backgroundColor: 'var(--nav-bar-color, #6C3CF0)' } : undefined}
             >
-              {tab.label}
+              {t(tab.labelKey)}
             </TabsTrigger>
           ))}
         </TabsList>
@@ -541,14 +547,14 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
           <WorkshopOrderSummaryTab order={order} />
         </TabsContent>
         <TabsContent value="schedule">
-          <WorkshopScheduler providerId={providerId} onBack={() => {}} title={`Terminarz: ${order.order_number || ''}`} focusOrderId={order.id} />
+          <WorkshopScheduler providerId={providerId} onBack={() => {}} title={t('workshop.orderDetail.schedulerTitle', { number: order.order_number || '' })} focusOrderId={order.id} />
         </TabsContent>
         <TabsContent value="files">
           <WorkshopOrderFilesTab order={order} />
         </TabsContent>
         <TabsContent value="repair-data">
           <div className="text-center py-12 text-muted-foreground">
-            Dane naprawcze — wkrótce dostępne
+            {t('workshop.orderDetail.repairDataComingSoon')}
           </div>
         </TabsContent>
       </Tabs>

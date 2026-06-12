@@ -33,7 +33,8 @@ import { format, isFuture, isPast } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { WorkshopStatusPicker } from './WorkshopStatusPicker';
-import { getStatusStyle } from '@/utils/workshopStatusStyle';
+import { getStatusStyle, translateWorkshopStatus } from '@/utils/workshopStatusStyle';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   providerId: string;
@@ -54,6 +55,7 @@ const statusColors: Record<string, string> = {
 };
 
 export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [showNewOrder, setShowNewOrder] = useState(false);
   const [search, setSearch] = useState('');
@@ -155,7 +157,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
   const changeStatus = async (orderId: string, newStatus: string) => {
     await updateOrder.mutateAsync({ id: orderId, status_name: newStatus });
     setStatusDropdownId(null);
-    toast.success(`Status zmieniony na: ${newStatus}`);
+    toast.success(t('workshop.orders.statusChangedTo', { status: translateWorkshopStatus(newStatus, t) }));
     handleStatusChanged(orderId, newStatus);
   };
 
@@ -216,7 +218,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
       setInvoiceNotes(notes);
       setInvoiceOrder(order);
     } catch (e: any) {
-      toast.error('Błąd ładowania pozycji zlecenia');
+      toast.error(t('workshop.orders.loadItemsError'));
     }
   };
 
@@ -324,17 +326,17 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
       const html = generateInvoiceHtml(invoiceData);
       const printWindow = window.open('', '_blank');
       if (!printWindow) {
-        toast.error('Przeglądarka zablokowała wyskakujące okno. Zezwól na pop-up i spróbuj ponownie.');
+        toast.error(t('workshop.orders.popupBlocked'));
         return;
       }
       printWindow.document.write(html);
       printWindow.document.close();
       printWindow.focus();
       setTimeout(() => printWindow.print(), 400);
-      toast.success('Potwierdzenie wygenerowane');
+      toast.success(t('workshop.orders.confirmationGenerated'));
     } catch (e: any) {
       console.error('[generateServiceConfirmation]', e);
-      toast.error(`Błąd generowania potwierdzenia: ${e?.message || e?.toString() || 'nieznany błąd'}`);
+      toast.error(t('workshop.orders.confirmationError', { error: e?.message || e?.toString() || t('workshop.orders.unknownError') }));
     }
   };
 
@@ -355,7 +357,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2">
         <Button onClick={() => setShowNewOrder(true)} className="gap-2" size="sm">
-          <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Nowe</span> zlecenie
+          <Plus className="h-4 w-4" /> <span className="hidden sm:inline">{t('workshop.orders.new')}</span> {t('workshop.orders.order')}
         </Button>
 
         <div className="flex items-center gap-1 rounded-lg border bg-muted/30 p-0.5">
@@ -365,7 +367,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
             className="h-8"
             onClick={() => setOrderView('active')}
           >
-            Aktywne zlecenia
+            {t('workshop.orders.activeOrders')}
           </Button>
           <Button
             variant={orderView === 'completed' ? 'default' : 'ghost'}
@@ -373,21 +375,21 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
             className="h-8"
             onClick={() => setOrderView('completed')}
           >
-            Zakończone zlecenia
+            {t('workshop.orders.completedOrders')}
           </Button>
         </div>
 
         {selectedIds.size > 0 && (
           <Button variant="destructive" size="sm" className="gap-1" onClick={async () => {
             const count = selectedIds.size;
-            if (!confirm(`Czy na pewno chcesz usunąć ${count} zleceń?`)) return;
+            if (!confirm(t('workshop.orders.confirmDelete', { count }))) return;
             const ids = Array.from(selectedIds);
             // Optimistic: remove from cache + clear selection immediately
             queryClient.setQueriesData({ queryKey: ['workshop-orders'] }, (old: any) =>
               Array.isArray(old) ? old.filter((o: any) => !ids.includes(o.id)) : old
             );
             setSelectedIds(new Set());
-            toast.success(`Usunięto ${count} zleceń`);
+            toast.success(t('workshop.orders.deletedCount', { count }));
             try {
               await Promise.all(ids.map(async (id) => {
                 await Promise.all([
@@ -397,12 +399,12 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                 await (supabase as any).from('workshop_orders').delete().eq('id', id);
               }));
             } catch (e: any) {
-              toast.error(e.message || 'Błąd usuwania');
+              toast.error(e.message || t('workshop.orders.deleteError'));
             } finally {
               queryClient.invalidateQueries({ queryKey: ['workshop-orders'] });
             }
           }}>
-            <Trash2 className="h-4 w-4" /> Usuń
+            <Trash2 className="h-4 w-4" /> {t('common.delete')}
           </Button>
         )}
 
@@ -410,7 +412,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="gap-1">
-                <FileText className="h-4 w-4" /> Wystaw <ChevronDown className="h-3 w-3" />
+                <FileText className="h-4 w-4" /> {t('workshop.orders.issue')} <ChevronDown className="h-3 w-3" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
@@ -418,19 +420,19 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                 const order = orders.find((o: any) => selectedIds.has(o.id));
                 if (order) openInvoiceForOrder(order, 'invoice');
               }}>
-                <FileText className="h-4 w-4 mr-2" /> Faktura
+                <FileText className="h-4 w-4 mr-2" /> {t('workshop.orders.invoice')}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => {
                 const order = orders.find((o: any) => selectedIds.has(o.id));
                 if (order) openInvoiceForOrder(order, 'receipt');
               }}>
-                <Receipt className="h-4 w-4 mr-2" /> Paragon fiskalny
+                <Receipt className="h-4 w-4 mr-2" /> {t('workshop.orders.fiscalReceipt')}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => {
                 const order = orders.find((o: any) => selectedIds.has(o.id));
                 if (order) generateServiceConfirmation(order);
               }}>
-                <ClipboardCheck className="h-4 w-4 mr-2" /> Potw. wykonania
+                <ClipboardCheck className="h-4 w-4 mr-2" /> {t('workshop.orders.serviceConfirmation')}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -440,15 +442,15 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
 
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="h-8 w-[180px]">
-            <SelectValue placeholder="Wszystkie statusy" />
+            <SelectValue placeholder={t('workshop.orders.allStatuses')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Wszystkie statusy</SelectItem>
+            <SelectItem value="all">{t('workshop.orders.allStatuses')}</SelectItem>
             {statuses.filter((s: any) => orderView === 'completed' ? s.name === 'Zakończone' : s.name !== 'Zakończone').map((s: any) => (
               <SelectItem key={s.id} value={s.name}>
                 <div className="flex items-center gap-2">
                   <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
-                  {s.name}
+                  {translateWorkshopStatus(s.name, t)}
                 </div>
               </SelectItem>
             ))}
@@ -460,7 +462,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
           <Input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Szukaj"
+            placeholder={t('common.search')}
             className="pl-9 w-full sm:w-[200px] h-8"
           />
         </div>
@@ -473,7 +475,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : filteredOrders.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">Brak zleceń</div>
+          <div className="text-center py-8 text-muted-foreground">{t('workshop.orders.noOrders')}</div>
         ) : (
           <>
             {filteredOrders.map((order: any) => {
@@ -520,9 +522,9 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                         type="button"
                         onClick={(e) => { e.stopPropagation(); setAssignClientOrderId(order.id); }}
                         className="inline-flex items-center gap-1 text-green-600 hover:text-green-700"
-                        title="Dodaj klienta"
+                        title={t('workshop.orders.addClient')}
                       >
-                        <Plus className="h-3.5 w-3.5" /> Dodaj klienta
+                        <Plus className="h-3.5 w-3.5" /> {t('workshop.orders.addClient')}
                       </button>
                     )}
                     <span>{format(new Date(order.created_at), 'dd.MM.yyyy')}</span>
@@ -533,7 +535,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
             })}
             {filteredOrders.length > 0 && (
               <div className="text-right text-sm font-semibold px-2 pt-2 border-t">
-                Suma: {totalSum.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} zł
+                {t('workshop.orders.sum')}: {totalSum.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} zł
               </div>
             )}
           </>
@@ -552,13 +554,13 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-10"></TableHead>
-                  <TableHead>Numer zlecenia</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Razem</TableHead>
-                   <TableHead>Pojazd</TableHead>
-                   <TableHead>Klient</TableHead>
-                   <TableHead>Termin</TableHead>
-                   <TableHead>Przyjęcie</TableHead>
+                  <TableHead>{t('workshop.orders.colOrderNumber')}</TableHead>
+                  <TableHead>{t('workshop.orders.colStatus')}</TableHead>
+                  <TableHead className="text-right">{t('workshop.orders.colTotal')}</TableHead>
+                   <TableHead>{t('workshop.orders.colVehicle')}</TableHead>
+                   <TableHead>{t('workshop.orders.colClient')}</TableHead>
+                   <TableHead>{t('workshop.orders.colDeadline')}</TableHead>
+                   <TableHead>{t('workshop.orders.colReceived')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -614,41 +616,41 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                             <div className="grid grid-cols-2 gap-y-1.5 text-xs">
                               {order.vehicle.plate && (
                                 <>
-                                  <span className="text-muted-foreground">Nr rej</span>
-                                  <button className="text-left font-medium hover:text-primary flex items-center gap-1" onClick={() => { navigator.clipboard.writeText(order.vehicle.plate); toast.success('Skopiowano nr rej'); }}>
+                                  <span className="text-muted-foreground">{t('workshop.orders.plate')}</span>
+                                  <button className="text-left font-medium hover:text-primary flex items-center gap-1" onClick={() => { navigator.clipboard.writeText(order.vehicle.plate); toast.success(t('workshop.orders.copiedPlate')); }}>
                                     {order.vehicle.plate} <Copy className="h-2.5 w-2.5 opacity-50" />
                                   </button>
                                 </>
                               )}
                               {order.vehicle.vin && (
                                 <>
-                                  <span className="text-muted-foreground">VIN</span>
-                                  <button className="text-left text-[11px] font-medium hover:text-primary flex items-center gap-1 truncate max-w-full" onClick={() => { navigator.clipboard.writeText(order.vehicle.vin); toast.success('Skopiowano VIN'); }}>
+                                  <span className="text-muted-foreground">{t('workshop.orders.vin')}</span>
+                                  <button className="text-left text-[11px] font-medium hover:text-primary flex items-center gap-1 truncate max-w-full" onClick={() => { navigator.clipboard.writeText(order.vehicle.vin); toast.success(t('workshop.orders.copiedVin')); }}>
                                     {order.vehicle.vin} <Copy className="h-2.5 w-2.5 opacity-50 shrink-0" />
                                   </button>
                                 </>
                               )}
                               {order.vehicle.year && (
                                 <>
-                                  <span className="text-muted-foreground">Rok prod</span>
+                                  <span className="text-muted-foreground">{t('workshop.orders.yearOfProd')}</span>
                                   <span className="font-medium">{order.vehicle.year}</span>
                                 </>
                               )}
                               {order.vehicle.engine_capacity && (
                                 <>
-                                  <span className="text-muted-foreground">Pojemność</span>
+                                  <span className="text-muted-foreground">{t('workshop.orders.capacity')}</span>
                                   <span className="font-medium">{order.vehicle.engine_capacity} cc</span>
                                 </>
                               )}
                               {order.vehicle.engine_power && (
                                 <>
-                                  <span className="text-muted-foreground">Moc</span>
+                                  <span className="text-muted-foreground">{t('workshop.orders.power')}</span>
                                   <span className="font-medium">{order.vehicle.engine_power} kW</span>
                                 </>
                               )}
                               {order.vehicle.fuel_type && (
                                 <>
-                                  <span className="text-muted-foreground">Paliwo</span>
+                                  <span className="text-muted-foreground">{t('workshop.orders.fuel')}</span>
                                   <span className="font-medium">{order.vehicle.fuel_type}</span>
                                 </>
                               )}
@@ -659,7 +661,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                               className="w-full mt-3 h-7 text-xs gap-1"
                               onClick={() => setEditVehicle(order.vehicle)}
                             >
-                              <ExternalLink className="h-3 w-3" /> Otwórz kartę pojazdu
+                              <ExternalLink className="h-3 w-3" /> {t('workshop.orders.openVehicleCard')}
                             </Button>
                           </HoverCardContent>
                         )}
@@ -696,22 +698,22 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                             )}
                             <div className="space-y-1.5 text-xs">
                               {order.client.phone && (
-                                <button className="flex items-center gap-2 hover:text-primary w-full text-left" onClick={() => { navigator.clipboard.writeText(order.client.phone); toast.success('Skopiowano telefon'); }}>
+                                <button className="flex items-center gap-2 hover:text-primary w-full text-left" onClick={() => { navigator.clipboard.writeText(order.client.phone); toast.success(t('workshop.orders.copiedPhone')); }}>
                                   <Phone className="h-3 w-3 text-muted-foreground" />
                                   <span>{order.client.phone}</span>
                                   <Copy className="h-2.5 w-2.5 opacity-50 ml-auto" />
                                 </button>
                               )}
                               {order.client.email && (
-                                <button className="flex items-center gap-2 hover:text-primary w-full text-left" onClick={() => { navigator.clipboard.writeText(order.client.email); toast.success('Skopiowano email'); }}>
+                                <button className="flex items-center gap-2 hover:text-primary w-full text-left" onClick={() => { navigator.clipboard.writeText(order.client.email); toast.success(t('workshop.orders.copiedEmail')); }}>
                                   <Mail className="h-3 w-3 text-muted-foreground" />
                                   <span className="truncate">{order.client.email}</span>
                                   <Copy className="h-2.5 w-2.5 opacity-50 ml-auto" />
                                 </button>
                               )}
                               {order.client.nip && (
-                                <button className="flex items-center gap-2 hover:text-primary w-full text-left" onClick={() => { navigator.clipboard.writeText(order.client.nip); toast.success('Skopiowano NIP'); }}>
-                                  <span className="text-muted-foreground">NIP:</span>
+                                <button className="flex items-center gap-2 hover:text-primary w-full text-left" onClick={() => { navigator.clipboard.writeText(order.client.nip); toast.success(t('workshop.orders.copiedNip')); }}>
+                                  <span className="text-muted-foreground">{t('workshop.orders.nip')}</span>
                                   <span>{order.client.nip}</span>
                                   <Copy className="h-2.5 w-2.5 opacity-50 ml-auto" />
                                 </button>
@@ -729,16 +731,16 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                                 className="flex-1 h-7 text-xs gap-1"
                                 onClick={() => setEditClient(order.client)}
                               >
-                                <ExternalLink className="h-3 w-3" /> Otwórz
+                                <ExternalLink className="h-3 w-3" /> {t('workshop.orders.open')}
                               </Button>
                               <Button
                                 variant="outline"
                                 size="sm"
                                 className="flex-1 h-7 text-xs gap-1 border-primary/40 text-primary hover:bg-primary/10"
                                 onClick={() => setAssignClientOrderId(order.id)}
-                                title="Zmień klienta lub dodaj nowego"
+                                title={t('workshop.orders.changeClientTitle')}
                               >
-                                <Search className="h-3 w-3" /> Zmień
+                                <Search className="h-3 w-3" /> {t('workshop.orders.change')}
                               </Button>
                             </div>
                           </HoverCardContent>
@@ -749,7 +751,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                           type="button"
                           onClick={() => setAssignClientOrderId(order.id)}
                           className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-green-500/15 text-green-600 hover:bg-green-500 hover:text-white transition-colors"
-                          title="Dodaj klienta do zlecenia"
+                          title={t('workshop.orders.addClientToOrder')}
                         >
                           <Plus className="h-4 w-4" />
                         </button>
@@ -778,13 +780,13 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                 {filteredOrders.length === 0 && !isLoading && (
                   <TableRow>
                     <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                      Brak zleceń
+                      {t('workshop.orders.noOrders')}
                     </TableCell>
                   </TableRow>
                 )}
                 {filteredOrders.length > 0 && (
                   <TableRow className="font-semibold bg-muted/50">
-                     <TableCell colSpan={3}>Suma</TableCell>
+                     <TableCell colSpan={3}>{t('workshop.orders.sum')}</TableCell>
                      <TableCell className="text-right">
                        {totalSum.toLocaleString('pl-PL', { minimumFractionDigits: 2 })}
                      </TableCell>
@@ -848,13 +850,13 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
       {invoiceOrder && (
         <Dialog open={!!invoiceOrder} onOpenChange={(v) => { if (!v) setInvoiceOrder(null); }}>
           <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto p-0">
-            <DialogTitle className="sr-only">Wystaw fakturę</DialogTitle>
+            <DialogTitle className="sr-only">{t('workshop.orders.issueInvoice')}</DialogTitle>
             <SimpleFreeInvoice
               onClose={() => setInvoiceOrder(null)}
               onSaved={async () => {
                 const orderId = invoiceOrder?.id;
                 setInvoiceOrder(null);
-                toast.success('Faktura wystawiona');
+                toast.success(t('workshop.orders.invoiceIssued'));
                 // Auto-status: set order to "Gotowy do odbioru" if not yet
                 if (orderId) {
                   const lower = (invoiceOrder?.status_name || '').toLowerCase();
@@ -899,6 +901,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
 const fuelTypes = ['Benzyna', 'Diesel', 'LPG', 'Elektryczny', 'Hybryda', 'Benzyna+LPG', 'CNG'];
 
 function VehicleEditDialog({ vehicle, onClose }: { vehicle: any; onClose: () => void }) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const [userId, setUserId] = useState<string | undefined>();
   const [saving, setSaving] = useState(false);
@@ -990,14 +993,14 @@ function VehicleEditDialog({ vehicle, onClose }: { vehicle: any; onClose: () => 
         })
         .eq('id', vehicle.id);
       if (error) throw error;
-      toast.success('Dane pojazdu zapisane');
+      toast.success(t('workshop.orders.vehicleSaved'));
       await Promise.all([
         qc.invalidateQueries({ queryKey: ['workshopOrders'] }),
         qc.invalidateQueries({ queryKey: ['workshopVehicles'] }),
       ]);
       onClose();
     } catch (e: any) {
-      toast.error(e.message || 'Błąd zapisu');
+      toast.error(e.message || t('common.saveError'));
     } finally {
       setSaving(false);
     }
@@ -1009,73 +1012,73 @@ function VehicleEditDialog({ vehicle, onClose }: { vehicle: any; onClose: () => 
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Car className="h-5 w-5" />
-            Edycja pojazdu
+            {t('workshop.orders.editVehicle')}
           </DialogTitle>
         </DialogHeader>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <Label className="text-xs">Nr rejestracyjny</Label>
+            <Label className="text-xs">{t('workshop.orders.plateNumber')}</Label>
             <div className="flex gap-1">
               <Input value={form.plate} onChange={e => set('plate', e.target.value.toUpperCase())} placeholder="WW12345" />
-              <Button variant="outline" size="icon" onClick={handlePlateSearch} disabled={lookupLoading || !form.plate.trim()} title="Szukaj po nr rej">
+              <Button variant="outline" size="icon" onClick={handlePlateSearch} disabled={lookupLoading || !form.plate.trim()} title={t('workshop.orders.searchByPlate')}>
                 {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
               </Button>
             </div>
           </div>
           <div>
-            <Label className="text-xs">Rok produkcji</Label>
+            <Label className="text-xs">{t('workshop.orders.yearOfProduction')}</Label>
             <Input value={form.year} onChange={e => set('year', e.target.value)} placeholder="2020" />
           </div>
           <div className="col-span-2">
-            <Label className="text-xs">VIN</Label>
+            <Label className="text-xs">{t('workshop.orders.vin')}</Label>
             <div className="flex gap-1">
               <Input value={form.vin} onChange={e => set('vin', e.target.value.toUpperCase())} placeholder="WVWZZZ3CZWE123456" />
-              <Button variant="outline" size="icon" onClick={handleVinSearch} disabled={lookupLoading || !form.vin.trim()} title="Szukaj po VIN">
+              <Button variant="outline" size="icon" onClick={handleVinSearch} disabled={lookupLoading || !form.vin.trim()} title={t('workshop.orders.searchByVin')}>
                 {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
               </Button>
             </div>
           </div>
           <div>
-            <Label className="text-xs">Marka</Label>
+            <Label className="text-xs">{t('workshop.orders.brand')}</Label>
             <Input value={form.brand} onChange={e => set('brand', e.target.value)} placeholder="BMW" />
           </div>
           <div>
-            <Label className="text-xs">Model</Label>
+            <Label className="text-xs">{t('workshop.orders.model')}</Label>
             <Input value={form.model} onChange={e => set('model', e.target.value)} placeholder="X5" />
           </div>
           <div>
-            <Label className="text-xs">Pojemność silnika (cc)</Label>
+            <Label className="text-xs">{t('workshop.orders.engineCapacityCc')}</Label>
             <Input value={form.engine_capacity_cm3} onChange={e => set('engine_capacity_cm3', e.target.value)} placeholder="1998" />
           </div>
           <div>
-            <Label className="text-xs">Moc silnika (kW)</Label>
+            <Label className="text-xs">{t('workshop.orders.enginePowerKw')}</Label>
             <Input value={form.engine_power_kw} onChange={e => set('engine_power_kw', e.target.value)} placeholder="150" />
           </div>
           <div>
-            <Label className="text-xs">Rodzaj paliwa</Label>
+            <Label className="text-xs">{t('workshop.orders.fuelType')}</Label>
             <Select value={form.fuel_type} onValueChange={v => set('fuel_type', v)}>
-              <SelectTrigger><SelectValue placeholder="Wybierz" /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder={t('common.select')} /></SelectTrigger>
               <SelectContent>
                 {fuelTypes.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
           <div>
-            <Label className="text-xs">Kolor</Label>
-            <Input value={form.color} onChange={e => set('color', e.target.value)} placeholder="Czarny" />
+            <Label className="text-xs">{t('workshop.orders.color')}</Label>
+            <Input value={form.color} onChange={e => set('color', e.target.value)} placeholder={t('workshop.orders.colorPlaceholder')} />
           </div>
         </div>
 
         {credits !== null && (
-          <p className="text-xs text-muted-foreground">Pozostałe kredyty wyszukiwania: {credits.remaining_credits}</p>
+          <p className="text-xs text-muted-foreground">{t('workshop.orders.remainingCredits', { count: credits.remaining_credits })}</p>
         )}
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Anuluj</Button>
+          <Button variant="outline" onClick={onClose}>{t('common.cancel')}</Button>
           <Button onClick={handleSave} disabled={saving} className="gap-1">
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Zapisz
+            {t('common.save')}
           </Button>
         </DialogFooter>
       </DialogContent>
