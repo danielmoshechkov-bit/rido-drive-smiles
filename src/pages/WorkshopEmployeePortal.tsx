@@ -16,10 +16,13 @@ import { StationOrderNoteDialog } from '@/components/workshop/StationOrderNoteDi
 import { EmployeeWorkListDialog } from '@/components/workshop/EmployeeWorkListDialog';
 import { useWorkshopTranslations, TranslatableField } from '@/hooks/useWorkshopTranslations';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import { useTranslation } from 'react-i18next';
+import { translateWorkshopStatus } from '@/utils/workshopStatusStyle';
 
 type Tab = 'home' | 'mine' | 'pool' | 'history';
 
 export default function WorkshopEmployeePortal() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { loading, isWorkshopEmployee, records } = useIsWorkshopEmployee();
   const [tab, setTab] = useState<Tab>('home');
@@ -52,7 +55,7 @@ export default function WorkshopEmployeePortal() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { navigate('/auth'); return; }
     setUserId(user.id);
-    setUserName(user.user_metadata?.full_name || user.email || 'Pracownik');
+    setUserName(user.user_metadata?.full_name || user.email || t('workshop.employeePortal.employee'));
 
     // Pool toggle — read workshop_settings for the provider's owner
     if (primaryProvider) {
@@ -155,15 +158,15 @@ export default function WorkshopEmployeePortal() {
         order_id: orderId, provider_id: providerId, employee_user_id: userId,
         action: 'claimed', performed_by: userId,
       });
-      toast.success('Zlecenie przyjęte');
+      toast.success(t('workshop.employeePortal.orderClaimed'));
       await loadAll();
-    } catch (e: any) { toast.error(e.message || 'Nie udało się przyjąć zlecenia'); }
+    } catch (e: any) { toast.error(e.message || t('workshop.employeePortal.claimFailed')); }
     finally { setBusy(null); }
   };
 
   const release = async (assignmentId: string, orderId: string, providerId: string) => {
     if (!userId) return;
-    if (!confirm('Zwrócić zlecenie do puli? Inni pracownicy będą mogli je przejąć.')) return;
+    if (!confirm(t('workshop.employeePortal.confirmRelease'))) return;
     setBusy(assignmentId);
     try {
       const { error } = await (supabase.from('workshop_order_assignments') as any)
@@ -173,9 +176,9 @@ export default function WorkshopEmployeePortal() {
         order_id: orderId, provider_id: providerId, employee_user_id: userId,
         action: 'released', performed_by: userId,
       });
-      toast.success('Zlecenie zwrócone do puli');
+      toast.success(t('workshop.employeePortal.orderReleased'));
       await loadAll();
-    } catch (e: any) { toast.error(e.message || 'Błąd'); }
+    } catch (e: any) { toast.error(e.message || t('common.saveError')); }
     finally { setBusy(null); }
   };
 
@@ -215,12 +218,12 @@ export default function WorkshopEmployeePortal() {
         <Card>
           <CardContent className="py-12 text-center space-y-3">
             <Wrench className="h-12 w-12 mx-auto text-muted-foreground/50" />
-            <h2 className="text-lg font-semibold">Brak dostępu</h2>
+            <h2 className="text-lg font-semibold">{t('workshop.employeePortal.noAccess')}</h2>
             <p className="text-sm text-muted-foreground">
-              Nie jesteś przypisany/a do żadnego warsztatu. Jeśli właśnie otrzymałeś/aś zaproszenie email — kliknij link w wiadomości.
+              {t('workshop.employeePortal.noAccessHint')}
             </p>
             <Button variant="outline" onClick={() => navigate('/klient')}>
-              <ArrowLeft className="h-4 w-4 mr-2" /> Wróć do portalu klienta
+              <ArrowLeft className="h-4 w-4 mr-2" /> {t('workshop.employeePortal.backToClientPortal')}
             </Button>
           </CardContent>
         </Card>
@@ -240,14 +243,14 @@ export default function WorkshopEmployeePortal() {
       {/* Header */}
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="sm" onClick={() => navigate('/klient')}>
-          <ArrowLeft className="h-4 w-4 mr-1" /> Moje konto
+          <ArrowLeft className="h-4 w-4 mr-1" /> {t('workshop.employeePortal.myAccount')}
         </Button>
         <div className="flex-1">
           <h1 className="text-xl md:text-2xl font-bold flex items-center gap-2">
-            <Briefcase className="h-6 w-6 text-primary" /> Moja Praca
+            <Briefcase className="h-6 w-6 text-primary" /> {t('workshop.employeePortal.myWork')}
           </h1>
           <p className="text-xs md:text-sm text-muted-foreground">
-            {primaryProvider?.provider_name || 'Twój warsztat'} · {primaryProvider?.role?.toUpperCase()}
+            {primaryProvider?.provider_name || t('workshop.employeePortal.yourWorkshop')} · {primaryProvider?.role?.toUpperCase()}
           </p>
         </div>
         <LanguageSwitcher />
@@ -256,22 +259,22 @@ export default function WorkshopEmployeePortal() {
 
       {/* Quick stat tiles */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
-        <StatTile icon={<ClipboardList className="h-5 w-5" />} label="Moje zlecenia" value={stats.mine}
+        <StatTile icon={<ClipboardList className="h-5 w-5" />} label={t('workshop.employeePortal.myOrders')} value={stats.mine}
           active={tab === 'mine'} onClick={() => setTab('mine')} />
-        <StatTile icon={<Hourglass className="h-5 w-5" />} label="W trakcie" value={stats.inProgress} accent="warning" />
-        <StatTile icon={<CheckCircle2 className="h-5 w-5" />} label="Zakończone" value={stats.done} accent="success" />
+        <StatTile icon={<Hourglass className="h-5 w-5" />} label={t('workshop.employeePortal.inProgress')} value={stats.inProgress} accent="warning" />
+        <StatTile icon={<CheckCircle2 className="h-5 w-5" />} label={t('workshop.employeePortal.completed')} value={stats.done} accent="success" />
         <StatTile
-          icon={<Inbox className="h-5 w-5" />} label="Dostępne" value={stats.pool}
+          icon={<Inbox className="h-5 w-5" />} label={t('workshop.employeePortal.available')} value={stats.pool}
           active={tab === 'pool'} onClick={() => setTab('pool')}
         />
       </div>
 
       {/* Nav pill tabs */}
       <div className="flex gap-1.5 overflow-x-auto scrollbar-hide -mx-1 px-1">
-        <NavPill active={tab === 'home'} onClick={() => setTab('home')} icon={<Briefcase className="h-3.5 w-3.5" />} label="Start" />
-        <NavPill active={tab === 'mine'} onClick={() => setTab('mine')} icon={<ClipboardList className="h-3.5 w-3.5" />} label={`Moje (${stats.mine})`} />
-        <NavPill active={tab === 'pool'} onClick={() => setTab('pool')} icon={<Inbox className="h-3.5 w-3.5" />} label={`Aktywne (${stats.pool})`} />
-        <NavPill active={tab === 'history'} onClick={() => setTab('history')} icon={<History className="h-3.5 w-3.5" />} label="Historia" />
+        <NavPill active={tab === 'home'} onClick={() => setTab('home')} icon={<Briefcase className="h-3.5 w-3.5" />} label={t('workshop.employeePortal.start')} />
+        <NavPill active={tab === 'mine'} onClick={() => setTab('mine')} icon={<ClipboardList className="h-3.5 w-3.5" />} label={t('workshop.employeePortal.mineCount', { count: stats.mine })} />
+        <NavPill active={tab === 'pool'} onClick={() => setTab('pool')} icon={<Inbox className="h-3.5 w-3.5" />} label={t('workshop.employeePortal.activeCount', { count: stats.pool })} />
+        <NavPill active={tab === 'history'} onClick={() => setTab('history')} icon={<History className="h-3.5 w-3.5" />} label={t('workshop.employeePortal.history')} />
       </div>
 
       {dataLoading ? (
@@ -279,42 +282,42 @@ export default function WorkshopEmployeePortal() {
       ) : tab === 'home' ? (
         <div className="grid sm:grid-cols-2 gap-3">
           <ActionTile
-            title="Moje zlecenia"
-            sub={`${stats.mine} aktywnych`}
+            title={t('workshop.employeePortal.myOrders')}
+            sub={t('workshop.employeePortal.activeCountSub', { count: stats.mine })}
             icon={<ClipboardList className="h-6 w-6 text-primary" />}
             onClick={() => setTab('mine')}
           />
           <ActionTile
-            title="Aktywne zlecenia"
+            title={t('workshop.employeePortal.activeOrders')}
             sub={poolEnabled
-              ? `${stats.pool} w warsztacie — możesz przejąć`
-              : `${stats.pool} w warsztacie (podgląd)`}
+              ? t('workshop.employeePortal.inWorkshopCanClaim', { count: stats.pool })
+              : t('workshop.employeePortal.inWorkshopPreview', { count: stats.pool })}
             icon={<Inbox className="h-6 w-6 text-primary" />}
             onClick={() => setTab('pool')}
           />
 
           <ActionTile
-            title="Kalendarz"
-            sub="Twoje terminy"
+            title={t('workshop.employeePortal.calendar')}
+            sub={t('workshop.employeePortal.yourAppointments')}
             icon={<Calendar className="h-6 w-6 text-primary" />}
             onClick={() => navigate('/kalendarz')}
           />
           <ActionTile
-            title="Historia"
-            sub="Przyjęte i zwrócone"
+            title={t('workshop.employeePortal.history')}
+            sub={t('workshop.employeePortal.claimedAndReleased')}
             icon={<History className="h-6 w-6 text-primary" />}
             onClick={() => setTab('history')}
           />
         </div>
       ) : tab === 'mine' ? (
-        <Section title={`Moje zlecenia (${mine.length})`} icon={<ClipboardList className="h-4 w-4 text-primary" />}>
+        <Section title={t('workshop.employeePortal.myOrdersCount', { count: mine.length })} icon={<ClipboardList className="h-4 w-4 text-primary" />}>
           {/* Station filter pills — only when employee has any station */}
           {myStations.length > 0 && (
             <div className="px-3 py-2 border-b flex gap-1.5 overflow-x-auto scrollbar-hide">
               <button
                 onClick={() => setStationFilter('all')}
                 className={`shrink-0 px-3 py-1 rounded-full text-xs border ${stationFilter === 'all' ? 'bg-primary text-primary-foreground border-primary' : 'bg-card hover:bg-muted'}`}
-              >Wszystkie ({mine.length})</button>
+              >{t('workshop.employeePortal.allCount', { count: mine.length })}</button>
               {myStations.map(s => {
                 const n = mine.filter(a => a.workshop_orders?.station_id === s.id).length;
                 return (
@@ -334,8 +337,8 @@ export default function WorkshopEmployeePortal() {
             });
             if (filtered.length === 0) {
               return <Empty text={mine.length === 0
-                ? 'Brak przydzielonych zleceń. Gdy warsztat coś przydzieli — pojawi się tutaj.'
-                : 'Brak zleceń na tym stanowisku.'} />;
+                ? t('workshop.employeePortal.noAssignedOrders')
+                : t('workshop.employeePortal.noOrdersAtStation')} />;
             }
             return (
             <div className="divide-y">
@@ -392,7 +395,7 @@ export default function WorkshopEmployeePortal() {
                 return (
                 <div key={a.id} className={`p-3 flex items-center gap-3 border-l-4 ${toneRow}`}>
                   {a.workshop_orders?.has_unread_notes && (
-                    <span title="Nowa notatka od administratora" className="text-amber-500 text-lg leading-none">!</span>
+                    <span title={t('workshop.employeePortal.newAdminNote')} className="text-amber-500 text-lg leading-none">!</span>
                   )}
                   <button className="flex-1 text-left hover:opacity-80" onClick={openOrder}>
                     <div className="font-semibold text-sm flex items-center gap-2 text-foreground">
@@ -428,7 +431,7 @@ export default function WorkshopEmployeePortal() {
                       'Zakończone': 'bg-gray-700 text-white hover:bg-gray-800',
                     };
                     const cls = map[st] || (station ? 'bg-blue-500 text-white hover:bg-blue-600' : 'bg-gray-400 text-white hover:bg-gray-500');
-                    const label = st && map[st] ? st : (station ? station.name : 'Przydzielone');
+                    const label = st && map[st] ? translateWorkshopStatus(st, t) : (station ? station.name : translateWorkshopStatus('Przydzielone', t));
                     return <Badge className={`${cls} text-xs`}>{label}</Badge>;
                   })()}
                   {/* Action buttons */}
@@ -442,16 +445,16 @@ export default function WorkshopEmployeePortal() {
                           setOpenProviderId(a.provider_id);
                           setOpenOrderId(a.order_id);
                         }}
-                        title="Karta zlecenia — podgląd diagnozy"
+                        title={t('workshop.employeePortal.orderCardDiagnosisPreview')}
                       >
-                        Karta
+                        {t('workshop.employeePortal.card')}
                       </Button>
                       <Button
                         size="sm"
                         className="bg-primary text-primary-foreground"
                         onClick={() => setWorkListOrderId(a.order_id)}
                       >
-                        Lista prac
+                        {t('workshop.employeePortal.workList')}
                       </Button>
                     </>
                   )}
@@ -460,7 +463,7 @@ export default function WorkshopEmployeePortal() {
                       variant="ghost" size="sm" disabled={busy === a.id}
                       onClick={() => release(a.id, a.order_id, a.provider_id)}
                     >
-                      {busy === a.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Zwróć'}
+                      {busy === a.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : t('workshop.employeePortal.release')}
                     </Button>
                   )}
 
@@ -472,9 +475,9 @@ export default function WorkshopEmployeePortal() {
           })()}
         </Section>
       ) : tab === 'pool' ? (
-        <Section title={`Aktywne zlecenia warsztatu (${pool.length})`} icon={<Inbox className="h-4 w-4 text-primary" />}>
+        <Section title={t('workshop.employeePortal.workshopActiveOrdersCount', { count: pool.length })} icon={<Inbox className="h-4 w-4 text-primary" />}>
           {pool.length === 0 ? (
-            <Empty text="Brak aktywnych zleceń." />
+            <Empty text={t('workshop.employeePortal.noActiveOrders')} />
           ) : (
             <div className="divide-y">
               {pool.map(o => (
@@ -499,14 +502,14 @@ export default function WorkshopEmployeePortal() {
                   </button>
 
 
-                  <Badge variant="outline" className="text-xs border-amber-400 text-amber-700 bg-amber-100">Aktywne</Badge>
+                  <Badge variant="outline" className="text-xs border-amber-400 text-amber-700 bg-amber-100">{t('workshop.employeePortal.active')}</Badge>
 
                   {poolEnabled && (
                     <Button
                       size="sm" disabled={busy === o.id}
                       onClick={() => claim(o.id, o.provider_id)}
                     >
-                      {busy === o.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <><HandHelping className="h-3.5 w-3.5 mr-1" />Przyjmij</>}
+                      {busy === o.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <><HandHelping className="h-3.5 w-3.5 mr-1" />{t('workshop.employeePortal.claim')}</>}
                     </Button>
                   )}
                 </div>
@@ -515,9 +518,9 @@ export default function WorkshopEmployeePortal() {
           )}
         </Section>
       ) : (
-        <Section title={`Historia (${history.length})`} icon={<History className="h-4 w-4 text-primary" />}>
+        <Section title={t('workshop.employeePortal.historyCount', { count: history.length })} icon={<History className="h-4 w-4 text-primary" />}>
           {history.length === 0 ? (
-            <Empty text="Brak wykonanych zleceń." />
+            <Empty text={t('workshop.employeePortal.noCompletedOrders')} />
           ) : (() => {
             // Group by station — "Bez stanowiska" for orders without one
             const groups: Record<string, { name: string; color: string; items: any[] }> = {};
@@ -527,7 +530,7 @@ export default function WorkshopEmployeePortal() {
               const key = sid;
               if (!groups[key]) {
                 groups[key] = {
-                  name: st?.name || 'Bez stanowiska',
+                  name: st?.name || t('workshop.employeePortal.noStation'),
                   color: st?.color || '#94a3b8',
                   items: [],
                 };
@@ -566,7 +569,7 @@ export default function WorkshopEmployeePortal() {
                                 {vehLine && <span className="text-foreground/80 font-normal"> · {vehLine}</span>}
                               </div>
                               <Badge className="bg-gray-700 text-white text-[10px]">
-                                {o?.status_name || 'Zakończone'}
+                                {translateWorkshopStatus(o?.status_name || 'Zakończone', t)}
                               </Badge>
                             </div>
                             {o?.description && (
@@ -585,13 +588,13 @@ export default function WorkshopEmployeePortal() {
                                   </li>
                                 ))}
                                 {items.length > 6 && (
-                                  <li className="text-[11px] text-muted-foreground">…i {items.length - 6} więcej</li>
+                                  <li className="text-[11px] text-muted-foreground">{t('workshop.employeePortal.andMore', { count: items.length - 6 })}</li>
                                 )}
                               </ul>
                             )}
                             {o?.completed_at && (
                               <div className="text-[11px] text-muted-foreground mt-1">
-                                Zakończone: {new Date(o.completed_at).toLocaleString('pl')}
+                                {t('workshop.employeePortal.completedAt', { date: new Date(o.completed_at).toLocaleString('pl') })}
                               </div>
                             )}
                           </div>
@@ -613,10 +616,10 @@ export default function WorkshopEmployeePortal() {
             <CardContent className="py-3 flex items-center gap-3">
               <Building2 className="h-5 w-5 text-primary" />
               <div className="flex-1">
-                <div className="font-medium text-sm">{r.provider_name || 'Warsztat'}</div>
+                <div className="font-medium text-sm">{r.provider_name || t('workshop.employeePortal.workshop')}</div>
                 <div className="text-[11px] text-muted-foreground uppercase">{r.role}</div>
               </div>
-              <Badge className="bg-green-500 text-white hover:bg-green-600">Aktywny</Badge>
+              <Badge className="bg-green-500 text-white hover:bg-green-600">{t('workshop.employeePortal.activeBadge')}</Badge>
             </CardContent>
           </Card>
         ))}

@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import {
   Loader2, X, Check, PackagePlus, Plus, Wrench, ClipboardList,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   open: boolean;
@@ -43,6 +44,7 @@ interface Group {
 export function EmployeeWorkListDialog({
   open, onOpenChange, orderId, employeeId, employeeName, onSaved,
 }: Props) {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [order, setOrder] = useState<any>(null);
   const [vehicle, setVehicle] = useState<any>(null);
@@ -101,7 +103,7 @@ export function EmployeeWorkListDialog({
   }, [items]);
 
   const removeItem = async (id: string) => {
-    if (!confirm('Usunąć tę pozycję? (zmniejszy łączną cenę — nie wymaga ponownej akceptacji)')) return;
+    if (!confirm(t('workshop.workList.confirmRemoveItem'))) return;
     setBusy(id);
     try {
       const { error } = await (supabase.from('workshop_order_items') as any).delete().eq('id', id);
@@ -114,9 +116,9 @@ export function EmployeeWorkListDialog({
         note: `Usunięto pozycję z listy prac (id: ${id.slice(0, 8)})`,
       });
       setItems(its => its.filter(i => i.id !== id));
-      toast.success('Pozycja usunięta');
+      toast.success(t('workshop.workList.itemRemoved'));
     } catch (e: any) {
-      toast.error(e.message || 'Błąd');
+      toast.error(e.message || t('common.saveError'));
     } finally {
       setBusy(null);
     }
@@ -131,12 +133,12 @@ export function EmployeeWorkListDialog({
 
     const hrs = parseFloat(addonHours || '0') || 0;
     if (partsList.length === 0 && !addonLabor.trim() && hrs === 0) {
-      toast.error('Wpisz część albo robociznę');
+      toast.error(t('workshop.workList.enterPartOrLabor'));
       return;
     }
     // Warn if parts added but no labor
     if (partsList.length > 0 && !addonLabor.trim() && hrs === 0) {
-      if (!confirm('Nie wpisano robocizny za wymianę tych części. Wysłać bez uwzględnienia robocizny?')) return;
+      if (!confirm(t('workshop.workList.confirmNoLabor'))) return;
     }
     setAddonSaving(true);
     try {
@@ -185,13 +187,13 @@ export function EmployeeWorkListDialog({
       supabase.functions.invoke('workshop-notify-employee', {
         body: { order_id: orderId, event: 'repair_addon_request' },
       }).catch(() => {});
-      toast.success('Dodatek wysłany do akceptacji administratora');
+      toast.success(t('workshop.workList.addonSentToAdmin'));
       setAddonOpen(false);
       setAddonParts([]); setAddonPartDraft(''); setAddonLabor(''); setAddonHours('');
       onSaved?.();
       onOpenChange(false);
     } catch (e: any) {
-      toast.error(e.message || 'Błąd');
+      toast.error(e.message || t('common.saveError'));
     } finally {
       setAddonSaving(false);
     }
@@ -213,11 +215,11 @@ export function EmployeeWorkListDialog({
       supabase.functions.invoke('workshop-notify-employee', {
         body: { order_id: orderId, event: 'order_ready' },
       }).catch(() => {});
-      toast.success('Naprawa zakończona — przekazano administratorowi');
+      toast.success(t('workshop.workList.repairFinishedHanded'));
       onSaved?.();
       onOpenChange(false);
     } catch (e: any) {
-      toast.error(e.message || 'Błąd');
+      toast.error(e.message || t('common.saveError'));
     } finally {
       setFinishing(false);
     }
@@ -225,7 +227,7 @@ export function EmployeeWorkListDialog({
 
   const status = String(order?.status_name || '');
   const isWaitingAddon = status === 'Dodatek do naprawy';
-  const veh = vehicle ? `${vehicle.brand || ''} ${vehicle.model || ''}`.trim() : 'Pojazd';
+  const veh = vehicle ? `${vehicle.brand || ''} ${vehicle.model || ''}`.trim() : t('workshop.workList.vehicle');
   const plate = vehicle?.plate || '';
 
   return (
@@ -234,7 +236,7 @@ export function EmployeeWorkListDialog({
         <DialogHeader className="px-4 py-3 border-b">
           <DialogTitle className="flex items-center gap-2 text-base">
             <ClipboardList className="h-5 w-5 text-primary" />
-            Lista prac · {order?.order_number || ''}
+            {t('workshop.workList.title')} · {order?.order_number || ''}
           </DialogTitle>
           <div className="text-xs text-muted-foreground">
             {veh}{vehicle?.year ? ` · ${vehicle.year}` : ''}{plate ? ` · ${plate}` : ''}
@@ -248,12 +250,12 @@ export function EmployeeWorkListDialog({
             <div className="p-3 space-y-3 bg-muted/20">
               {isWaitingAddon && (
                 <div className="rounded-md bg-yellow-100 border border-yellow-300 text-yellow-900 text-sm py-2 px-3 font-medium">
-                  ⏳ Poczekaj — administrator wycenia dodatek i wysyła do akceptacji klienta.
+                  ⏳ {t('workshop.workList.waitingAddonNote')}
                 </div>
               )}
               {groups.length === 0 ? (
                 <div className="text-center text-sm text-muted-foreground py-8">
-                  Brak pozycji do wykonania.
+                  {t('workshop.workList.noItems')}
                 </div>
               ) : groups.map(g => (
                 <div key={g.key} className={`rounded-xl bg-card border p-3 space-y-2 ${
@@ -262,7 +264,7 @@ export function EmployeeWorkListDialog({
                   <div className="flex items-center gap-2">
                     <div className="font-semibold text-sm flex-1">{g.key}</div>
                     {g.isAddon && (
-                      <Badge className="bg-orange-500 text-white text-[10px]">DODATEK</Badge>
+                      <Badge className="bg-orange-500 text-white text-[10px]">{t('workshop.workList.addonBadge')}</Badge>
                     )}
                   </div>
 
@@ -270,7 +272,7 @@ export function EmployeeWorkListDialog({
                     <div className="rounded-md border bg-background px-3 py-2 flex items-center gap-2">
                       <Wrench className="h-4 w-4 text-primary shrink-0" />
                       <div className="flex-1">
-                        <div className="text-sm font-medium">{g.service.name || 'Robocizna'}</div>
+                        <div className="text-sm font-medium">{g.service.name || t('workshop.workList.labor')}</div>
                         {g.service.labor_hours ? (
                           <div className="text-xs text-muted-foreground">{g.service.labor_hours} h</div>
                         ) : null}
@@ -280,7 +282,7 @@ export function EmployeeWorkListDialog({
                         disabled={busy === g.service.id}
                         onClick={() => g.service && removeItem(g.service.id)}
                         className="text-muted-foreground hover:text-destructive p-1 disabled:opacity-50"
-                        title="Usuń pozycję"
+                        title={t('workshop.workList.removeItemTooltip')}
                       >
                         {busy === g.service.id
                           ? <Loader2 className="h-4 w-4 animate-spin" />
@@ -300,7 +302,7 @@ export function EmployeeWorkListDialog({
                             disabled={busy === p.id}
                             onClick={() => removeItem(p.id)}
                             className="text-muted-foreground hover:text-destructive p-1 disabled:opacity-50"
-                            title="Usuń część"
+                            title={t('workshop.workList.removePartTooltip')}
                           >
                             {busy === p.id
                               ? <Loader2 className="h-4 w-4 animate-spin" />
@@ -324,7 +326,7 @@ export function EmployeeWorkListDialog({
               onClick={() => setAddonOpen(true)}
               disabled={finishing || isWaitingAddon}
             >
-              <PackagePlus className="h-4 w-4 mr-1" /> Dodatek do naprawy
+              <PackagePlus className="h-4 w-4 mr-1" /> {t('workshop.workList.repairAddon')}
             </Button>
             <Button
               className="h-11 bg-emerald-600 hover:bg-emerald-700 text-white"
@@ -334,11 +336,11 @@ export function EmployeeWorkListDialog({
               {finishing
                 ? <Loader2 className="h-4 w-4 mr-1 animate-spin" />
                 : <Check className="h-4 w-4 mr-1" />}
-              Zakończ naprawę
+              {t('workshop.workList.finishRepair')}
             </Button>
           </div>
           <Button variant="ghost" size="sm" className="w-full" onClick={() => onOpenChange(false)}>
-            Zamknij
+            {t('workshop.workList.close')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -348,15 +350,15 @@ export function EmployeeWorkListDialog({
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-orange-700">
-              <PackagePlus className="h-5 w-5" /> Dodatek do naprawy
+              <PackagePlus className="h-5 w-5" /> {t('workshop.workList.repairAddon')}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="rounded-md bg-orange-50 border border-orange-200 text-orange-900 text-xs p-2">
-              Wpisz dodatkowe części i robociznę. Trafią do administratora — wyceni i wyśle klientowi do akceptacji.
+              {t('workshop.workList.addonInfo')}
             </div>
             <div>
-              <div className="text-[11px] font-bold uppercase tracking-wide text-foreground mb-1.5">Części dodatkowe</div>
+              <div className="text-[11px] font-bold uppercase tracking-wide text-foreground mb-1.5">{t('workshop.workList.additionalParts')}</div>
               {addonParts.length > 0 && (
                 <div className="divide-y border rounded-md mb-2 bg-background">
                   {addonParts.map((p, i) => (
@@ -373,7 +375,7 @@ export function EmployeeWorkListDialog({
                 <Input
                   value={addonPartDraft}
                   onChange={(e) => setAddonPartDraft(e.target.value)}
-                  placeholder="Wpisz część…"
+                  placeholder={t('workshop.workList.enterPartPlaceholder')}
                   className="h-11 flex-1"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
@@ -389,21 +391,21 @@ export function EmployeeWorkListDialog({
                     const v = addonPartDraft.trim();
                     if (v) { setAddonParts(ps => [...ps, v]); setAddonPartDraft(''); }
                   }}
-                  aria-label="Dodaj część"
+                  aria-label={t('workshop.workList.addPartAria')}
                 >
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
             </div>
             <div>
-              <div className="text-[11px] font-bold uppercase tracking-wide text-foreground mb-1.5">Robocizna dodatkowa</div>
+              <div className="text-[11px] font-bold uppercase tracking-wide text-foreground mb-1.5">{t('workshop.workList.additionalLabor')}</div>
               <Input
                 value={addonLabor} onChange={(e) => setAddonLabor(e.target.value)}
-                placeholder="np. Wymiana wahacza prawego" className="h-11"
+                placeholder={t('workshop.workList.laborPlaceholder')} className="h-11"
               />
             </div>
             <div>
-              <label className="text-[11px] font-bold uppercase tracking-wide text-foreground">Czas (h)</label>
+              <label className="text-[11px] font-bold uppercase tracking-wide text-foreground">{t('workshop.workList.timeHours')}</label>
               <Input
                 type="number" step="0.25" min="0" inputMode="decimal"
                 value={addonHours} onChange={(e) => setAddonHours(e.target.value)}
@@ -412,14 +414,14 @@ export function EmployeeWorkListDialog({
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAddonOpen(false)} disabled={addonSaving}>Anuluj</Button>
+            <Button variant="outline" onClick={() => setAddonOpen(false)} disabled={addonSaving}>{t('common.cancel')}</Button>
             <Button
               className="bg-orange-600 hover:bg-orange-700 text-white"
               disabled={addonSaving}
               onClick={submitAddon}
             >
               {addonSaving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Check className="h-4 w-4 mr-1" />}
-              Wyślij do akceptacji
+              {t('workshop.workList.sendForAcceptance')}
             </Button>
           </DialogFooter>
         </DialogContent>

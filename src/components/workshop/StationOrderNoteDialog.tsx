@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Loader2, CheckCircle2, History, Car, StickyNote, Play } from 'lucide-react';
 import { toast } from 'sonner';
 import { useWorkshopTranslations, TranslatableField } from '@/hooks/useWorkshopTranslations';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   open: boolean;
@@ -19,6 +20,7 @@ interface Props {
 }
 
 export function StationOrderNoteDialog({ open, onOpenChange, orderId, stationName, onDone }: Props) {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [order, setOrder] = useState<any>(null);
   const [vehicle, setVehicle] = useState<any>(null);
@@ -75,11 +77,11 @@ export function StationOrderNoteDialog({ open, onOpenChange, orderId, stationNam
         actor_user_id: user?.id || null,
         actor_role: 'employee',
       });
-      toast.success(`Rozpoczęto: ${stationName}`);
+      toast.success(t('workshop.stationNote.startedToast', { station: stationName }));
       onDone?.();
       onOpenChange(false);
     } catch (e: any) {
-      toast.error(e.message || 'Błąd');
+      toast.error(e.message || t('common.saveError'));
     } finally {
       setBusy(false);
     }
@@ -108,11 +110,11 @@ export function StationOrderNoteDialog({ open, onOpenChange, orderId, stationNam
       supabase.functions.invoke('workshop-notify-employee', {
         body: { order_id: orderId, event: 'order_ready' },
       }).catch(() => {});
-      toast.success('Zlecenie przekazane do administratora');
+      toast.success(t('workshop.stationNote.handedToAdminToast'));
       onDone?.();
       onOpenChange(false);
     } catch (e: any) {
-      toast.error(e.message || 'Błąd');
+      toast.error(e.message || t('common.saveError'));
     } finally {
       setBusy(false);
     }
@@ -141,7 +143,7 @@ export function StationOrderNoteDialog({ open, onOpenChange, orderId, stationNam
             {stationName && (
               <Badge className="bg-blue-500 text-white">{stationName}</Badge>
             )}
-            <span>{order?.order_number || 'Zlecenie'}</span>
+            <span>{order?.order_number || t('workshop.stationNote.order')}</span>
           </DialogTitle>
         </DialogHeader>
 
@@ -154,7 +156,7 @@ export function StationOrderNoteDialog({ open, onOpenChange, orderId, stationNam
                 <Car className="h-6 w-6 text-primary" />
                 <div className="flex-1">
                   <div className="font-semibold">
-                    {vehicle ? `${vehicle.brand || ''} ${vehicle.model || ''}`.trim() : 'Pojazd'}
+                    {vehicle ? `${vehicle.brand || ''} ${vehicle.model || ''}`.trim() : t('workshop.stationNote.vehicle')}
                     {vehicle?.year && <span className="text-muted-foreground"> · {vehicle.year}</span>}
                   </div>
                   <div className="text-sm text-muted-foreground">
@@ -167,7 +169,7 @@ export function StationOrderNoteDialog({ open, onOpenChange, orderId, stationNam
               {note && orderId && (
                 <div className="rounded-lg border-l-4 border-l-blue-500 bg-blue-50/60 p-3">
                   <div className="text-xs font-semibold text-blue-800 flex items-center gap-1 mb-1">
-                    <StickyNote className="h-3.5 w-3.5" /> Notatka od administratora
+                    <StickyNote className="h-3.5 w-3.5" /> {t('workshop.stationNote.adminNote')}
                   </div>
                   <p className="text-sm whitespace-pre-wrap">{tr('note', orderId, 'admin_note', note)}</p>
                 </div>
@@ -179,12 +181,12 @@ export function StationOrderNoteDialog({ open, onOpenChange, orderId, stationNam
                   onClick={() => setShowHistory(s => !s)}
                 >
                   <History className="h-4 w-4 mr-2" />
-                  {showHistory ? 'Ukryj historię' : 'Historia naprawy'}
+                  {showHistory ? t('workshop.stationNote.hideHistory') : t('workshop.stationNote.repairHistory')}
                 </Button>
                 {showHistory && (
                   <div className="mt-2 border rounded-lg divide-y max-h-60 overflow-y-auto">
                     {allEvents.length === 0 ? (
-                      <div className="p-3 text-xs text-muted-foreground text-center">Brak wpisów.</div>
+                      <div className="p-3 text-xs text-muted-foreground text-center">{t('workshop.stationNote.noEntries')}</div>
                     ) : allEvents.map(e => (
                       <div key={e.id} className="p-2 text-xs">
                         <div className="flex items-center justify-between text-muted-foreground">
@@ -203,17 +205,17 @@ export function StationOrderNoteDialog({ open, onOpenChange, orderId, stationNam
 
         <DialogFooter className="flex-col sm:flex-row gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
-            Zamknij
+            {t('workshop.stationNote.close')}
           </Button>
           {!inProgress ? (
             <Button onClick={start} disabled={busy || loading} className="bg-blue-600 hover:bg-blue-700">
               {busy ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Play className="h-4 w-4 mr-2" />}
-              Przyjmij — rozpocznij {stationName || ''}
+              {t('workshop.stationNote.acceptStart', { station: stationName || '' })}
             </Button>
           ) : (
             <Button onClick={finish} disabled={busy || loading} className="bg-emerald-600 hover:bg-emerald-700">
               {busy ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
-              Gotowe — {stationName || 'zakończ'}
+              {t('workshop.stationNote.done', { station: stationName || t('workshop.stationNote.finish') })}
             </Button>
           )}
         </DialogFooter>

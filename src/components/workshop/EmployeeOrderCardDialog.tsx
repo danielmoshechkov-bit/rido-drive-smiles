@@ -9,6 +9,8 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useTranslation, Trans } from 'react-i18next';
+import { translateWorkshopStatus } from '@/utils/workshopStatusStyle';
 
 interface Props {
   open: boolean;
@@ -44,6 +46,7 @@ export function EmployeeOrderCardDialog({
   open, onOpenChange, orderId, employeeName, employeeId,
   readOnly, onClaim, onSaved,
 }: Props) {
+  const { t: tr } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [claiming, setClaiming] = useState(false);
@@ -196,7 +199,7 @@ export function EmployeeOrderCardDialog({
     const t = workingTasks[ti];
     const hrs = parseFloat(t.time || '0');
     if (!hrs || hrs <= 0) {
-      setTasks(workingTasks.map((x, idx) => idx === ti ? { ...x, timeError: 'Czas naprawy jest obowiązkowy — wpisz zanim zatwierdzisz punkt' } : x));
+      setTasks(workingTasks.map((x, idx) => idx === ti ? { ...x, timeError: tr('workshop.employeeCard.timeRequired') } : x));
       timeInputRefs.current[ti]?.focus();
       return;
     }
@@ -308,11 +311,11 @@ export function EmployeeOrderCardDialog({
         actor_role: 'employee',
         to_status: 'Do wyceny',
       });
-      toast.success('Diagnoza zakończona — zlecenie trafiło do wyceny');
+      toast.success(tr('workshop.employeeCard.diagnosisDone'));
       onSaved?.();
       onOpenChange(false);
     } catch (e: any) {
-      toast.error(e.message || 'Błąd zapisu');
+      toast.error(e.message || tr('common.saveError'));
     } finally {
       setSaving(false);
     }
@@ -333,20 +336,20 @@ export function EmployeeOrderCardDialog({
             <div className="min-w-0">
               <div className="font-semibold text-base truncate">{headerTitle}</div>
               <div className="text-xs text-muted-foreground truncate">
-                {vehicleHeader || 'Pojazd —'}
+                {vehicleHeader || tr('workshop.employeeCard.vehicleFallback')}
                 {vehicle?.plate ? ` · ${vehicle.plate}` : ''}
               </div>
             </div>
             {readOnly && (
               <Badge variant="outline" className="gap-1 text-amber-700 border-amber-300 bg-amber-50 shrink-0">
-                <Lock className="h-3 w-3" /> Podgląd
+                <Lock className="h-3 w-3" /> {tr('workshop.employeeCard.preview')}
               </Badge>
             )}
           </div>
           <div className="mt-2 flex items-center gap-3">
             <Progress value={progressPct} className="h-2 flex-1" />
             <span className="text-xs font-medium text-muted-foreground shrink-0">
-              {confirmedCount} / {tasks.length} punktów
+              {tr('workshop.employeeCard.pointsProgress', { done: confirmedCount, total: tasks.length })}
             </span>
           </div>
         </div>
@@ -365,11 +368,11 @@ export function EmployeeOrderCardDialog({
                 const costNum = parseFloat(String(t.cost || '0').replace(',', '.')) || 0;
                 const summary = filled
                   ? [
-                      partsCount ? `${partsCount} ${partsCount === 1 ? 'część' : 'części'}` : null,
+                      partsCount ? tr('workshop.employeeCard.partsCount', { count: partsCount }) : null,
                       hrsNum ? `${hrsNum} h` : null,
                       costNum ? fmtMoney(costNum) : null,
                     ].filter(Boolean).join(' · ')
-                  : 'Pusty — dotknij aby wypełnić';
+                  : tr('workshop.employeeCard.emptyTapToFill');
 
                 return (
                   <div
@@ -390,9 +393,9 @@ export function EmployeeOrderCardDialog({
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-semibold truncate">
-                          {t.index}. {t.complaint || t.text || 'Zadanie'}
+                          {t.index}. {t.complaint || t.text || tr('workshop.employeeCard.task')}
                           {t.isAddon && (
-                            <Badge className="ml-2 bg-yellow-400 text-yellow-950 text-[10px]">Dodatek</Badge>
+                            <Badge className="ml-2 bg-yellow-400 text-yellow-950 text-[10px]">{tr('workshop.employeeCard.addon')}</Badge>
                           )}
                         </div>
                         <div className={`text-xs truncate ${filled ? 'text-green-600' : 'text-muted-foreground'}`}>
@@ -406,13 +409,13 @@ export function EmployeeOrderCardDialog({
                       <div className="px-3 pb-3 space-y-3 border-t border-border/60 pt-3">
                         {t.complaint && (
                           <div className="rounded-md bg-muted/60 border px-3 py-2">
-                            <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Zgłoszenie klienta</div>
+                            <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{tr('workshop.employeeCard.clientComplaint')}</div>
                             <div className="text-sm text-foreground">{t.complaint}</div>
                           </div>
                         )}
                         <div>
                           <div className="text-[11px] font-bold uppercase tracking-wide text-foreground mb-1.5">
-                            Części
+                            {tr('workshop.employeeCard.parts')}
                           </div>
                           {t.parts.length > 0 && (
                             <div className="divide-y border rounded-md mb-2 bg-background">
@@ -435,7 +438,7 @@ export function EmployeeOrderCardDialog({
                             <div className="flex gap-2">
                               <Input
                                 ref={el => { partInputRefs.current[ti] = el; }}
-                                placeholder="Wpisz część…"
+                                placeholder={tr('workshop.employeeCard.enterPartPlaceholder')}
                                 className="h-11 text-base flex-1"
                                 onKeyDown={(e) => {
                                   if (e.key === 'Enter') {
@@ -452,7 +455,7 @@ export function EmployeeOrderCardDialog({
                                   const el = partInputRefs.current[ti];
                                   if (el) addPart(ti, el.value);
                                 }}
-                                aria-label="Dodaj część"
+                                aria-label={tr('workshop.employeeCard.addPartAria')}
                               >
                                 <Plus className="h-4 w-4" />
                               </Button>
@@ -462,12 +465,12 @@ export function EmployeeOrderCardDialog({
                         {!readOnly && (
                           <div>
                             <div className="text-[11px] font-bold uppercase tracking-wide text-foreground mb-1.5">
-                              Czynność wykonana / Robocizna
+                              {tr('workshop.employeeCard.workDoneLabor')}
                             </div>
                             <Input
                               value={t.text}
                               onChange={(e) => setTasks(ts => ts.map((x, idx) => idx === ti ? { ...x, text: e.target.value } : x))}
-                              placeholder="np. Wymiana wahacza prawego"
+                              placeholder={tr('workshop.employeeCard.laborPlaceholder')}
                               className="h-11 text-base"
                             />
                           </div>
@@ -477,7 +480,7 @@ export function EmployeeOrderCardDialog({
                         <div className="grid grid-cols-2 gap-2">
                           <div>
                             <label className="text-[11px] font-bold uppercase tracking-wide text-foreground">
-                              Czas naprawy <span className="text-destructive">*</span>
+                              {tr('workshop.employeeCard.repairTime')} <span className="text-destructive">*</span>
                             </label>
                             <div className="relative">
                               <Input
@@ -494,7 +497,7 @@ export function EmployeeOrderCardDialog({
                           </div>
                           <div>
                             <label className="text-[11px] font-bold uppercase tracking-wide text-foreground">
-                              Koszt naprawy
+                              {tr('workshop.employeeCard.repairCost')}
                             </label>
                             <div className="relative">
                               <Input
@@ -502,7 +505,7 @@ export function EmployeeOrderCardDialog({
                                 value={t.cost} disabled={readOnly}
                                 onFocus={e => e.currentTarget.select()}
                                 onChange={e => setCost(ti, e.target.value)}
-                                placeholder="opcjonalne"
+                                placeholder={tr('workshop.employeeCard.optional')}
                                 className="h-11 text-base pr-10"
                               />
                               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">zł</span>
@@ -519,7 +522,7 @@ export function EmployeeOrderCardDialog({
                             className="w-full h-11"
                           >
                             <Check className="h-4 w-4 mr-2" />
-                            Zatwierdź punkt
+                            {tr('workshop.employeeCard.confirmPoint')}
                           </Button>
                         )}
                       </div>
@@ -550,13 +553,13 @@ export function EmployeeOrderCardDialog({
                     return ts.map(t => ({ ...t, expanded: false })).concat(newBlock);
                   })}
                 >
-                  <Plus className="h-4 w-4 mr-2" /> Dodaj pozycję
+                  <Plus className="h-4 w-4 mr-2" /> {tr('workshop.employeeCard.addItem')}
                 </Button>
               )}
 
               {readOnly && (
                 <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-                  Zlecenie z puli — kliknij <b>Akceptuj zlecenie</b>, aby przejąć je do siebie i zacząć diagnozę.
+                  <Trans i18nKey="workshop.employeeCard.poolHint" components={{ b: <b /> }} />
                 </div>
               )}
             </>
@@ -567,11 +570,11 @@ export function EmployeeOrderCardDialog({
         <div className="sticky bottom-0 bg-card border-t p-3 space-y-2">
           {readOnly ? (
             <div className="flex gap-2">
-              <Button variant="outline" className="flex-1 h-11" onClick={() => onOpenChange(false)}>Zamknij</Button>
+              <Button variant="outline" className="flex-1 h-11" onClick={() => onOpenChange(false)}>{tr('workshop.employeeCard.close')}</Button>
               {onClaim && (
                 <Button className="flex-1 h-11" onClick={handleClaim} disabled={claiming || loading}>
                   {claiming ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <HandHelping className="h-4 w-4 mr-2" />}
-                  Akceptuj zlecenie
+                  {tr('workshop.employeeCard.acceptOrder')}
                 </Button>
               )}
             </div>
@@ -584,9 +587,9 @@ export function EmployeeOrderCardDialog({
               return (
                 <div className="space-y-2">
                   <div className="rounded-md bg-yellow-100 border border-yellow-300 text-yellow-900 text-sm text-center py-3 font-medium">
-                    ⏳ Oczekuje na akceptację klienta
+                    ⏳ {tr('workshop.employeeCard.awaitingClientAcceptance')}
                   </div>
-                  <Button variant="ghost" size="sm" className="w-full" onClick={() => onOpenChange(false)}>Zamknij</Button>
+                  <Button variant="ghost" size="sm" className="w-full" onClick={() => onOpenChange(false)}>{tr('workshop.employeeCard.close')}</Button>
                 </div>
               );
             }
@@ -608,9 +611,9 @@ export function EmployeeOrderCardDialog({
                   supabase.functions.invoke('workshop-notify-employee', {
                     body: { order_id: orderId, event: 'order_ready' },
                   }).catch(() => {});
-                  toast.success('Naprawa zakończona');
+                  toast.success(tr('workshop.employeeCard.repairFinished'));
                   onSaved?.(); onOpenChange(false);
-                } catch (e: any) { toast.error(e.message || 'Błąd'); }
+                } catch (e: any) { toast.error(e.message || tr('common.saveError')); }
                 finally { setSaving(false); }
               };
               const openAddon = () => {
@@ -624,18 +627,18 @@ export function EmployeeOrderCardDialog({
               return (
                 <div className="space-y-2">
                   <div className="rounded-md bg-green-100 border border-green-300 text-green-900 text-sm text-center py-2 font-medium">
-                    ✓ Zgoda na naprawę — możesz pracować
+                    ✓ {tr('workshop.employeeCard.repairApprovedCanWork')}
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <Button variant="outline" className="h-11 border-orange-400 text-orange-700 hover:bg-orange-50" onClick={openAddon} disabled={saving}>
-                      <PackagePlus className="h-4 w-4 mr-1" /> Dodatek do naprawy
+                      <PackagePlus className="h-4 w-4 mr-1" /> {tr('workshop.employeeCard.repairAddon')}
                     </Button>
                     <Button className="h-11 bg-red-600 hover:bg-red-700 text-white" onClick={finishRepair} disabled={saving}>
                       {saving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Check className="h-4 w-4 mr-1" />}
-                      Zakończ naprawę
+                      {tr('workshop.employeeCard.finishRepair')}
                     </Button>
                   </div>
-                  <Button variant="ghost" size="sm" className="w-full" onClick={() => onOpenChange(false)}>Zamknij</Button>
+                  <Button variant="ghost" size="sm" className="w-full" onClick={() => onOpenChange(false)}>{tr('workshop.employeeCard.close')}</Button>
                 </div>
               );
             }
@@ -649,16 +652,16 @@ export function EmployeeOrderCardDialog({
                   className="w-full h-12 text-base"
                 >
                   {saving ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : (
-                    <>Zakończ diagnozę <ArrowRight className="h-4 w-4 mx-1" /> Do wyceny</>
+                    <>{tr('workshop.employeeCard.finishDiagnosis')} <ArrowRight className="h-4 w-4 mx-1" /> {translateWorkshopStatus('Do wyceny', tr)}</>
                   )}
                 </Button>
                 <p className="text-center text-[11px] text-muted-foreground">
                   {allConfirmed
-                    ? 'Wszystkie punkty wypełnione — możesz zakończyć diagnozę'
-                    : 'Aktywne po wypełnieniu wszystkich punktów'}
+                    ? tr('workshop.employeeCard.allPointsFilled')
+                    : tr('workshop.employeeCard.activeAfterAllPoints')}
                 </p>
                 <Button variant="ghost" size="sm" className="w-full" onClick={() => onOpenChange(false)}>
-                  <Wrench className="h-3.5 w-3.5 mr-1" /> Zamknij bez zakończenia
+                  <Wrench className="h-3.5 w-3.5 mr-1" /> {tr('workshop.employeeCard.closeWithoutFinishing')}
                 </Button>
               </>
             );
@@ -672,16 +675,16 @@ export function EmployeeOrderCardDialog({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-orange-700">
               <PackagePlus className="h-5 w-5" />
-              Dodatek do naprawy
+              {tr('workshop.employeeCard.repairAddon')}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="rounded-md bg-orange-50 border border-orange-200 text-orange-900 text-xs p-2">
-              Wpisz dodatkowe części i robociznę, które doszły w trakcie naprawy. Trafią na górę wyceny do akceptacji administratora i klienta.
+              {tr('workshop.employeeCard.addonInfo')}
             </div>
 
             <div>
-              <div className="text-[11px] font-bold uppercase tracking-wide text-foreground mb-1.5">Części dodatkowe</div>
+              <div className="text-[11px] font-bold uppercase tracking-wide text-foreground mb-1.5">{tr('workshop.employeeCard.additionalParts')}</div>
               {addonParts.length > 0 && (
                 <div className="divide-y border rounded-md mb-2 bg-background">
                   {addonParts.map((p, i) => (
@@ -698,7 +701,7 @@ export function EmployeeOrderCardDialog({
                 <Input
                   value={addonPartDraft}
                   onChange={(e) => setAddonPartDraft(e.target.value)}
-                  placeholder="Wpisz część…"
+                  placeholder={tr('workshop.employeeCard.enterPartPlaceholder')}
                   className="h-11 flex-1"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
@@ -716,7 +719,7 @@ export function EmployeeOrderCardDialog({
                     const v = addonPartDraft.trim();
                     if (v) { setAddonParts(ps => [...ps, v]); setAddonPartDraft(''); }
                   }}
-                  aria-label="Dodaj część"
+                  aria-label={tr('workshop.employeeCard.addPartAria')}
                 >
                   <Plus className="h-4 w-4" />
                 </Button>
@@ -724,18 +727,18 @@ export function EmployeeOrderCardDialog({
             </div>
 
             <div>
-              <div className="text-[11px] font-bold uppercase tracking-wide text-foreground mb-1.5">Robocizna dodatkowa</div>
+              <div className="text-[11px] font-bold uppercase tracking-wide text-foreground mb-1.5">{tr('workshop.employeeCard.additionalLabor')}</div>
               <Input
                 value={addonLabor}
                 onChange={(e) => setAddonLabor(e.target.value)}
-                placeholder="np. Wymiana wahacza prawego"
+                placeholder={tr('workshop.employeeCard.laborPlaceholder')}
                 className="h-11"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="text-[11px] font-bold uppercase tracking-wide text-foreground">Czas (h)</label>
+                <label className="text-[11px] font-bold uppercase tracking-wide text-foreground">{tr('workshop.employeeCard.timeHours')}</label>
                 <Input
                   type="number" step="0.25" min="0" inputMode="decimal"
                   value={addonHours}
@@ -745,12 +748,12 @@ export function EmployeeOrderCardDialog({
                 />
               </div>
               <div>
-                <label className="text-[11px] font-bold uppercase tracking-wide text-foreground">Koszt (zł)</label>
+                <label className="text-[11px] font-bold uppercase tracking-wide text-foreground">{tr('workshop.employeeCard.costZl')}</label>
                 <Input
                   type="number" step="0.01" min="0" inputMode="decimal"
                   value={addonCost}
                   onChange={(e) => setAddonCost(e.target.value)}
-                  placeholder="opcjonalne"
+                  placeholder={tr('workshop.employeeCard.optional')}
                   className="h-11"
                 />
               </div>
@@ -758,7 +761,7 @@ export function EmployeeOrderCardDialog({
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAddonOpen(false)} disabled={addonSaving}>Anuluj</Button>
+            <Button variant="outline" onClick={() => setAddonOpen(false)} disabled={addonSaving}>{tr('common.cancel')}</Button>
             <Button
               className="bg-orange-600 hover:bg-orange-700 text-white"
               disabled={
@@ -801,7 +804,7 @@ export function EmployeeOrderCardDialog({
                     });
                   }
                   if (inserts.length === 0) {
-                    toast.error('Wpisz przynajmniej część lub robociznę');
+                    toast.error(tr('workshop.employeeCard.enterPartOrLabor'));
                     setAddonSaving(false); return;
                   }
                   const { error: insErr } = await (supabase.from('workshop_order_items') as any).insert(inserts);
@@ -820,19 +823,19 @@ export function EmployeeOrderCardDialog({
                   supabase.functions.invoke('workshop-notify-employee', {
                     body: { order_id: orderId, event: 'repair_addon_request' },
                   }).catch(() => {});
-                  toast.success('Dodatek wysłany do administratora');
+                  toast.success(tr('workshop.employeeCard.addonSentToAdmin'));
                   setAddonOpen(false);
                   onSaved?.();
                   onOpenChange(false);
                 } catch (e: any) {
-                  toast.error(e.message || 'Błąd zapisu dodatku');
+                  toast.error(e.message || tr('common.saveError'));
                 } finally {
                   setAddonSaving(false);
                 }
               }}
             >
               {addonSaving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Check className="h-4 w-4 mr-1" />}
-              Wyślij do akceptacji
+              {tr('workshop.employeeCard.sendForAcceptance')}
             </Button>
           </DialogFooter>
         </DialogContent>
