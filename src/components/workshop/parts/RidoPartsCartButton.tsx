@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ShoppingBag, Package, FileText, Loader2, RefreshCw } from 'lucide-react';
@@ -15,11 +16,11 @@ interface Props {
   providerId: string;
 }
 
-const statusLabels: Record<string, string> = {
-  ordered: 'Zamówione',
-  in_delivery: 'W dostawie',
-  delivered: 'Dostarczone',
-  cancelled: 'Anulowane',
+const statusLabelKeys: Record<string, string> = {
+  ordered: 'workshop.parts.cart.statusOrdered',
+  in_delivery: 'workshop.parts.cart.statusInDelivery',
+  delivered: 'workshop.parts.cart.statusDelivered',
+  cancelled: 'workshop.parts.cart.statusCancelled',
 };
 
 const statusColors: Record<string, string> = {
@@ -30,6 +31,7 @@ const statusColors: Record<string, string> = {
 };
 
 export function RidoPartsCartButton({ providerId }: Props) {
+  const { t } = useTranslation();
   const { data: orders = [], refetch } = usePartsOrders(providerId);
   const partsApi = usePartsApi();
   const [isFetchingInvoices, setIsFetchingInvoices] = useState(false);
@@ -137,14 +139,14 @@ export function RidoPartsCartButton({ providerId }: Props) {
       await refetch();
 
       if (newInvoiceCount > 0) {
-        toast.success(`📄 Pobrano ${newInvoiceCount} nowych faktur z Hart`);
+        toast.success(`📄 ${t('workshop.parts.cart.invoicesFetched', { count: newInvoiceCount })}`);
       } else if (invoices.length > 0) {
-        toast.info('Brak nowych faktur do przypisania');
+        toast.info(t('workshop.parts.cart.noNewInvoices'));
       } else {
-        toast.info('Brak faktur z ostatnich 7 dni');
+        toast.info(t('workshop.parts.cart.noInvoices7days'));
       }
     } catch (err: any) {
-      toast.error(err.message || 'Błąd pobierania faktur');
+      toast.error(err.message || t('workshop.parts.cart.fetchInvoicesError'));
     } finally {
       setIsFetchingInvoices(false);
     }
@@ -153,7 +155,7 @@ export function RidoPartsCartButton({ providerId }: Props) {
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative" title="Zamówienia części">
+        <Button variant="ghost" size="icon" className="relative" title={t('workshop.parts.cart.partsOrders')}>
           <ShoppingBag className="h-5 w-5" />
           {activeOrders.length > 0 && (
             <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center">
@@ -166,7 +168,7 @@ export function RidoPartsCartButton({ providerId }: Props) {
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <Package className="h-5 w-5 text-primary" />
-            Zamówienia części
+            {t('workshop.parts.cart.partsOrders')}
           </SheetTitle>
         </SheetHeader>
 
@@ -184,7 +186,7 @@ export function RidoPartsCartButton({ providerId }: Props) {
             ) : (
               <FileText className="h-4 w-4" />
             )}
-            Pobierz faktury z hurtowni
+            {t('workshop.parts.cart.fetchInvoices')}
           </Button>
         </div>
 
@@ -192,7 +194,7 @@ export function RidoPartsCartButton({ providerId }: Props) {
           {orders.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <ShoppingBag className="h-12 w-12 mx-auto mb-4 opacity-30" />
-              <p className="text-sm">Brak zamówień</p>
+              <p className="text-sm">{t('workshop.parts.cart.noOrders')}</p>
             </div>
           ) : (
             orders.map((order: any) => (
@@ -206,7 +208,7 @@ export function RidoPartsCartButton({ providerId }: Props) {
                   </div>
                   <div className="flex items-center gap-1.5">
                     <div className={`w-2 h-2 rounded-full ${statusColors[order.status] || 'bg-gray-400'}`} />
-                    <span className="text-xs">{statusLabels[order.status] || order.status}</span>
+                    <span className="text-xs">{statusLabelKeys[order.status] ? t(statusLabelKeys[order.status]) : order.status}</span>
                   </div>
                 </div>
 
@@ -227,14 +229,14 @@ export function RidoPartsCartButton({ providerId }: Props) {
                 ))}
 
                 <div className="flex justify-between text-xs font-semibold pt-1 border-t">
-                  <span>Razem netto:</span>
+                  <span>{t('workshop.parts.cart.totalNet')}:</span>
                   <span>{fmt(order.total_net)} zł</span>
                 </div>
 
                 {order.invoice_number && (
                   <div className="text-xs text-muted-foreground flex items-center gap-1">
                     <FileText className="h-3 w-3" />
-                    Faktura: {order.invoice_number}
+                    {t('workshop.parts.cart.invoice')}: {order.invoice_number}
                   </div>
                 )}
               </div>

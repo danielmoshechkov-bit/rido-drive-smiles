@@ -3317,7 +3317,37 @@
       },
       "cart": {
         "invoicesFetched_one": "{{count}} neue Rechnung von Hart abgerufen",
-        "invoicesFetched_other": "{{count}} neue Rechnungen von Hart abgerufen"
+        "invoicesFetched_other": "{{count}} neue Rechnungen von Hart abgerufen",
+        "fetchInvoices": "Rechnungen vom Großhändler abrufen",
+        "fetchInvoicesError": "Fehler beim Abrufen der Rechnungen",
+        "invoice": "Rechnung",
+        "noInvoices7days": "Keine Rechnungen aus den letzten 7 Tagen",
+        "noNewInvoices": "Keine neuen Rechnungen zum Zuordnen",
+        "noOrders": "Keine Bestellungen",
+        "partsOrders": "Teilebestellungen",
+        "totalNet": "Gesamt netto"
+      },
+      "config": {
+        "andEnterData": "und geben Sie diese Daten ein",
+        "apContactValue": "über Ihren Auto Partner Vertriebsbetreuer",
+        "apSettingsPath": "Einstellungen → Integrationen → Auto Partner",
+        "apStep1": "Kontaktieren Sie Ihren Auto Partner Vertriebsbetreuer",
+        "apStep2": "Beantragen Sie Zugang zur Auto Partner CustomerAPI",
+        "apStep3": "Sie erhalten Client Code, WS Password und Client Password",
+        "availableIntegrations": "Verfügbare Integrationen",
+        "close": "Schließen",
+        "contact": "Kontakt",
+        "description": "Um die automatische Teilesuche und -bestellung zu nutzen, müssen Sie die API Ihres Großhändlers anbinden.",
+        "goToSettings": "Zu den Einstellungen",
+        "goToSettingsPrefix": "Gehen Sie zu",
+        "hartSettingsPath": "Einstellungen → Integrationen → Hart",
+        "hartStep1": "Kontaktieren Sie Ihren Vertriebsbetreuer bei Hart",
+        "hartStep2": "Fordern Sie Zugangsdaten für die REST API an (API-Login und Passwort — andere Daten als für den Shop)",
+        "hartStep3": "Geben Sie an, dass Sie Zugang zur sandbox (Test-) und Produktionsumgebung möchten",
+        "hartStep4": "Sie erhalten einen API-Username und ein Passwort",
+        "howToAccess": "So erhalten Sie Zugang",
+        "moreSoon": "Weitere Integrationen werden bald hinzugefügt.",
+        "title": "Großhändler-Integration konfigurieren"
       }
     }
   }

@@ -3482,7 +3482,37 @@
         "invoicesFetched_one": "Загружен {{count}} новый счёт из Hart",
         "invoicesFetched_few": "Загружено {{count}} новых счёта из Hart",
         "invoicesFetched_many": "Загружено {{count}} новых счетов из Hart",
-        "invoicesFetched_other": "Загружено {{count}} новых счетов из Hart"
+        "invoicesFetched_other": "Загружено {{count}} новых счетов из Hart",
+        "fetchInvoices": "Загрузить счета от оптовика",
+        "fetchInvoicesError": "Ошибка загрузки счетов",
+        "invoice": "Счёт",
+        "noInvoices7days": "Нет счетов за последние 7 дней",
+        "noNewInvoices": "Нет новых счетов для назначения",
+        "noOrders": "Нет заказов",
+        "partsOrders": "Заказы запчастей",
+        "totalNet": "Итого нетто"
+      },
+      "config": {
+        "andEnterData": "и введите эти данные",
+        "apContactValue": "через торгового представителя Auto Partner",
+        "apSettingsPath": "Настройки → Интеграции → Auto Partner",
+        "apStep1": "Свяжитесь с торговым представителем Auto Partner",
+        "apStep2": "Запросите доступ к CustomerAPI Auto Partner",
+        "apStep3": "Вы получите Client Code, WS Password и Client Password",
+        "availableIntegrations": "Доступные интеграции",
+        "close": "Закрыть",
+        "contact": "Контакт",
+        "description": "Чтобы использовать автоматический поиск и заказ запчастей, необходимо подключить API вашего оптовика.",
+        "goToSettings": "Перейти в настройки",
+        "goToSettingsPrefix": "Перейдите в",
+        "hartSettingsPath": "Настройки → Интеграции → Hart",
+        "hartStep1": "Свяжитесь со своим торговым представителем в Hart",
+        "hartStep2": "Запросите учётные данные для REST API (логин и пароль API — это другие данные, чем для магазина)",
+        "hartStep3": "Укажите, что вам нужен доступ к среде sandbox (тестовой) и производственной",
+        "hartStep4": "Вы получите username и password для API",
+        "howToAccess": "Как получить доступ",
+        "moreSoon": "Больше интеграций будет добавлено в ближайшее время.",
+        "title": "Настройте интеграцию с оптовиком"
       }
     }
   }

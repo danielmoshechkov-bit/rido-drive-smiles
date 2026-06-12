@@ -3410,7 +3410,37 @@
       },
       "cart": {
         "invoicesFetched_one": "Fetched {{count}} new invoice from Hart",
-        "invoicesFetched_other": "Fetched {{count}} new invoices from Hart"
+        "invoicesFetched_other": "Fetched {{count}} new invoices from Hart",
+        "fetchInvoices": "Fetch invoices from wholesaler",
+        "fetchInvoicesError": "Error fetching invoices",
+        "invoice": "Invoice",
+        "noInvoices7days": "No invoices from the last 7 days",
+        "noNewInvoices": "No new invoices to assign",
+        "noOrders": "No orders",
+        "partsOrders": "Parts orders",
+        "totalNet": "Total net"
+      },
+      "config": {
+        "andEnterData": "and enter this data",
+        "apContactValue": "via your Auto Partner sales representative",
+        "apSettingsPath": "Settings → Integrations → Auto Partner",
+        "apStep1": "Contact your Auto Partner sales representative",
+        "apStep2": "Request access to Auto Partner CustomerAPI",
+        "apStep3": "You will receive a Client Code, WS Password and Client Password",
+        "availableIntegrations": "Available integrations",
+        "close": "Close",
+        "contact": "Contact",
+        "description": "To use automatic parts search and ordering, you need to connect your wholesaler's API.",
+        "goToSettings": "Go to settings",
+        "goToSettingsPrefix": "Go to",
+        "hartSettingsPath": "Settings → Integrations → Hart",
+        "hartStep1": "Contact your sales representative at Hart",
+        "hartStep2": "Request access credentials for the REST API (an API login and password — different from your store credentials)",
+        "hartStep3": "State that you want access to the sandbox (test) and production environments",
+        "hartStep4": "You will receive an API username and password",
+        "howToAccess": "How to get access",
+        "moreSoon": "More integrations will be added soon.",
+        "title": "Configure wholesaler integration"
       }
     }
   }

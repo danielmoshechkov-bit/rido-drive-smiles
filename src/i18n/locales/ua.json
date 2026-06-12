@@ -3482,7 +3482,37 @@
         "invoicesFetched_one": "Завантажено {{count}} новий рахунок із Hart",
         "invoicesFetched_few": "Завантажено {{count}} нові рахунки із Hart",
         "invoicesFetched_many": "Завантажено {{count}} нових рахунків із Hart",
-        "invoicesFetched_other": "Завантажено {{count}} нових рахунків із Hart"
+        "invoicesFetched_other": "Завантажено {{count}} нових рахунків із Hart",
+        "fetchInvoices": "Завантажити рахунки від оптовика",
+        "fetchInvoicesError": "Помилка завантаження рахунків",
+        "invoice": "Рахунок",
+        "noInvoices7days": "Немає рахунків за останні 7 днів",
+        "noNewInvoices": "Немає нових рахунків для призначення",
+        "noOrders": "Немає замовлень",
+        "partsOrders": "Замовлення запчастин",
+        "totalNet": "Разом нетто"
+      },
+      "config": {
+        "andEnterData": "і введіть ці дані",
+        "apContactValue": "через торгового представника Auto Partner",
+        "apSettingsPath": "Налаштування → Інтеграції → Auto Partner",
+        "apStep1": "Зв'яжіться з торговим представником Auto Partner",
+        "apStep2": "Запросіть доступ до CustomerAPI Auto Partner",
+        "apStep3": "Ви отримаєте Client Code, WS Password і Client Password",
+        "availableIntegrations": "Доступні інтеграції",
+        "close": "Закрити",
+        "contact": "Контакт",
+        "description": "Щоб користуватися автоматичним пошуком і замовленням запчастин, потрібно підключити API вашого оптовика.",
+        "goToSettings": "Перейти до налаштувань",
+        "goToSettingsPrefix": "Перейдіть у",
+        "hartSettingsPath": "Налаштування → Інтеграції → Hart",
+        "hartStep1": "Зв'яжіться зі своїм торговим представником у Hart",
+        "hartStep2": "Запросіть облікові дані для REST API (логін і пароль API — це інші дані, ніж до магазину)",
+        "hartStep3": "Зазначте, що вам потрібен доступ до середовища sandbox (тестового) і виробничого",
+        "hartStep4": "Ви отримаєте username і password для API",
+        "howToAccess": "Як отримати доступ",
+        "moreSoon": "Більше інтеграцій буде додано незабаром.",
+        "title": "Налаштуйте інтеграцію з оптовиком"
       }
     }
   }

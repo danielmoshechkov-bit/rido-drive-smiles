@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -164,16 +165,17 @@ const availabilityColors: Record<string, string> = {
   unavailable: 'bg-red-500',
 };
 
-const availabilityLabels: Record<string, string> = {
-  today: 'Dziś',
-  tomorrow: 'Jutro',
-  '2-3days': '2-3 dni',
-  unavailable: 'Niedostępne',
+const availabilityLabelKeys: Record<string, string> = {
+  today: 'workshop.parts.search.availToday',
+  tomorrow: 'workshop.parts.search.availTomorrow',
+  '2-3days': 'workshop.parts.search.avail2to3days',
+  unavailable: 'workshop.parts.search.availUnavailable',
 };
 
 export function RidoPartsSearchModal({
   open, onOpenChange, providerId, orderId, vehicleName, vehicleVin, vehicle, initialSearch, margin = 30, existingParts = [],
 }: Props) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState(initialSearch || '');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [searchHelp, setSearchHelp] = useState<string | null>(null);
@@ -237,7 +239,7 @@ export function RidoPartsSearchModal({
   const searchInWholesalers = async (searchTerm: string) => {
     if (enabledIntegrations.length === 0) {
       setIsSearching(false);
-      toast.error('Brak skonfigurowanych hurtowni. Przejdź do Ustawienia → Integracje z hurtowniami.');
+      toast.error(t('workshop.parts.search.noWholesalersToast'));
       return;
     }
 
@@ -301,7 +303,7 @@ export function RidoPartsSearchModal({
               suggestedPrice: null,
               isSuggested: priceNet === 0,
               availability: avail,
-              deliveryTime: item.deliveryTime || item.waitingTime || (avail === 'today' ? 'Dziś' : avail === 'tomorrow' ? 'Jutro' : '2-3 dni'),
+              deliveryTime: item.deliveryTime || item.waitingTime || (avail === 'today' ? t('workshop.parts.search.availToday') : avail === 'tomorrow' ? t('workshop.parts.search.availTomorrow') : t('workshop.parts.search.avail2to3days')),
               imageUrl: item.imageUrl || item.image_url || item.image || item.photoUrl || item.thumbnailUrl || (tecdocId ? `https://webservice.tecalliance.services/pegasus-3-0/img/A/${encodeURIComponent(tecdocId)}` : null),
               selected: false,
               quantity: 1,
@@ -383,7 +385,7 @@ export function RidoPartsSearchModal({
       // Show clarification alongside (not instead of) results
       setSearchHelp(clarificationQuestions[0] || null);
     } catch (err: any) {
-      toast.error(err.message || 'Błąd wyszukiwania');
+      toast.error(err.message || t('workshop.parts.search.searchError'));
     } finally {
       setIsSearching(false);
     }
@@ -565,12 +567,12 @@ export function RidoPartsSearchModal({
       }
 
       const supplierCount = Object.keys(bySupplier).length;
-      toast.success(`Zamówiono ${selected.length} pozycji z ${supplierCount} hurtowni!`);
+      toast.success(t('workshop.parts.search.orderedToast', { count: selected.length, suppliers: supplierCount }));
       onOpenChange(false);
       setResults([]);
       setQuery('');
     } catch (err: any) {
-      toast.error(err.message || 'Błąd składania zamówienia');
+      toast.error(err.message || t('workshop.parts.search.orderError'));
     } finally {
       setIsOrdering(false);
     }
@@ -596,13 +598,13 @@ export function RidoPartsSearchModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Package className="h-5 w-5 text-primary" />
-            Rido Parts — Wyszukaj i zamów części
+            {t('workshop.parts.search.title')}
           </DialogTitle>
           <DialogDescription className="flex items-center gap-3">
             {vehicleName && <span>🚗 {vehicleName}</span>}
             {vehicleVin && <span className="text-xs font-mono">VIN: {vehicleVin}</span>}
             <span className="text-xs">
-              Aktywne hurtownie: {enabledIntegrations.map((i: any) => i.supplier_name || i.supplier_code).join(', ') || 'brak'}
+              {t('workshop.parts.search.activeWholesalers')}: {enabledIntegrations.map((i: any) => i.supplier_name || i.supplier_code).join(', ') || t('workshop.parts.search.none')}
             </span>
           </DialogDescription>
         </DialogHeader>
@@ -612,7 +614,7 @@ export function RidoPartsSearchModal({
           <div className="rounded-md bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800 flex items-start gap-2">
             <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
             <div>
-              <strong>Brak danych pojazdu.</strong> Uzupełnij VIN, markę i model auta, aby wyszukiwarka mogła dopasować prawidłowe części.
+              <strong>{t('workshop.parts.search.missingVehicleTitle')}</strong> {t('workshop.parts.search.missingVehicleBody')}
             </div>
           </div>
         )}
@@ -620,7 +622,7 @@ export function RidoPartsSearchModal({
         {/* Existing order parts quick search */}
         {existingParts.length > 0 && (
           <div className="flex flex-wrap gap-1.5 items-center">
-            <span className="text-xs text-muted-foreground mr-1">📋 Części ze zlecenia:</span>
+            <span className="text-xs text-muted-foreground mr-1">📋 {t('workshop.parts.search.orderParts')}:</span>
             {existingParts.map((part, idx) => (
               <Button
                 key={idx}
@@ -643,7 +645,7 @@ export function RidoPartsSearchModal({
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Wpisz nazwę części, numer OE lub katalogowy..."
+              placeholder={t('workshop.parts.search.searchPlaceholder')}
               value={query}
               onChange={e => setQuery(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleSearch()}
@@ -651,7 +653,7 @@ export function RidoPartsSearchModal({
             />
           </div>
           <Button onClick={handleSearch} disabled={isSearching || !query.trim()}>
-            {isSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Szukaj'}
+            {isSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : t('common.search')}
           </Button>
         </div>
 
@@ -660,7 +662,7 @@ export function RidoPartsSearchModal({
           <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 rounded-md px-3 py-1.5">
             <Bot className="h-3.5 w-3.5 text-primary shrink-0" />
             <span>
-              AI szukało: <strong className="text-foreground">{aiInfo.partDescription || query}</strong> → numery OE: {aiInfo.searchedTerms.join(', ')}
+              {t('workshop.parts.search.aiSearchedFor')}: <strong className="text-foreground">{aiInfo.partDescription || query}</strong> → {t('workshop.parts.search.oeNumbers')}: {aiInfo.searchedTerms.join(', ')}
             </span>
           </div>
         )}
@@ -668,7 +670,7 @@ export function RidoPartsSearchModal({
         {/* Per-wholesaler diagnostics */}
         {hasSearched && Object.keys(supplierDiagnostics).length > 0 && !isSearching && (
           <div className="flex items-center gap-3 text-[11px] bg-muted/20 rounded-md px-3 py-1.5 flex-wrap">
-            <span className="text-muted-foreground font-medium">Status API:</span>
+            <span className="text-muted-foreground font-medium">{t('workshop.parts.search.apiStatus')}:</span>
             {Object.entries(supplierDiagnostics).map(([code, diag]) => (
               <span key={code} className="flex items-center gap-1">
                 {diag.status === 'searching' && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
@@ -676,8 +678,8 @@ export function RidoPartsSearchModal({
                 {diag.status === 'error' && <XCircle className="h-3 w-3 text-red-500" />}
                 <span className={diag.status === 'error' ? 'text-red-600' : diag.count > 0 ? 'text-foreground' : 'text-muted-foreground'}>
                   {code === 'hart' ? 'Hart' : code === 'auto_partner' ? 'Auto Partner' : code === 'inter_cars' ? 'Inter Cars' : code}
-                  {diag.status === 'ok' && `: ${diag.count} wyników`}
-                  {diag.status === 'error' && ` (błąd)`}
+                  {diag.status === 'ok' && `: ${t('workshop.parts.search.resultsCount', { count: diag.count })}`}
+                  {diag.status === 'error' && ` (${t('workshop.parts.search.errorShort')})`}
                 </span>
               </span>
             ))}
@@ -689,7 +691,7 @@ export function RidoPartsSearchModal({
           <div className="flex flex-wrap gap-1.5">
             <span className="text-xs text-muted-foreground self-center mr-1">
               <Sparkles className="h-3 w-3 inline mr-1" />
-              Sugestie:
+              {t('workshop.parts.search.suggestions')}:
             </span>
             {suggestions.map((s) => (
               <Button
@@ -708,10 +710,10 @@ export function RidoPartsSearchModal({
         {/* Selected IC part banner */}
         {selectedIcPart && (
           <div className="flex items-center gap-2 text-xs rounded-md border border-primary/30 bg-primary/5 px-3 py-2">
-            <span>✅ Szukasz: <strong>{selectedIcPart.name}</strong> {selectedIcPart.manufacturer && `(${selectedIcPart.manufacturer})`}</span>
-            <span className="text-muted-foreground">— wyniki z {suppliersInResults.length} hurtowni</span>
+            <span>✅ {t('workshop.parts.search.searching')}: <strong>{selectedIcPart.name}</strong> {selectedIcPart.manufacturer && `(${selectedIcPart.manufacturer})`}</span>
+            <span className="text-muted-foreground">— {t('workshop.parts.search.resultsFromWholesalers', { count: suppliersInResults.length })}</span>
             <Button variant="ghost" size="sm" className="h-6 text-xs ml-auto" onClick={handleBackToIcResults}>
-              <ArrowLeft className="h-3 w-3 mr-1" /> Wróć do wyboru części
+              <ArrowLeft className="h-3 w-3 mr-1" /> {t('workshop.parts.search.backToPartSelection')}
             </Button>
           </div>
         )}
@@ -719,12 +721,12 @@ export function RidoPartsSearchModal({
         {/* Results info */}
         {results.length > 0 && (
           <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
-            <span>Znaleziono: <strong className="text-foreground">{results.length}</strong> wyników</span>
+            <span>{t('workshop.parts.search.found')}: <strong className="text-foreground">{results.length}</strong> {t('workshop.parts.search.resultsWord')}</span>
             {suppliersInResults.map(s => (
               <Badge key={s} variant="outline" className="text-[10px]">{s}</Badge>
             ))}
             {aiInfo?.aiResolved && (
-              <span className="text-[10px] text-primary">• Wyniki dla numerów OE znalezionych przez AI</span>
+              <span className="text-[10px] text-primary">• {t('workshop.parts.search.resultsForAiOe')}</span>
             )}
           </div>
         )}
@@ -735,7 +737,7 @@ export function RidoPartsSearchModal({
             <div className="flex flex-col items-center justify-center py-16">
               <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
               <p className="text-sm text-muted-foreground">
-                AI analizuje zapytanie i przeszukuje {enabledIntegrations.length} hurtowni...
+                {t('workshop.parts.search.aiAnalyzing', { count: enabledIntegrations.length })}
               </p>
             </div>
           )}
@@ -745,7 +747,7 @@ export function RidoPartsSearchModal({
             <div className="space-y-3 p-2">
               <div className="flex items-center gap-2 text-sm">
                 <Sparkles className="h-4 w-4 text-primary" />
-                <span>Znaleziono <strong>{icCatalogResults.length}</strong> pasujących części w katalogu Inter Cars. Wybierz właściwą:</span>
+                <span>{t('workshop.parts.search.icCatalogFoundPrefix')} <strong>{icCatalogResults.length}</strong> {t('workshop.parts.search.icCatalogFoundSuffix')}</span>
               </div>
               <div className="space-y-2">
                 {icCatalogResults.map((part) => (
@@ -785,7 +787,7 @@ export function RidoPartsSearchModal({
                 ))}
               </div>
               <p className="text-xs text-muted-foreground text-center">
-                ℹ️ Kliknij część → system sprawdzi ceny i dostępność we wszystkich hurtowniach
+                ℹ️ {t('workshop.parts.search.icCatalogHint')}
               </p>
             </div>
           )}
@@ -802,15 +804,15 @@ export function RidoPartsSearchModal({
                         onCheckedChange={toggleAll}
                       />
                     </th>
-                    <th className="p-2 w-12 text-center font-medium text-muted-foreground">Foto</th>
-                    <th className="p-2 text-left font-medium text-muted-foreground">Nazwa towaru</th>
-                    <th className="p-2 text-left font-medium text-muted-foreground w-24">Producent</th>
-                    <th className="p-2 text-left font-medium text-muted-foreground w-24">Hurtownia</th>
-                    <th className="p-2 text-center font-medium text-muted-foreground w-16">Szt.</th>
-                    <th className="p-2 text-right font-medium text-muted-foreground w-24">Hurt netto</th>
-                    <th className="p-2 text-right font-medium text-muted-foreground w-28">Detal brutto</th>
-                    <th className="p-2 text-center font-medium text-muted-foreground w-20">Dostępn.</th>
-                    <th className="p-2 text-center font-medium text-muted-foreground w-20">Dostawa</th>
+                    <th className="p-2 w-12 text-center font-medium text-muted-foreground">{t('workshop.parts.search.colPhoto')}</th>
+                    <th className="p-2 text-left font-medium text-muted-foreground">{t('workshop.parts.search.colProductName')}</th>
+                    <th className="p-2 text-left font-medium text-muted-foreground w-24">{t('workshop.parts.search.colManufacturer')}</th>
+                    <th className="p-2 text-left font-medium text-muted-foreground w-24">{t('workshop.parts.search.colWholesaler')}</th>
+                    <th className="p-2 text-center font-medium text-muted-foreground w-16">{t('workshop.parts.search.colQty')}</th>
+                    <th className="p-2 text-right font-medium text-muted-foreground w-24">{t('workshop.parts.search.colWholesaleNet')}</th>
+                    <th className="p-2 text-right font-medium text-muted-foreground w-28">{t('workshop.parts.search.colRetailGross')}</th>
+                    <th className="p-2 text-center font-medium text-muted-foreground w-20">{t('workshop.parts.search.colAvailability')}</th>
+                    <th className="p-2 text-center font-medium text-muted-foreground w-20">{t('workshop.parts.search.colDelivery')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -882,13 +884,13 @@ export function RidoPartsSearchModal({
                               <span className="bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded text-[10px] font-medium flex items-center gap-1 justify-end">
                                 <Sparkles className="h-3 w-3" />
                                 ~{fmt(r.suggestedPrice)} zł
-                                <span className="text-[8px]">sugestia</span>
+                                <span className="text-[8px]">{t('workshop.parts.search.suggestion')}</span>
                               </span>
                             </TooltipTrigger>
                             <TooltipContent>
                               <p className="text-xs">
                                 <AlertTriangle className="h-3 w-3 inline mr-1 text-yellow-500" />
-                                Cena sugerowana na podstawie innych hurtowni.
+                                {t('workshop.parts.search.suggestedPriceTooltip')}
                               </p>
                             </TooltipContent>
                           </Tooltip>
@@ -899,11 +901,11 @@ export function RidoPartsSearchModal({
                             <TooltipTrigger asChild>
                               <span className="bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded text-[10px] flex items-center gap-1 justify-end">
                                 <AlertTriangle className="h-3 w-3" />
-                                brak ceny
+                                {t('workshop.parts.search.noPrice')}
                               </span>
                             </TooltipTrigger>
                             <TooltipContent>
-                              <p className="text-xs">Hurtownia nie podała ceny. Wpisz ręcznie po zamówieniu.</p>
+                              <p className="text-xs">{t('workshop.parts.search.noPriceTooltip')}</p>
                             </TooltipContent>
                           </Tooltip>
                         )}
@@ -911,7 +913,7 @@ export function RidoPartsSearchModal({
                       <td className="p-2 text-center">
                         <div className="flex items-center justify-center gap-1.5">
                           <div className={`w-2.5 h-2.5 rounded-full ${availabilityColors[r.availability]}`} />
-                          <span className="text-[10px]">{availabilityLabels[r.availability]}</span>
+                          <span className="text-[10px]">{t(availabilityLabelKeys[r.availability])}</span>
                         </div>
                       </td>
                       <td className="p-2 text-center text-muted-foreground text-[10px]">{r.deliveryTime}</td>
@@ -932,7 +934,7 @@ export function RidoPartsSearchModal({
                 <div className="mb-4 max-w-2xl rounded-lg border border-yellow-300 bg-yellow-50 dark:bg-yellow-950/30 dark:border-yellow-800 px-4 py-3 text-center">
                   <div className="flex items-center justify-center gap-2 mb-2">
                     <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                    <span className="text-sm font-medium text-yellow-800 dark:text-yellow-200">Potrzebne doprecyzowanie</span>
+                    <span className="text-sm font-medium text-yellow-800 dark:text-yellow-200">{t('workshop.parts.search.clarificationNeeded')}</span>
                   </div>
                   <p className="text-xs text-yellow-700 dark:text-yellow-300">{searchHelp}</p>
                 </div>
@@ -956,15 +958,15 @@ export function RidoPartsSearchModal({
               )}
 
               <p className="text-sm font-medium text-foreground mb-1">
-                Nie znaleziono wyników dla: „{query}"
+                {t('workshop.parts.search.noResultsFor', { query })}
               </p>
               {aiInfo?.searchedTerms && aiInfo.searchedTerms.length > 0 && (
                 <p className="text-xs mb-2">
-                  Szukano numerów: {aiInfo.searchedTerms.join(', ')}
+                  {t('workshop.parts.search.searchedNumbers')}: {aiInfo.searchedTerms.join(', ')}
                 </p>
               )}
               <p className="text-xs mb-4">
-                Spróbuj innej frazy, numeru OE bezpośrednio z dokumentacji pojazdu lub wybierz jedną z sugestii
+                {t('workshop.parts.search.tryDifferentHint')}
               </p>
 
               {noResultsSuggestions.length > 0 && (
@@ -977,7 +979,7 @@ export function RidoPartsSearchModal({
                       className="h-8 text-xs hover:bg-primary/10 hover:border-primary"
                       onClick={() => handleSuggestionClick(s)}
                     >
-                      Spróbuj: {s}
+                      {t('workshop.parts.search.tryPrefix')}: {s}
                     </Button>
                   ))}
                 </div>
@@ -991,15 +993,15 @@ export function RidoPartsSearchModal({
               <div className="rounded-full bg-primary/10 p-4 mb-4">
                 <Bot className="h-10 w-10 text-primary" />
               </div>
-              <p className="text-base font-semibold mb-1">Wyszukaj części po opisie lub numerze</p>
+              <p className="text-base font-semibold mb-1">{t('workshop.parts.search.initialTitle')}</p>
               <p className="text-sm text-muted-foreground max-w-md mb-5">
-                AI (Claude) tłumaczy opis (np. „klocki tylne") na numery OE i przeszukuje
-                <strong className="text-foreground"> {enabledIntegrations.length} {enabledIntegrations.length === 1 ? 'hurtownię' : 'hurtownie'}</strong>
-                {vehicle?.brand ? <> dla pojazdu <strong className="text-foreground">{vehicle.brand} {vehicle.model}</strong></> : ''}.
-                Jeśli opis jest niejednoznaczny — AI zada pytanie doprecyzowujące.
+                {t('workshop.parts.search.initialIntro')}
+                <strong className="text-foreground"> {t('workshop.parts.search.wholesalersCount', { count: enabledIntegrations.length })}</strong>
+                {vehicle?.brand ? <> {t('workshop.parts.search.forVehicle')} <strong className="text-foreground">{vehicle.brand} {vehicle.model}</strong></> : ''}.
+                {' '}{t('workshop.parts.search.initialOutro')}
               </p>
               <div className="flex flex-wrap gap-2 justify-center max-w-lg">
-                <span className="text-xs text-muted-foreground self-center mr-1">Przykłady:</span>
+                <span className="text-xs text-muted-foreground self-center mr-1">{t('workshop.parts.search.examples')}:</span>
                 {['klocki hamulcowe tylne', 'tarcze hamulcowe przednie', 'filtr oleju', 'olej silnikowy 5W30', 'akumulator', 'amortyzator przedni'].map(ex => (
                   <Button
                     key={ex}
@@ -1015,7 +1017,7 @@ export function RidoPartsSearchModal({
               {enabledIntegrations.length === 0 && (
                 <div className="mt-5 rounded-md bg-amber-50 border border-amber-200 px-4 py-2.5 text-xs text-amber-800 flex items-center gap-2">
                   <AlertTriangle className="h-4 w-4" />
-                  Brak skonfigurowanych hurtowni. Przejdź do Ustawienia → Integracje z hurtowniami.
+                  {t('workshop.parts.search.noWholesalersToast')}
                 </div>
               )}
             </div>
@@ -1029,25 +1031,25 @@ export function RidoPartsSearchModal({
               <>
                 <span className="flex items-center gap-1">
                   <ShoppingCart className="h-4 w-4 text-primary" />
-                  Zaznaczono: <strong>{selected.length}</strong>
+                  {t('workshop.parts.search.selected')}: <strong>{selected.length}</strong>
                 </span>
-                <span>Zakup netto: <strong>{fmt(totalPurchase)} zł</strong></span>
-                <span>Sprzedaż brutto: <strong className="text-green-600">{fmt(totalSelling)} zł</strong></span>
+                <span>{t('workshop.parts.search.purchaseNet')}: <strong>{fmt(totalPurchase)} zł</strong></span>
+                <span>{t('workshop.parts.search.saleGross')}: <strong className="text-green-600">{fmt(totalSelling)} zł</strong></span>
                 <span className="text-muted-foreground text-xs">
-                  (z {[...new Set(selected.map(s => s.supplier))].length} hurtowni)
+                  ({t('workshop.parts.search.fromWholesalers', { count: [...new Set(selected.map(s => s.supplier))].length })})
                 </span>
               </>
             )}
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>Anuluj</Button>
+            <Button variant="outline" onClick={() => onOpenChange(false)}>{t('common.cancel')}</Button>
             <Button
               onClick={handleOrder}
               disabled={selected.length === 0 || isOrdering}
               className="gap-1"
             >
               {isOrdering ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShoppingCart className="h-4 w-4" />}
-              Zamów zaznaczone
+              {t('workshop.parts.search.orderSelected')}
             </Button>
           </div>
         </DialogFooter>

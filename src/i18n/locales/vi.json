@@ -3281,7 +3281,37 @@
         "fromWholesalers_other": "từ {{count}} nhà bán buôn"
       },
       "cart": {
-        "invoicesFetched_other": "Đã tải {{count}} hóa đơn mới từ Hart"
+        "invoicesFetched_other": "Đã tải {{count}} hóa đơn mới từ Hart",
+        "fetchInvoices": "Tải hóa đơn từ nhà bán buôn",
+        "fetchInvoicesError": "Lỗi khi tải hóa đơn",
+        "invoice": "Hóa đơn",
+        "noInvoices7days": "Không có hóa đơn trong 7 ngày qua",
+        "noNewInvoices": "Không có hóa đơn mới để gán",
+        "noOrders": "Không có đơn hàng",
+        "partsOrders": "Đơn đặt phụ tùng",
+        "totalNet": "Tổng tiền chưa thuế"
+      },
+      "config": {
+        "andEnterData": "và nhập dữ liệu này",
+        "apContactValue": "qua đại diện kinh doanh Auto Partner",
+        "apSettingsPath": "Cài đặt → Tích hợp → Auto Partner",
+        "apStep1": "Liên hệ với đại diện kinh doanh Auto Partner",
+        "apStep2": "Yêu cầu quyền truy cập CustomerAPI của Auto Partner",
+        "apStep3": "Bạn sẽ nhận được Client Code, WS Password và Client Password",
+        "availableIntegrations": "Tích hợp khả dụng",
+        "close": "Đóng",
+        "contact": "Liên hệ",
+        "description": "Để sử dụng tìm kiếm và đặt phụ tùng tự động, bạn cần kết nối API của nhà bán buôn.",
+        "goToSettings": "Đi tới cài đặt",
+        "goToSettingsPrefix": "Vào",
+        "hartSettingsPath": "Cài đặt → Tích hợp → Hart",
+        "hartStep1": "Liên hệ với đại diện kinh doanh của bạn tại Hart",
+        "hartStep2": "Yêu cầu thông tin đăng nhập cho REST API (tên đăng nhập và mật khẩu API — khác với thông tin cửa hàng)",
+        "hartStep3": "Nêu rõ rằng bạn muốn quyền truy cập vào môi trường sandbox (thử nghiệm) và môi trường sản xuất",
+        "hartStep4": "Bạn sẽ nhận được username và password cho API",
+        "howToAccess": "Cách lấy quyền truy cập",
+        "moreSoon": "Nhiều tích hợp hơn sẽ được thêm vào sớm.",
+        "title": "Cấu hình tích hợp nhà bán buôn"
       }
     }
   }

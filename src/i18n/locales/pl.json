@@ -3482,7 +3482,37 @@
         "invoicesFetched_one": "Pobrano {{count}} nową fakturę z Hart",
         "invoicesFetched_few": "Pobrano {{count}} nowe faktury z Hart",
         "invoicesFetched_many": "Pobrano {{count}} nowych faktur z Hart",
-        "invoicesFetched_other": "Pobrano {{count}} nowych faktur z Hart"
+        "invoicesFetched_other": "Pobrano {{count}} nowych faktur z Hart",
+        "fetchInvoices": "Pobierz faktury z hurtowni",
+        "fetchInvoicesError": "Błąd pobierania faktur",
+        "invoice": "Faktura",
+        "noInvoices7days": "Brak faktur z ostatnich 7 dni",
+        "noNewInvoices": "Brak nowych faktur do przypisania",
+        "noOrders": "Brak zamówień",
+        "partsOrders": "Zamówienia części",
+        "totalNet": "Razem netto"
+      },
+      "config": {
+        "andEnterData": "i wpisz te dane",
+        "apContactValue": "przez opiekuna handlowego Auto Partner",
+        "apSettingsPath": "Ustawienia → Integracje → Auto Partner",
+        "apStep1": "Skontaktuj się z opiekunem handlowym Auto Partner",
+        "apStep2": "Poproś o dostęp do CustomerAPI Auto Partner",
+        "apStep3": "Otrzymasz Client Code, WS Password i Client Password",
+        "availableIntegrations": "Dostępne integracje",
+        "close": "Zamknij",
+        "contact": "Kontakt",
+        "description": "Aby korzystać z automatycznego wyszukiwania i zamawiania części, musisz podłączyć API swojej hurtowni.",
+        "goToSettings": "Przejdź do ustawień",
+        "goToSettingsPrefix": "Wejdź w",
+        "hartSettingsPath": "Ustawienia → Integracje → Hart",
+        "hartStep1": "Skontaktuj się ze swoim opiekunem handlowym w Hart",
+        "hartStep2": "Poproś o dane dostępowe do REST API (login i hasło do API — to inne dane niż do sklepu)",
+        "hartStep3": "Podaj że chcesz dostęp do środowiska sandbox (testowego) i produkcyjnego",
+        "hartStep4": "Otrzymasz username i password do API",
+        "howToAccess": "Jak uzyskać dostęp",
+        "moreSoon": "Więcej integracji będzie dodawanych wkrótce.",
+        "title": "Skonfiguruj integrację z hurtownią"
       }
     }
   }

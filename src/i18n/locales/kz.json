@@ -3410,7 +3410,37 @@
       },
       "cart": {
         "invoicesFetched_one": "Hart-тан {{count}} жаңа шот-фактура жүктелді",
-        "invoicesFetched_other": "Hart-тан {{count}} жаңа шот-фактура жүктелді"
+        "invoicesFetched_other": "Hart-тан {{count}} жаңа шот-фактура жүктелді",
+        "fetchInvoices": "Көтерме сатушыдан шот-фактураларды жүктеу",
+        "fetchInvoicesError": "Шот-фактураларды жүктеу қатесі",
+        "invoice": "Шот-фактура",
+        "noInvoices7days": "Соңғы 7 күндегі шот-фактуралар жоқ",
+        "noNewInvoices": "Тағайындауға жаңа шот-фактуралар жоқ",
+        "noOrders": "Тапсырыстар жоқ",
+        "partsOrders": "Бөлшектерге тапсырыстар",
+        "totalNet": "Жиыны нетто"
+      },
+      "config": {
+        "andEnterData": "және осы деректерді енгізіңіз",
+        "apContactValue": "Auto Partner сауда өкілі арқылы",
+        "apSettingsPath": "Параметрлер → Интеграциялар → Auto Partner",
+        "apStep1": "Auto Partner сауда өкілімен байланысыңыз",
+        "apStep2": "Auto Partner CustomerAPI-ге қол жеткізуді сұраңыз",
+        "apStep3": "Сіз Client Code, WS Password және Client Password аласыз",
+        "availableIntegrations": "Қолжетімді интеграциялар",
+        "close": "Жабу",
+        "contact": "Байланыс",
+        "description": "Бөлшектерді автоматты іздеу мен тапсырысты пайдалану үшін көтерме сатушыңыздың API-ін қосуыңыз қажет.",
+        "goToSettings": "Параметрлерге өту",
+        "goToSettingsPrefix": "Кіріңіз",
+        "hartSettingsPath": "Параметрлер → Интеграциялар → Hart",
+        "hartStep1": "Hart-тағы өзіңіздің сауда өкіліңізбен байланысыңыз",
+        "hartStep2": "REST API-ге кіру деректерін сұраңыз (API логині мен құпиясөзі — дүкенге арналғаннан басқа деректер)",
+        "hartStep3": "sandbox (сынақ) және өндірістік ортаға қол жеткізгіңіз келетінін көрсетіңіз",
+        "hartStep4": "Сіз API үшін username және password аласыз",
+        "howToAccess": "Қол жеткізуді қалай алуға болады",
+        "moreSoon": "Жақын арада қосымша интеграциялар қосылады.",
+        "title": "Көтерме сатушымен интеграцияны баптаңыз"
       }
     }
   }
