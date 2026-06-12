@@ -92,16 +92,16 @@ function buildMainTiles(t: (key: string) => string): MarketplaceTile[] {
     { id: 'services', title: t('home.uslugi'), description: t('home.uslugiDesc'), icon: Sparkles, image: tileServices, link: '/uslugi', available: true },
     { id: 'marketplace', title: t('home.marketplace'), description: t('home.marketplaceDesc'), icon: ShoppingCart, image: tileAutoMarketplace, link: '/marketplace', available: true },
     { id: 'ksiegowosc', title: t('home.ksiegowosc'), description: t('home.ksiegowoscDesc'), icon: Receipt, image: tileInvoicing, link: '/faktury', available: true },
-    { id: 'biznes', title: 'Dla Biznesu', description: 'Systemy: warsztat, detailing, księgowość, flota', icon: Settings, image: tileFleet, link: null, available: true },
+    { id: 'biznes', title: t('home.dlaBiznesu'), description: t('home.dlaBiznesuDesc'), icon: Settings, image: tileFleet, link: null, available: true },
   ];
 }
 
 function buildBiznesSubTiles(t: (key: string) => string): MarketplaceTile[] {
   return [
-    { id: 'biz-warsztat-detailing', title: 'System do zarządzania warsztatem i detailingiem', description: 'Zlecenia, terminy, przypomnienia SMS, magazyn części, wyceny AI', icon: Wrench, image: tileWorkshop, link: '/warsztat-info', available: true },
-    { id: 'biz-ksiegowosc', title: 'Program Księgowy', description: 'Faktury online, KSeF, JPK_V7 — automatyzacja księgowości', icon: Calculator, image: tileInvoicing, link: '/ksiegowosc-info', available: true },
-    { id: 'biz-flota', title: 'Zarządzanie Flotą', description: 'Rozliczenia kierowców Uber/Bolt, paliwo, przelewy bankowe', icon: Calculator, image: tileFleet, link: '/fleet', available: true },
-    { id: 'biz-kierowca', title: 'Portal Kierowcy', description: 'Dla kierowców: rozliczenia, długi, dokumenty, wypłaty', icon: User, image: tileDriver, link: '/kierowca-info', available: true },
+    { id: 'biz-warsztat-detailing', title: t('home.bizWarsztatDetailing'), description: t('home.bizWarsztatDetailingDesc'), icon: Wrench, image: tileWorkshop, link: '/warsztat-info', available: true },
+    { id: 'biz-ksiegowosc', title: t('home.bizKsiegowosc'), description: t('home.bizKsiegowoscDesc'), icon: Calculator, image: tileInvoicing, link: '/ksiegowosc-info', available: true },
+    { id: 'biz-flota', title: t('home.bizFlota'), description: t('home.bizFlotaDesc'), icon: Calculator, image: tileFleet, link: '/fleet', available: true },
+    { id: 'biz-kierowca', title: t('home.bizKierowca'), description: t('home.bizKierowcaDesc'), icon: User, image: tileDriver, link: '/kierowca-info', available: true },
   ];
 }
 
@@ -430,7 +430,7 @@ export default function EasyHub() {
     switch (activeCategory) {
       case 'motoryzacja': return t('home.motoryzacja');
       case 'nieruchomosci': return t('home.nieruchomosci');
-      case 'biznes': return 'Dla Biznesu';
+      case 'biznes': return t('home.dlaBiznesu');
       default: return null;
     }
   };
@@ -698,21 +698,21 @@ export default function EasyHub() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl">
               <Receipt className="h-6 w-6 text-primary" />
-              Księgowość Online
+              {t('home.ksiegowoscOnline')}
             </DialogTitle>
           </DialogHeader>
 
           {/* Hero section */}
           <div className="relative h-32 rounded-lg overflow-hidden mb-4">
-            <img 
-              src={tileInvoicing} 
-              alt="Księgowość" 
+            <img
+              src={tileInvoicing}
+              alt={t('home.ksiegowosc')}
               className="w-full h-full object-cover"
             />
             <div className="absolute inset-0 bg-gradient-to-r from-primary/80 to-primary/40 flex items-center px-6">
               <div className="text-white">
-                <h3 className="text-lg font-bold">Darmowy Program do Faktur</h3>
-                <p className="text-sm opacity-90">Profesjonalne faktury dla Twojej firmy</p>
+                <h3 className="text-lg font-bold">{t('home.darmoweProgramFaktur')}</h3>
+                <p className="text-sm opacity-90">{t('home.profesjonalneFaktury')}</p>
               </div>
             </div>
           </div>
@@ -720,10 +720,10 @@ export default function EasyHub() {
           {/* Services grid */}
           <div className="grid grid-cols-1 gap-3">
             {[
-              { id: 'faktury', title: 'Program do Faktur', description: 'Wystawiaj faktury VAT, proformy i korekty online', icon: Receipt },
-              { id: 'koszty', title: 'Ewidencja Kosztów', description: 'Zarządzaj wydatkami i dokumentami kosztowymi', icon: Wallet },
-              { id: 'kontrahenci', title: 'Baza Kontrahentów', description: 'Weryfikacja VAT, historia transakcji', icon: User },
-              { id: 'raporty', title: 'Raporty i Analizy', description: 'Podsumowania miesięczne, statystyki', icon: Calculator }
+              { id: 'faktury', title: t('home.acctFaktury'), description: t('home.acctFakturyDesc'), icon: Receipt },
+              { id: 'koszty', title: t('home.acctKoszty'), description: t('home.acctKosztyDesc'), icon: Wallet },
+              { id: 'kontrahenci', title: t('home.acctKontrahenci'), description: t('home.acctKontrahenciDesc'), icon: User },
+              { id: 'raporty', title: t('home.acctRaporty'), description: t('home.acctRaportyDesc'), icon: Calculator }
             ].map((service) => {
               const Icon = service.icon;
               return (
@@ -757,7 +757,7 @@ export default function EasyHub() {
           {/* CTA for non-logged users */}
           <div className="mt-4 p-4 bg-muted/50 rounded-lg text-center">
             <p className="text-sm text-muted-foreground mb-2">
-              Zaloguj się, aby korzystać z pełnych funkcji księgowości
+              {t('home.acctLoginPrompt')}
             </p>
             <Button
               variant="link"
@@ -767,7 +767,7 @@ export default function EasyHub() {
               }}
               className="text-primary font-medium text-sm"
             >
-              Zaloguj się lub zarejestruj →
+              {t('home.acctLoginOrRegister')}
             </Button>
           </div>
         </DialogContent>
@@ -799,10 +799,10 @@ export default function EasyHub() {
             </div>
             <CheckCircle className="h-16 w-16 text-green-500" />
             <DialogTitle className="text-2xl font-bold text-green-600">
-              🎉 Dziękujemy za aktywację konta!
+              🎉 {t('home.activationThanks')}
             </DialogTitle>
             <DialogDescription className="text-base">
-              Twoje konto w GetRido zostało pomyślnie aktywowane. ✅
+              {t('home.activationSuccess')} ✅
             </DialogDescription>
           </DialogHeader>
           
@@ -818,12 +818,12 @@ export default function EasyHub() {
                   size="lg"
                 >
                   <LogIn className="h-4 w-4 mr-2" />
-                  🚗 Zaloguj się do portalu
+                  🚗 {t('home.activationLoginPortal')}
                 </Button>
 
                 <div className="pt-4 border-t">
                   <p className="text-sm text-muted-foreground mb-4 text-center">
-                    📱 Pobierz aplikację na telefon dla szybkiego dostępu:
+                    📱 {t('home.activationDownloadApp')}
                   </p>
                   <div className="grid grid-cols-2 gap-3">
                     <button
@@ -863,7 +863,7 @@ export default function EasyHub() {
                   className="mb-2"
                 >
                   <ArrowLeftIcon className="h-4 w-4 mr-2" />
-                  Wróć
+                  {t('common.goBack')}
                 </Button>
 
                 {activationPlatform === 'android' && (
@@ -871,27 +871,27 @@ export default function EasyHub() {
                     <CardHeader className="pb-2">
                       <CardTitle className="text-lg flex items-center gap-2 justify-center">
                         <span className="text-2xl">🤖</span>
-                        Instalacja na Android (Chrome)
+                        {t('home.androidInstallTitle')}
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3 text-left">
                       <div className="flex items-start gap-3">
                         <div className="bg-primary text-primary-foreground rounded-full h-7 w-7 flex items-center justify-center flex-shrink-0 text-sm font-bold">1</div>
-                        <p className="text-sm">Otwórz <strong>getrido.pl</strong> w przeglądarce Chrome</p>
+                        <p className="text-sm">{t('home.androidStep1')}</p>
                       </div>
                       <div className="flex items-start gap-3">
                         <div className="bg-primary text-primary-foreground rounded-full h-7 w-7 flex items-center justify-center flex-shrink-0 text-sm font-bold">2</div>
                         <p className="text-sm flex items-center gap-1 flex-wrap">
-                          Naciśnij <MoreVertical className="h-4 w-4 inline mx-1" /> (Menu) w prawym górnym rogu
+                          {t('home.androidStep2a')} <MoreVertical className="h-4 w-4 inline mx-1" /> {t('home.androidStep2b')}
                         </p>
                       </div>
                       <div className="flex items-start gap-3">
                         <div className="bg-primary text-primary-foreground rounded-full h-7 w-7 flex items-center justify-center flex-shrink-0 text-sm font-bold">3</div>
-                        <p className="text-sm">Wybierz <strong>"Dodaj do ekranu głównego"</strong> lub <strong>"Zainstaluj aplikację"</strong></p>
+                        <p className="text-sm">{t('home.androidStep3')}</p>
                       </div>
                       <div className="flex items-start gap-3">
                         <div className="bg-primary text-primary-foreground rounded-full h-7 w-7 flex items-center justify-center flex-shrink-0 text-sm font-bold">4</div>
-                        <p className="text-sm">Potwierdź instalację ✅</p>
+                        <p className="text-sm">{t('home.androidStep4')} ✅</p>
                       </div>
                     </CardContent>
                   </Card>
@@ -902,27 +902,27 @@ export default function EasyHub() {
                     <CardHeader className="pb-2">
                       <CardTitle className="text-lg flex items-center gap-2 justify-center">
                         <span className="text-2xl">🍎</span>
-                        Instalacja na iPhone (Safari)
+                        {t('home.iphoneInstallTitle')}
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3 text-left">
                       <div className="flex items-start gap-3">
                         <div className="bg-primary text-primary-foreground rounded-full h-7 w-7 flex items-center justify-center flex-shrink-0 text-sm font-bold">1</div>
-                        <p className="text-sm">Otwórz <strong>getrido.pl</strong> w przeglądarce <strong>Safari</strong></p>
+                        <p className="text-sm">{t('home.iphoneStep1')}</p>
                       </div>
                       <div className="flex items-start gap-3">
                         <div className="bg-primary text-primary-foreground rounded-full h-7 w-7 flex items-center justify-center flex-shrink-0 text-sm font-bold">2</div>
                         <p className="text-sm flex items-center gap-1 flex-wrap">
-                          Naciśnij <Share className="h-4 w-4 inline mx-1" /> (Udostępnij) na dolnym pasku
+                          {t('home.iphoneStep2a')} <Share className="h-4 w-4 inline mx-1" /> {t('home.iphoneStep2b')}
                         </p>
                       </div>
                       <div className="flex items-start gap-3">
                         <div className="bg-primary text-primary-foreground rounded-full h-7 w-7 flex items-center justify-center flex-shrink-0 text-sm font-bold">4</div>
-                        <p className="text-sm">Przewiń w dół i wybierz <strong>"Dodaj do ekranu początkowego"</strong></p>
+                        <p className="text-sm">{t('home.iphoneStep3')}</p>
                       </div>
                       <div className="flex items-start gap-3">
                         <div className="bg-primary text-primary-foreground rounded-full h-7 w-7 flex items-center justify-center flex-shrink-0 text-sm font-bold">4</div>
-                        <p className="text-sm">Naciśnij <strong>"Dodaj"</strong> w prawym górnym rogu ✅</p>
+                        <p className="text-sm">{t('home.iphoneStep4')} ✅</p>
                       </div>
                     </CardContent>
                   </Card>
@@ -937,13 +937,13 @@ export default function EasyHub() {
                   size="lg"
                 >
                   <LogIn className="h-4 w-4 mr-2" />
-                  🚗 Zaloguj się do portalu
+                  🚗 {t('home.activationLoginPortal')}
                 </Button>
               </div>
             )}
 
             <p className="text-xs text-muted-foreground text-center pt-2">
-              AI platforma do usług i ogłoszeń
+              {t('home.aiPlatformTagline')}
             </p>
           </div>
         </DialogContent>

@@ -1,17 +1,19 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { AuthModal } from "@/components/auth/AuthModal";
 
 const navItems = [
-  { label: 'Cennik', to: '/cennik' },
-  { label: 'Jak zacząć', to: '/jak-zaczac' },
-  { label: 'Kontakt', to: '/kontakt' },
+  { labelKey: 'header.pricing', to: '/cennik' },
+  { labelKey: 'header.howToStart', to: '/jak-zaczac' },
+  { labelKey: 'header.contact', to: '/kontakt' },
 ];
 
 
 const Header = () => {
+  const { t } = useTranslation();
   const [showLoginModal, setShowLoginModal] = useState(false);
 
   return (
@@ -35,7 +37,7 @@ const Header = () => {
               to={item.to}
               className="text-sm font-medium text-foreground hover:text-primary transition-colors"
             >
-              {item.label}
+              {t(item.labelKey)}
             </Link>
           ))}
         </nav>
@@ -44,7 +46,7 @@ const Header = () => {
         <div className="flex items-center gap-3">
           <LanguageSwitcher />
           <Button variant="accent" size="sm" onClick={() => setShowLoginModal(true)}>
-            Zaloguj się
+            {t('auth.login')}
           </Button>
         </div>
       </div>
@@ -58,7 +60,7 @@ const Header = () => {
               to={item.to}
               className="whitespace-nowrap text-foreground hover:text-primary"
             >
-              {item.label}
+              {t(item.labelKey)}
             </Link>
           ))}
         </nav>
