@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   order: any;
@@ -39,6 +40,7 @@ const getLineCost = (item: any, gross: boolean) => {
 };
 
 export function WorkshopOrderSummaryTab({ order }: Props) {
+  const { t } = useTranslation();
   const [priceMode, setPriceMode] = useState<'net' | 'gross'>('gross');
 
   const tasks = (order.items || []).filter((i: any) => i.item_type === 'service' || i.item_type === 'task');
@@ -59,34 +61,34 @@ export function WorkshopOrderSummaryTab({ order }: Props) {
   return (
     <div className="space-y-4">
       <div className="flex justify-end gap-1">
-        <Button variant={priceMode === 'net' ? 'secondary' : 'ghost'} size="sm" onClick={() => setPriceMode('net')}>NETTO</Button>
-        <Button variant={priceMode === 'gross' ? 'secondary' : 'ghost'} size="sm" onClick={() => setPriceMode('gross')}>BRUTTO</Button>
+        <Button variant={priceMode === 'net' ? 'secondary' : 'ghost'} size="sm" onClick={() => setPriceMode('net')}>{t('workshop.orderSummary.net')}</Button>
+        <Button variant={priceMode === 'gross' ? 'secondary' : 'ghost'} size="sm" onClick={() => setPriceMode('gross')}>{t('workshop.orderSummary.gross')}</Button>
       </div>
 
       <Table>
         <TableHeader>
           <TableRow>
             <TableHead></TableHead>
-            <TableHead className="text-right">Wartość</TableHead>
-            <TableHead className="text-right">Koszt</TableHead>
-            <TableHead className="text-right">Zysk</TableHead>
+            <TableHead className="text-right">{t('workshop.orderSummary.value')}</TableHead>
+            <TableHead className="text-right">{t('workshop.orderSummary.cost')}</TableHead>
+            <TableHead className="text-right">{t('workshop.orderSummary.profit')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           <TableRow>
-            <TableCell className="font-medium">Zadania</TableCell>
+            <TableCell className="font-medium">{t('workshop.orderSummary.tasks')}</TableCell>
             <TableCell className="text-right">{fmt(tasksValue)}</TableCell>
             <TableCell className="text-right">{fmt(tasksCost)}</TableCell>
             <TableCell className="text-right font-medium text-green-600">{fmt(tasksProfit)}</TableCell>
           </TableRow>
           <TableRow>
-            <TableCell className="font-medium">Towary</TableCell>
+            <TableCell className="font-medium">{t('workshop.orderSummary.goods')}</TableCell>
             <TableCell className="text-right">{fmt(goodsValue)}</TableCell>
             <TableCell className="text-right">{fmt(goodsCost)}</TableCell>
             <TableCell className="text-right font-medium text-green-600">{fmt(goodsProfit)}</TableCell>
           </TableRow>
           <TableRow className="font-bold border-t-2">
-            <TableCell>Razem</TableCell>
+            <TableCell>{t('workshop.orderSummary.total')}</TableCell>
             <TableCell className="text-right">{fmt(tasksValue + goodsValue)}</TableCell>
             <TableCell className="text-right">{fmt(tasksCost + goodsCost)}</TableCell>
             <TableCell className="text-right text-green-600">{fmt(tasksProfit + goodsProfit)}</TableCell>

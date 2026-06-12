@@ -11,15 +11,32 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Car, Users, Save, Camera, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   order: any;
   providerId: string;
 }
 
-const fuelLevels = ['Rezerwa', '1/4', '1/2', '3/4', 'Pełny'];
+const fuelLevels: { value: string; labelKey: string }[] = [
+  { value: 'Rezerwa', labelKey: 'workshop.newOrder.fuelReserve' },
+  { value: '1/4', labelKey: 'workshop.newOrder.fuelQuarter' },
+  { value: '1/2', labelKey: 'workshop.newOrder.fuelHalf' },
+  { value: '3/4', labelKey: 'workshop.newOrder.fuelThreeQuarter' },
+  { value: 'Pełny', labelKey: 'workshop.newOrder.fuelFull' },
+];
+
+const intakePhotoLabels = [
+  'workshop.newOrder.photoFront',
+  'workshop.newOrder.photoBack',
+  'workshop.newOrder.photoLeft',
+  'workshop.newOrder.photoRight',
+  'workshop.newOrder.photoInteriorFront',
+  'workshop.newOrder.photoInteriorBack',
+];
 
 export function WorkshopOrderBasicTab({ order, providerId }: Props) {
+  const { t } = useTranslation();
   const updateOrder = useUpdateWorkshopOrder();
 
   // Load workshop stations
@@ -84,18 +101,18 @@ export function WorkshopOrderBasicTab({ order, providerId }: Props) {
       sms_reminder_24h: form.sms_reminder_24h,
       sms_reminder_2h: form.sms_reminder_2h,
     });
-    toast.success('Zlecenie zaktualizowane');
+    toast.success(t('workshop.orderBasic.orderUpdated'));
   };
 
   const clientName = order.client
     ? order.client.client_type === 'company'
       ? order.client.company_name
       : `${order.client.first_name || ''} ${order.client.last_name || ''}`.trim()
-    : 'Brak klienta';
+    : t('workshop.orderBasic.noClient');
 
   const vehicleName = order.vehicle
     ? `${order.vehicle.brand || ''} ${order.vehicle.model || ''} ${order.vehicle.year || ''} ${order.vehicle.plate || ''}`.trim()
-    : 'Brak pojazdu';
+    : t('workshop.orderBasic.noVehicle');
 
   return (
     <div className="space-y-6">
@@ -105,9 +122,9 @@ export function WorkshopOrderBasicTab({ order, providerId }: Props) {
         <Card>
           <CardContent className="pt-4 space-y-3">
             <div className="flex items-center justify-between">
-              <Label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Pojazd</Label>
+              <Label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">{t('workshop.newOrder.vehicle')}</Label>
               {order.vehicle?.vin && (
-                <span className="text-xs text-muted-foreground">VIN: {order.vehicle.vin}</span>
+                <span className="text-xs text-muted-foreground">{t('workshop.orders.vin')}: {order.vehicle.vin}</span>
               )}
             </div>
             <div className="flex items-center gap-2 p-2 border rounded-md bg-muted/50">
@@ -116,23 +133,23 @@ export function WorkshopOrderBasicTab({ order, providerId }: Props) {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label className="text-xs">Przebieg</Label>
+                <Label className="text-xs">{t('workshop.newOrder.mileage')}</Label>
                 <div className="flex gap-1">
                   <Input
                     type="number"
                     value={form.mileage}
                     onChange={e => set('mileage', e.target.value)}
-                    placeholder="Przebieg"
+                    placeholder={t('workshop.newOrder.mileage')}
                   />
                   <span className="flex items-center px-2 text-xs text-muted-foreground border rounded-md bg-muted">km</span>
                 </div>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Poziom paliwa</Label>
+                <Label className="text-xs">{t('workshop.newOrder.fuelLevel')}</Label>
                 <Select value={form.fuel_level} onValueChange={v => set('fuel_level', v)}>
-                  <SelectTrigger><SelectValue placeholder="Wybierz..." /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t('workshop.newOrder.selectPlaceholder')} /></SelectTrigger>
                   <SelectContent>
-                    {fuelLevels.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+                    {fuelLevels.map(f => <SelectItem key={f.value} value={f.value}>{t(f.labelKey)}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -144,8 +161,8 @@ export function WorkshopOrderBasicTab({ order, providerId }: Props) {
         <Card>
           <CardContent className="pt-4 space-y-3">
             <div className="flex items-center justify-between">
-              <Label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Klient</Label>
-              <Button variant="link" size="sm" className="text-xs h-auto p-0">Ustaw datę przyjęcia</Button>
+              <Label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">{t('workshop.newOrder.client')}</Label>
+              <Button variant="link" size="sm" className="text-xs h-auto p-0">{t('workshop.orderBasic.setReceptionDate')}</Button>
             </div>
             <div className="flex items-center gap-2 p-2 border rounded-md bg-muted/50">
               <Users className="h-4 w-4 text-primary" />
@@ -165,11 +182,11 @@ export function WorkshopOrderBasicTab({ order, providerId }: Props) {
       <Card className="border-primary/30">
         <CardContent className="pt-4 space-y-3">
           <Label className="text-sm font-semibold uppercase tracking-wider text-primary flex items-center gap-2">
-            <Calendar className="h-4 w-4" /> Termin wizyty
+            <Calendar className="h-4 w-4" /> {t('workshop.orderBasic.appointmentTime')}
           </Label>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="space-y-1">
-              <Label className="text-xs">Data i godzina</Label>
+              <Label className="text-xs">{t('workshop.orderBasic.dateAndTime')}</Label>
               <Input
                 type="datetime-local"
                 value={form.scheduled_date}
@@ -177,9 +194,9 @@ export function WorkshopOrderBasicTab({ order, providerId }: Props) {
               />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">Stanowisko</Label>
+              <Label className="text-xs">{t('workshop.orderBasic.station')}</Label>
               <Select value={form.scheduled_station} onValueChange={v => set('scheduled_station', v)}>
-                <SelectTrigger><SelectValue placeholder="Wybierz stanowisko" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder={t('workshop.orderBasic.selectStation')} /></SelectTrigger>
                 <SelectContent>
                   {stations.map((s: any) => (
                     <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
@@ -191,11 +208,11 @@ export function WorkshopOrderBasicTab({ order, providerId }: Props) {
           <div className="flex flex-wrap gap-x-6 gap-y-2 pt-1">
             <label className="flex items-center gap-2 text-sm cursor-pointer">
               <Switch checked={form.sms_reminder_24h} onCheckedChange={v => set('sms_reminder_24h', v)} />
-              Przypomnij SMS 24h przed
+              {t('workshop.orderBasic.smsReminder24h')}
             </label>
             <label className="flex items-center gap-2 text-sm cursor-pointer">
               <Switch checked={form.sms_reminder_2h} onCheckedChange={v => set('sms_reminder_2h', v)} />
-              Przypomnij SMS 2h przed
+              {t('workshop.orderBasic.smsReminder2h')}
             </label>
           </div>
         </CardContent>
@@ -203,41 +220,41 @@ export function WorkshopOrderBasicTab({ order, providerId }: Props) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-1.5">
-          <Label className="text-xs">Data rozpoczęcia</Label>
+          <Label className="text-xs">{t('workshop.orderBasic.startDate')}</Label>
           <Input type="date" value={form.start_date} onChange={e => set('start_date', e.target.value)} />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-xs">Domyślny pracownik</Label>
-          <Input value={form.worker} onChange={e => set('worker', e.target.value)} placeholder="Domyślny pracownik" />
+          <Label className="text-xs">{t('workshop.orderBasic.defaultWorker')}</Label>
+          <Input value={form.worker} onChange={e => set('worker', e.target.value)} placeholder={t('workshop.orderBasic.defaultWorker')} />
         </div>
       </div>
 
       <div className="space-y-1.5">
-        <Label className="text-xs">Opis zlecenia</Label>
-        <Textarea value={form.description} onChange={e => set('description', e.target.value)} placeholder="Opis zlecenia" rows={3} />
+        <Label className="text-xs">{t('workshop.orderBasic.orderDescription')}</Label>
+        <Textarea value={form.description} onChange={e => set('description', e.target.value)} placeholder={t('workshop.orderBasic.orderDescription')} rows={3} />
       </div>
 
       {/* Toggles */}
       <div className="flex flex-wrap gap-x-6 gap-y-3 border rounded-md p-4">
         <label className="flex items-center gap-2 text-sm cursor-pointer">
           <Switch checked={form.return_parts_to_client} onCheckedChange={v => set('return_parts_to_client', v)} />
-          Zwrot części do klienta
+          {t('workshop.newOrder.checkReturnParts')}
         </label>
         <label className="flex items-center gap-2 text-sm cursor-pointer">
           <Switch checked={form.registration_document} onCheckedChange={v => set('registration_document', v)} />
-          Dowód rejestracyjny
+          {t('workshop.newOrder.checkRegistrationDoc')}
         </label>
         <label className="flex items-center gap-2 text-sm cursor-pointer">
           <Switch checked={form.test_drive_consent} onCheckedChange={v => set('test_drive_consent', v)} />
-          Zgoda na jazdę próbną
+          {t('workshop.newOrder.checkTestDrive')}
         </label>
         <label className="flex items-center gap-2 text-sm cursor-pointer">
           <Switch checked={form.top_up_fluids} onCheckedChange={v => set('top_up_fluids', v)} />
-          Uzupełnić płyny eksploatacyjne
+          {t('workshop.newOrder.checkRefillFluids')}
         </label>
         <label className="flex items-center gap-2 text-sm cursor-pointer">
           <Switch checked={form.top_up_lights} onCheckedChange={v => set('top_up_lights', v)} />
-          Uzupełnić oświetlenie
+          {t('workshop.newOrder.checkRefillLights')}
         </label>
       </div>
 
@@ -245,22 +262,22 @@ export function WorkshopOrderBasicTab({ order, providerId }: Props) {
       <Card>
         <CardContent className="pt-4 space-y-4">
           <div className="flex items-center justify-between">
-            <span className="bg-red-500 text-white text-sm font-medium px-4 py-1.5 rounded">Przyjęcie do serwisu</span>
+            <span className="bg-red-500 text-white text-sm font-medium px-4 py-1.5 rounded">{t('workshop.orderBasic.serviceReception')}</span>
             <Input
               type="date"
               value={form.pickup_date}
               onChange={e => set('pickup_date', e.target.value)}
-              placeholder="Termin odbioru"
+              placeholder={t('workshop.orderBasic.pickupDate')}
               className="w-[180px]"
             />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Opis dla pracownika</Label>
-            <Textarea value={form.mechanic_notes} onChange={e => set('mechanic_notes', e.target.value)} placeholder="Opis dla pracownika" rows={2} />
+            <Label className="text-xs">{t('workshop.orderBasic.descriptionForWorker')}</Label>
+            <Textarea value={form.mechanic_notes} onChange={e => set('mechanic_notes', e.target.value)} placeholder={t('workshop.orderBasic.descriptionForWorker')} rows={2} />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Uwagi po wykonaniu zlecenia</Label>
-            <Textarea value={form.post_completion_notes} onChange={e => set('post_completion_notes', e.target.value)} placeholder="Uwagi po wykonaniu zlecenia" rows={2} />
+            <Label className="text-xs">{t('workshop.orderBasic.postCompletionNotes')}</Label>
+            <Textarea value={form.post_completion_notes} onChange={e => set('post_completion_notes', e.target.value)} placeholder={t('workshop.orderBasic.postCompletionNotes')} rows={2} />
           </div>
         </CardContent>
       </Card>
@@ -269,25 +286,25 @@ export function WorkshopOrderBasicTab({ order, providerId }: Props) {
       <Card>
         <CardContent className="pt-4 space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="font-semibold uppercase text-sm tracking-wider">Uszkodzenia pojazdu</h3>
+            <h3 className="font-semibold uppercase text-sm tracking-wider">{t('workshop.newOrder.vehicleDamage')}</h3>
             <label className="flex items-center gap-2 text-sm">
-              Na protokole przyjęcia
+              {t('workshop.orderBasic.onReceptionProtocol')}
               <Switch checked={form.reception_protocol} onCheckedChange={v => set('reception_protocol', v)} />
             </label>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Ogólny opis uszkodzeń pojazdu</Label>
-            <Textarea value={form.damage_description} onChange={e => set('damage_description', e.target.value)} placeholder="Ogólny opis uszkodzeń pojazdu" rows={2} />
+            <Label className="text-xs">{t('workshop.orderBasic.generalDamageDescription')}</Label>
+            <Textarea value={form.damage_description} onChange={e => set('damage_description', e.target.value)} placeholder={t('workshop.orderBasic.generalDamageDescription')} rows={2} />
           </div>
 
           {/* Photo upload section */}
           <div>
-            <h4 className="text-sm font-medium mb-3">Zdjęcia pojazdu przy przyjęciu</h4>
+            <h4 className="text-sm font-medium mb-3">{t('workshop.newOrder.intakePhotos')}</h4>
             <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
-              {['Przód', 'Tył', 'Lewy bok', 'Prawy bok', 'Wnętrze przód', 'Wnętrze tył'].map(label => (
-                <div key={label} className="border-2 border-dashed rounded-lg flex flex-col items-center justify-center p-4 text-center cursor-pointer hover:border-primary/50 transition-colors">
+              {intakePhotoLabels.map(labelKey => (
+                <div key={labelKey} className="border-2 border-dashed rounded-lg flex flex-col items-center justify-center p-4 text-center cursor-pointer hover:border-primary/50 transition-colors">
                   <Camera className="h-6 w-6 text-muted-foreground mb-1" />
-                  <span className="text-xs text-muted-foreground">{label}</span>
+                  <span className="text-xs text-muted-foreground">{t(labelKey)}</span>
                 </div>
               ))}
             </div>
@@ -298,7 +315,7 @@ export function WorkshopOrderBasicTab({ order, providerId }: Props) {
       {/* Save */}
       <div className="flex justify-end">
         <Button onClick={handleSave} disabled={updateOrder.isPending} className="gap-2">
-          <Save className="h-4 w-4" /> Zapisz zmiany
+          <Save className="h-4 w-4" /> {t('workshop.orderBasic.saveChanges')}
         </Button>
       </div>
     </div>

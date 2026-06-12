@@ -8,14 +8,19 @@ import { Loader2, ClipboardCheck, ArrowDownToLine, Languages, RefreshCw } from '
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { pl } from 'date-fns/locale';
+import { useTranslation } from 'react-i18next';
 
-const ACTION_LABEL: Record<string, string> = {
-  replace: 'Wymiana', repair: 'Naprawa', inspection: 'Sprawdzenie', diagnosis: 'Diagnoza', inne: 'Inne',
+const ACTION_LABEL_KEY: Record<string, string> = {
+  replace: 'workshop.orderFindings.actionReplace',
+  repair: 'workshop.orderFindings.actionRepair',
+  inspection: 'workshop.orderFindings.actionInspection',
+  diagnosis: 'workshop.orderFindings.actionDiagnosis',
+  inne: 'workshop.orderFindings.actionOther',
 };
-const STATUS_BADGE: Record<string, { label: string; variant: any }> = {
-  pending: { label: 'Oczekuje', variant: 'secondary' },
-  approved: { label: 'Przeniesiono', variant: 'default' },
-  rejected: { label: 'Odrzucono', variant: 'destructive' },
+const STATUS_BADGE: Record<string, { labelKey: string; variant: any }> = {
+  pending: { labelKey: 'workshop.orderFindings.statusPending', variant: 'secondary' },
+  approved: { labelKey: 'workshop.orderFindings.statusApproved', variant: 'default' },
+  rejected: { labelKey: 'workshop.orderFindings.statusRejected', variant: 'destructive' },
 };
 
 interface Props {
@@ -24,6 +29,7 @@ interface Props {
 }
 
 export const WorkshopOrderEmployeeFindingsTab = ({ orderId, providerId }: Props) => {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [findings, setFindings] = useState<any[]>([]);
   const [employees, setEmployees] = useState<Record<string, string>>({});
@@ -65,18 +71,18 @@ export const WorkshopOrderEmployeeFindingsTab = ({ orderId, providerId }: Props)
   };
 
   const move = async () => {
-    if (selected.size === 0) { toast.error('Zaznacz co najmniej jeden wpis'); return; }
+    if (selected.size === 0) { toast.error(t('workshop.orderFindings.selectAtLeastOne')); return; }
     setBusy(true);
     try {
       const { data, error } = await supabase.functions.invoke('workshop-approve-findings', {
         body: { finding_ids: Array.from(selected) },
       });
       if (error) throw error;
-      toast.success(`Przeniesiono ${(data as any)?.moved_count ?? selected.size} pozycji na kartę zlecenia`);
+      toast.success(t('workshop.orderFindings.movedToCard', { count: (data as any)?.moved_count ?? selected.size }));
       setSelected(new Set());
       await load();
     } catch (e: any) {
-      toast.error(e.message || 'Błąd przenoszenia');
+      toast.error(e.message || t('workshop.orderFindings.moveError'));
     } finally { setBusy(false); }
   };
 
@@ -87,8 +93,8 @@ export const WorkshopOrderEmployeeFindingsTab = ({ orderId, providerId }: Props)
       <Card>
         <CardContent className="py-12 text-center text-muted-foreground">
           <ClipboardCheck className="h-10 w-10 mx-auto mb-3 opacity-40" />
-          Brak wpisów od pracowników.<br />
-          <span className="text-xs">Wpisy pojawiają się tu, gdy przydzielony mechanik wypełni protokół po przeglądzie pojazdu.</span>
+          {t('workshop.orderFindings.noFindings')}<br />
+          <span className="text-xs">{t('workshop.orderFindings.noFindingsHint')}</span>
         </CardContent>
       </Card>
     );
@@ -99,19 +105,19 @@ export const WorkshopOrderEmployeeFindingsTab = ({ orderId, providerId }: Props)
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-sm">
           <ClipboardCheck className="h-5 w-5 text-primary" />
-          <span className="font-semibold">Wpisy pracowników ({findings.length})</span>
-          {pending.length > 0 && <Badge variant="secondary">{pending.length} oczekuje</Badge>}
+          <span className="font-semibold">{t('workshop.orderFindings.employeeFindings', { count: findings.length })}</span>
+          {pending.length > 0 && <Badge variant="secondary">{t('workshop.orderFindings.pendingCount', { count: pending.length })}</Badge>}
         </div>
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" onClick={load}><RefreshCw className="h-4 w-4" /></Button>
           {pending.length > 0 && (
             <Button variant="outline" size="sm" onClick={toggleAll}>
-              {allPendingSelected ? 'Odznacz' : 'Zaznacz wszystkie'}
+              {allPendingSelected ? t('workshop.orderFindings.deselect') : t('workshop.orderFindings.selectAll')}
             </Button>
           )}
           <Button size="sm" disabled={busy || selected.size === 0} onClick={move}>
             {busy ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <ArrowDownToLine className="h-4 w-4 mr-1" />}
-            Przenieś na kartę ({selected.size})
+            {t('workshop.orderFindings.moveToCard', { count: selected.size })}
           </Button>
         </div>
       </div>
@@ -120,7 +126,7 @@ export const WorkshopOrderEmployeeFindingsTab = ({ orderId, providerId }: Props)
         {findings.map(f => {
           const st = STATUS_BADGE[f.status] || STATUS_BADGE.pending;
           const isPending = f.status === 'pending';
-          const empName = employees[f.employee_user_id] || 'Pracownik';
+          const empName = employees[f.employee_user_id] || t('workshop.employeePortal.employee');
           const showTranslation = f.description_pl && f.description_original_lang !== 'pl';
           return (
             <Card key={f.id} className={selected.has(f.id) ? 'ring-2 ring-primary' : ''}>
@@ -135,8 +141,8 @@ export const WorkshopOrderEmployeeFindingsTab = ({ orderId, providerId }: Props)
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
-                      <Badge variant="outline" className="text-[10px]">{ACTION_LABEL[f.action_type] || f.action_type}</Badge>
-                      <Badge variant={st.variant} className="text-[10px]">{st.label}</Badge>
+                      <Badge variant="outline" className="text-[10px]">{ACTION_LABEL_KEY[f.action_type] ? t(ACTION_LABEL_KEY[f.action_type]) : f.action_type}</Badge>
+                      <Badge variant={st.variant} className="text-[10px]">{t(st.labelKey)}</Badge>
                       <span className="text-xs text-muted-foreground">
                         {empName} · {formatDistanceToNow(new Date(f.created_at), { locale: pl, addSuffix: true })}
                       </span>
@@ -146,17 +152,17 @@ export const WorkshopOrderEmployeeFindingsTab = ({ orderId, providerId }: Props)
                         <div className="font-medium">{f.description_pl}</div>
                         <div className="text-xs text-muted-foreground italic flex items-start gap-1 mt-0.5">
                           <Languages className="h-3 w-3 mt-0.5 shrink-0" />
-                          <span>oryginał ({(f.description_original_lang || '').toUpperCase()}): {f.description_original}</span>
+                          <span>{t('workshop.orderFindings.original', { lang: (f.description_original_lang || '').toUpperCase() })}: {f.description_original}</span>
                         </div>
                       </div>
                     )}
                     {!showTranslation && <div className="text-sm">{f.description_original}</div>}
                     {(f.part_name || f.part_oe_code || f.estimated_hours > 0) && (
                       <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                        {f.part_name && <span>Część: <b className="text-foreground">{f.part_name}</b></span>}
+                        {f.part_name && <span>{t('workshop.orderFindings.part')}: <b className="text-foreground">{f.part_name}</b></span>}
                         {f.part_oe_code && <span>OE: <b className="text-foreground">{f.part_oe_code}</b></span>}
                         {f.part_supplier && <span>{f.part_supplier}</span>}
-                        {f.estimated_hours > 0 && <span>Roboczo: <b className="text-foreground">{f.estimated_hours}h</b></span>}
+                        {f.estimated_hours > 0 && <span>{t('workshop.orderFindings.labor')}: <b className="text-foreground">{f.estimated_hours}h</b></span>}
                       </div>
                     )}
                   </div>

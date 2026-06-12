@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { compressImageWithWatermark, formatTimestampPL } from '@/lib/imageCompression';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   order: any;
@@ -22,6 +23,7 @@ interface OrderFile {
 }
 
 export function WorkshopOrderFilesTab({ order }: Props) {
+  const { t } = useTranslation();
   const [files, setFiles] = useState<OrderFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -69,7 +71,7 @@ export function WorkshopOrderFilesTab({ order }: Props) {
         const { error: uploadErr } = await supabase.storage
           .from('workshop-order-photos')
           .upload(storagePath, file, { upsert: true });
-        if (uploadErr) { toast.error(`Błąd: ${file.name}`); continue; }
+        if (uploadErr) { toast.error(t('workshop.orderFiles.uploadFileError', { name: file.name })); continue; }
         await (supabase as any).from('workshop_order_files').insert({
           order_id: order.id,
           file_name: file.name,
@@ -78,7 +80,7 @@ export function WorkshopOrderFilesTab({ order }: Props) {
           file_type: 'attachment',
         });
       }
-      toast.success('Pliki dodane');
+      toast.success(t('workshop.orderFiles.filesAdded'));
       fetchFiles();
     } catch (err: any) {
       toast.error(err.message);
@@ -92,7 +94,7 @@ export function WorkshopOrderFilesTab({ order }: Props) {
   const handleDelete = async (file: OrderFile) => {
     await supabase.storage.from('workshop-order-photos').remove([file.file_url]);
     await (supabase as any).from('workshop_order_files').delete().eq('id', file.id);
-    toast.success('Plik usunięty');
+    toast.success(t('workshop.orderFiles.fileDeleted'));
     fetchFiles();
   };
 
@@ -108,12 +110,12 @@ export function WorkshopOrderFilesTab({ order }: Props) {
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <Image className="h-4 w-4 text-primary" />
-            <h3 className="font-semibold text-sm">Zdjęcia z przyjęcia pojazdu</h3>
+            <h3 className="font-semibold text-sm">{t('workshop.orderFiles.intakePhotosTitle')}</h3>
           </div>
           <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2 flex items-start gap-2">
             <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
             <p className="text-xs text-amber-700 dark:text-amber-400">
-              Zdjęcia z przyjęcia są przechowywane przez 30 dni i automatycznie usuwane w celu oszczędności miejsca na serwerze.
+              {t('workshop.orderFiles.intakePhotosRetention')}
             </p>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
@@ -138,7 +140,7 @@ export function WorkshopOrderFilesTab({ order }: Props) {
                     <p className="text-[10px] font-medium truncate">{file.file_name}</p>
                     {daysLeft !== null && (
                       <p className="text-[9px] text-muted-foreground">
-                        {daysLeft > 0 ? `Wygasa za ${daysLeft} dni` : 'Wygasa dziś'}
+                        {daysLeft > 0 ? t('workshop.orderFiles.expiresInDays', { count: daysLeft }) : t('workshop.orderFiles.expiresToday')}
                       </p>
                     )}
                   </div>
@@ -164,15 +166,15 @@ export function WorkshopOrderFilesTab({ order }: Props) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <FileText className="h-4 w-4 text-primary" />
-            <h3 className="font-semibold text-sm">Pliki załączone</h3>
+            <h3 className="font-semibold text-sm">{t('workshop.orderFiles.attachedFiles')}</h3>
           </div>
           <div className="flex gap-2">
             <Button size="sm" variant="outline" onClick={() => cameraInputRef.current?.click()} disabled={uploading} className="md:hidden">
-              <Camera className="h-4 w-4 mr-1" /> Aparat
+              <Camera className="h-4 w-4 mr-1" /> {t('workshop.orderFiles.camera')}
             </Button>
             <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
               {uploading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Upload className="h-4 w-4 mr-1" />}
-              Dodaj pliki
+              {t('workshop.orderFiles.addFiles')}
             </Button>
           </div>
           <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleUpload} accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" />
@@ -185,8 +187,8 @@ export function WorkshopOrderFilesTab({ order }: Props) {
             onClick={() => fileInputRef.current?.click()}
           >
             <Upload className="h-8 w-8 text-muted-foreground mb-3" />
-            <p className="text-primary font-medium hover:underline">Brak plików, kliknij aby dodać</p>
-            <p className="text-xs text-muted-foreground mt-1">Przeciągnij i upuść pliki lub kliknij</p>
+            <p className="text-primary font-medium hover:underline">{t('workshop.orderFiles.noFilesClickToAdd')}</p>
+            <p className="text-xs text-muted-foreground mt-1">{t('workshop.orderFiles.dragDropHint')}</p>
           </div>
         )}
 
