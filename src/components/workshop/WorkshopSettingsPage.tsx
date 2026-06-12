@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,9 +11,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Settings, Clock, Wrench, Plus, Trash2, Save, Loader2, Upload, Search } from 'lucide-react';
 
-const DAYS = ['Poniedziałek', 'Wtorek', 'Środa', 'Czwartek', 'Piątek', 'Sobota', 'Niedziela'];
+const DAY_KEYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
-const DEFAULT_HOURS = DAYS.map((_, i) => ({
+const DEFAULT_HOURS = DAY_KEYS.map((_, i) => ({
   open: i < 5,
   from: '08:00',
   to: '17:00',
@@ -24,6 +25,7 @@ interface WorkStation {
 }
 
 export const WorkshopSettingsPage = () => {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [settingsId, setSettingsId] = useState<string | null>(null);
@@ -107,7 +109,7 @@ export const WorkshopSettingsPage = () => {
   const handleNipSearch = async () => {
     const cleanNip = nip.replace(/[\s-]/g, '');
     if (!cleanNip || cleanNip.length !== 10) {
-      toast.error('Wpisz poprawny NIP (10 cyfr)');
+      toast.error(t('workshop.settings.company.invalidNip'));
       return;
     }
     setNipSearching(true);
@@ -124,12 +126,12 @@ export const WorkshopSettingsPage = () => {
         if (company.address || company.street) setAddress(company.address || company.street);
         if (company.city) setCity(company.city);
         if (company.postalCode || company.zipCode) setPostalCode(company.postalCode || company.zipCode);
-        toast.success('Dane firmy pobrane z rejestru');
+        toast.success(t('workshop.settings.company.companyDataFetched'));
       } else {
-        toast.info(data?.error || 'Nie znaleziono firmy o podanym NIP');
+        toast.info(data?.error || t('workshop.settings.company.companyNotFound'));
       }
     } catch (e: any) {
-      toast.error('Błąd wyszukiwania: ' + (e.message || 'nieznany'));
+      toast.error(t('workshop.settings.company.searchError', { error: e.message || t('workshop.settings.company.unknownError') }));
     } finally {
       setNipSearching(false);
     }
@@ -139,10 +141,10 @@ export const WorkshopSettingsPage = () => {
     setSaving(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Brak autoryzacji');
+      if (!user) throw new Error(t('workshop.settings.company.noAuth'));
 
       if (nip && !/^\d{10}$/.test(nip.replace(/[\s-]/g, ''))) {
-        toast.error('NIP musi zawierać 10 cyfr');
+        toast.error(t('workshop.settings.company.nipMustBe10Digits'));
         setSaving(false);
         return;
       }
@@ -215,9 +217,9 @@ export const WorkshopSettingsPage = () => {
         }
       } catch (_) { /* silent sync */ }
 
-      toast.success('Ustawienia zakładu zapisane');
+      toast.success(t('workshop.settings.company.settingsSaved'));
     } catch (err: any) {
-      toast.error(err.message || 'Błąd zapisu');
+      toast.error(err.message || t('common.saveError'));
     } finally {
       setSaving(false);
     }
@@ -246,7 +248,7 @@ export const WorkshopSettingsPage = () => {
       if (file.size <= 2 * 1024 * 1024) {
         setLogoFile(file);
       } else {
-        toast.error('Plik max 2MB');
+        toast.error(t('workshop.settings.company.fileMax2mb'));
       }
     }
   }, []);
@@ -271,65 +273,65 @@ export const WorkshopSettingsPage = () => {
     <div className="space-y-6">
       <Tabs defaultValue="basic" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="basic"><Settings className="h-4 w-4 mr-2" />Podstawowe</TabsTrigger>
-          <TabsTrigger value="hours"><Clock className="h-4 w-4 mr-2" />Godziny pracy</TabsTrigger>
-          <TabsTrigger value="stations"><Wrench className="h-4 w-4 mr-2" />Stanowiska</TabsTrigger>
+          <TabsTrigger value="basic"><Settings className="h-4 w-4 mr-2" />{t('workshop.settings.company.tabBasic')}</TabsTrigger>
+          <TabsTrigger value="hours"><Clock className="h-4 w-4 mr-2" />{t('workshop.settings.company.tabHours')}</TabsTrigger>
+          <TabsTrigger value="stations"><Wrench className="h-4 w-4 mr-2" />{t('workshop.settings.company.tabStations')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="basic">
           <Card>
-            <CardHeader><CardTitle>Dane zakładu</CardTitle></CardHeader>
+            <CardHeader><CardTitle>{t('workshop.settings.company.dataTitle')}</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Nazwa firmy</Label>
-                  <Input value={firmName} onChange={e => setFirmName(e.target.value)} placeholder="Pełna nazwa firmy" />
+                  <Label>{t('workshop.settings.company.companyName')}</Label>
+                  <Input value={firmName} onChange={e => setFirmName(e.target.value)} placeholder={t('workshop.settings.company.fullCompanyNamePlaceholder')} />
                 </div>
                 <div className="space-y-2">
                   <Label>NIP</Label>
                   <div className="flex gap-2">
                     <Input value={nip} onChange={e => setNip(e.target.value)} placeholder="1234567890" maxLength={13} className="flex-1" />
-                    <Button variant="outline" size="icon" onClick={handleNipSearch} disabled={nipSearching} title="Wyszukaj dane firmy po NIP">
+                    <Button variant="outline" size="icon" onClick={handleNipSearch} disabled={nipSearching} title={t('workshop.settings.company.nipSearchTooltip')}>
                       {nipSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                     </Button>
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Nazwa skrócona (widoczna w SMS, dokumentach)</Label>
-                  <Input value={shortName} onChange={e => setShortName(e.target.value)} placeholder="Np. AutoSerwis" />
+                  <Label>{t('workshop.settings.company.shortName')}</Label>
+                  <Input value={shortName} onChange={e => setShortName(e.target.value)} placeholder={t('workshop.settings.company.shortNamePlaceholder')} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Adres</Label>
+                  <Label>{t('workshop.settings.company.address')}</Label>
                   <Input value={address} onChange={e => setAddress(e.target.value)} placeholder="ul. Przykładowa 1" />
                 </div>
                 <div className="space-y-2">
-                  <Label>Kod pocztowy i miasto</Label>
+                  <Label>{t('workshop.settings.company.postalCodeCity')}</Label>
                   <div className="flex gap-2">
                     <Input value={postalCode} onChange={e => setPostalCode(e.target.value)} placeholder="00-000" maxLength={6} className="w-28" />
                     <Input value={city} onChange={e => setCity(e.target.value)} placeholder="Warszawa" className="flex-1" />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Telefon</Label>
+                  <Label>{t('workshop.settings.company.phone')}</Label>
                   <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="+48 123 456 789" />
                 </div>
                 <div className="space-y-2">
-                  <Label>E-mail</Label>
+                  <Label>{t('workshop.settings.company.email')}</Label>
                   <Input value={email} onChange={e => setEmail(e.target.value)} placeholder="warsztat@firma.pl" type="email" />
                 </div>
                 <div className="space-y-2">
-                  <Label>Strona WWW</Label>
+                  <Label>{t('workshop.settings.company.website')}</Label>
                   <Input value={website} onChange={e => setWebsite(e.target.value)} placeholder="https://..." />
                 </div>
                 <div className="space-y-2 md:col-span-2">
-                  <Label>Nr konta bankowego</Label>
+                  <Label>{t('workshop.settings.company.bankAccount')}</Label>
                   <Input value={bankAccount} onChange={e => setBankAccount(e.target.value)} placeholder="PL 00 0000 0000 0000 0000 0000 0000" />
                 </div>
               </div>
 
               {/* Logo with drag & drop */}
               <div className="space-y-2">
-                <Label>Logo firmy</Label>
+                <Label>{t('workshop.settings.company.companyLogo')}</Label>
                 <div
                   className={`relative border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
                     isDragOver ? 'border-primary bg-primary/10' : logoFile || logoUrl ? 'border-primary/30 bg-primary/5' : 'border-border hover:border-primary/50 hover:bg-muted/50'
@@ -344,7 +346,7 @@ export const WorkshopSettingsPage = () => {
                     input.onchange = (ev: any) => {
                       const file = ev.target.files?.[0];
                       if (file && file.size <= 2 * 1024 * 1024) setLogoFile(file);
-                      else if (file) toast.error('Plik max 2MB');
+                      else if (file) toast.error(t('workshop.settings.company.fileMax2mb'));
                     };
                     input.click();
                   }}
@@ -353,12 +355,12 @@ export const WorkshopSettingsPage = () => {
                     <div className="flex items-center justify-center gap-4">
                       <img
                         src={logoFile ? URL.createObjectURL(logoFile) : logoUrl}
-                        alt="Logo"
+                        alt={t('workshop.settings.company.logoAlt')}
                         className="h-16 w-16 object-contain rounded border"
                       />
                       <div className="text-left">
-                        <p className="text-sm font-medium">{logoFile ? logoFile.name : 'Aktualne logo'}</p>
-                        <p className="text-xs text-muted-foreground">Kliknij lub przeciągnij aby zmienić</p>
+                        <p className="text-sm font-medium">{logoFile ? logoFile.name : t('workshop.settings.company.currentLogo')}</p>
+                        <p className="text-xs text-muted-foreground">{t('workshop.settings.company.clickOrDragToChange')}</p>
                       </div>
                       <Button
                         type="button"
@@ -372,8 +374,8 @@ export const WorkshopSettingsPage = () => {
                   ) : (
                     <div className="py-2">
                       <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                      <p className="text-sm text-muted-foreground">Przeciągnij logo lub kliknij aby wybrać plik</p>
-                      <p className="text-xs text-muted-foreground mt-1">PNG, JPG do 2 MB</p>
+                      <p className="text-sm text-muted-foreground">{t('workshop.settings.company.logoDropzone')}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{t('workshop.settings.company.logoFormats')}</p>
                     </div>
                   )}
                 </div>
@@ -381,39 +383,39 @@ export const WorkshopSettingsPage = () => {
 
               <div className="border-t pt-4 mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Stawka roboczogodziny netto (PLN)</Label>
+                  <Label>{t('workshop.settings.company.hourlyRateNet')}</Label>
                   <Input type="number" value={hourlyRate} onChange={e => setHourlyRate(Number(e.target.value))} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Domyślnie pokazuj kwoty</Label>
+                  <Label>{t('workshop.settings.company.defaultShowAmounts')}</Label>
                   <Select value={showPricesAs} onValueChange={setShowPricesAs}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="netto">Netto</SelectItem>
-                      <SelectItem value="brutto">Brutto</SelectItem>
+                      <SelectItem value="netto">{t('workshop.settings.company.net')}</SelectItem>
+                      <SelectItem value="brutto">{t('workshop.settings.company.gross')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Domyślny termin płatności</Label>
+                  <Label>{t('workshop.settings.company.defaultPaymentTerm')}</Label>
                   <Select value={String(paymentDays)} onValueChange={v => setPaymentDays(Number(v))}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="0">Natychmiast</SelectItem>
-                      <SelectItem value="7">7 dni</SelectItem>
-                      <SelectItem value="14">14 dni</SelectItem>
-                      <SelectItem value="30">30 dni</SelectItem>
+                      <SelectItem value="0">{t('workshop.settings.company.immediately')}</SelectItem>
+                      <SelectItem value="7">{t('workshop.settings.company.days7')}</SelectItem>
+                      <SelectItem value="14">{t('workshop.settings.company.days14')}</SelectItem>
+                      <SelectItem value="30">{t('workshop.settings.company.days30')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Domyślna forma płatności</Label>
+                  <Label>{t('workshop.settings.company.defaultPaymentMethod')}</Label>
                   <Select value={paymentMethod} onValueChange={setPaymentMethod}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="cash">Gotówka</SelectItem>
-                      <SelectItem value="transfer">Przelew</SelectItem>
-                      <SelectItem value="card">Karta</SelectItem>
+                      <SelectItem value="cash">{t('workshop.settings.company.cash')}</SelectItem>
+                      <SelectItem value="transfer">{t('workshop.settings.company.transfer')}</SelectItem>
+                      <SelectItem value="card">{t('workshop.settings.company.card')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -421,8 +423,8 @@ export const WorkshopSettingsPage = () => {
 
               <div className="flex items-center justify-between border-t pt-4">
                 <div>
-                  <Label>Włącz obsługę rabatów</Label>
-                  <p className="text-sm text-muted-foreground">Pozwól na stosowanie rabatów w zleceniach</p>
+                  <Label>{t('workshop.settings.company.enableDiscounts')}</Label>
+                  <p className="text-sm text-muted-foreground">{t('workshop.settings.company.enableDiscountsDesc')}</p>
                 </div>
                 <Switch checked={discountsEnabled} onCheckedChange={setDiscountsEnabled} />
               </div>
@@ -432,16 +434,16 @@ export const WorkshopSettingsPage = () => {
 
         <TabsContent value="hours">
           <Card>
-            <CardHeader><CardTitle>Godziny pracy</CardTitle></CardHeader>
+            <CardHeader><CardTitle>{t('workshop.settings.company.workingHours')}</CardTitle></CardHeader>
             <CardContent className="space-y-3">
-              {DAYS.map((day, i) => (
-                <div key={day} className="flex items-center gap-4 p-3 rounded-lg border">
+              {DAY_KEYS.map((dayKey, i) => (
+                <div key={dayKey} className="flex items-center gap-4 p-3 rounded-lg border">
                   <Switch checked={workingHours[i]?.open ?? false} onCheckedChange={v => {
                     const h = [...workingHours];
                     h[i] = { ...h[i], open: v };
                     setWorkingHours(h);
                   }} />
-                  <span className="w-28 font-medium text-sm">{day}</span>
+                  <span className="w-28 font-medium text-sm">{t(`workshop.settings.company.day.${dayKey}`)}</span>
                   {workingHours[i]?.open ? (
                     <div className="flex items-center gap-2">
                       <Input type="time" className="w-32" value={workingHours[i]?.from || '08:00'}
@@ -459,7 +461,7 @@ export const WorkshopSettingsPage = () => {
                         }} />
                     </div>
                   ) : (
-                    <span className="text-sm text-muted-foreground">Zamknięte</span>
+                    <span className="text-sm text-muted-foreground">{t('workshop.settings.company.closed')}</span>
                   )}
                 </div>
               ))}
@@ -469,15 +471,15 @@ export const WorkshopSettingsPage = () => {
 
         <TabsContent value="stations">
           <Card>
-            <CardHeader><CardTitle>Stanowiska warsztatowe</CardTitle></CardHeader>
+            <CardHeader><CardTitle>{t('workshop.settings.company.workstationsTitle')}</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div className="flex gap-2">
-                <Input value={newStation} onChange={e => setNewStation(e.target.value)} placeholder="Np. Podnośnik 1, Kanał, Myjnia"
+                <Input value={newStation} onChange={e => setNewStation(e.target.value)} placeholder={t('workshop.settings.company.workstationPlaceholder')}
                   onKeyDown={e => e.key === 'Enter' && addStation()} />
-                <Button onClick={addStation} size="sm"><Plus className="h-4 w-4 mr-1" />Dodaj</Button>
+                <Button onClick={addStation} size="sm"><Plus className="h-4 w-4 mr-1" />{t('workshop.settings.company.add')}</Button>
               </div>
               {workStations.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">Brak stanowisk. Dodaj pierwsze stanowisko powyżej.</p>
+                <p className="text-sm text-muted-foreground text-center py-4">{t('workshop.settings.company.noWorkstations')}</p>
               )}
               {workStations.map((s, i) => (
                 <div key={i} className="flex items-center justify-between p-3 rounded-lg border">
@@ -496,7 +498,7 @@ export const WorkshopSettingsPage = () => {
       </Tabs>
 
       <Button onClick={handleSave} disabled={saving} className="w-full">
-        {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Zapisywanie...</> : <><Save className="h-4 w-4 mr-2" />Zapisz ustawienia</>}
+        {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{t('common.saving')}</> : <><Save className="h-4 w-4 mr-2" />{t('workshop.settings.company.saveSettings')}</>}
       </Button>
     </div>
   );

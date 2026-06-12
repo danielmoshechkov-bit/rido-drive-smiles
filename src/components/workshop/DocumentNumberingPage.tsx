@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,10 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Save, Loader2, Hash } from 'lucide-react';
 
 const DOC_TYPES = [
-  { value: 'order', label: 'Zlecenie', defaultPrefix: 'ZL' },
-  { value: 'invoice', label: 'Faktura', defaultPrefix: 'FV' },
-  { value: 'estimate', label: 'Wycena', defaultPrefix: 'WYC' },
-  { value: 'receipt', label: 'Paragon', defaultPrefix: 'PAR' },
+  { value: 'order', labelKey: 'workshop.docNumbering.docType.order', defaultPrefix: 'ZL' },
+  { value: 'invoice', labelKey: 'workshop.docNumbering.docType.invoice', defaultPrefix: 'FV' },
+  { value: 'estimate', labelKey: 'workshop.docNumbering.docType.estimate', defaultPrefix: 'WYC' },
+  { value: 'receipt', labelKey: 'workshop.docNumbering.docType.receipt', defaultPrefix: 'PAR' },
 ];
 
 const FORMATS = [
@@ -22,9 +23,9 @@ const FORMATS = [
 ];
 
 const RESET_OPTIONS = [
-  { value: 'year', label: 'Co rok' },
-  { value: 'month', label: 'Co miesiąc' },
-  { value: 'never', label: 'Nigdy' },
+  { value: 'year', labelKey: 'workshop.docNumbering.reset.year' },
+  { value: 'month', labelKey: 'workshop.docNumbering.reset.month' },
+  { value: 'never', labelKey: 'workshop.docNumbering.reset.never' },
 ];
 
 interface NumberingConfig {
@@ -46,6 +47,7 @@ function generatePreview(config: NumberingConfig): string {
 }
 
 export const DocumentNumberingPage = () => {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [configs, setConfigs] = useState<NumberingConfig[]>([]);
@@ -94,7 +96,7 @@ export const DocumentNumberingPage = () => {
     setSaving(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Brak autoryzacji');
+      if (!user) throw new Error(t('workshop.docNumbering.noAuth'));
 
       for (const config of configs) {
         const payload = {
@@ -121,10 +123,10 @@ export const DocumentNumberingPage = () => {
         }
       }
 
-      toast.success('Numeracja dokumentów zapisana');
+      toast.success(t('workshop.docNumbering.saved'));
       fetchConfigs();
     } catch (err: any) {
-      toast.error(err.message || 'Błąd zapisu');
+      toast.error(err.message || t('common.saveError'));
     } finally {
       setSaving(false);
     }
@@ -138,7 +140,7 @@ export const DocumentNumberingPage = () => {
     <div className="space-y-4">
       <div className="flex items-center gap-2 mb-4">
         <Hash className="h-5 w-5 text-primary" />
-        <h3 className="text-lg font-semibold">Numeracja dokumentów</h3>
+        <h3 className="text-lg font-semibold">{t('workshop.docNumbering.title')}</h3>
       </div>
 
       {configs.map((config, idx) => {
@@ -148,17 +150,17 @@ export const DocumentNumberingPage = () => {
         return (
           <Card key={config.document_type}>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">{docType?.label || config.document_type}</CardTitle>
+              <CardTitle className="text-base">{docType ? t(docType.labelKey) : config.document_type}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="space-y-2">
-                  <Label>Prefiks</Label>
+                  <Label>{t('workshop.docNumbering.prefix')}</Label>
                   <Input value={config.prefix} maxLength={10}
                     onChange={e => updateConfig(idx, 'prefix', e.target.value.toUpperCase())} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Format numeru</Label>
+                  <Label>{t('workshop.docNumbering.numberFormat')}</Label>
                   <Select value={config.format} onValueChange={v => updateConfig(idx, 'format', v)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -167,22 +169,22 @@ export const DocumentNumberingPage = () => {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Następny numer</Label>
+                  <Label>{t('workshop.docNumbering.nextNumber')}</Label>
                   <Input type="number" min={1} value={config.next_number}
                     onChange={e => updateConfig(idx, 'next_number', Math.max(1, Number(e.target.value)))} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Resetuj co</Label>
+                  <Label>{t('workshop.docNumbering.resetEvery')}</Label>
                   <Select value={config.reset_period} onValueChange={v => updateConfig(idx, 'reset_period', v)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {RESET_OPTIONS.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
+                      {RESET_OPTIONS.map(r => <SelectItem key={r.value} value={r.value}>{t(r.labelKey)}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
               </div>
               <div className="mt-3 p-2 bg-primary/5 rounded text-sm">
-                <span className="text-muted-foreground">Podgląd: </span>
+                <span className="text-muted-foreground">{t('workshop.docNumbering.preview')} </span>
                 <span className="font-mono font-semibold text-primary">{preview}</span>
               </div>
             </CardContent>
@@ -191,7 +193,7 @@ export const DocumentNumberingPage = () => {
       })}
 
       <Button onClick={handleSave} disabled={saving} className="w-full">
-        {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Zapisywanie...</> : <><Save className="h-4 w-4 mr-2" />Zapisz numerację</>}
+        {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{t('common.saving')}</> : <><Save className="h-4 w-4 mr-2" />{t('workshop.docNumbering.saveNumbering')}</>}
       </Button>
     </div>
   );

@@ -23,6 +23,7 @@ import { ChecklistItemsPage } from './settings/ChecklistItemsPage';
 import { CalendarSettingsPage } from './settings/CalendarSettingsPage';
 import { DEFAULT_SERVICE_PROVIDER_PRIMARY_TABS, SERVICE_PROVIDER_TAB_LABELS, SERVICE_PROVIDER_TAB_ORDER, type ServiceProviderNavTabKey } from '@/components/service-provider/navConfig';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { NotificationsSettings } from '@/components/notifications/NotificationsSettings';
@@ -37,6 +38,7 @@ interface SettingsPanelProps {
 }
 
 export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websiteBuilderEnabled = false, onPrimaryTabsSaved, initialSubTab }: SettingsPanelProps) {
+  const { t } = useTranslation();
   const [settingsTab, setSettingsTab] = useState(initialSubTab || 'konto');
   useEffect(() => { if (initialSubTab) setSettingsTab(initialSubTab); }, [initialSubTab]);
   const [showAddEmployee, setShowAddEmployee] = useState(false);
@@ -96,7 +98,7 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['settings-employees'] });
       queryClient.invalidateQueries({ queryKey: ['calendar-employees'] });
-      toast.success('Pracownik dodany');
+      toast.success(t('workshop.settingsPanel.employeeAdded'));
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -112,7 +114,7 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['settings-employees'] });
       queryClient.invalidateQueries({ queryKey: ['calendar-employees'] });
-      toast.success('Pracownik usunięty');
+      toast.success(t('workshop.settingsPanel.employeeRemoved'));
     },
   });
 
@@ -127,7 +129,7 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
       queryClient.invalidateQueries({ queryKey: ['settings-workstations'] });
       queryClient.invalidateQueries({ queryKey: ['calendar-workstations'] });
       queryClient.invalidateQueries({ queryKey: ['workshop-workstations'] });
-      toast.success('Stanowisko dodane');
+      toast.success(t('workshop.settingsPanel.workstationAdded'));
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -151,14 +153,14 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
       queryClient.invalidateQueries({ queryKey: ['settings-workstations'] });
       queryClient.invalidateQueries({ queryKey: ['calendar-workstations'] });
       queryClient.invalidateQueries({ queryKey: ['workshop-workstations'] });
-      toast.success('Stanowisko usunięte');
+      toast.success(t('workshop.settingsPanel.workstationRemoved'));
     },
   });
 
   const handleNipSearch = async () => {
     const cleanNip = (settingsForm.nip || '').replace(/[\s-]/g, '');
     if (!cleanNip || cleanNip.length !== 10) {
-      toast.error('Wpisz poprawny NIP (10 cyfr)');
+      toast.error(t('workshop.settingsPanel.invalidNip'));
       return;
     }
     setNipSearching(true);
@@ -177,12 +179,12 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
           city: company.city || p.city,
           postal_code: company.postalCode || company.zipCode || p.postal_code,
         }));
-        toast.success('Dane firmy pobrane z rejestru');
+        toast.success(t('workshop.settingsPanel.companyDataFetched'));
       } else {
-        toast.info(data?.error || 'Nie znaleziono firmy o podanym NIP');
+        toast.info(data?.error || t('workshop.settingsPanel.companyNotFound'));
       }
     } catch (e: any) {
-      toast.error('Błąd wyszukiwania: ' + (e.message || 'nieznany'));
+      toast.error(t('workshop.settingsPanel.searchError', { error: e.message || t('workshop.settingsPanel.unknownError') }));
     } finally {
       setNipSearching(false);
     }
@@ -195,7 +197,7 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
     const file = e.dataTransfer.files?.[0];
     if (file && file.type.startsWith('image/')) {
       if (file.size <= 2 * 1024 * 1024) setLogoFile(file);
-      else toast.error('Plik max 2MB');
+      else toast.error(t('workshop.settingsPanel.fileMax2mb'));
     }
   }, []);
 
@@ -204,7 +206,7 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
     setSavingSettings(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Brak autoryzacji');
+      if (!user) throw new Error(t('workshop.settingsPanel.noAuth'));
 
       let uploadedLogoUrl = settingsForm.logo_url || '';
       if (logoFile) {
@@ -259,9 +261,9 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
 
       setSettingsForm((p: any) => ({ ...p, logo_url: uploadedLogoUrl }));
       setLogoFile(null);
-      toast.success('Ustawienia zapisane');
+      toast.success(t('workshop.settingsPanel.settingsSaved'));
     } catch (err: any) {
-      toast.error('Błąd zapisu: ' + (err.message || 'nieznany'));
+      toast.error(t('workshop.settingsPanel.saveError', { error: err.message || t('workshop.settingsPanel.unknownError') }));
     } finally {
       setSavingSettings(false);
     }
@@ -326,29 +328,29 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
       );
 
     if (error) {
-      toast.error('Nie udało się zapisać układu paska');
+      toast.error(t('workshop.settingsPanel.barLayoutSaveError'));
       return;
     }
 
     onPrimaryTabsSaved?.(nextPrimaryTabs);
     queryClient.invalidateQueries({ queryKey: ['nav-preferences'] });
-    toast.success('Układ paska zapisany');
+    toast.success(t('workshop.settingsPanel.barLayoutSaved'));
   };
 
   const settingsSubTabs = [
-    { value: 'konto', label: 'Konto i firma', visible: true },
-    { value: 'warsztat', label: 'Zakład', visible: true },
-    { value: 'pracownicy', label: 'Pracownicy', visible: true },
-    { value: 'stanowiska', label: 'Stanowiska', visible: true },
-    { value: 'kalendarz', label: 'Kalendarz', visible: true },
-    { value: 'statusy', label: 'Statusy zleceń', visible: true },
-    { value: 'rodzaje', label: 'Rodzaje zleceń', visible: true },
-    { value: 'szablony', label: 'Szablony zadań', visible: true },
-    { value: 'listy-kontrolne', label: 'Listy kontrolne', visible: true },
-    { value: 'numeracja', label: 'Numeracja', visible: true },
-    { value: 'integracje', label: 'Integracje', visible: true },
-    { value: 'powiadomienia', label: 'Powiadomienia', visible: true },
-    { value: 'rido-price', label: 'Rido Price', visible: true },
+    { value: 'konto', label: t('workshop.settingsPanel.tabs.account'), visible: true },
+    { value: 'warsztat', label: t('workshop.settingsPanel.tabs.workshop'), visible: true },
+    { value: 'pracownicy', label: t('workshop.settingsPanel.tabs.employees'), visible: true },
+    { value: 'stanowiska', label: t('workshop.settingsPanel.tabs.workstations'), visible: true },
+    { value: 'kalendarz', label: t('workshop.settingsPanel.tabs.calendar'), visible: true },
+    { value: 'statusy', label: t('workshop.settingsPanel.tabs.orderStatuses'), visible: true },
+    { value: 'rodzaje', label: t('workshop.settingsPanel.tabs.orderTypes'), visible: true },
+    { value: 'szablony', label: t('workshop.settingsPanel.tabs.taskTemplates'), visible: true },
+    { value: 'listy-kontrolne', label: t('workshop.settingsPanel.tabs.checklists'), visible: true },
+    { value: 'numeracja', label: t('workshop.settingsPanel.tabs.numbering'), visible: true },
+    { value: 'integracje', label: t('workshop.settingsPanel.tabs.integrations'), visible: true },
+    { value: 'powiadomienia', label: t('workshop.settingsPanel.tabs.notifications'), visible: true },
+    { value: 'rido-price', label: t('workshop.settingsPanel.tabs.ridoPrice'), visible: true },
   ];
 
   return (
@@ -360,8 +362,8 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
             <Card className="border-dashed">
               <CardContent className="pt-6 space-y-4">
                 <div>
-                  <h3 className="font-semibold">Menu główne</h3>
-                  <p className="text-sm text-muted-foreground">Wybierz, które moduły mają być widoczne bezpośrednio na pasku. Pozostałe trafią do zakładki „Więcej”.</p>
+                  <h3 className="font-semibold">{t('workshop.settingsPanel.mainMenu')}</h3>
+                  <p className="text-sm text-muted-foreground">{t('workshop.settingsPanel.mainMenuDesc')}</p>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {SERVICE_PROVIDER_TAB_ORDER.filter(tab => tab !== 'settings' && (websiteBuilderEnabled || tab !== 'website')).map((tab, idx) => (
@@ -397,64 +399,64 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
                   ))}
                 </div>
                 <div className="flex justify-end">
-                  <Button type="button" variant="outline" onClick={handleSavePrimaryTabs}>Zapisz układ paska</Button>
+                  <Button type="button" variant="outline" onClick={handleSavePrimaryTabs}>{t('workshop.settingsPanel.saveBarLayout')}</Button>
                 </div>
               </CardContent>
             </Card>
 
             <div className="space-y-2">
-              <Label>Typ konta</Label>
+              <Label>{t('workshop.settingsPanel.accountType')}</Label>
               <Select value={settingsForm.business_type} onValueChange={v => setSettingsForm((p: any) => ({ ...p, business_type: v }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="firma">Firma</SelectItem>
-                  <SelectItem value="osoba">Osoba prywatna</SelectItem>
+                  <SelectItem value="firma">{t('workshop.settingsPanel.company')}</SelectItem>
+                  <SelectItem value="osoba">{t('workshop.settingsPanel.individual')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             {settingsForm.business_type === 'firma' && (
               <>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2"><Label>Nazwa firmy</Label><Input value={settingsForm.company_name} onChange={e => setSettingsForm((p: any) => ({ ...p, company_name: e.target.value }))} placeholder="Nazwa warsztatu / firmy" /></div>
+                  <div className="space-y-2"><Label>{t('workshop.settingsPanel.companyName')}</Label><Input value={settingsForm.company_name} onChange={e => setSettingsForm((p: any) => ({ ...p, company_name: e.target.value }))} placeholder={t('workshop.settingsPanel.companyNamePlaceholder')} /></div>
                   <div className="space-y-2">
                     <Label>NIP</Label>
                     <div className="flex gap-2">
                       <Input value={settingsForm.nip} onChange={e => setSettingsForm((p: any) => ({ ...p, nip: e.target.value }))} placeholder="0000000000" className="flex-1" />
-                      <Button variant="outline" size="icon" onClick={handleNipSearch} disabled={nipSearching} title="Wyszukaj dane firmy po NIP">
+                      <Button variant="outline" size="icon" onClick={handleNipSearch} disabled={nipSearching} title={t('workshop.settingsPanel.nipSearchTooltip')}>
                         {nipSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                       </Button>
                     </div>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2"><Label>Nazwa skrócona (widoczna w SMS, dokumentach)</Label><Input value={settingsForm.short_name || ''} onChange={e => setSettingsForm((p: any) => ({ ...p, short_name: e.target.value }))} placeholder="Np. AutoSerwis" /></div>
-                  <div className="space-y-2"><Label>Adres</Label><Input value={settingsForm.address} onChange={e => setSettingsForm((p: any) => ({ ...p, address: e.target.value }))} placeholder="ul. Przykładowa 1" /></div>
+                  <div className="space-y-2"><Label>{t('workshop.settingsPanel.shortName')}</Label><Input value={settingsForm.short_name || ''} onChange={e => setSettingsForm((p: any) => ({ ...p, short_name: e.target.value }))} placeholder={t('workshop.settingsPanel.shortNamePlaceholder')} /></div>
+                  <div className="space-y-2"><Label>{t('workshop.settingsPanel.address')}</Label><Input value={settingsForm.address} onChange={e => setSettingsForm((p: any) => ({ ...p, address: e.target.value }))} placeholder="ul. Przykładowa 1" /></div>
                 </div>
               </>
             )}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Kod pocztowy i miasto</Label>
+                <Label>{t('workshop.settingsPanel.postalCodeCity')}</Label>
                 <div className="flex gap-2">
                   <Input value={settingsForm.postal_code} onChange={e => setSettingsForm((p: any) => ({ ...p, postal_code: e.target.value }))} placeholder="00-000" maxLength={6} className="w-28" />
-                  <Input value={settingsForm.city} onChange={e => setSettingsForm((p: any) => ({ ...p, city: e.target.value }))} placeholder="Miasto" className="flex-1" />
+                  <Input value={settingsForm.city} onChange={e => setSettingsForm((p: any) => ({ ...p, city: e.target.value }))} placeholder={t('workshop.settingsPanel.cityPlaceholder')} className="flex-1" />
                 </div>
               </div>
-              <div className="space-y-2"><Label>Telefon</Label><Input value={settingsForm.phone} onChange={e => setSettingsForm((p: any) => ({ ...p, phone: e.target.value }))} placeholder="+48 000 000 000" /></div>
+              <div className="space-y-2"><Label>{t('workshop.settingsPanel.phone')}</Label><Input value={settingsForm.phone} onChange={e => setSettingsForm((p: any) => ({ ...p, phone: e.target.value }))} placeholder="+48 000 000 000" /></div>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2"><Label>Imię</Label><Input value={settingsForm.first_name} onChange={e => setSettingsForm((p: any) => ({ ...p, first_name: e.target.value }))} /></div>
-              <div className="space-y-2"><Label>Nazwisko</Label><Input value={settingsForm.last_name} onChange={e => setSettingsForm((p: any) => ({ ...p, last_name: e.target.value }))} /></div>
+              <div className="space-y-2"><Label>{t('workshop.settingsPanel.firstName')}</Label><Input value={settingsForm.first_name} onChange={e => setSettingsForm((p: any) => ({ ...p, first_name: e.target.value }))} /></div>
+              <div className="space-y-2"><Label>{t('workshop.settingsPanel.lastName')}</Label><Input value={settingsForm.last_name} onChange={e => setSettingsForm((p: any) => ({ ...p, last_name: e.target.value }))} /></div>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2"><Label>Email</Label><Input type="email" value={settingsForm.email} onChange={e => setSettingsForm((p: any) => ({ ...p, email: e.target.value }))} /></div>
-              <div className="space-y-2"><Label>Strona WWW</Label><Input value={settingsForm.website} onChange={e => setSettingsForm((p: any) => ({ ...p, website: e.target.value }))} placeholder="https://warsztat.pl" /></div>
+              <div className="space-y-2"><Label>{t('workshop.settingsPanel.email')}</Label><Input type="email" value={settingsForm.email} onChange={e => setSettingsForm((p: any) => ({ ...p, email: e.target.value }))} /></div>
+              <div className="space-y-2"><Label>{t('workshop.settingsPanel.website')}</Label><Input value={settingsForm.website} onChange={e => setSettingsForm((p: any) => ({ ...p, website: e.target.value }))} placeholder="https://warsztat.pl" /></div>
             </div>
-            <div className="space-y-2"><Label>Nr konta bankowego</Label><Input value={settingsForm.bank_account || ''} onChange={e => setSettingsForm((p: any) => ({ ...p, bank_account: e.target.value }))} placeholder="PL 00 0000 0000 0000 0000 0000 0000" /></div>
+            <div className="space-y-2"><Label>{t('workshop.settingsPanel.bankAccount')}</Label><Input value={settingsForm.bank_account || ''} onChange={e => setSettingsForm((p: any) => ({ ...p, bank_account: e.target.value }))} placeholder="PL 00 0000 0000 0000 0000 0000 0000" /></div>
 
             {/* Logo upload */}
             <div className="space-y-2">
-              <Label>Logo firmy</Label>
+              <Label>{t('workshop.settingsPanel.companyLogo')}</Label>
               <div
                 className={`relative border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
                   isDragOver ? 'border-primary bg-primary/10' : logoFile || settingsForm.logo_url ? 'border-primary/30 bg-primary/5' : 'border-border hover:border-primary/50 hover:bg-muted/50'
@@ -469,7 +471,7 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
                   input.onchange = (ev: any) => {
                     const file = ev.target.files?.[0];
                     if (file && file.size <= 2 * 1024 * 1024) setLogoFile(file);
-                    else if (file) toast.error('Plik max 2MB');
+                    else if (file) toast.error(t('workshop.settingsPanel.fileMax2mb'));
                   };
                   input.click();
                 }}
@@ -478,12 +480,12 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
                   <div className="flex items-center justify-center gap-4">
                     <img
                       src={logoFile ? URL.createObjectURL(logoFile) : settingsForm.logo_url}
-                      alt="Logo"
+                      alt={t('workshop.settingsPanel.logoAlt')}
                       className="h-16 w-16 object-contain rounded border"
                     />
                     <div className="text-left">
-                      <p className="text-sm font-medium">{logoFile ? logoFile.name : 'Aktualne logo'}</p>
-                      <p className="text-xs text-muted-foreground">Kliknij lub przeciągnij aby zmienić</p>
+                      <p className="text-sm font-medium">{logoFile ? logoFile.name : t('workshop.settingsPanel.currentLogo')}</p>
+                      <p className="text-xs text-muted-foreground">{t('workshop.settingsPanel.clickOrDragToChange')}</p>
                     </div>
                     <Button
                       type="button"
@@ -497,17 +499,17 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
                 ) : (
                   <div className="py-2">
                     <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">Przeciągnij logo lub kliknij aby wybrać plik</p>
-                    <p className="text-xs text-muted-foreground mt-1">PNG, JPG do 2 MB</p>
+                    <p className="text-sm text-muted-foreground">{t('workshop.settingsPanel.logoDropzone')}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{t('workshop.settingsPanel.logoFormats')}</p>
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="space-y-2"><Label>Opis działalności</Label><Textarea rows={3} value={settingsForm.bio} onChange={e => setSettingsForm((p: any) => ({ ...p, bio: e.target.value }))} placeholder="Krótki opis Twojej firmy..." /></div>
+            <div className="space-y-2"><Label>{t('workshop.settingsPanel.businessDescription')}</Label><Textarea rows={3} value={settingsForm.bio} onChange={e => setSettingsForm((p: any) => ({ ...p, bio: e.target.value }))} placeholder={t('workshop.settingsPanel.businessDescriptionPlaceholder')} /></div>
             <div className="flex justify-end">
               <Button className="gap-2" onClick={handleSaveSettings} disabled={savingSettings}>
-                {savingSettings ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Zapisz ustawienia
+                {savingSettings ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} {t('workshop.settingsPanel.saveSettings')}
               </Button>
             </div>
           </div>
@@ -524,15 +526,15 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="font-semibold">Stanowiska robocze</h3>
-                  <p className="text-sm text-muted-foreground">Zsynchronizowane z kalendarzem — dodawane tu pojawią się w terminarzu i odwrotnie</p>
+                  <h3 className="font-semibold">{t('workshop.settingsPanel.workstations.title')}</h3>
+                  <p className="text-sm text-muted-foreground">{t('workshop.settingsPanel.workstations.subtitle')}</p>
                 </div>
                 <div className="flex gap-2">
                   <Button variant="outline" onClick={() => setShowAddCategory(true)} className="gap-2">
-                    <Plus className="h-4 w-4" /> Kategoria
+                    <Plus className="h-4 w-4" /> {t('workshop.settingsPanel.workstations.category')}
                   </Button>
                   <Button onClick={() => { setWsCategory(currentCat); setShowAddWorkstation(true); }} className="gap-2">
-                    <Plus className="h-4 w-4" /> Dodaj stanowisko
+                    <Plus className="h-4 w-4" /> {t('workshop.settingsPanel.workstations.addWorkstation')}
                   </Button>
                 </div>
               </div>
@@ -557,8 +559,8 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
               {filteredWs.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
                   <Monitor className="h-12 w-12 mx-auto mb-4 opacity-30" />
-                  <p>Brak stanowisk w kategorii „{currentCat}"</p>
-                  <p className="text-sm">Kliknij „Dodaj stanowisko" aby utworzyć pierwsze</p>
+                  <p>{t('workshop.settingsPanel.workstations.emptyInCategory', { category: currentCat })}</p>
+                  <p className="text-sm">{t('workshop.settingsPanel.workstations.emptyHint')}</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -579,10 +581,10 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
 
               <Dialog open={showAddWorkstation} onOpenChange={setShowAddWorkstation}>
                 <DialogContent>
-                  <DialogHeader><DialogTitle>Dodaj stanowisko</DialogTitle></DialogHeader>
+                  <DialogHeader><DialogTitle>{t('workshop.settingsPanel.workstations.addDialogTitle')}</DialogTitle></DialogHeader>
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label>Kategoria</Label>
+                      <Label>{t('workshop.settingsPanel.workstations.categoryLabel')}</Label>
                       <Select value={wsCategory} onValueChange={setWsCategory}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
@@ -591,27 +593,27 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label>Nazwa stanowiska *</Label>
-                      <Input value={wsName} onChange={e => setWsName(e.target.value)} placeholder="np. Podnośnik 1, Myjnia wjazd" />
+                      <Label>{t('workshop.settingsPanel.workstations.nameLabel')}</Label>
+                      <Input value={wsName} onChange={e => setWsName(e.target.value)} placeholder={t('workshop.settingsPanel.workstations.namePlaceholder')} />
                     </div>
                   </div>
                   <DialogFooter>
-                    <Button variant="outline" onClick={() => setShowAddWorkstation(false)}>Anuluj</Button>
-                    <Button onClick={handleAddWorkstation} disabled={!wsName.trim()}>Dodaj</Button>
+                    <Button variant="outline" onClick={() => setShowAddWorkstation(false)}>{t('common.cancel')}</Button>
+                    <Button onClick={handleAddWorkstation} disabled={!wsName.trim()}>{t('workshop.settingsPanel.add')}</Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
 
               <Dialog open={showAddCategory} onOpenChange={setShowAddCategory}>
                 <DialogContent>
-                  <DialogHeader><DialogTitle>Nowa kategoria stanowisk</DialogTitle></DialogHeader>
+                  <DialogHeader><DialogTitle>{t('workshop.settingsPanel.workstations.newCategoryTitle')}</DialogTitle></DialogHeader>
                   <div className="space-y-2">
-                    <Label>Nazwa kategorii *</Label>
-                    <Input value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} placeholder="np. Myjnia, Detailing, Wulkanizacja" />
-                    <p className="text-xs text-muted-foreground">Po dodaniu utworzymy w niej pierwsze stanowisko, aby kategoria była widoczna w kalendarzu.</p>
+                    <Label>{t('workshop.settingsPanel.workstations.categoryNameLabel')}</Label>
+                    <Input value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} placeholder={t('workshop.settingsPanel.workstations.categoryNamePlaceholder')} />
+                    <p className="text-xs text-muted-foreground">{t('workshop.settingsPanel.workstations.categoryHint')}</p>
                   </div>
                   <DialogFooter>
-                    <Button variant="outline" onClick={() => setShowAddCategory(false)}>Anuluj</Button>
+                    <Button variant="outline" onClick={() => setShowAddCategory(false)}>{t('common.cancel')}</Button>
                     <Button
                       onClick={() => {
                         if (!newCategoryName.trim()) return;
@@ -623,7 +625,7 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
                       }}
                       disabled={!newCategoryName.trim()}
                     >
-                      Dodaj
+                      {t('workshop.settingsPanel.add')}
                     </Button>
                   </DialogFooter>
                 </DialogContent>
@@ -662,7 +664,7 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
             {providerId ? (
               <WorkshopPartsIntegrationsSettings providerId={providerId} />
             ) : (
-              <p className="text-center py-8 text-muted-foreground">Brak providera</p>
+              <p className="text-center py-8 text-muted-foreground">{t('workshop.settingsPanel.noProvider')}</p>
             )}
           </div>
         )}
@@ -680,7 +682,7 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
             {providerId ? (
               <RidoPriceSettingsTab providerId={providerId} />
             ) : (
-              <p className="text-center py-8 text-muted-foreground">Brak providera</p>
+              <p className="text-center py-8 text-muted-foreground">{t('workshop.settingsPanel.noProvider')}</p>
             )}
           </div>
         )}

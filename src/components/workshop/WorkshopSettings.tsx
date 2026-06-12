@@ -15,6 +15,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { useWorkshopStatuses } from '@/hooks/useWorkshop';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
+import { translateWorkshopStatus } from '@/utils/workshopStatusStyle';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft, Settings, Building2, FileText, Mail, Palette,
@@ -28,74 +30,75 @@ interface Props {
 }
 
 export function WorkshopSettings({ providerId, onBack }: Props) {
+  const { t } = useTranslation();
   const [activeSection, setActiveSection] = useState<string | null>(null);
 
   const sections = {
     ogolne: {
-      title: 'OGÓLNE',
+      title: t('workshop.settings.sections.general'),
       items: [
-        { key: 'podstawowe', label: 'Podstawowe', icon: Settings },
-        { key: 'dane-firmy', label: 'Dane firmy', icon: Building2 },
-        { key: 'numeracja', label: 'Numeracja dokumentów', icon: FileText },
-        { key: 'szablony-email', label: 'Szablony e-mail', icon: Mail },
-        { key: 'wyglad', label: 'Wygląd dokumentów', icon: Palette },
-        { key: 'karta-zlecenia', label: 'Elektroniczna karta zlecenia', icon: FileText },
-        { key: 'kasy', label: 'Kasy', icon: CreditCard },
+        { key: 'podstawowe', label: t('workshop.settings.section.basic'), icon: Settings },
+        { key: 'dane-firmy', label: t('workshop.settings.section.companyData'), icon: Building2 },
+        { key: 'numeracja', label: t('workshop.settings.section.documentNumbering'), icon: FileText },
+        { key: 'szablony-email', label: t('workshop.settings.section.emailTemplates'), icon: Mail },
+        { key: 'wyglad', label: t('workshop.settings.section.documentAppearance'), icon: Palette },
+        { key: 'karta-zlecenia', label: t('workshop.settings.section.electronicOrderCard'), icon: FileText },
+        { key: 'kasy', label: t('workshop.settings.section.cashRegisters'), icon: CreditCard },
       ]
     },
     warsztat: {
-      title: 'WARSZTAT',
+      title: t('workshop.settings.sections.workshop'),
       items: [
-        { key: 'w-podstawowe', label: 'Podstawowe', icon: Settings },
-        { key: 'w-zaawansowane', label: 'Zaawansowane', icon: Wrench },
-        { key: 'w-wyceny', label: 'Wyceny', icon: CreditCard },
-        { key: 'w-zlecenia', label: 'Zlecenia', icon: ClipboardList },
-        { key: 'w-godziny', label: 'Godziny pracy', icon: Calendar },
-        { key: 'w-statusy', label: 'Statusy zleceń', icon: ClipboardList },
-        { key: 'w-rodzaje', label: 'Rodzaje zleceń', icon: FileText },
-        { key: 'w-szablony-zadan', label: 'Szablony zadań', icon: ClipboardList },
-        { key: 'w-szablony-tworzenia', label: 'Szablony tworzenia zleceń', icon: FileText },
-        { key: 'w-stanowiska', label: 'Stanowiska warsztatowe', icon: Wrench },
-        { key: 'w-dzialy', label: 'Działy (Myjnia, Geometria...)', icon: Building2 },
-        { key: 'w-pracownicy', label: 'Lista pracowników', icon: Users },
-        { key: 'w-listy-kontrolne', label: 'Listy kontrolne', icon: ClipboardList },
-        { key: 'w-pojazdy', label: 'Pojazdy', icon: Wrench },
+        { key: 'w-podstawowe', label: t('workshop.settings.section.basic'), icon: Settings },
+        { key: 'w-zaawansowane', label: t('workshop.settings.section.advanced'), icon: Wrench },
+        { key: 'w-wyceny', label: t('workshop.settings.section.estimates'), icon: CreditCard },
+        { key: 'w-zlecenia', label: t('workshop.settings.section.orders'), icon: ClipboardList },
+        { key: 'w-godziny', label: t('workshop.settings.section.workingHours'), icon: Calendar },
+        { key: 'w-statusy', label: t('workshop.settings.section.orderStatuses'), icon: ClipboardList },
+        { key: 'w-rodzaje', label: t('workshop.settings.section.orderTypes'), icon: FileText },
+        { key: 'w-szablony-zadan', label: t('workshop.settings.section.taskTemplates'), icon: ClipboardList },
+        { key: 'w-szablony-tworzenia', label: t('workshop.settings.section.orderCreationTemplates'), icon: FileText },
+        { key: 'w-stanowiska', label: t('workshop.settings.section.workstations'), icon: Wrench },
+        { key: 'w-dzialy', label: t('workshop.settings.section.departments'), icon: Building2 },
+        { key: 'w-pracownicy', label: t('workshop.settings.section.employeeList'), icon: Users },
+        { key: 'w-listy-kontrolne', label: t('workshop.settings.section.checklists'), icon: ClipboardList },
+        { key: 'w-pojazdy', label: t('workshop.settings.section.vehicles'), icon: Wrench },
       ]
     },
     terminarz: {
-      title: 'TERMINARZ',
+      title: t('workshop.settings.sections.scheduler'),
       items: [
-        { key: 't-podstawowe', label: 'Podstawowe', icon: Calendar },
-        { key: 't-kalendarze', label: 'Kalendarze dodatkowe', icon: Calendar },
+        { key: 't-podstawowe', label: t('workshop.settings.section.basic'), icon: Calendar },
+        { key: 't-kalendarze', label: t('workshop.settings.section.additionalCalendars'), icon: Calendar },
       ]
     },
     magazyn: {
-      title: 'MAGAZYN',
+      title: t('workshop.settings.sections.warehouse'),
       items: [
-        { key: 'm-towary', label: 'Towary', icon: Package },
-        { key: 'm-producenci', label: 'Lista producentów', icon: Building2 },
-        { key: 'm-grupy', label: 'Grupy cenowe', icon: CreditCard },
+        { key: 'm-towary', label: t('workshop.settings.section.goods'), icon: Package },
+        { key: 'm-producenci', label: t('workshop.settings.section.manufacturerList'), icon: Building2 },
+        { key: 'm-grupy', label: t('workshop.settings.section.priceGroups'), icon: CreditCard },
       ]
     },
     przechowalnia: {
-      title: 'PRZECHOWALNIA',
+      title: t('workshop.settings.sections.storage'),
       items: [
-        { key: 'p-podstawowe', label: 'Podstawowe', icon: Settings },
-        { key: 'p-szablony', label: 'Szablony zadań', icon: ClipboardList },
+        { key: 'p-podstawowe', label: t('workshop.settings.section.basic'), icon: Settings },
+        { key: 'p-szablony', label: t('workshop.settings.section.taskTemplates'), icon: ClipboardList },
       ]
     },
     integracje: {
-      title: 'INTEGRACJE',
+      title: t('workshop.settings.sections.integrations'),
       items: [
-        { key: 'i-hurtownie', label: 'Integracje z hurtowniami', icon: Package },
-        { key: 'i-integracje', label: 'Inne integracje', icon: Wrench },
+        { key: 'i-hurtownie', label: t('workshop.settings.section.wholesalerIntegrations'), icon: Package },
+        { key: 'i-integracje', label: t('workshop.settings.section.otherIntegrations'), icon: Wrench },
       ]
     },
     inne: {
-      title: 'INNE',
+      title: t('workshop.settings.sections.other'),
       items: [
-        { key: 'i-import', label: 'Import danych', icon: FileText },
-        { key: 'i-eksport', label: 'Eksport danych', icon: FileText },
+        { key: 'i-import', label: t('workshop.settings.section.dataImport'), icon: FileText },
+        { key: 'i-eksport', label: t('workshop.settings.section.dataExport'), icon: FileText },
       ]
     },
   };
@@ -116,7 +119,7 @@ export function WorkshopSettings({ providerId, onBack }: Props) {
       <div className="flex items-center gap-3">
         <button onClick={onBack} className="text-primary hover:underline text-sm">🏠</button>
         <span className="text-muted-foreground">/</span>
-        <h2 className="text-xl font-bold">Ustawienia</h2>
+        <h2 className="text-xl font-bold">{t('workshop.settings.title')}</h2>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -146,29 +149,30 @@ export function WorkshopSettings({ providerId, onBack }: Props) {
 function SettingSectionDetail({ sectionKey, providerId, onBack, onBackToMain }: {
   sectionKey: string; providerId: string; onBack: () => void; onBackToMain: () => void;
 }) {
+  const { t } = useTranslation();
   const { data: statuses = [] } = useWorkshopStatuses(providerId);
 
-  const titles: Record<string, string> = {
-    'dane-firmy': 'Dane firmy',
-    'numeracja': 'Numeracja dokumentów',
-    'w-statusy': 'Statusy zleceń',
-    'w-stanowiska': 'Stanowiska warsztatowe',
-    'w-dzialy': 'Działy warsztatu (Myjnia, Geometria, Wulkanizacja...)',
-    'w-pracownicy': 'Lista pracowników',
-    'w-godziny': 'Godziny pracy',
-    'karta-zlecenia': 'Elektroniczna karta zlecenia',
-    'w-szablony-zadan': 'Szablony zadań',
-    'i-hurtownie': 'Integracje z hurtowniami',
+  const titleKeys: Record<string, string> = {
+    'dane-firmy': 'workshop.settings.detailTitle.companyData',
+    'numeracja': 'workshop.settings.detailTitle.documentNumbering',
+    'w-statusy': 'workshop.settings.detailTitle.orderStatuses',
+    'w-stanowiska': 'workshop.settings.detailTitle.workstations',
+    'w-dzialy': 'workshop.settings.detailTitle.departments',
+    'w-pracownicy': 'workshop.settings.detailTitle.employeeList',
+    'w-godziny': 'workshop.settings.detailTitle.workingHours',
+    'karta-zlecenia': 'workshop.settings.detailTitle.electronicOrderCard',
+    'w-szablony-zadan': 'workshop.settings.detailTitle.taskTemplates',
+    'i-hurtownie': 'workshop.settings.detailTitle.wholesalerIntegrations',
   };
 
-  const title = titles[sectionKey] || 'Ustawienia';
+  const title = titleKeys[sectionKey] ? t(titleKeys[sectionKey]) : t('workshop.settings.title');
 
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3 text-sm">
         <button onClick={onBackToMain} className="text-primary hover:underline">🏠</button>
         <span className="text-muted-foreground">/</span>
-        <button onClick={onBack} className="text-primary hover:underline">Ustawienia</button>
+        <button onClick={onBack} className="text-primary hover:underline">{t('workshop.settings.title')}</button>
         <span className="text-muted-foreground">/</span>
         <span className="font-semibold">{title}</span>
       </div>
@@ -186,7 +190,7 @@ function SettingSectionDetail({ sectionKey, providerId, onBack, onBackToMain }: 
       {!['dane-firmy', 'numeracja', 'w-statusy', 'w-stanowiska', 'w-dzialy', 'w-pracownicy', 'w-godziny', 'karta-zlecenia', 'i-hurtownie'].includes(sectionKey) && (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
-            Konfiguracja sekcji „{title}" — wkrótce dostępna
+            {t('workshop.settings.sectionComingSoon', { title })}
           </CardContent>
         </Card>
       )}
@@ -222,31 +226,31 @@ const DEFAULT_FORMATS: Record<string, DocFormat> = {
   wydania: { enabled: false, prefix: 'WZ', reset: 'monthly', dateOrder: 'MM-YYYY', separator: '/', padding: 3, startNumber: 1 },
 };
 
-const DOC_LABELS: Record<string, string> = {
-  zlecenia: 'Zlecenia warsztatowe',
-  faktury: 'Faktury VAT',
-  korekty: 'Faktury korygujące',
-  proformy: 'Faktury proforma',
-  paragony: 'Paragony',
-  wyceny: 'Wyceny',
-  przyjecia: 'PZ — Przyjęcia magazynowe',
-  wydania: 'WZ — Wydania magazynowe',
+const DOC_LABEL_KEYS: Record<string, string> = {
+  zlecenia: 'workshop.settings.docNumbering.doc.workshopOrders',
+  faktury: 'workshop.settings.docNumbering.doc.vatInvoices',
+  korekty: 'workshop.settings.docNumbering.doc.correctionInvoices',
+  proformy: 'workshop.settings.docNumbering.doc.proformaInvoices',
+  paragony: 'workshop.settings.docNumbering.doc.receipts',
+  wyceny: 'workshop.settings.docNumbering.doc.estimates',
+  przyjecia: 'workshop.settings.docNumbering.doc.warehouseReceipts',
+  wydania: 'workshop.settings.docNumbering.doc.warehouseIssues',
 };
 
-const RESET_LABELS: Record<ResetCycle, string> = {
-  never: 'Bez resetu (ciągła)',
-  yearly: 'Co roku',
-  monthly: 'Co miesiąc',
-  daily: 'Codziennie',
+const RESET_LABEL_KEYS: Record<ResetCycle, string> = {
+  never: 'workshop.settings.docNumbering.reset.never',
+  yearly: 'workshop.settings.docNumbering.reset.yearly',
+  monthly: 'workshop.settings.docNumbering.reset.monthly',
+  daily: 'workshop.settings.docNumbering.reset.daily',
 };
 
-const DATE_LABELS: Record<DateOrder, string> = {
-  'YYYY-MM-DD': 'Rok-Miesiąc-Dzień (2026-06-10)',
-  'DD-MM-YYYY': 'Dzień-Miesiąc-Rok (10-06-2026)',
-  'MM-YYYY': 'Miesiąc-Rok (06-2026)',
-  'YYYY-MM': 'Rok-Miesiąc (2026-06)',
-  'YYYY': 'Rok (2026)',
-  'none': 'Bez daty',
+const DATE_LABEL_KEYS: Record<DateOrder, string> = {
+  'YYYY-MM-DD': 'workshop.settings.docNumbering.dateOrder.ymd',
+  'DD-MM-YYYY': 'workshop.settings.docNumbering.dateOrder.dmy',
+  'MM-YYYY': 'workshop.settings.docNumbering.dateOrder.my',
+  'YYYY-MM': 'workshop.settings.docNumbering.dateOrder.ym',
+  'YYYY': 'workshop.settings.docNumbering.dateOrder.y',
+  'none': 'workshop.settings.docNumbering.dateOrder.none',
 };
 
 function buildPreview(fmt: DocFormat): string {
@@ -271,6 +275,7 @@ function buildPreview(fmt: DocFormat): string {
 }
 
 function DocumentNumberingSettings({ providerId }: { providerId: string }) {
+  const { t } = useTranslation();
   const storageKey = `workshop_doc_numbering_${providerId}`;
   const [formats, setFormats] = useState<Record<string, DocFormat>>(DEFAULT_FORMATS);
 
@@ -291,9 +296,9 @@ function DocumentNumberingSettings({ providerId }: { providerId: string }) {
   const save = () => {
     try {
       localStorage.setItem(storageKey, JSON.stringify(formats));
-      toast.success('Ustawienia numeracji zapisane');
+      toast.success(t('workshop.settings.docNumbering.saved'));
     } catch (e: any) {
-      toast.error('Nie udało się zapisać: ' + e.message);
+      toast.error(t('workshop.settings.docNumbering.saveError', { error: e.message }));
     }
   };
 
@@ -302,8 +307,7 @@ function DocumentNumberingSettings({ providerId }: { providerId: string }) {
       <Card>
         <CardContent className="py-4">
           <p className="text-sm text-muted-foreground">
-            Skonfiguruj format numeracji dla każdego rodzaju dokumentu. Ustawienia obowiązują dla nowych dokumentów wystawianych po zapisie.
-            Wybierz prefix, sposób resetowania licznika (miesięcznie/rocznie) i format daty — tak jak w profesjonalnych systemach księgowych.
+            {t('workshop.settings.docNumbering.intro')}
           </p>
         </CardContent>
       </Card>
@@ -316,10 +320,10 @@ function DocumentNumberingSettings({ providerId }: { providerId: string }) {
                 <div className="flex items-center gap-3">
                   <Switch checked={fmt.enabled} onCheckedChange={(v) => update(key, { enabled: v })} />
                   <div>
-                    <h4 className="font-semibold">{DOC_LABELS[key] || key}</h4>
+                    <h4 className="font-semibold">{DOC_LABEL_KEYS[key] ? t(DOC_LABEL_KEYS[key]) : key}</h4>
                     {fmt.enabled && (
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        Podgląd: <code className="bg-muted px-2 py-0.5 rounded text-foreground">{buildPreview(fmt)}</code>
+                        {t('workshop.settings.docNumbering.preview')} <code className="bg-muted px-2 py-0.5 rounded text-foreground">{buildPreview(fmt)}</code>
                       </p>
                     )}
                   </div>
@@ -329,46 +333,46 @@ function DocumentNumberingSettings({ providerId }: { providerId: string }) {
               {fmt.enabled && (
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3 pt-2 border-t">
                   <div className="space-y-1">
-                    <Label className="text-xs">Prefix</Label>
+                    <Label className="text-xs">{t('workshop.settings.docNumbering.prefix')}</Label>
                     <Input value={fmt.prefix} onChange={e => update(key, { prefix: e.target.value.toUpperCase().slice(0, 8) })} className="h-9" />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Resetowanie licznika</Label>
+                    <Label className="text-xs">{t('workshop.settings.docNumbering.counterReset')}</Label>
                     <Select value={fmt.reset} onValueChange={(v) => update(key, { reset: v as ResetCycle })}>
                       <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {Object.entries(RESET_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+                        {Object.entries(RESET_LABEL_KEYS).map(([v, lk]) => <SelectItem key={v} value={v}>{t(lk)}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Format daty</Label>
+                    <Label className="text-xs">{t('workshop.settings.docNumbering.dateFormat')}</Label>
                     <Select value={fmt.dateOrder} onValueChange={(v) => update(key, { dateOrder: v as DateOrder })}>
                       <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {Object.entries(DATE_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+                        {Object.entries(DATE_LABEL_KEYS).map(([v, lk]) => <SelectItem key={v} value={v}>{t(lk)}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Separator</Label>
+                    <Label className="text-xs">{t('workshop.settings.docNumbering.separator')}</Label>
                     <Select value={fmt.separator} onValueChange={(v) => update(key, { separator: v as '/' | '-' | '.' })}>
                       <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="/">Ukośnik /</SelectItem>
-                        <SelectItem value="-">Myślnik -</SelectItem>
-                        <SelectItem value=".">Kropka .</SelectItem>
+                        <SelectItem value="/">{t('workshop.settings.docNumbering.sep.slash')}</SelectItem>
+                        <SelectItem value="-">{t('workshop.settings.docNumbering.sep.dash')}</SelectItem>
+                        <SelectItem value=".">{t('workshop.settings.docNumbering.sep.dot')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Liczba cyfr (np. 4 → 0001)</Label>
+                    <Label className="text-xs">{t('workshop.settings.docNumbering.digitCount')}</Label>
                     <Input type="number" min={1} max={8} value={fmt.padding}
                       onChange={e => update(key, { padding: Math.max(1, Math.min(8, Number(e.target.value) || 1)) })}
                       className="h-9" />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Numer początkowy</Label>
+                    <Label className="text-xs">{t('workshop.settings.docNumbering.startNumber')}</Label>
                     <Input type="number" min={1} value={fmt.startNumber}
                       onChange={e => update(key, { startNumber: Math.max(1, Number(e.target.value) || 1) })}
                       className="h-9" />
@@ -381,7 +385,7 @@ function DocumentNumberingSettings({ providerId }: { providerId: string }) {
       </div>
 
       <div className="flex justify-end sticky bottom-4">
-        <Button onClick={save} className="gap-2 shadow-lg"><Save className="h-4 w-4" /> Zapisz numerację</Button>
+        <Button onClick={save} className="gap-2 shadow-lg"><Save className="h-4 w-4" /> {t('workshop.settings.docNumbering.saveNumbering')}</Button>
       </div>
     </div>
   );
@@ -389,52 +393,53 @@ function DocumentNumberingSettings({ providerId }: { providerId: string }) {
 
 
 function CompanyDataSettings() {
+  const { t } = useTranslation();
   return (
     <Card>
       <CardContent className="py-6 space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label>Nazwa firmy</Label>
-            <Input placeholder="Nazwa warsztatu / firmy" />
+            <Label>{t('workshop.settings.companyData.companyName')}</Label>
+            <Input placeholder={t('workshop.settings.companyData.companyNamePlaceholder')} />
           </div>
           <div className="space-y-2">
             <Label>NIP</Label>
             <Input placeholder="0000000000" />
           </div>
           <div className="space-y-2">
-            <Label>Adres</Label>
+            <Label>{t('workshop.settings.companyData.address')}</Label>
             <Input placeholder="ul. Przykładowa 1" />
           </div>
           <div className="space-y-2">
-            <Label>Kod pocztowy i miasto</Label>
-            <Input placeholder="00-000 Miasto" />
+            <Label>{t('workshop.settings.companyData.postalCodeCity')}</Label>
+            <Input placeholder={t('workshop.settings.companyData.postalCodeCityPlaceholder')} />
           </div>
           <div className="space-y-2">
-            <Label>Telefon</Label>
+            <Label>{t('workshop.settings.companyData.phone')}</Label>
             <Input placeholder="+48 000 000 000" />
           </div>
           <div className="space-y-2">
-            <Label>Email</Label>
+            <Label>{t('workshop.settings.companyData.email')}</Label>
             <Input type="email" placeholder="kontakt@warsztat.pl" />
           </div>
           <div className="space-y-2">
-            <Label>Strona WWW</Label>
+            <Label>{t('workshop.settings.companyData.website')}</Label>
             <Input placeholder="https://warsztat.pl" />
           </div>
           <div className="space-y-2">
-            <Label>Nr konta bankowego</Label>
+            <Label>{t('workshop.settings.companyData.bankAccount')}</Label>
             <Input placeholder="PL 00 0000 0000 0000 0000 0000 0000" />
           </div>
         </div>
         <div className="space-y-2">
-          <Label>Logo firmy</Label>
+          <Label>{t('workshop.settings.companyData.companyLogo')}</Label>
           <div className="border-2 border-dashed rounded-lg p-8 text-center text-muted-foreground">
-            <p className="text-sm">Przeciągnij logo lub kliknij aby wybrać plik</p>
-            <Button variant="outline" size="sm" className="mt-2">Wybierz plik</Button>
+            <p className="text-sm">{t('workshop.settings.companyData.logoDropzone')}</p>
+            <Button variant="outline" size="sm" className="mt-2">{t('workshop.settings.companyData.selectFile')}</Button>
           </div>
         </div>
         <div className="flex justify-end">
-          <Button className="gap-2"><Save className="h-4 w-4" /> Zapisz</Button>
+          <Button className="gap-2"><Save className="h-4 w-4" /> {t('common.save')}</Button>
         </div>
       </CardContent>
     </Card>
@@ -442,19 +447,20 @@ function CompanyDataSettings() {
 }
 
 function StatusSettings({ statuses }: { statuses: any[] }) {
+  const { t } = useTranslation();
   return (
     <Card>
       <CardContent className="py-6 space-y-4">
         <p className="text-sm text-muted-foreground">
-          Zarządzaj statusami zleceń. Kolejność wpływa na przepływ pracy.
+          {t('workshop.settings.statuses.intro')}
         </p>
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead></TableHead>
-              <TableHead>NAZWA</TableHead>
-              <TableHead>KOLOR</TableHead>
-              <TableHead>KOLEJNOŚĆ</TableHead>
+              <TableHead>{t('workshop.settings.statuses.colName')}</TableHead>
+              <TableHead>{t('workshop.settings.statuses.colColor')}</TableHead>
+              <TableHead>{t('workshop.settings.statuses.colOrder')}</TableHead>
               <TableHead></TableHead>
             </TableRow>
           </TableHeader>
@@ -462,7 +468,7 @@ function StatusSettings({ statuses }: { statuses: any[] }) {
             {statuses.map((s: any) => (
               <TableRow key={s.id}>
                 <TableCell><GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" /></TableCell>
-                <TableCell className="font-medium">{s.name}</TableCell>
+                <TableCell className="font-medium">{translateWorkshopStatus(s.name, t)}</TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2">
                     <div className="w-5 h-5 rounded" style={{ backgroundColor: s.color }} />
@@ -479,7 +485,7 @@ function StatusSettings({ statuses }: { statuses: any[] }) {
             ))}
           </TableBody>
         </Table>
-        <Button variant="outline" className="gap-2"><Plus className="h-4 w-4" /> Dodaj status</Button>
+        <Button variant="outline" className="gap-2"><Plus className="h-4 w-4" /> {t('workshop.settings.statuses.addStatus')}</Button>
       </CardContent>
     </Card>
   );
@@ -487,6 +493,7 @@ function StatusSettings({ statuses }: { statuses: any[] }) {
 
 // ---- FUNCTIONAL Workstation Settings ----
 function WorkstationSettings({ providerId }: { providerId: string }) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [name, setName] = useState('');
@@ -513,13 +520,13 @@ function WorkstationSettings({ providerId }: { providerId: string }) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workshop-workstations'] });
-      toast.success('Stanowisko dodane');
+      toast.success(t('workshop.settings.station.added'));
       setDialogOpen(false);
       setName('');
     },
     onError: (e: any) => {
       console.error('Workstation add error:', e);
-      toast.error('Błąd: ' + e.message);
+      toast.error(t('workshop.settings.station.error', { error: e.message }));
     },
   });
 
@@ -533,7 +540,7 @@ function WorkstationSettings({ providerId }: { providerId: string }) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workshop-workstations'] });
-      toast.success('Stanowisko usunięte');
+      toast.success(t('workshop.settings.station.removed'));
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -542,7 +549,7 @@ function WorkstationSettings({ providerId }: { providerId: string }) {
     <Card>
       <CardContent className="py-6 space-y-4">
         <p className="text-sm text-muted-foreground">
-          Dodaj stanowiska pracy (podnośniki, stanowiska detailingowe itp.) widoczne w terminarzu.
+          {t('workshop.settings.station.intro')}
         </p>
         {isLoading ? (
           <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
@@ -550,8 +557,8 @@ function WorkstationSettings({ providerId }: { providerId: string }) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>NAZWA STANOWISKA</TableHead>
-                <TableHead>AKTYWNE</TableHead>
+                <TableHead>{t('workshop.settings.station.colName')}</TableHead>
+                <TableHead>{t('workshop.settings.station.colActive')}</TableHead>
                 <TableHead></TableHead>
               </TableRow>
             </TableHeader>
@@ -559,7 +566,7 @@ function WorkstationSettings({ providerId }: { providerId: string }) {
               {workstations.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
-                    Brak stanowisk — dodaj pierwsze stanowisko
+                    {t('workshop.settings.station.empty')}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -568,7 +575,7 @@ function WorkstationSettings({ providerId }: { providerId: string }) {
                     <TableCell className="font-medium">{ws.name}</TableCell>
                     <TableCell>
                       <Badge variant={ws.is_active ? 'default' : 'secondary'}>
-                        {ws.is_active ? 'Tak' : 'Nie'}
+                        {ws.is_active ? t('ui.yes') : t('ui.no')}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -583,23 +590,23 @@ function WorkstationSettings({ providerId }: { providerId: string }) {
           </Table>
         )}
         <Button variant="outline" className="gap-2" onClick={() => setDialogOpen(true)}>
-          <Plus className="h-4 w-4" /> Dodaj stanowisko
+          <Plus className="h-4 w-4" /> {t('workshop.settings.station.addWorkstation')}
         </Button>
 
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogContent>
-            <DialogHeader><DialogTitle>Dodaj stanowisko</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>{t('workshop.settings.station.addWorkstation')}</DialogTitle></DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label>Nazwa stanowiska *</Label>
-                <Input value={name} onChange={e => setName(e.target.value)} placeholder="np. Podnośnik 1, Stanowisko detailing" />
+                <Label>{t('workshop.settings.station.nameLabel')}</Label>
+                <Input value={name} onChange={e => setName(e.target.value)} placeholder={t('workshop.settings.station.namePlaceholder')} />
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setDialogOpen(false)}>Anuluj</Button>
+              <Button variant="outline" onClick={() => setDialogOpen(false)}>{t('common.cancel')}</Button>
               <Button onClick={() => addMut.mutate()} disabled={!name.trim() || addMut.isPending}>
                 {addMut.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                Dodaj
+                {t('workshop.settings.station.add')}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -611,6 +618,7 @@ function WorkstationSettings({ providerId }: { providerId: string }) {
 
 // ---- FUNCTIONAL Worker Settings ----
 function WorkerSettings({ providerId }: { providerId: string }) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [empName, setEmpName] = useState('');
@@ -643,14 +651,14 @@ function WorkerSettings({ providerId }: { providerId: string }) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workshop-employees'] });
-      toast.success('Pracownik dodany');
+      toast.success(t('workshop.settings.worker.added'));
       setDialogOpen(false);
       setEmpName('');
       setPhone('');
     },
     onError: (e: any) => {
       console.error('Employee add error:', e);
-      toast.error('Błąd: ' + e.message);
+      toast.error(t('workshop.settings.worker.error', { error: e.message }));
     },
   });
 
@@ -664,7 +672,7 @@ function WorkerSettings({ providerId }: { providerId: string }) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workshop-employees'] });
-      toast.success('Pracownik usunięty');
+      toast.success(t('workshop.settings.worker.removed'));
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -673,7 +681,7 @@ function WorkerSettings({ providerId }: { providerId: string }) {
     <Card>
       <CardContent className="py-6 space-y-4">
         <p className="text-sm text-muted-foreground">
-          Lista pracowników serwisu. Przypisywanie do zleceń i stanowisk.
+          {t('workshop.settings.worker.intro')}
         </p>
         {isLoading ? (
           <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
@@ -681,9 +689,9 @@ function WorkerSettings({ providerId }: { providerId: string }) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>IMIĘ I NAZWISKO</TableHead>
-                <TableHead>TELEFON</TableHead>
-                <TableHead>AKTYWNY</TableHead>
+                <TableHead>{t('workshop.settings.worker.colFullName')}</TableHead>
+                <TableHead>{t('workshop.settings.worker.colPhone')}</TableHead>
+                <TableHead>{t('workshop.settings.worker.colActive')}</TableHead>
                 <TableHead></TableHead>
               </TableRow>
             </TableHeader>
@@ -691,7 +699,7 @@ function WorkerSettings({ providerId }: { providerId: string }) {
               {employees.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                    Brak pracowników — dodaj pierwszego pracownika
+                    {t('workshop.settings.worker.empty')}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -701,7 +709,7 @@ function WorkerSettings({ providerId }: { providerId: string }) {
                     <TableCell>{emp.phone || '—'}</TableCell>
                     <TableCell>
                       <Badge variant={emp.is_active ? 'default' : 'secondary'}>
-                        {emp.is_active ? 'Tak' : 'Nie'}
+                        {emp.is_active ? t('ui.yes') : t('ui.no')}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -716,27 +724,27 @@ function WorkerSettings({ providerId }: { providerId: string }) {
           </Table>
         )}
         <Button variant="outline" className="gap-2" onClick={() => setDialogOpen(true)}>
-          <Plus className="h-4 w-4" /> Dodaj pracownika
+          <Plus className="h-4 w-4" /> {t('workshop.settings.worker.addEmployee')}
         </Button>
 
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogContent>
-            <DialogHeader><DialogTitle>Dodaj pracownika</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>{t('workshop.settings.worker.addEmployee')}</DialogTitle></DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label>Imię i nazwisko *</Label>
+                <Label>{t('workshop.settings.worker.fullNameLabel')}</Label>
                 <Input value={empName} onChange={e => setEmpName(e.target.value)} placeholder="Jan Kowalski" />
               </div>
               <div className="space-y-2">
-                <Label>Telefon</Label>
+                <Label>{t('workshop.settings.worker.phoneLabel')}</Label>
                 <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="+48 000 000 000" />
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setDialogOpen(false)}>Anuluj</Button>
+              <Button variant="outline" onClick={() => setDialogOpen(false)}>{t('common.cancel')}</Button>
               <Button onClick={() => addMut.mutate()} disabled={!empName.trim() || addMut.isPending}>
                 {addMut.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                Dodaj
+                {t('workshop.settings.worker.add')}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -747,26 +755,27 @@ function WorkerSettings({ providerId }: { providerId: string }) {
 }
 
 function WorkingHoursSettings() {
-  const days = ['Poniedziałek', 'Wtorek', 'Środa', 'Czwartek', 'Piątek', 'Sobota', 'Niedziela'];
+  const { t } = useTranslation();
+  const dayKeys = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
   return (
     <Card>
       <CardContent className="py-6 space-y-4">
         <p className="text-sm text-muted-foreground">
-          Ustaw godziny pracy warsztatu. Wpływa na terminarz i dostępność.
+          {t('workshop.settings.workingHours.intro')}
         </p>
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>DZIEŃ</TableHead>
-              <TableHead>OTWARTY</TableHead>
-              <TableHead>OD</TableHead>
-              <TableHead>DO</TableHead>
+              <TableHead>{t('workshop.settings.workingHours.colDay')}</TableHead>
+              <TableHead>{t('workshop.settings.workingHours.colOpen')}</TableHead>
+              <TableHead>{t('workshop.settings.workingHours.colFrom')}</TableHead>
+              <TableHead>{t('workshop.settings.workingHours.colTo')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {days.map((day, i) => (
-              <TableRow key={day}>
-                <TableCell className="font-medium">{day}</TableCell>
+            {dayKeys.map((dayKey, i) => (
+              <TableRow key={dayKey}>
+                <TableCell className="font-medium">{t(`workshop.settings.workingHours.day.${dayKey}`)}</TableCell>
                 <TableCell><Switch defaultChecked={i < 5} /></TableCell>
                 <TableCell><Input type="time" defaultValue={i < 5 ? '08:00' : ''} className="w-28" disabled={i >= 5} /></TableCell>
                 <TableCell><Input type="time" defaultValue={i < 5 ? '17:00' : ''} className="w-28" disabled={i >= 5} /></TableCell>
@@ -775,7 +784,7 @@ function WorkingHoursSettings() {
           </TableBody>
         </Table>
         <div className="flex justify-end">
-          <Button className="gap-2"><Save className="h-4 w-4" /> Zapisz</Button>
+          <Button className="gap-2"><Save className="h-4 w-4" /> {t('common.save')}</Button>
         </div>
       </CardContent>
     </Card>
@@ -783,52 +792,53 @@ function WorkingHoursSettings() {
 }
 
 function OrderCardSettings() {
+  const { t } = useTranslation();
   return (
     <Card>
       <CardContent className="py-6 space-y-4">
-        <h3 className="font-semibold">Konfiguracja elektronicznej karty zlecenia</h3>
+        <h3 className="font-semibold">{t('workshop.settings.orderCard.title')}</h3>
         <p className="text-sm text-muted-foreground">
-          Ustawienia widoczne na karcie zlecenia wysyłanej klientowi przez SMS.
+          {t('workshop.settings.orderCard.subtitle')}
         </p>
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-medium text-sm">Wymagaj podpisu protokołu przyjęcia</p>
-              <p className="text-xs text-muted-foreground">Klient musi podpisać protokół przed zobaczeniem wyceny</p>
+              <p className="font-medium text-sm">{t('workshop.settings.orderCard.requireProtocolSignature')}</p>
+              <p className="text-xs text-muted-foreground">{t('workshop.settings.orderCard.requireProtocolSignatureDesc')}</p>
             </div>
             <Switch defaultChecked />
           </div>
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-medium text-sm">Wymagaj akceptacji wyceny</p>
-              <p className="text-xs text-muted-foreground">Klient musi zaakceptować kosztorys przed rozpoczęciem prac</p>
+              <p className="font-medium text-sm">{t('workshop.settings.orderCard.requireEstimateAcceptance')}</p>
+              <p className="text-xs text-muted-foreground">{t('workshop.settings.orderCard.requireEstimateAcceptanceDesc')}</p>
             </div>
             <Switch defaultChecked />
           </div>
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-medium text-sm">Pokaż logo firmy na karcie</p>
-              <p className="text-xs text-muted-foreground">Logo z danych firmy będzie widoczne na karcie klienta</p>
+              <p className="font-medium text-sm">{t('workshop.settings.orderCard.showCompanyLogo')}</p>
+              <p className="text-xs text-muted-foreground">{t('workshop.settings.orderCard.showCompanyLogoDesc')}</p>
             </div>
             <Switch defaultChecked />
           </div>
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-medium text-sm">Powiadamiaj o zmianach w wycenie</p>
-              <p className="text-xs text-muted-foreground">Klient otrzyma powiadomienie gdy warsztat zmieni pozycje po podpisaniu</p>
+              <p className="font-medium text-sm">{t('workshop.settings.orderCard.notifyEstimateChanges')}</p>
+              <p className="text-xs text-muted-foreground">{t('workshop.settings.orderCard.notifyEstimateChangesDesc')}</p>
             </div>
             <Switch defaultChecked />
           </div>
           <div className="space-y-2">
-            <Label>Informacja RODO na karcie</Label>
+            <Label>{t('workshop.settings.orderCard.gdprLabel')}</Label>
             <Textarea
               rows={3}
-              defaultValue="Wyrażam zgodę na przetwarzanie moich danych osobowych zgodnie z RODO w celu realizacji zlecenia serwisowego."
+              defaultValue={t('workshop.settings.orderCard.gdprDefault')}
             />
           </div>
         </div>
         <div className="flex justify-end">
-          <Button className="gap-2"><Save className="h-4 w-4" /> Zapisz</Button>
+          <Button className="gap-2"><Save className="h-4 w-4" /> {t('common.save')}</Button>
         </div>
       </CardContent>
     </Card>
