@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useLocation } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -29,6 +30,7 @@ export function AuthModal({
   redirectAfterLogin,
   customDescription
 }: AuthModalProps) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const [mode, setMode] = useState<"login" | "register" | "success">(initialMode);
@@ -85,9 +87,9 @@ export function AuthModal({
 
       if (authError) {
         if (authError.message.includes("Invalid login credentials")) {
-          toast.error("Nieprawidłowy email lub hasło");
+          toast.error(t("auth.invalidCredentials"));
         } else if (authError.message.includes("Email not confirmed")) {
-          toast.error("Konto nie zostało aktywowane. Sprawdź swoją skrzynkę email i kliknij link aktywacyjny.");
+          toast.error(t("auth.accountNotActivated"));
         } else {
           toast.error(authError.message);
         }
@@ -97,7 +99,7 @@ export function AuthModal({
       // Check if email is confirmed
       if (authData.user && !authData.user.email_confirmed_at) {
         await supabase.auth.signOut();
-        toast.error("Konto nie zostało aktywowane. Sprawdź swoją skrzynkę email i kliknij link aktywacyjny.");
+        toast.error(t("auth.accountNotActivated"));
         return;
       }
       
@@ -109,11 +111,11 @@ export function AuthModal({
       }
 
       if (!authData.user) {
-        toast.error('Błąd logowania!');
+        toast.error(t("auth.loginError"));
         return;
       }
 
-      toast.success("Zalogowano pomyślnie!");
+      toast.success(t("auth.loginSuccess"));
       onOpenChange(false);
       
       if (onSuccess) {
@@ -126,7 +128,7 @@ export function AuthModal({
       }
     } catch (error) {
       console.error('Login error:', error);
-      toast.error('Wystąpił błąd podczas logowania!');
+      toast.error(t("auth.loginError"));
     } finally {
       setLoading(false);
     }
@@ -142,7 +144,7 @@ export function AuthModal({
     }
     
     if (!isHuman) {
-      toast.error("Potwierdź, że nie jesteś robotem");
+      toast.error(t("register.confirmNotRobot"));
       return;
     }
     
@@ -150,12 +152,12 @@ export function AuthModal({
     const errors: Record<string, string> = {};
     
     if (!registerData.first_name.trim()) {
-      errors.first_name = "Imię jest wymagane";
+      errors.first_name = t("register.firstNameRequired");
     }
     if (!registerData.email.trim()) {
-      errors.email = "Email jest wymagany";
+      errors.email = t("register.emailRequired");
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(registerData.email)) {
-      errors.email = "Niepoprawny format email";
+      errors.email = t("register.emailInvalid");
     }
     
     // Password strength validation
@@ -165,7 +167,7 @@ export function AuthModal({
     }
     
     if (registerData.password !== registerData.confirmPassword) {
-      errors.confirmPassword = "Hasła nie są takie same";
+      errors.confirmPassword = t("auth.passwordsNotSame");
     }
     
     if (Object.keys(errors).length > 0) {
@@ -174,7 +176,7 @@ export function AuthModal({
     }
 
     if (!registerData.acceptTerms || !registerData.acceptRodo) {
-      toast.error("Musisz zaakceptować regulamin i politykę prywatności");
+      toast.error(t("register.mustAcceptTermsAndPrivacy"));
       return;
     }
 
@@ -195,7 +197,7 @@ export function AuthModal({
       // Handle error response from edge function
       if (response.error) {
         // Try to parse the error message from the response
-        let errorMessage = "Błąd rejestracji. Spróbuj ponownie.";
+        let errorMessage = t("auth.registerError");
         let errorField = "general";
         
         // Check if there's data with error info
@@ -253,7 +255,7 @@ export function AuthModal({
       }
     } catch (error: any) {
       console.error("Registration error:", error);
-      setFieldErrors({ general: "Błąd połączenia. Spróbuj ponownie." });
+      setFieldErrors({ general: t("auth.connectionError") });
     } finally {
       setLoading(false);
     }
@@ -261,7 +263,7 @@ export function AuthModal({
 
   const handlePasswordReset = async () => {
     if (!resetEmail) {
-      toast.error("Podaj adres email");
+      toast.error(t("auth.enterEmailAddress"));
       return;
     }
     setLoading(true);
@@ -270,15 +272,15 @@ export function AuthModal({
         body: { email: resetEmail, language: 'pl' }
       });
       if (error) {
-        toast.error("Błąd wysyłania linku resetowania");
+        toast.error(t("auth.resetLinkError"));
       } else {
-        toast.success("Link do resetowania hasła został wysłany!");
+        toast.success(t("auth.resetLinkSent"));
         setShowResetForm(false);
         setResetEmail('');
       }
     } catch (err) {
       console.error('Password reset error:', err);
-      toast.error("Błąd wysyłania linku resetowania");
+      toast.error(t("auth.resetLinkError"));
     } finally {
       setLoading(false);
     }
@@ -299,24 +301,24 @@ export function AuthModal({
               <div>
                 <DialogTitle className="text-xl font-bold">
                   {mode === "success"
-                    ? "Sprawdź swoją skrzynkę!"
-                    : showResetForm 
-                      ? "Resetowanie hasła" 
-                      : mode === "login" 
-                        ? "Zaloguj się" 
-                        : "Dołącz do GetRido"
+                    ? t("auth.checkInboxTitle")
+                    : showResetForm
+                      ? t("auth.resetPasswordTitle")
+                      : mode === "login"
+                        ? t("auth.login")
+                        : t("auth.joinGetRido")
                   }
                 </DialogTitle>
                 <DialogDescription className="text-sm">
                   {mode === "success"
-                    ? "Wysłaliśmy email z linkiem aktywacyjnym"
-                    : showResetForm 
-                      ? "Podaj email, wyślemy Ci link do resetowania"
-                      : customDescription 
+                    ? t("auth.activationEmailSent")
+                    : showResetForm
+                      ? t("auth.resetDescShort")
+                      : customDescription
                         ? customDescription
                         : mode === "login"
-                          ? "Zaloguj się, aby kontynuować"
-                          : "Jedno konto – kupuj, sprzedawaj, zarządzaj"
+                          ? t("auth.loginToContinue")
+                          : t("auth.joinGetRidoSubtitle")
                   }
                 </DialogDescription>
               </div>
@@ -335,24 +337,24 @@ export function AuthModal({
               </div>
               
               <div className="space-y-2">
-                <h3 className="text-lg font-semibold">Dziękujemy za rejestrację!</h3>
+                <h3 className="text-lg font-semibold">{t("auth.thankYouRegister")}</h3>
                 <p className="text-muted-foreground">
-                  Na adres <strong>{registerData.email}</strong> wysłaliśmy email z linkiem aktywacyjnym.
+                  {t("auth.activationSentToPrefix")} <strong>{registerData.email}</strong> {t("auth.activationSentToSuffix")}
                 </p>
               </div>
               
               <div className="bg-muted/50 rounded-lg p-4 space-y-2">
                 <div className="flex items-center justify-center gap-2 text-primary">
                   <Mail className="h-5 w-5" />
-                  <span className="font-medium">Sprawdź swoją skrzynkę</span>
+                  <span className="font-medium">{t("auth.checkYourInbox")}</span>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Kliknij link w wiadomości, aby aktywować konto. Bez aktywacji nie będziesz mógł się zalogować.
+                  {t("auth.clickLinkToActivate")}
                 </p>
               </div>
-              
+
               <div className="text-sm text-muted-foreground">
-                Nie widzisz wiadomości? Sprawdź folder SPAM lub poczekaj kilka minut.
+                {t("auth.notSeeingEmail")}
               </div>
               
               <Button 
@@ -363,7 +365,7 @@ export function AuthModal({
                   setLoginEmail(registerData.email);
                 }}
               >
-                Przejdź do logowania
+                {t("auth.goToLogin")}
               </Button>
             </div>
           ) : showResetForm ? (
@@ -376,11 +378,11 @@ export function AuthModal({
                 className="mb-2 -ml-2"
               >
                 <ArrowLeft className="h-4 w-4 mr-1" />
-                Powrót
+                {t("common.back")}
               </Button>
-              
+
               <div className="space-y-2">
-                <Label htmlFor="reset-email">Email</Label>
+                <Label htmlFor="reset-email">{t("auth.emailLabel")}</Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -388,7 +390,7 @@ export function AuthModal({
                     type="email"
                     value={resetEmail}
                     onChange={(e) => setResetEmail(e.target.value)}
-                    placeholder="twoj@email.com"
+                    placeholder={t("auth.emailPlaceholder")}
                     className="pl-10"
                   />
                 </div>
@@ -400,9 +402,9 @@ export function AuthModal({
                 disabled={loading || !resetEmail}
               >
                 {loading ? (
-                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Wysyłanie...</>
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{t("auth.sending")}</>
                 ) : (
-                  "Wyślij link resetowania"
+                  t("auth.sendResetLink")
                 )}
               </Button>
             </div>
@@ -410,7 +412,7 @@ export function AuthModal({
             /* Login Form */
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="login-email">Email</Label>
+                <Label htmlFor="login-email">{t("auth.emailLabel")}</Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -418,7 +420,7 @@ export function AuthModal({
                     type="email"
                     value={loginEmail}
                     onChange={(e) => setLoginEmail(e.target.value)}
-                    placeholder="twoj@email.com"
+                    placeholder={t("auth.emailPlaceholder")}
                     className="pl-10"
                     required
                   />
@@ -426,7 +428,7 @@ export function AuthModal({
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="login-password">Hasło</Label>
+                <Label htmlFor="login-password">{t("auth.password")}</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -448,7 +450,7 @@ export function AuthModal({
                   onCheckedChange={(checked) => setRememberMe(checked as boolean)}
                 />
                 <label htmlFor="remember-me" className="text-sm">
-                  Zapamiętaj mnie
+                  {t("auth.rememberMe")}
                 </label>
               </div>
               
@@ -456,28 +458,28 @@ export function AuthModal({
               
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? (
-                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Logowanie...</>
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{t("auth.loggingIn")}</>
                 ) : (
-                  "Zaloguj się"
+                  t("auth.login")
                 )}
               </Button>
-              
+
               <div className="text-center space-y-2">
                 <button
                   type="button"
                   onClick={() => setShowResetForm(true)}
                   className="text-primary hover:underline text-sm"
                 >
-                  Zapomniałeś hasła?
+                  {t("auth.forgotPassword")}
                 </button>
                 <p className="text-sm text-muted-foreground">
-                  Nie masz konta?{" "}
+                  {t("auth.noAccountQuestion")}{" "}
                   <button
                     type="button"
                     onClick={() => setMode("register")}
                     className="text-primary hover:underline font-medium"
                   >
-                    Zarejestruj się
+                    {t("auth.register")}
                   </button>
                 </p>
               </div>
@@ -504,14 +506,14 @@ export function AuthModal({
               
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
-                  <Label htmlFor="reg-first-name">Imię *</Label>
+                  <Label htmlFor="reg-first-name">{t("register.firstName")} *</Label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="reg-first-name"
                       value={registerData.first_name}
                       onChange={(e) => setRegisterData({ ...registerData, first_name: e.target.value })}
-                      placeholder="Jan"
+                      placeholder={t("register.firstNameExample")}
                       className={`pl-10 ${fieldErrors.first_name ? 'border-destructive' : ''}`}
                       required
                     />
@@ -521,18 +523,18 @@ export function AuthModal({
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="reg-last-name">Nazwisko</Label>
+                  <Label htmlFor="reg-last-name">{t("register.lastName")}</Label>
                   <Input
                     id="reg-last-name"
                     value={registerData.last_name}
                     onChange={(e) => setRegisterData({ ...registerData, last_name: e.target.value })}
-                    placeholder="Kowalski"
+                    placeholder={t("register.lastNameExample")}
                   />
                 </div>
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="reg-email">Email *</Label>
+                <Label htmlFor="reg-email">{t("auth.emailLabel")} *</Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -543,7 +545,7 @@ export function AuthModal({
                       setRegisterData({ ...registerData, email: e.target.value });
                       if (fieldErrors.email) setFieldErrors({ ...fieldErrors, email: "" });
                     }}
-                    placeholder="jan@example.com"
+                    placeholder={t("register.emailExample")}
                     className={`pl-10 ${fieldErrors.email ? 'border-destructive' : ''}`}
                     required
                   />
@@ -554,7 +556,7 @@ export function AuthModal({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="reg-phone">Numer telefonu *</Label>
+                <Label htmlFor="reg-phone">{t("auth.phoneLabel")} *</Label>
                 <div className="relative">
                   <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -562,7 +564,7 @@ export function AuthModal({
                     type="tel"
                     value={registerData.phone}
                     onChange={(e) => setRegisterData({ ...registerData, phone: e.target.value })}
-                    placeholder="+48 123 456 789"
+                    placeholder={t("register.phonePlaceholder")}
                     className={`pl-10 ${fieldErrors.phone ? 'border-destructive' : ''}`}
                     required
                   />
@@ -574,7 +576,7 @@ export function AuthModal({
               
               <div className="space-y-3">
                 <div className="space-y-2">
-                  <Label htmlFor="reg-password">Hasło *</Label>
+                  <Label htmlFor="reg-password">{t("auth.password")} *</Label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
@@ -582,7 +584,7 @@ export function AuthModal({
                       type="password"
                       value={registerData.password}
                       onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
-                      placeholder="Utwórz silne hasło"
+                      placeholder={t("auth.createStrongPassword")}
                       className={`pl-10 ${fieldErrors.password ? 'border-destructive' : ''}`}
                       required
                     />
@@ -593,7 +595,7 @@ export function AuthModal({
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="reg-confirm">Potwierdź hasło *</Label>
+                  <Label htmlFor="reg-confirm">{t("auth.confirmPassword")} *</Label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
@@ -601,7 +603,7 @@ export function AuthModal({
                       type="password"
                       value={registerData.confirmPassword}
                       onChange={(e) => setRegisterData({ ...registerData, confirmPassword: e.target.value })}
-                      placeholder="Powtórz hasło"
+                      placeholder={t("register.confirmPasswordPlaceholder")}
                       className={`pl-10 ${fieldErrors.confirmPassword ? 'border-destructive' : ''}`}
                       required
                     />
@@ -622,7 +624,7 @@ export function AuthModal({
                   <div className="flex items-center gap-2">
                     <ShieldCheck className="h-4 w-4 text-green-600" />
                     <label htmlFor="reg-human" className="text-sm font-medium">
-                      Nie jestem robotem
+                      {t("register.notRobot")}
                     </label>
                   </div>
                 </div>
@@ -636,7 +638,7 @@ export function AuthModal({
                     }
                   />
                   <label htmlFor="reg-terms" className="text-xs text-muted-foreground leading-tight">
-                    Akceptuję <a href="/prawne?tab=regulamin" className="text-primary hover:underline" target="_blank">regulamin</a> *
+                    {t("register.acceptPrefix")} <a href="/prawne?tab=regulamin" className="text-primary hover:underline" target="_blank">{t("register.termsLink")}</a> *
                   </label>
                 </div>
 
@@ -649,27 +651,27 @@ export function AuthModal({
                     }
                   />
                   <label htmlFor="reg-rodo" className="text-xs text-muted-foreground leading-tight">
-                    Akceptuję <a href="/prawne?tab=prywatnosc" className="text-primary hover:underline" target="_blank">politykę prywatności</a> *
+                    {t("register.acceptPrefix")} <a href="/prawne?tab=prywatnosc" className="text-primary hover:underline" target="_blank">{t("register.privacyLink")}</a> *
                   </label>
                 </div>
               </div>
               
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? (
-                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Rejestracja...</>
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{t("register.registering")}</>
                 ) : (
-                  "Zarejestruj się"
+                  t("register.submit")
                 )}
               </Button>
-              
+
               <p className="text-center text-sm text-muted-foreground">
-                Masz już konto?{" "}
+                {t("register.hasAccount")}{" "}
                 <button
                   type="button"
                   onClick={() => setMode("login")}
                   className="text-primary hover:underline font-medium"
                 >
-                  Zaloguj się
+                  {t("auth.login")}
                 </button>
               </p>
             </form>
