@@ -6,6 +6,7 @@ import { useWorkshopClients, useUpdateWorkshopOrder } from '@/hooks/useWorkshop'
 import { WorkshopAddClientDialog } from './WorkshopAddClientDialog';
 import { Search, Plus, User, Building, Phone, Mail } from 'lucide-react';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   open: boolean;
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export function WorkshopAssignClientDialog({ open, onOpenChange, providerId, orderId, onAssigned }: Props) {
+  const { t } = useTranslation();
   const { data: clients = [] } = useWorkshopClients(providerId);
   const updateOrder = useUpdateWorkshopOrder();
   const [search, setSearch] = useState('');
@@ -37,11 +39,11 @@ export function WorkshopAssignClientDialog({ open, onOpenChange, providerId, ord
   const assign = async (client: any) => {
     try {
       await updateOrder.mutateAsync({ id: orderId, client_id: client.id });
-      toast.success('Klient przypisany do zlecenia');
+      toast.success(t('workshop.clients.clientAssigned'));
       onAssigned?.(client);
       onOpenChange(false);
     } catch (e: any) {
-      toast.error(e.message || 'Błąd przypisywania klienta');
+      toast.error(e.message || t('workshop.clients.assignError'));
     }
   };
 
@@ -51,7 +53,7 @@ export function WorkshopAssignClientDialog({ open, onOpenChange, providerId, ord
         <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <User className="h-5 w-5" /> Przypisz klienta do zlecenia
+              <User className="h-5 w-5" /> {t('workshop.clients.assignClientToOrder')}
             </DialogTitle>
           </DialogHeader>
 
@@ -61,7 +63,7 @@ export function WorkshopAssignClientDialog({ open, onOpenChange, providerId, ord
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Szukaj po imieniu, telefonie, e-mail lub NIP…"
+                placeholder={t('workshop.clients.searchPlaceholder')}
                 className="pl-9"
                 autoFocus
               />
@@ -72,12 +74,12 @@ export function WorkshopAssignClientDialog({ open, onOpenChange, providerId, ord
               className="w-full justify-start gap-2 border-dashed"
               onClick={() => setAddOpen(true)}
             >
-              <Plus className="h-4 w-4 text-green-600" /> Utwórz nowego klienta
+              <Plus className="h-4 w-4 text-green-600" /> {t('workshop.newOrder.createNewClient')}
             </Button>
 
             <div className="space-y-1.5 max-h-[50vh] overflow-y-auto">
               {filtered.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-6">Brak wyników</p>
+                <p className="text-sm text-muted-foreground text-center py-6">{t('workshop.newOrder.noResults')}</p>
               )}
               {filtered.map((c: any) => {
                 const isCompany = c.client_type === 'company';
@@ -93,12 +95,12 @@ export function WorkshopAssignClientDialog({ open, onOpenChange, providerId, ord
                   >
                     <div className="flex items-center gap-2 font-medium text-sm">
                       {isCompany ? <Building className="h-4 w-4 text-primary" /> : <User className="h-4 w-4 text-primary" />}
-                      {name || '(bez nazwy)'}
+                      {name || t('workshop.clients.noName')}
                     </div>
                     <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5 text-xs text-muted-foreground">
                       {c.phone && <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{c.phone}</span>}
                       {c.email && <span className="flex items-center gap-1"><Mail className="h-3 w-3" />{c.email}</span>}
-                      {c.nip && <span>NIP: {c.nip}</span>}
+                      {c.nip && <span>{t('workshop.orders.nip')} {c.nip}</span>}
                     </div>
                   </button>
                 );

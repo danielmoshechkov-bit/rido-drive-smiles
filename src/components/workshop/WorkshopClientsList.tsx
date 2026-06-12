@@ -8,6 +8,7 @@ import { useWorkshopClients } from '@/hooks/useWorkshop';
 import { WorkshopAddClientDialog } from './WorkshopAddClientDialog';
 import { WorkshopEditClientDialog } from './WorkshopEditClientDialog';
 import { Plus, Search, Loader2, Building, User, Phone, Mail } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   providerId: string;
@@ -15,6 +16,7 @@ interface Props {
 }
 
 export function WorkshopClientsList({ providerId, onBack }: Props) {
+  const { t } = useTranslation();
   const { data: clients = [], isLoading } = useWorkshopClients(providerId);
   const [search, setSearch] = useState('');
   const [showAdd, setShowAdd] = useState(false);
@@ -35,9 +37,9 @@ export function WorkshopClientsList({ providerId, onBack }: Props) {
   }, [clients, search]);
 
   const getClientName = (c: any) => {
-    if (c.client_type === 'company') return c.company_name || 'Brak danych';
+    if (c.client_type === 'company') return c.company_name || t('workshop.clients.noData');
     const name = `${c.first_name || ''} ${c.last_name || ''}`.trim();
-    return name || 'Brak danych';
+    return name || t('workshop.clients.noData');
   };
 
   return (
@@ -45,17 +47,17 @@ export function WorkshopClientsList({ providerId, onBack }: Props) {
       <div className="flex items-center gap-3">
         <button onClick={onBack} className="text-primary hover:underline text-sm">🏠</button>
         <span className="text-muted-foreground">/</span>
-        <h2 className="text-xl font-bold">Klienci</h2>
+        <h2 className="text-xl font-bold">{t('workshop.dashboard.tiles.klienci')}</h2>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
         <Button onClick={() => setShowAdd(true)} className="gap-2">
-          <Plus className="h-4 w-4" /> Utwórz
+          <Plus className="h-4 w-4" /> {t('workshop.clients.create')}
         </Button>
         <div className="flex-1" />
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Szukaj" className="pl-9 w-[250px]" />
+          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('common.search')} className="pl-9 w-[250px]" />
         </div>
       </div>
 
@@ -69,11 +71,11 @@ export function WorkshopClientsList({ providerId, onBack }: Props) {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>ZGODA MARKETINGOWA</TableHead>
-                  <TableHead>DANE KLIENTA</TableHead>
-                  <TableHead>E-MAIL</TableHead>
-                  <TableHead>NUMER TELEFONU</TableHead>
-                  <TableHead>GRUPA CENOWA</TableHead>
+                  <TableHead>{t('workshop.clients.colMarketingConsent')}</TableHead>
+                  <TableHead>{t('workshop.clients.colClientData')}</TableHead>
+                  <TableHead>{t('workshop.clients.colEmail')}</TableHead>
+                  <TableHead>{t('workshop.clients.colPhone')}</TableHead>
+                  <TableHead>{t('workshop.clients.colPriceGroup')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -81,7 +83,7 @@ export function WorkshopClientsList({ providerId, onBack }: Props) {
                   <TableRow key={c.id} className="hover:bg-accent/50 cursor-pointer" onClick={() => setEditClient(c)}>
                     <TableCell>
                       <Badge variant={c.marketing_consent ? 'default' : 'secondary'} className="text-xs">
-                        {c.marketing_consent ? 'Tak' : 'Nie'}
+                        {c.marketing_consent ? t('ui.yes') : t('ui.no')}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -92,7 +94,7 @@ export function WorkshopClientsList({ providerId, onBack }: Props) {
                           <User className="h-4 w-4 text-muted-foreground" />
                         )}
                         <span className="font-medium">{getClientName(c)}</span>
-                        {c.nip && <span className="text-xs text-muted-foreground">NIP: {c.nip}</span>}
+                        {c.nip && <span className="text-xs text-muted-foreground">{t('workshop.orders.nip')} {c.nip}</span>}
                       </div>
                     </TableCell>
                     <TableCell>
@@ -111,13 +113,13 @@ export function WorkshopClientsList({ providerId, onBack }: Props) {
                         </div>
                       )}
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">Domyślna</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{t('workshop.clients.priceGroupDefault')}</TableCell>
                   </TableRow>
                 ))}
                 {filtered.length === 0 && !isLoading && (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                      Brak klientów
+                      {t('workshop.clients.noClients')}
                     </TableCell>
                   </TableRow>
                 )}
@@ -128,7 +130,7 @@ export function WorkshopClientsList({ providerId, onBack }: Props) {
       </Card>
 
       <div className="text-sm text-muted-foreground">
-        Od 1 do {filtered.length} z {clients.length} wyników
+        {t('workshop.clients.resultsRange', { shown: filtered.length, total: clients.length })}
       </div>
 
       <WorkshopAddClientDialog open={showAdd} onOpenChange={setShowAdd} providerId={providerId} />

@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Users, Building, User, Loader2, Save } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   open: boolean;
@@ -28,6 +29,7 @@ function capitalizeFirst(val: string) {
 }
 
 export function WorkshopEditClientDialog({ open, onOpenChange, client }: Props) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const [saving, setSaving] = useState(false);
 
@@ -108,7 +110,7 @@ export function WorkshopEditClientDialog({ open, onOpenChange, client }: Props) 
         .eq('id', client.id);
       if (error) throw error;
       await qc.invalidateQueries({ queryKey: ['workshop-clients'] });
-      toast.success('Dane klienta zaktualizowane');
+      toast.success(t('workshop.clients.clientUpdated'));
       onOpenChange(false);
     } catch (e: any) {
       toast.error(e.message);
@@ -125,7 +127,7 @@ export function WorkshopEditClientDialog({ open, onOpenChange, client }: Props) 
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {isCompany ? <Building className="h-5 w-5" /> : <User className="h-5 w-5" />}
-            Edytuj klienta
+            {t('workshop.clients.editClient')}
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
@@ -133,23 +135,23 @@ export function WorkshopEditClientDialog({ open, onOpenChange, client }: Props) 
             <>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label>Nazwa firmy *</Label>
+                  <Label>{t('workshop.clients.companyNameRequired')}</Label>
                   <Input value={form.company_name} onChange={e => set('company_name', e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>NIP</Label>
+                  <Label>{t('workshop.clients.nipLabel')}</Label>
                   <Input value={form.nip} onChange={e => set('nip', e.target.value)} />
                 </div>
               </div>
               <div className="border-t pt-4">
-                <Label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3 block">Osoba kontaktowa</Label>
+                <Label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3 block">{t('workshop.clients.contactPerson')}</Label>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label>Imię</Label>
+                    <Label>{t('workshop.clients.firstName')}</Label>
                     <Input value={form.first_name} onChange={e => set('first_name', e.target.value)} />
                   </div>
                   <div className="space-y-1.5">
-                    <Label>Nazwisko</Label>
+                    <Label>{t('workshop.clients.lastName')}</Label>
                     <Input value={form.last_name} onChange={e => set('last_name', e.target.value)} />
                   </div>
                 </div>
@@ -158,11 +160,11 @@ export function WorkshopEditClientDialog({ open, onOpenChange, client }: Props) 
           ) : (
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label>Imię *</Label>
+                <Label>{t('workshop.clients.firstNameRequired')}</Label>
                 <Input value={form.first_name} onChange={e => set('first_name', e.target.value)} />
               </div>
               <div className="space-y-1.5">
-                <Label>Nazwisko</Label>
+                <Label>{t('workshop.clients.lastName')}</Label>
                 <Input value={form.last_name} onChange={e => set('last_name', e.target.value)} />
               </div>
             </div>
@@ -170,62 +172,62 @@ export function WorkshopEditClientDialog({ open, onOpenChange, client }: Props) 
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label>Numer telefonu</Label>
+              <Label>{t('workshop.clients.phone')}</Label>
               <div className="flex gap-2">
                 <span className="flex items-center px-3 border rounded-md bg-muted text-sm">+48</span>
                 <Input value={form.phone} onChange={e => set('phone', e.target.value)} />
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label>E-mail</Label>
+              <Label>{t('workshop.clients.email')}</Label>
               <Input type="email" value={form.email} onChange={e => set('email', e.target.value)} />
             </div>
           </div>
 
           <div className="grid grid-cols-[1fr_auto_auto] gap-3">
             <div className="space-y-1.5">
-              <Label>Ulica</Label>
+              <Label>{t('workshop.clients.street')}</Label>
               <Input value={form.street} onChange={e => set('street', e.target.value)} />
             </div>
             <div className="space-y-1.5 w-24">
-              <Label>Nr domu</Label>
+              <Label>{t('workshop.clients.houseNumber')}</Label>
               <Input value={form.house_number} onChange={e => set('house_number', e.target.value)} />
             </div>
             <div className="space-y-1.5 w-24">
-              <Label>Nr lokalu</Label>
+              <Label>{t('workshop.clients.apartmentNumber')}</Label>
               <Input value={form.apartment_number} onChange={e => set('apartment_number', e.target.value)} />
             </div>
           </div>
           <div className="grid grid-cols-3 gap-4">
             <div className="space-y-1.5">
-              <Label>Kod pocztowy</Label>
+              <Label>{t('workshop.clients.postalCode')}</Label>
               <Input value={form.postal_code} onChange={e => set('postal_code', formatPostalCode(e.target.value))} placeholder="00-000" />
             </div>
             <div className="space-y-1.5">
-              <Label>Miasto</Label>
+              <Label>{t('workshop.clients.city')}</Label>
               <Input value={form.city} onChange={e => set('city', e.target.value)} />
             </div>
             <div className="space-y-1.5">
-              <Label>Kraj</Label>
+              <Label>{t('workshop.clients.country')}</Label>
               <Input value={form.country} onChange={e => set('country', e.target.value)} />
             </div>
           </div>
 
           <div className="space-y-1.5">
-            <Label>Uwagi</Label>
+            <Label>{t('workshop.clients.notes')}</Label>
             <Textarea value={form.description} onChange={e => set('description', e.target.value)} rows={2} />
           </div>
 
           <div className="flex items-center gap-3">
             <Switch checked={form.marketing_consent} onCheckedChange={v => set('marketing_consent', v)} />
-            <Label className="text-sm">Zgoda na treści marketingowe</Label>
+            <Label className="text-sm">{t('workshop.clients.marketingConsentLabel')}</Label>
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>Anuluj</Button>
+            <Button variant="outline" onClick={() => onOpenChange(false)}>{t('common.cancel')}</Button>
             <Button onClick={handleSave} disabled={saving} className="gap-2">
               {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-              <Save className="h-4 w-4" /> Zapisz zmiany
+              <Save className="h-4 w-4" /> {t('workshop.clients.saveChanges')}
             </Button>
           </div>
         </div>

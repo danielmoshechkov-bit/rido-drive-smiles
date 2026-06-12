@@ -2,6 +2,7 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/h
 import { Button } from '@/components/ui/button';
 import { Copy, ExternalLink, Phone, Mail, Building, User, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   client: any;
@@ -10,11 +11,12 @@ interface Props {
 }
 
 export function WorkshopClientHoverCard({ client, children, onEdit }: Props) {
+  const { t } = useTranslation();
   if (!client) return <>{children}</>;
 
-  const copy = (text: string, label: string) => {
+  const copy = (text: string, message: string) => {
     navigator.clipboard.writeText(text);
-    toast.success(`${label} skopiowany`);
+    toast.success(message);
   };
 
   const isCompany = client.client_type === 'company';
@@ -32,20 +34,20 @@ export function WorkshopClientHoverCard({ client, children, onEdit }: Props) {
           <div className="flex items-center justify-between">
             <h4 className="font-semibold text-sm flex items-center gap-1.5">
               {isCompany ? <Building className="h-4 w-4 text-primary" /> : <User className="h-4 w-4 text-primary" />}
-              {name || 'Klient'}
+              {name || t('workshop.clients.client')}
             </h4>
             {onEdit && (
               <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={onEdit}>
-                <ExternalLink className="h-3 w-3" /> Edytuj
+                <ExternalLink className="h-3 w-3" /> {t('workshop.clients.edit')}
               </Button>
             )}
           </div>
 
           {isCompany && client.nip && (
             <div className="text-xs flex items-center gap-1.5 bg-muted/50 rounded px-2 py-1.5">
-              <span className="text-muted-foreground">NIP</span>
+              <span className="text-muted-foreground">{t('workshop.clients.nip')}</span>
               <span className="font-medium">{client.nip}</span>
-              <Button variant="ghost" size="sm" className="h-5 w-5 p-0 ml-auto" onClick={() => copy(client.nip, 'NIP')}>
+              <Button variant="ghost" size="sm" className="h-5 w-5 p-0 ml-auto" onClick={() => copy(client.nip, t('workshop.orders.copiedNip'))}>
                 <Copy className="h-3 w-3" />
               </Button>
             </div>
@@ -53,7 +55,7 @@ export function WorkshopClientHoverCard({ client, children, onEdit }: Props) {
 
           {isCompany && (client.first_name || client.last_name) && (
             <div className="text-xs text-muted-foreground">
-              Osoba kontaktowa: <span className="text-foreground font-medium">{client.first_name} {client.last_name}</span>
+              {t('workshop.clients.contactPersonInline')} <span className="text-foreground font-medium">{client.first_name} {client.last_name}</span>
             </div>
           )}
 
@@ -65,7 +67,7 @@ export function WorkshopClientHoverCard({ client, children, onEdit }: Props) {
                   <span>+48 {client.phone}</span>
                 </span>
                 <div className="flex items-center gap-1">
-                  <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => copy(client.phone, 'Telefon')}>
+                  <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => copy(client.phone, t('workshop.orders.copiedPhone'))}>
                     <Copy className="h-3 w-3" />
                   </Button>
                   <Button variant="ghost" size="sm" className="h-5 w-5 p-0" asChild>
@@ -80,7 +82,7 @@ export function WorkshopClientHoverCard({ client, children, onEdit }: Props) {
                   <Mail className="h-3 w-3 text-muted-foreground" />
                   <span>{client.email}</span>
                 </span>
-                <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => copy(client.email, 'Email')}>
+                <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => copy(client.email, t('workshop.orders.copiedEmail'))}>
                   <Copy className="h-3 w-3" />
                 </Button>
               </div>
