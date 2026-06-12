@@ -18,6 +18,8 @@ import { VehicleLookupCreditsModal } from '@/components/vehicle/VehicleLookupCre
 import {
   ArrowLeft, Search, Car, Plus, Phone, QrCode, Loader2, Users, Save
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { translateWorkshopStatus } from '@/utils/workshopStatusStyle';
 
 interface Props {
   vehicle: any;
@@ -29,6 +31,7 @@ interface Props {
 const fuelTypes = ['Benzyna', 'Diesel', 'LPG', 'Hybryda', 'Elektryczny', 'Benzyna+LPG'];
 
 export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder }: Props) {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('dane');
   const { data: allOrders = [] } = useWorkshopOrders(providerId);
   const { data: clients = [] } = useWorkshopClients(providerId);
@@ -81,14 +84,14 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
   };
 
   const handleLookupPlate = async () => {
-    if (!form.plate?.trim()) { toast.error('Wpisz numer rejestracyjny'); return; }
+    if (!form.plate?.trim()) { toast.error(t('workshop.vehicles.enterPlate')); return; }
     const data = await checkRegistration(form.plate.trim().toUpperCase());
     if (data) await applyLookup(data);
     else if (!lookupLoading) setShowCreditsModal(true);
   };
 
   const handleLookupVin = async () => {
-    if (!form.vin?.trim()) { toast.error('Wpisz numer VIN'); return; }
+    if (!form.vin?.trim()) { toast.error(t('workshop.vehicles.enterVin')); return; }
     const data = await checkVin(form.vin.trim().toUpperCase());
     if (data) await applyLookup(data);
     else if (!lookupLoading) setShowCreditsModal(true);
@@ -149,9 +152,9 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
       }).eq('id', vehicle.id);
       if (error) throw error;
       qc.invalidateQueries({ queryKey: ['workshop-vehicles'] });
-      toast.success('Pojazd zapisany');
+      toast.success(t('workshop.vehicles.vehicleSaved'));
     } catch (e: any) {
-      toast.error('Błąd zapisu: ' + (e?.message || 'Nieznany'));
+      toast.error(t('workshop.vehicles.saveError', { error: e?.message || t('workshop.orders.unknownError') }));
     } finally {
       setSaving(false);
     }
@@ -162,7 +165,7 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm">
         <button onClick={onBack} className="text-primary hover:underline flex items-center gap-1">
-          <ArrowLeft className="h-4 w-4" /> Pojazdy
+          <ArrowLeft className="h-4 w-4" /> {t('workshop.dashboard.tiles.pojazdy')}
         </button>
         <span className="text-muted-foreground">·</span>
         <span className="font-semibold">
@@ -173,19 +176,19 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="bg-muted/40 p-1 rounded-lg">
           {[
-            { value: 'dane', label: 'Dane pojazdu' },
-            { value: 'pliki', label: 'Pliki' },
-            { value: 'zlecenia', label: 'Historia zleceń' },
-            { value: 'zadania', label: 'Historia zadań' },
-            { value: 'przebiegi', label: 'Przebiegi' },
-            { value: 'naprawcze', label: 'Dane naprawcze' },
+            { value: 'dane', labelKey: 'workshop.vehicles.vehicleData' },
+            { value: 'pliki', labelKey: 'workshop.orderDetail.tabFiles' },
+            { value: 'zlecenia', labelKey: 'workshop.vehicles.orderHistory' },
+            { value: 'zadania', labelKey: 'workshop.vehicles.taskHistory' },
+            { value: 'przebiegi', labelKey: 'workshop.vehicles.mileageHistory' },
+            { value: 'naprawcze', labelKey: 'workshop.orderDetail.tabRepairData' },
           ].map(tab => (
             <TabsTrigger
               key={tab.value}
               value={tab.value}
               className="data-[state=active]:bg-[hsl(45,100%,70%)] data-[state=active]:text-foreground data-[state=active]:font-semibold data-[state=active]:shadow-sm hover:bg-[hsl(45,100%,85%)] transition-colors"
             >
-              {tab.label}
+              {t(tab.labelKey)}
             </TabsTrigger>
           ))}
         </TabsList>
@@ -196,22 +199,22 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
             <CardContent className="py-6 space-y-6">
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label>Numer VIN</Label>
+                  <Label>{t('workshop.vehicles.vinNumber')}</Label>
                   <div className="flex gap-2">
                     <Input value={form.vin} onChange={e => set('vin', e.target.value.toUpperCase())} className="font-mono flex-1" />
-                    <Button size="icon" variant="outline" onClick={handleLookupVin} disabled={lookupLoading} title="Wyszukaj po VIN">
+                    <Button size="icon" variant="outline" onClick={handleLookupVin} disabled={lookupLoading} title={t('workshop.vehicles.lookupByVin')}>
                       {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                     </Button>
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Data pierwszej rejestracji</Label>
+                  <Label>{t('workshop.vehicles.firstRegistrationDate')}</Label>
                   <Input type="date" value={form.first_registration_date} onChange={e => set('first_registration_date', e.target.value)} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Rodzaj paliwa</Label>
+                  <Label>{t('workshop.orders.fuelType')}</Label>
                   <Select value={form.fuel_type} onValueChange={v => set('fuel_type', v)}>
-                    <SelectTrigger><SelectValue placeholder="Wybierz..." /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={t('workshop.newOrder.selectPlaceholder')} /></SelectTrigger>
                     <SelectContent>
                       {fuelTypes.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
                     </SelectContent>
@@ -221,56 +224,56 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
 
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label>Numer silnika</Label>
-                  <Input value={form.engine_number} onChange={e => set('engine_number', e.target.value)} placeholder="Numer silnika" />
+                  <Label>{t('workshop.vehicles.engineNumber')}</Label>
+                  <Input value={form.engine_number} onChange={e => set('engine_number', e.target.value)} placeholder={t('workshop.vehicles.engineNumber')} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Marka</Label>
+                  <Label>{t('workshop.orders.brand')}</Label>
                   <Input value={form.brand} onChange={e => set('brand', e.target.value)} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Model</Label>
+                  <Label>{t('workshop.orders.model')}</Label>
                   <Input value={form.model} onChange={e => set('model', e.target.value)} />
                 </div>
               </div>
 
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label>Kolor</Label>
-                  <Input value={form.color} onChange={e => set('color', e.target.value)} placeholder="Kolor" />
+                  <Label>{t('workshop.orders.color')}</Label>
+                  <Input value={form.color} onChange={e => set('color', e.target.value)} placeholder={t('workshop.orders.color')} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Numer rejestracyjny</Label>
+                  <Label>{t('workshop.orders.plateNumber')}</Label>
                   <div className="flex gap-2">
                     <Input value={form.plate} onChange={e => set('plate', e.target.value.toUpperCase())} className="font-mono flex-1" />
-                    <Button size="icon" variant="outline" onClick={handleLookupPlate} disabled={lookupLoading} title="Wyszukaj po numerze rejestracyjnym">
+                    <Button size="icon" variant="outline" onClick={handleLookupPlate} disabled={lookupLoading} title={t('workshop.vehicles.lookupByPlate')}>
                       {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                     </Button>
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Rok produkcji</Label>
+                  <Label>{t('workshop.orders.yearOfProduction')}</Label>
                   <Input type="number" value={form.year} onChange={e => set('year', e.target.value)} />
                 </div>
               </div>
 
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label>Pojemność</Label>
+                  <Label>{t('workshop.orders.capacity')}</Label>
                   <div className="flex items-center gap-2">
                     <Input type="number" value={form.engine_capacity_cm3} onChange={e => set('engine_capacity_cm3', e.target.value)} />
                     <span className="text-sm text-muted-foreground whitespace-nowrap">cm³</span>
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Moc silnika</Label>
+                  <Label>{t('workshop.vehicles.enginePower')}</Label>
                   <div className="flex items-center gap-2">
                     <Input type="number" value={form.engine_power_kw} onChange={e => set('engine_power_kw', e.target.value)} />
                     <Badge variant="secondary">kW</Badge>
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Jednostka przebiegu</Label>
+                  <Label>{t('workshop.vehicles.mileageUnit')}</Label>
                   <Select defaultValue="km">
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -284,16 +287,16 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
               {/* Owner - editable */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label className="text-sm font-semibold">Aktualny właściciel</Label>
+                  <Label className="text-sm font-semibold">{t('workshop.vehicles.currentOwner')}</Label>
                   <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => setShowAddClient(true)}>
-                    <Plus className="h-3 w-3" /> Dodaj nowego
+                    <Plus className="h-3 w-3" /> {t('workshop.vehicles.addNew')}
                   </Button>
                 </div>
                 {ownerClientId && selectedOwner ? (
                   <div className="flex items-center gap-2 p-2.5 border-2 border-primary/30 rounded-lg bg-primary/5">
                     <Users className="h-4 w-4 text-primary" />
                     <span className="text-sm font-medium flex-1">{ownerLabel}</span>
-                    <Button variant="ghost" size="sm" onClick={() => { setOwnerClientId(''); setShowOwnerList(true); }}>Zmień</Button>
+                    <Button variant="ghost" size="sm" onClick={() => { setOwnerClientId(''); setShowOwnerList(true); }}>{t('workshop.orders.change')}</Button>
                   </div>
                 ) : (
                   <div className="relative">
@@ -301,12 +304,12 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
                       value={ownerSearch}
                       onChange={e => { setOwnerSearch(e.target.value); setShowOwnerList(true); }}
                       onClick={() => setShowOwnerList(true)}
-                      placeholder="Wyszukaj właściciela z listy klientów..."
+                      placeholder={t('workshop.vehicles.searchOwnerPlaceholder')}
                     />
                     {showOwnerList && (
                       <div className="absolute z-50 w-full mt-1 border-2 border-border rounded-lg bg-background shadow-xl max-h-48 overflow-y-auto">
                         <button className="w-full text-left px-3 py-2 hover:bg-accent text-sm flex items-center gap-2 border-b font-medium" onClick={() => { setShowOwnerList(false); setShowAddClient(true); }}>
-                          <Plus className="h-4 w-4 text-primary" /> Dodaj nowego klienta
+                          <Plus className="h-4 w-4 text-primary" /> {t('workshop.vehicles.addNewClient')}
                         </button>
                         {filteredClients.map((c: any) => (
                           <button key={c.id} className="w-full text-left px-3 py-2 hover:bg-accent text-sm transition-colors" onClick={() => { setOwnerClientId(c.id); setShowOwnerList(false); setOwnerSearch(''); }}>
@@ -315,7 +318,7 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
                             </div>
                           </button>
                         ))}
-                        {filteredClients.length === 0 && <div className="px-3 py-3 text-sm text-muted-foreground text-center">Brak klientów</div>}
+                        {filteredClients.length === 0 && <div className="px-3 py-3 text-sm text-muted-foreground text-center">{t('workshop.clients.noClients')}</div>}
                       </div>
                     )}
                   </div>
@@ -323,15 +326,15 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
               </div>
 
               <div className="space-y-2">
-                <Label>Opis pojazdu</Label>
-                <Textarea value={form.description} onChange={e => set('description', e.target.value)} placeholder="Opis pojazdu" rows={3} />
+                <Label>{t('workshop.vehicles.vehicleDescription')}</Label>
+                <Textarea value={form.description} onChange={e => set('description', e.target.value)} placeholder={t('workshop.vehicles.vehicleDescription')} rows={3} />
               </div>
 
               <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={onBack}>Anuluj</Button>
+                <Button variant="outline" onClick={onBack}>{t('common.cancel')}</Button>
                 <Button onClick={handleSave} disabled={saving} className="gap-2">
                   {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                  Zapisz
+                  {t('common.save')}
                 </Button>
               </div>
             </CardContent>
@@ -342,7 +345,7 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
         <TabsContent value="pliki">
           <Card>
             <CardContent className="py-12 text-center text-muted-foreground">
-              Brak plików — dodaj zdjęcia lub dokumenty pojazdu
+              {t('workshop.vehicles.noFiles')}
             </CardContent>
           </Card>
         </TabsContent>
@@ -351,11 +354,11 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
         <TabsContent value="zlecenia">
           <div className="space-y-4">
             <div className="flex items-center gap-2">
-              <Button className="gap-2"><Plus className="h-4 w-4" /> Nowe zlecenie</Button>
+              <Button className="gap-2"><Plus className="h-4 w-4" /> {t('workshop.vehicles.newOrder')}</Button>
               <div className="flex-1" />
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input placeholder="Szukaj" className="pl-9 w-[250px]" />
+                <Input placeholder={t('common.search')} className="pl-9 w-[250px]" />
               </div>
             </div>
 
@@ -364,13 +367,13 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>NUMER ZLECENIA</TableHead>
-                      <TableHead>UTWORZONE</TableHead>
-                      <TableHead>ZAKOŃCZONE</TableHead>
-                      <TableHead>STATUS</TableHead>
-                      <TableHead>KLIENT</TableHead>
-                      <TableHead>PRZYJĘCIE</TableHead>
-                      <TableHead className="text-right">RAZEM</TableHead>
+                      <TableHead>{t('workshop.orders.colOrderNumber')}</TableHead>
+                      <TableHead>{t('workshop.vehicles.colCreated')}</TableHead>
+                      <TableHead>{t('workshop.vehicles.colCompleted')}</TableHead>
+                      <TableHead>{t('workshop.orders.colStatus')}</TableHead>
+                      <TableHead>{t('workshop.orders.colClient')}</TableHead>
+                      <TableHead>{t('workshop.orders.colReceived')}</TableHead>
+                      <TableHead className="text-right">{t('workshop.orders.colTotal')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -384,7 +387,7 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
                         <TableCell>{order.created_at?.split('T')[0]}</TableCell>
                         <TableCell>{order.completed_at?.split('T')[0] || '—'}</TableCell>
                         <TableCell>
-                          <Badge variant="destructive" className="text-xs">{order.status_name}</Badge>
+                          <Badge variant="destructive" className="text-xs">{translateWorkshopStatus(order.status_name, t)}</Badge>
                         </TableCell>
                         <TableCell>
                           {order.client && (
@@ -406,7 +409,7 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
                     )) : (
                       <TableRow>
                         <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                          Brak zleceń dla tego pojazdu
+                          {t('workshop.vehicles.noOrdersForVehicle')}
                         </TableCell>
                       </TableRow>
                     )}
@@ -421,7 +424,7 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
         <TabsContent value="zadania">
           <Card>
             <CardContent className="py-12 text-center text-muted-foreground">
-              Historia zadań wykonanych na tym pojeździe zostanie tutaj wyświetlona.
+              {t('workshop.vehicles.taskHistoryEmpty')}
             </CardContent>
           </Card>
         </TabsContent>
@@ -430,7 +433,7 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
         <TabsContent value="przebiegi">
           <Card>
             <CardContent className="py-12 text-center text-muted-foreground">
-              Historia przebiegów pojazdu rejestrowanych przy każdym zleceniu.
+              {t('workshop.vehicles.mileageHistoryEmpty')}
             </CardContent>
           </Card>
         </TabsContent>
@@ -439,7 +442,7 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
         <TabsContent value="naprawcze">
           <Card>
             <CardContent className="py-12 text-center text-muted-foreground">
-              Dane naprawcze dostępne po aktywacji modułu i podaniu VIN pojazdu.
+              {t('workshop.vehicles.repairDataEmpty')}
             </CardContent>
           </Card>
         </TabsContent>

@@ -13,6 +13,7 @@ import { useVehicleLookup } from '@/hooks/useVehicleLookup';
 import { Car, Search, Loader2, Plus, Users } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   open: boolean;
@@ -34,6 +35,7 @@ function trimModelName(raw: string): string {
 }
 
 export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCreated, initialPlate }: Props) {
+  const { t } = useTranslation();
   const create = useCreateWorkshopVehicle();
   const qc = useQueryClient();
   const { data: clients = [] } = useWorkshopClients(providerId);
@@ -153,7 +155,7 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
 
   const handleSearchPlate = async () => {
     if (!form.plate || form.plate.length < 3) {
-      toast.error('Wpisz numer rejestracyjny');
+      toast.error(t('workshop.vehicles.enterPlate'));
       return;
     }
     if (!credits || credits.remaining_credits < 1) {
@@ -171,7 +173,7 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
 
   const handleSearchVin = async () => {
     if (!form.vin || form.vin.length < 5) {
-      toast.error('Wpisz numer VIN');
+      toast.error(t('workshop.vehicles.enterVin'));
       return;
     }
     if (!credits || credits.remaining_credits < 1) {
@@ -243,7 +245,7 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
       setTimeout(() => { qc.invalidateQueries({ queryKey: ['workshop-vehicles'] }); }, 100);
     } catch (e: any) {
       console.error('Vehicle save error:', e);
-      toast.error('Błąd zapisu pojazdu: ' + (e?.message || 'Nieznany błąd'));
+      toast.error(t('workshop.vehicles.saveError', { error: e?.message || t('workshop.orders.unknownError') }));
     }
   };
 
@@ -253,10 +255,10 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Car className="h-5 w-5" /> Dodaj nowy pojazd
+              <Car className="h-5 w-5" /> {t('workshop.vehicles.addNewVehicle')}
               {credits && (
                 <span className="ml-auto text-xs font-normal text-muted-foreground">
-                  Kredyty: <span className="font-semibold text-primary">{credits.remaining_credits}</span>
+                  {t('workshop.vehicles.credits')} <span className="font-semibold text-primary">{credits.remaining_credits}</span>
                 </span>
               )}
             </DialogTitle>
@@ -266,16 +268,16 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
             {/* === SECTION: Dane klienta === */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <Label className="text-sm font-semibold">Dane klienta</Label>
+                <Label className="text-sm font-semibold">{t('workshop.vehicles.clientData')}</Label>
                 <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => setShowAddOwner(true)}>
-                  <Plus className="h-3 w-3" /> Dodaj właściciela
+                  <Plus className="h-3 w-3" /> {t('workshop.vehicles.addOwner')}
                 </Button>
               </div>
               {form.owner_client_id ? (
                 <div className="flex items-center gap-2 p-2.5 border-2 border-primary/30 rounded-lg bg-primary/5">
                   <Users className="h-4 w-4 text-primary" />
                   <span className="text-sm font-medium flex-1">{ownerLabel}</span>
-                  <Button variant="ghost" size="sm" onClick={() => { set('owner_client_id', ''); setShowOwnerList(true); }}>Zmień</Button>
+                  <Button variant="ghost" size="sm" onClick={() => { set('owner_client_id', ''); setShowOwnerList(true); }}>{t('workshop.orders.change')}</Button>
                 </div>
               ) : (
                 <div className="relative" ref={ownerDropdownRef}>
@@ -283,12 +285,12 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
                     value={ownerSearch}
                     onChange={e => { setOwnerSearch(e.target.value); setShowOwnerList(true); }}
                     onClick={() => setShowOwnerList(true)}
-                    placeholder="Wyszukaj właściciela z listy klientów..."
+                    placeholder={t('workshop.vehicles.searchOwnerPlaceholder')}
                   />
                   {showOwnerList && (
                     <div className="absolute z-50 w-full mt-1 border-2 border-border rounded-lg bg-background shadow-xl max-h-48 overflow-y-auto">
                       <button className="w-full text-left px-3 py-2 hover:bg-accent text-sm flex items-center gap-2 border-b font-medium" onClick={() => { setShowOwnerList(false); setShowAddOwner(true); }}>
-                        <Plus className="h-4 w-4 text-primary" /> Dodaj nowego klienta
+                        <Plus className="h-4 w-4 text-primary" /> {t('workshop.vehicles.addNewClient')}
                       </button>
                       {filteredClients.map((c: any) => (
                         <button key={c.id} className="w-full text-left px-3 py-2 hover:bg-accent text-sm transition-colors" onClick={() => { set('owner_client_id', c.id); setShowOwnerList(false); setOwnerSearch(''); }}>
@@ -297,7 +299,7 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
                           </div>
                         </button>
                       ))}
-                      {filteredClients.length === 0 && <div className="px-3 py-3 text-sm text-muted-foreground text-center">Brak klientów</div>}
+                      {filteredClients.length === 0 && <div className="px-3 py-3 text-sm text-muted-foreground text-center">{t('workshop.clients.noClients')}</div>}
                     </div>
                   )}
                 </div>
@@ -306,24 +308,24 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
 
             {/* === SECTION: Dane pojazdu === */}
             <div className="border-t pt-4">
-              <Label className="text-sm font-semibold">Dane pojazdu</Label>
+              <Label className="text-sm font-semibold">{t('workshop.vehicles.vehicleData')}</Label>
             </div>
 
             {/* Nr rejestracyjny | VIN */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label>Numer rejestracyjny</Label>
+                <Label>{t('workshop.orders.plateNumber')}</Label>
                 <div className="relative">
-                  <Input value={form.plate} onChange={e => set('plate', e.target.value.toUpperCase())} placeholder="Nr rejestracyjny" className="pr-10" />
+                  <Input value={form.plate} onChange={e => set('plate', e.target.value.toUpperCase())} placeholder={t('workshop.orders.plateNumber')} className="pr-10" />
                   <button type="button" onClick={handleSearchPlate} disabled={lookupLoading} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-accent transition-colors">
                     {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : <Search className="h-4 w-4 text-muted-foreground hover:text-primary transition-colors cursor-pointer" />}
                   </button>
                 </div>
               </div>
               <div className="space-y-1.5">
-                <Label>Numer VIN</Label>
+                <Label>{t('workshop.vehicles.vinNumber')}</Label>
                 <div className="relative">
-                  <Input value={form.vin} onChange={e => set('vin', e.target.value.toUpperCase())} placeholder="VIN" className="pr-10" />
+                  <Input value={form.vin} onChange={e => set('vin', e.target.value.toUpperCase())} placeholder={t('workshop.orders.vin')} className="pr-10" />
                   <button type="button" onClick={handleSearchVin} disabled={lookupLoading} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-accent transition-colors">
                     {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : <Search className="h-4 w-4 text-muted-foreground hover:text-primary transition-colors cursor-pointer" />}
                   </button>
@@ -334,31 +336,31 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
             {/* Marka | Model | Kolor */}
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-1.5">
-                <Label>Marka</Label>
-                <Input value={form.brand} onChange={e => set('brand', e.target.value)} placeholder="Marka" />
+                <Label>{t('workshop.orders.brand')}</Label>
+                <Input value={form.brand} onChange={e => set('brand', e.target.value)} placeholder={t('workshop.orders.brand')} />
               </div>
               <div className="space-y-1.5">
-                <Label>Model</Label>
-                <Input value={form.model} onChange={e => set('model', e.target.value)} placeholder="Model" />
+                <Label>{t('workshop.orders.model')}</Label>
+                <Input value={form.model} onChange={e => set('model', e.target.value)} placeholder={t('workshop.orders.model')} />
               </div>
               <div className="space-y-1.5">
-                <Label>Kolor</Label>
-                <Input value={form.color} onChange={e => set('color', e.target.value)} placeholder="Kolor" />
+                <Label>{t('workshop.orders.color')}</Label>
+                <Input value={form.color} onChange={e => set('color', e.target.value)} placeholder={t('workshop.orders.color')} />
               </div>
             </div>
 
             {/* Rok produkcji | Pojemność | Moc */}
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-1.5">
-                <Label>Rok produkcji</Label>
-                <Input type="number" value={form.year} onChange={e => set('year', e.target.value)} placeholder="Rok" />
+                <Label>{t('workshop.orders.yearOfProduction')}</Label>
+                <Input type="number" value={form.year} onChange={e => set('year', e.target.value)} placeholder={t('workshop.orders.yearOfProd')} />
               </div>
               <div className="space-y-1.5">
-                <Label>Pojemność (cm³)</Label>
+                <Label>{t('workshop.vehicles.capacityCm3')}</Label>
                 <Input type="number" value={form.engine_capacity_cm3} onChange={e => set('engine_capacity_cm3', e.target.value)} placeholder="cm³" />
               </div>
               <div className="space-y-1.5">
-                <Label>Moc silnika (kW)</Label>
+                <Label>{t('workshop.orders.enginePowerKw')}</Label>
                 <Input type="number" value={form.engine_power_kw} onChange={e => set('engine_power_kw', e.target.value)} placeholder="kW" />
               </div>
             </div>
@@ -366,40 +368,40 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
             {/* Rodzaj paliwa | Typ nadwozia | Data pierwszej rejestracji */}
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-1.5">
-                <Label>Rodzaj paliwa</Label>
+                <Label>{t('workshop.orders.fuelType')}</Label>
                 <Select value={form.fuel_type} onValueChange={v => set('fuel_type', v)}>
-                  <SelectTrigger><SelectValue placeholder="Wybierz..." /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t('workshop.newOrder.selectPlaceholder')} /></SelectTrigger>
                   <SelectContent>
                     {fuelTypes.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Typ nadwozia</Label>
+                <Label>{t('workshop.vehicles.bodyType')}</Label>
                 <Select value={form.body_style} onValueChange={v => set('body_style', v)}>
-                  <SelectTrigger><SelectValue placeholder="Wybierz..." /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t('workshop.newOrder.selectPlaceholder')} /></SelectTrigger>
                   <SelectContent>
                     {bodyTypes.map(b => <SelectItem key={b} value={b}>{b.charAt(0).toUpperCase() + b.slice(1)}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Data pierwszej rejestracji</Label>
+                <Label>{t('workshop.vehicles.firstRegistrationDate')}</Label>
                 <Input type="date" value={form.first_registration_date} onChange={e => set('first_registration_date', e.target.value)} />
               </div>
             </div>
 
             {/* Opis pojazdu */}
             <div className="space-y-1.5">
-              <Label>Opis pojazdu</Label>
-              <Textarea value={form.description} onChange={e => set('description', e.target.value)} placeholder="Opis pojazdu" rows={2} />
+              <Label>{t('workshop.vehicles.vehicleDescription')}</Label>
+              <Textarea value={form.description} onChange={e => set('description', e.target.value)} placeholder={t('workshop.vehicles.vehicleDescription')} rows={2} />
             </div>
 
             <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => onOpenChange(false)}>Anuluj</Button>
+              <Button variant="outline" onClick={() => onOpenChange(false)}>{t('common.cancel')}</Button>
               <Button onClick={handleSubmit} disabled={create.isPending}>
                 {create.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                Zapisz
+                {t('common.save')}
               </Button>
             </div>
           </div>

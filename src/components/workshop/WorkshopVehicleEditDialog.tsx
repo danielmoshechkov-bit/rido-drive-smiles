@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useVehicleLookup } from '@/hooks/useVehicleLookup';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 
 const fuelTypes = ['Benzyna', 'Diesel', 'LPG', 'Elektryczny', 'Hybryda', 'Benzyna+LPG', 'CNG'];
 
@@ -19,6 +20,7 @@ interface Props {
 }
 
 export function WorkshopVehicleEditDialog({ vehicle, open, onOpenChange }: Props) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const [userId, setUserId] = useState<string | undefined>();
   const [saving, setSaving] = useState(false);
@@ -124,25 +126,25 @@ export function WorkshopVehicleEditDialog({ vehicle, open, onOpenChange }: Props
         })
         .eq('id', vehicle.id);
       if (error) throw error;
-      toast.success('Dane pojazdu zapisane');
+      toast.success(t('workshop.orders.vehicleSaved'));
       await Promise.all([
         qc.invalidateQueries({ queryKey: ['workshopOrders'] }),
         qc.invalidateQueries({ queryKey: ['workshopVehicles'] }),
       ]);
       onOpenChange(false);
     } catch (e: any) {
-      toast.error(e.message || 'Błąd zapisu');
+      toast.error(e.message || t('common.saveError'));
     } finally {
       setSaving(false);
     }
   };
 
   const missingFields = [];
-  if (!form.vin) missingFields.push('VIN');
-  if (!form.brand) missingFields.push('Marka');
-  if (!form.model) missingFields.push('Model');
-  if (!form.engine_power_kw) missingFields.push('Moc silnika');
-  if (!form.engine_capacity_cm3) missingFields.push('Pojemność');
+  if (!form.vin) missingFields.push(t('workshop.orders.vin'));
+  if (!form.brand) missingFields.push(t('workshop.orders.brand'));
+  if (!form.model) missingFields.push(t('workshop.orders.model'));
+  if (!form.engine_power_kw) missingFields.push(t('workshop.vehicles.enginePower'));
+  if (!form.engine_capacity_cm3) missingFields.push(t('workshop.orders.capacity'));
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -150,80 +152,80 @@ export function WorkshopVehicleEditDialog({ vehicle, open, onOpenChange }: Props
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Car className="h-5 w-5" />
-            Edycja pojazdu
+            {t('workshop.orders.editVehicle')}
           </DialogTitle>
         </DialogHeader>
 
         {missingFields.length > 0 && (
           <div className="rounded-md bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">
-            <strong>Uzupełnij brakujące dane:</strong> {missingFields.join(', ')}
-            <p className="text-xs mt-1 text-amber-600">Dane te są potrzebne do prawidłowego wyszukiwania części.</p>
+            <strong>{t('workshop.vehicles.fillMissingData')}</strong> {missingFields.join(', ')}
+            <p className="text-xs mt-1 text-amber-600">{t('workshop.vehicles.dataNeededForParts')}</p>
           </div>
         )}
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <Label className="text-xs">Nr rejestracyjny</Label>
+            <Label className="text-xs">{t('workshop.orders.plateNumber')}</Label>
             <div className="flex gap-1">
               <Input value={form.plate} onChange={e => set('plate', e.target.value.toUpperCase())} placeholder="WW12345" />
-              <Button variant="outline" size="icon" onClick={handlePlateSearch} disabled={lookupLoading || !form.plate.trim()} title="Szukaj po nr rej">
+              <Button variant="outline" size="icon" onClick={handlePlateSearch} disabled={lookupLoading || !form.plate.trim()} title={t('workshop.orders.searchByPlate')}>
                 {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
               </Button>
             </div>
           </div>
           <div>
-            <Label className="text-xs">Rok produkcji</Label>
+            <Label className="text-xs">{t('workshop.orders.yearOfProduction')}</Label>
             <Input value={form.year} onChange={e => set('year', e.target.value)} placeholder="2020" />
           </div>
           <div className="col-span-2">
-            <Label className="text-xs">VIN</Label>
+            <Label className="text-xs">{t('workshop.orders.vin')}</Label>
             <div className="flex gap-1">
               <Input value={form.vin} onChange={e => set('vin', e.target.value.toUpperCase())} placeholder="WVWZZZ3CZWE123456" className={!form.vin ? 'border-amber-400 ring-1 ring-amber-300' : ''} />
-              <Button variant="outline" size="icon" onClick={handleVinSearch} disabled={lookupLoading || !form.vin.trim()} title="Szukaj po VIN">
+              <Button variant="outline" size="icon" onClick={handleVinSearch} disabled={lookupLoading || !form.vin.trim()} title={t('workshop.orders.searchByVin')}>
                 {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
               </Button>
             </div>
           </div>
           <div>
-            <Label className="text-xs">Marka</Label>
+            <Label className="text-xs">{t('workshop.orders.brand')}</Label>
             <Input value={form.brand} onChange={e => set('brand', e.target.value)} placeholder="BMW" className={!form.brand ? 'border-amber-400 ring-1 ring-amber-300' : ''} />
           </div>
           <div>
-            <Label className="text-xs">Model</Label>
+            <Label className="text-xs">{t('workshop.orders.model')}</Label>
             <Input value={form.model} onChange={e => set('model', e.target.value)} placeholder="X5" className={!form.model ? 'border-amber-400 ring-1 ring-amber-300' : ''} />
           </div>
           <div>
-            <Label className="text-xs">Pojemność silnika (cc)</Label>
+            <Label className="text-xs">{t('workshop.orders.engineCapacityCc')}</Label>
             <Input value={form.engine_capacity_cm3} onChange={e => set('engine_capacity_cm3', e.target.value)} placeholder="1998" className={!form.engine_capacity_cm3 ? 'border-amber-400 ring-1 ring-amber-300' : ''} />
           </div>
           <div>
-            <Label className="text-xs">Moc silnika (kW)</Label>
+            <Label className="text-xs">{t('workshop.orders.enginePowerKw')}</Label>
             <Input value={form.engine_power_kw} onChange={e => set('engine_power_kw', e.target.value)} placeholder="150" className={!form.engine_power_kw ? 'border-amber-400 ring-1 ring-amber-300' : ''} />
           </div>
           <div>
-            <Label className="text-xs">Rodzaj paliwa</Label>
+            <Label className="text-xs">{t('workshop.orders.fuelType')}</Label>
             <Select value={form.fuel_type} onValueChange={v => set('fuel_type', v)}>
-              <SelectTrigger><SelectValue placeholder="Wybierz" /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder={t('common.select')} /></SelectTrigger>
               <SelectContent>
                 {fuelTypes.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
           <div>
-            <Label className="text-xs">Kolor</Label>
-            <Input value={form.color} onChange={e => set('color', e.target.value)} placeholder="Czarny" />
+            <Label className="text-xs">{t('workshop.orders.color')}</Label>
+            <Input value={form.color} onChange={e => set('color', e.target.value)} placeholder={t('workshop.orders.colorPlaceholder')} />
           </div>
         </div>
 
         {credits !== null && (
-          <p className="text-xs text-muted-foreground">Pozostałe kredyty wyszukiwania: {credits.remaining_credits}</p>
+          <p className="text-xs text-muted-foreground">{t('workshop.orders.remainingCredits', { count: credits.remaining_credits })}</p>
         )}
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Anuluj</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>{t('common.cancel')}</Button>
           <Button onClick={handleSave} disabled={saving} className="gap-1">
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Zapisz
+            {t('common.save')}
           </Button>
         </DialogFooter>
       </DialogContent>

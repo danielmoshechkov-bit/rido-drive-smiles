@@ -9,6 +9,7 @@ import { WorkshopAddVehicleDialog } from './WorkshopAddVehicleDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { Plus, Search, Loader2, Car, User, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   providerId: string;
@@ -17,6 +18,7 @@ interface Props {
 }
 
 export function WorkshopVehiclesList({ providerId, onBack, onSelectVehicle }: Props) {
+  const { t } = useTranslation();
   const { data: vehicles = [], isLoading, refetch } = useWorkshopVehicles(providerId);
   const [search, setSearch] = useState('');
   const [showAdd, setShowAdd] = useState(false);
@@ -58,7 +60,7 @@ export function WorkshopVehiclesList({ providerId, onBack, onSelectVehicle }: Pr
 
   const handleBulkDelete = async () => {
     if (selected.size === 0) return;
-    if (!confirm(`Czy na pewno chcesz usunąć ${selected.size} pojazdów?`)) return;
+    if (!confirm(t('workshop.vehicles.confirmDelete', { count: selected.size }))) return;
     setDeleting(true);
     try {
       const { error } = await (supabase as any)
@@ -66,33 +68,33 @@ export function WorkshopVehiclesList({ providerId, onBack, onSelectVehicle }: Pr
         .delete()
         .in('id', Array.from(selected));
       if (error) throw error;
-      toast.success(`Usunięto ${selected.size} pojazdów`);
+      toast.success(t('workshop.vehicles.deletedCount', { count: selected.size }));
       setSelected(new Set());
       refetch();
     } catch {
-      toast.error('Błąd usuwania');
+      toast.error(t('workshop.orders.deleteError'));
     }
     setDeleting(false);
   };
 
   return (
     <div className="space-y-4">
-      <h2 className="text-2xl font-bold tracking-tight">Pojazdy</h2>
+      <h2 className="text-2xl font-bold tracking-tight">{t('workshop.dashboard.tiles.pojazdy')}</h2>
 
       <div className="flex flex-wrap items-center gap-2">
         <Button onClick={() => setShowAdd(true)} className="gap-2">
-          <Plus className="h-4 w-4" /> Utwórz
+          <Plus className="h-4 w-4" /> {t('workshop.clients.create')}
         </Button>
         {selected.size > 0 && (
           <Button variant="destructive" onClick={handleBulkDelete} disabled={deleting} className="gap-2">
             {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-            Usuń ({selected.size})
+            {t('workshop.vehicles.deleteCount', { count: selected.size })}
           </Button>
         )}
         <div className="flex-1" />
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Szukaj" className="pl-9 w-[250px]" />
+          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('common.search')} className="pl-9 w-[250px]" />
         </div>
       </div>
 
@@ -112,14 +114,14 @@ export function WorkshopVehiclesList({ providerId, onBack, onSelectVehicle }: Pr
                       onCheckedChange={toggleAll}
                     />
                   </TableHead>
-                  <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Marka / Model</TableHead>
-                  <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Nr rejestracyjny</TableHead>
-                  <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">VIN</TableHead>
-                  <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Właściciel</TableHead>
-                  <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Rok prod.</TableHead>
-                  <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Pojemność</TableHead>
-                  <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Silnik</TableHead>
-                  <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Moc silnika</TableHead>
+                  <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t('workshop.vehicles.colBrandModel')}</TableHead>
+                  <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t('workshop.orders.plateNumber')}</TableHead>
+                  <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t('workshop.orders.vin')}</TableHead>
+                  <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t('workshop.vehicles.owner')}</TableHead>
+                  <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t('workshop.orders.yearOfProd')}</TableHead>
+                  <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t('workshop.orders.capacity')}</TableHead>
+                  <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t('workshop.vehicles.engine')}</TableHead>
+                  <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t('workshop.vehicles.enginePower')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -162,7 +164,7 @@ export function WorkshopVehiclesList({ providerId, onBack, onSelectVehicle }: Pr
                 {filtered.length === 0 && !isLoading && (
                   <TableRow>
                     <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                      Brak pojazdów
+                      {t('workshop.vehicles.noVehicles')}
                     </TableCell>
                   </TableRow>
                 )}
@@ -173,7 +175,7 @@ export function WorkshopVehiclesList({ providerId, onBack, onSelectVehicle }: Pr
       </Card>
 
       <div className="text-sm text-muted-foreground">
-        Od 1 do {filtered.length} z {vehicles.length} wyników
+        {t('workshop.clients.resultsRange', { shown: filtered.length, total: vehicles.length })}
       </div>
 
       <WorkshopAddVehicleDialog open={showAdd} onOpenChange={setShowAdd} providerId={providerId} />
