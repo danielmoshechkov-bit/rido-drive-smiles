@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   providerId: string;
@@ -23,8 +24,10 @@ interface Props {
 
 const ROW_HEIGHT = 56; // px — stała wysokość każdego wiersza godziny
 
-export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Terminarz', focusOrderId }: Props) {
+export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrderId }: Props) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const resolvedTitle = title ?? t('workshop.scheduler.title');
   // For 'day' view: anchor = current day. For 'week' view: anchor = Monday of week.
   const [currentWeekStart, setCurrentWeekStart] = useState(new Date());
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -161,7 +164,7 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Termin
         _isBooking: true,
         _bookingStatus: b.status,
         _confirmedAt: b.confirmed_at,
-        order_number: `${b.first_name || ''} ${b.last_name || ''}`.trim() || 'Rezerwacja',
+        order_number: `${b.first_name || ''} ${b.last_name || ''}`.trim() || t('workshop.scheduler.booking'),
         scheduled_start: startDate.toISOString(),
         scheduled_end: endDate.toISOString(),
         scheduled_station_id: b.station_id,
@@ -181,7 +184,7 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Termin
         _bookingId: b.id,
         _isBooking: true,
         _isPortal: true,
-        order_number: `🌐 ${b.customer_name || 'Portal'} (${b.booking_number})`,
+        order_number: `🌐 ${b.customer_name || t('workshop.scheduler.portal')} (${b.booking_number})`,
         scheduled_start: startDate.toISOString(),
         scheduled_end: endDate.toISOString(),
         scheduled_station_id: null,
@@ -241,7 +244,7 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Termin
       queryClient.invalidateQueries({ queryKey: ['workshop-workstations'] });
       queryClient.invalidateQueries({ queryKey: ['calendar-workstations'] });
       queryClient.invalidateQueries({ queryKey: ['settings-workstations'] });
-      toast.success('Stanowisko dodane');
+      toast.success(t('workshop.scheduler.stationAdded'));
     },
   });
 
@@ -345,12 +348,12 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Termin
   const handleDrop = async (day: Date, hour: number, stationId: string) => {
     if (!draggedOrder) return;
     if (isCellOccupied(stationId, day, hour) && !getOrderStartingAt(stationId, day, hour)) {
-      toast.error('Slot zajęty');
+      toast.error(t('workshop.scheduler.slotTaken'));
       resetDrag();
       return;
     }
     const existing = getOrderStartingAt(stationId, day, hour);
-    if (existing && existing.id !== draggedOrder.id) { toast.error('Slot zajęty'); resetDrag(); return; }
+    if (existing && existing.id !== draggedOrder.id) { toast.error(t('workshop.scheduler.slotTaken')); resetDrag(); return; }
     const scheduledStart = new Date(day);
     scheduledStart.setHours(hour, 0, 0, 0);
     const span = getOrderSpan(draggedOrder);
@@ -358,8 +361,8 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Termin
     scheduledEnd.setHours(hour + span, 0, 0, 0);
     try {
       await updateOrder.mutateAsync({ id: draggedOrder.id, scheduled_start: scheduledStart.toISOString(), scheduled_end: scheduledEnd.toISOString(), scheduled_station_id: stationId });
-      toast.success(`Zlecenie ${draggedOrder.order_number} → ${format(day, 'dd.MM')} ${hour}:00`);
-    } catch { toast.error('Nie udało się zaplanować'); }
+      toast.success(t('workshop.scheduler.orderScheduledTo', { order: draggedOrder.order_number, date: format(day, 'dd.MM'), hour }));
+    } catch { toast.error(t('workshop.scheduler.scheduleFailed')); }
     resetDrag();
   };
 
@@ -367,8 +370,8 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Termin
     if (!draggedOrder || dragSource !== 'scheduled') return;
     try {
       await updateOrder.mutateAsync({ id: draggedOrder.id, scheduled_start: null, scheduled_end: null, scheduled_station_id: null });
-      toast.success(`Zlecenie ${draggedOrder.order_number} cofnięte`);
-    } catch { toast.error('Błąd'); }
+      toast.success(t('workshop.scheduler.orderUnscheduled', { order: draggedOrder.order_number }));
+    } catch { toast.error(t('workshop.scheduler.error')); }
     resetDrag();
   };
 
@@ -421,8 +424,8 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Termin
           try {
             await updateOrder.mutateAsync({ id: currentOrder.id, scheduled_start: newStart.toISOString(), scheduled_end: newEnd.toISOString() });
             const hours = Math.round((newEnd.getTime() - newStart.getTime()) / (1000 * 60 * 60));
-            toast.success(`Czas pracy: ${hours}h`);
-          } catch { toast.error('Błąd zmiany czasu'); }
+            toast.success(t('workshop.scheduler.workTime', { hours }));
+          } catch { toast.error(t('workshop.scheduler.timeChangeError')); }
         }
       }
       setResizingOrder(null);
@@ -479,7 +482,7 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Termin
 
   return (
     <div className="flex min-h-0 flex-col">
-      {title && <h2 className="text-2xl font-bold tracking-tight mb-3">{title}</h2>}
+      {resolvedTitle && <h2 className="text-2xl font-bold tracking-tight mb-3">{resolvedTitle}</h2>}
 
       {/* Unplanned orders */}
       <Card
@@ -491,24 +494,24 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Termin
         <CardContent className="py-3">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-base">Zadania do rozplanowania</h3>
+              <h3 className="font-semibold text-base">{t('workshop.scheduler.tasksToSchedule')}</h3>
               <Button size="sm" onClick={() => { setSlotData({ day: weekDays[0], hour: HOURS[0], stationId: categoryStations[0]?.id || '__default' }); setShowSlotDialog(true); }} className="gap-1.5 ml-2 h-7 text-xs">
-                <Plus className="h-3.5 w-3.5" /> Dodaj
+                <Plus className="h-3.5 w-3.5" /> {t('workshop.scheduler.add')}
               </Button>
               {dragSource === 'scheduled' && (
                 <span className="text-xs text-orange-600 font-medium flex items-center gap-1 animate-pulse">
-                  <Undo2 className="h-3 w-3" /> Upuść tutaj aby cofnąć
+                  <Undo2 className="h-3 w-3" /> {t('workshop.scheduler.dropToUnschedule')}
                 </span>
               )}
             </div>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Szukaj" className="pl-9 w-[200px] h-8" />
+              <Input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('workshop.scheduler.search')} className="pl-9 w-[200px] h-8" />
             </div>
           </div>
           <div className="flex gap-2 overflow-x-auto pb-1">
             {unplannedOrders.length === 0 ? (
-              <div className="text-sm text-muted-foreground py-3 text-center w-full">Brak zadań do rozplanowania</div>
+              <div className="text-sm text-muted-foreground py-3 text-center w-full">{t('workshop.scheduler.noTasksToSchedule')}</div>
             ) : (
               unplannedOrders.map((o: any) => (
                 <OrderCard key={o.id} order={o} onDragStart={() => { setDraggedOrder(o); setDragSource('unplanned'); }} onDragEnd={resetDrag} isFocused={o.id === focusOrderId} employees={employees} updateOrder={updateOrder} />
@@ -532,19 +535,19 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Termin
             </Button>
           </div>
           <Button variant="outline" size="sm" className="gap-1 text-xs h-7" onClick={() => { setNewStationCategory(activeCategory); setShowAddStation(true); }}>
-            <Plus className="h-3 w-3" /> Stanowisko
+            <Plus className="h-3 w-3" /> {t('workshop.scheduler.station')}
           </Button>
         </div>
 
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" className="h-7 w-7 flex-shrink-0" onClick={handlePrev}><ChevronLeft className="h-4 w-4" /></Button>
-          <Button variant="outline" size="sm" className="h-7 text-xs flex-shrink-0" onClick={goToToday}>Dziś</Button>
+          <Button variant="outline" size="sm" className="h-7 text-xs flex-shrink-0" onClick={goToToday}>{t('workshop.scheduler.today')}</Button>
           <Button variant="outline" size="icon" className="h-7 w-7 flex-shrink-0" onClick={handleNext}><ChevronRight className="h-4 w-4" /></Button>
           <h3 className="text-sm font-semibold capitalize text-left" style={{ minWidth: '240px' }}>{headerLabel}</h3>
           <div className="flex items-center gap-0.5 border rounded-lg p-0.5 ml-2">
             {(['day', 'week', 'month'] as const).map(mode => (
               <Button key={mode} variant={viewMode === mode ? 'default' : 'ghost'} size="sm" className="h-7 text-xs" onClick={() => setViewMode(mode)}>
-                {mode === 'day' ? 'Dzień' : mode === 'week' ? 'Tydzień' : 'Miesiąc'}
+                {mode === 'day' ? t('workshop.scheduler.viewDay') : mode === 'week' ? t('workshop.scheduler.viewWeek') : t('workshop.scheduler.viewMonth')}
               </Button>
             ))}
           </div>
@@ -555,8 +558,8 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Termin
       {viewMode === 'month' ? (
         <div className="h-[calc(100vh-240px)] min-h-[420px] overflow-auto rounded-xl border-2 border-foreground/20 shadow-lg">
           <div className="grid grid-cols-7 bg-[hsl(220,30%,95%)] dark:bg-[hsl(220,20%,20%)]">
-            {['Pon', 'Wt', 'Śr', 'Czw', 'Pt', 'Sob', 'Nd'].map(d => (
-              <div key={d} className="p-2 text-center text-xs font-bold text-foreground border-b border-r border-foreground/15">{d}</div>
+            {['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map(d => (
+              <div key={d} className="p-2 text-center text-xs font-bold text-foreground border-b border-r border-foreground/15">{t(`workshop.scheduler.weekday.${d}`)}</div>
             ))}
           </div>
           <div className="grid grid-cols-7">
@@ -571,7 +574,7 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Termin
                   {dayOrders.slice(0, 3).map((o: any) => (
                     <div key={o.id} className="text-[9px] bg-primary/20 text-primary rounded px-1 py-0.5 mb-0.5 truncate">{o.vehicle?.plate || o.order_number}</div>
                   ))}
-                  {dayOrders.length > 3 && <div className="text-[9px] text-muted-foreground">+{dayOrders.length - 3} więcej</div>}
+                  {dayOrders.length > 3 && <div className="text-[9px] text-muted-foreground">{t('workshop.scheduler.andMore', { count: dayOrders.length - 3 })}</div>}
                 </div>
               );
             })}
@@ -593,7 +596,7 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Termin
               <thead className="sticky top-0 z-20">
                 <tr>
                   <th className="bg-[hsl(220,30%,95%)] dark:bg-[hsl(220,20%,20%)] border-b-2 border-r-2 border-foreground/20 p-2 text-left text-foreground font-bold" rowSpan={2}>
-                    Godzina
+                    {t('workshop.scheduler.hour')}
                   </th>
                   {categoryStations.map((st: any, stIdx: number) => (
                     <th key={st.id} colSpan={weekDays.length} className={`bg-[hsl(220,80%,50%)] text-white border-b border-foreground/20 p-1.5 text-center ${stIdx < categoryStations.length - 1 ? 'border-r-[3px] border-r-foreground/40' : 'border-r-2 border-r-foreground/20'}`}>
@@ -717,14 +720,14 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Termin
       {/* Add Station Dialog */}
       <Dialog open={showAddStation} onOpenChange={setShowAddStation}>
         <DialogContent className="max-w-sm">
-          <DialogHeader><DialogTitle>Dodaj stanowisko</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t('workshop.scheduler.addStation')}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div>
-              <Label>Nazwa stanowiska</Label>
-              <Input value={newStationName} onChange={e => setNewStationName(e.target.value)} placeholder="np. Podnośnik 1" />
+              <Label>{t('workshop.scheduler.stationName')}</Label>
+              <Input value={newStationName} onChange={e => setNewStationName(e.target.value)} placeholder={t('workshop.scheduler.stationNamePlaceholder')} />
             </div>
             <div>
-              <Label>Kategoria</Label>
+              <Label>{t('workshop.scheduler.category')}</Label>
               <Select value={newStationCategory} onValueChange={setNewStationCategory}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -734,8 +737,8 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Termin
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddStation(false)}>Anuluj</Button>
-            <Button onClick={() => { if (newStationName.trim()) { addStationMut.mutate({ name: newStationName.trim(), category: newStationCategory }); setNewStationName(''); setShowAddStation(false); } }}>Dodaj</Button>
+            <Button variant="outline" onClick={() => setShowAddStation(false)}>{t('common.cancel')}</Button>
+            <Button onClick={() => { if (newStationName.trim()) { addStationMut.mutate({ name: newStationName.trim(), category: newStationCategory }); setNewStationName(''); setShowAddStation(false); } }}>{t('workshop.scheduler.add')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -743,13 +746,13 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Termin
       {/* Add Category Dialog */}
       <Dialog open={showAddCategory} onOpenChange={setShowAddCategory}>
         <DialogContent className="max-w-sm">
-          <DialogHeader><DialogTitle>Dodaj kategorię</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t('workshop.scheduler.addCategory')}</DialogTitle></DialogHeader>
           <div className="space-y-3">
-            <Label>Nazwa kategorii</Label>
-            <Input value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} placeholder="np. Myjnia, Lakiernia" />
+            <Label>{t('workshop.scheduler.categoryName')}</Label>
+            <Input value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} placeholder={t('workshop.scheduler.categoryNamePlaceholder')} />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddCategory(false)}>Anuluj</Button>
+            <Button variant="outline" onClick={() => setShowAddCategory(false)}>{t('common.cancel')}</Button>
             <Button onClick={() => {
               if (newCategoryName.trim()) {
                 addStationMut.mutate({ name: `${newCategoryName.trim()} 1`, category: newCategoryName.trim() });
@@ -757,7 +760,7 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Termin
                 setNewCategoryName('');
                 setShowAddCategory(false);
               }
-            }}>Dodaj</Button>
+            }}>{t('workshop.scheduler.add')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -782,8 +785,8 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title = 'Termin
           scheduledEnd.setHours(hour + 1, 0, 0, 0);
           try {
             await updateOrder.mutateAsync({ id: orderId, scheduled_start: scheduledStart.toISOString(), scheduled_end: scheduledEnd.toISOString(), scheduled_station_id: stationId });
-            toast.success('Zlecenie dodane do terminarza');
-          } catch { toast.error('Nie udało się zaplanować'); }
+            toast.success(t('workshop.scheduler.orderAddedToSchedule'));
+          } catch { toast.error(t('workshop.scheduler.scheduleFailed')); }
         }}
         onStationChange={(stationId) => {
           if (slotData) setSlotData({ ...slotData, stationId });
@@ -799,6 +802,7 @@ function ScheduledOrderBlock({ order, displaySpan, employees, updateOrder, onDra
   onDragStart: () => void; onDragEnd: () => void;
   onResizeStart: (e: React.MouseEvent, order: any, direction: 'top' | 'bottom') => void;
 }) {
+  const { t } = useTranslation();
   const isBooking = !!order._isBooking;
   const [showPreview, setShowPreview] = useState(false);
   const [assignedEmployee, setAssignedEmployee] = useState(order.assigned_employee_id || 'none');
@@ -808,8 +812,8 @@ function ScheduledOrderBlock({ order, displaySpan, employees, updateOrder, onDra
     if (isBooking) return;
     try {
       await updateOrder.mutateAsync({ id: order.id, assigned_employee_id: empId === 'none' ? null : empId });
-      toast.success('Pracownik przypisany');
-    } catch { toast.error('Błąd przypisania'); }
+      toast.success(t('workshop.scheduler.employeeAssigned'));
+    } catch { toast.error(t('workshop.scheduler.assignError')); }
   };
 
   const isConfirmed = order._bookingStatus === 'confirmed' || !!order._confirmedAt;
@@ -842,7 +846,7 @@ function ScheduledOrderBlock({ order, displaySpan, employees, updateOrder, onDra
           <div className={`flex items-center gap-0.5 font-semibold ${isBooking ? '' : 'mt-2'}`}>
             {!isBooking && <GripVertical className="h-3 w-3 opacity-60 flex-shrink-0" />}
             {isBooking ? <Phone className="h-3 w-3 flex-shrink-0" /> : <Car className="h-3 w-3 flex-shrink-0" />}
-            <span className="truncate">{isBooking ? order.order_number : (order.vehicle ? `${order.vehicle.brand} ${order.vehicle.model}` : 'Zlecenie')}</span>
+            <span className="truncate">{isBooking ? order.order_number : (order.vehicle ? `${order.vehicle.brand} ${order.vehicle.model}` : t('workshop.scheduler.order'))}</span>
           </div>
           {isBooking ? (
             <>
@@ -868,14 +872,14 @@ function ScheduledOrderBlock({ order, displaySpan, employees, updateOrder, onDra
       <PopoverContent className="w-80 p-0" side="right" align="start">
         <div className="p-3 space-y-3">
           <div className="flex items-center justify-between">
-            <h4 className="font-bold text-sm flex items-center gap-1.5"><Eye className="h-4 w-4" /> {isBooking ? 'Podgląd rezerwacji' : 'Podgląd zlecenia'}</h4>
+            <h4 className="font-bold text-sm flex items-center gap-1.5"><Eye className="h-4 w-4" /> {isBooking ? t('workshop.scheduler.bookingPreview') : t('workshop.scheduler.orderPreview')}</h4>
             <span className="text-xs text-muted-foreground">{order.order_number}</span>
           </div>
-          
+
           {/* Client */}
           {order.client && (
             <div className="space-y-1 border-b pb-2">
-              <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Klient</div>
+              <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">{t('workshop.scheduler.client')}</div>
               <div className="text-sm font-semibold flex items-center gap-1.5">
                 <User className="h-3.5 w-3.5" />
                 {order.client.first_name} {order.client.last_name}
@@ -891,16 +895,16 @@ function ScheduledOrderBlock({ order, displaySpan, employees, updateOrder, onDra
           {/* Vehicle */}
           {order.vehicle && (
             <div className="space-y-1 border-b pb-2">
-              <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Pojazd</div>
+              <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">{t('workshop.scheduler.vehicle')}</div>
               <div className="text-sm font-semibold flex items-center gap-1.5">
                 <Car className="h-3.5 w-3.5" />
                 {order.vehicle.brand} {order.vehicle.model}
               </div>
               <div className="grid grid-cols-2 gap-1 text-xs text-muted-foreground">
-                {order.vehicle.plate && <span>Nr rej: <b className="text-foreground">{order.vehicle.plate}</b></span>}
+                {order.vehicle.plate && <span>{t('workshop.scheduler.plate')}: <b className="text-foreground">{order.vehicle.plate}</b></span>}
                 {order.vehicle.vin && <span>VIN: <b className="text-foreground text-[10px]">{order.vehicle.vin}</b></span>}
-                {order.vehicle.engine && <span>Silnik: <b className="text-foreground">{order.vehicle.engine}</b></span>}
-                {order.vehicle.power && <span>Moc: <b className="text-foreground">{order.vehicle.power}</b></span>}
+                {order.vehicle.engine && <span>{t('workshop.scheduler.engine')}: <b className="text-foreground">{order.vehicle.engine}</b></span>}
+                {order.vehicle.power && <span>{t('workshop.scheduler.power')}: <b className="text-foreground">{order.vehicle.power}</b></span>}
               </div>
             </div>
           )}
@@ -908,24 +912,24 @@ function ScheduledOrderBlock({ order, displaySpan, employees, updateOrder, onDra
           {/* Tasks */}
           {order.items?.length > 0 && (
             <div className="space-y-1 border-b pb-2">
-              <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Zadania ({order.items.length})</div>
+              <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">{t('workshop.scheduler.tasks', { count: order.items.length })}</div>
               {order.items.slice(0, 5).map((item: any, idx: number) => (
                 <div key={idx} className="text-xs flex items-start gap-1">
                   <Wrench className="h-3 w-3 flex-shrink-0 mt-0.5" />
                   <span>{item.name}</span>
                 </div>
               ))}
-              {order.items.length > 5 && <div className="text-[10px] text-muted-foreground">...i {order.items.length - 5} więcej</div>}
+              {order.items.length > 5 && <div className="text-[10px] text-muted-foreground">{t('workshop.scheduler.andMoreEllipsis', { count: order.items.length - 5 })}</div>}
             </div>
           )}
 
           {!isBooking && (
             <div className="space-y-1">
-              <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Pracownik</div>
+              <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">{t('workshop.scheduler.employee')}</div>
               <Select value={assignedEmployee} onValueChange={handleAssignEmployee}>
-                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Przypisz pracownika..." /></SelectTrigger>
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder={t('workshop.scheduler.assignEmployeePlaceholder')} /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Brak</SelectItem>
+                  <SelectItem value="none">{t('workshop.scheduler.none')}</SelectItem>
                   {employees.map((emp: any) => (
                     <SelectItem key={emp.id} value={emp.id}>{emp.name}</SelectItem>
                   ))}
@@ -940,6 +944,7 @@ function ScheduledOrderBlock({ order, displaySpan, employees, updateOrder, onDra
 }
 
 function OrderCard({ order, onDragStart, onDragEnd, isFocused, employees, updateOrder }: { order: any; onDragStart: () => void; onDragEnd: () => void; isFocused?: boolean; employees: any[]; updateOrder: any }) {
+  const { t } = useTranslation();
   const [showPreview, setShowPreview] = useState(false);
   const [assignedEmployee, setAssignedEmployee] = useState(order.assigned_employee_id || 'none');
 
@@ -947,8 +952,8 @@ function OrderCard({ order, onDragStart, onDragEnd, isFocused, employees, update
     setAssignedEmployee(empId || 'none');
     try {
       await updateOrder.mutateAsync({ id: order.id, assigned_employee_id: empId === 'none' ? null : empId });
-      toast.success('Pracownik przypisany');
-    } catch { toast.error('Błąd'); }
+      toast.success(t('workshop.scheduler.employeeAssigned'));
+    } catch { toast.error(t('workshop.scheduler.error')); }
   };
 
   return (
@@ -961,12 +966,12 @@ function OrderCard({ order, onDragStart, onDragEnd, isFocused, employees, update
         >
           <CardContent className="p-2.5 space-y-0.5">
             {isFocused && (
-              <div className="text-[10px] font-bold text-amber-600 uppercase tracking-wider mb-1">← Bieżące zlecenie</div>
+              <div className="text-[10px] font-bold text-amber-600 uppercase tracking-wider mb-1">{t('workshop.scheduler.currentOrder')}</div>
             )}
             <div className="flex items-center gap-1.5 text-xs font-medium">
               <GripVertical className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
               <Car className="h-3.5 w-3.5 text-muted-foreground" />
-              {order.vehicle ? `${order.vehicle.brand} ${order.vehicle.model} ${order.vehicle.plate || ''}` : 'Brak pojazdu'}
+              {order.vehicle ? `${order.vehicle.brand} ${order.vehicle.model} ${order.vehicle.plate || ''}` : t('workshop.scheduler.noVehicle')}
             </div>
             <div className="text-[10px] text-muted-foreground">{order.order_number}</div>
             {order.items?.slice(0, 2).map((item: any, idx: number) => (
@@ -980,43 +985,43 @@ function OrderCard({ order, onDragStart, onDragEnd, isFocused, employees, update
       <PopoverContent className="w-80 p-0" side="bottom" align="start">
         <div className="p-3 space-y-3">
           <div className="flex items-center justify-between">
-            <h4 className="font-bold text-sm flex items-center gap-1.5"><Eye className="h-4 w-4" /> Podgląd zlecenia</h4>
+            <h4 className="font-bold text-sm flex items-center gap-1.5"><Eye className="h-4 w-4" /> {t('workshop.scheduler.orderPreview')}</h4>
             <span className="text-xs text-muted-foreground">{order.order_number}</span>
           </div>
           {order.client && (
             <div className="space-y-1 border-b pb-2">
-              <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Klient</div>
+              <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">{t('workshop.scheduler.client')}</div>
               <div className="text-sm font-semibold flex items-center gap-1.5"><User className="h-3.5 w-3.5" />{order.client.first_name} {order.client.last_name}</div>
               {order.client.phone && <div className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="h-3 w-3" /> {order.client.phone}</div>}
             </div>
           )}
           {order.vehicle && (
             <div className="space-y-1 border-b pb-2">
-              <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Pojazd</div>
+              <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">{t('workshop.scheduler.vehicle')}</div>
               <div className="text-sm font-semibold flex items-center gap-1.5"><Car className="h-3.5 w-3.5" />{order.vehicle.brand} {order.vehicle.model}</div>
               <div className="grid grid-cols-2 gap-1 text-xs text-muted-foreground">
-                {order.vehicle.plate && <span>Nr rej: <b className="text-foreground">{order.vehicle.plate}</b></span>}
+                {order.vehicle.plate && <span>{t('workshop.scheduler.plate')}: <b className="text-foreground">{order.vehicle.plate}</b></span>}
                 {order.vehicle.vin && <span>VIN: <b className="text-foreground text-[10px]">{order.vehicle.vin}</b></span>}
-                {order.vehicle.engine && <span>Silnik: <b className="text-foreground">{order.vehicle.engine}</b></span>}
-                {order.vehicle.power && <span>Moc: <b className="text-foreground">{order.vehicle.power}</b></span>}
+                {order.vehicle.engine && <span>{t('workshop.scheduler.engine')}: <b className="text-foreground">{order.vehicle.engine}</b></span>}
+                {order.vehicle.power && <span>{t('workshop.scheduler.power')}: <b className="text-foreground">{order.vehicle.power}</b></span>}
               </div>
             </div>
           )}
           {order.items?.length > 0 && (
             <div className="space-y-1 border-b pb-2">
-              <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Zadania ({order.items.length})</div>
+              <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">{t('workshop.scheduler.tasks', { count: order.items.length })}</div>
               {order.items.slice(0, 5).map((item: any, idx: number) => (
                 <div key={idx} className="text-xs flex items-start gap-1"><Wrench className="h-3 w-3 flex-shrink-0 mt-0.5" /><span>{item.name}</span></div>
               ))}
-              {order.items.length > 5 && <div className="text-[10px] text-muted-foreground">...i {order.items.length - 5} więcej</div>}
+              {order.items.length > 5 && <div className="text-[10px] text-muted-foreground">{t('workshop.scheduler.andMoreEllipsis', { count: order.items.length - 5 })}</div>}
             </div>
           )}
           <div className="space-y-1">
-            <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Pracownik</div>
+            <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">{t('workshop.scheduler.employee')}</div>
             <Select value={assignedEmployee} onValueChange={handleAssignEmployee}>
-              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Przypisz pracownika..." /></SelectTrigger>
+              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder={t('workshop.scheduler.assignEmployeePlaceholder')} /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">Brak</SelectItem>
+                <SelectItem value="none">{t('workshop.scheduler.none')}</SelectItem>
                 {employees.map((emp: any) => (
                   <SelectItem key={emp.id} value={emp.id}>{emp.name}</SelectItem>
                 ))}
@@ -1039,6 +1044,7 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
   onSchedule: (orderId: string, day: Date, hour: number, stationId: string) => Promise<void>;
   onStationChange: (stationId: string) => void;
 }) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [selectedOrderId, setSelectedOrderId] = useState('');
   const [activeTab, setActiveTab] = useState<'client' | 'event' | 'order'>('client');
@@ -1092,7 +1098,7 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
 
   const handleSaveClient = async () => {
     if (!clientForm.phone) {
-      toast.error('Numer telefonu jest wymagany');
+      toast.error(t('workshop.scheduler.phoneRequired'));
       return;
     }
     setSaving(true);
@@ -1189,20 +1195,20 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
 
           if (smsError) {
             console.error('SMS confirmation error:', smsError);
-            toast.error('Rezerwacja zapisana, ale SMS nie został wysłany');
+            toast.error(t('workshop.scheduler.bookingSavedSmsFailed'));
           } else {
             await (supabase as any)
               .from('workshop_client_bookings')
               .update({ confirmation_sms_sent: true })
               .eq('id', insertedBooking.id);
-            toast.success('Klient umówiony, SMS potwierdzający wysłany');
+            toast.success(t('workshop.scheduler.clientBookedSmsSent'));
           }
         } catch (smsErr) {
           console.error('SMS send failed:', smsErr);
-          toast.error('Rezerwacja zapisana, ale SMS nie został wysłany');
+          toast.error(t('workshop.scheduler.bookingSavedSmsFailed'));
         }
       } else {
-        toast.success('Klient umówiony');
+        toast.success(t('workshop.scheduler.clientBooked'));
       }
 
       queryClient.invalidateQueries({ queryKey: ['workshop-bookings'] });
@@ -1210,19 +1216,19 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
       onOpenChange(false);
       setClientForm({ phone: '', firstName: '', lastName: '', plate: '', brand: '', model: '', serviceDesc: '', duration: '60', reminderOptions: ['24h', '2h'], sendConfirmationSms: true });
     } catch (err: any) {
-      toast.error(err.message || 'Błąd zapisu');
+      toast.error(err.message || t('workshop.scheduler.saveError'));
     } finally {
       setSaving(false);
     }
   };
 
   const REMINDER_OPTIONS = [
-    { value: '24h', label: '24h przed wizytą' },
-    { value: '12h', label: '12h przed wizytą' },
-    { value: '6h', label: '6h przed wizytą' },
-    { value: '4h', label: '4h przed wizytą' },
-    { value: '2h', label: '2h przed wizytą' },
-    { value: '1h', label: '1h przed wizytą' },
+    { value: '24h', labelKey: 'workshop.scheduler.reminderBefore.h24' },
+    { value: '12h', labelKey: 'workshop.scheduler.reminderBefore.h12' },
+    { value: '6h', labelKey: 'workshop.scheduler.reminderBefore.h6' },
+    { value: '4h', labelKey: 'workshop.scheduler.reminderBefore.h4' },
+    { value: '2h', labelKey: 'workshop.scheduler.reminderBefore.h2' },
+    { value: '1h', labelKey: 'workshop.scheduler.reminderBefore.h1' },
   ];
 
   const toggleReminder = (val: string) => {
@@ -1239,30 +1245,30 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
     <Dialog open={open} onOpenChange={(v) => { if (!v) { setSelectedOrderId(''); setActiveTab('client'); } onOpenChange(v); }}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Nowy termin</DialogTitle>
+          <DialogTitle>{t('workshop.scheduler.newAppointment')}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           {/* Tabs */}
           <div className="flex gap-1 border rounded-lg p-0.5 bg-muted/30">
             <Button variant={activeTab === 'client' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveTab('client')} className="flex-1 text-xs">
-              Umów klienta
+              {t('workshop.scheduler.bookClient')}
             </Button>
             <Button variant={activeTab === 'event' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveTab('event')} className="flex-1 text-xs">
-              Nowe wydarzenie
+              {t('workshop.scheduler.newEvent')}
             </Button>
             <Button variant={activeTab === 'order' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveTab('order')} className="flex-1 text-xs">
-              Nowe zlecenie
+              {t('workshop.scheduler.newOrder')}
             </Button>
           </div>
 
           {/* Editable date/time/category/station info */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
             <div>
-              <Label className="font-medium text-xs">Data</Label>
+              <Label className="font-medium text-xs">{t('workshop.scheduler.date')}</Label>
               <Input type="date" value={editDate} onChange={e => setEditDate(e.target.value)} className="mt-1 h-8 text-xs" />
             </div>
             <div>
-              <Label className="font-medium text-xs">Godzina</Label>
+              <Label className="font-medium text-xs">{t('workshop.scheduler.time')}</Label>
               <div className="flex gap-1 mt-1">
                 <Input
                   inputMode="numeric"
@@ -1282,7 +1288,7 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
               </div>
             </div>
             <div>
-              <Label className="font-medium text-xs">Kategoria</Label>
+              <Label className="font-medium text-xs">{t('workshop.scheduler.category')}</Label>
               <Select
                 value={activeCategory}
                 onValueChange={(v) => {
@@ -1300,7 +1306,7 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
               </Select>
             </div>
             <div>
-              <Label className="font-medium text-xs">Stanowisko</Label>
+              <Label className="font-medium text-xs">{t('workshop.scheduler.stationLabel')}</Label>
               <Select value={editStationId} onValueChange={(v) => { setEditStationId(v); onStationChange(v); }}>
                 <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -1315,57 +1321,57 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
           {activeTab === 'client' ? (
             <div className="space-y-3">
               <div>
-                <Label className="text-sm">Nr telefonu *</Label>
+                <Label className="text-sm">{t('workshop.scheduler.phoneLabel')}</Label>
                 <Input value={clientForm.phone} onChange={e => setClientForm(f => ({...f, phone: e.target.value}))} placeholder="+48 600 000 000" type="tel" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-sm">Imię</Label>
-                  <Input value={clientForm.firstName} onChange={e => setClientForm(f => ({...f, firstName: e.target.value}))} placeholder="Jan" />
+                  <Label className="text-sm">{t('workshop.scheduler.firstName')}</Label>
+                  <Input value={clientForm.firstName} onChange={e => setClientForm(f => ({...f, firstName: e.target.value}))} placeholder={t('workshop.scheduler.firstNamePlaceholder')} />
                 </div>
                 <div>
-                  <Label className="text-sm">Nazwisko</Label>
-                  <Input value={clientForm.lastName} onChange={e => setClientForm(f => ({...f, lastName: e.target.value}))} placeholder="Kowalski" />
+                  <Label className="text-sm">{t('workshop.scheduler.lastName')}</Label>
+                  <Input value={clientForm.lastName} onChange={e => setClientForm(f => ({...f, lastName: e.target.value}))} placeholder={t('workshop.scheduler.lastNamePlaceholder')} />
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <Label className="text-sm">Nr rejestracyjny</Label>
+                  <Label className="text-sm">{t('workshop.scheduler.plateLabel')}</Label>
                   <div className="relative">
                     <Input value={clientForm.plate} onChange={e => setClientForm(f => ({...f, plate: e.target.value.toUpperCase()}))} placeholder="KRA 12345" />
                     <Search className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground cursor-pointer" />
                   </div>
                 </div>
                 <div>
-                  <Label className="text-sm">Marka</Label>
-                  <Input value={clientForm.brand} onChange={e => setClientForm(f => ({...f, brand: e.target.value}))} placeholder="np. Toyota" />
+                  <Label className="text-sm">{t('workshop.scheduler.brand')}</Label>
+                  <Input value={clientForm.brand} onChange={e => setClientForm(f => ({...f, brand: e.target.value}))} placeholder={t('workshop.scheduler.brandPlaceholder')} />
                 </div>
                 <div>
-                  <Label className="text-sm">Model</Label>
-                  <Input value={clientForm.model} onChange={e => setClientForm(f => ({...f, model: e.target.value}))} placeholder="np. Corolla" />
+                  <Label className="text-sm">{t('workshop.scheduler.model')}</Label>
+                  <Input value={clientForm.model} onChange={e => setClientForm(f => ({...f, model: e.target.value}))} placeholder={t('workshop.scheduler.modelPlaceholder')} />
                 </div>
               </div>
               <div>
-                <Label className="text-sm">Opis usługi</Label>
-                <Input value={clientForm.serviceDesc} onChange={e => setClientForm(f => ({...f, serviceDesc: e.target.value}))} placeholder="np. Wymiana oleju + filtrów" />
+                <Label className="text-sm">{t('workshop.scheduler.serviceDesc')}</Label>
+                <Input value={clientForm.serviceDesc} onChange={e => setClientForm(f => ({...f, serviceDesc: e.target.value}))} placeholder={t('workshop.scheduler.serviceDescPlaceholder')} />
               </div>
               <div>
-                <Label className="text-sm">Czas na usługę</Label>
+                <Label className="text-sm">{t('workshop.scheduler.serviceDuration')}</Label>
                 <Select value={clientForm.duration} onValueChange={v => setClientForm(f => ({...f, duration: v}))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="30">30 min</SelectItem>
-                    <SelectItem value="60">1 godz.</SelectItem>
-                    <SelectItem value="120">2 godz.</SelectItem>
-                    <SelectItem value="180">3 godz.</SelectItem>
-                    <SelectItem value="240">4 godz.</SelectItem>
-                    <SelectItem value="480">Cały dzień</SelectItem>
+                    <SelectItem value="30">{t('workshop.scheduler.dur30min')}</SelectItem>
+                    <SelectItem value="60">{t('workshop.scheduler.dur1h')}</SelectItem>
+                    <SelectItem value="120">{t('workshop.scheduler.dur2h')}</SelectItem>
+                    <SelectItem value="180">{t('workshop.scheduler.dur3h')}</SelectItem>
+                    <SelectItem value="240">{t('workshop.scheduler.dur4h')}</SelectItem>
+                    <SelectItem value="480">{t('workshop.scheduler.durAllDay')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               {/* Reminder checkboxes */}
               <div className="space-y-2">
-                <Label className="text-sm font-medium">📱 Przypomnienia SMS</Label>
+                <Label className="text-sm font-medium">📱 {t('workshop.scheduler.smsReminders')}</Label>
                 <div className="grid grid-cols-2 gap-2">
                   {REMINDER_OPTIONS.map(opt => (
                     <label key={opt.value} className="flex items-center gap-2 cursor-pointer p-1.5 rounded border bg-muted/20 hover:bg-muted/40 transition-colors">
@@ -1375,7 +1381,7 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
                         onChange={() => toggleReminder(opt.value)}
                         className="rounded"
                       />
-                      <span className="text-xs">{opt.label}</span>
+                      <span className="text-xs">{t(opt.labelKey)}</span>
                     </label>
                   ))}
                 </div>
@@ -1389,99 +1395,99 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
                   className="rounded"
                 />
                 <div>
-                  <span className="text-xs font-medium">📩 Wyślij SMS z potwierdzeniem rezerwacji</span>
-                  <p className="text-[10px] text-muted-foreground">Klient otrzyma SMS z datą, godziną i linkiem „Dodaj do kalendarza"</p>
+                  <span className="text-xs font-medium">📩 {t('workshop.scheduler.sendConfirmationSms')}</span>
+                  <p className="text-[10px] text-muted-foreground">{t('workshop.scheduler.confirmationSmsHint')}</p>
                 </div>
               </label>
               <div className="flex justify-end gap-2 pt-1">
-                <Button variant="outline" onClick={() => onOpenChange(false)}>Anuluj</Button>
+                <Button variant="outline" onClick={() => onOpenChange(false)}>{t('common.cancel')}</Button>
                 <Button onClick={handleSaveClient} disabled={saving}>
-                  {saving ? 'Zapisywanie...' : 'Umów klienta'}
+                  {saving ? t('common.saving') : t('workshop.scheduler.bookClient')}
                 </Button>
               </div>
             </div>
           ) : activeTab === 'event' ? (
             <div className="space-y-3">
               <div>
-                <Label>Usługa / czynność</Label>
-                <Input value={eventForm.service} onChange={e => setEventForm(f => ({...f, service: e.target.value}))} placeholder="Wybierz usługę lub czynność" />
+                <Label>{t('workshop.scheduler.serviceOrActivity')}</Label>
+                <Input value={eventForm.service} onChange={e => setEventForm(f => ({...f, service: e.target.value}))} placeholder={t('workshop.scheduler.serviceOrActivityPlaceholder')} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label>Typ</Label>
+                  <Label>{t('workshop.scheduler.type')}</Label>
                   <Select value={eventForm.type} onValueChange={v => setEventForm(f => ({...f, type: v}))}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Wydarzenie">Wydarzenie</SelectItem>
-                      <SelectItem value="Zadanie">Zadanie</SelectItem>
-                      <SelectItem value="Przerwa">Przerwa</SelectItem>
+                      <SelectItem value="Wydarzenie">{t('workshop.scheduler.eventType.event')}</SelectItem>
+                      <SelectItem value="Zadanie">{t('workshop.scheduler.eventType.task')}</SelectItem>
+                      <SelectItem value="Przerwa">{t('workshop.scheduler.eventType.break')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div>
-                  <Label>Kolor</Label>
+                  <Label>{t('workshop.scheduler.color')}</Label>
                   <Select value={eventForm.color} onValueChange={v => setEventForm(f => ({...f, color: v}))}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Niebieski">🔵 Niebieski</SelectItem>
-                      <SelectItem value="Fioletowy">🟣 Fioletowy</SelectItem>
-                      <SelectItem value="Zielony">🟢 Zielony</SelectItem>
-                      <SelectItem value="Czerwony">🔴 Czerwony</SelectItem>
-                      <SelectItem value="Pomarańczowy">🟠 Pomarańczowy</SelectItem>
+                      <SelectItem value="Niebieski">🔵 {t('workshop.scheduler.colorOpt.blue')}</SelectItem>
+                      <SelectItem value="Fioletowy">🟣 {t('workshop.scheduler.colorOpt.purple')}</SelectItem>
+                      <SelectItem value="Zielony">🟢 {t('workshop.scheduler.colorOpt.green')}</SelectItem>
+                      <SelectItem value="Czerwony">🔴 {t('workshop.scheduler.colorOpt.red')}</SelectItem>
+                      <SelectItem value="Pomarańczowy">🟠 {t('workshop.scheduler.colorOpt.orange')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
               <div>
-                <Label>Czas trwania</Label>
+                <Label>{t('workshop.scheduler.duration')}</Label>
                 <Select value={eventForm.duration} onValueChange={v => setEventForm(f => ({...f, duration: v}))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="30 min">30 min</SelectItem>
-                    <SelectItem value="1 godz.">1 godz.</SelectItem>
-                    <SelectItem value="2 godz.">2 godz.</SelectItem>
-                    <SelectItem value="3 godz.">3 godz.</SelectItem>
-                    <SelectItem value="4 godz.">4 godz.</SelectItem>
-                    <SelectItem value="Cały dzień">Cały dzień</SelectItem>
+                    <SelectItem value="30 min">{t('workshop.scheduler.dur30min')}</SelectItem>
+                    <SelectItem value="1 godz.">{t('workshop.scheduler.dur1h')}</SelectItem>
+                    <SelectItem value="2 godz.">{t('workshop.scheduler.dur2h')}</SelectItem>
+                    <SelectItem value="3 godz.">{t('workshop.scheduler.dur3h')}</SelectItem>
+                    <SelectItem value="4 godz.">{t('workshop.scheduler.dur4h')}</SelectItem>
+                    <SelectItem value="Cały dzień">{t('workshop.scheduler.durAllDay')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label>Pracownik</Label>
-                <Input value={eventForm.worker} onChange={e => setEventForm(f => ({...f, worker: e.target.value}))} placeholder="Wybierz pracownika (opcjonalnie)" />
+                <Label>{t('workshop.scheduler.employee')}</Label>
+                <Input value={eventForm.worker} onChange={e => setEventForm(f => ({...f, worker: e.target.value}))} placeholder={t('workshop.scheduler.selectEmployeeOptional')} />
               </div>
               <div>
-                <Label>Opis</Label>
-                <Input value={eventForm.description} onChange={e => setEventForm(f => ({...f, description: e.target.value}))} placeholder="Dodatkowe informacje..." />
+                <Label>{t('workshop.scheduler.descriptionLabel')}</Label>
+                <Input value={eventForm.description} onChange={e => setEventForm(f => ({...f, description: e.target.value}))} placeholder={t('workshop.scheduler.additionalInfoPlaceholder')} />
               </div>
               <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => onOpenChange(false)}>Anuluj</Button>
-                <Button onClick={() => { toast.success('Wydarzenie dodane'); onOpenChange(false); }}>Zapisz wydarzenie</Button>
+                <Button variant="outline" onClick={() => onOpenChange(false)}>{t('common.cancel')}</Button>
+                <Button onClick={() => { toast.success(t('workshop.scheduler.eventAdded')); onOpenChange(false); }}>{t('workshop.scheduler.saveEvent')}</Button>
               </div>
             </div>
           ) : (
             <div className="space-y-3">
               {unplannedOrders.length > 0 && (
                 <div>
-                  <label className="text-sm font-medium mb-1.5 block">Wybierz istniejące zlecenie</label>
+                  <label className="text-sm font-medium mb-1.5 block">{t('workshop.scheduler.selectExistingOrder')}</label>
                   <Select value={selectedOrderId} onValueChange={setSelectedOrderId}>
-                    <SelectTrigger><SelectValue placeholder="Wybierz zlecenie z listy..." /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={t('workshop.scheduler.selectOrderPlaceholder')} /></SelectTrigger>
                     <SelectContent>
                       {unplannedOrders.map((o: any) => (
                         <SelectItem key={o.id} value={o.id}>
-                          {o.order_number} — {o.vehicle ? `${o.vehicle.brand} ${o.vehicle.model}` : 'Brak pojazdu'}
+                          {o.order_number} — {o.vehicle ? `${o.vehicle.brand} ${o.vehicle.model}` : t('workshop.scheduler.noVehicle')}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
               )}
-              <div className="text-center text-sm text-muted-foreground py-2">lub</div>
-              <Button variant="outline" className="w-full gap-2" onClick={() => { onOpenChange(false); toast.info('Otwórz formularz nowego zlecenia z sekcji Zlecenia'); }}>
-                <Plus className="h-4 w-4" /> Utwórz nowe zlecenie
+              <div className="text-center text-sm text-muted-foreground py-2">{t('workshop.scheduler.or')}</div>
+              <Button variant="outline" className="w-full gap-2" onClick={() => { onOpenChange(false); toast.info(t('workshop.scheduler.openNewOrderForm')); }}>
+                <Plus className="h-4 w-4" /> {t('workshop.scheduler.createNewOrder')}
               </Button>
               <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => onOpenChange(false)}>Anuluj</Button>
+                <Button variant="outline" onClick={() => onOpenChange(false)}>{t('common.cancel')}</Button>
                 <Button onClick={async () => {
                   if (selectedOrderId) {
                     const stationId = editStationId || slotData.stationId;
@@ -1489,7 +1495,7 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
                     await onSchedule(selectedOrderId, slotData.day, hourNum, stationId);
                     onOpenChange(false); setSelectedOrderId('');
                   }
-                }} disabled={!selectedOrderId}>Zaplanuj</Button>
+                }} disabled={!selectedOrderId}>{t('workshop.scheduler.schedule')}</Button>
               </div>
             </div>
           )}

@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   providerId: string;
@@ -41,15 +42,16 @@ type Booking = {
   created_at: string;
 };
 
-const STATUS_LABELS: Record<string, { label: string; cls: string }> = {
-  pending: { label: 'Wymaga potwierdzenia', cls: 'bg-red-500 text-white' },
-  confirmed: { label: 'Potwierdzona', cls: 'bg-green-500 text-white' },
-  in_progress: { label: 'W trakcie', cls: 'bg-amber-500 text-white' },
-  completed: { label: 'Zakończona', cls: 'bg-gray-700 text-white' },
-  cancelled: { label: 'Odrzucona', cls: 'bg-gray-400 text-white' },
+const STATUS_LABELS: Record<string, { labelKey: string; cls: string }> = {
+  pending: { labelKey: 'workshop.bookings.status.pending', cls: 'bg-red-500 text-white' },
+  confirmed: { labelKey: 'workshop.bookings.status.confirmed', cls: 'bg-green-500 text-white' },
+  in_progress: { labelKey: 'workshop.bookings.status.inProgress', cls: 'bg-amber-500 text-white' },
+  completed: { labelKey: 'workshop.bookings.status.completed', cls: 'bg-gray-700 text-white' },
+  cancelled: { labelKey: 'workshop.bookings.status.cancelled', cls: 'bg-gray-400 text-white' },
 };
 
 export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [actingId, setActingId] = useState<string | null>(null);
   const [editing, setEditing] = useState<Booking | null>(null);
@@ -235,19 +237,19 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
       // Konwersja → zlecenie ZLP-, otwiera kartę
       await convertToOrder(b, true);
 
-      toast.success('Potwierdzono — utworzono zlecenie i wysłano SMS');
+      toast.success(t('workshop.bookings.confirmedOrderCreated'));
       queryClient.invalidateQueries({ queryKey: ['portal-bookings', providerId] });
       queryClient.invalidateQueries({ queryKey: ['workshop-orders'] });
       queryClient.invalidateQueries({ queryKey: ['pending-bookings-count'] });
     } catch (e: any) {
-      toast.error(e.message || 'Błąd potwierdzania');
+      toast.error(e.message || t('workshop.bookings.confirmError'));
     } finally {
       setActingId(null);
     }
   };
 
   const handleReject = async (b: Booking) => {
-    if (!confirm(`Odrzucić rezerwację ${b.booking_number}? Klient otrzyma SMS o anulowaniu.`)) return;
+    if (!confirm(t('workshop.bookings.confirmReject', { number: b.booking_number }))) return;
     setActingId(b.id);
     try {
       const { error } = await (supabase as any)
@@ -259,10 +261,10 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
       supabase.functions.invoke('booking-notify', {
         body: { booking_id: b.id, type: 'cancelled' },
       }).catch(() => {});
-      toast.success('Rezerwacja odrzucona — wysłano SMS');
+      toast.success(t('workshop.bookings.rejectedSmsSent'));
       queryClient.invalidateQueries({ queryKey: ['portal-bookings', providerId] });
     } catch (e: any) {
-      toast.error(e.message || 'Błąd');
+      toast.error(e.message || t('workshop.bookings.error'));
     } finally {
       setActingId(null);
     }
@@ -277,7 +279,7 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
   const handleSaveEdit = async () => {
     if (!editing) return;
     if (!editDate || !editTime) {
-      toast.error('Podaj datę i godzinę');
+      toast.error(t('workshop.bookings.enterDateTime'));
       return;
     }
     const oldDate = editing.scheduled_date;
@@ -309,12 +311,12 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
       if (smsErr) console.error('booking-notify error:', smsErr);
       console.log('[booking-notify] result:', smsRes);
 
-      toast.success(changed ? 'Termin zmieniony — klient otrzyma SMS' : 'Rezerwacja potwierdzona — wysłano SMS');
+      toast.success(changed ? t('workshop.bookings.rescheduledSms') : t('workshop.bookings.confirmedSms'));
       setEditing(null);
       queryClient.invalidateQueries({ queryKey: ['portal-bookings', providerId] });
       queryClient.invalidateQueries({ queryKey: ['pending-bookings-count'] });
     } catch (e: any) {
-      toast.error(e.message || 'Błąd zapisu');
+      toast.error(e.message || t('workshop.bookings.saveError'));
     } finally {
       setSavingEdit(false);
     }
@@ -349,12 +351,12 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
         }).catch(() => {});
         try { await convertToOrder(b, false); } catch (e) { console.error(e); }
       }
-      toast.success(`Potwierdzono ${list.length} rezerwacji — utworzono zlecenia, wysłano SMS`);
+      toast.success(t('workshop.bookings.bulkConfirmed', { count: list.length }));
       setSelected(new Set());
       queryClient.invalidateQueries({ queryKey: ['portal-bookings', providerId] });
       queryClient.invalidateQueries({ queryKey: ['workshop-orders'] });
     } catch (e: any) {
-      toast.error(e.message || 'Błąd masowego potwierdzania');
+      toast.error(e.message || t('workshop.bookings.bulkConfirmError'));
     } finally {
       setBulkBusy(false);
     }
@@ -362,7 +364,7 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
 
   const bulkCancel = async () => {
     if (selected.size === 0) return;
-    if (!confirm(`Odwołać ${selected.size} rezerwacji? Klienci otrzymają SMS z anulowaniem.`)) return;
+    if (!confirm(t('workshop.bookings.confirmBulkCancel', { count: selected.size }))) return;
     setBulkBusy(true);
     try {
       const ids = Array.from(selected);
@@ -376,11 +378,11 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
           body: { booking_id: id, type: 'cancelled' },
         }).catch(() => {});
       }
-      toast.success(`Odwołano ${ids.length} rezerwacji — wysłano SMS`);
+      toast.success(t('workshop.bookings.bulkCancelled', { count: ids.length }));
       setSelected(new Set());
       queryClient.invalidateQueries({ queryKey: ['portal-bookings', providerId] });
     } catch (e: any) {
-      toast.error(e.message || 'Błąd masowego anulowania');
+      toast.error(e.message || t('workshop.bookings.bulkCancelError'));
     } finally {
       setBulkBusy(false);
     }
@@ -401,12 +403,12 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
         }
         try { await convertToOrder(b, false); } catch (e) { console.error(e); }
       }
-      toast.success(`Przeniesiono ${list.length} do aktywnych zleceń (numeracja ZLP-)`);
+      toast.success(t('workshop.bookings.bulkMovedToOrders', { count: list.length }));
       setSelected(new Set());
       queryClient.invalidateQueries({ queryKey: ['portal-bookings', providerId] });
       queryClient.invalidateQueries({ queryKey: ['workshop-orders'] });
     } catch (e: any) {
-      toast.error(e.message || 'Błąd przenoszenia');
+      toast.error(e.message || t('workshop.bookings.bulkMoveError'));
     } finally {
       setBulkBusy(false);
     }
@@ -422,7 +424,7 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
         <div className="flex items-center justify-between gap-2 px-4 py-3 border-b bg-primary/5 flex-wrap">
           <div className="flex items-center gap-2">
             <Calendar className="h-4 w-4 text-primary" />
-            <h3 className="font-semibold text-sm">Rezerwacje z portalu</h3>
+            <h3 className="font-semibold text-sm">{t('workshop.bookings.portalBookings')}</h3>
             <Badge variant="secondary" className="text-xs">{bookings.length}</Badge>
           </div>
           <div className="flex items-center gap-2">
@@ -430,24 +432,24 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button size="sm" variant="outline" className="h-7 text-xs gap-1">
-                    <MoreHorizontal className="h-3 w-3" /> Zaznaczono: {selected.size} — Akcje
+                    <MoreHorizontal className="h-3 w-3" /> {t('workshop.bookings.selectedActions', { count: selected.size })}
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
                   <DropdownMenuItem onClick={bulkConfirm} disabled={bulkBusy}>
-                    <CheckCircle2 className="h-4 w-4 mr-2 text-green-600" /> Potwierdź (SMS)
+                    <CheckCircle2 className="h-4 w-4 mr-2 text-green-600" /> {t('workshop.bookings.confirmSms')}
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={bulkMoveToOrders} disabled={bulkBusy}>
-                    <ArrowRightCircle className="h-4 w-4 mr-2 text-primary" /> Przenieś do zleceń
+                    <ArrowRightCircle className="h-4 w-4 mr-2 text-primary" /> {t('workshop.bookings.moveToOrders')}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={bulkCancel} disabled={bulkBusy} className="text-destructive focus:text-destructive">
-                    <XCircle className="h-4 w-4 mr-2" /> Anuluj (SMS)
+                    <XCircle className="h-4 w-4 mr-2" /> {t('workshop.bookings.cancelSms')}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
-            <span className="text-xs text-muted-foreground hidden md:inline">Klienci umówili się przez GetRido</span>
+            <span className="text-xs text-muted-foreground hidden md:inline">{t('workshop.bookings.clientsBookedVia')}</span>
           </div>
         </div>
 
@@ -457,7 +459,7 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
           </div>
         ) : bookings.length === 0 ? (
           <div className="text-center py-6 text-sm text-muted-foreground">
-            Brak rezerwacji z portalu
+            {t('workshop.bookings.noPortalBookings')}
           </div>
         ) : (
           <>
@@ -472,7 +474,7 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-medium text-sm">{b.booking_number}</span>
                           <Badge className={`${STATUS_LABELS[b.status]?.cls} text-[10px]`}>
-                            {STATUS_LABELS[b.status]?.label || b.status}
+                            {STATUS_LABELS[b.status] ? t(STATUS_LABELS[b.status].labelKey) : b.status}
                           </Badge>
                         </div>
                         <p className="text-sm font-medium mt-1">{b.customer_name}</p>
@@ -491,16 +493,16 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
                       <Car className="h-3 w-3" /> {b.vehicle_brand} {b.vehicle_model} {b.vehicle_plate && `· ${b.vehicle_plate}`}
                     </p>
                   )}
-                  {b.service_name && <p className="text-xs"><span className="text-muted-foreground">Usługa:</span> {b.service_name}</p>}
+                  {b.service_name && <p className="text-xs"><span className="text-muted-foreground">{t('workshop.bookings.serviceColon')}</span> {b.service_name}</p>}
                   {b.customer_notes && <p className="text-xs italic text-muted-foreground line-clamp-2">{b.customer_notes}</p>}
                   <div className="flex gap-2 pt-1">
                     {b.status === 'pending' && (
                       <Button size="sm" className="flex-1 h-7 text-xs" onClick={() => handleConfirm(b)} disabled={actingId === b.id}>
-                        {actingId === b.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <><CheckCircle2 className="h-3 w-3 mr-1" /> Potwierdź</>}
+                        {actingId === b.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <><CheckCircle2 className="h-3 w-3 mr-1" /> {t('workshop.bookings.confirm')}</>}
                       </Button>
                     )}
-                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openEdit(b)} title="Edytuj termin">
-                      <Pencil className="h-3 w-3 mr-1" /> Edytuj
+                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openEdit(b)} title={t('workshop.bookings.editTime')}>
+                      <Pencil className="h-3 w-3 mr-1" /> {t('workshop.bookings.edit')}
                     </Button>
                     {b.status === 'pending' && (
                       <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => handleReject(b)} disabled={actingId === b.id}>
@@ -520,14 +522,14 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
                     <TableHead className="w-10">
                       <Checkbox checked={allSelected} onCheckedChange={toggleAll} />
                     </TableHead>
-                    <TableHead>Numer</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Klient / Telefon</TableHead>
-                    <TableHead>Pojazd</TableHead>
-                    <TableHead>Usługa</TableHead>
-                    <TableHead>Termin</TableHead>
-                    <TableHead>Zarezerwowano</TableHead>
-                    <TableHead className="text-right">Akcje</TableHead>
+                    <TableHead>{t('workshop.bookings.colNumber')}</TableHead>
+                    <TableHead>{t('workshop.bookings.colStatus')}</TableHead>
+                    <TableHead>{t('workshop.bookings.colClientPhone')}</TableHead>
+                    <TableHead>{t('workshop.bookings.colVehicle')}</TableHead>
+                    <TableHead>{t('workshop.bookings.colService')}</TableHead>
+                    <TableHead>{t('workshop.bookings.colDate')}</TableHead>
+                    <TableHead>{t('workshop.bookings.colBookedAt')}</TableHead>
+                    <TableHead className="text-right">{t('workshop.bookings.colActions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -541,14 +543,14 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
                           <Calendar className="h-3.5 w-3.5 text-primary" />
                           <span className="font-medium text-sm">{b.booking_number}</span>
                           {isNewBooking(b) && (
-                            <Badge className="bg-red-500 text-white text-[9px] px-1 py-0 h-4">NOWE</Badge>
+                            <Badge className="bg-red-500 text-white text-[9px] px-1 py-0 h-4">{t('workshop.bookings.new')}</Badge>
                           )}
                         </div>
                       </TableCell>
                       <TableCell>
                         <Badge className={`${STATUS_LABELS[b.status]?.cls} text-xs whitespace-nowrap`}>
                           {b.status === 'pending' && <AlertTriangle className="h-3 w-3 mr-1" />}
-                          {STATUS_LABELS[b.status]?.label || b.status}
+                          {STATUS_LABELS[b.status] ? t(STATUS_LABELS[b.status].labelKey) : b.status}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -587,22 +589,22 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
                       <TableCell className="text-right">
                         <div className="flex gap-1 justify-end">
                           {b.status === 'pending' && (
-                            <Button size="sm" className="h-7 text-xs" onClick={() => handleConfirm(b)} disabled={actingId === b.id} title="Potwierdź → utwórz zlecenie + SMS">
-                              {actingId === b.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <><CheckCircle2 className="h-3 w-3 mr-1" /> Potwierdź</>}
+                            <Button size="sm" className="h-7 text-xs" onClick={() => handleConfirm(b)} disabled={actingId === b.id} title={t('workshop.bookings.confirmTooltip')}>
+                              {actingId === b.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <><CheckCircle2 className="h-3 w-3 mr-1" /> {t('workshop.bookings.confirm')}</>}
                             </Button>
                           )}
-                          <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => openEdit(b)} title="Edytuj termin">
+                          <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => openEdit(b)} title={t('workshop.bookings.editTime')}>
                             <Pencil className="h-3 w-3" />
                           </Button>
                           {b.status !== 'pending' && (
                             <a href={`tel:${b.customer_phone}`} className="inline-flex">
-                              <Button size="sm" variant="outline" className="h-7 px-2" title="Zadzwoń">
+                              <Button size="sm" variant="outline" className="h-7 px-2" title={t('workshop.bookings.call')}>
                                 <Phone className="h-3 w-3" />
                               </Button>
                             </a>
                           )}
                           {/* X — zawsze na końcu paska, czerwony */}
-                          <Button size="sm" variant="outline" className="h-7 px-2 text-destructive hover:text-destructive border-destructive/40" onClick={() => handleReject(b)} disabled={actingId === b.id} title="Anuluj wizytę (SMS odwołujący)">
+                          <Button size="sm" variant="outline" className="h-7 px-2 text-destructive hover:text-destructive border-destructive/40" onClick={() => handleReject(b)} disabled={actingId === b.id} title={t('workshop.bookings.cancelVisitTooltip')}>
                             <XCircle className="h-3 w-3" />
                           </Button>
                         </div>
@@ -619,7 +621,7 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Edytuj termin rezerwacji</DialogTitle>
+            <DialogTitle>{t('workshop.bookings.editBookingTime')}</DialogTitle>
           </DialogHeader>
           {editing && (
             <div className="space-y-3">
@@ -628,23 +630,23 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs">Data</Label>
+                  <Label className="text-xs">{t('workshop.bookings.date')}</Label>
                   <Input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} />
                 </div>
                 <div>
-                  <Label className="text-xs">Godzina</Label>
+                  <Label className="text-xs">{t('workshop.bookings.time')}</Label>
                   <Input type="time" value={editTime} onChange={(e) => setEditTime(e.target.value)} />
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                Po zapisie klient otrzyma SMS z konta Twojego warsztatu (odejmie 1 z licznika SMS).
+                {t('workshop.bookings.smsAfterSaveHint')}
               </p>
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditing(null)} disabled={savingEdit}>Anuluj</Button>
+            <Button variant="outline" onClick={() => setEditing(null)} disabled={savingEdit}>{t('common.cancel')}</Button>
             <Button onClick={handleSaveEdit} disabled={savingEdit}>
-              {savingEdit ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Zapisz i wyślij SMS'}
+              {savingEdit ? <Loader2 className="h-4 w-4 animate-spin" /> : t('workshop.bookings.saveAndSendSms')}
             </Button>
           </DialogFooter>
         </DialogContent>
