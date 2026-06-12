@@ -11,6 +11,7 @@ import {
   BarChart3, Printer, Eye, Loader2
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   providerId: string;
@@ -18,31 +19,32 @@ interface Props {
 }
 
 const reportCategories = [
-  { key: 'zlecenia', label: 'Zlecenia', icon: ClipboardList },
-  { key: 'sprzedaz', label: 'Sprzedaż', icon: Receipt },
-  { key: 'klienci', label: 'Klienci', icon: Users },
-  { key: 'pracownicy', label: 'Pracownicy', icon: UserCheck },
-  { key: 'kasa', label: 'Kasa', icon: Wallet },
-  { key: 'pojazdy', label: 'Pojazdy', icon: Car },
-  { key: 'magazyn', label: 'Magazyn', icon: Package },
+  { key: 'zlecenia', labelKey: 'workshop.reports.cat.orders', icon: ClipboardList },
+  { key: 'sprzedaz', labelKey: 'workshop.reports.cat.sales', icon: Receipt },
+  { key: 'klienci', labelKey: 'workshop.reports.cat.clients', icon: Users },
+  { key: 'pracownicy', labelKey: 'workshop.reports.cat.employees', icon: UserCheck },
+  { key: 'kasa', labelKey: 'workshop.reports.cat.cash', icon: Wallet },
+  { key: 'pojazdy', labelKey: 'workshop.reports.cat.vehicles', icon: Car },
+  { key: 'magazyn', labelKey: 'workshop.reports.cat.warehouse', icon: Package },
 ];
 
 const orderReports = [
-  { key: 'zestawienie-szczegolowe', label: 'Szczegółowe zestawienie zleceń', desc: 'Zestawienie zleceń w formie tabeli, z uwzględnieniem towarów i usług oraz zysku' },
-  { key: 'czas-pracy', label: 'Szczegółowy raport rzeczywistego czasu pracy', desc: 'Historia rzeczywistego czasu pracy z wybranego zakresu, pogrupowana w zlecenia' },
+  { key: 'zestawienie-szczegolowe', labelKey: 'workshop.reports.orderReports.detailed.label', descKey: 'workshop.reports.orderReports.detailed.desc' },
+  { key: 'czas-pracy', labelKey: 'workshop.reports.orderReports.workTime.label', descKey: 'workshop.reports.orderReports.workTime.desc' },
 ];
 
 const salesReports = [
-  { key: 'zestawienie-sprzedazy', label: 'Szczegółowe zestawienie sprzedaży', desc: 'Zestawienie sprzedaży w formie tabeli z wyszczególnionym zyskiem' },
-  { key: 'wz-sprzedaz', label: 'Zestawienie dokumentów WZ do sprzedaży', desc: 'Raport przedstawia zestawienie wygenerowanych dokumentów WZ do dokumentów sprzedaży oraz prezentuje koszt towarów' },
-  { key: 'zestawienie-dokumentow', label: 'Zestawienie dokumentów', desc: 'Raport przedstawia zestawienie wszystkich dokumentów sprzedażowych' },
+  { key: 'zestawienie-sprzedazy', labelKey: 'workshop.reports.salesReports.detailed.label', descKey: 'workshop.reports.salesReports.detailed.desc' },
+  { key: 'wz-sprzedaz', labelKey: 'workshop.reports.salesReports.wz.label', descKey: 'workshop.reports.salesReports.wz.desc' },
+  { key: 'zestawienie-dokumentow', labelKey: 'workshop.reports.salesReports.documents.label', descKey: 'workshop.reports.salesReports.documents.desc' },
 ];
 
 const clientReports = [
-  { key: 'zestawienie-zlecen', label: 'Zestawienie zleceń', desc: 'Zestawienie zleceń dla wybranego klienta w formie tabeli' },
+  { key: 'zestawienie-zlecen', labelKey: 'workshop.reports.clientReports.orders.label', descKey: 'workshop.reports.clientReports.orders.desc' },
 ];
 
 export function WorkshopReports({ providerId, onBack }: Props) {
+  const { t } = useTranslation();
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [activeReport, setActiveReport] = useState<string | null>(null);
   const [dateFrom, setDateFrom] = useState(format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), 'yyyy-MM-dd'));
@@ -81,14 +83,14 @@ export function WorkshopReports({ providerId, onBack }: Props) {
         <div className="flex items-center gap-2 text-sm">
           <button onClick={onBack} className="text-primary hover:underline">🏠</button>
           <span className="text-muted-foreground">/</span>
-          <button onClick={() => { setActiveReport(null); setActiveCategory(null); }} className="text-primary hover:underline">Raporty</button>
+          <button onClick={() => { setActiveReport(null); setActiveCategory(null); }} className="text-primary hover:underline">{t('workshop.reports.title')}</button>
           <span className="text-muted-foreground">/</span>
-          <button onClick={() => setActiveReport(null)} className="text-primary hover:underline">Zlecenia</button>
+          <button onClick={() => setActiveReport(null)} className="text-primary hover:underline">{t('workshop.reports.cat.orders')}</button>
           <span className="text-muted-foreground">/</span>
-          <span className="font-semibold">Szczegółowe zestawienie zleceń</span>
+          <span className="font-semibold">{t('workshop.reports.orderReports.detailed.label')}</span>
           <div className="flex-1" />
           <Button variant="outline" size="sm" className="gap-1">
-            <Printer className="h-4 w-4" /> Drukuj
+            <Printer className="h-4 w-4" /> {t('workshop.reports.print')}
           </Button>
         </div>
 
@@ -97,7 +99,7 @@ export function WorkshopReports({ providerId, onBack }: Props) {
           <CardContent className="py-4">
             <div className="grid grid-cols-4 gap-4 mb-4">
               <div className="space-y-1.5">
-                <Label>Wybierz zakres czasu</Label>
+                <Label>{t('workshop.reports.selectDateRange')}</Label>
                 <div className="flex items-center gap-2">
                   <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
                   <span>—</span>
@@ -105,21 +107,21 @@ export function WorkshopReports({ providerId, onBack }: Props) {
                 </div>
               </div>
               <div className="space-y-1.5">
-                <Label>Pobieraj po</Label>
+                <Label>{t('workshop.reports.fetchBy')}</Label>
                 <Select defaultValue="created">
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="created">Data utworzenia zlecenia</SelectItem>
-                    <SelectItem value="completed">Data zakończenia</SelectItem>
+                    <SelectItem value="created">{t('workshop.reports.dateCreated')}</SelectItem>
+                    <SelectItem value="completed">{t('workshop.reports.dateCompleted')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Status zlecenia</Label>
+                <Label>{t('workshop.reports.orderStatus')}</Label>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger><SelectValue placeholder="Wszystkie lub wybierz" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t('workshop.reports.allOrSelect')} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Wszystkie</SelectItem>
+                    <SelectItem value="all">{t('workshop.reports.all')}</SelectItem>
                     {statuses.map((s: any) => (
                       <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
                     ))}
@@ -127,26 +129,26 @@ export function WorkshopReports({ providerId, onBack }: Props) {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Pokazuj ceny</Label>
+                <Label>{t('workshop.reports.showPrices')}</Label>
                 <div className="flex border rounded-md overflow-hidden">
                   <Button
                     variant={priceMode === 'netto' ? 'default' : 'ghost'}
                     size="sm"
                     className="rounded-none flex-1"
                     onClick={() => setPriceMode('netto')}
-                  >NETTO</Button>
+                  >{t('workshop.reports.net')}</Button>
                   <Button
                     variant={priceMode === 'brutto' ? 'default' : 'ghost'}
                     size="sm"
                     className="rounded-none flex-1"
                     onClick={() => setPriceMode('brutto')}
-                  >BRUTTO</Button>
+                  >{t('workshop.reports.gross')}</Button>
                 </div>
               </div>
             </div>
 
             <Button className="gap-2">
-              <Eye className="h-4 w-4" /> Pokaż raport
+              <Eye className="h-4 w-4" /> {t('workshop.reports.showReport')}
             </Button>
           </CardContent>
         </Card>
@@ -162,14 +164,14 @@ export function WorkshopReports({ providerId, onBack }: Props) {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Numer zlecenia</TableHead>
-                    <TableHead>Data</TableHead>
-                    <TableHead>Klient</TableHead>
-                    <TableHead>Pojazd</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Przychód</TableHead>
-                    <TableHead className="text-right">Koszt</TableHead>
-                    <TableHead className="text-right">Zysk</TableHead>
+                    <TableHead>{t('workshop.reports.col.orderNumber')}</TableHead>
+                    <TableHead>{t('workshop.reports.col.date')}</TableHead>
+                    <TableHead>{t('workshop.reports.col.client')}</TableHead>
+                    <TableHead>{t('workshop.reports.col.vehicle')}</TableHead>
+                    <TableHead>{t('workshop.reports.col.status')}</TableHead>
+                    <TableHead className="text-right">{t('workshop.reports.col.revenue')}</TableHead>
+                    <TableHead className="text-right">{t('workshop.reports.col.cost')}</TableHead>
+                    <TableHead className="text-right">{t('workshop.reports.col.profit')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -198,7 +200,7 @@ export function WorkshopReports({ providerId, onBack }: Props) {
                   })}
                   {reportOrders.length > 0 && (
                     <TableRow className="font-semibold bg-muted/50">
-                      <TableCell colSpan={5}>Suma</TableCell>
+                      <TableCell colSpan={5}>{t('workshop.reports.sum')}</TableCell>
                       <TableCell className="text-right">{totalGross.toLocaleString('pl-PL', { minimumFractionDigits: 2 })}</TableCell>
                       <TableCell className="text-right">{totalCost.toLocaleString('pl-PL', { minimumFractionDigits: 2 })}</TableCell>
                       <TableCell className={`text-right ${totalGross - totalCost >= 0 ? 'text-green-600' : 'text-destructive'}`}>
@@ -218,14 +220,15 @@ export function WorkshopReports({ providerId, onBack }: Props) {
   // Sub-report list
   if (activeCategory) {
     const reports = getReportList();
+    const activeCategoryLabel = reportCategories.find(c => c.key === activeCategory)?.labelKey;
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-2 text-sm">
           <button onClick={onBack} className="text-primary hover:underline">🏠</button>
           <span className="text-muted-foreground">/</span>
-          <button onClick={() => setActiveCategory(null)} className="text-primary hover:underline">Raporty</button>
+          <button onClick={() => setActiveCategory(null)} className="text-primary hover:underline">{t('workshop.reports.title')}</button>
           <span className="text-muted-foreground">/</span>
-          <span className="font-semibold capitalize">{activeCategory}</span>
+          <span className="font-semibold">{activeCategoryLabel ? t(activeCategoryLabel) : activeCategory}</span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -236,14 +239,14 @@ export function WorkshopReports({ providerId, onBack }: Props) {
               onClick={() => setActiveReport(r.key)}
             >
               <CardContent className="py-6 text-center space-y-2">
-                <h3 className="font-semibold">{r.label}</h3>
-                <p className="text-sm text-muted-foreground">{r.desc}</p>
+                <h3 className="font-semibold">{t(r.labelKey)}</h3>
+                <p className="text-sm text-muted-foreground">{t(r.descKey)}</p>
               </CardContent>
             </Card>
           ))}
           {reports.length === 0 && (
             <div className="col-span-3 text-center py-12 text-muted-foreground">
-              Raporty w tej kategorii — wkrótce dostępne
+              {t('workshop.reports.categoryComingSoon')}
             </div>
           )}
         </div>
@@ -257,7 +260,7 @@ export function WorkshopReports({ providerId, onBack }: Props) {
       <div className="flex items-center gap-3">
         <button onClick={onBack} className="text-primary hover:underline text-sm">🏠</button>
         <span className="text-muted-foreground">/</span>
-        <h2 className="text-xl font-bold">Raporty</h2>
+        <h2 className="text-xl font-bold">{t('workshop.reports.title')}</h2>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -269,7 +272,7 @@ export function WorkshopReports({ providerId, onBack }: Props) {
           >
             <CardContent className="flex flex-col items-center justify-center py-8 gap-3">
               <cat.icon className="h-10 w-10 text-primary" strokeWidth={1.5} />
-              <span className="font-medium text-sm">{cat.label}</span>
+              <span className="font-medium text-sm">{t(cat.labelKey)}</span>
             </CardContent>
           </Card>
         ))}

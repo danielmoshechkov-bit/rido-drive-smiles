@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { SimpleFreeInvoice } from '@/components/invoices/SimpleFreeInvoice';
 import { InvoiceExpandableRow } from '@/components/invoices/InvoiceExpandableRow';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   providerId: string;
@@ -15,6 +16,7 @@ interface Props {
 }
 
 export function WorkshopSales({ providerId: _providerId, onBack }: Props) {
+  const { t } = useTranslation();
   const [search, setSearch] = useState('');
   const [invoices, setInvoices] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -33,7 +35,7 @@ export function WorkshopSales({ providerId: _providerId, onBack }: Props) {
       .order('issue_date', { ascending: false });
 
     if (error) {
-      toast.error('Błąd ładowania sprzedaży');
+      toast.error(t('workshop.sales.loadError'));
       setInvoices([]);
     } else {
       setInvoices(data || []);
@@ -61,20 +63,20 @@ export function WorkshopSales({ providerId: _providerId, onBack }: Props) {
       <div className="flex items-center gap-3">
         <button onClick={onBack} className="text-primary hover:underline text-sm">🏠</button>
         <span className="text-muted-foreground">/</span>
-        <h2 className="text-xl font-bold">Sprzedaż</h2>
+        <h2 className="text-xl font-bold">{t('workshop.sales.title')}</h2>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
         <Button className="gap-2" onClick={() => setShowNewInvoice(true)}>
-          <Plus className="h-4 w-4" /> Wystaw
+          <Plus className="h-4 w-4" /> {t('workshop.sales.issue')}
         </Button>
         <Button variant="destructive" size="sm" className="gap-1" disabled>
-          <Trash2 className="h-4 w-4" /> Usuń zaznaczone
+          <Trash2 className="h-4 w-4" /> {t('workshop.sales.deleteSelected')}
         </Button>
         <div className="flex-1" />
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Szukaj" className="pl-9 w-[250px]" />
+          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('common.search')} className="pl-9 w-[250px]" />
         </div>
       </div>
 
@@ -83,15 +85,15 @@ export function WorkshopSales({ providerId: _providerId, onBack }: Props) {
         <Card>
           <CardContent className="py-3 flex flex-wrap gap-6 text-sm">
             <div>
-              <span className="text-muted-foreground">Suma brutto:</span>{' '}
+              <span className="text-muted-foreground">{t('workshop.sales.sumGross')}</span>{' '}
               <span className="font-semibold">{totalGross.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} zł</span>
             </div>
             <div>
-              <span className="text-muted-foreground">Zapłacono:</span>{' '}
+              <span className="text-muted-foreground">{t('workshop.sales.paid')}</span>{' '}
               <span className="font-semibold">{totalPaid.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} zł</span>
             </div>
             <div>
-              <span className="text-muted-foreground">Do zapłaty:</span>{' '}
+              <span className="text-muted-foreground">{t('workshop.sales.toPay')}</span>{' '}
               <span className={`font-semibold ${totalToPay > 0 ? 'text-destructive' : ''}`}>
                 {totalToPay.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} zł
               </span>
@@ -107,7 +109,7 @@ export function WorkshopSales({ providerId: _providerId, onBack }: Props) {
       ) : filtered.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
-            Brak dokumentów sprzedaży
+            {t('workshop.sales.noDocuments')}
           </CardContent>
         </Card>
       ) : (
@@ -123,13 +125,13 @@ export function WorkshopSales({ providerId: _providerId, onBack }: Props) {
       )}
 
       <div className="text-sm text-muted-foreground">
-        Od 1 do {filtered.length} z {filtered.length} wyników
+        {t('workshop.sales.pagination', { from: 1, to: filtered.length, total: filtered.length })}
       </div>
 
       {showNewInvoice && (
         <Dialog open={showNewInvoice} onOpenChange={(v) => { if (!v) setShowNewInvoice(false); }}>
           <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto p-0">
-            <DialogTitle className="sr-only">Wystaw fakturę</DialogTitle>
+            <DialogTitle className="sr-only">{t('workshop.orders.issueInvoice')}</DialogTitle>
             <SimpleFreeInvoice
               onClose={() => setShowNewInvoice(false)}
               onSaved={() => { setShowNewInvoice(false); loadInvoices(); }}

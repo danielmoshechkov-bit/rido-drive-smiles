@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   Car, Truck, Search, AlertTriangle, ShoppingCart, Eye
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   providerId: string;
@@ -21,7 +22,19 @@ const carBrands = [
   'Seat', 'Skoda', 'Suzuki', 'Toyota', 'Volkswagen', 'Volvo'
 ];
 
+const featureKeys = [
+  'workshop.repairData.features.torque',
+  'workshop.repairData.features.beltSchema',
+  'workshop.repairData.features.fluidCapacities',
+  'workshop.repairData.features.brakeSystems',
+  'workshop.repairData.features.timing',
+  'workshop.repairData.features.airConditioning',
+  'workshop.repairData.features.suspensionGeometry',
+  'workshop.repairData.features.obdCodes',
+];
+
 export function WorkshopRepairData({ providerId, onBack }: Props) {
+  const { t } = useTranslation();
   const [vehicleType, setVehicleType] = useState('osobowe');
   const [vin, setVin] = useState('');
   const [brand, setBrand] = useState('');
@@ -37,7 +50,7 @@ export function WorkshopRepairData({ providerId, onBack }: Props) {
       <div className="flex items-center gap-3">
         <button onClick={onBack} className="text-primary hover:underline text-sm">🏠</button>
         <span className="text-muted-foreground">/</span>
-        <h2 className="text-xl font-bold">Dane naprawcze</h2>
+        <h2 className="text-xl font-bold">{t('workshop.repairData.title')}</h2>
       </div>
 
       {/* Vehicle type tabs */}
@@ -49,7 +62,7 @@ export function WorkshopRepairData({ providerId, onBack }: Props) {
             }`}
             onClick={() => setVehicleType('osobowe')}
           >
-            <Car className="h-5 w-5" /> Samochody osobowe i dostawcze
+            <Car className="h-5 w-5" /> {t('workshop.repairData.passengerVans')}
           </button>
           <button
             className={`flex items-center gap-2 px-6 py-3 text-sm font-medium transition-colors ${
@@ -57,7 +70,7 @@ export function WorkshopRepairData({ providerId, onBack }: Props) {
             }`}
             onClick={() => setVehicleType('ciezarowe')}
           >
-            <Truck className="h-5 w-5" /> Samochody ciężarowe
+            <Truck className="h-5 w-5" /> {t('workshop.repairData.trucks')}
           </button>
         </div>
       </div>
@@ -69,12 +82,12 @@ export function WorkshopRepairData({ providerId, onBack }: Props) {
             <AlertTriangle className="h-5 w-5 text-amber-500 mt-0.5" />
             <div>
               <p className="text-sm">
-                Twój dostęp do modułu danych naprawczych <strong>dla samochodów {vehicleType === 'osobowe' ? 'osobowych i dostawczych' : 'ciężarowych'}</strong> jest w <span className="text-primary font-medium underline cursor-pointer">wersji demo</span>.
-                Oznacza to, że <span className="text-primary font-medium underline cursor-pointer">masz dostęp do ograniczonej liczby typów pojazdów</span> z całej bazy.
+                {t('workshop.repairData.demoBanner.prefix')} <strong>{t('workshop.repairData.demoBanner.forCars', { type: vehicleType === 'osobowe' ? t('workshop.repairData.demoBanner.typePassenger') : t('workshop.repairData.demoBanner.typeTruck') })}</strong> {t('workshop.repairData.demoBanner.isIn')} <span className="text-primary font-medium underline cursor-pointer">{t('workshop.repairData.demoBanner.demoVersion')}</span>.
+                {' '}{t('workshop.repairData.demoBanner.meansThat')} <span className="text-primary font-medium underline cursor-pointer">{t('workshop.repairData.demoBanner.limitedTypes')}</span> {t('workshop.repairData.demoBanner.fromWholeBase')}
               </p>
               <div className="flex gap-3 mt-3">
-                <Button className="gap-2"><ShoppingCart className="h-4 w-4" /> Wykup pełny dostęp</Button>
-                <Button variant="outline" className="gap-2"><Eye className="h-4 w-4" /> Przetestuj przez 3 dni</Button>
+                <Button className="gap-2"><ShoppingCart className="h-4 w-4" /> {t('workshop.repairData.buyFullAccess')}</Button>
+                <Button variant="outline" className="gap-2"><Eye className="h-4 w-4" /> {t('workshop.repairData.test3Days')}</Button>
               </div>
             </div>
           </div>
@@ -85,20 +98,20 @@ export function WorkshopRepairData({ providerId, onBack }: Props) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
           <CardContent className="py-6">
-            <h3 className="font-semibold text-sm uppercase tracking-wide mb-4">Rozkoduj numer VIN</h3>
+            <h3 className="font-semibold text-sm uppercase tracking-wide mb-4">{t('workshop.repairData.decodeVin')}</h3>
             <div className="space-y-3">
               <Input
                 value={vin}
                 onChange={e => setVin(e.target.value.toUpperCase())}
-                placeholder="Wprowadź VIN"
+                placeholder={t('workshop.repairData.enterVin')}
                 maxLength={17}
                 className="font-mono"
               />
               <Button onClick={handleVinDecode} className="w-full" disabled={vin.length < 17}>
-                Rozkoduj VIN
+                {t('workshop.repairData.decodeVinBtn')}
               </Button>
               {vin.length > 0 && vin.length < 17 && (
-                <p className="text-xs text-muted-foreground">VIN musi mieć 17 znaków ({vin.length}/17)</p>
+                <p className="text-xs text-muted-foreground">{t('workshop.repairData.vinLengthHint', { count: vin.length })}</p>
               )}
             </div>
           </CardContent>
@@ -106,22 +119,22 @@ export function WorkshopRepairData({ providerId, onBack }: Props) {
 
         <Card>
           <CardContent className="py-6">
-            <h3 className="font-semibold text-sm uppercase tracking-wide mb-4">Wyszukaj po marce i modelu</h3>
+            <h3 className="font-semibold text-sm uppercase tracking-wide mb-4">{t('workshop.repairData.searchByBrandModel')}</h3>
             <div className="space-y-3">
               <Select value={brand} onValueChange={setBrand}>
-                <SelectTrigger><SelectValue placeholder="Wybierz markę" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder={t('workshop.repairData.selectBrand')} /></SelectTrigger>
                 <SelectContent>
                   {carBrands.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
                 </SelectContent>
               </Select>
               <Select value={model} onValueChange={setModel}>
-                <SelectTrigger><SelectValue placeholder="Wybierz model" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder={t('workshop.repairData.selectModel')} /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="any">Wszystkie modele</SelectItem>
+                  <SelectItem value="any">{t('workshop.repairData.allModels')}</SelectItem>
                 </SelectContent>
               </Select>
               <Button variant="outline" className="w-full gap-2" disabled={!brand}>
-                <Search className="h-4 w-4" /> Szukaj
+                <Search className="h-4 w-4" /> {t('common.search')}
               </Button>
             </div>
           </CardContent>
@@ -131,20 +144,16 @@ export function WorkshopRepairData({ providerId, onBack }: Props) {
       {/* Features list */}
       <Card>
         <CardContent className="py-6">
-          <h3 className="font-semibold mb-4">Dostępne dane naprawcze</h3>
+          <h3 className="font-semibold mb-4">{t('workshop.repairData.availableData')}</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {[
-              'Momenty dokręcania', 'Schemat pasków', 'Pojemności płynów',
-              'Układy hamulcowe', 'Rozrząd', 'Klimatyzacja',
-              'Geometria zawieszenia', 'Kody usterek OBD'
-            ].map(feature => (
-              <div key={feature} className="flex items-center gap-2 text-sm">
-                <Badge variant="secondary" className="text-xs">{feature}</Badge>
+            {featureKeys.map(featureKey => (
+              <div key={featureKey} className="flex items-center gap-2 text-sm">
+                <Badge variant="secondary" className="text-xs">{t(featureKey)}</Badge>
               </div>
             ))}
           </div>
           <p className="text-xs text-muted-foreground mt-4">
-            Dane naprawcze będą dostępne po aktywacji pełnego dostępu lub sprawdzeniu VIN pojazdu.
+            {t('workshop.repairData.dataAvailableHint')}
           </p>
         </CardContent>
       </Card>

@@ -16,6 +16,7 @@ import { WorkshopAddClientDialog } from './WorkshopAddClientDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 import {
   Plus, Search, Trash2, Archive, X, Check, ChevronsUpDown
 } from 'lucide-react';
@@ -60,6 +61,7 @@ function useServicePoints(providerId: string) {
 }
 
 export function WorkshopTireStorage({ providerId, onBack }: Props) {
+  const { t } = useTranslation();
   const [search, setSearch] = useState('');
   const [showAdd, setShowAdd] = useState(false);
   const { data: records = [], isLoading } = useTireStorageRecords(providerId);
@@ -82,17 +84,17 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
       <div className="flex items-center gap-3">
         <button onClick={onBack} className="text-primary hover:underline text-sm">🏠</button>
         <span className="text-muted-foreground">/</span>
-        <h2 className="text-xl font-bold">Przechowalnia</h2>
+        <h2 className="text-xl font-bold">{t('workshop.tireStorage.title')}</h2>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
         <Button onClick={() => setShowAdd(true)} className="gap-2">
-          <Plus className="h-4 w-4" /> Przechowaj
+          <Plus className="h-4 w-4" /> {t('workshop.tireStorage.store')}
         </Button>
         <div className="flex-1" />
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Szukaj" className="pl-9 w-[250px]" />
+          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('common.search')} className="pl-9 w-[250px]" />
         </div>
       </div>
 
@@ -101,16 +103,16 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>KOD</TableHead>
-                <TableHead>KLIENT</TableHead>
-                <TableHead>TELEFON</TableHead>
-                <TableHead>MARKA / MODEL</TableHead>
-                <TableHead>ROZMIAR</TableHead>
-                <TableHead>SEZON</TableHead>
-                <TableHead>POJAZD</TableHead>
-                <TableHead>LOKALIZACJA</TableHead>
-                <TableHead>DATA PRZYJĘCIA</TableHead>
-                <TableHead>KOSZT</TableHead>
+                <TableHead>{t('workshop.tireStorage.col.code')}</TableHead>
+                <TableHead>{t('workshop.tireStorage.col.client')}</TableHead>
+                <TableHead>{t('workshop.tireStorage.col.phone')}</TableHead>
+                <TableHead>{t('workshop.tireStorage.col.brandModel')}</TableHead>
+                <TableHead>{t('workshop.tireStorage.col.size')}</TableHead>
+                <TableHead>{t('workshop.tireStorage.col.season')}</TableHead>
+                <TableHead>{t('workshop.tireStorage.col.vehicle')}</TableHead>
+                <TableHead>{t('workshop.tireStorage.col.location')}</TableHead>
+                <TableHead>{t('workshop.tireStorage.col.receivedDate')}</TableHead>
+                <TableHead>{t('workshop.tireStorage.col.cost')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -118,7 +120,7 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
                 <TableRow>
                   <TableCell colSpan={10} className="text-center py-12 text-muted-foreground">
                     <Archive className="h-8 w-8 mx-auto mb-2 opacity-40" />
-                    {isLoading ? 'Ładowanie...' : 'Brak danych'}
+                    {isLoading ? t('common.loading') : t('workshop.tireStorage.noData')}
                   </TableCell>
                 </TableRow>
               ) : filtered.map((r: any) => (
@@ -128,7 +130,7 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
                   <TableCell className="text-xs">{r.client_phone || '—'}</TableCell>
                   <TableCell>{r.tire_brand} {r.tire_model}</TableCell>
                   <TableCell>{r.tire_size || '—'}</TableCell>
-                  <TableCell>{r.season === 'letnie' ? '☀️ Letnie' : r.season === 'zimowe' ? '❄️ Zimowe' : '🔄 Całoroczne'}</TableCell>
+                  <TableCell>{r.season === 'letnie' ? `☀️ ${t('workshop.tireStorage.season.summer')}` : r.season === 'zimowe' ? `❄️ ${t('workshop.tireStorage.season.winter')}` : `🔄 ${t('workshop.tireStorage.season.allSeason')}`}</TableCell>
                   <TableCell className="text-xs">{r.workshop_vehicles ? `${r.workshop_vehicles.brand} ${r.workshop_vehicles.model} ${r.workshop_vehicles.plate}` : '—'}</TableCell>
                   <TableCell className="text-xs">{r.location_name || '—'}</TableCell>
                   <TableCell className="text-xs">{r.stored_at ? new Date(r.stored_at).toLocaleDateString('pl-PL') : '—'}</TableCell>
@@ -141,7 +143,7 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
       </Card>
 
       <div className="text-sm text-muted-foreground">
-        Od 0 do {filtered.length} z {records.length} wyników
+        {t('workshop.tireStorage.pagination', { from: 0, to: filtered.length, total: records.length })}
       </div>
 
       <TireStorageDialog open={showAdd} onOpenChange={setShowAdd} providerId={providerId} />
@@ -160,6 +162,7 @@ function SearchableCombobox({ items, value, onSelect, onCreateNew, onAddNew, pla
   renderItem: (item: any) => React.ReactNode;
   getLabel: (item: any) => string;
 }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
 
@@ -202,10 +205,10 @@ function SearchableCombobox({ items, value, onSelect, onCreateNew, onAddNew, pla
                       className="w-full px-3 py-2 text-sm text-left hover:bg-accent flex items-center gap-2"
                       onClick={() => { onCreateNew(query.trim()); setOpen(false); setQuery(''); }}
                     >
-                      <Plus className="h-4 w-4" /> Dodaj „{query.trim()}"
+                      <Plus className="h-4 w-4" /> {t('workshop.tireStorage.addQuery', { query: query.trim() })}
                     </button>
                   )}
-                  {!query.trim() && 'Nie znaleziono'}
+                  {!query.trim() && t('workshop.tireStorage.notFound')}
                 </div>
               </CommandEmpty>
               <CommandGroup>
@@ -231,6 +234,7 @@ function SearchableCombobox({ items, value, onSelect, onCreateNew, onAddNew, pla
 
 // ---- Dialog ----
 function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; onOpenChange: (v: boolean) => void; providerId: string }) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { data: clients = [] } = useWorkshopClients(providerId);
   const { data: rawVehicles = [] } = useWorkshopVehicles(providerId);
@@ -323,7 +327,7 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
 
   const handleSave = async () => {
     if (!clientName.trim()) {
-      toast.error('Podaj imię i nazwisko klienta');
+      toast.error(t('workshop.tireStorage.enterClientName'));
       return;
     }
     setSaving(true);
@@ -377,33 +381,33 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
         if (taskErr) console.error('Tasks save error:', taskErr);
       }
 
-      toast.success('Przechowanie zapisane!');
+      toast.success(t('workshop.tireStorage.storageSaved'));
       queryClient.invalidateQueries({ queryKey: ['tire-storage'] });
       onOpenChange(false);
 
       // Offer SMS
       if (clientPhone) {
         const seasonLabel = season === 'letnie' ? 'letnie' : season === 'zimowe' ? 'zimowe' : 'całoroczne';
-        toast.info(`SMS potwierdzenie można wysłać na ${clientPhone}`, {
-          action: { label: 'Wyślij', onClick: () => toast.info('Funkcja SMS w przygotowaniu') },
+        toast.info(t('workshop.tireStorage.smsCanBeSent', { phone: clientPhone }), {
+          action: { label: t('workshop.tireStorage.send'), onClick: () => toast.info(t('workshop.tireStorage.smsComingSoon')) },
         });
       }
     } catch (e: any) {
-      toast.error(e.message || 'Błąd zapisu');
+      toast.error(e.message || t('common.saveError'));
     } finally {
       setSaving(false);
     }
   };
 
   const addServicePoint = async () => {
-    const name = prompt('Nazwa punktu serwisowego:');
+    const name = prompt(t('workshop.tireStorage.servicePointNamePrompt'));
     if (!name?.trim()) return;
     const { error } = await (supabase as any)
       .from('workshop_service_points')
       .insert({ provider_id: providerId, name: name.trim() });
     if (error) toast.error(error.message);
     else {
-      toast.success('Punkt dodany');
+      toast.success(t('workshop.tireStorage.servicePointAdded'));
       queryClient.invalidateQueries({ queryKey: ['service-points'] });
     }
   };
@@ -415,99 +419,99 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Nowe przechowanie</DialogTitle>
+          <DialogTitle>{t('workshop.tireStorage.newStorage')}</DialogTitle>
         </DialogHeader>
 
         <div className="grid grid-cols-2 gap-4">
           {/* Client */}
           <div className="space-y-2">
-            <Label>Klient</Label>
+            <Label>{t('workshop.tireStorage.client')}</Label>
             <SearchableCombobox
               items={clients}
               value={clientId}
               onSelect={handleSelectClient}
               onCreateNew={handleCreateClientInline}
               onAddNew={() => setShowAddClient(true)}
-              placeholder="Wpisz imię i nazwisko..."
+              placeholder={t('workshop.tireStorage.enterFullNamePlaceholder')}
               renderItem={(c: any) => c.company_name || `${c.first_name} ${c.last_name}`}
               getLabel={(c: any) => c.company_name || `${c.first_name || ''} ${c.last_name || ''}`.trim()}
             />
             {!clientId && clientName && (
-              <Input value={clientName} onChange={e => setClientName(e.target.value)} placeholder="Imię i nazwisko" className="h-8" />
+              <Input value={clientName} onChange={e => setClientName(e.target.value)} placeholder={t('workshop.tireStorage.fullName')} className="h-8" />
             )}
           </div>
 
           {/* Phone */}
           <div className="space-y-2">
-            <Label>Nr telefonu</Label>
+            <Label>{t('workshop.tireStorage.phoneNumber')}</Label>
             <Input value={clientPhone} onChange={e => setClientPhone(e.target.value)} placeholder="+48 ..." className="h-9" />
           </div>
 
           {/* Vehicle */}
           <div className="space-y-2">
-            <Label>Pojazd</Label>
+            <Label>{t('workshop.tireStorage.vehicle')}</Label>
             <SearchableCombobox
               items={vehicles}
               value={vehicleId}
               onSelect={handleSelectVehicle}
               onCreateNew={handleCreateVehicleInline}
               onAddNew={() => setShowAddVehicle(true)}
-              placeholder="Wyszukaj pojazd..."
+              placeholder={t('workshop.tireStorage.searchVehiclePlaceholder')}
               renderItem={(v: any) => `${v.brand} ${v.model} — ${v.plate}`}
               getLabel={(v: any) => `${v.brand || ''} ${v.model || ''} ${v.plate || ''}`.trim()}
             />
             {!vehicleId && vehiclePlateText && (
-              <div className="text-xs text-muted-foreground">Wpisano: {vehiclePlateText}</div>
+              <div className="text-xs text-muted-foreground">{t('workshop.tireStorage.entered', { value: vehiclePlateText })}</div>
             )}
           </div>
 
           {/* Season */}
           <div className="space-y-2">
-            <Label>Sezon</Label>
+            <Label>{t('workshop.tireStorage.col.season')}</Label>
             <Select value={season} onValueChange={setSeason}>
               <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="letnie">☀️ Letnie</SelectItem>
-                <SelectItem value="zimowe">❄️ Zimowe</SelectItem>
-                <SelectItem value="całoroczne">🔄 Całoroczne</SelectItem>
+                <SelectItem value="letnie">☀️ {t('workshop.tireStorage.season.summer')}</SelectItem>
+                <SelectItem value="zimowe">❄️ {t('workshop.tireStorage.season.winter')}</SelectItem>
+                <SelectItem value="całoroczne">🔄 {t('workshop.tireStorage.season.allSeason')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           {/* Dates */}
           <div className="space-y-2">
-            <Label>Data przyjęcia</Label>
+            <Label>{t('workshop.tireStorage.receivedDate')}</Label>
             <Input type="date" value={storedAt} onChange={e => setStoredAt(e.target.value)} className="h-9" />
           </div>
           <div className="space-y-2">
-            <Label>Data wydania</Label>
+            <Label>{t('workshop.tireStorage.pickupDate')}</Label>
             <Input type="date" value={pickupAt} onChange={e => setPickupAt(e.target.value)} className="h-9" />
           </div>
 
           {/* Cost */}
           <div className="space-y-2">
-            <Label>Koszt przechowania</Label>
+            <Label>{t('workshop.tireStorage.storageCost')}</Label>
             <div className="flex items-center gap-2">
               <Input type="number" value={storageCost} onChange={e => setStorageCost(e.target.value)} className="flex-1 h-9" />
-              <span className="text-sm text-muted-foreground">PLN netto</span>
+              <span className="text-sm text-muted-foreground">{t('workshop.tireStorage.plnNet')}</span>
             </div>
           </div>
 
           {/* Reminder */}
           <div className="space-y-2">
-            <Label>Przypomnienie SMS za</Label>
+            <Label>{t('workshop.tireStorage.smsReminderIn')}</Label>
             <div className="flex items-center gap-2">
               <Input type="number" min="1" max="12" value={reminderMonths} onChange={e => setReminderMonths(e.target.value)} className="w-20 h-9" />
-              <span className="text-sm text-muted-foreground">miesięcy</span>
+              <span className="text-sm text-muted-foreground">{t('workshop.tireStorage.months')}</span>
             </div>
           </div>
 
           {/* Service point */}
           <div className="space-y-2">
-            <Label>Punkt serwisowy</Label>
+            <Label>{t('workshop.tireStorage.servicePoint')}</Label>
             <div className="flex items-center gap-2">
               <Select value={locationName} onValueChange={setLocationName}>
-                <SelectTrigger className="flex-1 h-9"><SelectValue placeholder="Wybierz punkt..." /></SelectTrigger>
+                <SelectTrigger className="flex-1 h-9"><SelectValue placeholder={t('workshop.tireStorage.selectPointPlaceholder')} /></SelectTrigger>
                 <SelectContent>
                   {servicePoints.map((sp: any) => (
                     <SelectItem key={sp.id} value={sp.name}>{sp.name}</SelectItem>
@@ -522,69 +526,69 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
 
           {/* Location description */}
           <div className="space-y-2">
-            <Label>Lokalizacja (opis)</Label>
-            <Textarea value={locationDesc} onChange={e => setLocationDesc(e.target.value)} placeholder="Nr regału, pozycja..." rows={2} />
+            <Label>{t('workshop.tireStorage.locationDesc')}</Label>
+            <Textarea value={locationDesc} onChange={e => setLocationDesc(e.target.value)} placeholder={t('workshop.tireStorage.locationDescPlaceholder')} rows={2} />
           </div>
 
           {/* Employee */}
           <div className="space-y-2">
-            <Label>Pracownik</Label>
-            <Input value={employeeName} onChange={e => setEmployeeName(e.target.value)} placeholder="Imię i nazwisko" className="h-9" />
+            <Label>{t('workshop.tireStorage.employee')}</Label>
+            <Input value={employeeName} onChange={e => setEmployeeName(e.target.value)} placeholder={t('workshop.tireStorage.fullName')} className="h-9" />
           </div>
         </div>
 
         {/* Tire details */}
         <div className="mt-6">
-          <h3 className="font-semibold text-lg mb-3">Szczegóły opon</h3>
+          <h3 className="font-semibold text-lg mb-3">{t('workshop.tireStorage.tireDetails')}</h3>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="space-y-1">
-              <Label className="text-xs">Marka opon</Label>
+              <Label className="text-xs">{t('workshop.tireStorage.tireBrand')}</Label>
               <Input value={tireBrand} onChange={e => setTireBrand(e.target.value)} placeholder="Continental" className="h-8" />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">Model opon</Label>
+              <Label className="text-xs">{t('workshop.tireStorage.tireModel')}</Label>
               <Input value={tireModel} onChange={e => setTireModel(e.target.value)} placeholder="PremiumContact 6" className="h-8" />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">Rozmiar</Label>
+              <Label className="text-xs">{t('workshop.tireStorage.size')}</Label>
               <Input value={tireSize} onChange={e => setTireSize(e.target.value)} placeholder="205/55R16" className="h-8" />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">DOT (tydzień/rok)</Label>
+              <Label className="text-xs">{t('workshop.tireStorage.dotCode')}</Label>
               <Input value={dotCode} onChange={e => setDotCode(e.target.value)} placeholder="3325" maxLength={4} className="h-8" />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">Głębokość bieżnika (mm)</Label>
+              <Label className="text-xs">{t('workshop.tireStorage.treadDepth')}</Label>
               <Input type="number" value={treadDepth} onChange={e => setTreadDepth(e.target.value)} placeholder="6.5" className="h-8" />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">Typ felg</Label>
-              <Input value={rimType} onChange={e => setRimType(e.target.value)} placeholder="Aluminiowe" className="h-8" />
+              <Label className="text-xs">{t('workshop.tireStorage.rimType')}</Label>
+              <Input value={rimType} onChange={e => setRimType(e.target.value)} placeholder={t('workshop.tireStorage.rimTypePlaceholder')} className="h-8" />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">Producent felg</Label>
+              <Label className="text-xs">{t('workshop.tireStorage.rimManufacturer')}</Label>
               <Input value={rimManufacturer} onChange={e => setRimManufacturer(e.target.value)} placeholder="OZ Racing" className="h-8" />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">Ilość</Label>
+              <Label className="text-xs">{t('workshop.tireStorage.quantity')}</Label>
               <Input type="number" value={quantity} onChange={e => setQuantity(e.target.value)} className="h-8" />
             </div>
           </div>
           <div className="mt-3 space-y-1">
-            <Label className="text-xs">Uwagi</Label>
-            <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Dodatkowe informacje..." rows={2} />
+            <Label className="text-xs">{t('workshop.tireStorage.notes')}</Label>
+            <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder={t('workshop.tireStorage.notesPlaceholder')} rows={2} />
           </div>
         </div>
 
         {/* Tasks (empty by default, add with +) */}
         <div className="mt-6">
-          <h3 className="font-semibold text-lg mb-3">Lista zadań</h3>
+          <h3 className="font-semibold text-lg mb-3">{t('workshop.tireStorage.taskList')}</h3>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>LP.</TableHead>
-                <TableHead>NAZWA</TableHead>
-                <TableHead className="text-right">CENA</TableHead>
+                <TableHead>{t('workshop.tireStorage.col.no')}</TableHead>
+                <TableHead>{t('workshop.tireStorage.col.name')}</TableHead>
+                <TableHead className="text-right">{t('workshop.tireStorage.col.price')}</TableHead>
                 <TableHead></TableHead>
               </TableRow>
             </TableHeader>
@@ -603,25 +607,25 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
               ))}
               {tasks.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center py-4 text-muted-foreground">Brak zadań — dodaj plusem poniżej</TableCell>
+                  <TableCell colSpan={4} className="text-center py-4 text-muted-foreground">{t('workshop.tireStorage.noTasks')}</TableCell>
                 </TableRow>
               )}
             </TableBody>
           </Table>
           <div className="flex items-center gap-2 mt-2">
-            <Input value={newTaskName} onChange={e => setNewTaskName(e.target.value)} placeholder="Nazwa zadania" className="flex-1 h-8" onKeyDown={e => e.key === 'Enter' && addTask()} />
-            <Input type="number" value={newTaskPrice} onChange={e => setNewTaskPrice(e.target.value)} placeholder="Cena" className="w-24 h-8" onKeyDown={e => e.key === 'Enter' && addTask()} />
+            <Input value={newTaskName} onChange={e => setNewTaskName(e.target.value)} placeholder={t('workshop.tireStorage.taskNamePlaceholder')} className="flex-1 h-8" onKeyDown={e => e.key === 'Enter' && addTask()} />
+            <Input type="number" value={newTaskPrice} onChange={e => setNewTaskPrice(e.target.value)} placeholder={t('workshop.tireStorage.pricePlaceholder')} className="w-24 h-8" onKeyDown={e => e.key === 'Enter' && addTask()} />
             <Button variant="outline" size="sm" className="gap-1 h-8" onClick={addTask}>
-              <Plus className="h-4 w-4" /> Dodaj
+              <Plus className="h-4 w-4" /> {t('workshop.tireStorage.add')}
             </Button>
           </div>
-          <div className="text-right text-sm font-medium mt-1">Razem: {tasksTotal.toFixed(2)}</div>
+          <div className="text-right text-sm font-medium mt-1">{t('workshop.tireStorage.total', { value: tasksTotal.toFixed(2) })}</div>
         </div>
 
         <div className="flex justify-end gap-2 mt-6">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Anuluj</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>{t('common.cancel')}</Button>
           <Button onClick={handleSave} disabled={saving}>
-            {saving ? 'Zapisuję...' : 'Zapisz'}
+            {saving ? t('workshop.tireStorage.saving') : t('common.save')}
           </Button>
         </div>
       </DialogContent>

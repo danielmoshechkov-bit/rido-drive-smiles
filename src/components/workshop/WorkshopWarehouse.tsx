@@ -14,6 +14,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   providerId: string;
@@ -24,6 +25,7 @@ const fmt = (n: number | null | undefined) =>
   Number(n || 0).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export function WorkshopWarehouse({ providerId, onBack }: Props) {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('stany');
   const [search, setSearch] = useState('');
 
@@ -32,25 +34,25 @@ export function WorkshopWarehouse({ providerId, onBack }: Props) {
       <div className="flex items-center gap-3">
         <button onClick={onBack} className="text-primary hover:underline text-sm">🏠</button>
         <span className="text-muted-foreground">/</span>
-        <h2 className="text-xl font-bold">Magazyn</h2>
+        <h2 className="text-xl font-bold">{t('workshop.warehouse.title')}</h2>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="stany" className="gap-1.5">
-            <Boxes className="h-4 w-4" /> Stany magazynowe
+            <Boxes className="h-4 w-4" /> {t('workshop.warehouse.tabs.stock')}
           </TabsTrigger>
           <TabsTrigger value="dokumenty" className="gap-1.5">
-            <FileText className="h-4 w-4" /> Dokumenty zakupu
+            <FileText className="h-4 w-4" /> {t('workshop.warehouse.tabs.purchaseDocs')}
           </TabsTrigger>
           <TabsTrigger value="rezerwacje" className="gap-1.5">
-            <ClipboardList className="h-4 w-4" /> Rezerwacje
+            <ClipboardList className="h-4 w-4" /> {t('workshop.warehouse.tabs.reservations')}
           </TabsTrigger>
           <TabsTrigger value="inwentaryzacja" className="gap-1.5">
-            <Package className="h-4 w-4" /> Inwentaryzacja
+            <Package className="h-4 w-4" /> {t('workshop.warehouse.tabs.inventoryCheck')}
           </TabsTrigger>
           <TabsTrigger value="integracje" className="gap-1.5">
-            <Link2 className="h-4 w-4" /> Integracje
+            <Link2 className="h-4 w-4" /> {t('workshop.warehouse.tabs.integrations')}
           </TabsTrigger>
         </TabsList>
 
@@ -77,6 +79,7 @@ export function WorkshopWarehouse({ providerId, onBack }: Props) {
 /* ============================== STANY ============================== */
 
 function WarehouseStock({ providerId, search, setSearch }: { providerId: string; search: string; setSearch: (v: string) => void }) {
+  const { t } = useTranslation();
   const [productId, setProductId] = useState<string | null>(null);
 
   const { data: provider } = useQuery({
@@ -133,9 +136,9 @@ function WarehouseStock({ providerId, search, setSearch }: { providerId: string;
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[240px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Szukaj po nazwie, SKU…" className="pl-9" />
+          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t('workshop.warehouse.searchByNameSku')} className="pl-9" />
         </div>
-        <Badge variant="outline">{products.length} pozycji</Badge>
+        <Badge variant="outline">{t('workshop.warehouse.itemsCount', { count: products.length })}</Badge>
       </div>
 
       <Card>
@@ -145,19 +148,19 @@ function WarehouseStock({ providerId, search, setSearch }: { providerId: string;
           ) : !products.length ? (
             <div className="p-12 text-center text-muted-foreground">
               <Package className="h-10 w-10 mx-auto mb-3 opacity-40" />
-              <p>Brak pozycji w magazynie. Dodaj produkty z dokumentu zakupu lub ręcznie.</p>
+              <p>{t('workshop.warehouse.noStockItems')}</p>
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nazwa / SKU</TableHead>
-                  <TableHead>Kategoria</TableHead>
-                  <TableHead className="text-right">Stan</TableHead>
-                  <TableHead className="text-right">Średni koszt</TableHead>
-                  <TableHead className="text-right">Cena sprzedaży</TableHead>
-                  <TableHead className="text-right">Marża</TableHead>
-                  <TableHead className="text-right">Wartość</TableHead>
+                  <TableHead>{t('workshop.warehouse.col.nameSku')}</TableHead>
+                  <TableHead>{t('workshop.warehouse.col.category')}</TableHead>
+                  <TableHead className="text-right">{t('workshop.warehouse.col.stock')}</TableHead>
+                  <TableHead className="text-right">{t('workshop.warehouse.col.avgCost')}</TableHead>
+                  <TableHead className="text-right">{t('workshop.warehouse.col.salePrice')}</TableHead>
+                  <TableHead className="text-right">{t('workshop.warehouse.col.margin')}</TableHead>
+                  <TableHead className="text-right">{t('workshop.warehouse.col.value')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -213,6 +216,7 @@ function WarehouseStock({ providerId, search, setSearch }: { providerId: string;
 /* ============================== PRODUCT MODAL ============================== */
 
 function ProductDetailsModal({ productId, userId, onClose }: { productId: string; userId?: string; onClose: () => void }) {
+  const { t } = useTranslation();
   const { data: product } = useQuery({
     queryKey: ['warehouse-product', productId],
     queryFn: async () => {
@@ -269,48 +273,48 @@ function ProductDetailsModal({ productId, userId, onClose }: { productId: string
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Package className="h-5 w-5 text-primary" />
-            {product?.name_sales || 'Pozycja magazynowa'}
+            {product?.name_sales || t('workshop.warehouse.stockItem')}
           </DialogTitle>
           <DialogDescription>
-            SKU: {product?.sku || '—'} · Kategoria: {product?.category || '—'} · VAT: {product?.vat_rate || '—'}
+            {t('workshop.warehouse.product.skuCategoryVat', { sku: product?.sku || '—', category: product?.category || '—', vat: product?.vat_rate || '—' })}
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <Card><CardContent className="py-3">
-            <div className="text-xs text-muted-foreground">Stan magazynu</div>
+            <div className="text-xs text-muted-foreground">{t('workshop.warehouse.product.stockLevel')}</div>
             <div className="text-lg font-bold">{fmt(stock)} {product?.unit || 'szt'}</div>
           </CardContent></Card>
           <Card><CardContent className="py-3">
-            <div className="text-xs text-muted-foreground">Wartość netto</div>
+            <div className="text-xs text-muted-foreground">{t('workshop.warehouse.product.netValue')}</div>
             <div className="text-lg font-bold whitespace-nowrap">{fmt(totalValue)}&nbsp;zł</div>
           </CardContent></Card>
           <Card><CardContent className="py-3">
-            <div className="text-xs text-muted-foreground">Cena sprzedaży</div>
+            <div className="text-xs text-muted-foreground">{t('workshop.warehouse.col.salePrice')}</div>
             <div className="text-lg font-bold whitespace-nowrap">{fmt(product?.default_sale_price_net)}&nbsp;zł</div>
           </CardContent></Card>
           <Card><CardContent className="py-3">
-            <div className="text-xs text-muted-foreground">Liczba partii</div>
+            <div className="text-xs text-muted-foreground">{t('workshop.warehouse.product.batchCount')}</div>
             <div className="text-lg font-bold">{batches.length}</div>
           </CardContent></Card>
         </div>
 
         <section className="space-y-2">
-          <h3 className="text-sm font-semibold flex items-center gap-2"><Boxes className="h-4 w-4" /> Partie (FIFO)</h3>
+          <h3 className="text-sm font-semibold flex items-center gap-2"><Boxes className="h-4 w-4" /> {t('workshop.warehouse.product.batchesFifo')}</h3>
           {!batches.length ? (
-            <Card><CardContent className="py-6 text-center text-sm text-muted-foreground">Brak partii — dodaj dokument zakupu.</CardContent></Card>
+            <Card><CardContent className="py-6 text-center text-sm text-muted-foreground">{t('workshop.warehouse.product.noBatches')}</CardContent></Card>
           ) : (
             <Card><CardContent className="p-0">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Data przyjęcia</TableHead>
-                    <TableHead>Dokument zakupu</TableHead>
-                    <TableHead>Dostawca</TableHead>
-                    <TableHead className="text-right">Przyjęto</TableHead>
-                    <TableHead className="text-right">Pozostało</TableHead>
-                    <TableHead className="text-right">Cena jedn.</TableHead>
-                    <TableHead className="text-right">Wartość</TableHead>
+                    <TableHead>{t('workshop.warehouse.col.receivedDate')}</TableHead>
+                    <TableHead>{t('workshop.warehouse.col.purchaseDoc')}</TableHead>
+                    <TableHead>{t('workshop.warehouse.col.supplier')}</TableHead>
+                    <TableHead className="text-right">{t('workshop.warehouse.col.received')}</TableHead>
+                    <TableHead className="text-right">{t('workshop.warehouse.col.remaining')}</TableHead>
+                    <TableHead className="text-right">{t('workshop.warehouse.col.unitPrice')}</TableHead>
+                    <TableHead className="text-right">{t('workshop.warehouse.col.value')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -330,7 +334,7 @@ function ProductDetailsModal({ productId, userId, onClose }: { productId: string
                                 </a>
                               )}
                             </div>
-                          ) : <span className="text-xs text-muted-foreground italic">brak</span>}
+                          ) : <span className="text-xs text-muted-foreground italic">{t('workshop.warehouse.none')}</span>}
                         </TableCell>
                         <TableCell className="text-sm">{doc?.supplier_name || '—'}</TableCell>
                         <TableCell className="text-right text-sm">{fmt(b.qty_in)}</TableCell>
@@ -347,20 +351,20 @@ function ProductDetailsModal({ productId, userId, onClose }: { productId: string
         </section>
 
         <section className="space-y-2">
-          <h3 className="text-sm font-semibold flex items-center gap-2"><History className="h-4 w-4" /> Historia ruchów</h3>
+          <h3 className="text-sm font-semibold flex items-center gap-2"><History className="h-4 w-4" /> {t('workshop.warehouse.product.movementHistory')}</h3>
           {!movements.length ? (
-            <Card><CardContent className="py-6 text-center text-sm text-muted-foreground">Brak ruchów magazynowych.</CardContent></Card>
+            <Card><CardContent className="py-6 text-center text-sm text-muted-foreground">{t('workshop.warehouse.product.noMovements')}</CardContent></Card>
           ) : (
             <Card><CardContent className="p-0">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Data</TableHead>
-                    <TableHead>Kierunek</TableHead>
-                    <TableHead>Źródło</TableHead>
-                    <TableHead className="text-right">Ilość</TableHead>
-                    <TableHead className="text-right">Cena jedn.</TableHead>
-                    <TableHead>Notatka</TableHead>
+                    <TableHead>{t('workshop.warehouse.col.date')}</TableHead>
+                    <TableHead>{t('workshop.warehouse.col.direction')}</TableHead>
+                    <TableHead>{t('workshop.warehouse.col.source')}</TableHead>
+                    <TableHead className="text-right">{t('workshop.warehouse.col.quantity')}</TableHead>
+                    <TableHead className="text-right">{t('workshop.warehouse.col.unitPrice')}</TableHead>
+                    <TableHead>{t('workshop.warehouse.col.note')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -369,7 +373,7 @@ function ProductDetailsModal({ productId, userId, onClose }: { productId: string
                       <TableCell className="text-sm">{format(new Date(m.created_at), 'yyyy-MM-dd HH:mm')}</TableCell>
                       <TableCell>
                         <Badge variant={m.direction === 'in' ? 'default' : 'outline'}>
-                          {m.direction === 'in' ? '+ Przyjęcie' : '− Wydanie'}
+                          {m.direction === 'in' ? t('workshop.warehouse.movementIn') : t('workshop.warehouse.movementOut')}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">{m.source_type || '—'}</TableCell>
@@ -391,6 +395,7 @@ function ProductDetailsModal({ productId, userId, onClose }: { productId: string
 /* ============================== DOKUMENTY ============================== */
 
 function WarehouseDocuments({ providerId, search, setSearch }: { providerId: string; search: string; setSearch: (v: string) => void }) {
+  const { t } = useTranslation();
   const [docId, setDocId] = useState<string | null>(null);
 
   const { data: provider } = useQuery({
@@ -425,11 +430,11 @@ function WarehouseDocuments({ providerId, search, setSearch }: { providerId: str
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <Button className="gap-2" disabled><Plus className="h-4 w-4" /> Wystaw PZ ręcznie</Button>
+        <Button className="gap-2" disabled><Plus className="h-4 w-4" /> {t('workshop.warehouse.issuePzManually')}</Button>
         <div className="flex-1" />
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Szukaj numeru / dostawcy / NIP" className="pl-9 w-[280px]" />
+          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t('workshop.warehouse.searchDocsPlaceholder')} className="pl-9 w-[280px]" />
         </div>
       </div>
 
@@ -440,19 +445,19 @@ function WarehouseDocuments({ providerId, search, setSearch }: { providerId: str
           ) : !docs.length ? (
             <div className="p-12 text-center text-muted-foreground">
               <FileText className="h-10 w-10 mx-auto mb-3 opacity-40" />
-              <p>Brak dokumentów zakupu. Dokumenty pojawiają się automatycznie po wgraniu faktury kosztowej.</p>
+              <p>{t('workshop.warehouse.noPurchaseDocs')}</p>
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>NUMER DOKUMENTU</TableHead>
-                  <TableHead>DOSTAWCA</TableHead>
-                  <TableHead>NIP</TableHead>
-                  <TableHead>DATA</TableHead>
-                  <TableHead>STATUS</TableHead>
-                  <TableHead className="text-right">NETTO</TableHead>
-                  <TableHead className="text-right">BRUTTO</TableHead>
+                  <TableHead>{t('workshop.warehouse.col.documentNumber')}</TableHead>
+                  <TableHead>{t('workshop.warehouse.col.supplier')}</TableHead>
+                  <TableHead>{t('workshop.warehouse.col.nip')}</TableHead>
+                  <TableHead>{t('workshop.warehouse.col.date')}</TableHead>
+                  <TableHead>{t('workshop.warehouse.col.status')}</TableHead>
+                  <TableHead className="text-right">{t('workshop.warehouse.col.net')}</TableHead>
+                  <TableHead className="text-right">{t('workshop.warehouse.col.gross')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -486,6 +491,7 @@ function WarehouseDocuments({ providerId, search, setSearch }: { providerId: str
 }
 
 function PurchaseDocModal({ docId, onClose }: { docId: string; onClose: () => void }) {
+  const { t } = useTranslation();
   const { data: doc } = useQuery({
     queryKey: ['warehouse-doc', docId],
     queryFn: async () => {
@@ -510,7 +516,7 @@ function PurchaseDocModal({ docId, onClose }: { docId: string; onClose: () => vo
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5 text-primary" />
-            {doc?.document_number || 'Dokument zakupu'}
+            {doc?.document_number || t('workshop.warehouse.purchaseDocument')}
           </DialogTitle>
           <DialogDescription>
             {doc?.supplier_name || '—'} · NIP {doc?.supplier_nip || '—'} · {doc?.document_date || '—'}
@@ -518,7 +524,7 @@ function PurchaseDocModal({ docId, onClose }: { docId: string; onClose: () => vo
               <>
                 {' · '}
                 <a href={doc.file_url} target="_blank" rel="noreferrer" className="text-primary hover:underline inline-flex items-center gap-1">
-                  Otwórz oryginał <ExternalLink className="h-3 w-3" />
+                  {t('workshop.warehouse.openOriginal')} <ExternalLink className="h-3 w-3" />
                 </a>
               </>
             )}
@@ -527,15 +533,15 @@ function PurchaseDocModal({ docId, onClose }: { docId: string; onClose: () => vo
 
         <div className="grid grid-cols-3 gap-3">
           <Card><CardContent className="py-3">
-            <div className="text-xs text-muted-foreground">Netto</div>
+            <div className="text-xs text-muted-foreground">{t('workshop.warehouse.col.net')}</div>
             <div className="text-lg font-bold whitespace-nowrap">{fmt(doc?.net_total)}&nbsp;zł</div>
           </CardContent></Card>
           <Card><CardContent className="py-3">
-            <div className="text-xs text-muted-foreground">VAT</div>
+            <div className="text-xs text-muted-foreground">{t('workshop.warehouse.col.vat')}</div>
             <div className="text-lg font-bold whitespace-nowrap">{fmt(doc?.vat_total)}&nbsp;zł</div>
           </CardContent></Card>
           <Card><CardContent className="py-3">
-            <div className="text-xs text-muted-foreground">Brutto</div>
+            <div className="text-xs text-muted-foreground">{t('workshop.warehouse.col.gross')}</div>
             <div className="text-lg font-bold whitespace-nowrap">{fmt(doc?.gross_total)}&nbsp;zł</div>
           </CardContent></Card>
         </div>
@@ -544,13 +550,13 @@ function PurchaseDocModal({ docId, onClose }: { docId: string; onClose: () => vo
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Pozycja</TableHead>
-                <TableHead className="text-right">Ilość</TableHead>
-                <TableHead className="text-right">Cena jedn.</TableHead>
-                <TableHead>VAT</TableHead>
-                <TableHead className="text-right">Netto</TableHead>
-                <TableHead className="text-right">Brutto</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>{t('workshop.warehouse.col.position')}</TableHead>
+                <TableHead className="text-right">{t('workshop.warehouse.col.quantity')}</TableHead>
+                <TableHead className="text-right">{t('workshop.warehouse.col.unitPrice')}</TableHead>
+                <TableHead>{t('workshop.warehouse.col.vat')}</TableHead>
+                <TableHead className="text-right">{t('workshop.warehouse.col.net')}</TableHead>
+                <TableHead className="text-right">{t('workshop.warehouse.col.gross')}</TableHead>
+                <TableHead>{t('workshop.warehouse.col.status')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -564,15 +570,15 @@ function PurchaseDocModal({ docId, onClose }: { docId: string; onClose: () => vo
                   <TableCell className="text-right text-sm whitespace-nowrap">{fmt(it.gross_total)}&nbsp;zł</TableCell>
                   <TableCell>
                     {it.mapped_product_id ? (
-                      <Badge variant="default" className="text-xs">Zmapowano</Badge>
+                      <Badge variant="default" className="text-xs">{t('workshop.warehouse.mapped')}</Badge>
                     ) : (
-                      <Badge variant="outline" className="text-xs">Niepowiązano</Badge>
+                      <Badge variant="outline" className="text-xs">{t('workshop.warehouse.unmapped')}</Badge>
                     )}
                   </TableCell>
                 </TableRow>
               ))}
               {!items.length && (
-                <TableRow><TableCell colSpan={7} className="text-center py-6 text-muted-foreground text-sm">Brak pozycji</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="text-center py-6 text-muted-foreground text-sm">{t('workshop.warehouse.noPositions')}</TableCell></TableRow>
               )}
             </TableBody>
           </Table>
@@ -585,11 +591,12 @@ function PurchaseDocModal({ docId, onClose }: { docId: string; onClose: () => vo
 /* ============================== REZERWACJE ============================== */
 
 function WarehouseReservations() {
+  const { t } = useTranslation();
   return (
     <Card>
       <CardContent className="py-12 text-center text-muted-foreground">
         <ClipboardList className="h-10 w-10 mx-auto mb-3 opacity-40" />
-        <p>Brak rezerwacji części. Rezerwacje tworzone ze zleceń pojawią się tutaj.</p>
+        <p>{t('workshop.warehouse.noReservations')}</p>
       </CardContent>
     </Card>
   );
@@ -598,15 +605,16 @@ function WarehouseReservations() {
 /* ============================== INWENTARYZACJA ============================== */
 
 function WarehouseInventoryCheck() {
+  const { t } = useTranslation();
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        <Button className="gap-2" disabled><Plus className="h-4 w-4" /> Rozpocznij inwentaryzację</Button>
+        <Button className="gap-2" disabled><Plus className="h-4 w-4" /> {t('workshop.warehouse.startInventoryCheck')}</Button>
       </div>
       <Card>
         <CardContent className="py-12 text-center text-muted-foreground">
           <Package className="h-10 w-10 mx-auto mb-3 opacity-40" />
-          <p>Brak historii inwentaryzacji. Rozpocznij nową inwentaryzację aby porównać stany magazynowe.</p>
+          <p>{t('workshop.warehouse.noInventoryHistory')}</p>
         </CardContent>
       </Card>
     </div>
@@ -616,6 +624,7 @@ function WarehouseInventoryCheck() {
 /* ============================== INTEGRACJE ============================== */
 
 function WarehouseIntegrations({ providerId }: { providerId: string }) {
+  const { t } = useTranslation();
   const { data: integrations = [], isLoading } = useQuery({
     queryKey: ['warehouse-integrations-status', providerId],
     queryFn: async () => {
@@ -645,8 +654,8 @@ function WarehouseIntegrations({ providerId }: { providerId: string }) {
         <CardContent className="py-4 flex items-start gap-3">
           <AlertCircle className="h-5 w-5 text-primary mt-0.5" />
           <div className="text-sm">
-            <p className="font-medium">Integracje konfigurujesz w Ustawieniach warsztatu.</p>
-            <p className="text-muted-foreground mt-0.5">Tutaj widzisz tylko status. Zielona kropka = aktywne. Po złożeniu zamówienia w naszym systemie dokumenty zakupu od dostawcy zostaną pobrane automatycznie i dodane do magazynu.</p>
+            <p className="font-medium">{t('workshop.warehouse.integrationsInfoTitle')}</p>
+            <p className="text-muted-foreground mt-0.5">{t('workshop.warehouse.integrationsInfoDesc')}</p>
           </div>
         </CardContent>
       </Card>
@@ -664,7 +673,7 @@ function WarehouseIntegrations({ providerId }: { providerId: string }) {
                   <div className="flex items-center gap-2">
                     <span className={`inline-block h-2 w-2 rounded-full ${s.is_enabled ? 'bg-emerald-500' : 'bg-muted-foreground/40'}`} />
                     <span className="text-xs text-muted-foreground">
-                      {s.is_enabled ? 'Aktywna' : 'Nieaktywna'}
+                      {s.is_enabled ? t('workshop.warehouse.active') : t('workshop.warehouse.inactive')}
                       {s.lastAt ? ` · ${format(new Date(s.lastAt), 'yyyy-MM-dd HH:mm')}` : ''}
                     </span>
                   </div>
@@ -673,9 +682,9 @@ function WarehouseIntegrations({ providerId }: { providerId: string }) {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => toast.info('Konfiguracja integracji znajduje się w Ustawieniach warsztatu → Integracje hurtowni.')}
+                onClick={() => toast.info(t('workshop.warehouse.configureToast'))}
               >
-                Konfiguruj
+                {t('workshop.warehouse.configure')}
               </Button>
             </CardContent>
           </Card>
