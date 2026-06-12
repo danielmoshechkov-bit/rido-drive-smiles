@@ -19,6 +19,7 @@ import { WorkshopVehicleEditDialog } from '../WorkshopVehicleEditDialog';
 import { useSaveServicePrice, useSaveAnonymousPrice } from '@/hooks/useServicePriceHistory';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   order: any;
@@ -116,6 +117,7 @@ const moveItem = <T,>(items: T[], fromIndex: number, toIndex: number) => {
 };
 
 export function WorkshopOrderTasksTab({ order, providerId }: Props) {
+  const { t } = useTranslation();
   const createItem = useCreateWorkshopOrderItem();
   const updateItem = useUpdateWorkshopOrderItem();
   const deleteItem = useDeleteWorkshopOrderItem();
@@ -382,7 +384,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       await persistSortOrder(reorderedItems);
     } catch (error: any) {
       setPreview(null);
-      toast.error(error?.message || 'Nie udało się zapisać nowej kolejności pozycji');
+      toast.error(error?.message || t('workshop.orderTasks.reorderError'));
     }
   };
 
@@ -423,7 +425,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   // Client confirmation warning check
   const showQuoteWarningIfNeeded = () => {
     if (order.quote_accepted && !quoteWarningShown) {
-      toast.warning('Klient zaakceptował kosztorys. Po zmianach należy ponownie poinformować klienta o aktualizacji wyceny.', {
+      toast.warning(t('workshop.orderTasks.quoteAcceptedWarning'), {
         duration: 6000,
         icon: <AlertTriangle className="h-5 w-5" />,
       });
@@ -447,7 +449,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     const filled = taskRows.filter(isTaskDraftFilled);
     const incomplete = taskRows.filter(r => !r.name.trim() && getDraftPrice(r, isTaskGross) > 0);
     if (incomplete.length > 0) {
-      toast.error('Uzupełnij nazwę usługi — wpisałeś cenę, ale pole "Usługa" jest puste.', {
+      toast.error(t('workshop.orderTasks.fillServiceName'), {
         icon: <AlertTriangle className="h-5 w-5" />,
       });
       return;
@@ -521,7 +523,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     }
 
     setTaskRows(prev => prev.map((r, i) => i === idx ? createEmptyTask() : r));
-    toast.success('Usługa dodana');
+    toast.success(t('sp.services.added'));
   };
 
   // Goods row handlers
@@ -543,7 +545,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     const filled = goodsRows.filter(isGoodsDraftFilled);
     const incomplete = goodsRows.filter(r => !r.name.trim() && getDraftPrice(r, isGoodsGross) > 0);
     if (incomplete.length > 0) {
-      toast.error('Uzupełnij nazwę części — wpisałeś cenę, ale pole "Nazwa" jest puste.', {
+      toast.error(t('workshop.orderTasks.fillPartName'), {
         icon: <AlertTriangle className="h-5 w-5" />,
       });
       return;
@@ -599,7 +601,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     });
 
     setGoodsRows(prev => prev.map((r, i) => i === idx ? createEmptyGoods() : r));
-    toast.success('Część dodana');
+    toast.success(t('workshop.orderTasks.partAdded'));
   };
 
   // Inline edit saved items
@@ -690,7 +692,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   const handleDeleteItem = async (id: string) => {
     showQuoteWarningIfNeeded();
     await deleteItem.mutateAsync(id);
-    toast.success('Pozycja usunięta');
+    toast.success(t('workshop.workList.itemRemoved'));
   };
 
   const fmt = (v: number) => v.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -816,7 +818,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     // Detect rows with price but no name — warn user instead of silently dropping
     const incompleteRows = taskRows.filter(r => !r.name.trim() && getDraftPrice(r, isTaskGross) > 0);
     if (incompleteRows.length > 0) {
-      toast.error('Uzupełnij nazwę usługi — wpisałeś cenę, ale pole "Usługa" jest puste.', {
+      toast.error(t('workshop.orderTasks.fillServiceName'), {
         icon: <AlertTriangle className="h-5 w-5" />,
       });
       // Don't auto-save anything; let the user fix the row
@@ -850,7 +852,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   const saveGoodsDraftRows = async (focusNewRow = false) => {
     const incompleteRows = goodsRows.filter(r => !r.name.trim() && getDraftPrice(r, isGoodsGross) > 0);
     if (incompleteRows.length > 0) {
-      toast.error('Uzupełnij nazwę części — wpisałeś cenę, ale pole "Nazwa" jest puste.', {
+      toast.error(t('workshop.orderTasks.fillPartName'), {
         icon: <AlertTriangle className="h-5 w-5" />,
       });
       return;
@@ -1066,7 +1068,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       {order.quote_accepted && (
         <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg text-sm text-amber-800 dark:text-amber-200">
           <AlertTriangle className="h-4 w-4 shrink-0" />
-          <span>Klient zaakceptował kosztorys. Wszelkie zmiany wymagają ponownego poinformowania klienta.</span>
+          <span>{t('workshop.orderTasks.quoteAcceptedBanner')}</span>
         </div>
       )}
 
@@ -1074,15 +1076,15 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       <div className="flex items-center gap-3 flex-wrap">
         <Badge variant="outline" className="text-sm px-3 py-1.5 gap-1.5">
           <Wrench className="h-3.5 w-3.5" />
-          Usługi: {fmt(displayTasksTotal)}
+          {t('workshop.orderTasks.servicesLabel')}: {fmt(displayTasksTotal)}
         </Badge>
         <Badge variant="outline" className="text-sm px-3 py-1.5 gap-1.5">
           <Package className="h-3.5 w-3.5" />
-          Części: {fmt(displayGoodsTotal)}
+          {t('workshop.orderTasks.partsLabel')}: {fmt(displayGoodsTotal)}
         </Badge>
         {displayGrandCost > 0 && (
           <Badge variant="secondary" className="text-sm px-3 py-1.5">
-            Marża: {fmt(displayGrandProfit)} ({displayGrandTotal > 0 ? Math.round((displayGrandProfit / displayGrandTotal) * 100) : 0}%)
+            {t('workshop.orderTasks.marginLabel')}: {fmt(displayGrandProfit)} ({displayGrandTotal > 0 ? Math.round((displayGrandProfit / displayGrandTotal) * 100) : 0}%)
           </Badge>
         )}
       </div>
@@ -1094,17 +1096,17 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
           <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
             <div className="flex items-center gap-2">
               <Wrench className="h-5 w-5 text-primary" />
-              <h3 className="font-semibold text-base">Robocizna / Usługi</h3>
+              <h3 className="font-semibold text-base">{t('workshop.orderTasks.laborServicesHeading')}</h3>
               <Badge variant="secondary" className="text-xs">{tasks.length}</Badge>
             </div>
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1 bg-muted rounded-lg p-0.5">
-                <Button variant={taskPriceMode === 'net' ? 'default' : 'ghost'} size="sm" className="text-xs h-7" onClick={() => setTaskPriceMode('net')}>NETTO</Button>
-                <Button variant={taskPriceMode === 'gross' ? 'default' : 'ghost'} size="sm" className="text-xs h-7" onClick={() => setTaskPriceMode('gross')}>BRUTTO</Button>
+                <Button variant={taskPriceMode === 'net' ? 'default' : 'ghost'} size="sm" className="text-xs h-7" onClick={() => setTaskPriceMode('net')}>{t('workshop.orderTasks.net')}</Button>
+                <Button variant={taskPriceMode === 'gross' ? 'default' : 'ghost'} size="sm" className="text-xs h-7" onClick={() => setTaskPriceMode('gross')}>{t('workshop.orderTasks.gross')}</Button>
               </div>
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                <Input value={taskSearch} onChange={e => setTaskSearch(e.target.value)} placeholder="Szukaj usługi..." className="pl-8 h-8 w-40 text-xs" />
+                <Input value={taskSearch} onChange={e => setTaskSearch(e.target.value)} placeholder={t('workshop.orderTasks.searchServicePlaceholder')} className="pl-8 h-8 w-40 text-xs" />
               </div>
             </div>
           </div>
@@ -1123,26 +1125,26 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
               </colgroup>
               <thead>
                 <tr className="border-b bg-muted/10">
-                  <th className="p-2 text-center font-medium text-muted-foreground">LP</th>
-                  <th className="p-2 text-center text-[11px] font-medium text-muted-foreground">USŁUGA</th>
-                  <th className="p-2 text-center text-[11px] font-medium text-muted-foreground">PRACOWNIK</th>
-                  <th className="p-2 text-center text-[11px] font-medium text-muted-foreground">CZAS [h]</th>
-                  <th className="p-2 text-center text-[11px] font-medium text-muted-foreground border-r border-border/60">CENA</th>
-                  <th className="p-2 text-center text-[11px] font-medium text-muted-foreground border-l border-border/60 bg-muted/30">RABAT</th>
-                  <th className="p-2 text-center text-[11px] font-medium text-muted-foreground">PO RABACIE</th>
+                  <th className="p-2 text-center font-medium text-muted-foreground">{t('workshop.orderTasks.colNo')}</th>
+                  <th className="p-2 text-center text-[11px] font-medium text-muted-foreground">{t('workshop.orderTasks.colService')}</th>
+                  <th className="p-2 text-center text-[11px] font-medium text-muted-foreground">{t('workshop.orderTasks.colEmployee')}</th>
+                  <th className="p-2 text-center text-[11px] font-medium text-muted-foreground">{t('workshop.orderTasks.colTimeH')}</th>
+                  <th className="p-2 text-center text-[11px] font-medium text-muted-foreground border-r border-border/60">{t('workshop.orderTasks.colPrice')}</th>
+                  <th className="p-2 text-center text-[11px] font-medium text-muted-foreground border-l border-border/60 bg-muted/30">{t('workshop.orderTasks.colDiscount')}</th>
+                  <th className="p-2 text-center text-[11px] font-medium text-muted-foreground">{t('workshop.orderTasks.colAfterDiscount')}</th>
                   <th className="p-2"></th>
                 </tr>
               </thead>
               <tbody>
-                {tasks.map((t: any, i: number) => {
-                  const quantity = safeNumber(t.quantity) || 1;
-                  const price = getTaskItemPrice(t) * quantity;
-                  const total = getTaskItemTotal(t);
-                  const hasDiscount = getDiscountPercent(t) > 0;
+                {tasks.map((task: any, i: number) => {
+                  const quantity = safeNumber(task.quantity) || 1;
+                  const price = getTaskItemPrice(task) * quantity;
+                  const total = getTaskItemTotal(task);
+                  const hasDiscount = getDiscountPercent(task) > 0;
                   return (
                     <tr
-                      key={t.id}
-                      className={getTaskRowClasses(t, i)}
+                      key={task.id}
+                      className={getTaskRowClasses(task, i)}
                       onDragOver={event => {
                         if (!draggingTaskId) return;
                         event.preventDefault();
@@ -1161,12 +1163,12 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           <button
                             type="button"
                             draggable
-                            title="Przeciągnij, aby zmienić kolejność"
+                            title={t('workshop.orderTasks.dragToReorder')}
                             className="flex h-8 w-8 shrink-0 cursor-grab items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:cursor-grabbing"
                             onDragStart={event => {
-                              setDraggingTaskId(t.id);
+                              setDraggingTaskId(task.id);
                               event.dataTransfer.effectAllowed = 'move';
-                              event.dataTransfer.setData('text/plain', t.id);
+                              event.dataTransfer.setData('text/plain', task.id);
                             }}
                             onDragEnd={clearTaskDragState}
                             onClick={event => event.stopPropagation()}
@@ -1174,10 +1176,10 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                             <GripVertical className="h-4 w-4" />
                           </button>
                           <div className="min-w-0 flex-1">
-                            {t.is_addon && (
-                              <Badge className="mr-2 bg-red-600 text-white text-[9px] uppercase px-1.5 py-0 animate-pulse">Dodatek</Badge>
+                            {task.is_addon && (
+                              <Badge className="mr-2 bg-red-600 text-white text-[9px] uppercase px-1.5 py-0 animate-pulse">{t('workshop.orderTasks.addonBadge')}</Badge>
                             )}
-                            {renderEditableCell(t, 'name', t.name)}
+                            {renderEditableCell(task, 'name', task.name)}
                           </div>
                         </div>
                       </td>
@@ -1185,9 +1187,9 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                         {workshopEmployees.length > 0 ? (
                           <select
                             className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
-                            value={t.employee_id || ''}
+                            value={task.employee_id || ''}
                             onChange={async (e) => {
-                              await updateItem.mutateAsync({ id: t.id, employee_id: e.target.value || null });
+                              await updateItem.mutateAsync({ id: task.id, employee_id: e.target.value || null });
                             }}
                           >
                             <option value="">—</option>
@@ -1195,16 +1197,16 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                               <option key={emp.id} value={emp.id}>{emp.name}</option>
                             ))}
                           </select>
-                        ) : renderEditableCell(t, 'mechanic', t.mechanic || '—')}
+                        ) : renderEditableCell(task, 'mechanic', task.mechanic || '—')}
                       </td>
                       <td className="p-1.5 tabular-nums">
-                        {renderEditableCell(t, 'labor_hours', String(safeNumber(t.labor_hours) || '—'), 'tabular-nums', 'center')}
+                        {renderEditableCell(task, 'labor_hours', String(safeNumber(task.labor_hours) || '—'), 'tabular-nums', 'center')}
                       </td>
-                      <td className="p-1.5 tabular-nums border-r border-border/60">{renderEditableCell(t, 'price', fmt(price), 'tabular-nums', 'right')}</td>
-                      <td className="p-1.5 text-center border-l border-border/60 bg-muted/10"><SavedRowDiscountEditor item={t} isGross={isTaskGross} /></td>
+                      <td className="p-1.5 tabular-nums border-r border-border/60">{renderEditableCell(task, 'price', fmt(price), 'tabular-nums', 'right')}</td>
+                      <td className="p-1.5 text-center border-l border-border/60 bg-muted/10"><SavedRowDiscountEditor item={task} isGross={isTaskGross} /></td>
                       <td className="p-2 text-center font-semibold tabular-nums">{fmt(total)}</td>
                       <td className="p-2 text-center">
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => handleDeleteItem(t.id)}>
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => handleDeleteItem(task.id)}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </td>
@@ -1244,7 +1246,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           }}
                         />
                         {nameMissing && (
-                          <p className="text-[10px] text-destructive mt-0.5 px-1">Wpisz nazwę, aby pozycja została policzona</p>
+                          <p className="text-[10px] text-destructive mt-0.5 px-1">{t('workshop.orderTasks.enterNameToCount')}</p>
                         )}
                       </td>
                       <td className="p-1.5">
@@ -1261,7 +1263,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           </select>
                         ) : (
                           <Input
-                            placeholder="Pracownik"
+                            placeholder={t('workshop.orderTasks.employeePlaceholder')}
                             value={row.mechanic}
                             onChange={e => updateTaskRow(idx, { mechanic: e.target.value })}
                             className="h-9 w-full text-sm min-w-0"
@@ -1288,7 +1290,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                       <td className="p-1.5 border-r border-border/60">
                         <Input
                           type="number"
-                          placeholder={isTaskGross ? 'Brutto' : 'Netto'}
+                          placeholder={isTaskGross ? t('workshop.orderTasks.grossPlaceholder') : t('workshop.orderTasks.netPlaceholder')}
                           value={isTaskGross ? (row.price_gross || '') : (row.price_net || '')}
                           onChange={e => updateTaskRowPrice(idx, Number(e.target.value))}
                           onKeyDown={e => {
@@ -1345,8 +1347,8 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                         <tr className="bg-muted/20 text-sm border-b">
                           <td className="p-2"></td>
                           <td className="p-2" colSpan={5}>
-                            <span className="text-muted-foreground">Razem czas: <strong>{totalLaborHours.toFixed(2)} h</strong></span>
-                            {totalLaborCost > 0 && <span className="ml-4 text-muted-foreground">Koszt robocizny: <strong>{fmt(totalLaborCost)} zł</strong></span>}
+                            <span className="text-muted-foreground">{t('workshop.orderTasks.totalTime')}: <strong>{totalLaborHours.toFixed(2)} h</strong></span>
+                            {totalLaborCost > 0 && <span className="ml-4 text-muted-foreground">{t('workshop.orderTasks.laborCost')}: <strong>{fmt(totalLaborCost)} zł</strong></span>}
                           </td>
                           <td className="p-2"></td>
                           <td className="p-2"></td>
@@ -1354,7 +1356,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                       )}
                       <tr className="bg-muted/30 font-semibold text-sm border-b">
                         <td className="p-2"></td>
-                        <td className="p-2" colSpan={5}>Razem usługi</td>
+                        <td className="p-2" colSpan={5}>{t('workshop.orderTasks.totalServices')}</td>
                         <td className="p-2 text-right tabular-nums">{fmt(displayTasksTotal)}</td>
                         <td className="p-2"></td>
                       </tr>
@@ -1365,7 +1367,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                   <td colSpan={8} className="p-1.5">
                     <div className="flex items-center gap-2">
                       <Button onClick={addTaskRow} variant="ghost" size="sm" className="gap-1 text-xs text-primary">
-                        <Plus className="h-3.5 w-3.5" /> Dodaj usługę
+                        <Plus className="h-3.5 w-3.5" /> {t('workshop.orderTasks.addService')}
                       </Button>
                       {taskTemplates.length > 0 && (
                         <Button
@@ -1374,7 +1376,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           className="gap-1.5 h-7 text-xs"
                           onClick={() => setTemplateModalOpen(true)}
                         >
-                          <ClipboardList className="h-3.5 w-3.5" /> Dodaj z szablonu
+                          <ClipboardList className="h-3.5 w-3.5" /> {t('workshop.orderTasks.addFromTemplate')}
                         </Button>
                       )}
                       {(tasks.length > 0 || taskRows.some(r => r.name.trim())) && ridoPriceSettings?.ai_suggestions_enabled !== false && (
@@ -1396,7 +1398,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                             setRidoPriceOpen(true);
                           }}
                         >
-                          <Sparkles className="h-3.5 w-3.5" /> Rido Wycena
+                          <Sparkles className="h-3.5 w-3.5" /> {t('workshop.orderTasks.ridoEstimate')}
                         </Button>
                       )}
                     </div>
@@ -1416,17 +1418,17 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
           <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
             <div className="flex items-center gap-2">
               <Package className="h-5 w-5 text-amber-500" />
-              <h3 className="font-semibold text-base">Części i materiały</h3>
+              <h3 className="font-semibold text-base">{t('workshop.orderTasks.partsMaterialsHeading')}</h3>
               <Badge variant="secondary" className="text-xs">{goods.length}</Badge>
             </div>
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1 bg-muted rounded-lg p-0.5">
-                <Button variant={goodsPriceMode === 'net' ? 'default' : 'ghost'} size="sm" className="text-xs h-7" onClick={() => setGoodsPriceMode('net')}>NETTO</Button>
-                <Button variant={goodsPriceMode === 'gross' ? 'default' : 'ghost'} size="sm" className="text-xs h-7" onClick={() => setGoodsPriceMode('gross')}>BRUTTO</Button>
+                <Button variant={goodsPriceMode === 'net' ? 'default' : 'ghost'} size="sm" className="text-xs h-7" onClick={() => setGoodsPriceMode('net')}>{t('workshop.orderTasks.net')}</Button>
+                <Button variant={goodsPriceMode === 'gross' ? 'default' : 'ghost'} size="sm" className="text-xs h-7" onClick={() => setGoodsPriceMode('gross')}>{t('workshop.orderTasks.gross')}</Button>
               </div>
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                <Input value={goodsSearch} onChange={e => setGoodsSearch(e.target.value)} placeholder="Szukaj części..." className="pl-8 h-8 w-40 text-xs" />
+                <Input value={goodsSearch} onChange={e => setGoodsSearch(e.target.value)} placeholder={t('workshop.orderTasks.searchPartPlaceholder')} className="pl-8 h-8 w-40 text-xs" />
               </div>
             </div>
           </div>
@@ -1447,20 +1449,20 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
               </colgroup>
               <thead>
                 <tr className="border-b bg-muted/10">
-                  <th className="p-2 text-center font-medium text-muted-foreground">LP</th>
-                  <th className="p-2 text-center font-medium text-muted-foreground">NAZWA</th>
-                  <th className="p-2 text-center text-[11px] font-medium text-muted-foreground">ILOŚĆ</th>
-                  <th className="p-2 text-center text-[11px] font-medium text-muted-foreground">J.M.</th>
+                  <th className="p-2 text-center font-medium text-muted-foreground">{t('workshop.orderTasks.colNo')}</th>
+                  <th className="p-2 text-center font-medium text-muted-foreground">{t('workshop.orderTasks.colName')}</th>
+                  <th className="p-2 text-center text-[11px] font-medium text-muted-foreground">{t('workshop.orderTasks.colQuantity')}</th>
+                  <th className="p-2 text-center text-[11px] font-medium text-muted-foreground">{t('workshop.orderTasks.colUnit')}</th>
                   <th className="p-2 text-center text-[11px] font-medium text-muted-foreground">
                     <div className="flex items-center justify-center gap-1">
                       <EyeOff className="h-3 w-3" />
-                      <span>KOSZT</span>
+                      <span>{t('workshop.orderTasks.colCost')}</span>
                     </div>
                   </th>
-                  <th className="p-2 text-center text-[11px] font-medium text-muted-foreground">CENA</th>
-                  <th className="p-2 text-center text-[11px] font-medium text-muted-foreground border-r border-border/60">RAZEM</th>
-                  <th className="p-2 text-center text-[11px] font-medium text-muted-foreground border-l border-border/60 bg-muted/30">RABAT</th>
-                  <th className="p-2 text-center text-[11px] font-medium text-muted-foreground">PO RAB.</th>
+                  <th className="p-2 text-center text-[11px] font-medium text-muted-foreground">{t('workshop.orderTasks.colPrice')}</th>
+                  <th className="p-2 text-center text-[11px] font-medium text-muted-foreground border-r border-border/60">{t('workshop.orderTasks.colTotal')}</th>
+                  <th className="p-2 text-center text-[11px] font-medium text-muted-foreground border-l border-border/60 bg-muted/30">{t('workshop.orderTasks.colDiscount')}</th>
+                  <th className="p-2 text-center text-[11px] font-medium text-muted-foreground">{t('workshop.orderTasks.colAfterDiscountShort')}</th>
                   <th className="p-2"></th>
                 </tr>
               </thead>
@@ -1494,7 +1496,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           <button
                             type="button"
                             draggable
-                            title="Przeciągnij, aby zmienić kolejność"
+                            title={t('workshop.orderTasks.dragToReorder')}
                             className="flex h-8 w-8 shrink-0 cursor-grab items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:cursor-grabbing"
                             onDragStart={event => {
                               setDraggingGoodsId(g.id);
@@ -1508,7 +1510,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           </button>
                           <div className="min-w-0 flex-1">
                             {g.is_addon && (
-                              <Badge className="mr-2 bg-red-600 text-white text-[9px] uppercase px-1.5 py-0 animate-pulse">Dodatek</Badge>
+                              <Badge className="mr-2 bg-red-600 text-white text-[9px] uppercase px-1.5 py-0 animate-pulse">{t('workshop.orderTasks.addonBadge')}</Badge>
                             )}
                             {renderEditableCell(g, 'name', g.name)}
                           </div>
@@ -1545,7 +1547,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                       </td>
                       <td className="p-1.5">
                         <Input
-                          placeholder="Wpisz nazwę części..."
+                          placeholder={t('workshop.orderTasks.enterPartNamePlaceholder')}
                           value={row.name}
                           onChange={e => updateGoodsRow(idx, { name: e.target.value })}
                           className={`h-9 w-full text-sm min-w-0 ${nameMissing ? 'border-destructive ring-1 ring-destructive' : ''}`}
@@ -1557,7 +1559,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           }}
                         />
                         {nameMissing && (
-                          <p className="text-[10px] text-destructive mt-0.5 px-1">Wpisz nazwę, aby pozycja została policzona</p>
+                          <p className="text-[10px] text-destructive mt-0.5 px-1">{t('workshop.orderTasks.enterNameToCount')}</p>
                         )}
                       </td>
                       <td className="p-1.5">
@@ -1592,8 +1594,8 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                       <td className="p-1.5">
                         <Input
                           type="number"
-                          placeholder="Koszt"
-                          title="Koszt zakupu — widoczne tylko dla serwisu"
+                          placeholder={t('workshop.orderTasks.costPlaceholder')}
+                          title={t('workshop.orderTasks.costTitle')}
                           value={isGoodsGross ? (row.cost_gross || '') : (row.cost_net || '')}
                           onChange={e => updateGoodsRowCost(idx, Number(e.target.value))}
                           className="h-9 w-full text-sm text-right min-w-0 px-2"
@@ -1608,7 +1610,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                       <td className="p-1.5">
                         <Input
                           type="number"
-                          placeholder={isGoodsGross ? 'Brutto' : 'Netto'}
+                          placeholder={isGoodsGross ? t('workshop.orderTasks.grossPlaceholder') : t('workshop.orderTasks.netPlaceholder')}
                           value={isGoodsGross ? (row.price_gross || '') : (row.price_net || '')}
                           onChange={e => updateGoodsRowPrice(idx, Number(e.target.value))}
                           onKeyDown={e => {
@@ -1661,7 +1663,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                 {/* Sum row */}
                 <tr className="bg-muted/30 font-semibold text-sm border-b">
                   <td className="p-2"></td>
-                  <td className="p-2" colSpan={7}>Razem części</td>
+                  <td className="p-2" colSpan={7}>{t('workshop.orderTasks.totalParts')}</td>
                   <td className="p-2 text-right tabular-nums">{fmt(displayGoodsTotal)}</td>
                   <td className="p-2"></td>
                 </tr>
@@ -1669,10 +1671,10 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                   <td colSpan={10} className="p-1.5">
                     <div className="flex items-center gap-2">
                       <Button onClick={addGoodsRow} variant="ghost" size="sm" className="gap-1 text-xs text-amber-600">
-                        <Plus className="h-3.5 w-3.5" /> Dodaj pozycję
+                        <Plus className="h-3.5 w-3.5" /> {t('workshop.orderTasks.addItem')}
                       </Button>
                       <Button variant="outline" size="sm" className="gap-1 h-7 text-xs">
-                        <Package className="h-3.5 w-3.5" /> Dodaj z magazynu
+                        <Package className="h-3.5 w-3.5" /> {t('workshop.orderTasks.addFromWarehouse')}
                       </Button>
                       <Button
                         variant="outline"
@@ -1687,7 +1689,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                             // Check vehicle data
                             const v = order.vehicle;
                             if (!v?.vin && !v?.brand) {
-                              toast.error('Brak danych pojazdu (VIN/marka). Uzupełnij dane auta przed wyszukiwaniem części.');
+                              toast.error(t('workshop.orderTasks.missingVehicleData'));
                               return;
                             }
                             setRidoSearchOpen(true);
@@ -1696,7 +1698,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           }
                         }}
                       >
-                        <Search className="h-3.5 w-3.5" /> Znajdź części z Rido
+                        <Search className="h-3.5 w-3.5" /> {t('workshop.orderTasks.findPartsWithRido')}
                       </Button>
                     </div>
                   </td>
@@ -1713,19 +1715,19 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
         <CardContent className="py-4 space-y-4">
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-xl border bg-background/70 px-4 py-3 text-center">
-              <p className="text-xs text-muted-foreground mb-1">Robocizna od klienta</p>
+              <p className="text-xs text-muted-foreground mb-1">{t('workshop.orderTasks.laborFromClient')}</p>
               <p className="text-lg font-bold tabular-nums">{fmt(displayTasksTotal)}</p>
             </div>
             <div className="rounded-xl border bg-background/70 px-4 py-3 text-center">
-              <p className="text-xs text-muted-foreground mb-1">Części od klienta</p>
+              <p className="text-xs text-muted-foreground mb-1">{t('workshop.orderTasks.partsFromClient')}</p>
               <p className="text-lg font-bold tabular-nums">{fmt(displayGoodsTotal)}</p>
             </div>
             <div className="rounded-xl border bg-background/70 px-4 py-3 text-center">
-              <p className="text-xs text-muted-foreground mb-1">Wydasz łącznie</p>
+              <p className="text-xs text-muted-foreground mb-1">{t('workshop.orderTasks.totalSpend')}</p>
               <p className="text-lg font-bold text-muted-foreground tabular-nums">{fmt(displayGrandCost)}</p>
             </div>
             <div className="rounded-xl border bg-background/70 px-4 py-3 text-center">
-              <p className="text-xs text-muted-foreground mb-1">Zysk łącznie</p>
+              <p className="text-xs text-muted-foreground mb-1">{t('workshop.orderTasks.totalProfit')}</p>
               <p className={`text-lg font-bold tabular-nums ${displayGrandProfit >= 0 ? 'text-primary' : 'text-destructive'}`}>
                 {fmt(displayGrandProfit)}
               </p>
@@ -1734,32 +1736,32 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
 
           <div className="grid gap-3 md:grid-cols-2">
             <div className="rounded-xl border bg-background/70 px-4 py-3">
-              <p className="text-xs text-muted-foreground mb-2">Robocizna</p>
+              <p className="text-xs text-muted-foreground mb-2">{t('workshop.orderTasks.laborHeading')}</p>
               <div className="flex items-center justify-between gap-3 text-sm">
-                <span>Od klienta</span>
+                <span>{t('workshop.orderTasks.fromClient')}</span>
                 <span className="font-semibold tabular-nums">{fmt(displayTasksTotal)}</span>
               </div>
               <div className="mt-1 flex items-center justify-between gap-3 text-sm text-muted-foreground">
-                <span>Koszt własny</span>
+                <span>{t('workshop.orderTasks.ownCost')}</span>
                 <span className="font-semibold tabular-nums">{fmt(tasksCost + draftTasksCost)}</span>
               </div>
               <div className="mt-2 flex items-center justify-between gap-3 text-sm font-semibold">
-                <span>Zysk</span>
+                <span>{t('workshop.orderTasks.profit')}</span>
                 <span className="tabular-nums">{fmt(displayTasksProfit)}</span>
               </div>
             </div>
             <div className="rounded-xl border bg-background/70 px-4 py-3">
-              <p className="text-xs text-muted-foreground mb-2">Części i materiały</p>
+              <p className="text-xs text-muted-foreground mb-2">{t('workshop.orderTasks.partsMaterialsHeading')}</p>
               <div className="flex items-center justify-between gap-3 text-sm">
-                <span>Od klienta</span>
+                <span>{t('workshop.orderTasks.fromClient')}</span>
                 <span className="font-semibold tabular-nums">{fmt(displayGoodsTotal)}</span>
               </div>
               <div className="mt-1 flex items-center justify-between gap-3 text-sm text-muted-foreground">
-                <span>Koszt zakupu</span>
+                <span>{t('workshop.orderTasks.purchaseCost')}</span>
                 <span className="font-semibold tabular-nums">{fmt(goodsCost + draftGoodsCost)}</span>
               </div>
               <div className="mt-2 flex items-center justify-between gap-3 text-sm font-semibold">
-                <span>Zysk</span>
+                <span>{t('workshop.orderTasks.profit')}</span>
                 <span className="tabular-nums">{fmt(displayGoodsProfit)}</span>
               </div>
             </div>
@@ -1767,15 +1769,15 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
 
           <div className="flex flex-wrap items-end justify-between gap-4 rounded-xl border bg-background px-4 py-4 md:pr-10">
             <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Podsumowanie zlecenia</p>
-              <p className="text-sm text-muted-foreground mt-1">Koszt części i robocizny vs. końcowa wartość sprzedaży.</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('workshop.orderTasks.orderSummary')}</p>
+              <p className="text-sm text-muted-foreground mt-1">{t('workshop.orderTasks.orderSummaryDesc')}</p>
             </div>
             <div className="text-right">
-              <p className="text-xs text-muted-foreground mb-1">Łącznie od klienta</p>
+              <p className="text-xs text-muted-foreground mb-1">{t('workshop.orderTasks.totalFromClient')}</p>
               <p className="text-3xl font-bold tabular-nums">{fmt(displayGrandTotal)}</p>
               {displayGrandTotal > 0 && (
                 <p className="text-xs text-muted-foreground mt-1">
-                  Marża: {Math.round((displayGrandProfit / displayGrandTotal) * 100)}%
+                  {t('workshop.orderTasks.marginLabel')}: {Math.round((displayGrandProfit / displayGrandTotal) * 100)}%
                 </p>
               )}
             </div>
@@ -1800,7 +1802,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
         onOpenChange={setRidoConfigOpen}
         onGoToSettings={() => {
           setRidoConfigOpen(false);
-          toast.info('Przejdź do Ustawienia → Integracje w menu bocznym');
+          toast.info(t('workshop.orderTasks.goToIntegrations'));
         }}
       />
 
