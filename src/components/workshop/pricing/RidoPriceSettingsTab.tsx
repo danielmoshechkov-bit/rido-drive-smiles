@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Save, Sparkles } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export function RidoPriceSettingsTab({ providerId }: Props) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [form, setForm] = useState({
     ai_suggestions_enabled: true,
@@ -57,7 +59,7 @@ export function RidoPriceSettingsTab({ providerId }: Props) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['rido-price-settings'] });
-      toast.success('Ustawienia Rido Price zapisane');
+      toast.success(t('workshop.pricing.settings.savedToast'));
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -66,13 +68,13 @@ export function RidoPriceSettingsTab({ providerId }: Props) {
     <div className="space-y-6">
       <div className="flex items-center gap-2 mb-4">
         <Sparkles className="h-5 w-5 text-primary" />
-        <h3 className="font-semibold text-lg">Rido Price</h3>
+        <h3 className="font-semibold text-lg">{t('workshop.pricing.settings.title')}</h3>
       </div>
 
       <div className="flex items-center justify-between rounded-lg border p-4">
         <div className="space-y-0.5">
-          <Label className="font-medium">Włącz sugestie cen AI</Label>
-          <p className="text-sm text-muted-foreground">Pokazuj podpowiedzi cenowe przy wycenach</p>
+          <Label className="font-medium">{t('workshop.pricing.settings.enableAiLabel')}</Label>
+          <p className="text-sm text-muted-foreground">{t('workshop.pricing.settings.enableAiDesc')}</p>
         </div>
         <Switch
           checked={form.ai_suggestions_enabled}
@@ -82,9 +84,9 @@ export function RidoPriceSettingsTab({ providerId }: Props) {
 
       <div className="flex items-center justify-between rounded-lg border p-4">
         <div className="space-y-0.5">
-          <Label className="font-medium">Udostępniaj anonimowe dane do bazy Rido</Label>
+          <Label className="font-medium">{t('workshop.pricing.settings.shareDataLabel')}</Label>
           <p className="text-sm text-muted-foreground">
-            Twoje dane są w pełni anonimowe. Pomagasz innym użytkownikom GetRido wyceniać usługi.
+            {t('workshop.pricing.settings.shareDataDesc')}
           </p>
         </div>
         <Switch
@@ -94,22 +96,22 @@ export function RidoPriceSettingsTab({ providerId }: Props) {
       </div>
 
       <div className="space-y-2">
-        <Label>Twoja branża</Label>
+        <Label>{t('workshop.pricing.settings.industryLabel')}</Label>
         <Select value={form.industry} onValueChange={v => setForm(p => ({ ...p, industry: v }))}>
           <SelectTrigger><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="warsztat">Warsztat</SelectItem>
-            <SelectItem value="myjnia">Myjnia</SelectItem>
-            <SelectItem value="detailing">Detailing</SelectItem>
-            <SelectItem value="folie_ppf">Folie PPF</SelectItem>
-            <SelectItem value="lakiernia">Lakiernia</SelectItem>
-            <SelectItem value="inne">Inne</SelectItem>
+            <SelectItem value="warsztat">{t('workshop.pricing.settings.industry.warsztat')}</SelectItem>
+            <SelectItem value="myjnia">{t('workshop.pricing.settings.industry.myjnia')}</SelectItem>
+            <SelectItem value="detailing">{t('workshop.pricing.settings.industry.detailing')}</SelectItem>
+            <SelectItem value="folie_ppf">{t('workshop.pricing.settings.industry.folie_ppf')}</SelectItem>
+            <SelectItem value="lakiernia">{t('workshop.pricing.settings.industry.lakiernia')}</SelectItem>
+            <SelectItem value="inne">{t('workshop.pricing.settings.industry.inne')}</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
       <div className="space-y-2">
-        <Label>Domyślna marża na części (%)</Label>
+        <Label>{t('workshop.pricing.settings.partsMarginLabel')}</Label>
         <Input
           type="number"
           value={form.default_parts_margin}
@@ -120,7 +122,7 @@ export function RidoPriceSettingsTab({ providerId }: Props) {
 
       <div className="flex justify-end">
         <Button onClick={() => saveMut.mutate()} className="gap-2">
-          <Save className="h-4 w-4" /> Zapisz ustawienia
+          <Save className="h-4 w-4" /> {t('workshop.pricing.settings.saveButton')}
         </Button>
       </div>
     </div>

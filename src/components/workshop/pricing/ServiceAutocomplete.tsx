@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import { Input } from '@/components/ui/input';
 import { useServiceAutocomplete } from '@/hooks/useServicePriceHistory';
 
@@ -18,10 +19,12 @@ export function ServiceAutocomplete({
   onChange,
   onSelectSuggestion,
   providerId,
-  placeholder = 'Wpisz nazwę usługi...',
+  placeholder,
   className = '',
   onKeyDown,
 }: Props) {
+  const { t } = useTranslation();
+  const resolvedPlaceholder = placeholder ?? t('workshop.pricing.autocomplete.placeholder');
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [coords, setCoords] = useState<{ top: number; left: number; width: number; placement: 'above' | 'below' }>({
@@ -108,7 +111,7 @@ export function ServiceAutocomplete({
       <Input
         value={value}
         onChange={e => handleChange(e.target.value)}
-        placeholder={placeholder}
+        placeholder={resolvedPlaceholder}
         className={className}
         onKeyDown={e => {
           if (e.key === 'Enter' || e.key === 'Escape' || e.key === 'Tab') {
@@ -151,7 +154,7 @@ export function ServiceAutocomplete({
                 </span>
                 {price > 0 && (
                   <span className="text-xs text-muted-foreground ml-2 whitespace-nowrap">
-                    ostatnia cena: {fmt(price)} zł
+                    {t('workshop.pricing.autocomplete.lastPrice', { price: fmt(price) })}
                   </span>
                 )}
               </button>

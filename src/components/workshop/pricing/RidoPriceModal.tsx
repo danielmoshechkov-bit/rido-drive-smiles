@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loader2, AlertTriangle, Sparkles } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useGetRidoAI } from '@/hooks/useGetRidoAI';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -49,6 +50,7 @@ export function RidoPriceModal({
   missingVehicleData = false,
   onCompleteVehicleData,
 }: Props) {
+  const { t } = useTranslation();
   const [mode, setMode] = useState<'net' | 'gross'>(initialMode);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [priceInputs, setPriceInputs] = useState<string[]>([]);
@@ -124,12 +126,12 @@ export function RidoPriceModal({
             name: s.name,
             min: sorted[0] || 0,
             max: sorted[sorted.length - 1] || 0,
-            note: hasPL ? `⚠️ P+L = 2 strony. Cena za jedną stronę: ${fmt(sorted[0] / 2)}–${fmt(sorted[sorted.length - 1] / 2)} zł` : null,
+            note: hasPL ? t('workshop.pricing.priceModal.plNoteWithRange', { min: fmt(sorted[0] / 2), max: fmt(sorted[sorted.length - 1] / 2) }) : null,
           };
         });
         setSuggestions(result);
       } else {
-        setError('Sugestia chwilowo niedostępna. Spróbuj ponownie.');
+        setError(t('workshop.pricing.priceModal.suggestionUnavailable'));
       }
     } catch (e) {
       setError('Sugestia chwilowo niedostępna. Spróbuj ponownie.');
@@ -198,7 +200,7 @@ Odpowiedz TYLKO w formacie JSON — tablica obiektów, kolejność taka sama jak
         const hasPL = PL_PATTERNS.test(s.name);
         let note = ai.note || null;
         if (hasPL && !note) {
-          note = `⚠️ P+L = 2 strony`;
+          note = t('workshop.pricing.priceModal.plNote');
         }
         return {
           name: s.name,
@@ -255,14 +257,16 @@ Odpowiedz TYLKO w formacie JSON — tablica obiektów, kolejność taka sama jak
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-lg">
             <Sparkles className="h-5 w-5 text-primary" />
-            Rido Wycena
+            {t('workshop.pricing.priceModal.title')}
             {vehicleLabel && <span className="text-muted-foreground font-normal">— {vehicleLabel}</span>}
             {city && <span className="text-muted-foreground font-normal">| {city}</span>}
           </DialogTitle>
         </DialogHeader>
 
         <div className="rounded-xl border bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-          Sprawdź zakres cen od AI, popraw <span className="font-medium text-foreground">Twoją cenę</span> i zatwierdź — zmiany od razu trafią do kosztorysu.
+          {t('workshop.pricing.priceModal.introPart1')}{' '}
+          <span className="font-medium text-foreground">{t('workshop.pricing.priceModal.introHighlight')}</span>{' '}
+          {t('workshop.pricing.priceModal.introPart2')}
         </div>
 
         {missingVehicleData ? (
@@ -271,12 +275,12 @@ Odpowiedz TYLKO w formacie JSON — tablica obiektów, kolejność taka sama jak
               <AlertTriangle className="mt-0.5 h-5 w-5 text-destructive" />
               <div className="space-y-3">
                 <div>
-                  <p className="font-medium text-foreground">Brakuje danych pojazdu do prawidłowej wyceny.</p>
-                  <p className="text-muted-foreground">Uzupełnij VIN, markę, model i rok pojazdu, aby Rido Wycena mogła wycenić wszystkie pozycje.</p>
+                  <p className="font-medium text-foreground">{t('workshop.pricing.priceModal.missingVehicleTitle')}</p>
+                  <p className="text-muted-foreground">{t('workshop.pricing.priceModal.missingVehicleBody')}</p>
                 </div>
                 <div className="flex gap-2">
-                  <Button onClick={onCompleteVehicleData} className="gap-2">Uzupełnij dane pojazdu</Button>
-                  <Button variant="outline" onClick={() => onOpenChange(false)}>Zamknij</Button>
+                  <Button onClick={onCompleteVehicleData} className="gap-2">{t('workshop.pricing.priceModal.completeVehicleData')}</Button>
+                  <Button variant="outline" onClick={() => onOpenChange(false)}>{t('workshop.pricing.close')}</Button>
                 </div>
               </div>
             </div>
@@ -290,7 +294,7 @@ Odpowiedz TYLKO w formacie JSON — tablica obiektów, kolejność taka sama jak
                 className="text-xs h-7"
                 onClick={() => setMode('net')}
               >
-                NETTO
+                {t('workshop.pricing.priceModal.net')}
               </Button>
               <Button
                 variant={mode === 'gross' ? 'default' : 'ghost'}
@@ -298,21 +302,21 @@ Odpowiedz TYLKO w formacie JSON — tablica obiektów, kolejność taka sama jak
                 className="text-xs h-7"
                 onClick={() => setMode('gross')}
               >
-                BRUTTO
+                {t('workshop.pricing.priceModal.gross')}
               </Button>
             </div>
 
             {loading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
-                <span className="text-sm text-muted-foreground">Pobieranie sugestii cenowych...</span>
+                <span className="text-sm text-muted-foreground">{t('workshop.pricing.priceModal.loadingSuggestions')}</span>
               </div>
             ) : error ? (
               <div className="text-center py-8">
                 <AlertTriangle className="h-8 w-8 mx-auto mb-2 text-destructive" />
                 <p className="text-sm text-destructive">{error}</p>
                 <Button variant="outline" size="sm" className="mt-3" onClick={fetchSuggestions}>
-                  Spróbuj ponownie
+                  {t('workshop.pricing.tryAgain')}
                 </Button>
               </div>
             ) : suggestions.length > 0 ? (
@@ -320,11 +324,11 @@ Odpowiedz TYLKO w formacie JSON — tablica obiektów, kolejność taka sama jak
                 <table className="w-full min-w-[980px] text-sm">
                   <thead>
                     <tr className="border-b bg-muted/30">
-                      <th className="p-2 text-left font-medium text-muted-foreground">USŁUGA</th>
-                      <th className="p-2 text-right font-medium text-muted-foreground w-36">TWOJA CENA</th>
-                      <th className="p-2 text-right font-medium text-muted-foreground w-28">OD</th>
-                      <th className="p-2 text-right font-medium text-muted-foreground w-28">DO</th>
-                      <th className="p-2 text-left font-medium text-muted-foreground min-w-[320px]">UWAGI RidoAI</th>
+                      <th className="p-2 text-left font-medium text-muted-foreground">{t('workshop.pricing.priceModal.colService')}</th>
+                      <th className="p-2 text-right font-medium text-muted-foreground w-36">{t('workshop.pricing.priceModal.colYourPrice')}</th>
+                      <th className="p-2 text-right font-medium text-muted-foreground w-28">{t('workshop.pricing.priceModal.colFrom')}</th>
+                      <th className="p-2 text-right font-medium text-muted-foreground w-28">{t('workshop.pricing.priceModal.colTo')}</th>
+                      <th className="p-2 text-left font-medium text-muted-foreground min-w-[320px]">{t('workshop.pricing.priceModal.colNotes')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -352,7 +356,7 @@ Odpowiedz TYLKO w formacie JSON — tablica obiektów, kolejność taka sama jak
                           {s.note ? (
                             <p className="text-sm leading-6 text-foreground/80">{s.note}</p>
                           ) : (
-                            <span className="text-sm text-muted-foreground">Brak dodatkowych uwag</span>
+                            <span className="text-sm text-muted-foreground">{t('workshop.pricing.priceModal.noExtraNotes')}</span>
                           )}
                         </td>
                       </tr>
@@ -361,17 +365,17 @@ Odpowiedz TYLKO w formacie JSON — tablica obiektów, kolejność taka sama jak
                 </table>
               </div>
             ) : (
-              <p className="text-center py-8 text-muted-foreground text-sm">Brak danych do wyświetlenia</p>
+              <p className="text-center py-8 text-muted-foreground text-sm">{t('workshop.pricing.priceModal.noData')}</p>
             )}
           </>
         )}
 
         <DialogFooter className="gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Zamknij</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>{t('workshop.pricing.close')}</Button>
           {!missingVehicleData && suggestions.length > 0 && (
             <Button onClick={handleApplyAll} className="gap-2">
               <Sparkles className="h-4 w-4" />
-              Zastosuj ceny do kosztorysu
+              {t('workshop.pricing.priceModal.applyPrices')}
             </Button>
           )}
         </DialogFooter>
