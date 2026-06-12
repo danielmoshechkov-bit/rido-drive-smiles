@@ -7,8 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Plus, MessageSquarePlus, AlertCircle } from 'lucide-react';
 import { useWorkshopStatuses } from '@/hooks/useWorkshop';
-import { getStatusStyle } from '@/utils/workshopStatusStyle';
+import { getStatusStyle, translateWorkshopStatus } from '@/utils/workshopStatusStyle';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 
 type Item = { id: string; name: string; color: string; kind: 'status' | 'station' };
 
@@ -24,6 +25,7 @@ interface Props {
 export function WorkshopStatusPicker({
   providerId, orderId, currentStatus, hasUnreadNotes, onChanged, size = 'sm',
 }: Props) {
+  const { t } = useTranslation();
   const { data: statuses = [] } = useWorkshopStatuses(providerId);
   const [stations, setStations] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
@@ -60,7 +62,7 @@ export function WorkshopStatusPicker({
       // on event logging + station handover (which run in the background).
       await (supabase.from('workshop_orders') as any).update(payload).eq('id', orderId);
       onChanged(name, withNote);
-      toast.success(`Status: ${name}`);
+      toast.success(t('workshop.statusPicker.statusToast', { status: translateWorkshopStatus(name, t) }));
       setOpen(false);
       setNoteDialog(null);
       setNote('');
@@ -101,7 +103,7 @@ export function WorkshopStatusPicker({
         <DropdownMenuTrigger asChild>
           <button className="cursor-pointer inline-flex items-center gap-1">
             <Badge className={`${style.badge} ${size === 'xs' ? 'text-[10px] px-1.5 py-0.5' : 'text-xs'} whitespace-nowrap transition-opacity`}>
-              {currentStatus || 'Brak'}
+              {translateWorkshopStatus(currentStatus, t)}
             </Badge>
             {hasUnreadNotes && (
               <AlertCircle className="h-3.5 w-3.5 text-amber-500 animate-pulse" />
@@ -118,9 +120,9 @@ export function WorkshopStatusPicker({
                 onClick={() => apply(it.name)}
               >
                 <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: it.color }} />
-                <span className="flex-1 text-sm">{it.name}</span>
+                <span className="flex-1 text-sm">{translateWorkshopStatus(it.name, t)}</span>
                 {it.kind === 'station' && (
-                  <Badge variant="outline" className="text-[9px] uppercase">stanowisko</Badge>
+                  <Badge variant="outline" className="text-[9px] uppercase">{t('workshop.statusPicker.stationBadge')}</Badge>
                 )}
                 <button
                   type="button"
@@ -130,7 +132,7 @@ export function WorkshopStatusPicker({
                     setTimeout(() => { setNoteDialog({ name: it.name }); setNote(''); }, 60);
                   }}
                   className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 inline-flex items-center justify-center rounded hover:bg-background border"
-                  title="Zmień status z notatką dla pracownika"
+                  title={t('workshop.statusPicker.noteTooltip')}
                 >
                   <Plus className="h-3.5 w-3.5" />
                 </button>
@@ -145,28 +147,28 @@ export function WorkshopStatusPicker({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <MessageSquarePlus className="h-4 w-4" />
-              Notatka do statusu: {noteDialog?.name}
+              {t('workshop.statusPicker.noteDialogTitle', { status: translateWorkshopStatus(noteDialog?.name, t) })}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-2">
             <p className="text-xs text-muted-foreground">
-              Wpisz informację dla pracowników (np. „Mycie po naprawie", „Sprawdzić zacisk po lewej"). Pojawi się przy zleceniu z wykrzyknikiem.
+              {t('workshop.statusPicker.noteHint')}
             </p>
             <Textarea
               autoFocus
               rows={4}
-              placeholder="Treść notatki…"
+              placeholder={t('workshop.statusPicker.notePlaceholder')}
               value={note}
               onChange={e => setNote(e.target.value)}
             />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setNoteDialog(null)} disabled={busy}>Anuluj</Button>
+            <Button variant="outline" onClick={() => setNoteDialog(null)} disabled={busy}>{t('common.cancel')}</Button>
             <Button
               onClick={() => noteDialog && apply(noteDialog.name, note.trim() || undefined)}
               disabled={busy || !note.trim()}
             >
-              Zapisz i zmień status
+              {t('workshop.statusPicker.saveAndChange')}
             </Button>
           </DialogFooter>
         </DialogContent>

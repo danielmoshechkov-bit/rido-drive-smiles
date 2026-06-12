@@ -18,7 +18,8 @@
     "supervisor": "Người giám sát",
     "contact": "Liên hệ",
     "back": "Quay lại",
-    "goBack": "Quay lại"
+    "goBack": "Quay lại",
+    "cancel": "Hủy"
   },
   "auth": {
     "login": "Đăng nhập",
@@ -1271,5 +1272,61 @@
     "goToStep": "Đi đến bước: {{step}}",
     "registering": "Đang đăng ký...",
     "submitButton": "Đăng ký đại lý"
+  },
+  "workshopStatus": {
+    "none": "Không có",
+    "newOrder": "Đơn hàng mới",
+    "received": "Đã tiếp nhận",
+    "assigned": "Đã phân công",
+    "diagnosis": "Đang chẩn đoán",
+    "toEstimate": "Chờ báo giá",
+    "rework": "Làm lại",
+    "awaitingAcceptance": "Chờ phê duyệt",
+    "estimateReady": "Báo giá đã sẵn sàng",
+    "estimateSent": "Đã gửi báo giá",
+    "accepted": "Đã chấp nhận",
+    "repairApproved": "Đã duyệt sửa chữa",
+    "clientAcceptance": "Khách hàng phê duyệt",
+    "inRepair": "Đang sửa chữa",
+    "repairAddon": "Bổ sung sửa chữa",
+    "tasksDone": "Hoàn thành công việc",
+    "readyForPickup": "Sẵn sàng nhận xe",
+    "repaired": "Đã sửa xong",
+    "completed": "Đã hoàn tất"
+  },
+  "workshop": {
+    "events": {
+      "status_change": "Thay đổi trạng thái",
+      "claimed": "Nhân viên đã nhận đơn từ nhóm chờ",
+      "released": "Nhân viên đã trả đơn về nhóm chờ",
+      "assigned": "Đã phân công nhân viên",
+      "unassigned": "Đã hủy phân công",
+      "quote_done": "Báo giá đã sẵn sàng",
+      "repair_started": "Đã bắt đầu sửa chữa",
+      "repair_done": "Đã hoàn tất sửa chữa",
+      "note_added": "Ghi chú nội bộ",
+      "station_assigned": "Đã chuyển đến vị trí"
+    },
+    "statusPicker": {
+      "stationBadge": "vị trí",
+      "noteTooltip": "Đổi trạng thái kèm ghi chú cho nhân viên",
+      "noteDialogTitle": "Ghi chú cho trạng thái: {{status}}",
+      "noteHint": "Nhập thông tin cho nhân viên (ví dụ: “Rửa xe sau sửa chữa”, “Kiểm tra cùm phanh bên trái”). Nó sẽ hiển thị bên cạnh đơn hàng kèm dấu chấm than.",
+      "notePlaceholder": "Nội dung ghi chú…",
+      "saveAndChange": "Lưu và đổi trạng thái",
+      "statusToast": "Trạng thái: {{status}}"
+    },
+    "timeline": {
+      "addInternalNote": "Thêm ghi chú nội bộ",
+      "internalNoteHint": "Ghi chú chỉ hiển thị cho nhân viên xưởng. Khách hàng không thấy.",
+      "notePlaceholder": "Ví dụ: khách yêu cầu kiểm tra phanh…",
+      "addNote": "Thêm ghi chú",
+      "eventHistory": "Lịch sử sự kiện",
+      "noEvents": "Không có sự kiện.",
+      "noteAdded": "Đã thêm ghi chú",
+      "saveError": "Lỗi khi lưu",
+      "defaultUser": "Người dùng",
+      "system": "Hệ thống"
+    }
   }
 }

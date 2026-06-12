@@ -317,7 +317,8 @@
     "supervisor": "Supervisor",
     "contact": "Contact",
     "back": "Back",
-    "goBack": "Go back"
+    "goBack": "Go back",
+    "cancel": "Cancel"
   },
   "register": {
     "title": "Driver Registration",
@@ -1364,5 +1365,61 @@
     "goToStep": "Go to step: {{step}}",
     "registering": "Registering...",
     "submitButton": "Register agency"
+  },
+  "workshopStatus": {
+    "none": "None",
+    "newOrder": "New order",
+    "received": "Received at service",
+    "assigned": "Assigned",
+    "diagnosis": "Diagnosis in progress",
+    "toEstimate": "To be quoted",
+    "rework": "Rework",
+    "awaitingAcceptance": "Awaiting approval",
+    "estimateReady": "Quote ready",
+    "estimateSent": "Quote sent",
+    "accepted": "Accepted",
+    "repairApproved": "Repair approved",
+    "clientAcceptance": "Client approval",
+    "inRepair": "In repair",
+    "repairAddon": "Repair add-on",
+    "tasksDone": "Tasks completed",
+    "readyForPickup": "Ready for pickup",
+    "repaired": "Repaired",
+    "completed": "Completed"
+  },
+  "workshop": {
+    "events": {
+      "status_change": "Status change",
+      "claimed": "Employee took the order from the pool",
+      "released": "Employee returned the order to the pool",
+      "assigned": "Employee assigned",
+      "unassigned": "Assignment removed",
+      "quote_done": "Quote ready",
+      "repair_started": "Repair started",
+      "repair_done": "Repair completed",
+      "note_added": "Internal note",
+      "station_assigned": "Moved to station"
+    },
+    "statusPicker": {
+      "stationBadge": "station",
+      "noteTooltip": "Change status with a note for the employee",
+      "noteDialogTitle": "Note for status: {{status}}",
+      "noteHint": "Enter information for employees (e.g. “Wash after repair”, “Check the left caliper”). It will appear next to the order with an exclamation mark.",
+      "notePlaceholder": "Note content…",
+      "saveAndChange": "Save and change status",
+      "statusToast": "Status: {{status}}"
+    },
+    "timeline": {
+      "addInternalNote": "Add internal note",
+      "internalNoteHint": "Notes are visible only to workshop employees. The client does not see them.",
+      "notePlaceholder": "E.g. the client asked to check the brakes…",
+      "addNote": "Add note",
+      "eventHistory": "Event history",
+      "noEvents": "No events.",
+      "noteAdded": "Note added",
+      "saveError": "Save error",
+      "defaultUser": "User",
+      "system": "System"
+    }
   }
 }

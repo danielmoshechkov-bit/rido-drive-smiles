@@ -82,3 +82,49 @@ export function getStatusStyle(name?: string | null) {
         row: 'hover:bg-accent/50', border: 'border-l-4 border-l-gray-300', dot: 'bg-gray-300' };
   }
 }
+
+// ---------------------------------------------------------------------------
+// Status display translation.
+//
+// Workshop order statuses are free-text strings stored in the DB
+// (workshop_order_statuses.name) and matched by exact value across the app
+// (TONE_MAP above, SMS triggers, station handover). They must therefore NEVER
+// be rewritten in logic. For DISPLAY we map the canonical Polish status names
+// to stable i18n slugs (workshopStatus.*). Custom, provider-defined statuses
+// that aren't in the map fall back to their raw DB name.
+// ---------------------------------------------------------------------------
+const STATUS_KEY_MAP: Record<string, string> = {
+  'Nowe zlecenie': 'newOrder',
+  'Przyjęcie do serwisu': 'received',
+  'Przyjęte do serwisu': 'received',
+  'Przydzielone': 'assigned',
+  'Diagnoza': 'diagnosis',
+  'Diagnoza w toku': 'diagnosis',
+  'Do wyceny': 'toEstimate',
+  'Poprawka': 'rework',
+  'Oczekuje na akceptację': 'awaitingAcceptance',
+  'Wycena gotowa': 'estimateReady',
+  'Wycena wysłana': 'estimateSent',
+  'Zaakceptowano': 'accepted',
+  'Zaakceptowane': 'accepted',
+  'Zgoda na naprawę': 'repairApproved',
+  'Akceptacja klienta': 'clientAcceptance',
+  'W trakcie naprawy': 'inRepair',
+  'W naprawie': 'inRepair',
+  'Dodatek do naprawy': 'repairAddon',
+  'Zadania wykonane': 'tasksDone',
+  'Gotowy do odbioru': 'readyForPickup',
+  'Gotowe do odbioru': 'readyForPickup',
+  'Naprawione': 'repaired',
+  'Zakończone': 'completed',
+};
+
+type TFunc = (key: string, opts?: Record<string, unknown>) => string;
+
+/** Translate a workshop status name for DISPLAY only. Unknown (custom) statuses
+ * fall back to the raw DB name. Empty → localized "Brak". */
+export function translateWorkshopStatus(name: string | null | undefined, t: TFunc): string {
+  if (!name) return t('workshopStatus.none', { defaultValue: 'Brak' });
+  const slug = STATUS_KEY_MAP[name.trim()];
+  return slug ? t(`workshopStatus.${slug}`, { defaultValue: name }) : name;
+}

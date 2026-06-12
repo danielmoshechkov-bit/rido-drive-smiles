@@ -317,7 +317,8 @@
     "supervisor": "Opiekun",
     "contact": "Kontakt",
     "back": "Powrót",
-    "goBack": "Wróć"
+    "goBack": "Wróć",
+    "cancel": "Anuluj"
   },
   "register": {
     "title": "Rejestracja kierowcy",
@@ -1364,5 +1365,61 @@
     "goToStep": "Przejdź do kroku: {{step}}",
     "registering": "Rejestruję...",
     "submitButton": "Zarejestruj agencję"
+  },
+  "workshopStatus": {
+    "none": "Brak",
+    "newOrder": "Nowe zlecenie",
+    "received": "Przyjęte do serwisu",
+    "assigned": "Przydzielone",
+    "diagnosis": "Diagnoza w toku",
+    "toEstimate": "Do wyceny",
+    "rework": "Poprawka",
+    "awaitingAcceptance": "Oczekuje na akceptację",
+    "estimateReady": "Wycena gotowa",
+    "estimateSent": "Wycena wysłana",
+    "accepted": "Zaakceptowane",
+    "repairApproved": "Zgoda na naprawę",
+    "clientAcceptance": "Akceptacja klienta",
+    "inRepair": "W naprawie",
+    "repairAddon": "Dodatek do naprawy",
+    "tasksDone": "Zadania wykonane",
+    "readyForPickup": "Gotowe do odbioru",
+    "repaired": "Naprawione",
+    "completed": "Zakończone"
+  },
+  "workshop": {
+    "events": {
+      "status_change": "Zmiana statusu",
+      "claimed": "Pracownik wziął zlecenie z puli",
+      "released": "Pracownik zwrócił zlecenie do puli",
+      "assigned": "Przydzielono pracownika",
+      "unassigned": "Cofnięto przydzielenie",
+      "quote_done": "Wycena gotowa",
+      "repair_started": "Rozpoczęto naprawę",
+      "repair_done": "Naprawa zakończona",
+      "note_added": "Notatka wewnętrzna",
+      "station_assigned": "Przeniesiono na stanowisko"
+    },
+    "statusPicker": {
+      "stationBadge": "stanowisko",
+      "noteTooltip": "Zmień status z notatką dla pracownika",
+      "noteDialogTitle": "Notatka do statusu: {{status}}",
+      "noteHint": "Wpisz informację dla pracowników (np. „Mycie po naprawie”, „Sprawdzić zacisk po lewej”). Pojawi się przy zleceniu z wykrzyknikiem.",
+      "notePlaceholder": "Treść notatki…",
+      "saveAndChange": "Zapisz i zmień status",
+      "statusToast": "Status: {{status}}"
+    },
+    "timeline": {
+      "addInternalNote": "Dodaj uwagę wewnętrzną",
+      "internalNoteHint": "Notatki są widoczne tylko dla pracowników warsztatu. Klient ich nie widzi.",
+      "notePlaceholder": "Np. klient prosił o sprawdzenie hamulców…",
+      "addNote": "Dodaj uwagę",
+      "eventHistory": "Historia zdarzeń",
+      "noEvents": "Brak zdarzeń.",
+      "noteAdded": "Uwaga dodana",
+      "saveError": "Błąd zapisu",
+      "defaultUser": "Użytkownik",
+      "system": "System"
+    }
   }
 }

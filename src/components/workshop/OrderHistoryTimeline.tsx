@@ -6,6 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, MessageSquarePlus, History, ArrowRight, HandHelping, Undo2, ClipboardCheck, Wrench, StickyNote, UserPlus, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { useTranslation } from 'react-i18next';
+import { translateWorkshopStatus } from '@/utils/workshopStatusStyle';
 
 interface Props {
   orderId: string;
@@ -36,20 +38,8 @@ const ICONS: Record<string, JSX.Element> = {
   station_assigned: <Building2 className="h-4 w-4 text-indigo-600" />,
 };
 
-const LABEL: Record<string, string> = {
-  status_change: 'Zmiana statusu',
-  claimed: 'Pracownik wziął zlecenie z puli',
-  released: 'Pracownik zwrócił zlecenie do puli',
-  assigned: 'Przydzielono pracownika',
-  unassigned: 'Cofnięto przydzielenie',
-  quote_done: 'Wycena gotowa',
-  repair_started: 'Rozpoczęto naprawę',
-  repair_done: 'Naprawa zakończona',
-  note_added: 'Notatka wewnętrzna',
-  station_assigned: 'Przeniesiono na stanowisko',
-};
-
 export function OrderHistoryTimeline({ orderId, providerId }: Props) {
+  const { t } = useTranslation();
   const [events, setEvents] = useState<EventRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [note, setNote] = useState('');
@@ -77,7 +67,7 @@ export function OrderHistoryTimeline({ orderId, providerId }: Props) {
     setSaving(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      const name = user?.user_metadata?.full_name || user?.email || 'Użytkownik';
+      const name = user?.user_metadata?.full_name || user?.email || t('workshop.timeline.defaultUser');
       const { error } = await (supabase.from('workshop_order_events') as any).insert({
         order_id: orderId,
         provider_id: providerId,
@@ -91,10 +81,10 @@ export function OrderHistoryTimeline({ orderId, providerId }: Props) {
       await (supabase.from('workshop_orders') as any)
         .update({ has_unread_notes: true }).eq('id', orderId);
       setNote('');
-      toast.success('Uwaga dodana');
+      toast.success(t('workshop.timeline.noteAdded'));
       await load();
     } catch (e: any) {
-      toast.error(e.message || 'Błąd zapisu');
+      toast.error(e.message || t('workshop.timeline.saveError'));
     } finally { setSaving(false); }
   };
 
@@ -102,32 +92,32 @@ export function OrderHistoryTimeline({ orderId, providerId }: Props) {
     <div className="space-y-4">
       <div className="rounded-lg border bg-yellow-50/40 p-3 space-y-2">
         <div className="flex items-center gap-2 text-sm font-semibold">
-          <MessageSquarePlus className="h-4 w-4 text-yellow-700" /> Dodaj uwagę wewnętrzną
+          <MessageSquarePlus className="h-4 w-4 text-yellow-700" /> {t('workshop.timeline.addInternalNote')}
         </div>
         <p className="text-xs text-muted-foreground">
-          Notatki są widoczne tylko dla pracowników warsztatu. Klient ich nie widzi.
+          {t('workshop.timeline.internalNoteHint')}
         </p>
         <Textarea
           value={note} onChange={e => setNote(e.target.value)}
-          placeholder="Np. klient prosił o sprawdzenie hamulców…"
+          placeholder={t('workshop.timeline.notePlaceholder')}
           rows={3}
         />
         <div className="flex justify-end">
           <Button size="sm" onClick={addNote} disabled={saving || !note.trim()}>
             {saving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <MessageSquarePlus className="h-4 w-4 mr-1" />}
-            Dodaj uwagę
+            {t('workshop.timeline.addNote')}
           </Button>
         </div>
       </div>
 
       <div>
         <div className="flex items-center gap-2 text-sm font-semibold mb-2">
-          <History className="h-4 w-4 text-primary" /> Historia zdarzeń
+          <History className="h-4 w-4 text-primary" /> {t('workshop.timeline.eventHistory')}
         </div>
         {loading ? (
           <div className="flex justify-center p-6"><Loader2 className="h-5 w-5 animate-spin" /></div>
         ) : events.length === 0 ? (
-          <div className="text-center text-sm text-muted-foreground py-6">Brak zdarzeń.</div>
+          <div className="text-center text-sm text-muted-foreground py-6">{t('workshop.timeline.noEvents')}</div>
         ) : (
           <ol className="relative border-l-2 border-muted ml-3 space-y-3">
             {events.map(ev => (
@@ -137,10 +127,10 @@ export function OrderHistoryTimeline({ orderId, providerId }: Props) {
                 </div>
                 <div className="rounded-md border bg-card p-2.5">
                   <div className="flex items-center gap-2 flex-wrap text-xs">
-                    <span className="font-medium">{LABEL[ev.event_type] || ev.event_type}</span>
+                    <span className="font-medium">{t(`workshop.events.${ev.event_type}`, { defaultValue: ev.event_type })}</span>
                     {ev.event_type === 'status_change' && (
                       <span className="text-muted-foreground">
-                        {ev.from_status || '—'} <ArrowRight className="h-3 w-3 inline" /> <b>{ev.to_status}</b>
+                        {ev.from_status ? translateWorkshopStatus(ev.from_status, t) : '—'} <ArrowRight className="h-3 w-3 inline" /> <b>{translateWorkshopStatus(ev.to_status, t)}</b>
                       </span>
                     )}
                     <span className="ml-auto text-muted-foreground">
@@ -154,7 +144,7 @@ export function OrderHistoryTimeline({ orderId, providerId }: Props) {
                   )}
                   <div className="mt-1 text-xs text-muted-foreground flex items-center gap-1.5">
                     <Badge variant="outline" className="text-[10px] py-0">{ev.actor_role || 'system'}</Badge>
-                    {ev.actor_name || 'System'}
+                    {ev.actor_name || t('workshop.timeline.system')}
                   </div>
                 </div>
               </li>

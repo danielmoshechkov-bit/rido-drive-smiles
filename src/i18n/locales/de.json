@@ -18,7 +18,8 @@
     "supervisor": "Betreuer",
     "contact": "Kontakt",
     "back": "Zurück",
-    "goBack": "Zurück"
+    "goBack": "Zurück",
+    "cancel": "Abbrechen"
   },
   "auth": {
     "login": "Anmelden",
@@ -1271,5 +1272,61 @@
     "goToStep": "Zum Schritt gehen: {{step}}",
     "registering": "Registrierung...",
     "submitButton": "Agentur registrieren"
+  },
+  "workshopStatus": {
+    "none": "Keiner",
+    "newOrder": "Neuer Auftrag",
+    "received": "Im Service angenommen",
+    "assigned": "Zugewiesen",
+    "diagnosis": "Diagnose läuft",
+    "toEstimate": "Zur Kostenschätzung",
+    "rework": "Nacharbeit",
+    "awaitingAcceptance": "Wartet auf Freigabe",
+    "estimateReady": "Kostenvoranschlag fertig",
+    "estimateSent": "Kostenvoranschlag gesendet",
+    "accepted": "Akzeptiert",
+    "repairApproved": "Reparatur freigegeben",
+    "clientAcceptance": "Kundenfreigabe",
+    "inRepair": "In Reparatur",
+    "repairAddon": "Reparatur-Zusatz",
+    "tasksDone": "Aufgaben erledigt",
+    "readyForPickup": "Abholbereit",
+    "repaired": "Repariert",
+    "completed": "Abgeschlossen"
+  },
+  "workshop": {
+    "events": {
+      "status_change": "Statusänderung",
+      "claimed": "Mitarbeiter hat den Auftrag aus dem Pool genommen",
+      "released": "Mitarbeiter hat den Auftrag in den Pool zurückgegeben",
+      "assigned": "Mitarbeiter zugewiesen",
+      "unassigned": "Zuweisung aufgehoben",
+      "quote_done": "Kostenvoranschlag fertig",
+      "repair_started": "Reparatur begonnen",
+      "repair_done": "Reparatur abgeschlossen",
+      "note_added": "Interne Notiz",
+      "station_assigned": "Zur Station verschoben"
+    },
+    "statusPicker": {
+      "stationBadge": "Station",
+      "noteTooltip": "Status mit Notiz für den Mitarbeiter ändern",
+      "noteDialogTitle": "Notiz zum Status: {{status}}",
+      "noteHint": "Geben Sie Informationen für Mitarbeiter ein (z. B. „Waschen nach der Reparatur“, „Linken Bremssattel prüfen“). Sie erscheint neben dem Auftrag mit einem Ausrufezeichen.",
+      "notePlaceholder": "Notizinhalt…",
+      "saveAndChange": "Speichern und Status ändern",
+      "statusToast": "Status: {{status}}"
+    },
+    "timeline": {
+      "addInternalNote": "Interne Notiz hinzufügen",
+      "internalNoteHint": "Notizen sind nur für Werkstattmitarbeiter sichtbar. Der Kunde sieht sie nicht.",
+      "notePlaceholder": "z. B. der Kunde bat, die Bremsen zu prüfen…",
+      "addNote": "Notiz hinzufügen",
+      "eventHistory": "Ereignisverlauf",
+      "noEvents": "Keine Ereignisse.",
+      "noteAdded": "Notiz hinzugefügt",
+      "saveError": "Speicherfehler",
+      "defaultUser": "Benutzer",
+      "system": "System"
+    }
   }
 }

@@ -317,7 +317,8 @@
     "supervisor": "Куратор",
     "contact": "Байланыс",
     "back": "Артқа",
-    "goBack": "Артқа"
+    "goBack": "Артқа",
+    "cancel": "Болдырмау"
   },
   "register": {
     "title": "Жүргізуші тіркелуі",
@@ -1364,5 +1365,61 @@
     "goToStep": "Қадамға өту: {{step}}",
     "registering": "Тіркелуде...",
     "submitButton": "Агенттікті тіркеу"
+  },
+  "workshopStatus": {
+    "none": "Жоқ",
+    "newOrder": "Жаңа тапсырыс",
+    "received": "Сервиске қабылданды",
+    "assigned": "Тағайындалды",
+    "diagnosis": "Диагностика жүруде",
+    "toEstimate": "Бағалауға",
+    "rework": "Түзету",
+    "awaitingAcceptance": "Бекітуді күтуде",
+    "estimateReady": "Смета дайын",
+    "estimateSent": "Смета жіберілді",
+    "accepted": "Қабылданды",
+    "repairApproved": "Жөндеуге келісім",
+    "clientAcceptance": "Клиент келісімі",
+    "inRepair": "Жөндеуде",
+    "repairAddon": "Қосымша жөндеу",
+    "tasksDone": "Тапсырмалар орындалды",
+    "readyForPickup": "Алуға дайын",
+    "repaired": "Жөнделді",
+    "completed": "Аяқталды"
+  },
+  "workshop": {
+    "events": {
+      "status_change": "Күй өзгерісі",
+      "claimed": "Қызметкер тапсырысты пулдан алды",
+      "released": "Қызметкер тапсырысты пулға қайтарды",
+      "assigned": "Қызметкер тағайындалды",
+      "unassigned": "Тағайындау алынды",
+      "quote_done": "Смета дайын",
+      "repair_started": "Жөндеу басталды",
+      "repair_done": "Жөндеу аяқталды",
+      "note_added": "Ішкі жазба",
+      "station_assigned": "Стансаға ауыстырылды"
+    },
+    "statusPicker": {
+      "stationBadge": "стансы",
+      "noteTooltip": "Қызметкерге жазбамен күйді өзгерту",
+      "noteDialogTitle": "Күйге жазба: {{status}}",
+      "noteHint": "Қызметкерлерге арналған ақпаратты енгізіңіз (мыс. «Жөндеуден кейін жуу», «Сол жақ суппортты тексеру»). Тапсырыстың жанында леп белгісімен пайда болады.",
+      "notePlaceholder": "Жазба мәтіні…",
+      "saveAndChange": "Сақтап, күйді өзгерту",
+      "statusToast": "Күй: {{status}}"
+    },
+    "timeline": {
+      "addInternalNote": "Ішкі жазба қосу",
+      "internalNoteHint": "Жазбаларды тек шеберхана қызметкерлері көреді. Клиент көрмейді.",
+      "notePlaceholder": "Мыс. клиент тежегішті тексеруді сұрады…",
+      "addNote": "Жазба қосу",
+      "eventHistory": "Оқиғалар тарихы",
+      "noEvents": "Оқиғалар жоқ.",
+      "noteAdded": "Жазба қосылды",
+      "saveError": "Сақтау қатесі",
+      "defaultUser": "Пайдаланушы",
+      "system": "Жүйе"
+    }
   }
 }

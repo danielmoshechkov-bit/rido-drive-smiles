@@ -317,7 +317,8 @@
     "supervisor": "Куратор",
     "contact": "Контакт",
     "back": "Назад",
-    "goBack": "Назад"
+    "goBack": "Назад",
+    "cancel": "Отмена"
   },
   "register": {
     "title": "Регистрация водителя",
@@ -1364,5 +1365,61 @@
     "goToStep": "Перейти к шагу: {{step}}",
     "registering": "Регистрация...",
     "submitButton": "Зарегистрировать агентство"
+  },
+  "workshopStatus": {
+    "none": "Нет",
+    "newOrder": "Новый заказ",
+    "received": "Принято в сервис",
+    "assigned": "Назначено",
+    "diagnosis": "Диагностика",
+    "toEstimate": "На оценку",
+    "rework": "Доработка",
+    "awaitingAcceptance": "Ожидает подтверждения",
+    "estimateReady": "Смета готова",
+    "estimateSent": "Смета отправлена",
+    "accepted": "Принято",
+    "repairApproved": "Согласие на ремонт",
+    "clientAcceptance": "Подтверждение клиента",
+    "inRepair": "В ремонте",
+    "repairAddon": "Доп. работы",
+    "tasksDone": "Задачи выполнены",
+    "readyForPickup": "Готово к выдаче",
+    "repaired": "Отремонтировано",
+    "completed": "Завершено"
+  },
+  "workshop": {
+    "events": {
+      "status_change": "Изменение статуса",
+      "claimed": "Сотрудник взял заказ из пула",
+      "released": "Сотрудник вернул заказ в пул",
+      "assigned": "Назначен сотрудник",
+      "unassigned": "Назначение отменено",
+      "quote_done": "Смета готова",
+      "repair_started": "Ремонт начат",
+      "repair_done": "Ремонт завершён",
+      "note_added": "Внутренняя заметка",
+      "station_assigned": "Перемещено на пост"
+    },
+    "statusPicker": {
+      "stationBadge": "пост",
+      "noteTooltip": "Изменить статус с заметкой для сотрудника",
+      "noteDialogTitle": "Заметка к статусу: {{status}}",
+      "noteHint": "Введите информацию для сотрудников (напр. «Мойка после ремонта», «Проверить левый суппорт»). Появится рядом с заказом с восклицательным знаком.",
+      "notePlaceholder": "Текст заметки…",
+      "saveAndChange": "Сохранить и изменить статус",
+      "statusToast": "Статус: {{status}}"
+    },
+    "timeline": {
+      "addInternalNote": "Добавить внутреннюю заметку",
+      "internalNoteHint": "Заметки видны только сотрудникам мастерской. Клиент их не видит.",
+      "notePlaceholder": "Напр. клиент просил проверить тормоза…",
+      "addNote": "Добавить заметку",
+      "eventHistory": "История событий",
+      "noEvents": "Нет событий.",
+      "noteAdded": "Заметка добавлена",
+      "saveError": "Ошибка сохранения",
+      "defaultUser": "Пользователь",
+      "system": "Система"
+    }
   }
 }

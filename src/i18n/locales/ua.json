@@ -317,7 +317,8 @@
     "supervisor": "Куратор",
     "contact": "Контакт",
     "back": "Назад",
-    "goBack": "Назад"
+    "goBack": "Назад",
+    "cancel": "Скасувати"
   },
   "register": {
     "title": "Реєстрація водія",
@@ -1364,5 +1365,61 @@
     "goToStep": "Перейти до кроку: {{step}}",
     "registering": "Реєстрація...",
     "submitButton": "Зареєструвати агентство"
+  },
+  "workshopStatus": {
+    "none": "Немає",
+    "newOrder": "Нове замовлення",
+    "received": "Прийнято в сервіс",
+    "assigned": "Призначено",
+    "diagnosis": "Діагностика",
+    "toEstimate": "На оцінку",
+    "rework": "Доопрацювання",
+    "awaitingAcceptance": "Очікує підтвердження",
+    "estimateReady": "Кошторис готовий",
+    "estimateSent": "Кошторис надіслано",
+    "accepted": "Прийнято",
+    "repairApproved": "Згода на ремонт",
+    "clientAcceptance": "Підтвердження клієнта",
+    "inRepair": "У ремонті",
+    "repairAddon": "Дод. роботи",
+    "tasksDone": "Завдання виконані",
+    "readyForPickup": "Готово до видачі",
+    "repaired": "Відремонтовано",
+    "completed": "Завершено"
+  },
+  "workshop": {
+    "events": {
+      "status_change": "Зміна статусу",
+      "claimed": "Працівник узяв замовлення з пулу",
+      "released": "Працівник повернув замовлення в пул",
+      "assigned": "Призначено працівника",
+      "unassigned": "Призначення скасовано",
+      "quote_done": "Кошторис готовий",
+      "repair_started": "Ремонт розпочато",
+      "repair_done": "Ремонт завершено",
+      "note_added": "Внутрішня нотатка",
+      "station_assigned": "Переміщено на пост"
+    },
+    "statusPicker": {
+      "stationBadge": "пост",
+      "noteTooltip": "Змінити статус із нотаткою для працівника",
+      "noteDialogTitle": "Нотатка до статусу: {{status}}",
+      "noteHint": "Введіть інформацію для працівників (напр. «Миття після ремонту», «Перевірити лівий супорт»). З'явиться біля замовлення зі знаком оклику.",
+      "notePlaceholder": "Текст нотатки…",
+      "saveAndChange": "Зберегти і змінити статус",
+      "statusToast": "Статус: {{status}}"
+    },
+    "timeline": {
+      "addInternalNote": "Додати внутрішню нотатку",
+      "internalNoteHint": "Нотатки бачать лише працівники майстерні. Клієнт їх не бачить.",
+      "notePlaceholder": "Напр. клієнт просив перевірити гальма…",
+      "addNote": "Додати нотатку",
+      "eventHistory": "Історія подій",
+      "noEvents": "Немає подій.",
+      "noteAdded": "Нотатку додано",
+      "saveError": "Помилка збереження",
+      "defaultUser": "Користувач",
+      "system": "Система"
+    }
   }
 }
