@@ -576,17 +576,17 @@ export default function RealEstateMarketplace() {
 
           if (error) {
             console.error('AI Search error:', error);
-            toast.error('Błąd wyszukiwania AI. Spróbuj ponownie.');
+            toast.error(t('realestate.aiSearchError', 'Błąd wyszukiwania AI. Spróbuj ponownie.'));
             setListings(allListings);
           } else if (data?.results) {
             handleAISearchResults(data.results, data.filters, data.explanation);
           } else {
             setListings([]);
-            setAiExplanation(data?.explanation || 'Nie znaleziono wyników');
+            setAiExplanation(data?.explanation || t('realestate.noResultsFound', 'Nie znaleziono wyników'));
           }
         } catch (err) {
           console.error('AI Search exception:', err);
-          toast.error('Błąd wyszukiwania. Spróbuj ponownie.');
+          toast.error(t('realestate.searchError', 'Błąd wyszukiwania. Spróbuj ponownie.'));
           setListings(allListings);
         } finally {
           setIsSearchingAI(false);
@@ -917,7 +917,7 @@ export default function RealEstateMarketplace() {
             {/* Sort */}
             <Select value={sortBy} onValueChange={(v: any) => { setSortBy(v); setCurrentPage(1); }}>
               <SelectTrigger className="w-[160px] h-8 text-sm">
-                <SelectValue placeholder="Sortuj" />
+                <SelectValue placeholder={t('ui.sort', 'Sortuj')} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="newest">{t('ui.newest', 'Najnowsze')}</SelectItem>
@@ -995,7 +995,7 @@ export default function RealEstateMarketplace() {
                   </Select>
                 </div>
 
-                <nav className="flex items-center gap-1" aria-label="Paginacja">
+                <nav className="flex items-center gap-1" aria-label={t('ui.pagination', 'Paginacja')}>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -1129,7 +1129,7 @@ export default function RealEstateMarketplace() {
                 alt="RIDO" 
                 className="h-8 w-8"
               />
-              <span className="font-semibold">RIDO Nieruchomości</span>
+              <span className="font-semibold">RIDO {t('home.nieruchomosci', 'Nieruchomości')}</span>
             </div>
             <div className="flex items-center gap-4">
               <a 

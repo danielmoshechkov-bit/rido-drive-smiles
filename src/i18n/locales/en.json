@@ -1048,7 +1048,14 @@
     "compact": "Compact",
     "list": "List",
     "translateAll": "Translate all listings",
-    "translating": "Adding to queue..."
+    "translating": "Adding to queue...",
+    "loadError": "Error loading listings",
+    "aiNoMatches": "No matching listings found",
+    "aiNoResults": "AI returned no results — try changing your query",
+    "aiSearchError": "AI search error",
+    "heroTitle": "Find what you're looking for",
+    "heroSubtitle": "Type what you're looking for — AI will search descriptions, titles and the entire database",
+    "searchAi": "AI search"
   },
   "nav": {
     "login": "Log In / Register",
@@ -1343,14 +1350,18 @@
     "list": "List",
     "sort": "Sort",
     "searchAI": "Search AI",
-    "poweredByAI": "Search in natural language"
+    "poweredByAI": "Search in natural language",
+    "pagination": "Pagination"
   },
   "realestate": {
     "title": "Find your dream property",
     "subtitle": "Apartments, houses, land and commercial from verified agencies",
     "land": "Land",
     "commercial": "Commercial",
-    "backToList": "Back to list"
+    "backToList": "Back to list",
+    "aiSearchError": "AI search error. Please try again.",
+    "searchError": "Search error. Please try again.",
+    "noResultsFound": "No results found"
   },
   "vehicles": {
     "searchNatural": "Search in natural language",
@@ -1361,13 +1372,85 @@
     "registerFleet": "Register fleet",
     "transactionType": "Transaction type:",
     "aiPlaceholder": "Ask AI: 'SUV diesel under 800 PLN/week in Warsaw'",
-    "aiDisabled": "AI search - coming soon"
+    "aiDisabled": "AI search - coming soon",
+    "loginToReserve": "Log in to reserve"
   },
   "services": {
     "title": "Services",
     "find": "Find a service",
     "chooseCategory": "Choose the service category you need",
-    "searchPlaceholder": "Search service, e.g. tire change, cleaning..."
+    "searchPlaceholder": "Search service, e.g. tire change, cleaning...",
+    "groups": {
+      "auto": {
+        "name": "Auto",
+        "sub": {
+          "workshops": "Workshops",
+          "detailing": "Detailing",
+          "carWash": "Car washes",
+          "fleet": "Fleet",
+          "ppf": "PPF"
+        }
+      },
+      "dom": {
+        "name": "Home",
+        "sub": {
+          "cleaning": "Cleaning",
+          "renovations": "Renovations",
+          "finishing": "Finishing",
+          "construction": "Construction",
+          "furniture": "Furniture & furnishings"
+        }
+      },
+      "beauty": {
+        "name": "Beauty",
+        "sub": {
+          "hairdressers": "Hairdressers",
+          "beauticians": "Beauticians",
+          "nails": "Nails",
+          "lashes": "Lashes",
+          "spa": "Spa & massage"
+        }
+      },
+      "zdrowie": {
+        "name": "Health",
+        "sub": {
+          "doctors": "Doctors",
+          "dentists": "Dentists",
+          "physiotherapists": "Physiotherapists",
+          "psychologists": "Psychologists",
+          "dietitians": "Dietitians"
+        }
+      },
+      "ekspert": {
+        "name": "Expert",
+        "sub": {
+          "lawyers": "Lawyers",
+          "accountants": "Accountants",
+          "financialAdvisors": "Financial advisors",
+          "notaries": "Notaries",
+          "translators": "Translators"
+        }
+      },
+      "dostawy": {
+        "name": "Delivery",
+        "sub": {
+          "couriers": "Couriers",
+          "transport": "Transport",
+          "moving": "Moving",
+          "passengerTransport": "Passenger transport"
+        }
+      },
+      "fachowiec": {
+        "name": "Tradesman",
+        "sub": {
+          "plumbers": "Plumbers",
+          "electricians": "Electricians",
+          "carpenters": "Carpenters",
+          "painters": "Painters",
+          "handyman": "Handyman"
+        }
+      }
+    }
   },
   "cp": {
     "mojeKonto": "My account",

@@ -1048,7 +1048,14 @@
     "compact": "Kompaktowy",
     "list": "Lista",
     "translateAll": "Przetłumacz wszystkie ogłoszenia",
-    "translating": "Dodawanie do kolejki..."
+    "translating": "Dodawanie do kolejki...",
+    "loadError": "Błąd ładowania ogłoszeń",
+    "aiNoMatches": "Nie znaleziono pasujących ogłoszeń",
+    "aiNoResults": "AI nie zwróciło wyników — spróbuj zmienić zapytanie",
+    "aiSearchError": "Błąd wyszukiwania AI",
+    "heroTitle": "Znajdź to, czego szukasz",
+    "heroSubtitle": "Wpisz czego szukasz — AI przeszuka opisy, tytuły i całą bazę",
+    "searchAi": "Szukaj AI"
   },
   "nav": {
     "login": "Zaloguj / Zarejestruj",
@@ -1343,14 +1350,18 @@
     "list": "Lista",
     "sort": "Sortuj",
     "searchAI": "Szukaj AI",
-    "poweredByAI": "Szukaj naturalnym językiem"
+    "poweredByAI": "Szukaj naturalnym językiem",
+    "pagination": "Paginacja"
   },
   "realestate": {
     "title": "Znajdź wymarzoną nieruchomość",
     "subtitle": "Mieszkania, domy, działki i lokale od zweryfikowanych agencji",
     "land": "Działki",
     "commercial": "Lokale użytkowe",
-    "backToList": "Wróć do listy"
+    "backToList": "Wróć do listy",
+    "aiSearchError": "Błąd wyszukiwania AI. Spróbuj ponownie.",
+    "searchError": "Błąd wyszukiwania. Spróbuj ponownie.",
+    "noResultsFound": "Nie znaleziono wyników"
   },
   "vehicles": {
     "searchNatural": "Szukaj naturalnym językiem",
@@ -1361,13 +1372,85 @@
     "registerFleet": "Zarejestruj flotę",
     "transactionType": "Typ transakcji:",
     "aiPlaceholder": "Zapytaj AI: 'SUV diesel do 800 zł/tydz w Warszawie'",
-    "aiDisabled": "Wyszukiwarka AI - wkrótce dostępna"
+    "aiDisabled": "Wyszukiwarka AI - wkrótce dostępna",
+    "loginToReserve": "Zaloguj się aby zarezerwować"
   },
   "services": {
     "title": "Usługi",
     "find": "Znajdź usługę",
     "chooseCategory": "Wybierz kategorię usługi, której szukasz",
-    "searchPlaceholder": "Szukaj usługi, np. wymiana opon, sprzątanie..."
+    "searchPlaceholder": "Szukaj usługi, np. wymiana opon, sprzątanie...",
+    "groups": {
+      "auto": {
+        "name": "Auto",
+        "sub": {
+          "workshops": "Warsztaty",
+          "detailing": "Detailing",
+          "carWash": "Myjnie",
+          "fleet": "Flota",
+          "ppf": "PPF"
+        }
+      },
+      "dom": {
+        "name": "Dom",
+        "sub": {
+          "cleaning": "Sprzątanie",
+          "renovations": "Remonty",
+          "finishing": "Wykończenia",
+          "construction": "Budowlanka",
+          "furniture": "Meble i wyposażenie"
+        }
+      },
+      "beauty": {
+        "name": "Beauty",
+        "sub": {
+          "hairdressers": "Fryzjerzy",
+          "beauticians": "Kosmetyczki",
+          "nails": "Paznokcie",
+          "lashes": "Rzęsy",
+          "spa": "Spa i masaże"
+        }
+      },
+      "zdrowie": {
+        "name": "Zdrowie",
+        "sub": {
+          "doctors": "Lekarze",
+          "dentists": "Dentyści",
+          "physiotherapists": "Fizjoterapeuci",
+          "psychologists": "Psycholodzy",
+          "dietitians": "Dietetycy"
+        }
+      },
+      "ekspert": {
+        "name": "Ekspert",
+        "sub": {
+          "lawyers": "Prawnicy",
+          "accountants": "Księgowi",
+          "financialAdvisors": "Doradcy finansowi",
+          "notaries": "Notariusze",
+          "translators": "Tłumacze"
+        }
+      },
+      "dostawy": {
+        "name": "Dostawy",
+        "sub": {
+          "couriers": "Kurierzy",
+          "transport": "Transport",
+          "moving": "Przeprowadzki",
+          "passengerTransport": "Przewóz osób"
+        }
+      },
+      "fachowiec": {
+        "name": "Fachowiec",
+        "sub": {
+          "plumbers": "Hydraulicy",
+          "electricians": "Elektrycy",
+          "carpenters": "Stolarze",
+          "painters": "Malarze",
+          "handyman": "Złota rączka"
+        }
+      }
+    }
   },
   "cp": {
     "mojeKonto": "Moje konto",

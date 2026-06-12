@@ -382,7 +382,14 @@
     "compact": "Gọn",
     "list": "Danh sách",
     "translateAll": "Dịch tất cả tin đăng",
-    "translating": "Đang thêm vào hàng đợi..."
+    "translating": "Đang thêm vào hàng đợi...",
+    "loadError": "Lỗi khi tải tin đăng",
+    "aiNoMatches": "Không tìm thấy tin đăng phù hợp",
+    "aiNoResults": "AI không trả về kết quả — hãy thử thay đổi truy vấn",
+    "aiSearchError": "Lỗi tìm kiếm AI",
+    "heroTitle": "Tìm thứ bạn cần",
+    "heroSubtitle": "Nhập thứ bạn cần — AI sẽ tìm trong mô tả, tiêu đề và toàn bộ cơ sở dữ liệu",
+    "searchAi": "Tìm kiếm AI"
   },
   "accounting": {
     "overview": "Tổng quan",
@@ -1250,14 +1257,18 @@
     "list": "Danh sách",
     "sort": "Sắp xếp",
     "searchAI": "Tìm kiếm AI",
-    "poweredByAI": "Tìm kiếm bằng ngôn ngữ tự nhiên"
+    "poweredByAI": "Tìm kiếm bằng ngôn ngữ tự nhiên",
+    "pagination": "Phân trang"
   },
   "realestate": {
     "title": "Tìm bất động sản mơ ước",
     "subtitle": "Căn hộ, nhà, đất từ các đại lý uy tín",
     "land": "Đất nền",
     "commercial": "Mặt bằng thương mại",
-    "backToList": "Quay lại danh sách"
+    "backToList": "Quay lại danh sách",
+    "aiSearchError": "Lỗi tìm kiếm AI. Vui lòng thử lại.",
+    "searchError": "Lỗi tìm kiếm. Vui lòng thử lại.",
+    "noResultsFound": "Không tìm thấy kết quả"
   },
   "vehicles": {
     "findCar": "Tìm xe hoàn hảo",
@@ -1268,13 +1279,85 @@
     "fleetDesc": "Tham gia GetRido và tiếp cận hàng nghìn tài xế.",
     "transactionType": "Loại giao dịch:",
     "aiPlaceholder": "Hỏi AI: 'SUV máy dầu dưới 800 zł/tuần ở Warszawa'",
-    "aiDisabled": "Tìm kiếm AI - sắp ra mắt"
+    "aiDisabled": "Tìm kiếm AI - sắp ra mắt",
+    "loginToReserve": "Đăng nhập để đặt chỗ"
   },
   "services": {
     "title": "Dịch vụ",
     "find": "Tìm dịch vụ",
     "chooseCategory": "Chọn loại dịch vụ",
-    "searchPlaceholder": "Tìm dịch vụ, ví dụ: thay lốp, dọn dẹp..."
+    "searchPlaceholder": "Tìm dịch vụ, ví dụ: thay lốp, dọn dẹp...",
+    "groups": {
+      "auto": {
+        "name": "Ô tô",
+        "sub": {
+          "workshops": "Gara sửa chữa",
+          "detailing": "Detailing",
+          "carWash": "Rửa xe",
+          "fleet": "Đội xe",
+          "ppf": "PPF"
+        }
+      },
+      "dom": {
+        "name": "Nhà cửa",
+        "sub": {
+          "cleaning": "Dọn dẹp",
+          "renovations": "Sửa chữa",
+          "finishing": "Hoàn thiện",
+          "construction": "Xây dựng",
+          "furniture": "Nội thất & trang bị"
+        }
+      },
+      "beauty": {
+        "name": "Làm đẹp",
+        "sub": {
+          "hairdressers": "Thợ làm tóc",
+          "beauticians": "Chuyên viên thẩm mỹ",
+          "nails": "Móng",
+          "lashes": "Mi",
+          "spa": "Spa & massage"
+        }
+      },
+      "zdrowie": {
+        "name": "Sức khỏe",
+        "sub": {
+          "doctors": "Bác sĩ",
+          "dentists": "Nha sĩ",
+          "physiotherapists": "Vật lý trị liệu",
+          "psychologists": "Nhà tâm lý",
+          "dietitians": "Chuyên gia dinh dưỡng"
+        }
+      },
+      "ekspert": {
+        "name": "Chuyên gia",
+        "sub": {
+          "lawyers": "Luật sư",
+          "accountants": "Kế toán",
+          "financialAdvisors": "Cố vấn tài chính",
+          "notaries": "Công chứng viên",
+          "translators": "Phiên dịch"
+        }
+      },
+      "dostawy": {
+        "name": "Giao hàng",
+        "sub": {
+          "couriers": "Chuyển phát",
+          "transport": "Vận chuyển",
+          "moving": "Chuyển nhà",
+          "passengerTransport": "Vận chuyển hành khách"
+        }
+      },
+      "fachowiec": {
+        "name": "Thợ chuyên môn",
+        "sub": {
+          "plumbers": "Thợ ống nước",
+          "electricians": "Thợ điện",
+          "carpenters": "Thợ mộc",
+          "painters": "Thợ sơn",
+          "handyman": "Thợ sửa chữa tổng hợp"
+        }
+      }
+    }
   },
   "cp": {
     "mojeKonto": "Tài khoản của tôi",

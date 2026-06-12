@@ -814,7 +814,14 @@
     "compact": "Ықшам",
     "list": "Тізім",
     "translateAll": "Барлық хабарландыруларды аудару",
-    "translating": "Кезекке қосылуда..."
+    "translating": "Кезекке қосылуда...",
+    "loadError": "Хабарландыруларды жүктеу қатесі",
+    "aiNoMatches": "Сәйкес хабарландырулар табылмады",
+    "aiNoResults": "ЖИ нәтиже қайтармады — сұрауды өзгертіп көріңіз",
+    "aiSearchError": "ЖИ іздеу қатесі",
+    "heroTitle": "Іздегеніңізді табыңыз",
+    "heroSubtitle": "Іздегеніңізді жазыңыз — ЖИ сипаттамаларды, тақырыптарды және бүкіл базаны іздейді",
+    "searchAi": "ЖИ іздеу"
   },
   "accounting": {
     "overview": "Шолу",
@@ -1343,14 +1350,18 @@
     "list": "Тізім",
     "sort": "Сұрыптау",
     "searchAI": "AI іздеу",
-    "poweredByAI": "Табиғи тілде іздеу"
+    "poweredByAI": "Табиғи тілде іздеу",
+    "pagination": "Беттеу"
   },
   "realestate": {
     "title": "Арманыңыздағы жылжымайтын мүлікті табыңыз",
     "subtitle": "Пәтерлер, үйлер, жер учаскелері",
     "land": "Жер учаскелері",
     "commercial": "Коммерциялық үй-жайлар",
-    "backToList": "Тізімге оралу"
+    "backToList": "Тізімге оралу",
+    "aiSearchError": "ЖИ іздеу қатесі. Қайталап көріңіз.",
+    "searchError": "Іздеу қатесі. Қайталап көріңіз.",
+    "noResultsFound": "Нәтиже табылмады"
   },
   "vehicles": {
     "findCar": "Тамаша көлік табыңыз",
@@ -1361,13 +1372,85 @@
     "fleetDesc": "GetRido-ға қосылып, мыңдаған жүргізушіге қол жеткізіңіз.",
     "transactionType": "Мәміле түрі:",
     "aiPlaceholder": "AI-дан сұраңыз: 'Варшавада аптасына 800 zł дейінгі дизель SUV'",
-    "aiDisabled": "AI іздеу - жақында"
+    "aiDisabled": "AI іздеу - жақында",
+    "loginToReserve": "Брондау үшін кіріңіз"
   },
   "services": {
     "title": "Қызметтер",
     "find": "Қызмет табу",
     "chooseCategory": "Қызмет санатын таңдаңыз",
-    "searchPlaceholder": "Қызметті іздеңіз, мыс. шина ауыстыру, тазалау..."
+    "searchPlaceholder": "Қызметті іздеңіз, мыс. шина ауыстыру, тазалау...",
+    "groups": {
+      "auto": {
+        "name": "Авто",
+        "sub": {
+          "workshops": "Автошеберханалар",
+          "detailing": "Детейлинг",
+          "carWash": "Автожуу",
+          "fleet": "Автопарк",
+          "ppf": "PPF"
+        }
+      },
+      "dom": {
+        "name": "Үй",
+        "sub": {
+          "cleaning": "Тазалау",
+          "renovations": "Жөндеу",
+          "finishing": "Әрлеу",
+          "construction": "Құрылыс",
+          "furniture": "Жиһаз және жабдық"
+        }
+      },
+      "beauty": {
+        "name": "Сұлулық",
+        "sub": {
+          "hairdressers": "Шаштараздар",
+          "beauticians": "Косметологтар",
+          "nails": "Тырнақ",
+          "lashes": "Кірпік",
+          "spa": "Спа және массаж"
+        }
+      },
+      "zdrowie": {
+        "name": "Денсаулық",
+        "sub": {
+          "doctors": "Дәрігерлер",
+          "dentists": "Стоматологтар",
+          "physiotherapists": "Физиотерапевттер",
+          "psychologists": "Психологтар",
+          "dietitians": "Диетологтар"
+        }
+      },
+      "ekspert": {
+        "name": "Сарапшы",
+        "sub": {
+          "lawyers": "Заңгерлер",
+          "accountants": "Бухгалтерлер",
+          "financialAdvisors": "Қаржы кеңесшілері",
+          "notaries": "Нотариустар",
+          "translators": "Аудармашылар"
+        }
+      },
+      "dostawy": {
+        "name": "Жеткізу",
+        "sub": {
+          "couriers": "Курьерлер",
+          "transport": "Көлік",
+          "moving": "Көшу",
+          "passengerTransport": "Жолаушылар тасымалы"
+        }
+      },
+      "fachowiec": {
+        "name": "Шебер",
+        "sub": {
+          "plumbers": "Сантехниктер",
+          "electricians": "Электриктер",
+          "carpenters": "Ағаш ұсталары",
+          "painters": "Сырлаушылар",
+          "handyman": "Әмбебап шебер"
+        }
+      }
+    }
   },
   "cp": {
     "mojeKonto": "Менің тіркелгім",

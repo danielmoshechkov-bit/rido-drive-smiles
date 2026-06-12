@@ -814,7 +814,14 @@
     "compact": "Компактно",
     "list": "Список",
     "translateAll": "Перекласти всі оголошення",
-    "translating": "Додавання до черги..."
+    "translating": "Додавання до черги...",
+    "loadError": "Помилка завантаження оголошень",
+    "aiNoMatches": "Відповідних оголошень не знайдено",
+    "aiNoResults": "ШІ не повернув результатів — спробуйте змінити запит",
+    "aiSearchError": "Помилка пошуку ШІ",
+    "heroTitle": "Знайдіть те, що шукаєте",
+    "heroSubtitle": "Введіть, що ви шукаєте — ШІ перегляне описи, заголовки та всю базу",
+    "searchAi": "ШІ-пошук"
   },
   "accounting": {
     "overview": "Огляд",
@@ -1343,14 +1350,18 @@
     "searchPlaceholder": "Шукайте послугу, напр. механік, перукар, юрист...",
     "providersLoading": "Модуль послуг запускається.",
     "noProvidersMatch": "Не знайдено постачальників послуг за вашими критеріями.",
-    "promoted": "Просувається"
+    "promoted": "Просувається",
+    "pagination": "Пагінація"
   },
   "realestate": {
     "title": "Знайдіть ідеальну нерухомість",
     "subtitle": "Квартири, будинки, ділянки від перевірених агентств",
     "land": "Ділянки",
     "commercial": "Приміщення",
-    "backToList": "Назад до списку"
+    "backToList": "Назад до списку",
+    "aiSearchError": "Помилка ШІ-пошуку. Спробуйте ще раз.",
+    "searchError": "Помилка пошуку. Спробуйте ще раз.",
+    "noResultsFound": "Нічого не знайдено"
   },
   "vehicles": {
     "searchNatural": "Пошук природною мовою",
@@ -1361,13 +1372,85 @@
     "transactionType": "Тип угоди:",
     "fleetDesc": "Приєднуйтесь до GetRido та охоплюйте тисячі водіїв.",
     "aiPlaceholder": "Запитайте ШІ: 'SUV дизель до 800 zł/тиждень у Варшаві'",
-    "aiDisabled": "Пошук зі ШІ — незабаром"
+    "aiDisabled": "Пошук зі ШІ — незабаром",
+    "loginToReserve": "Увійдіть, щоб забронювати"
   },
   "services": {
     "title": "Послуги",
     "find": "Знайти послугу",
     "chooseCategory": "Оберіть категорію послуги",
-    "searchPlaceholder": "Шукайте послугу, напр. заміна шин, прибирання..."
+    "searchPlaceholder": "Шукайте послугу, напр. заміна шин, прибирання...",
+    "groups": {
+      "auto": {
+        "name": "Авто",
+        "sub": {
+          "workshops": "Автосервіси",
+          "detailing": "Детейлінг",
+          "carWash": "Автомийки",
+          "fleet": "Автопарк",
+          "ppf": "PPF"
+        }
+      },
+      "dom": {
+        "name": "Дім",
+        "sub": {
+          "cleaning": "Прибирання",
+          "renovations": "Ремонт",
+          "finishing": "Оздоблення",
+          "construction": "Будівництво",
+          "furniture": "Меблі та оснащення"
+        }
+      },
+      "beauty": {
+        "name": "Краса",
+        "sub": {
+          "hairdressers": "Перукарі",
+          "beauticians": "Косметологи",
+          "nails": "Нігті",
+          "lashes": "Вії",
+          "spa": "Спа та масаж"
+        }
+      },
+      "zdrowie": {
+        "name": "Здоров'я",
+        "sub": {
+          "doctors": "Лікарі",
+          "dentists": "Стоматологи",
+          "physiotherapists": "Фізіотерапевти",
+          "psychologists": "Психологи",
+          "dietitians": "Дієтологи"
+        }
+      },
+      "ekspert": {
+        "name": "Експерт",
+        "sub": {
+          "lawyers": "Юристи",
+          "accountants": "Бухгалтери",
+          "financialAdvisors": "Фінансові консультанти",
+          "notaries": "Нотаріуси",
+          "translators": "Перекладачі"
+        }
+      },
+      "dostawy": {
+        "name": "Доставка",
+        "sub": {
+          "couriers": "Кур'єри",
+          "transport": "Транспорт",
+          "moving": "Переїзди",
+          "passengerTransport": "Перевезення пасажирів"
+        }
+      },
+      "fachowiec": {
+        "name": "Майстер",
+        "sub": {
+          "plumbers": "Сантехніки",
+          "electricians": "Електрики",
+          "carpenters": "Столяри",
+          "painters": "Маляри",
+          "handyman": "Майстер на годину"
+        }
+      }
+    }
   },
   "cp": {
     "mojeKonto": "Мій акаунт",

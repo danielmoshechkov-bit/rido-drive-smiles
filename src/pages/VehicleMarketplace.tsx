@@ -186,7 +186,7 @@ export default function VehicleMarketplace() {
       setFilteredListings(listingsWithData);
     } catch (error) {
       console.error("Error loading listings:", error);
-      toast.error("Błąd ładowania ogłoszeń");
+      toast.error(t('marketplace.loadError', 'Błąd ładowania ogłoszeń'));
     } finally {
       setLoading(false);
     }
@@ -342,7 +342,7 @@ export default function VehicleMarketplace() {
 
   const handleReserve = async (listing: VehicleListing) => {
     if (!user) {
-      toast.error("Zaloguj się aby zarezerwować");
+      toast.error(t('vehicles.loginToReserve', 'Zaloguj się aby zarezerwować'));
       navigate("/gielda/logowanie");
       return;
     }
@@ -383,11 +383,11 @@ export default function VehicleMarketplace() {
   // Map listing to ListingCard format - supports both new and legacy formats
   const getTransactionDisplay = (type: string | null) => {
     const map: Record<string, { label: string; color: string }> = {
-      sprzedaz: { label: "Na sprzedaż", color: "#10b981" },
-      wynajem: { label: "Wynajem", color: "#3b82f6" },
-      "wynajem-krotkoterminowy": { label: "Krótkoterminowy", color: "#8b5cf6" },
+      sprzedaz: { label: t('listing.forSale', 'Na sprzedaż'), color: "#10b981" },
+      wynajem: { label: t('featured.forRent', 'Wynajem'), color: "#3b82f6" },
+      "wynajem-krotkoterminowy": { label: t('ui.shortTerm', 'Krótkoterminowy'), color: "#8b5cf6" },
     };
-    return map[type || ""] || { label: "Wynajem", color: "#3b82f6" };
+    return map[type || ""] || { label: t('featured.forRent', 'Wynajem'), color: "#3b82f6" };
   };
 
   const mapToListingCard = (listing: VehicleListing) => {
@@ -489,7 +489,7 @@ export default function VehicleMarketplace() {
               </Button>
             </div>
             <p className="text-center text-xs text-muted-foreground mt-2">
-              Powered by <span className="text-primary font-medium">Rido AI</span> •
+              {t('home.poweredBy', 'Powered by')} <span className="text-primary font-medium">Rido AI</span> •
               {t('ui.poweredByAI', 'Szukaj naturalnym językiem')}
             </p>
           </div>

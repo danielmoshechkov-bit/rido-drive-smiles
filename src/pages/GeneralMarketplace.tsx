@@ -103,7 +103,7 @@ export default function GeneralMarketplace() {
 
     if (error) {
       console.error(error);
-      toast.error("Błąd ładowania ogłoszeń");
+      toast.error(t('marketplace.loadError', 'Błąd ładowania ogłoszeń'));
     }
     if (data) {
       setListings(data);
@@ -165,15 +165,15 @@ export default function GeneralMarketplace() {
       if (error) throw error;
       if (data?.ids && Array.isArray(data.ids)) {
         setAiResults(data.ids);
-        if (data.ids.length === 0) toast.info("Nie znaleziono pasujących ogłoszeń");
+        if (data.ids.length === 0) toast.info(t('marketplace.aiNoMatches', 'Nie znaleziono pasujących ogłoszeń'));
       } else if (data?.results) {
         setAiResults(data.results.map((r: any) => r.id));
       } else {
-        toast.info("AI nie zwróciło wyników — spróbuj zmienić zapytanie");
+        toast.info(t('marketplace.aiNoResults', 'AI nie zwróciło wyników — spróbuj zmienić zapytanie'));
       }
     } catch (err) {
       console.error(err);
-      toast.error("Błąd wyszukiwania AI");
+      toast.error(t('marketplace.aiSearchError', 'Błąd wyszukiwania AI'));
     } finally {
       setAiSearching(false);
     }

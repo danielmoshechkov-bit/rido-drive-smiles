@@ -814,7 +814,14 @@
     "compact": "Компактно",
     "list": "Список",
     "translateAll": "Перевести все объявления",
-    "translating": "Добавление в очередь..."
+    "translating": "Добавление в очередь...",
+    "loadError": "Ошибка загрузки объявлений",
+    "aiNoMatches": "Подходящих объявлений не найдено",
+    "aiNoResults": "ИИ не вернул результатов — попробуйте изменить запрос",
+    "aiSearchError": "Ошибка поиска ИИ",
+    "heroTitle": "Найдите то, что ищете",
+    "heroSubtitle": "Введите, что вы ищете — ИИ просканирует описания, заголовки и всю базу",
+    "searchAi": "ИИ-поиск"
   },
   "accounting": {
     "overview": "Обзор",
@@ -1343,14 +1350,18 @@
     "list": "Список",
     "sort": "Сортировка",
     "searchAI": "Поиск ИИ",
-    "poweredByAI": "Поиск на естественном языке"
+    "poweredByAI": "Поиск на естественном языке",
+    "pagination": "Пагинация"
   },
   "realestate": {
     "title": "Найдите идеальную недвижимость",
     "subtitle": "Квартиры, дома, участки от проверенных агентств",
     "land": "Участки",
     "commercial": "Помещения",
-    "backToList": "Назад к списку"
+    "backToList": "Назад к списку",
+    "aiSearchError": "Ошибка ИИ-поиска. Попробуйте ещё раз.",
+    "searchError": "Ошибка поиска. Попробуйте ещё раз.",
+    "noResultsFound": "Ничего не найдено"
   },
   "vehicles": {
     "searchNatural": "Поиск на естественном языке",
@@ -1361,13 +1372,85 @@
     "registerFleet": "Зарегистрировать автопарк",
     "transactionType": "Тип сделки:",
     "aiPlaceholder": "Спросите ИИ: 'SUV дизель до 800 зл/нед в Варшаве'",
-    "aiDisabled": "ИИ поиск - скоро"
+    "aiDisabled": "ИИ поиск - скоро",
+    "loginToReserve": "Войдите, чтобы забронировать"
   },
   "services": {
     "title": "Услуги",
     "find": "Найти услугу",
     "chooseCategory": "Выберите категорию услуги",
-    "searchPlaceholder": "Поиск услуги, напр. замена шин, уборка..."
+    "searchPlaceholder": "Поиск услуги, напр. замена шин, уборка...",
+    "groups": {
+      "auto": {
+        "name": "Авто",
+        "sub": {
+          "workshops": "Автосервисы",
+          "detailing": "Детейлинг",
+          "carWash": "Автомойки",
+          "fleet": "Автопарк",
+          "ppf": "PPF"
+        }
+      },
+      "dom": {
+        "name": "Дом",
+        "sub": {
+          "cleaning": "Уборка",
+          "renovations": "Ремонт",
+          "finishing": "Отделка",
+          "construction": "Строительство",
+          "furniture": "Мебель и оснащение"
+        }
+      },
+      "beauty": {
+        "name": "Красота",
+        "sub": {
+          "hairdressers": "Парикмахеры",
+          "beauticians": "Косметологи",
+          "nails": "Ногти",
+          "lashes": "Ресницы",
+          "spa": "Спа и массаж"
+        }
+      },
+      "zdrowie": {
+        "name": "Здоровье",
+        "sub": {
+          "doctors": "Врачи",
+          "dentists": "Стоматологи",
+          "physiotherapists": "Физиотерапевты",
+          "psychologists": "Психологи",
+          "dietitians": "Диетологи"
+        }
+      },
+      "ekspert": {
+        "name": "Эксперт",
+        "sub": {
+          "lawyers": "Юристы",
+          "accountants": "Бухгалтеры",
+          "financialAdvisors": "Финансовые консультанты",
+          "notaries": "Нотариусы",
+          "translators": "Переводчики"
+        }
+      },
+      "dostawy": {
+        "name": "Доставка",
+        "sub": {
+          "couriers": "Курьеры",
+          "transport": "Транспорт",
+          "moving": "Переезды",
+          "passengerTransport": "Перевозка пассажиров"
+        }
+      },
+      "fachowiec": {
+        "name": "Мастер",
+        "sub": {
+          "plumbers": "Сантехники",
+          "electricians": "Электрики",
+          "carpenters": "Столяры",
+          "painters": "Маляры",
+          "handyman": "Мастер на час"
+        }
+      }
+    }
   },
   "cp": {
     "mojeKonto": "Мой аккаунт",

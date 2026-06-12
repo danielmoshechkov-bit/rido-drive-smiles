@@ -56,58 +56,99 @@ interface ServiceProvider {
 const CATEGORY_GROUPS = [
   {
     id: 'auto',
-    name: 'Auto',
+    nameKey: 'services.groups.auto.name',
     image: categoryAuto,
     icon: Car,
-    subcategories: ['Warsztaty', 'Detailing', 'Myjnie', 'Flota', 'PPF'],
+    subcategoryKeys: [
+      'services.groups.auto.sub.workshops',
+      'services.groups.auto.sub.detailing',
+      'services.groups.auto.sub.carWash',
+      'services.groups.auto.sub.fleet',
+      'services.groups.auto.sub.ppf',
+    ],
     slugs: ['warsztat', 'detailing', 'ppf'],
   },
   {
     id: 'dom',
-    name: 'Dom',
+    nameKey: 'services.groups.dom.name',
     image: categoryDom,
     icon: Home,
-    subcategories: ['Sprzątanie', 'Remonty', 'Wykończenia', 'Budowlanka', 'Meble i wyposażenie'],
+    subcategoryKeys: [
+      'services.groups.dom.sub.cleaning',
+      'services.groups.dom.sub.renovations',
+      'services.groups.dom.sub.finishing',
+      'services.groups.dom.sub.construction',
+      'services.groups.dom.sub.furniture',
+    ],
     slugs: ['sprzatanie', 'remonty', 'budowlanka', 'projektanci'],
   },
   {
     id: 'beauty',
-    name: 'Beauty',
+    nameKey: 'services.groups.beauty.name',
     image: categoryBeauty,
     icon: Scissors,
-    subcategories: ['Fryzjerzy', 'Kosmetyczki', 'Paznokcie', 'Rzęsy', 'Spa i masaże'],
+    subcategoryKeys: [
+      'services.groups.beauty.sub.hairdressers',
+      'services.groups.beauty.sub.beauticians',
+      'services.groups.beauty.sub.nails',
+      'services.groups.beauty.sub.lashes',
+      'services.groups.beauty.sub.spa',
+    ],
     slugs: [],
   },
   {
     id: 'zdrowie',
-    name: 'Zdrowie',
+    nameKey: 'services.groups.zdrowie.name',
     image: categoryZdrowie,
     icon: Heart,
-    subcategories: ['Lekarze', 'Dentyści', 'Fizjoterapeuci', 'Psycholodzy', 'Dietetycy'],
+    subcategoryKeys: [
+      'services.groups.zdrowie.sub.doctors',
+      'services.groups.zdrowie.sub.dentists',
+      'services.groups.zdrowie.sub.physiotherapists',
+      'services.groups.zdrowie.sub.psychologists',
+      'services.groups.zdrowie.sub.dietitians',
+    ],
     slugs: [],
   },
   {
     id: 'ekspert',
-    name: 'Ekspert',
+    nameKey: 'services.groups.ekspert.name',
     image: categoryEkspert,
     icon: Briefcase,
-    subcategories: ['Prawnicy', 'Księgowi', 'Doradcy finansowi', 'Notariusze', 'Tłumacze'],
+    subcategoryKeys: [
+      'services.groups.ekspert.sub.lawyers',
+      'services.groups.ekspert.sub.accountants',
+      'services.groups.ekspert.sub.financialAdvisors',
+      'services.groups.ekspert.sub.notaries',
+      'services.groups.ekspert.sub.translators',
+    ],
     slugs: [],
   },
   {
     id: 'dostawy',
-    name: 'Dostawy',
+    nameKey: 'services.groups.dostawy.name',
     image: categoryDostawy,
     icon: Package,
-    subcategories: ['Kurierzy', 'Transport', 'Przeprowadzki', 'Przewóz osób'],
+    subcategoryKeys: [
+      'services.groups.dostawy.sub.couriers',
+      'services.groups.dostawy.sub.transport',
+      'services.groups.dostawy.sub.moving',
+      'services.groups.dostawy.sub.passengerTransport',
+    ],
     slugs: ['przeprowadzki'],
   },
   {
     id: 'fachowiec',
-    name: 'Fachowiec',
+    nameKey: 'services.groups.fachowiec.name',
     image: categoryFachowiec,
     icon: Wrench,
-    subcategories: ['Hydraulicy', 'Elektrycy', 'Stolarze', 'Malarze', 'Złota rączka'],
+    subcategoryKeys: [
+      'services.groups.fachowiec.sub.plumbers',
+      'services.groups.fachowiec.sub.electricians',
+      'services.groups.fachowiec.sub.carpenters',
+      'services.groups.fachowiec.sub.painters',
+      'services.groups.fachowiec.sub.handyman',
+    ],
     slugs: ['hydraulik', 'elektryk', 'zlota-raczka', 'ogrodnik'],
   },
 ];
@@ -421,11 +462,11 @@ export default function ServicesMarketplace() {
                     <div className="flex items-center gap-2 mb-1">
                       <IconComp className="h-5 w-5 text-white" />
                       <h3 className="font-bold text-lg md:text-xl text-white">
-                        {group.name}
+                        {t(group.nameKey)}
                       </h3>
                     </div>
                     <p className="text-[11px] md:text-xs text-white/70 line-clamp-2">
-                      {group.subcategories.join(' · ')}
+                      {group.subcategoryKeys.map(k => t(k)).join(' · ')}
                     </p>
                   </CardContent>
                 </Card>
@@ -439,7 +480,7 @@ export default function ServicesMarketplace() {
 
   // View: Group or Category Listings
   const activeGroup = selectedGroup;
-  const displayTitle = selectedCategory?.name || activeGroup?.name || 'Usługi';
+  const displayTitle = selectedCategory?.name || (activeGroup ? t(activeGroup.nameKey) : t('services.title', 'Usługi'));
   return (
     <div className="min-h-screen bg-background">
         {/* Header */}

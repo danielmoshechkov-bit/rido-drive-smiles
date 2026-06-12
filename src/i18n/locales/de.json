@@ -382,7 +382,14 @@
     "compact": "Kompakt",
     "list": "Liste",
     "translateAll": "Alle Anzeigen übersetzen",
-    "translating": "Wird zur Warteschlange hinzugefügt..."
+    "translating": "Wird zur Warteschlange hinzugefügt...",
+    "loadError": "Fehler beim Laden der Anzeigen",
+    "aiNoMatches": "Keine passenden Anzeigen gefunden",
+    "aiNoResults": "Die KI lieferte keine Ergebnisse — ändern Sie Ihre Anfrage",
+    "aiSearchError": "Fehler bei der KI-Suche",
+    "heroTitle": "Finden Sie, was Sie suchen",
+    "heroSubtitle": "Geben Sie ein, was Sie suchen — die KI durchsucht Beschreibungen, Titel und die gesamte Datenbank",
+    "searchAi": "KI-Suche"
   },
   "accounting": {
     "overview": "Übersicht",
@@ -1250,14 +1257,18 @@
     "list": "Liste",
     "sort": "Sortieren",
     "searchAI": "KI-Suche",
-    "poweredByAI": "Suche in natürlicher Sprache"
+    "poweredByAI": "Suche in natürlicher Sprache",
+    "pagination": "Seitennavigation"
   },
   "realestate": {
     "title": "Finden Sie Ihre Traumimmobilie",
     "subtitle": "Wohnungen, Häuser, Grundstücke von verifizierten Agenturen",
     "land": "Grundstücke",
     "commercial": "Gewerbe",
-    "backToList": "Zurück zur Liste"
+    "backToList": "Zurück zur Liste",
+    "aiSearchError": "Fehler bei der KI-Suche. Bitte versuchen Sie es erneut.",
+    "searchError": "Suchfehler. Bitte versuchen Sie es erneut.",
+    "noResultsFound": "Keine Ergebnisse gefunden"
   },
   "vehicles": {
     "searchNatural": "Suche in natürlicher Sprache",
@@ -1268,13 +1279,85 @@
     "registerFleet": "Flotte registrieren",
     "transactionType": "Transaktionstyp:",
     "aiPlaceholder": "KI fragen: 'SUV Diesel unter 800 PLN/Woche'",
-    "aiDisabled": "KI-Suche - demnächst"
+    "aiDisabled": "KI-Suche - demnächst",
+    "loginToReserve": "Zum Reservieren anmelden"
   },
   "services": {
     "title": "Dienste",
     "find": "Dienst finden",
     "chooseCategory": "Wählen Sie die Dienstkategorie",
-    "searchPlaceholder": "Dienst suchen, z.B. Reifenwechsel, Reinigung..."
+    "searchPlaceholder": "Dienst suchen, z.B. Reifenwechsel, Reinigung...",
+    "groups": {
+      "auto": {
+        "name": "Auto",
+        "sub": {
+          "workshops": "Werkstätten",
+          "detailing": "Detailing",
+          "carWash": "Autowäschen",
+          "fleet": "Flotte",
+          "ppf": "PPF"
+        }
+      },
+      "dom": {
+        "name": "Zuhause",
+        "sub": {
+          "cleaning": "Reinigung",
+          "renovations": "Renovierungen",
+          "finishing": "Ausbau",
+          "construction": "Bauwesen",
+          "furniture": "Möbel & Ausstattung"
+        }
+      },
+      "beauty": {
+        "name": "Beauty",
+        "sub": {
+          "hairdressers": "Friseure",
+          "beauticians": "Kosmetikerinnen",
+          "nails": "Nägel",
+          "lashes": "Wimpern",
+          "spa": "Spa & Massage"
+        }
+      },
+      "zdrowie": {
+        "name": "Gesundheit",
+        "sub": {
+          "doctors": "Ärzte",
+          "dentists": "Zahnärzte",
+          "physiotherapists": "Physiotherapeuten",
+          "psychologists": "Psychologen",
+          "dietitians": "Ernährungsberater"
+        }
+      },
+      "ekspert": {
+        "name": "Experte",
+        "sub": {
+          "lawyers": "Anwälte",
+          "accountants": "Buchhalter",
+          "financialAdvisors": "Finanzberater",
+          "notaries": "Notare",
+          "translators": "Übersetzer"
+        }
+      },
+      "dostawy": {
+        "name": "Lieferungen",
+        "sub": {
+          "couriers": "Kuriere",
+          "transport": "Transport",
+          "moving": "Umzüge",
+          "passengerTransport": "Personenbeförderung"
+        }
+      },
+      "fachowiec": {
+        "name": "Handwerker",
+        "sub": {
+          "plumbers": "Klempner",
+          "electricians": "Elektriker",
+          "carpenters": "Tischler",
+          "painters": "Maler",
+          "handyman": "Allrounder"
+        }
+      }
+    }
   },
   "cp": {
     "mojeKonto": "Mein Konto",
